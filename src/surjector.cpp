@@ -1381,6 +1381,7 @@ using namespace std;
             
 #ifdef debug_spliced_surject
             cerr << "surjected section " << i << " after score adjustment: " << pb2json(sections.back()) << endl;
+            cerr << "path range: " << graph->get_id(graph->get_handle_of_step(section_path_ranges.back().first)) << " " << graph->get_is_reverse(graph->get_handle_of_step(section_path_ranges.back().first)) << " " << graph->get_position_of_step(section_path_ranges.back().first) << " : " << graph->get_id(graph->get_handle_of_step(section_path_ranges.back().second)) << " " << graph->get_is_reverse(graph->get_handle_of_step(section_path_ranges.back().second)) << " " << graph->get_position_of_step(section_path_ranges.back().second) << endl;
 #endif
         }
         
@@ -2588,6 +2589,7 @@ using namespace std;
     void Surjector::set_path_position(const PathPositionHandleGraph* graph, const pos_t& init_surj_pos, const pos_t& final_surj_pos,
                                       const step_handle_t& range_begin, const step_handle_t& range_end,
                                       string& path_name_out, int64_t& path_pos_out, bool& path_rev_out) const {
+
         
         assert(graph->get_path_handle_of_step(range_begin) == graph->get_path_handle_of_step(range_end));
         
@@ -2599,6 +2601,12 @@ using namespace std;
             path_rev_out = false;
         }
         else {
+#if defined(debug_anchored_surject) || defined(debug_spliced_surject)
+            cerr << "setting position based on range:" << endl;
+            cerr << "\tbegin: " << graph->get_id(graph->get_handle_of_step(range_begin)) << " " << graph->get_is_reverse(graph->get_handle_of_step(range_begin)) << " " << graph->get_position_of_step(range_begin) << endl;
+            cerr << "\tend: " << graph->get_id(graph->get_handle_of_step(range_end)) << " " << graph->get_is_reverse(graph->get_handle_of_step(range_end)) << " " << graph->get_position_of_step(range_end) << endl;
+#endif
+            
             // the path name
             path_name_out = graph->get_path_name(graph->get_path_handle_of_step(range_begin));
             

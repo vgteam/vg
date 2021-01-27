@@ -2370,7 +2370,6 @@ namespace vg {
         }
 
         SECTION("Paths can be traced from search positions") {
-
             Path path;
 
             Mapping* pm = path.add_mapping();
@@ -2391,8 +2390,9 @@ namespace vg {
             tie(i, j, k, l) = search.front();
             auto trace = trace_path(mp_aln, path, i, j, k, l, false, path.mapping_size());
 
-            REQUIRE(get<0>(trace.first) == 1);
-            REQUIRE(get<1>(trace.first) == 0);
+
+            REQUIRE(get<0>(trace.first) == 0);
+            REQUIRE(get<1>(trace.first) == 1);
             REQUIRE(get<2>(trace.first) == 0);
             REQUIRE(trace.second.size() == 1);
             REQUIRE(get<0>(trace.second.front()) == 0);
@@ -2408,13 +2408,13 @@ namespace vg {
             tie(i, j, k, l) = search.front();
             trace = trace_path(mp_aln, path, i, j, k, l, false, path.mapping_size());
 
-            REQUIRE(get<0>(trace.first) == 1);
-            REQUIRE(get<1>(trace.first) == 0);
+            REQUIRE(get<0>(trace.first) == 0);
+            REQUIRE(get<1>(trace.first) == 1);
             REQUIRE(get<2>(trace.first) == 0);
             REQUIRE(trace.second.size() == 1);
             REQUIRE(get<0>(trace.second.front()) == 0);
-            REQUIRE(get<1>(trace.second.front()) == 1);
-            REQUIRE(get<2>(trace.second.front()) == 0);
+            REQUIRE(get<1>(trace.second.front()) == 0);
+            REQUIRE(get<2>(trace.second.front()) == 1);
             REQUIRE(get<3>(trace.second.front()) == 0);
 
             pm->mutable_position()->set_offset(3);
@@ -2428,13 +2428,13 @@ namespace vg {
             tie(i, j, k, l) = search.front();
             trace = trace_path(mp_aln, path, i, j, k, l, false, path.mapping_size());
 
-            REQUIRE(get<0>(trace.first) == 1);
-            REQUIRE(get<1>(trace.first) == 0);
+            REQUIRE(get<0>(trace.first) == 0);
+            REQUIRE(get<1>(trace.first) == 1);
             REQUIRE(get<2>(trace.first) == 0);
             REQUIRE(trace.second.size() == 1);
             REQUIRE(get<0>(trace.second.front()) == 0);
-            REQUIRE(get<1>(trace.second.front()) == 1);
-            REQUIRE(get<2>(trace.second.front()) == 0);
+            REQUIRE(get<1>(trace.second.front()) == 0);
+            REQUIRE(get<2>(trace.second.front()) == 1);
             REQUIRE(get<3>(trace.second.front()) == 0);
             
             pm->mutable_position()->set_node_id(graph.get_id(h2));
@@ -2450,8 +2450,8 @@ namespace vg {
             tie(i, j, k, l) = search.front();
             trace = trace_path(mp_aln, path, i, j, k, l, false, path.mapping_size());
 
-            REQUIRE(get<0>(trace.first) == 1);
-            REQUIRE(get<1>(trace.first) == 0);
+            REQUIRE(get<0>(trace.first) == 0);
+            REQUIRE(get<1>(trace.first) == 1);
             REQUIRE(get<2>(trace.first) == 0);
             REQUIRE(trace.second.size() == 1);
             REQUIRE(get<0>(trace.second.front()) == 1);
@@ -2483,13 +2483,13 @@ namespace vg {
             tie(i, j, k, l) = search.front();
             trace = trace_path(mp_aln, path, i, j, k, l, false, path.mapping_size());
 
-            REQUIRE(get<0>(trace.first) == 2);
-            REQUIRE(get<1>(trace.first) == 0);
+            REQUIRE(get<0>(trace.first) == 1);
+            REQUIRE(get<1>(trace.first) == 2);
             REQUIRE(get<2>(trace.first) == 0);
             REQUIRE(trace.second.size() == 1);
             REQUIRE(get<0>(trace.second.front()) == 1);
-            REQUIRE(get<1>(trace.second.front()) == 2);
-            REQUIRE(get<2>(trace.second.front()) == 0);
+            REQUIRE(get<1>(trace.second.front()) == 1);
+            REQUIRE(get<2>(trace.second.front()) == 3);
             REQUIRE(get<3>(trace.second.front()) == 0);
 
             Edit* pe5 = pm2->add_edit();
@@ -2507,19 +2507,9 @@ namespace vg {
             REQUIRE(get<2>(trace.first) == 0);
             REQUIRE(trace.second.size() == 1);
             REQUIRE(get<0>(trace.second.front()) == 1);
-            REQUIRE(get<1>(trace.second.front()) == 2);
-            REQUIRE(get<2>(trace.second.front()) == 0);
+            REQUIRE(get<1>(trace.second.front()) == 1);
+            REQUIRE(get<2>(trace.second.front()) == 3);
             REQUIRE(get<3>(trace.second.front()) == 0);
-            
-            //   s0  s1      s2 s3
-            //   m0  m1m2    m3 m4
-            //   GA  A|TTA--|A  TT
-            // TAGA  A|T--CA|A  GG
-            // h1    h2         h3
-            
-            //cerr << i << " " << j << " " << k << " " << l << endl;
-            //cerr << "(" << get<0>(trace.first) << ", " << get<1>(trace.first) << ", " << get<2>(trace.first) << ", " << get<3>(trace.first) << "), (" << get<0>(trace.second) << ", " << get<1>(trace.second) << ", " << get<2>(trace.second) << ")" << endl;
-
         }
 
         SECTION("Paths with empty elements be traced from search positions") {
@@ -2548,13 +2538,13 @@ namespace vg {
             tie(i, j, k, l) = search.front();
             auto trace = trace_path(mp_aln, path, i, j, k, l, false, path.mapping_size());
 
-            REQUIRE(get<0>(trace.first) == 1);
-            REQUIRE(get<1>(trace.first) == 0);
+            REQUIRE(get<0>(trace.first) == 0);
+            REQUIRE(get<1>(trace.first) == 2);
             REQUIRE(get<2>(trace.first) == 0);
             REQUIRE(trace.second.size() == 1);
             REQUIRE(get<0>(trace.second.front()) == 0);
-            REQUIRE(get<1>(trace.second.front()) == 1);
-            REQUIRE(get<2>(trace.second.front()) == 0);
+            REQUIRE(get<1>(trace.second.front()) == 0);
+            REQUIRE(get<2>(trace.second.front()) == 1);
             REQUIRE(get<3>(trace.second.front()) == 0);
 
             Mapping* pm1 = path.add_mapping();
@@ -2566,15 +2556,22 @@ namespace vg {
             REQUIRE(search.size() == 1);
             tie(i, j, k, l) = search.front();
             trace = trace_path(mp_aln, path, i, j, k, l, false, path.mapping_size());
-
-            REQUIRE(get<0>(trace.first) == 2);
-            REQUIRE(get<1>(trace.first) == 0);
+            
+            REQUIRE(get<0>(trace.first) == 0);
+            REQUIRE(get<1>(trace.first) == 2);
             REQUIRE(get<2>(trace.first) == 0);
             REQUIRE(trace.second.size() == 1);
-            REQUIRE(get<0>(trace.second.front()) == 1);
+            REQUIRE(get<0>(trace.second.front()) == 0);
             REQUIRE(get<1>(trace.second.front()) == 0);
-            REQUIRE(get<2>(trace.second.front()) == 0);
+            REQUIRE(get<2>(trace.second.front()) == 1);
             REQUIRE(get<3>(trace.second.front()) == 0);
+            
+            
+            //   s0  s1      s2 s3
+            //   m0  m1m2    m3 m4
+            //   GA  A|TTA--|A  TT
+            // TAGA  A|T--CA|A  GG
+            // h1    h2         h3
         }
 
         auto add_mapping_front = [](Path& path) {
@@ -2755,9 +2752,9 @@ namespace vg {
             REQUIRE(get<2>(trace.first) == 0);
             REQUIRE(trace.second.size() == 1);
             REQUIRE(get<0>(trace.second.front()) == 1);
-            REQUIRE(get<1>(trace.second.front()) == 0);
+            REQUIRE(get<1>(trace.second.front()) == 1);
             REQUIRE(get<2>(trace.second.front()) == 0);
-            REQUIRE(get<3>(trace.second.front()) == 1);
+            REQUIRE(get<3>(trace.second.front()) == 0);
 
             pm3->mutable_position()->set_offset(0);
             pe6->set_from_length(2);
@@ -2835,8 +2832,8 @@ namespace vg {
             tie(i, j, k, l) = search.front();
             auto trace = trace_path(mp_aln, p, i, j, k, l, false, p.mapping_size());
 
-            REQUIRE(get<0>(trace.first) == 1);
-            REQUIRE(get<1>(trace.first) == 0);
+            REQUIRE(get<0>(trace.first) == 0);
+            REQUIRE(get<1>(trace.first) == 1);
             REQUIRE(get<2>(trace.first) == 0);
             REQUIRE(trace.second.size() == 1);
             REQUIRE(get<0>(trace.second.front()) == 0);
