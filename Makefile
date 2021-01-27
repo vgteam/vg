@@ -275,6 +275,8 @@ XG_DIR:=deps/xg
 MMMULTIMAP_DIR=deps/mmmultimap
 IPS4O_DIR=deps/ips4o
 BBHASH_DIR=deps/BBHash
+MIO_DIR=deps/mio
+ATOMIC_QUEUE_DIR=deps/atomic_queue
 
 # Dependencies that go into libvg's archive
 # These go in libvg but come from dependencies
@@ -340,6 +342,8 @@ DEPS += $(INC_DIR)/mmmultimap.hpp
 DEPS += $(INC_DIR)/ips4o.hpp
 DEPS += $(INC_DIR)/raptor2/raptor2.h
 DEPS += $(INC_DIR)/BooPHF.h
+DEPS += $(INC_DIR)/mio/mmap.hpp
+DEPS += $(INC_DIR)/atomic_queue.hpp
 
 # Only depend on these files for the final linking stage.	
 # These libraries provide no headers to affect the vg build.	
@@ -656,8 +660,15 @@ $(LIB_DIR)/libsublinearLS.a: $(LINLS_DIR)/src/*.cpp $(LINLS_DIR)/src/*.hpp $(LIB
 $(LIB_DIR)/libbdsg.a: $(INC_DIR)/BooPHF.h $(LIBBDSG_DIR)/bdsg/src/*.cpp $(LIBBDSG_DIR)/bdsg/include/bdsg/*.hpp $(LIBBDSG_DIR)/bdsg/include/bdsg/internal/*.hpp $(LIBBDSG_DIR)/bdsg/include/bdsg/overlays/*.hpp $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(INC_DIR)/sparsepp/spp.h $(INC_DIR)/dynamic/dynamic.hpp
 	+. ./source_me.sh && rm -Rf $(CWD)/$(INC_DIR)/bdsg && cd $(LIBBDSG_DIR) && $(MAKE) clean && CPLUS_INCLUDE_PATH=$(CWD)/$(INC_DIR):$(CWD)/$(INC_DIR)/dynamic:$(CPLUS_INCLUDE_PATH) CXXFLAGS="$(INCLUDE_FLAGS) $(CXXFLAGS)" $(MAKE) $(FILTER) && cp lib/libbdsg.a $(CWD)/$(LIB_DIR) && cp -r bdsg/include/* $(CWD)/$(INC_DIR)
 
-$(INC_DIR)/mmmultiset.hpp: $(MMMULTIMAP_DIR)/src/mmmultiset.hpp $(INC_DIR)/mmmultimap.hpp
-$(INC_DIR)/mmmultimap.hpp: $(MMMULTIMAP_DIR)/src/mmmultimap.hpp $(MMMULTIMAP_DIR)/src/mmmultiset.hpp
+$(INC_DIR)/mio/mmap.hpp: $(MIO_DIR)/include/mio/*
+	+. ./source_me.sh && cp -r $(MIO_DIR)/include/mio $(CWD)/$(INC_DIR)/
+
+# It would be better to copy the atomic_queue directory rather than its contents, but to avoid re-writing mmmultimap...
+$(INC_DIR)/atomic_queue.hpp: $(ATOMIC_QUEUE_DIR)/include/*
+	+. ./source_me.sh && cp -r $(ATOMIC_QUEUE_DIR)/include/atomic_queue/* $(CWD)/$(INC_DIR)/
+
+$(INC_DIR)/mmmultiset.hpp: $(MMMULTIMAP_DIR)/src/mmmultiset.hpp $(INC_DIR)/mmmultimap.hpp 
+$(INC_DIR)/mmmultimap.hpp: $(MMMULTIMAP_DIR)/src/mmmultimap.hpp $(MMMULTIMAP_DIR)/src/mmmultiset.hpp $(INC_DIR)/mio/mmap.hpp $(INC_DIR)/atomic_queue.hpp
 	+. ./source_me.sh && cp $(MMMULTIMAP_DIR)/src/mmmultimap.hpp $(MMMULTIMAP_DIR)/src/mmmultiset.hpp $(CWD)/$(INC_DIR)/
 
 $(INC_DIR)/ips4o.hpp: $(IPS4O_DIR)/ips4o.hpp $(IPS4O_DIR)/ips4o/*
@@ -665,7 +676,7 @@ $(INC_DIR)/ips4o.hpp: $(IPS4O_DIR)/ips4o.hpp $(IPS4O_DIR)/ips4o/*
 
 # The xg repo has a cmake build system based all around external projects, and
 # we need it to use our installed versions of everything instead.
-$(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp $(INC_DIR)/mmmultimap.hpp $(INC_DIR)/ips4o.hpp $(INC_DIR)/gfakluge.hpp $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a
+$(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp $(INC_DIR)/mmmultimap.hpp $(INC_DIR)/ips4o.hpp $(INC_DIR)/gfakluge.hpp $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(INC_DIR)/mio/mmap.hpp $(INC_DIR)/atomic_queue.hpp
 	+rm -f $@
 	+cp -r $(XG_DIR)/src/*.hpp $(CWD)/$(INC_DIR)
 	+. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -c -o $(XG_DIR)/xg.o $(XG_DIR)/src/xg.cpp $(FILTER)
