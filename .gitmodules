@@ -119,3 +119,9 @@
 [submodule "doc/wiki"]
 	path = doc/wiki
 	url = https://github.com/vgteam/vg.wiki.git
+[submodule "deps/mio"]
+	path = deps/mio
+	url = https://github.com/mandreyel/mio.git
+[submodule "deps/atomic_queue"]
+	path = deps/atomic_queue
+	url = https://github.com/max0x7ba/atomic_queue.git
