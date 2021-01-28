@@ -846,6 +846,16 @@ void IndexRegistry::register_recipe(const IndexName& identifier,
     get_index(identifier)->add_recipe(inputs, exec);
 }
 
+void IndexRegistry::register_joint_recipe(const set<IndexName>& identifier,
+                                          const vector<IndexName>& input_identifiers,
+                                          const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec) {
+    vector<const IndexFile*> inputs;
+    for (const auto& input_identifier : input_identifiers) {
+        inputs.push_back(get_index(input_identifier));
+    }
+    get_index(identifier)->add_recipe(inputs, exec);
+}
+
 IndexFile* IndexRegistry::get_index(const IndexName& identifier) {
     return registry.at(identifier).get();
 }
@@ -941,7 +951,7 @@ vector<IndexName> IndexRegistry::dependency_order() const {
     return ordered_identifiers;
 }
 
-vector<pair<IndexName, size_t>> IndexRegistry::make_plan(const vector<IndexName>& end_products) const {
+vector<RecipeName> IndexRegistry::make_plan(const vector<IndexName>& end_products) const {
     
 #ifdef debug_index_registry
     cerr << "generating plan for indexes:" << endl;
@@ -958,7 +968,7 @@ vector<pair<IndexName, size_t>> IndexRegistry::make_plan(const vector<IndexName>
     }
     
     // TODO: I'm sure there's a more elegant implementation of this algorithm
-    set<pair<IndexName, size_t>> plan_elements;
+    set<RecipeName> plan_elements;
     for (const auto& product : end_products) {
 #ifdef debug_index_registry
         cerr << "making a plan for end product " << product << endl;
@@ -1141,8 +1151,8 @@ vector<pair<IndexName, size_t>> IndexRegistry::make_plan(const vector<IndexName>
     }
     
     // convert the aggregated plan elements into a forward ordered plan
-    vector<pair<IndexName, size_t>> plan(plan_elements.begin(), plan_elements.end());
-    sort(plan.begin(), plan.end(), [&](const pair<IndexName, size_t>& a, const pair<IndexName, size_t>& b) {
+    vector<RecipeName> plan(plan_elements.begin(), plan_elements.end());
+    sort(plan.begin(), plan.end(), [&](const RecipeName& a, const RecipeName& b) {
         return dep_order_of_identifier[a.first] < dep_order_of_identifier[b.first];
     });
 #ifdef debug_index_registry
@@ -1153,7 +1163,7 @@ vector<pair<IndexName, size_t>> IndexRegistry::make_plan(const vector<IndexName>
 #endif
     
     // and remove the input data from the plan
-    plan.resize(remove_if(plan.begin(), plan.end(), [&](const pair<IndexName, size_t>& recipe_choice) {
+    plan.resize(remove_if(plan.begin(), plan.end(), [&](const RecipeName& recipe_choice) {
         return get_index(recipe_choice.first)->is_finished();
     }) - plan.begin());
     return plan;
@@ -1170,10 +1180,10 @@ string IndexRegistry::to_dot(const vector<IndexName>& targets) const {
     strm << "digraph recipegraph {" << endl;
     
     set<IndexName> plan_targets(targets.begin(), targets.end());
-    set<pair<IndexName, size_t>> plan_elements;
+    set<RecipeName> plan_elements;
     set<IndexName> plan_indexes;
     if (!targets.empty()) {
-        vector<pair<IndexName, size_t>> plan;
+        vector<RecipeName> plan;
         try {
             plan = make_plan(targets);
         }
@@ -1277,14 +1287,33 @@ void IndexFile::add_recipe(const vector<const IndexFile*>& inputs,
 }
 
 IndexRecipe::IndexRecipe(const vector<const IndexFile*>& inputs,
-                         const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec) :
+                         const function<vector<vector<string>>(const vector<const IndexFile*>&,const vector<string>&,const vector<string>&)>& exec) :
     exec(exec), inputs(inputs)
 {
     // nothing more to do
 }
 
+IndexRecipe::IndexRecipe(const vector<const IndexFile*>& inputs,
+                         const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec) :
+    exec([&](const vector<const IndexFile*>& inputs, const vector<string>& prefixes, const vector<string>& suffixes) {
+        if (prefixes.size() != 1 || suffixes.size() != 1) {
+            throw runtime_error("Passed too many arguments to single-index recipe");
+        }
+        
+        vector<vector<string>> results =  {std::move(exec(inputs, prefixes.front, suffixes.front))};
+        
+        return results;
+    }, inputs(inputs)
+{
+    // nothing more to do
+}
+
+vector<vector<string>> IndexRecipe::execute(const vector<string>& prefixes, const vector<string>& suffixes) {
+    return exec(inputs, prefixes, suffixes);
+}
+
 vector<string> IndexRecipe::execute(const string& prefix, const string& suffix) {
-    return exec(inputs, prefix, suffix);
+    return exec(inputs, {prefix}, {suffix}).at(0);
 }
 
 InsufficientInputException::InsufficientInputException(const IndexName& target,

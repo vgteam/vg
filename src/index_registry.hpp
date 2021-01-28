@@ -27,6 +27,11 @@ using IndexName = set<string>;
 // We use a sorted set so that we can know which item in the name corresponds to which file
 
 /**
+ * Names a recipe in the collection of registered recipes.
+ */
+using RecipeName = pair<IndexName, size_t>;
+
+/**
  * A struct namespace for global handling of parameters used by
  * the IndexRegistry
  */
@@ -106,6 +111,13 @@ public:
     void register_recipe(const IndexName& identifier,
                          const vector<IndexName>& input_identifiers,
                          const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec);
+                        
+    /// Register a recipe to produce multiple indexes.
+    /// Individual index recipes must still be registered; this recipe will be
+    /// used to simplify the plan.
+    void register_joint_recipe(const vector<IndexName>& identifiers,
+                               const vector<IndexName>& input_identifiers,
+                               const function<vector<vector<string>>(const vector<const IndexFile*>&,const vector<string>&,const vector<string>&)>& exec);
     
     /// Indicate a serialized file that contains some identified index
     void provide(const IndexName& identifier, const string& filename);
@@ -133,7 +145,7 @@ protected:
     vector<IndexName> dependency_order() const;
     
     /// generate a plan to create the indexes
-    vector<pair<IndexName, size_t>> make_plan(const vector<IndexName>& end_products) const;
+    vector<RecipeName> make_plan(const vector<IndexName>& end_products) const;
     
     /// access index file
     IndexFile* get_index(const IndexName& identifier);
@@ -148,6 +160,9 @@ protected:
     map<IndexName, unique_ptr<IndexFile>> registry;
     
     unordered_set<string> registered_suffixes;
+    
+    /// All recipes that can simplify the generation of multiple indexes
+    map<set<IndexName>, vector<IndexRecipe>> simplifications;
     
     /// Temporary directory in which indexes will live
     string work_dir;
@@ -214,15 +229,21 @@ private:
 };
 
 /**
- * struct that indicates a method to produce and serialize an index
+ * struct that indicates a method to produce and serialize one or more indexes
  */
 struct IndexRecipe {
+    /// Make an IndexRecipe for one or more indexes
+    IndexRecipe(const vector<const IndexFile*>& inputs,
+                const function<vector<vector<string>>(const vector<const IndexFile*>&,const vector<string>&,const vector<string>&)>& exec);
+    /// Make an IndexRecipe for a single index
     IndexRecipe(const vector<const IndexFile*>& inputs,
                 const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec);
-    // execute the recipe and return the filename(s) of the indexes created
+    /// execute the recipe and return the filename(s) of the indexes created, grouped by index
+    vector<vector<string>> execute(const vector<string>& prefixes, const vector<string>& suffixes);
+    /// Assuming the recipe produces a single index, execute the recipe and return the filename(s) of the index created
     vector<string> execute(const string& prefix, const string& suffix);
     vector<const IndexFile*> inputs;
-    function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)> exec;
+    function<vector<vector<string>>(const vector<const IndexFile*>&,const vector<string>&,const vector<string>&)> exec;
 };
 
 
