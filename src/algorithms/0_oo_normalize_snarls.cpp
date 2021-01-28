@@ -74,22 +74,25 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
     pair<int, int> snarl_sequence_change;
 
     // // //todo: debug_code
-    // int stop_size = 1;
-    // int num_snarls_touched = 0;
+    int stop_size = 1;
+    int num_snarls_touched = 0;
 
     // int skip_first_few = 2; //#1, node 3702578 is a cyclic snarl. Don't recall about #0. #2 also cyclic. Looks like cyclic snarls weren't buggy?
     // int skipped = 0;
+    // int snarl_num = 0;
     for (auto roots : snarl_roots) {
+        // cerr << "normalizing snarl number " << snarl_num << endl;
+        // snarl_num++;
         // if (skipped < skip_first_few){
         //     skipped++;
         //     continue;
         // }
-        // if (num_snarls_touched == stop_size){
-        //     break;
-        // } else {
-        //     num_snarls_touched++;
-        // }
-        // if (roots->start().node_id() == 3704138) {
+        if (num_snarls_touched == stop_size){
+            break;
+        } else {
+            num_snarls_touched++;
+        }
+        // if (roots->start().node_id() == 3881494) {
             cerr << "root backwards?" << roots->start().backward() << endl;
             cerr << "disambiguating snarl #"
                     << (num_snarls_normalized + num_snarls_skipped)
@@ -185,13 +188,13 @@ vector<int> SnarlNormalizer::normalize_snarl(const id_t &source_id, const id_t &
     // SubHandleGraph snarl = extract_subgraph(_graph, sink_id, source_id);
     SubHandleGraph snarl = extract_subgraph(_graph, source_id, sink_id);
 
-    //todo: debug_statement: Evaluate connections of all nodes in subgraph.
-    snarl.for_each_handle([&](const handle_t handle){
-        cerr << "examining left neighbors of handle " << snarl.get_id(handle) << ":" << endl;
-        snarl.follow_edges(handle, false, [&](const handle_t &next) {
-            cerr << "     " << snarl.get_id(next) << endl;
-        });
-    });
+    // //todo: debug_statement: Evaluate connections of all nodes in subgraph.
+    // snarl.for_each_handle([&](const handle_t handle){
+    //     cerr << "examining left neighbors of handle " << snarl.get_id(handle) << ":" << endl;
+    //     snarl.follow_edges(handle, false, [&](const handle_t &next) {
+    //         cerr << "     " << snarl.get_id(next) << endl;
+    //     });
+    // });
 
     if (!algorithms::is_acyclic(&snarl)) {
         cerr << "snarl at " << source_id << " is cyclic. Skipping." << endl;
@@ -232,7 +235,8 @@ vector<int> SnarlNormalizer::normalize_snarl(const id_t &source_id, const id_t &
         error_record[4] += snarl.get_sequence(handle).size();
     });
 
-    // TODO: this if statement removes snarls where a haplotype begins/ends in the middle
+    // TODO: this if statement only permits snarls that satsify requirements, i.e.
+    // TODO:    there are no haplotype begins/ends in the middle
     // TODO:    of the snarl. Get rid of this once alignment issue is addressed!
     // TODO: also, limits the number of haplotypes to be aligned, since snarl starting at
     // TODO:    2049699 with 258 haplotypes is taking many minutes.
@@ -253,18 +257,22 @@ vector<int> SnarlNormalizer::normalize_snarl(const id_t &source_id, const id_t &
         // TODO:    accounted for in the code, remove next chunk of code that finds 
         // TODO: source-to-sink paths.
         // find the paths that stretch from source to sink:
+        cerr << "~~~~~~~~~~source: " << source_id << "sink: " << sink_id << endl;
         for (auto path : embedded_paths) {
-            // cerr << "checking path of name " << _graph.get_path_name(_graph.get_path_handle_of_step(path.first)) << " with start " << _graph.get_id(_graph.get_handle_of_step(path.first)) << " and sink " << _graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) << endl;
+
+            cerr << "checking path of name " << _graph.get_path_name(_graph.get_path_handle_of_step(path.first)) << " with start " << _graph.get_id(_graph.get_handle_of_step(path.first)) << " and sink " << _graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) << endl;
             if (_graph.get_id(_graph.get_handle_of_step(path.first)) == source_id &&
                 _graph.get_id(_graph.get_handle_of_step(
                     _graph.get_previous_step(path.second))) == sink_id) {
-                // cerr << "adding path of name " <<
-                // _graph.get_path_name(graph.get_path_handle_of_step(path.first)) <<
-                // endl; get the sequence of the source to sink path, and add it to the
+                cerr << "*****************************************\nadding path of name " <<
+                _graph.get_path_name(_graph.get_path_handle_of_step(path.first)) <<
+                endl; 
+                // get the sequence of the source to sink path, and add it to the
                 // paths to be aligned.
                 string path_seq;
                 step_handle_t cur_step = path.first;
                 while (cur_step != path.second) {
+                    cerr << "while adding path, looking at node " << _graph.get_id(_graph.get_handle_of_step(cur_step)) << " with seq " << _graph.get_sequence(_graph.get_handle_of_step(cur_step)) << endl;
                     path_seq += _graph.get_sequence(_graph.get_handle_of_step(cur_step));
                     cur_step = _graph.get_next_step(cur_step);
                 }
@@ -708,6 +716,9 @@ void SnarlNormalizer::integrate_snarl(
     for (auto path : embedded_paths) {
         // //todo: debug_statement
         // cerr << "the new sink id: " << temp_snarl_sink_id << endl;
+        // //todo: debug_statement
+        // move_path_to_snarl(path, new_snarl_topo_order, temp_snarl_sink_id,
+        //                    temp_snarl_source_id, sink_id, source_id);
         move_path_to_snarl(path, new_snarl_topo_order, temp_snarl_source_id,
                            temp_snarl_sink_id, source_id, sink_id);
     }
@@ -731,8 +742,7 @@ void SnarlNormalizer::integrate_snarl(
         _graph.get_sequence(new_snarl_topo_order.back()), sink_id);
 
     // move the source edges:
-    // TODO: note the copy/paste. Ask if there's a better way to do this (I totally could
-    // in Python!)
+    // TODO: note the copy/paste. Fix?
     _graph.follow_edges(_graph.get_handle(temp_snarl_source_id), true,
                         [&](const handle_t &prev_handle) {
                             _graph.create_edge(prev_handle, new_source_handle);
@@ -769,7 +779,7 @@ void SnarlNormalizer::integrate_snarl(
     // delete the previously created source and sink:
     for (handle_t handle : {_graph.get_handle(temp_snarl_source_id),
                             _graph.get_handle(temp_snarl_sink_id)}) {
-        cerr << "id of handle to delete from tem source/sink: " << _graph.get_id(handle) << endl;
+        cerr << "id of handle to delete from the old source/sink: " << _graph.get_id(handle) << endl;
         _graph.destroy_handle(handle);
     }
 }
@@ -842,6 +852,7 @@ void SnarlNormalizer::move_path_to_snarl(
         path_seq += _graph.get_sequence(_graph.get_handle_of_step(cur_step));
         cur_step = _graph.get_next_step(cur_step);
     }
+    cerr << "path_seq to move: " << path_seq << endl;
 
     // TODO: debug_statement:
     // cerr << "\t\tpath sequence length: " << path_seq.size() << endl;

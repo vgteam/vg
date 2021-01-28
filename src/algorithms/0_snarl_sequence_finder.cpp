@@ -433,10 +433,12 @@ SnarlSequenceFinder::find_embedded_paths() {
 
     // look for handles with paths we haven't touched yet.
     _snarl.for_each_handle([&](const handle_t &handle) {
+        cerr << "looking for paths at handle " << _graph.get_id(handle) << endl; 
         vector<step_handle_t> steps = _graph.steps_of_handle(handle);
         // do any of these steps belong to a path not in paths_found?
         for (step_handle_t &step : steps) {
             path_handle_t path = _graph.get_path_handle_of_step(step);
+            cerr << "found a path. Is it new?" << endl;
             // If it's a step along a new path, save the first step to that path we find.
             // In addtion, if there are multiple steps found in the path, (The avoidance
             // of source and sink here is to ensure that we can properly check to see if
@@ -445,6 +447,7 @@ SnarlSequenceFinder::find_embedded_paths() {
             if (paths_found.find(path) == paths_found.end() ||
                 _graph.get_id(_graph.get_handle_of_step(paths_found[path])) == _source_id ||
                 _graph.get_id(_graph.get_handle_of_step(paths_found[path])) == _sink_id) {
+                cerr << "found a new path." << endl;
                 // then we need to mark it as found and save the step.
                 paths_found[path] = step;
             }
