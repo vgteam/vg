@@ -810,11 +810,12 @@ void MinimumDistanceIndex::populate_snarl_index(const HandleGraph* graph, const 
    id_t snarl_end_id = snarl->end().node_id();
    bool snarl_end_rev = snarl->end().backward();   //pointing out
    id_t start_in_chain = snarl_rev_in_chain ? snarl_end_id : snarl_start_id; 
-   if (snarl_indexes[snarl_assignment].num_nodes >= snarl_indexes[snarl_assignment].max_snarl_size) {
-       all_nodes.clear();
-       all_nodes.emplace(snarl_start_id, snarl_start_rev);
-       all_nodes.emplace(snarl_end_id, !snarl_end_rev);
-   }
+   //TODO:
+   //if (snarl_indexes[snarl_assignment].num_nodes > snarl_indexes[snarl_assignment].max_snarl_size) {
+   //    all_nodes.clear();
+   //    all_nodes.emplace(snarl_start_id, snarl_start_rev);
+   //    all_nodes.emplace(snarl_end_id, !snarl_end_rev);
+   //}
 
    //Id of boundary node that occurs second in the chain
    id_t second_id = snarl_rev_in_chain ? snarl_start_id : snarl_end_id;
@@ -1907,15 +1908,15 @@ size_t MinimumDistanceIndex::SnarlIndex::index(size_t start, size_t end) const {
     } else {
         if (start == 0) {
             //If this is from the start node to another node
-           return (num_nodes/2) + end;
+           return (num_nodes) + end;
         } else if (end == 1) {
             //If this is from a node to the start node
-            return (num_nodes/2) + start;
+            return (num_nodes) + start;
         } else if (start == (is_unary_snarl ? 0 : num_nodes * 2 - 1)) {
             //If this is from the end node to another node
-            return 3*(num_nodes/2) + end;
+            return 3*(num_nodes) + end;
         } else if (end == (is_unary_snarl ? 1 : num_nodes * 2 -2)) {
-            return 3*(num_nodes/2) + start;
+            return 3*(num_nodes) + start;
         }
         return 0;
     }
@@ -1939,18 +1940,23 @@ void MinimumDistanceIndex::SnarlIndex::insert_distance(size_t start,
 
 int64_t MinimumDistanceIndex::SnarlIndex::snarl_length() const {
     //Return the length of the snarl- dist from beginning of start to end of end
-    int64_t dist = is_unary_snarl ? snarl_distance(0, 1) : snarl_distance(0, num_nodes * 2 - 2);
-    
-     //length of snarl
-    if (dist == -1) {
-        return -1;
-    } else {
-        if (num_nodes == 1) {
-            return distances[0]-1;
+    if (num_nodes <= max_snarl_size) {
+        int64_t dist = is_unary_snarl ? snarl_distance(0, 1) : snarl_distance(0, num_nodes * 2 - 2);
+        
+         //length of snarl
+        if (dist == -1) {
+            return -1;
         } else {
-            int64_t node_len = is_unary_snarl ? node_length(0) * 2 : node_length(num_nodes * 2 - 1) + node_length(0);
-            return dist + node_len; 
+            if (num_nodes == 1) {
+                return distances[0]-1;
+            } else {
+                int64_t node_len = is_unary_snarl ? node_length(0) * 2 : node_length(num_nodes * 2 - 1) + node_length(0);
+                return dist + node_len; 
+            }
         }
+    } else {
+        int64_t node_len = is_unary_snarl ? node_length(0) * 2 : node_length(num_nodes * 2 - 1) + node_length(0);
+        return distances[(num_nodes/2) + is_unary_snarl ? 1 : num_nodes * 2 -2] - 1 + node_len;
     }
  
 }
@@ -2068,7 +2074,7 @@ void MinimumDistanceIndex::SnarlIndex::print_self() const {
     for (size_t n1 = 0 ; n1 < num_nodes* 2 ; n1++) {
         cerr << n1 << "\t";
         for (size_t n2 = 0 ; n2 < num_nodes * 2 ; n2++) {
-            cerr << snarl_distance(n1, n2) << "\t"; 
+            //cerr << snarl_distance(n1, n2) << "\t"; 
         }
         cerr << endl;
     }

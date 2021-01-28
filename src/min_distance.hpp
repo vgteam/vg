@@ -175,7 +175,7 @@ class MinimumDistanceIndex {
             size_t index(size_t start, size_t end) const;
 
             ///If the snarl has more than this many nodes, only store the distances to the boundaries
-            size_t max_snarl_size = 20;
+            size_t max_snarl_size = 500;
 
        
 
@@ -224,7 +224,6 @@ class MinimumDistanceIndex {
                 if (num_nodes <= max_snarl_size) {
                     cerr << "Should be using snarl table instead of traversal" << endl;
                 } 
-                cerr << "Too big" << endl;
                 int64_t snarl_distance;
                 handlegraph::algorithms::dijkstra(graph, start, 
                 [&](const handle_t& h, size_t dist){
