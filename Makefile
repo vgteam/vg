@@ -181,9 +181,11 @@ else
     # We get OpenMP the normal way, using whatever the compiler knows about
     CXXFLAGS += -fopenmp
 
-    # We care about building for SSE4.2 only and not AVX, to have vaguely portable binaries
-    CXXFLAGS += -msse4.2
-    
+    ifeq ($(shell arch), x86_64)
+        # We care about building for SSE4.2 only and not AVX, to have vaguely portable binaries
+        CXXFLAGS += -msse4.2
+    endif
+
     # Note shared libraries are so files
     SHARED_SUFFIX = so
     # Define options to start static linking of libraries on GNU ld.
