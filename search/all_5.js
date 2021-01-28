@@ -110,7 +110,6 @@ var searchData=
   ['end_5fid',['end_id',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#aeba5b2b207c06dd958555e7bdfe21388',1,'vg::MinimumDistanceIndex::SnarlIndex::end_id()'],['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#a4ca94a2530cbdd1ba0e9062ec8e8ebc5',1,'vg::MinimumDistanceIndex::ChainIndex::end_id()']]],
   ['end_5flen_5foffset',['END_LEN_OFFSET',['../structvg_1_1MIPayload.html#a356ae43fef61f2738da3b0f024081644',1,'vg::MIPayload']]],
   ['end_5flength',['end_length',['../structvg_1_1SnarlSeedClusterer_1_1Seed.html#a0122de306bc131c8ea6db9e3094e2aa1',1,'vg::SnarlSeedClusterer::Seed']]],
-  ['end_5fmarker',['end_marker',['../classxg_1_1XG.html#a093c989279df231851f0bafba65abdb6',1,'xg::XG']]],
   ['end_5fself_5freachable',['end_self_reachable',['../structvg_1_1Snarl.html#a18c06a3bd33bd3385147838d4c7b867c',1,'vg::Snarl']]],
   ['endfile',['EndFile',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#aa6cf204591880e126bacc2d01799f3e6',1,'vg::io::BlockedGzipOutputStream']]],
   ['endianness',['endianness',['../structvg_1_1endianness.html',1,'vg']]],

@@ -99,7 +99,6 @@ var searchData=
   ['start_5fend_5freachable',['start_end_reachable',['../structvg_1_1Snarl.html#acab3c449de2871769eb9a39ba5f9b8f8',1,'vg::Snarl']]],
   ['start_5flen_5foffset',['START_LEN_OFFSET',['../structvg_1_1MIPayload.html#a6d0407ac299cfae9392a1ca5f83d5d1f',1,'vg::MIPayload']]],
   ['start_5flength',['start_length',['../structvg_1_1SnarlSeedClusterer_1_1Seed.html#aed09432643963e9b4abb47522cdab06f',1,'vg::SnarlSeedClusterer::Seed']]],
-  ['start_5fmarker',['start_marker',['../classxg_1_1XG.html#af127d7318acee7cf6d67f0bc759e8e4d',1,'xg::XG']]],
   ['start_5fpos',['start_pos',['../classvg_1_1MEMClusterer_1_1HitNode.html#ac1772330432b54080ac41ec1a4302d8d',1,'vg::MEMClusterer::HitNode']]],
   ['start_5fpos_5fsamplers',['start_pos_samplers',['../classvg_1_1NGSSimulator.html#abe06d132967858ffa36a6f5235a506f2',1,'vg::NGSSimulator']]],
   ['start_5fself_5freachable',['start_self_reachable',['../structvg_1_1Snarl.html#a9a2de860018e3c8cfd512f6a1904f18c',1,'vg::Snarl']]],

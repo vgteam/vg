@@ -21,6 +21,8 @@ var searchData=
   ['old_5fg_5fnode_5fto_5fcount_5foffset',['OLD_G_NODE_TO_COUNT_OFFSET',['../classxg_1_1XG.html#a82749adc8f5a8cc5d117ded5d67b4cb8',1,'xg::XG']]],
   ['old_5fnode',['old_node',['../classhaplo_1_1hDP__gbwt__graph__accessor.html#ac101c3ba66f96fa569c1de71bf6c51fe',1,'haplo::hDP_gbwt_graph_accessor']]],
   ['old_5fscore',['old_score',['../structvg_1_1GaplessExtension.html#a868af12d5411848f3b8e0e682d053337',1,'vg::GaplessExtension']]],
+  ['old_5fversion_5fpath_5fname_5fend',['old_version_path_name_end',['../classxg_1_1XG.html#ac0112b557633896a5c03e7e806b76f73',1,'xg::XG']]],
+  ['old_5fversion_5fpath_5fname_5fstart',['old_version_path_name_start',['../classxg_1_1XG.html#aa5ca99b933d49ff2b036650008b68cbd',1,'xg::XG']]],
   ['oneof_5flocation',['oneof_location',['../structvg_1_1LocationSupport.html#a9a000a5b773e07f7cc30614d77c927a0',1,'vg::LocationSupport']]],
   ['opt_5ffields',['opt_fields',['../structgafkluge_1_1GafRecord.html#a999647c3cab6cb89fdaaae902c867b8b',1,'gafkluge::GafRecord']]],
   ['option_5foffsets',['option_offsets',['../classvg_1_1Configurable.html#a6c5fb72d68761ab4b157c817259164a5',1,'vg::Configurable']]],

@@ -34,6 +34,7 @@ var searchData=
   ['index',['index',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a35064cc159541a4126f06a015f93daae',1,'vg::MinimumDistanceIndex::SnarlIndex::index()'],['../classvg_1_1StreamIndex.html#a8ee1930510b5d02e9a00ba1a246ba146',1,'vg::StreamIndex::index()']]],
   ['index_5fedge_5fby_5fnode_5fsides',['index_edge_by_node_sides',['../classvg_1_1VG.html#a53ff7033966852f5fb3852716cab21a9',1,'vg::VG']]],
   ['index_5fnode_5fto_5fpath',['index_node_to_path',['../classxg_1_1XG.html#a4599310a72acd2ccfbe9d6041cc51dd1',1,'xg::XG']]],
+  ['index_5fpath_5fnames',['index_path_names',['../classxg_1_1XG.html#aff97dc01cda8460ebeb98a4b789e3485',1,'xg::XG']]],
   ['index_5fto_5fnode',['index_to_node',['../classvg_1_1Packer.html#a967dcbe2cbcb6df4c7e2d938f7cd11fa',1,'vg::Packer']]],
   ['indexedvg',['IndexedVG',['../classvg_1_1IndexedVG.html#a89030b52047b0e005a5c86b7f9a206f6',1,'vg::IndexedVG::IndexedVG(string graph_filename)'],['../classvg_1_1IndexedVG.html#a0972bd3bf8d93bfa8b41aff828aab070',1,'vg::IndexedVG::IndexedVG(const IndexedVG &amp;other)=delete']]],
   ['indexfile',['IndexFile',['../classvg_1_1IndexFile.html#ac5bef359366abc71acceac69bd0fe168',1,'vg::IndexFile']]],

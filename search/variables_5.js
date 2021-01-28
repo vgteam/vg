@@ -46,7 +46,6 @@ var searchData=
   ['end_5fid',['end_id',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#aeba5b2b207c06dd958555e7bdfe21388',1,'vg::MinimumDistanceIndex::SnarlIndex::end_id()'],['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#a4ca94a2530cbdd1ba0e9062ec8e8ebc5',1,'vg::MinimumDistanceIndex::ChainIndex::end_id()']]],
   ['end_5flen_5foffset',['END_LEN_OFFSET',['../structvg_1_1MIPayload.html#a356ae43fef61f2738da3b0f024081644',1,'vg::MIPayload']]],
   ['end_5flength',['end_length',['../structvg_1_1SnarlSeedClusterer_1_1Seed.html#a0122de306bc131c8ea6db9e3094e2aa1',1,'vg::SnarlSeedClusterer::Seed']]],
-  ['end_5fmarker',['end_marker',['../classxg_1_1XG.html#a093c989279df231851f0bafba65abdb6',1,'xg::XG']]],
   ['end_5fself_5freachable',['end_self_reachable',['../structvg_1_1Snarl.html#a18c06a3bd33bd3385147838d4c7b867c',1,'vg::Snarl']]],
   ['endpoints',['endpoints',['../classvg_1_1GraphSynchronizer_1_1Lock.html#a2b1f1d67a76ef6de89f8f30bd794f603',1,'vg::GraphSynchronizer::Lock']]],
   ['entries',['entries',['../structhaplo_1_1haplo__DP__column.html#aa46ab429b8d5eba3919e2c1cbf2e9a4e',1,'haplo::haplo_DP_column']]],

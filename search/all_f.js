@@ -27,6 +27,8 @@ var searchData=
   ['old_5fg_5fnode_5fto_5fcount_5foffset',['OLD_G_NODE_TO_COUNT_OFFSET',['../classxg_1_1XG.html#a82749adc8f5a8cc5d117ded5d67b4cb8',1,'xg::XG']]],
   ['old_5fnode',['old_node',['../classhaplo_1_1hDP__gbwt__graph__accessor.html#ac101c3ba66f96fa569c1de71bf6c51fe',1,'haplo::hDP_gbwt_graph_accessor']]],
   ['old_5fscore',['old_score',['../structvg_1_1GaplessExtension.html#a868af12d5411848f3b8e0e682d053337',1,'vg::GaplessExtension']]],
+  ['old_5fversion_5fpath_5fname_5fend',['old_version_path_name_end',['../classxg_1_1XG.html#ac0112b557633896a5c03e7e806b76f73',1,'xg::XG']]],
+  ['old_5fversion_5fpath_5fname_5fstart',['old_version_path_name_start',['../classxg_1_1XG.html#aa5ca99b933d49ff2b036650008b68cbd',1,'xg::XG']]],
   ['omp_5fget_5fnum_5fthreads',['omp_get_num_threads',['../deps_2libbdsg_2src_2utility_8cpp.html#a9ed0474735f00e49f9e37e8c76e935e5',1,'utility.cpp']]],
   ['on_5fgroup',['on_group',['../classvg_1_1io_1_1MessageEmitter.html#a5b5f11b2f9b08a870fc68a980c91f1e4',1,'vg::io::MessageEmitter::on_group()'],['../classvg_1_1io_1_1ProtobufEmitter.html#af22328bc428af2be817a7a0d097ca370',1,'vg::io::ProtobufEmitter::on_group()']]],
   ['on_5fmessage',['on_message',['../classvg_1_1io_1_1ProtobufEmitter.html#a6a3a16550dcd7dd7a320109125d4e2a1',1,'vg::io::ProtobufEmitter']]],

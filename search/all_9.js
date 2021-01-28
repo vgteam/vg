@@ -77,6 +77,7 @@ var searchData=
   ['index_5fnode_5fto_5fpath',['index_node_to_path',['../classxg_1_1XG.html#a4599310a72acd2ccfbe9d6041cc51dd1',1,'xg::XG']]],
   ['index_5fnone',['index_none',['../structvg_1_1GBWTHandler.html#aad418d9725da4ccbb6c60055eb5e9033a1dc536bf1ea474d215a9a7e0c7663924',1,'vg::GBWTHandler']]],
   ['index_5fof',['index_of',['../structvg_1_1DozeuInterface_1_1OrderedGraph.html#a622e1fefb7e7aa8977623b183ea9b457',1,'vg::DozeuInterface::OrderedGraph']]],
+  ['index_5fpath_5fnames',['index_path_names',['../classxg_1_1XG.html#aff97dc01cda8460ebeb98a4b789e3485',1,'xg::XG']]],
   ['index_5fregistry_2ecpp',['index_registry.cpp',['../index__registry_8cpp.html',1,'']]],
   ['index_5fregistry_2ehpp',['index_registry.hpp',['../index__registry_8hpp.html',1,'']]],
   ['index_5fto_5fnode',['index_to_node',['../classvg_1_1Packer.html#a967dcbe2cbcb6df4c7e2d938f7cd11fa',1,'vg::Packer']]],
