@@ -684,7 +684,7 @@ TEST_CASE("IntegratedSnarlFinder safely handles a path when forced to root at on
     REQUIRE(finder->find_snarls().num_snarls() == 2);
 }
 
-TEST_CASE("IntegratedSnarlFinder safely handles a single node conencted component in a larger graph", "[genotype][integrated-snarl-finder]") {
+TEST_CASE("IntegratedSnarlFinder safely handles a single node connected component in a larger graph", "[genotype][integrated-snarl-finder]") {
     
     // Build a toy graph
     const string graph_json = R"(
