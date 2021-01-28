@@ -108,13 +108,17 @@ public:
     
     /// Register a recipe to produce an index using other indexes
     /// or input files. Also takes a for output as input
-    void register_recipe(const IndexName& identifier,
-                         const vector<IndexName>& input_identifiers,
-                         const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec);
+    RecipeName register_recipe(const IndexName& identifier,
+                               const vector<IndexName>& input_identifiers,
+                               const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec);
                         
     /// Register a recipe to produce multiple indexes.
     /// Individual index recipes must still be registered; this recipe will be
-    /// used to simplify the plan.
+    /// used to simplify the plan when the individual recipes with the same
+    /// input set are all called.
+    ///
+    /// Joint recipes may also be used to generate single indexes if they have
+    /// higher priority than other recipes.
     void register_joint_recipe(const vector<IndexName>& identifiers,
                                const vector<IndexName>& input_identifiers,
                                const function<vector<vector<string>>(const vector<const IndexFile*>&,const vector<string>&,const vector<string>&)>& exec);
@@ -161,8 +165,9 @@ protected:
     
     unordered_set<string> registered_suffixes;
     
-    /// All recipes that can simplify the generation of multiple indexes
-    map<set<IndexName>, vector<IndexRecipe>> simplifications;
+    /// Record that, when the given input indexes are available, this
+    /// collection of recipes is efficient to run together.
+    vector<pair<vector<IndexName>, vector<RecipeName>>> simplifications;
     
     /// Temporary directory in which indexes will live
     string work_dir;
@@ -198,8 +203,10 @@ public:
     /// Describe a recipe with a lower preference order than all existing recipes
     /// for creating this index, if there are any (i.e., recipes must be added in
     /// preference order). Recipes should return the filepath(s) to their output.
-    void add_recipe(const vector<const IndexFile*>& inputs,
-                    const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec);
+    ///
+    /// Returns the name assigned to the recipe.
+    RecipeName add_recipe(const vector<const IndexFile*>& inputs,
+                          const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec);
     
     /// Returns true if the index has already been built or provided
     bool is_finished() const;
