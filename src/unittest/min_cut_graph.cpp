@@ -475,11 +475,23 @@ namespace vg {
             
             //call min-cut-decomposition
             vector<unordered_set<size_t>> to_recv =  min_cut_decomposition(graph, n_iterations, seed);
-            unordered_set<size_t> truth_set = {1,3};
-            REQUIRE(to_recv[0].size()==2);
+            
+            unordered_set<size_t> truth_set1 = {1,3,0};
+            unordered_set<size_t> truth_set2 = {1,3};
+            REQUIRE(to_recv[0].size()==3);
             for (auto& x:to_recv[0] ) {
 
-                REQUIRE(truth_set.count(x)==1);
+                REQUIRE(truth_set1.count(x)==1);
+#ifdef debug
+                cout << "set has" << x <<endl;
+#endif       
+            }
+    
+        
+            REQUIRE(to_recv[1].size()==2);
+            for (auto& x:to_recv[1] ) {
+
+                REQUIRE(truth_set2.count(x)==1);
 #ifdef debug
                 cout << "set has" << x <<endl;
 #endif       

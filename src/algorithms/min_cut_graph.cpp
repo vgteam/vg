@@ -92,7 +92,7 @@ namespace vg {
             // at first call all nodes will be heads
             vector<size_t> super_nodes = cg.get_nodes();
             //get the total edge weights for super_nodes in contracted graph
-            
+           
             for (int i =0; i < super_nodes.size(); i++){
                     //get total edge weights for each super node
                     unordered_map<size_t, size_t> supernode_edge_weights = cg.get_edges(super_nodes[i]);
@@ -310,17 +310,25 @@ namespace vg {
 #ifdef debug   
             cout << "============================================================================= " << endl;
             cout << "MIN-CUT-GRAPH: set"<<endl;
-            cout << "min cut 1 " << endl;
+            cout << "disjoint sets in min cut 1 " << endl;
             vector<unordered_set<size_t>> disjoint_set = min_cut1.first;
-            
-            for (auto& x:disjoint_set[0] ) {
-                cout << "MCG set0 has" << x <<endl;
+            for (size_t i = 0;  i < disjoint_set.size(); i++){
+                for (auto& x:disjoint_set[i] ) {
+                cout << "MCG set "<< i << "has" << x <<endl;
+                }
+
             }
+            cout << "cut is : " << min_cut1.second <<endl;
             cout << "============================================================================= " << endl;
-            cout << "min cut 2 " << endl;
-            for (auto& x:disjoint_set[1] ) {
-                cout << "MCG set1 has" << x <<endl;
+            cout << "disjoint sets in min cut 2 " << endl;
+            vector<unordered_set<size_t>> disjoint_set2 = min_cut2.first;
+            for (size_t i = 0;  i < disjoint_set2.size(); i++){
+                for (auto& x:disjoint_set2[i] ) {
+                cout << "MCG set "<< i << "has" << x <<endl;
+                }
+
             }
+            cout << "cut is : " << min_cut2.second <<endl;
             cout << "============================================================================= " << endl;
 
 

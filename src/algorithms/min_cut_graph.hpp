@@ -33,7 +33,7 @@ namespace vg {
         struct Graph {
             unordered_map<size_t,Node> nodes;
 
-            vector<size_t> get_node_ids(){
+            inline vector<size_t> get_node_ids(){
                 vector<size_t> node_ids;
                 for (auto& id_and_node : nodes){
                     size_t node_id = id_and_node.first; 
