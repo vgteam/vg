@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 32
+plan tests 37
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -34,6 +34,14 @@ is "$?" 0 "vg convert maintains same nodes throughout packed-graph conversion"
 
 rm -f c.pg c1.vg c1.info
 
+vg convert c.vg -f > c.gfa
+vg convert -g c.gfa -v > c1.vg
+cat <(vg view c1.vg | grep ^S | sort) <(vg view c1.vg | grep L | uniq | wc -l) <(vg paths -v c1.vg -E) > c1.info
+diff c.info c1.info
+is "$?" 0 "vg convert maintains same nodes throughout gfa conversion"
+
+rm -f c.gfa c1.vg c1.info
+
 vg convert c.vg -o > c.odgi
 vg convert c.odgi -v > c1.vg
 cat <(vg view c1.vg | grep ^S | sort) <(vg view c1.vg | grep L | uniq | wc -l) <(vg paths -v c1.vg -E) > c1.info
@@ -50,11 +58,13 @@ is "$(vg convert -a x.vg | vg view - | wc -l)" "$(wc -l < x.gfa)" "hash graph co
 is "$(vg convert -p x.vg | vg view - | wc -l)" "$(wc -l < x.gfa)" "packed graph conversion looks good"
 is "$(vg convert -v x.vg | vg view - | wc -l)" "$(wc -l < x.gfa)" "vg conversion looks good"
 is "$(vg convert -o x.vg | vg view - | wc -l)" "$(wc -l < x.gfa)" "odgi conversion looks good"
+is "$(vg convert -f x.vg | vg convert -g - | vg view - | wc -l)" "$(wc -l < x.gfa)" "gfa conversion looks good"
 is "$(vg convert -x x.vg | vg find -n 1 -c 300 -x - | vg view - | wc -l)" "$(wc -l < x.gfa)" "xg conversion looks good"
 
 is "$(vg convert -g -a x.gfa | vg view - | wc -l)" "$(wc -l < x.gfa)" "on disk gfa conversion looks good"
 is "$(cat x.gfa | vg convert -g -a - | vg view - | wc -l)" "$(wc -l < x.gfa)" "streaming gfa conversion looks good"
 is "$(vg convert -g -x x.gfa | vg find -n 1 -c 300 -x - | vg view - | wc -l)" "$(wc -l < x.gfa)" "gfa to xg conversion looks good"
+is "$(vg convert -g -f x.gfa | vg convert -g - | vg find -n 1 -c 300 -x - | vg view - | wc -l)" "$(wc -l < x.gfa)" "gfa to gfa conversion looks good"
 
 rm x.vg x.gfa
 rm -f c.vg c.pg c1.vg c.info c1.info
@@ -188,6 +198,14 @@ is "$?" 0 "3rd column of gfa id translation file contains all gfa nodes"
 
 rm -f  gfa-id-mapping.tsv rgfa_nodes gfa_nodes rgfa_translated_nodes gfa_translated_nodes
 
+vg convert -g tiny/tiny.gfa -v | vg convert - -f -P x > tiny.gfa.rgfa
+is "$(grep ^P tiny.gfa.rgfa | wc -l)" 0 "rgfa output wrote no P-lines"
+vg convert -g tiny/tiny.gfa -v | vg convert - -f | sort > tiny.gfa.gfa
+vg convert -g tiny.gfa.rgfa -f | sort > tiny.gfa.rgfa.gfa
+diff tiny.gfa.gfa tiny.gfa.rgfa.gfa
+is "$?" 0 "rgfa export roundtrips back to normal P-lines"
+
+rm -f tiny.gfa.rgfa tiny.gfa.gfa tiny.gfa.rgfa.gfa
 
 # GFA to GBWTGraph to HashGraph to GFA
 vg gbwt -o components.gbwt -g components.gg -G graphs/components_walks.gfa

@@ -7,6 +7,7 @@
 #include <functional>
 #include <string>
 #include <memory>
+#include <stdexcept>
 
 namespace vg {
 
