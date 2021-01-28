@@ -32,6 +32,20 @@ using IndexName = set<string>;
 using RecipeName = pair<IndexName, size_t>;
 
 /**
+ * Is a recipe to create the files (returned by name) associated with some
+ * index, from a series of input indexes, a file name prefix, and a file name
+ * suffix.
+ */
+using RecipeFunc = function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>;
+
+/**
+ * Is a recipe to create the files (returned by name) associated with some
+ * indexes, from a series of input indexes, a some name prefixes, and some file
+ * name suffixes.
+ */
+using JointRecipeFunc = function<vector<vector<string>>(const vector<const IndexFile*>&,const vector<string>&,const vector<string>&)>;
+
+/**
  * A struct namespace for global handling of parameters used by
  * the IndexRegistry
  */
@@ -110,7 +124,7 @@ public:
     /// or input files. Also takes a for output as input
     RecipeName register_recipe(const IndexName& identifier,
                                const vector<IndexName>& input_identifiers,
-                               const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec);
+                               const RecipeFunc& exec);
                         
     /// Register a recipe to produce multiple indexes.
     /// Individual index recipes must still be registered; this recipe will be
@@ -121,7 +135,7 @@ public:
     /// higher priority than other recipes.
     void register_joint_recipe(const vector<IndexName>& identifiers,
                                const vector<IndexName>& input_identifiers,
-                               const function<vector<vector<string>>(const vector<const IndexFile*>&,const vector<string>&,const vector<string>&)>& exec);
+                               const JointRecipeFunc& exec);
     
     /// Indicate a serialized file that contains some identified index
     void provide(const IndexName& identifier, const string& filename);
@@ -206,7 +220,7 @@ public:
     ///
     /// Returns the name assigned to the recipe.
     RecipeName add_recipe(const vector<const IndexFile*>& inputs,
-                          const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec);
+                          const RecipeFunc& exec);
     
     /// Returns true if the index has already been built or provided
     bool is_finished() const;
@@ -240,11 +254,11 @@ private:
  */
 struct IndexRecipe {
     IndexRecipe(const vector<const IndexFile*>& inputs,
-                const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec);
+                const RecipeFunc& exec);
     // execute the recipe and return the filename(s) of the indexes created
     vector<string> execute(const string& prefix, const string& suffix);
     vector<const IndexFile*> inputs;
-    function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)> exec;
+    RecipeFunc exec;
 };
 
 

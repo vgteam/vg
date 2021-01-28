@@ -838,7 +838,7 @@ vector<IndexName> IndexRegistry::completed_indexes() const {
 
 RecipeName IndexRegistry::register_recipe(const IndexName& identifier,
                                     const vector<IndexName>& input_identifiers,
-                                    const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec) {
+                                    const RecipeFunc& exec) {
     vector<const IndexFile*> inputs;
     for (const auto& input_identifier : input_identifiers) {
         inputs.push_back(get_index(input_identifier));
@@ -848,7 +848,7 @@ RecipeName IndexRegistry::register_recipe(const IndexName& identifier,
 
 void IndexRegistry::register_joint_recipe(const vector<IndexName>& identifiers,
                                           const vector<IndexName>& input_identifiers,
-                                          const function<vector<vector<string>>(const vector<const IndexFile*>&,const vector<string>&,const vector<string>&)>& exec) {
+                                          const JointRecipeFunc& exec) {
     // We're going to generate a bunch of single-index recipes where the first
     // one to run calls the joint recipe, and other ones to run just return
     // their slice of the joint recipe's return value.
@@ -861,7 +861,9 @@ void IndexRegistry::register_joint_recipe(const vector<IndexName>& identifiers,
     
     for (size_t i = 0; i < identifiers.size(); i++) {
         IndexName being_generated = identifiers[i];
-        names.push_back(register_recipe(being_generated, input_identifiers, [i, results, being_generated, &exec](const vector<const IndexFile*>& inputs, const string& prefix, const string& suffix) {
+        
+        // Create a recipe that invokes the joint recipe.
+        RecipeFunc stub = [i, results, being_generated, &exec](const vector<const IndexFile*>& inputs, const string& prefix, const string& suffix) {
             
             // Ignore the prefix and suffix
             
@@ -872,7 +874,9 @@ void IndexRegistry::register_joint_recipe(const vector<IndexName>& identifiers,
             
             // Get our slice of the result file list.
             return results->at(i);
-        }));
+        };
+        
+        names.push_back(register_recipe(being_generated, input_identifiers, stub));
     }
     
     // Remember that these are a joint recipe.
@@ -1305,13 +1309,13 @@ void IndexFile::execute_recipe(size_t recipe_priority, const string& prefix) {
 }
 
 RecipeName IndexFile::add_recipe(const vector<const IndexFile*>& inputs,
-                                 const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec) {
+                                 const RecipeFunc& exec) {
     recipes.emplace_back(inputs, exec);
     return RecipeName(identifier, recipes.size() - 1);
 }
 
 IndexRecipe::IndexRecipe(const vector<const IndexFile*>& inputs,
-                         const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec) :
+                         const RecipeFunc& exec) :
     exec(exec), inputs(inputs)
 {
     // nothing more to do
