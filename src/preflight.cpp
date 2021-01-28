@@ -1,5 +1,12 @@
 #include "preflight.hpp"
 
+#include <iostream>
+#include <cstdlib>
+
+#ifdef __x86_64__
+#include <cpuid.h>
+#endif
+
 namespace vg {
 
 using namespace std;
