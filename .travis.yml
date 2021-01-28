@@ -2,7 +2,6 @@
 
 language: cpp
 compiler: gcc
-sudo: required
 dist: bionic
 # We have some shenanigans to let us cache submodules, and update changed files
 # without messing up mtimes and triggering rebuilds unnecessarily. Travis checks
@@ -15,10 +14,10 @@ before_install:
   - if [[ -e deps ]]; then mv deps deps_cached; fi
   - git submodule update --init --recursive
   - rsync -rv --links --checksum deps/ deps_cached/
-  - rm -Rf deps
+  # - rm -Rf deps
   # Keep the cached deps if the right compiler version was used.
   # Otherwise start fresh
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && -e "deps_cached/gcc$(gcc -dumpversion)" ]]; then mv deps_cached deps; fi
+  # - if [[ "$TRAVIS_OS_NAME" == "linux" && -e "deps_cached/gcc$(gcc -dumpversion)" ]]; then mv deps_cached deps; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" && -e deps_cached/clang ]]; then mv deps_cached deps; fi
   - (ls -lah deps/; ls -lah bin/; ls -lah lib/; ls -lah include/) || true
   - git submodule update --init --recursive
@@ -112,8 +111,6 @@ os:
   - linux
   - osx
 osx_image: xcode12.2
-compiler:
-  - gcc
 env:
   global:
     - DOCS_KEY_ENCRYPTION_LABEL=125272388526
@@ -124,3 +121,5 @@ matrix:
     # We have a special entry to do the docs build
     - os: linux
       env: BUILD_DOCS_ONLY=1
+    - os: linux
+      arch: arm64

@@ -17,7 +17,8 @@ CWD:=$(shell pwd)
 CXX ?= g++
 PKG_CONFIG ?= pkg-config
 
-EXE:=vg
+SFX :=
+EXE:=vg$(SFX)
 
 all: $(BIN_DIR)/$(EXE)
 

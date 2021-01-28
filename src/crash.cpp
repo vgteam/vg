@@ -168,7 +168,7 @@ void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContex
         *out << "Caught signal " << signalNumber << " raised at address " << ip << endl;
         // Do our own tracing because backtrace doesn't really work on all platforms.
         stacktrace_manually(*out, signalNumber, ip, bp);
-    #else
+    #elif __x86_64__
         // Linux 64 bit does it this way
         ip = (void*)context->uc_mcontext.gregs[REG_RIP];
         bp = (void**)context->uc_mcontext.gregs[REG_RBP];
