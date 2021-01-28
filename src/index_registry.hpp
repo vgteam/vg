@@ -33,17 +33,17 @@ using RecipeName = pair<IndexName, size_t>;
 
 /**
  * Is a recipe to create the files (returned by name) associated with some
- * index, from a series of input indexes, a file name prefix, and a file name
- * suffix.
+ * index, from a series of input indexes, given the registry it is being
+ * generated for, and a function to tell if an index is intermediate.
  */
-using RecipeFunc = function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>;
+using RecipeFunc = function<vector<string>(const vector<const IndexFile*>&,const IndexRegistry*,const function<bool(const IndexName&)>&)>;
 
 /**
  * Is a recipe to create the files (returned by name) associated with some
- * indexes, from a series of input indexes, a some name prefixes, and some file
- * name suffixes.
+ * indexes, from a series of input indexes, given the registry they are being
+ * generated for, and a function to tell if an index is intermediate.
  */
-using JointRecipeFunc = function<vector<vector<string>>(const vector<const IndexFile*>&,const vector<string>&,const vector<string>&)>;
+using JointRecipeFunc = function<vector<vector<string>>(const vector<const IndexFile*>&,const IndexRegistry*, const function<bool(const IndexName&)>&)>;
 
 /**
  * A struct namespace for global handling of parameters used by
@@ -225,8 +225,10 @@ public:
     /// Returns true if the index has already been built or provided
     bool is_finished() const;
     
-    /// Build the index using the recipe with the provided priority
-    void execute_recipe(size_t recipe_priority, const string& prefix);
+    /// Build the index using the recipe with the provided priority.
+    /// Expose the registry so we can query where the index (or other
+    /// co-generated indexes) needs to go.
+    void execute_recipe(size_t recipe_priority, const IndexRegistry* registry);
     
     /// Returns true if the index was provided through provide method
     bool was_provided_directly() const;
@@ -256,7 +258,7 @@ struct IndexRecipe {
     IndexRecipe(const vector<const IndexFile*>& inputs,
                 const RecipeFunc& exec);
     // execute the recipe and return the filename(s) of the indexes created
-    vector<string> execute(const string& prefix, const string& suffix);
+    vector<string> execute(const IndexRegistry* registry);
     vector<const IndexFile*> inputs;
     RecipeFunc exec;
 };

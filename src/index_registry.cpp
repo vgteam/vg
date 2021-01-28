@@ -768,7 +768,7 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
             index_prefix = get_work_dir() + "/" + sha1sum(to_string(index->get_identifier()));
         }
         
-        index->execute_recipe(step.second, index_prefix);
+        index->execute_recipe(step.second, this, is_intermediate);
     }
     
     // clean up intermediate files
@@ -1299,13 +1299,13 @@ bool IndexFile::was_provided_directly() const {
     return provided_directly;
 }
 
-void IndexFile::execute_recipe(size_t recipe_priority, const string& prefix) {
+void IndexFile::execute_recipe(size_t recipe_priority, const IndexRegistry* registry) {
     assert(recipe_priority < recipes.size());
     auto& recipe = recipes[recipe_priority];
     for (auto input : recipe.inputs) {
         assert(input->is_finished());
     }
-    filenames = recipe.execute(prefix, this->suffix);
+    filenames = recipe.execute(registry);
 }
 
 RecipeName IndexFile::add_recipe(const vector<const IndexFile*>& inputs,
@@ -1321,8 +1321,8 @@ IndexRecipe::IndexRecipe(const vector<const IndexFile*>& inputs,
     // nothing more to do
 }
 
-vector<string> IndexRecipe::execute(const string& prefix, const string& suffix) {
-    return exec(inputs, prefix, suffix);
+vector<string> IndexRecipe::execute(const IndexRegistry* registry) {
+    return exec(inputs, registry);
 }
 
 InsufficientInputException::InsufficientInputException(const IndexName& target,
