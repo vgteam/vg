@@ -229,21 +229,15 @@ private:
 };
 
 /**
- * struct that indicates a method to produce and serialize one or more indexes
+ * struct that indicates a method to produce and serialize an index
  */
 struct IndexRecipe {
-    /// Make an IndexRecipe for one or more indexes
-    IndexRecipe(const vector<const IndexFile*>& inputs,
-                const function<vector<vector<string>>(const vector<const IndexFile*>&,const vector<string>&,const vector<string>&)>& exec);
-    /// Make an IndexRecipe for a single index
     IndexRecipe(const vector<const IndexFile*>& inputs,
                 const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec);
-    /// execute the recipe and return the filename(s) of the indexes created, grouped by index
-    vector<vector<string>> execute(const vector<string>& prefixes, const vector<string>& suffixes);
-    /// Assuming the recipe produces a single index, execute the recipe and return the filename(s) of the index created
+    // execute the recipe and return the filename(s) of the indexes created
     vector<string> execute(const string& prefix, const string& suffix);
     vector<const IndexFile*> inputs;
-    function<vector<vector<string>>(const vector<const IndexFile*>&,const vector<string>&,const vector<string>&)> exec;
+    function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)> exec;
 };
 
 

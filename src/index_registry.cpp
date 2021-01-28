@@ -853,7 +853,7 @@ void IndexRegistry::register_joint_recipe(const set<IndexName>& identifier,
     for (const auto& input_identifier : input_identifiers) {
         inputs.push_back(get_index(input_identifier));
     }
-    get_index(identifier)->add_recipe(inputs, exec);
+    // TODO: storage?
 }
 
 IndexFile* IndexRegistry::get_index(const IndexName& identifier) {
@@ -1287,33 +1287,14 @@ void IndexFile::add_recipe(const vector<const IndexFile*>& inputs,
 }
 
 IndexRecipe::IndexRecipe(const vector<const IndexFile*>& inputs,
-                         const function<vector<vector<string>>(const vector<const IndexFile*>&,const vector<string>&,const vector<string>&)>& exec) :
+                         const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec) :
     exec(exec), inputs(inputs)
 {
     // nothing more to do
 }
 
-IndexRecipe::IndexRecipe(const vector<const IndexFile*>& inputs,
-                         const function<vector<string>(const vector<const IndexFile*>&,const string&,const string&)>& exec) :
-    exec([&](const vector<const IndexFile*>& inputs, const vector<string>& prefixes, const vector<string>& suffixes) {
-        if (prefixes.size() != 1 || suffixes.size() != 1) {
-            throw runtime_error("Passed too many arguments to single-index recipe");
-        }
-        
-        vector<vector<string>> results =  {std::move(exec(inputs, prefixes.front, suffixes.front))};
-        
-        return results;
-    }, inputs(inputs)
-{
-    // nothing more to do
-}
-
-vector<vector<string>> IndexRecipe::execute(const vector<string>& prefixes, const vector<string>& suffixes) {
-    return exec(inputs, prefixes, suffixes);
-}
-
 vector<string> IndexRecipe::execute(const string& prefix, const string& suffix) {
-    return exec(inputs, {prefix}, {suffix}).at(0);
+    return exec(inputs, prefix, suffix);
 }
 
 InsufficientInputException::InsufficientInputException(const IndexName& target,
