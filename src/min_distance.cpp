@@ -811,11 +811,13 @@ void MinimumDistanceIndex::populate_snarl_index(const HandleGraph* graph, const 
    bool snarl_end_rev = snarl->end().backward();   //pointing out
    id_t start_in_chain = snarl_rev_in_chain ? snarl_end_id : snarl_start_id; 
    //TODO:
-   //if (snarl_indexes[snarl_assignment].num_nodes > snarl_indexes[snarl_assignment].max_snarl_size) {
-   //    all_nodes.clear();
-   //    all_nodes.emplace(snarl_start_id, snarl_start_rev);
-   //    all_nodes.emplace(snarl_end_id, !snarl_end_rev);
-   //}
+   if (snarl_indexes[snarl_assignment].num_nodes > snarl_indexes[snarl_assignment].max_snarl_size) {
+       all_nodes.clear();
+       all_nodes.emplace(snarl_start_id, snarl_start_rev);
+       all_nodes.emplace(snarl_end_id, !snarl_end_rev);
+       all_nodes.emplace(snarl_start_id, !snarl_start_rev);
+       all_nodes.emplace(snarl_end_id, snarl_end_rev);
+   }
 
    //Id of boundary node that occurs second in the chain
    id_t second_id = snarl_rev_in_chain ? snarl_start_id : snarl_end_id;
@@ -994,8 +996,10 @@ void MinimumDistanceIndex::populate_snarl_index(const HandleGraph* graph, const 
                     node_len = graph->get_length(curr_handle);
                 }
  
-                if (curr_id == start_id) {
-                    snarl_indexes[snarl_assignment].distances[start_node_rank/2]  = node_len + 1; 
+                size_t curr_node_rank =  primary_snarl_assignments[curr_id.first-min_node_id]-1 == snarl_assignment
+                  ? primary_snarl_ranks[curr_id.first-min_node_id] -1 : secondary_snarl_ranks[curr_id.first-min_node_id]-1;
+                if (snarl_indexes[snarl_assignment].distances[curr_node_rank/2] == 0) {
+                    snarl_indexes[snarl_assignment].distances[curr_node_rank/2]  = node_len + 1; 
                 }
    
 
@@ -1826,7 +1830,8 @@ MinimumDistanceIndex::SnarlIndex::SnarlIndex(
         cerr << "snarl\t" << id_in_parent << "\t" << end_id << "\t" << num_nodes << "\t" << depth << endl;
     }
     size_t size = num_nodes * 2;
-    is_simple_snarl = true;
+    //TODO: This used to default to true
+    is_simple_snarl = false;
     if (num_nodes <= max_snarl_size) {
         util::assign(distances, int_vector<>((((size+1)*size)/2) + (size/2), 0));
     } else {
