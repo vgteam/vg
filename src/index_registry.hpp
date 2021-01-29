@@ -19,6 +19,7 @@ class IndexFile;
 class IndexRecipe;
 class InsufficientInputException;
 class IndexRegistry;
+class IndexingPlan;
 
 /**
  * Names an index. Each index may have multiple components.
@@ -33,17 +34,17 @@ using RecipeName = pair<IndexName, size_t>;
 
 /**
  * Is a recipe to create the files (returned by name) associated with some
- * index, from a series of input indexes, given the registry it is being
- * generated for, and a function to tell if an index is intermediate.
+ * index, from a series of input indexes, given the plan it is being
+ * generated for.
  */
-using RecipeFunc = function<vector<string>(const vector<const IndexFile*>&,const IndexRegistry*,const function<bool(const IndexName&)>&)>;
+using RecipeFunc = function<vector<string>(const vector<const IndexFile*>&,const IndexingPlan*)>;
 
 /**
  * Is a recipe to create the files (returned by name) associated with some
- * indexes, from a series of input indexes, given the registry they are being
- * generated for, and a function to tell if an index is intermediate.
+ * indexes, from a series of input indexes, given the plan they are being
+ * generated for.
  */
-using JointRecipeFunc = function<vector<vector<string>>(const vector<const IndexFile*>&,const IndexRegistry*, const function<bool(const IndexName&)>&)>;
+using JointRecipeFunc = function<vector<vector<string>>(const vector<const IndexFile*>&,const IndexingPlan*)>;
 
 /**
  * A struct namespace for global handling of parameters used by
@@ -90,11 +91,46 @@ struct VGIndexes {
 };
 
 /**
+ * A plan for producing indexes, which knows what should be saved and what should be ephemeral.
+ * Wants to be nested inside IndexRegistry, but you can't forward-declare a nested class.
+ */
+struct IndexingPlan {
+    /// Returns true if the given index is to be intermediate under the given
+    /// plan, and false if it is to be preserved.
+    bool is_intermediate(const IndexName& identifier) const;
+    
+    /// Get the prefix with which to save the given index's files, accounting
+    /// for whether it is intermediate or not.
+    string prefix(const IndexName& identifier) const;
+    
+    /// Get the suffix with which to save the given index's files.
+    string suffix(const IndexName& identifier) const;
+    
+    /// The indexes to create as outputs.
+    set<IndexName> targets;
+    
+    /// The steps to be invoked in the plan. May be empty before the plan is
+    /// actually planned.
+    vector<RecipeName> steps;
+
+    /// The registry that the plan is using.
+    /// The registry must not move while the plan is in use.
+    /// Can't be const because we need to get_work_dir() on it, which may
+    /// create the work directory.
+    IndexRegistry* registry;
+};
+
+/**
  * An object that can record methods to produce indexes and design
  * workflows to create a set of desired indexes
  */
 class IndexRegistry {
 public:
+
+    // IndexingPlan can't be a child class, but it needs to be able to
+    // get_index, so it has to be a friend.
+    friend class IndexingPlan;
+
     /// Constructor
     IndexRegistry() = default;
     
@@ -163,7 +199,7 @@ protected:
     vector<IndexName> dependency_order() const;
     
     /// generate a plan to create the indexes
-    vector<RecipeName> make_plan(const vector<IndexName>& end_products) const;
+    IndexingPlan make_plan(const vector<IndexName>& end_products) const;
     
     /// access index file
     IndexFile* get_index(const IndexName& identifier);
@@ -205,6 +241,9 @@ public:
     /// Get the globally unique identifier for this index
     const IndexName& get_identifier() const;
     
+    /// Returns the suffix to be used for this index
+    const string& get_suffix() const;
+    
     /// Get the filename(s) that contain this index
     const vector<string>& get_filenames() const;
     
@@ -226,9 +265,8 @@ public:
     bool is_finished() const;
     
     /// Build the index using the recipe with the provided priority.
-    /// Expose the registry so we can query where the index (or other
-    /// co-generated indexes) needs to go.
-    void execute_recipe(size_t recipe_priority, const IndexRegistry* registry);
+    /// Expose the plan so that the recipe knows where it is supposed to go.
+    void execute_recipe(size_t recipe_priority, const IndexingPlan* plan);
     
     /// Returns true if the index was provided through provide method
     bool was_provided_directly() const;
@@ -258,7 +296,7 @@ struct IndexRecipe {
     IndexRecipe(const vector<const IndexFile*>& inputs,
                 const RecipeFunc& exec);
     // execute the recipe and return the filename(s) of the indexes created
-    vector<string> execute(const IndexRegistry* registry);
+    vector<string> execute(const IndexingPlan* plan);
     vector<const IndexFile*> inputs;
     RecipeFunc exec;
 };

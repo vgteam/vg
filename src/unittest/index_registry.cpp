@@ -37,71 +37,61 @@ TEST_CASE("IndexRegistry can make plans on a dummy recipe graph", "[indexregistr
     // make some dummy recipes that don't actually do anything
     registry.register_recipe({"VG"}, {{"FASTA"}, {"VCF"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const string& prefix,
-                                  const string& suffix) {
+                                  const IndexingPlan* plan) {
         vector<string> filename(1, "vg-file");
         return filename;
     });
     registry.register_recipe({"VG"}, {{"GFA"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const string& prefix,
-                                  const string& suffix) {
+                                  const IndexingPlan* plan) {
         vector<string> filename(1, "vg-file");
         return filename;
     });
     registry.register_recipe({"XG"}, {{"GFA"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const string& prefix,
-                                  const string& suffix) {
+                                  const IndexingPlan* plan) {
         vector<string> filename(1, "xg-file");
         return filename;
     });
     registry.register_recipe({"XG"}, {{"VG"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const string& prefix,
-                                  const string& suffix) {
+                                  const IndexingPlan* plan) {
         vector<string> filename(1, "xg-file");
         return filename;
     });
     registry.register_recipe({"Pruned VG"}, {{"VG"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const string& prefix,
-                                  const string& suffix) {
+                                  const IndexingPlan* plan) {
         vector<string> filenames{"pruned-vg-file"};
         return filenames;
     });
     registry.register_recipe({"GCSA", "LCP"}, {{"Pruned VG"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const string& prefix,
-                                  const string& suffix) {
+                                  const IndexingPlan* plan) {
         vector<string> filenames{"gcsa-file", "lcp-file"};
         return filenames;
     });
     registry.register_recipe({"Trivial Snarls"}, {{"XG"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const string& prefix,
-                                  const string& suffix) {
+                                  const IndexingPlan* plan) {
         vector<string> filenames(1, "snarls-file");
         return filenames;
     });
     registry.register_recipe({"Trivial Snarls"}, {{"VG"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const string& prefix,
-                                  const string& suffix) {
+                                  const IndexingPlan* plan) {
         vector<string> filenames(1, "snarls-file");
         return filenames;
     });
     registry.register_recipe({"Distance"}, {{"XG"}, {"Trivial Snarls"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const string& prefix,
-                                  const string& suffix) {
+                                  const IndexingPlan* plan) {
         vector<string> filenames(1, "dist-file");
         return filenames;
     });
     registry.register_recipe({"Distance"}, {{"VG"}, {"Trivial Snarls"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const string& prefix,
-                                  const string& suffix) {
+                                  const IndexingPlan* plan) {
         vector<string> filenames(1, "dist-file");
         return filenames;
     });
@@ -131,13 +121,13 @@ TEST_CASE("IndexRegistry can make plans on a dummy recipe graph", "[indexregistr
         // we now should have sufficient input to make this
         auto plan = registry.make_plan({{"XG"}});
         
-        REQUIRE(plan.size() == 2);
-        REQUIRE(plan[0].first.size() == 1);
-        REQUIRE(plan[0].first.count("VG"));
-        REQUIRE(plan[0].second == 0);
-        REQUIRE(plan[1].first.size() == 1);
-        REQUIRE(plan[1].first.count("XG"));
-        REQUIRE(plan[1].second == 1);
+        REQUIRE(plan.steps.size() == 2);
+        REQUIRE(plan.steps[0].first.size() == 1);
+        REQUIRE(plan.steps[0].first.count("VG"));
+        REQUIRE(plan.steps[0].second == 0);
+        REQUIRE(plan.steps[1].first.size() == 1);
+        REQUIRE(plan.steps[1].first.count("XG"));
+        REQUIRE(plan.steps[1].second == 1);
     }
     
     SECTION("Plans can select preferred recipes") {
@@ -147,10 +137,10 @@ TEST_CASE("IndexRegistry can make plans on a dummy recipe graph", "[indexregistr
         registry.provide({"GFA"}, "gfa-name");
         
         auto plan = registry.make_plan({{"XG"}});
-        REQUIRE(plan.size() == 1);
-        REQUIRE(plan[0].first.size() == 1);
-        REQUIRE(plan[0].first.count("XG"));
-        REQUIRE(plan[0].second == 0);
+        REQUIRE(plan.steps.size() == 1);
+        REQUIRE(plan.steps[0].first.size() == 1);
+        REQUIRE(plan.steps[0].first.count("XG"));
+        REQUIRE(plan.steps[0].second == 0);
     }
     
     SECTION("Plans can be made for multiple indexes") {
@@ -159,21 +149,21 @@ TEST_CASE("IndexRegistry can make plans on a dummy recipe graph", "[indexregistr
         registry.provide({"FASTA"}, "fasta-name");
         
         auto plan = registry.make_plan({{"XG"}, {"GCSA", "LCP"}});
-        REQUIRE(plan.size() == 4);
+        REQUIRE(plan.steps.size() == 4);
         
         // TODO: this is ugly, i should have just used a map
-        vector<int> which_item(plan.size(), -1);
-        for (int i = 0; i < plan.size(); ++i) {
-            if (plan[i].first.count("XG")) {
+        vector<int> which_item(plan.steps.size(), -1);
+        for (int i = 0; i < plan.steps.size(); ++i) {
+            if (plan.steps[i].first.count("XG")) {
                 which_item[0] = i;
             }
-            else if (plan[i].first.count("GCSA") && plan[i].first.count("LCP")) {
+            else if (plan.steps[i].first.count("GCSA") && plan.steps[i].first.count("LCP")) {
                 which_item[1] = i;
             }
-            else if (plan[i].first.count("Pruned VG")) {
+            else if (plan.steps[i].first.count("Pruned VG")) {
                 which_item[2] = i;
             }
-            else if (plan[i].first.count("VG")) {
+            else if (plan.steps[i].first.count("VG")) {
                 which_item[3] = i;
             }
         }
@@ -187,10 +177,10 @@ TEST_CASE("IndexRegistry can make plans on a dummy recipe graph", "[indexregistr
         REQUIRE(which_item[2] > which_item[3]);
         REQUIRE(which_item[1] > which_item[2]);
         // are they the recipes we expect?
-        REQUIRE(plan[which_item[0]].second == 1);
-        REQUIRE(plan[which_item[1]].second == 0);
-        REQUIRE(plan[which_item[2]].second == 0);
-        REQUIRE(plan[which_item[3]].second == 0);
+        REQUIRE(plan.steps[which_item[0]].second == 1);
+        REQUIRE(plan.steps[which_item[1]].second == 0);
+        REQUIRE(plan.steps[which_item[2]].second == 0);
+        REQUIRE(plan.steps[which_item[3]].second == 0);
     }
     
     SECTION("Midpoints of a pipeline can be provided directly") {
@@ -198,9 +188,9 @@ TEST_CASE("IndexRegistry can make plans on a dummy recipe graph", "[indexregistr
         registry.provide({"VG"}, "vg-name");
         
         auto plan = registry.make_plan({{"XG"}});
-        REQUIRE(plan.size() == 1);
-        REQUIRE(plan[0].first.count("XG"));
-        REQUIRE(plan[0].second == 1);
+        REQUIRE(plan.steps.size() == 1);
+        REQUIRE(plan.steps[0].first.count("XG"));
+        REQUIRE(plan.steps[0].second == 1);
     }
     
     SECTION("Impossible plans with some inputs available can be identified") {
