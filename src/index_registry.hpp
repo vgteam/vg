@@ -35,9 +35,9 @@ using RecipeName = pair<IndexName, size_t>;
 /**
  * Is a recipe to create the files (returned by name) associated with some
  * index, from a series of input indexes, given the plan it is being
- * generated for.
+ * generated for and the index being generated.
  */
-using RecipeFunc = function<vector<string>(const vector<const IndexFile*>&,const IndexingPlan*)>;
+using RecipeFunc = function<vector<string>(const vector<const IndexFile*>&,const IndexingPlan*,const IndexName&)>;
 
 /**
  * Is a recipe to create the files (returned by name) associated with some
@@ -296,7 +296,7 @@ struct IndexRecipe {
     IndexRecipe(const vector<const IndexFile*>& inputs,
                 const RecipeFunc& exec);
     // execute the recipe and return the filename(s) of the indexes created
-    vector<string> execute(const IndexingPlan* plan);
+    vector<string> execute(const IndexingPlan* plan, const IndexName& constructing);
     vector<const IndexFile*> inputs;
     RecipeFunc exec;
 };

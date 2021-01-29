@@ -37,61 +37,71 @@ TEST_CASE("IndexRegistry can make plans on a dummy recipe graph", "[indexregistr
     // make some dummy recipes that don't actually do anything
     registry.register_recipe({"VG"}, {{"FASTA"}, {"VCF"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const IndexingPlan* plan) {
+                                  const IndexingPlan* plan,
+                                  const IndexName& constructing) {
         vector<string> filename(1, "vg-file");
         return filename;
     });
     registry.register_recipe({"VG"}, {{"GFA"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const IndexingPlan* plan) {
+                                  const IndexingPlan* plan,
+                                  const IndexName& constructing) {
         vector<string> filename(1, "vg-file");
         return filename;
     });
     registry.register_recipe({"XG"}, {{"GFA"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const IndexingPlan* plan) {
+                                  const IndexingPlan* plan,
+                                  const IndexName& constructing) {
         vector<string> filename(1, "xg-file");
         return filename;
     });
     registry.register_recipe({"XG"}, {{"VG"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const IndexingPlan* plan) {
+                                  const IndexingPlan* plan,
+                                  const IndexName& constructing) {
         vector<string> filename(1, "xg-file");
         return filename;
     });
     registry.register_recipe({"Pruned VG"}, {{"VG"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const IndexingPlan* plan) {
+                                  const IndexingPlan* plan,
+                                  const IndexName& constructing) {
         vector<string> filenames{"pruned-vg-file"};
         return filenames;
     });
     registry.register_recipe({"GCSA", "LCP"}, {{"Pruned VG"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const IndexingPlan* plan) {
+                                  const IndexingPlan* plan,
+                                  const IndexName& constructing) {
         vector<string> filenames{"gcsa-file", "lcp-file"};
         return filenames;
     });
     registry.register_recipe({"Trivial Snarls"}, {{"XG"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const IndexingPlan* plan) {
+                                  const IndexingPlan* plan,
+                                  const IndexName& constructing) {
         vector<string> filenames(1, "snarls-file");
         return filenames;
     });
     registry.register_recipe({"Trivial Snarls"}, {{"VG"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const IndexingPlan* plan) {
+                                  const IndexingPlan* plan,
+                                  const IndexName& constructing) {
         vector<string> filenames(1, "snarls-file");
         return filenames;
     });
     registry.register_recipe({"Distance"}, {{"XG"}, {"Trivial Snarls"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const IndexingPlan* plan) {
+                                  const IndexingPlan* plan,
+                                  const IndexName& constructing) {
         vector<string> filenames(1, "dist-file");
         return filenames;
     });
     registry.register_recipe({"Distance"}, {{"VG"}, {"Trivial Snarls"}},
                              [&] (const vector<const IndexFile*>& inputs,
-                                  const IndexingPlan* plan) {
+                                  const IndexingPlan* plan,
+                                  const IndexName& constructing) {
         vector<string> filenames(1, "dist-file");
         return filenames;
     });
