@@ -94,7 +94,12 @@ struct VGIndexes {
  * A plan for producing indexes, which knows what should be saved and what should be ephemeral.
  * Wants to be nested inside IndexRegistry, but you can't forward-declare a nested class.
  */
-struct IndexingPlan {
+class IndexingPlan {
+
+public:
+    // The IndexRegistry is responsible for setting us up.
+    friend class IndexRegistry;
+
     /// Returns true if the given index is to be intermediate under the given
     /// plan, and false if it is to be preserved.
     bool is_intermediate(const IndexName& identifier) const;
@@ -106,13 +111,14 @@ struct IndexingPlan {
     /// Get the suffix with which to save the given index's files.
     string suffix(const IndexName& identifier) const;
     
-    /// The indexes to create as outputs.
-    set<IndexName> targets;
-    
     /// The steps to be invoked in the plan. May be empty before the plan is
     /// actually planned.
     vector<RecipeName> steps;
-
+    
+private:
+    /// The indexes to create as outputs.
+    set<IndexName> targets;
+    
     /// The registry that the plan is using.
     /// The registry must not move while the plan is in use.
     /// Can't be const because we need to get_work_dir() on it, which may
@@ -169,6 +175,10 @@ public:
     ///
     /// Joint recipes may also be used to generate single indexes if they have
     /// higher priority than other recipes.
+    ///
+    /// All output identifiers must be distinct, and there must be at least
+    /// one. Only one multi-index recipe can be applied to simplify the
+    /// production of any given index in a plan.
     void register_joint_recipe(const vector<IndexName>& identifiers,
                                const vector<IndexName>& input_identifiers,
                                const JointRecipeFunc& exec);

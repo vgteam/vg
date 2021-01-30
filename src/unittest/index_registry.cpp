@@ -161,36 +161,29 @@ TEST_CASE("IndexRegistry can make plans on a dummy recipe graph", "[indexregistr
         auto plan = registry.make_plan({{"XG"}, {"GCSA", "LCP"}});
         REQUIRE(plan.steps.size() == 4);
         
-        // TODO: this is ugly, i should have just used a map
-        vector<int> which_item(plan.steps.size(), -1);
-        for (int i = 0; i < plan.steps.size(); ++i) {
-            if (plan.steps[i].first.count("XG")) {
-                which_item[0] = i;
-            }
-            else if (plan.steps[i].first.count("GCSA") && plan.steps[i].first.count("LCP")) {
-                which_item[1] = i;
-            }
-            else if (plan.steps[i].first.count("Pruned VG")) {
-                which_item[2] = i;
-            }
-            else if (plan.steps[i].first.count("VG")) {
-                which_item[3] = i;
-            }
+        // Work out when everything is made 
+        map<IndexName, size_t> made_at_step;
+        for (size_t i = 0; i < plan.steps.size(); ++i) {
+            made_at_step[plan.steps[i].first] = i;
         }
         
-        // did we find them all?
-        for (int i = 0; i < which_item.size(); ++i) {
-            REQUIRE(which_item[i] != -1);
-        }
+        // Make sure we make what we want
+        REQUIRE(made_at_step.count({"VG"}));
+        REQUIRE(made_at_step.count({"XG"}));
+        REQUIRE(made_at_step.count({"Pruned VG"}));
+        REQUIRE(made_at_step.count({"GCSA", "LCP"}));
+        
         // are they in a feasible order?
-        REQUIRE(which_item[0] > which_item[3]);
-        REQUIRE(which_item[2] > which_item[3]);
-        REQUIRE(which_item[1] > which_item[2]);
+        REQUIRE(made_at_step.at({"XG"}) > made_at_step.at({"VG"}));
+        REQUIRE(made_at_step.at({"Pruned VG"}) > made_at_step.at({"VG"}));
+        REQUIRE(made_at_step.at({"GCSA", "LCP"}) > made_at_step.at({"Pruned VG"}));
+        
         // are they the recipes we expect?
-        REQUIRE(plan.steps[which_item[0]].second == 1);
-        REQUIRE(plan.steps[which_item[1]].second == 0);
-        REQUIRE(plan.steps[which_item[2]].second == 0);
-        REQUIRE(plan.steps[which_item[3]].second == 0);
+        REQUIRE(plan.steps[made_at_step.at({"VG"})].second == 0);
+        REQUIRE(plan.steps[made_at_step.at({"XG"})].second == 1);
+        REQUIRE(plan.steps[made_at_step.at({"Pruned VG"})].second == 0);
+        REQUIRE(plan.steps[made_at_step.at({"GCSA", "LCP"})].second == 0);
+        
     }
     
     SECTION("Midpoints of a pipeline can be provided directly") {
@@ -215,6 +208,48 @@ TEST_CASE("IndexRegistry can make plans on a dummy recipe graph", "[indexregistr
             caught = true;
         }
         REQUIRE(caught);
+    }
+    
+    // Now add a fake simplification
+    registry.register_joint_recipe({{"VG"}, {"XG"}}, {{"FASTA"}, {"VCF"}},
+                                   [&] (const vector<const IndexFile*>& inputs,
+                                        const IndexingPlan* plan) {
+    
+        vector<string> vg_filename(1, "vg-file");
+        vector<string> xg_filename(1, "xg-file");
+        return vector<vector<string>>{vg_filename, xg_filename};
+    });
+    
+    SECTION("Plans are simplified when appropriate") {
+        
+        registry.provide({"VCF"}, "vcf-name");
+        registry.provide({"FASTA"}, "fasta-name");
+        
+        auto plan = registry.make_plan({{"XG"}, {"GCSA", "LCP"}});
+        REQUIRE(plan.steps.size() == 4);
+        
+        // Work out when everything is made 
+        map<IndexName, size_t> made_at_step;
+        for (size_t i = 0; i < plan.steps.size(); ++i) {
+            made_at_step[plan.steps[i].first] = i;
+        }
+        
+        // Make sure we make what we want
+        REQUIRE(made_at_step.count({"VG"}));
+        REQUIRE(made_at_step.count({"XG"}));
+        REQUIRE(made_at_step.count({"Pruned VG"}));
+        REQUIRE(made_at_step.count({"GCSA", "LCP"}));
+        
+        // are they in a feasible order?
+        REQUIRE(made_at_step.at({"XG"}) > made_at_step.at({"VG"}));
+        REQUIRE(made_at_step.at({"Pruned VG"}) > made_at_step.at({"VG"}));
+        REQUIRE(made_at_step.at({"GCSA", "LCP"}) > made_at_step.at({"Pruned VG"}));
+        
+        // are they the recipes we expect?
+        REQUIRE(plan.steps[made_at_step.at({"VG"})].second == 2);
+        REQUIRE(plan.steps[made_at_step.at({"XG"})].second == 2);
+        REQUIRE(plan.steps[made_at_step.at({"Pruned VG"})].second == 0);
+        REQUIRE(plan.steps[made_at_step.at({"GCSA", "LCP"})].second == 0);
     }
 }
 

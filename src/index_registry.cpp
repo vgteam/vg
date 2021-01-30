@@ -997,7 +997,7 @@ vector<IndexName> IndexRegistry::dependency_order() const {
     
 #ifdef debug_index_registry
     for (const auto& identifier : ordered_identifiers) {
-        cerr << "\t" << identifier << endl;
+        cerr << "\t" << to_string(identifier) << endl;
     }
 #endif
     
@@ -1009,7 +1009,7 @@ IndexingPlan IndexRegistry::make_plan(const vector<IndexName>& end_products) con
 #ifdef debug_index_registry
     cerr << "generating plan for indexes:" << endl;
     for (const auto& product : end_products) {
-        cerr << "\t" << product << endl;
+        cerr << "\t" << to_string(product) << endl;
     }
 #endif
     
@@ -1024,7 +1024,7 @@ IndexingPlan IndexRegistry::make_plan(const vector<IndexName>& end_products) con
     set<RecipeName> plan_elements;
     for (const auto& product : end_products) {
 #ifdef debug_index_registry
-        cerr << "making a plan for end product " << product << endl;
+        cerr << "making a plan for end product " << to_string(product) << endl;
 #endif
         
         // records of (identifier, lowest level requester, ordinal index of recipe selected)
@@ -1163,7 +1163,7 @@ IndexingPlan IndexRegistry::make_plan(const vector<IndexName>& end_products) con
 #ifdef debug_index_registry
                     cerr << "advancing to recipe " << get<2>(plan_path.back()) << " for index " << to_string(identifier_order[get<0>(plan_path.back())]) << ", which requires";
                     for (auto input : recipe.inputs) {
-                        cerr << " " << input->get_identifier();
+                        cerr << " " << to_string(input->get_identifier());
                     }
                     cerr << endl;
 #endif
@@ -1186,9 +1186,9 @@ IndexingPlan IndexRegistry::make_plan(const vector<IndexName>& end_products) con
         }
         
 #ifdef debug_index_registry
-        cerr << "final plan path for index " << product << ":" << endl;
+        cerr << "final plan path for index " << to_string(product) << ":" << endl;
         for (auto path_elem : plan_path) {
-            cerr << "\t" << identifier_order[get<0>(path_elem)] << ", from " << (get<1>(path_elem) == identifier_order.size() ? "PLAN START" : to_string(identifier_order[get<1>(path_elem)])) << ", recipe " << get<2>(path_elem) << endl;
+            cerr << "\t" << to_string(identifier_order[get<0>(path_elem)]) << ", from " << (get<1>(path_elem) == identifier_order.size() ? "PLAN START" : to_string(identifier_order[get<1>(path_elem)])) << ", recipe " << get<2>(path_elem) << endl;
         }
 #endif
         
@@ -1217,11 +1217,141 @@ IndexingPlan IndexRegistry::make_plan(const vector<IndexName>& end_products) con
 #ifdef debug_index_registry
     cerr << "full plan including provided files:" << endl;
     for (auto plan_elem : plan.steps) {
-        cerr << "\t" << plan_elem.first << " " << plan_elem.second << endl;
+        cerr << "\t" << to_string(plan_elem.first) << " " << plan_elem.second << endl;
     }
 #endif
     
-    // and remove the input data from the plan
+    // Now simplify the plan by using joint recipes if possible.
+    
+    // First we need to know all the indexes being created, and when
+    map<IndexName, size_t> make_at_step;
+    for (size_t i = 0; i < plan.steps.size(); i++) {
+        make_at_step.emplace(plan.steps[i].first, i);
+    }
+    
+    // We also need to know what steps we've already simplified, or are inputs.
+    // We don't want to apply overlapping simplifications.
+    vector<bool> fixed_step(plan.steps.size(), false);
+    
+    for (size_t i = 0; i < plan.steps.size(); i++) {
+        auto& recipe = plan.steps.at(i);
+        if (get_index(recipe.first)->is_finished()) {
+            // This is already provided and ineligible for simplification.
+            fixed_step[i] = true;
+        }
+    }
+    
+    for (auto& simplification : simplifications) {
+        // For each set of output indexes from a simplification
+        
+#ifdef debug_index_registry
+        cerr << "Consider simplification to jointly make:" << endl;
+        for (auto& recipe: simplification.second) {
+            cerr << "\t" << to_string(recipe.first) << endl;
+        }
+#endif
+        
+        // Determine if we are making all the products of the simplification,
+        // and those products have not been involved in prior simplifications
+        bool making_all_products_unsimplified = true;
+        // And if so, the first step at which we are making any
+        size_t first_step = numeric_limits<size_t>::max();
+        for (auto& product_recipe : simplification.second) {
+            const IndexName& product_name = product_recipe.first;
+            
+            auto found = make_at_step.find(product_name);
+            if (found == make_at_step.end()) {
+                // We aren't making this product
+                
+#ifdef debug_index_registry
+                cerr << "We are not making " << to_string(product_name) << endl;
+#endif
+                
+                making_all_products_unsimplified = false;
+                break;
+            }
+            
+            if (fixed_step[found->second]) {
+                // We are making this product but we already simplified it or took it as input
+                
+#ifdef debug_index_registry
+                cerr << "We cannot further simplify making " << to_string(product_name) << endl;
+#endif
+                
+                making_all_products_unsimplified = false;
+                break;
+            }
+            
+#ifdef debug_index_registry
+            cerr << "We are making " << to_string(product_name) << " at step " << found->second << endl;
+#endif
+            
+            first_step = min(first_step, found->second);
+        }
+        
+        if (!making_all_products_unsimplified) {
+            // This simplification can't be used becuase it makes extra
+            // products, or products that are already simplified.
+            
+#ifdef debug_index_registry
+            cerr << "We are not making all the products for this simplification, or some products cannot be further simplified" << endl;
+#endif
+            
+            continue;
+        }
+        
+#ifdef debug_index_registry
+        cerr << "To simplify, all inputs will need to be available before step " << first_step << endl;
+#endif
+        
+        // See what we have available before the first step
+        set<IndexName> available_in_time;
+        for (size_t i = 0; i < first_step; i++) {
+            available_in_time.insert(plan.steps[i].first);
+        }
+        
+        // See if it's all the inputs the simplification needs
+        bool all_available = true;
+        for (auto& needed : simplification.first) {
+            if (!available_in_time.count(needed)) {
+#ifdef debug_index_registry
+                cerr << "We are not making " << to_string(needed) << " in time or at all." << endl;
+#endif
+                all_available = false;
+                break;
+            }
+        }
+        
+        if (!all_available) {
+            // This simplification can't be used because not all its inputs are available in time.
+            
+#ifdef debug_index_registry
+            cerr << "Not all inputs will be available in time." << endl;
+#endif
+            
+            continue;
+        }
+        
+#ifdef debug_index_registry
+        cerr << "All inputs will be available in time. Apply simplification!" << endl;
+#endif
+        
+        for (auto& recipe : simplification.second) {
+            // Replace each relevant step with the corresponding joint step for that index.
+            size_t step_to_simplify = make_at_step.at(recipe.first);
+            plan.steps.at(step_to_simplify) = recipe;
+            fixed_step[step_to_simplify] = true;
+        }
+    }
+    
+#ifdef debug_index_registry
+    cerr << "plan after simplification:" << endl;
+    for (auto plan_elem : plan.steps) {
+        cerr << "\t" << to_string(plan_elem.first) << " " << plan_elem.second << endl;
+    }
+#endif
+
+    // Now remove the input data from the plan
     plan.steps.resize(remove_if(plan.steps.begin(), plan.steps.end(), [&](const RecipeName& recipe_choice) {
         return get_index(recipe_choice.first)->is_finished();
     }) - plan.steps.begin());
