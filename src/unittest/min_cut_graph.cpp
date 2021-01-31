@@ -2,6 +2,7 @@
 ///  
 /// unit tests for min_cut_graph construction and utility functions
 ///
+#include <random>
 #include <xg.hpp>
 #include <stdio.h>
 #include <iostream>
@@ -835,9 +836,66 @@ namespace vg {
             }
 
         }
-        // TEST_CASE("min-cut-decompomposition works on a 1000 node graph", "[Min-cut-graph][MCG-Test10]") {
+        TEST_CASE("min-cut-decompomposition works on a 1000 node graph", "[Min-cut-graph][MCG-Test10]") {
+            Graph graph;
+            size_t max_nodes = 1000;
+            for(size_t i = 0; i<max_nodes; i++){
+                
+                //assign it a random edge weight using a rand num generator 
+                minstd_rand0 random_engine(seed);
+                discrete_distribution<int> dist(0, 1000);
+                int random_weight = dist(random_engine);
 
-        // }
+                //assign it an `other` -> next for forward , and prev for backward edge
+                //case 1 : first node
+                if(i == 0 ){
+                    Edge forward_edge;
+                    forward_edge.weight = random_weight;
+                    size_t next_node = i+1;
+                    forward_edge.other = next_node;
+                    Node node;
+                    node.edges.push_back(forward_edge);
+                    node.weight = random_weight; //only has one edge 
+                    graph.add_node(i,node);
+                }
+                //case 2: last node
+                else if (i ==max_nodes -1){
+                    Edge backward_edge;
+                    size_t prev_node_id = i-1;
+                    backward_edge.other = prev_node_id;
+                    Node prev_node = graph.get_node_by_id(prev_node_id);
+                    //get the prev node edge weight going into current weight by checking which of the edges has `other` equal to current 
+                    size_t prev_node_weight = graph.get_weight_using_other(prev_node, i);
+                    backward_edge.weight = prev_node_weight;
+                    Node node;
+                    node.edges.push_back(backward_edge);
+                    node.weight = prev_node_weight;
+                    graph.add_node(i,node);
+                }
+
+                //case 3: middle node
+                else{
+                    Edge forward_edge, backward_edge;//outward edges from node <-()->
+                    Node node;
+                   
+                    forward_edge.weight = random_weight;
+                    size_t prev_node_id = i-1;
+                    size_t next_node_id = i+1;
+                    backward_edge.other = prev_node_id;
+                    forward_edge.other = next_node_id;
+                    Node prev_node = graph.get_node_by_id(prev_node_id);
+                    size_t prev_node_weight = graph.get_weight_using_other(prev_node, i);
+                    backward_edge.weight = prev_node_weight;
+                    node.edges.push_back(backward_edge);
+                    node.edges.push_back(forward_edge);
+                    node.weight = prev_node_weight + random_weight;
+                    graph.add_node(i,node);
+
+                }
+                
+            }
+
+        }
 
     }
 

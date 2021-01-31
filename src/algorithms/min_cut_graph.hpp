@@ -55,6 +55,17 @@ namespace vg {
                 nodes.emplace(id, node);
             }
 
+            inline size_t get_weight_using_other(Node prev_node, size_t other){
+                size_t to_return;
+                for(size_t i = 0; i < prev_node.edges.size(); i++){
+                    if(prev_node.edges[i].other == other){
+                        to_return = prev_node.edges[i].weight;
+                    }
+                }
+                return to_return;
+
+            }
+
         }; 
 
         pair<vector<unordered_set<size_t>>, size_t> kargers_min_cut(Graph graph, const int n_iterations, const int seed);
