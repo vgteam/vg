@@ -43,6 +43,18 @@ namespace vg {
 
             }
 
+            inline size_t get_size(){
+                return nodes.size();
+            }
+
+            inline Node get_node_by_id(size_t node_id){
+                return nodes.at(node_id); 
+            }
+
+            inline void add_node(size_t id, Node node){
+                nodes.emplace(id, node);
+            }
+
         }; 
 
         pair<vector<unordered_set<size_t>>, size_t> kargers_min_cut(Graph graph, const int n_iterations, const int seed);

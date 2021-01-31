@@ -24,7 +24,6 @@ namespace vg {
 
         const int seed = 0;
         const int n_iterations = 100;
-        // vg test "[Test1]"
         TEST_CASE("Can find a min-cut on a 4 node graph","[Min-cut-graph][Test1]") {
             
             
@@ -191,52 +190,52 @@ namespace vg {
             //node 0
             node0.edges.push_back(edge01);
             node0.edges.push_back(edge02);
-            node0.weight = 3;
+            node0.weight = 300;
 
 
             //node 1
             node1.edges.push_back(edge10);
             node1.edges.push_back(edge12);
-            node1.weight = 5;
+            node1.weight = 500;
 
             //node 2
             node2.edges.push_back(edge20);
             node2.edges.push_back(edge21);
             node2.edges.push_back(edge23);
             node2.edges.push_back(edge24);
-            node2.weight = 14;
+            node2.weight = 905;
 
             //node 3
             node3.edges.push_back(edge32);
-            node3.weight = 3;
+            node3.weight = 300;
 
             //node4
             node4.edges.push_back(edge42);
             node4.edges.push_back(edge45);
             node4.edges.push_back(edge47);
-            node4.weight = 10;
+            node4.weight = 505;
 
             //node5
             node5.edges.push_back(edge54);
             node5.edges.push_back(edge56);
             node5.edges.push_back(edge58);
-            node5.weight = 16;
+            node5.weight = 1600;
             
             //node6
             node6.edges.push_back(edge65);
             node6.edges.push_back(edge67);
-            node6.weight = 9;
+            node6.weight = 900;
             
             //node7
             node7.edges.push_back(edge74);
             node7.edges.push_back(edge76);
             node7.edges.push_back(edge78);
-            node7.weight = 4;
+            node7.weight = 400;
 
             //node8
             node8.edges.push_back(edge85);
             node8.edges.push_back(edge87);
-            node8.weight = 6;
+            node8.weight = 600;
             
             graph.nodes.emplace(0,node0);
             graph.nodes.emplace(1,node1);
@@ -502,7 +501,7 @@ namespace vg {
     
         }
 
-        TEST_CASE("SparseUnionFind can work with non-consecutive node ids", "[SparseUnionFind]") {
+        TEST_CASE("SparseUnionFind can work with non-consecutive node ids", "[SparseUnionFind][MCG-Test8]") {
 
 
             /* Let us create following undirected, weighted graph  
@@ -647,6 +646,198 @@ namespace vg {
 
     
         }
+        TEST_CASE("min-cut-decompomposition works on a 9 node graph", "[Min-cut-graph][MCG-Test9]") {
+            
+            
+       
+            Graph graph; 
+            Edge edge01, edge02, edge10, edge12, edge20, edge21, edge23, edge24, edge32, edge42, edge45, edge47, edge54, edge56, edge58, edge65, edge67, edge74, edge76, edge78, edge85, edge87; //naming convention edge:source:destination
+            Node node0, node1, node2, node3, node4, node5, node6, node7, node8;
+            
+            //weights
+            edge01.weight = 100;
+            edge02.weight = 200;
+            edge10.weight = 100;
+            edge12.weight = 400;
+            edge20.weight = 200;
+            edge21.weight = 400;
+            edge23.weight = 300;
+            edge24.weight = 5;
+            edge32.weight = 300;
+            edge42.weight = 5;
+            edge45.weight = 400;
+            edge47.weight = 100;
+            edge54.weight = 400;
+            edge56.weight = 700;
+            edge58.weight = 500;
+            edge65.weight = 700;
+            edge67.weight = 200;
+            edge74.weight = 100;
+            edge76.weight = 200;
+            edge78.weight = 100;
+            edge85.weight = 500;
+            edge87.weight= 100;
+
+            //other 
+            edge01.other = 1;
+            edge02.other = 2;
+            edge10.other = 0;
+            edge12.other = 2;
+            edge20.other = 0;
+            edge21.other = 1;
+            edge23.other = 3;
+            edge24.other = 4;
+            edge32.other = 2;
+            edge42.other = 2;
+            edge45.other = 5;
+            edge47.other = 7;
+            edge54.other = 4;
+            edge56.other = 6;
+            edge58.other = 8;
+            edge65.other = 5;
+            edge67.other = 7;
+            edge74.other = 4;
+            edge76.other = 6;
+            edge78.other = 8;
+            edge85.other = 5;
+            edge87.other = 7;
+
+
+            //node 0
+            node0.edges.push_back(edge01);
+            node0.edges.push_back(edge02);
+            node0.weight = 300;
+
+
+            //node 1
+            node1.edges.push_back(edge10);
+            node1.edges.push_back(edge12);
+            node1.weight = 500;
+
+            //node 2
+            node2.edges.push_back(edge20);
+            node2.edges.push_back(edge21);
+            node2.edges.push_back(edge23);
+            node2.edges.push_back(edge24);
+            node2.weight = 905;
+
+            //node 3
+            node3.edges.push_back(edge32);
+            node3.weight = 300;
+
+            //node4
+            node4.edges.push_back(edge42);
+            node4.edges.push_back(edge45);
+            node4.edges.push_back(edge47);
+            node4.weight = 505;
+
+            //node5
+            node5.edges.push_back(edge54);
+            node5.edges.push_back(edge56);
+            node5.edges.push_back(edge58);
+            node5.weight = 1600;
+            
+            //node6
+            node6.edges.push_back(edge65);
+            node6.edges.push_back(edge67);
+            node6.weight = 900;
+            
+            //node7
+            node7.edges.push_back(edge74);
+            node7.edges.push_back(edge76);
+            node7.edges.push_back(edge78);
+            node7.weight = 400;
+
+            //node8
+            node8.edges.push_back(edge85);
+            node8.edges.push_back(edge87);
+            node8.weight = 600;
+            
+            graph.nodes.emplace(0,node0);
+            graph.nodes.emplace(1,node1);
+            graph.nodes.emplace(2,node2);
+            graph.nodes.emplace(3,node3);
+            graph.nodes.emplace(4,node4);
+            graph.nodes.emplace(5,node5);
+            graph.nodes.emplace(6,node6);
+            graph.nodes.emplace(7,node7);
+            graph.nodes.emplace(8,node8);
+        
+            //call min-cut-decomposition
+            vector<unordered_set<size_t>> to_recv =  min_cut_decomposition(graph, n_iterations, seed);
+            
+            REQUIRE(to_recv.size() == 7); //Gamma has 7 sets 
+         
+            unordered_set<size_t> set1 = {8,7,6,5,4};
+            REQUIRE(to_recv[0].size()==5); 
+            for (auto& x:to_recv[0] ) {
+
+                REQUIRE(set1.count(x)==1);
+#ifdef debug
+                cout << "set1 has" << x <<endl;
+#endif       
+            }
+
+            unordered_set<size_t> set2 = {0,1,2,3};
+            REQUIRE(to_recv[1].size()==4); 
+            for (auto& x:to_recv[1] ) {
+
+                REQUIRE(set2.count(x)==1);
+#ifdef debug
+                cout << "set2 has" << x <<endl;
+#endif       
+            }
+
+            unordered_set<size_t> set3 = {7,6,5,4};
+            REQUIRE(to_recv[2].size()==4); 
+            for (auto& x:to_recv[2] ) {
+
+                REQUIRE(set3.count(x)==1);
+#ifdef debug
+                cout << "set3 has" << x <<endl;
+#endif       
+            }
+            unordered_set<size_t> set4 = {6,5,4};
+            REQUIRE(to_recv[3].size()==3); 
+            for (auto& x:to_recv[3] ) {
+
+                REQUIRE(set4.count(x)==1);
+#ifdef debug
+                cout << "set4 has" << x <<endl;
+#endif       
+            }
+            unordered_set<size_t> set5 = {6,5};
+            REQUIRE(to_recv[4].size()==2); 
+            for (auto& x:to_recv[4] ) {
+
+                REQUIRE(set5.count(x)==1);
+#ifdef debug
+                cout << "set5 has" << x <<endl;
+#endif       
+            }
+            unordered_set<size_t> set6 = {1,2,3};
+            REQUIRE(to_recv[5].size()==3);  
+            for (auto& x:to_recv[5] ) {
+
+                REQUIRE(set6.count(x)==1);
+#ifdef debug
+                cout << "set6 has" << x <<endl;
+#endif       
+            }
+            unordered_set<size_t> set7 = {1,2};
+            REQUIRE(to_recv[6].size()==2); 
+            for (auto& x:to_recv[6] ) {
+
+                REQUIRE(set7.count(x)==1);
+#ifdef debug
+                cout << "set7 has" << x <<endl;
+#endif       
+            }
+
+        }
+        // TEST_CASE("min-cut-decompomposition works on a 1000 node graph", "[Min-cut-graph][MCG-Test10]") {
+
+        // }
 
     }
 
