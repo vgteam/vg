@@ -108,10 +108,11 @@ namespace vg {
             REQUIRE(mincut == 10);
             REQUIRE(disjoint_sets.size() == 2);
 
-            unordered_set<size_t> set1 = {0,1,3};
-            unordered_set<size_t> set2 = {2};
+            
+            unordered_set<size_t> set1 = {2};
+            unordered_set<size_t> set2 = {0,1,3};
 
-            REQUIRE(disjoint_sets[0].size() == 3); 
+            REQUIRE(disjoint_sets[0].size() == 1); 
             for (auto& x:disjoint_sets[0] ) {
 
                 REQUIRE(set1.count(x)==1);
@@ -119,7 +120,7 @@ namespace vg {
                 cout << "set1 has" << x <<endl;
 #endif    
             }
-            REQUIRE(disjoint_sets[1].size() == 1);
+            REQUIRE(disjoint_sets[1].size() == 3);
             for (auto& x:disjoint_sets[1] ) {
 
                 REQUIRE(set2.count(x)==1);
@@ -256,10 +257,11 @@ namespace vg {
             REQUIRE(mincut == 5);
             REQUIRE(disjoint_sets.size() == 2);
 
-            unordered_set<size_t> set1 = {0,1,2,3};
-            unordered_set<size_t> set2 = {8,7,6,5,4};
+            
+            unordered_set<size_t> set1 = {8,7,6,5,4};
+            unordered_set<size_t> set2 = {0,1,2,3};
 
-            REQUIRE(disjoint_sets[0].size() == 4); 
+            REQUIRE(disjoint_sets[0].size() == 5); 
             for (auto& x:disjoint_sets[0] ) {
 
                 REQUIRE(set1.count(x)==1);
@@ -267,7 +269,7 @@ namespace vg {
                 cout << "set1 has" << x <<endl;
 #endif 
             }
-            REQUIRE(disjoint_sets[1].size() == 5);
+            REQUIRE(disjoint_sets[1].size() == 4);
             for (auto& x:disjoint_sets[1] ) {
 
                 REQUIRE(set2.count(x)==1);
@@ -324,7 +326,7 @@ namespace vg {
             
  
         }
-        TEST_CASE("Can find a min-cut on a 0 node graph, 0 edges","[Min-cut-graph][Test4]") {
+        TEST_CASE("Can find a min-cut on a 0 node graph with 0 edges","[Min-cut-graph][Test4]") {
                 
             
             Graph graph; 
@@ -341,7 +343,7 @@ namespace vg {
             
     
         }
-        TEST_CASE("Can find a min-cut on a 2 node graph, 0 edges", "[Min-cut-graph][Test5]") {
+        TEST_CASE("Can find a min-cut on a 2 node graph with 0 edges", "[Min-cut-graph][Test5]") {
                 
             
             Graph graph; 
@@ -369,11 +371,11 @@ namespace vg {
             REQUIRE(disjoint_sets.empty() == true);
     
         }
-        TEST_CASE("Can find a min-cut on a 4 node graph, 0 edges", "[Min-cut-graph][Test6]") {
+        TEST_CASE("Can find a min-cut on a 4 node graph with 0 edges", "[Min-cut-graph][Test6]") {
                 
             Graph graph; 
             Node node0, node1, node2, node3;
-            size_t V = 4; //size of nodes
+
 
             //node 0
             node0.weight = 0;
@@ -417,7 +419,7 @@ namespace vg {
             Graph graph; 
             Edge edge01,edge10,edge02,edge20,edge03,edge30,edge23,edge32,edge13,edge31; //naming convention edge:source:destination
             Node node0, node1, node2, node3;
-            size_t V = 4; //size of nodes
+
             //weights
             edge01.weight = 10;
             edge10.weight = 10;
@@ -478,7 +480,8 @@ namespace vg {
             
             unordered_set<size_t> truth_set1 = {1,3,0};
             unordered_set<size_t> truth_set2 = {1,3};
-            REQUIRE(to_recv[0].size()==3);
+            REQUIRE(to_recv.size()==2); // Gamma has 2 sets 
+            REQUIRE(to_recv[0].size()==3); // first set has 3 elements 
             for (auto& x:to_recv[0] ) {
 
                 REQUIRE(truth_set1.count(x)==1);
@@ -488,7 +491,7 @@ namespace vg {
             }
     
         
-            REQUIRE(to_recv[1].size()==2);
+            REQUIRE(to_recv[1].size()==2); //second set has 2 elements 
             for (auto& x:to_recv[1] ) {
 
                 REQUIRE(truth_set2.count(x)==1);
