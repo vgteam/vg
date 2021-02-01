@@ -11,7 +11,8 @@
 #include "catch.hpp"
 #include <unordered_set>
 #include "sparse_union_find.hpp"
-
+#include <stdlib.h>     
+#include <time.h>      
 #define debug
 
 namespace vg {
@@ -842,10 +843,13 @@ namespace vg {
             for(size_t i = 0; i<max_nodes; i++){
                 
                 //assign it a random edge weight using a rand num generator 
-                minstd_rand0 random_engine(seed);
-                discrete_distribution<int> dist(0, 1000);
-                int random_weight = dist(random_engine);
-
+                
+                int random_weight = rand() % 1000;    
+#ifdef debug
+                cout << "============================================================================= " << endl;
+                cout << "random weight" << random_weight << endl;        
+                cout << "============================================================================= " << endl;
+#endif  
                 //assign it an `other` -> next for forward , and prev for backward edge
                 //case 1 : first node
                 if(i == 0 ){
@@ -885,6 +889,11 @@ namespace vg {
                     forward_edge.other = next_node_id;
                     Node prev_node = graph.get_node_by_id(prev_node_id);
                     size_t prev_node_weight = graph.get_weight_using_other(prev_node, i);
+ #ifdef debug
+                cout << "============================================================================= " << endl;
+                cout << "prev weight" << prev_node_weight << endl;        
+                cout << "============================================================================= " << endl;
+#endif 
                     backward_edge.weight = prev_node_weight;
                     node.edges.push_back(backward_edge);
                     node.edges.push_back(forward_edge);
@@ -894,6 +903,22 @@ namespace vg {
                 }
                 
             }
+
+ #ifdef debug
+                cout << "============================================================================= " << endl;
+                cout << "original graph" <<endl;        
+                for (auto& id_and_node : graph.nodes){
+                
+                    cout << "Node: "<<id_and_node.first  << ",weight: "<< id_and_node.second.weight <<endl; 
+                    for (size_t j = 0; j < id_and_node.second.edges.size(); j++){
+                        cout << "edge "<< id_and_node.first  << "->" << id_and_node.second.edges[j].other <<", weight: " << id_and_node.second.edges[j].weight << endl;
+                    }                       
+                } 
+                
+                cout << "============================================================================= " << endl;
+#endif             
+                //call min-cut-decomposition
+            vector<unordered_set<size_t>> to_recv =  min_cut_decomposition(graph, n_iterations, seed);
 
         }
 
