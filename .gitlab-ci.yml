@@ -4,7 +4,8 @@
 # So we either have to genuinely nest Docker inside another Docker, or we have to run the build on the real host.
 
 # Pull in an image that has our apt packages pre-installed, to save time installing them for every test.
-image: quay.io/vgteam/vg_ci_prebake
+# Make sure to use :latest so we re-check and re-pull if needed on every run.
+image: quay.io/vgteam/vg_ci_prebake:latest
 
 before_script:
   - sudo apt-get -q -y update
