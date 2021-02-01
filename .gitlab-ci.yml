@@ -50,6 +50,20 @@ local-build-test-job:
       - obj/
   before_script:
     - sudo apt-get -q -y update
+    # We need to make sure we get the right submodule files for this version
+    # and don't clobber sources with the cache. We want to have a dirty state
+    # with the correct source files.
+    - if [[ -e deps ]]; then mv deps deps_cached; fi
+    - mkdir -p deps_cached
+    - git submodule update --init --recursive
+    - rsync -rv --links --checksum deps/ deps_cached/
+    - rm -Rf deps
+    # Keep the cached deps if the right compiler version was used.
+    # Otherwise start fresh
+    - if [[ -e "deps_cached/gcc$(gcc -dumpversion)" ]]; then mv deps_cached deps; fi
+    - rm -Rf deps_cached
+    - mkdir -p deps; touch "deps/gcc$(gcc -dumpversion)"
+    - git submodule update --init --recursive
   script:
     - python ./configure.py
     - source ./source_me.sh
@@ -62,7 +76,7 @@ local-build-test-job:
     - make static -j8
   variables:
     VG_FULL_TRACEBACK: "1"
-    GIT_SUBMODULE_STRATEGY: recursive
+    GIT_SUBMODULE_STRATEGY: none
 
 
 # We define one job to do the Docker container build
