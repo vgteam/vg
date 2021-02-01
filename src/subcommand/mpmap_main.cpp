@@ -240,7 +240,7 @@ int main_mpmap(int argc, char** argv) {
     bool report_group_mapq = false;
     double band_padding_multiplier = 1.0;
     int max_dist_error = 12;
-    int default_num_alt_alns = 10;
+    int default_num_alt_alns = 16;
     int num_alt_alns = default_num_alt_alns;
     bool agglomerate_multipath_alns = false;
     double suboptimal_path_exponent = 1.25;
@@ -801,6 +801,15 @@ int main_mpmap(int argc, char** argv) {
         }
     }
     
+    if (optind != argc) {
+        cerr << "error:[vg mpmap] Unused positional argument(s):";
+        for (int i = optind; i < argc; ++i) {
+            cerr << " " << argv[i];
+        }
+        cerr << endl;
+        exit(1);
+    }
+    
     // normalize capitalization on preset options
     if (read_length == "Long" || read_length == "LONG") {
         read_length = "long";
@@ -826,23 +835,22 @@ int main_mpmap(int argc, char** argv) {
         error_rate = "high";
     }
     
-    // normalize capitalization
-    if (out_format == "gamp") {
+    if (out_format == "gamp" || out_format == "Gamp") {
         out_format = "GAMP";
     }
-    if (out_format == "gam") {
+    else if (out_format == "gam" || out_format == "Gam") {
         out_format = "GAM";
     }
-    if (out_format == "gaf") {
+    else if (out_format == "gaf" || out_format == "Gaf") {
         out_format = "GAF";
     }
-    if (out_format == "sam") {
+    else if (out_format == "sam" || out_format == "Sam") {
         out_format = "SAM";
     }
-    if (out_format == "bam") {
+    else if (out_format == "bam" || out_format == "Bam") {
         out_format = "BAM";
     }
-    if (out_format == "cram") {
+    else if (out_format == "cram" || out_format == "Cram") {
         out_format = "CRAM";
     }
     
@@ -919,6 +927,8 @@ int main_mpmap(int argc, char** argv) {
             // we'll allow multicomponent alignments so that the two sides of a shRNA
             // can be one alignment
             suppress_multicomponent_splitting = true;
+            // miRNA aren't spliced like mRNA
+            do_spliced_alignment = false;
         }
     }
     else if (nt_type != "dna") {

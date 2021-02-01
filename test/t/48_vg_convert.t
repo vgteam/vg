@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 26
+plan tests 30
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -166,3 +166,24 @@ diff floating-ins.gaf floating-ins2.gaf
 is "$?" 0 "convert gam->gaf->gam->gaf makes same gaf each time of floating insertion alignment" 
 
 rm -f floating-ins.pg floating-ins.gam floating-ins.gaf gam.sequence gam2.sequence floating-ins2.gaf
+
+vg convert -g tiny/tiny.gfa | vg view - | sort > tiny.gfa.gfa
+vg convert -g tiny/tiny.rgfa | vg view - | sort > tiny.rgfa.gfa
+diff tiny.gfa.gfa tiny.rgfa.gfa
+is "$?" 0 "converting gfa and equivalent rgfa produces same output"
+
+rm -f tiny.gfa.gfa tiny.rgfa.gfa
+
+is "$(vg convert -g tiny/tiny.rgfa -r 1 | vg view - | grep y | awk '{print $1","$2","$3}')" "P,y[35],2+" "rank-1 rgfa subpath found"
+
+vg convert -g tiny/tiny.rgfa -T gfa-id-mapping.tsv > /dev/null
+grep ^S tiny/tiny.rgfa  | awk '{print $2}' | sort > rgfa_nodes
+grep ^S tiny/tiny.gfa  | awk '{print $2}' | sort > gfa_nodes
+awk '{print $2}' gfa-id-mapping.tsv | sort > rgfa_translated_nodes
+awk '{print $3}' gfa-id-mapping.tsv | sort > gfa_translated_nodes
+diff rgfa_nodes rgfa_translated_nodes
+is "$?" 0 "2nd column of gfa id translation file contains all rgfa nodes"
+diff gfa_nodes gfa_translated_nodes
+is "$?" 0 "3rd column of gfa id translation file contains all gfa nodes"
+
+rm -f  gfa-id-mapping.tsv rgfa_nodes gfa_nodes rgfa_translated_nodes gfa_translated_nodes

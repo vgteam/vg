@@ -2,7 +2,6 @@
 #include "../vg.hpp"
 #include "../utility.hpp"
 #include "xg.hpp"
-#include "../algorithms/copy_graph.hpp"
 #include "../algorithms/gfa_to_handle.hpp"
 #include "../io/save_handle_graph.hpp"
 #include <vg/io/stream.hpp>
@@ -22,15 +21,20 @@ using namespace vg::io;
 
 void help_convert(char** argv) {
     cerr << "usage: " << argv[0] << " convert [options] <input-graph>" << endl
-         << "output options:" << endl
+         << "input options:" << endl
          << "    -g, --gfa-in           input in GFA format" << endl
+         << "    -r, --in-rgfa-rank N   import rgfa tags with rank <= N as paths [default=0]"
+         << "output options:" << endl
          << "    -v, --vg-out           output in VG format [default]" << endl
          << "    -a, --hash-out         output in HashGraph format" << endl
          << "    -p, --packed-out       output in PackedGraph format" << endl
          << "    -x, --xg-out           output in XG format" << endl
          << "    -o, --odgi-out         output in ODGI format" << endl
+         << "    -T, --gfa-trans FILE   write gfa id conversions to FILE" << endl
+         << "alignment options:" << endl
          << "    -G, --gam-to-gaf FILE  convert GAM FILE to GAF" << endl
          << "    -F, --gaf-to-gam FILE  convert GAF FILE to GAM" << endl
+         << "general options:" << endl
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;    
 }
 
@@ -38,6 +42,8 @@ int main_convert(int argc, char** argv) {
 
     string output_format;
     bool input_gfa = false;
+    int64_t input_rgfa_rank = 0;
+    string gfa_trans_path;
     string input_aln;
     bool gam_to_gaf = false;
     bool gaf_to_gam = false;
@@ -54,11 +60,13 @@ int main_convert(int argc, char** argv) {
         {
             {"help", no_argument, 0, 'h'},
             {"gfa-in", no_argument, 0, 'g'},
+            {"in-rgfa-rank", required_argument, 0, 'r'},
             {"vg-out", no_argument, 0, 'v'},
             {"hash-out", no_argument, 0, 'a'},
             {"packed-out", no_argument, 0, 'p'},
             {"xg-out", no_argument, 0, 'x'},
             {"odgi-out", no_argument, 0, 'o'},
+            {"gfa-trans", required_argument, 0, 'T'},
             {"gam-to-gaf", required_argument, 0, 'G'},
             {"gaf-to-gam", required_argument, 0, 'F'},
             {"threads", required_argument, 0, 't'},
@@ -66,7 +74,7 @@ int main_convert(int argc, char** argv) {
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hgvxapxoG:F:t:",
+        c = getopt_long (argc, argv, "hgr:vxapxoT:G:F:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -83,6 +91,9 @@ int main_convert(int argc, char** argv) {
         case 'g':
             input_gfa = true;
             break;
+        case 'r':
+            input_rgfa_rank = stol(optarg);
+            break;
         case 'v':
             output_format = "vg";
             break;
@@ -97,6 +108,9 @@ int main_convert(int argc, char** argv) {
             break;
         case 'o':
             output_format = "odgi";
+            break;
+        case 'T':
+            gfa_trans_path = optarg;
             break;
         case 'G':
             input_aln = optarg;
@@ -119,6 +133,11 @@ int main_convert(int argc, char** argv) {
         default:
             abort();
         }
+    }
+
+    if (!gfa_trans_path.empty() && !input_gfa) {
+        cerr << "error [vg convert]: -T can only be used with -g" << endl;
+        return 1;
     }
 
     // with -F or -G we convert an alignment and not a graph
@@ -190,18 +209,23 @@ int main_convert(int argc, char** argv) {
             dynamic_cast<xg::XG*>(output_graph.get())->from_gfa(input_stream_name);
         }
         else {
+            if (input_stream_name == "-") {
+                cerr << "warning [vg convert]: Converting a GFA to an indexed sequence graph from piped input can be memory intensive because the entire GFA must be loaded into memory. If memory usage is too high, consider serializing the GFA to disk to allow multiple passes over the file." << endl;
+            }
             try {
                 if (output_path_graph != nullptr) {
                     MutablePathMutableHandleGraph* mutable_output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(output_path_graph);
                     assert(mutable_output_graph != nullptr);
                     algorithms::gfa_to_path_handle_graph(input_stream_name, mutable_output_graph,
-                                                         input_stream_name != "-", output_format == "odgi");
+                                                         input_stream_name != "-", output_format == "odgi",
+                                                         input_rgfa_rank, gfa_trans_path);
                 }
                 else {
                     MutableHandleGraph* mutable_output_graph = dynamic_cast<MutableHandleGraph*>(output_graph.get());
                     assert(mutable_output_graph != nullptr);
                     algorithms::gfa_to_handle_graph(input_stream_name, mutable_output_graph,
-                                                    input_stream_name != "-", false);
+                                                    input_stream_name != "-", false,
+                                                    gfa_trans_path);
                 }
             } catch (algorithms::GFAFormatError& e) {
                 cerr << "error [vg convert]: Input GFA is not acceptable." << endl;
@@ -235,7 +259,7 @@ int main_convert(int argc, char** argv) {
             assert(mutable_output_graph != nullptr);
             // ID hint (currently only for odgi)
             mutable_output_graph->set_id_increment(input_graph->min_node_id());
-            algorithms::copy_path_handle_graph(input_path_graph, mutable_output_graph);
+            handlealgs::copy_path_handle_graph(input_path_graph, mutable_output_graph);
         }
         else {
             if (input_path_graph != nullptr) {
@@ -245,7 +269,7 @@ int main_convert(int argc, char** argv) {
             assert(mutable_output_graph != nullptr);
             // ID hint (currently only for odgi)
             mutable_output_graph->set_id_increment(input_graph->min_node_id());
-            algorithms::copy_handle_graph(input_graph.get(), mutable_output_graph);
+            handlealgs::copy_handle_graph(input_graph.get(), mutable_output_graph);
         }
     }
     

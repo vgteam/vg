@@ -5,8 +5,9 @@
  * One stop shop for libhandlegraph types and things we need to work with them.
  */
 
+#include <handlegraph/util.hpp>
+
 #include <handlegraph/handle_graph.hpp>
-#include <handlegraph/serializable_handle_graph.hpp>
 #include <handlegraph/mutable_handle_graph.hpp>
 #include <handlegraph/path_handle_graph.hpp>
 #include <handlegraph/path_position_handle_graph.hpp>
@@ -14,8 +15,29 @@
 #include <handlegraph/mutable_path_mutable_handle_graph.hpp>
 #include <handlegraph/deletable_handle_graph.hpp>
 #include <handlegraph/mutable_path_deletable_handle_graph.hpp>
-#include <handlegraph/util.hpp>
+
 #include <handlegraph/expanding_overlay_graph.hpp>
+#include <handlegraph/serializable_handle_graph.hpp>
+
+#include <handlegraph/algorithms/append_graph.hpp>
+#include <handlegraph/algorithms/apply_orientations.hpp>
+#include <handlegraph/algorithms/are_equivalent.hpp>
+#include <handlegraph/algorithms/copy_graph.hpp>
+#include <handlegraph/algorithms/count_walks.hpp>
+#include <handlegraph/algorithms/dagify.hpp>
+#include <handlegraph/algorithms/dijkstra.hpp>
+#include <handlegraph/algorithms/eades_algorithm.hpp>
+#include <handlegraph/algorithms/extend.hpp>
+#include <handlegraph/algorithms/find_shortest_paths.hpp>
+#include <handlegraph/algorithms/find_tips.hpp>
+#include <handlegraph/algorithms/is_acyclic.hpp>
+#include <handlegraph/algorithms/reverse_complement.hpp>
+#include <handlegraph/algorithms/split_strands.hpp>
+#include <handlegraph/algorithms/strongly_connected_components.hpp>
+#include <handlegraph/algorithms/topological_sort.hpp>
+#include <handlegraph/algorithms/unchop.hpp>
+#include <handlegraph/algorithms/weakly_connected_components.hpp>
+
 
 #include "hash_map.hpp"
 #include <vg/vg.pb.h>
@@ -24,6 +46,8 @@
 namespace vg {
 
 using namespace std;
+
+namespace handlealgs = handlegraph::algorithms;
 
 // Import all the handle stuff into the vg namespace for transition purposes.
 using handle_t = handlegraph::handle_t;

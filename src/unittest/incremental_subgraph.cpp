@@ -16,6 +16,26 @@ using namespace std;
 
 using bdsg::HashGraph;
 
+bool verify_incremental_max_distance(const IncrementalSubgraph& subgraph) {
+    
+    vector<int64_t> dists(subgraph.get_node_count(), numeric_limits<int64_t>::min());
+    dists[0] = subgraph.max_distance_from_start(subgraph.handle_at_order(0));
+    for (int i = 0; i < subgraph.get_node_count(); ++i) {
+        handle_t h = subgraph.handle_at_order(i);
+        int64_t dist_thru = dists[i] + subgraph.get_length(h);
+        subgraph.follow_edges(h, subgraph.extracting_left(), [&](const handle_t& next) {
+            size_t j = subgraph.order_of(next);
+            dists[j] = max(dists[j], dist_thru);
+        });
+    }
+    for (int i = 0; i < subgraph.get_node_count(); ++i) {
+        if (subgraph.max_distance_from_start(subgraph.handle_at_order(i)) != dists[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
 TEST_CASE("IncrementalSubgraph behaves correctly on a trivial example",
           "[incremental]") {
     
@@ -37,10 +57,12 @@ TEST_CASE("IncrementalSubgraph behaves correctly on a trivial example",
     REQUIRE(subgraph.get_sequence(s0) == graph.get_sequence(h0));
     REQUIRE(subgraph.get_underlying_handle(s0) == h0);
     REQUIRE(subgraph.get_underlying_handle(subgraph.flip(s0)) == graph.flip(h0));
-    REQUIRE(subgraph.distance_from_start(s0) == -2);
+    REQUIRE(subgraph.min_distance_from_start(s0) == -2);
+    REQUIRE(subgraph.max_distance_from_start(s0) == -2);
     REQUIRE(subgraph.has_node(subgraph.get_id(s0)));
     REQUIRE(subgraph.get_handle(subgraph.get_id(s0)) == s0);
     REQUIRE(subgraph.order_of(s0) == 0);
+    REQUIRE(verify_incremental_max_distance(subgraph));
     
     // we shouldn't have any edges yet
     subgraph.follow_edges(s0, false, [&](const handle_t& next) {
@@ -60,9 +82,11 @@ TEST_CASE("IncrementalSubgraph behaves correctly on a trivial example",
     REQUIRE(subgraph.is_extendable());
     handle_t s1 = subgraph.extend();
     REQUIRE(subgraph.get_underlying_handle(s1) == h1);
-    REQUIRE(subgraph.distance_from_start(s1) == 1);
+    REQUIRE(subgraph.min_distance_from_start(s1) == 1);
+    REQUIRE(subgraph.max_distance_from_start(s1) == 1);
     REQUIRE(subgraph.handle_at_order(1) == s1);
     REQUIRE(subgraph.order_of(s1) == 1);
+    REQUIRE(verify_incremental_max_distance(subgraph));
     
     // edges are added correctly and can traverse in all directions
     int count = 0;
@@ -108,9 +132,11 @@ TEST_CASE("IncrementalSubgraph behaves correctly on a trivial example",
     REQUIRE(subgraph.is_extendable());
     handle_t s2 = subgraph.extend();
     REQUIRE(subgraph.get_underlying_handle(s2) == h2);
-    REQUIRE(subgraph.distance_from_start(s2) == 4);
+    REQUIRE(subgraph.min_distance_from_start(s2) == 4);
+    REQUIRE(subgraph.max_distance_from_start(s2) == 4);
     REQUIRE(subgraph.handle_at_order(2) == s2);
     REQUIRE(subgraph.order_of(s2) == 2);
+    REQUIRE(verify_incremental_max_distance(subgraph));
     
     REQUIRE(!subgraph.is_extendable());
 }
@@ -137,6 +163,7 @@ TEST_CASE("IncrementalSubgraph can extract in either direction on either strand"
         
         REQUIRE(subgraph.get_underlying_handle(s0) == h1);
         REQUIRE(subgraph.get_underlying_handle(s1) == h0);
+        REQUIRE(verify_incremental_max_distance(subgraph));
         
         count = 0;
         subgraph.follow_edges(s0, false, [&](const handle_t& next) {
@@ -195,6 +222,7 @@ TEST_CASE("IncrementalSubgraph can extract in either direction on either strand"
         
         REQUIRE(subgraph.get_underlying_handle(s0) == graph.flip(h1));
         REQUIRE(subgraph.get_underlying_handle(s1) == graph.flip(h0));
+        REQUIRE(verify_incremental_max_distance(subgraph));
         
         count = 0;
         subgraph.follow_edges(s0, false, [&](const handle_t& next) {
@@ -253,6 +281,7 @@ TEST_CASE("IncrementalSubgraph can extract in either direction on either strand"
         
         REQUIRE(subgraph.get_underlying_handle(s0) == graph.flip(h0));
         REQUIRE(subgraph.get_underlying_handle(s1) == graph.flip(h1));
+        REQUIRE(verify_incremental_max_distance(subgraph));
         
         count = 0;
         subgraph.follow_edges(s0, false, [&](const handle_t& next) {
@@ -360,6 +389,7 @@ TEST_CASE("IncrementalSubgraph can handle branching paths and bubbles correctly"
         
         REQUIRE(subgraph.get_underlying_handle(s0) == h0);
         REQUIRE(subgraph.get_underlying_handle(s1) == h2);
+        REQUIRE(verify_incremental_max_distance(subgraph));
     }
     
     SECTION("Respects max distance") {
@@ -382,6 +412,7 @@ TEST_CASE("IncrementalSubgraph can handle branching paths and bubbles correctly"
         
         REQUIRE(subgraph.get_underlying_handle(s0) == h0);
         REQUIRE(subgraph.get_underlying_handle(s1) == h1);
+        REQUIRE(verify_incremental_max_distance(subgraph));
         
     }
     
@@ -417,7 +448,8 @@ TEST_CASE("IncrementalSubgraph can handle branching paths and bubbles correctly"
         // did we assign the final node the right distance, even
         // though we would find the longer path first?
         REQUIRE(subgraph.get_underlying_handle(s4) == h5);
-        REQUIRE(subgraph.distance_from_start(s4) == 3);
+        REQUIRE(subgraph.min_distance_from_start(s4) == 3);
+        REQUIRE(verify_incremental_max_distance(subgraph));
         
     }
 }

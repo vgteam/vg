@@ -9,10 +9,10 @@
 #include "position.hpp"
 #include <vg/vg.pb.h>
 #include "vg/io/edit.hpp"
-#include "htslib/hfile.h"
-#include "htslib/hts.h"
-#include "htslib/sam.h"
-#include "htslib/vcf.h"
+#include <htslib/hfile.h>
+#include <htslib/hts.h>
+#include <htslib/sam.h>
+#include <htslib/vcf.h>
 #include "handle.hpp"
 #include "vg/io/alignment_io.hpp"
 

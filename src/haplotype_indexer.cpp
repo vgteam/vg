@@ -123,7 +123,7 @@ std::vector<std::string> HaplotypeIndexer::parse_vcf(const std::string& filename
         }
 
         // Structures to parse the VCF file into.
-        std::string parse_file = (this->batch_file_prefix.empty() ? temp_file::create("parse-" + vcf_contig_name + "-") : this->batch_file_prefix + '_' + vcf_contig_name);
+        std::string parse_file = (this->batch_file_prefix.empty() ? gbwt::TempFile::getName("parse") : this->batch_file_prefix + '_' + vcf_contig_name);
         gbwt::VariantPaths variants(graph.get_step_count(paths[path_id]));
         variants.setSampleNames(sample_names);
         variants.setContigName(path_name);
@@ -336,12 +336,7 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const std::vecto
             return (this->excluded_samples.find(sample_names[sample_id]) == this->excluded_samples.end());
         }, [&](const gbwt::Haplotype& haplotype) {
             builder.insert(haplotype.path, true); // Insert in both orientations.
-            builder.index.metadata.addPath({
-                static_cast<gbwt::PathName::path_name_type>(haplotype.sample),
-                static_cast<gbwt::PathName::path_name_type>(contig_names.size() - 1),
-                static_cast<gbwt::PathName::path_name_type>(haplotype.phase),
-                static_cast<gbwt::PathName::path_name_type>(haplotype.count)
-            });
+            builder.index.metadata.addPath(haplotype.sample, contig_names.size() - 1, haplotype.phase, haplotype.count);
             haplotypes.insert(gbwt::range_type(haplotype.sample, haplotype.phase));
         }, [&](gbwt::size_type, gbwt::size_type) -> bool {
             // For each overlap, discard it if our global flag is set.
@@ -399,21 +394,11 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandle
         }
         builder.insert(buffer, true); // Insert in both orientations.
         if (this->paths_as_samples) {
-            builder.index.metadata.addPath({
-                static_cast<gbwt::PathName::path_name_type>(sample_names.size()),
-                static_cast<gbwt::PathName::path_name_type>(0),
-                static_cast<gbwt::PathName::path_name_type>(0),
-                static_cast<gbwt::PathName::path_name_type>(0)
-            });
+            builder.index.metadata.addPath(sample_names.size(), 0, 0, 0);
             sample_names.push_back(path_name);
             haplotype_count++;
         } else {
-            builder.index.metadata.addPath({
-                static_cast<gbwt::PathName::path_name_type>(0),
-                static_cast<gbwt::PathName::path_name_type>(contig_names.size()),
-                static_cast<gbwt::PathName::path_name_type>(0),
-                static_cast<gbwt::PathName::path_name_type>(0)
-            });
+            builder.index.metadata.addPath(0, contig_names.size(), 0, 0);
             contig_names.push_back(path_name);
         }
     });
@@ -463,12 +448,7 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandle
             sample_count = iter->second.second;
             iter->second.second++;
         }
-        builder.index.metadata.addPath({
-            static_cast<gbwt::PathName::path_name_type>(sample_id),
-            static_cast<gbwt::PathName::path_name_type>(0),
-            static_cast<gbwt::PathName::path_name_type>(0),
-            static_cast<gbwt::PathName::path_name_type>(sample_count)
-        });
+        builder.index.metadata.addPath(sample_id, 0, 0, sample_count);
     };
     for (auto& file_name : aln_filenames) {
         if (aln_format == "GAM") {

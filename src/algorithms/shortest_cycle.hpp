@@ -5,7 +5,6 @@
 
 #include "../handle.hpp"
 
-#include "eades_algorithm.hpp"
 #include "structures/rank_pairing_heap.hpp"
 
 namespace vg {

@@ -293,7 +293,7 @@ void help_giraffe(char** argv) {
     << "  -x, --xg-name FILE            use this xg index or graph" << endl
     << "  -g, --graph-name FILE         use this GBWTGraph" << endl
     << "  -H, --gbwt-name FILE          use this GBWT index" << endl
-    << "  -m, --minimizer-name FILE     use this minimizer index (may repeat)" << endl
+    << "  -m, --minimizer-name FILE     use this minimizer index" << endl
     << "  -d, --dist-name FILE          cluster using this distance index" << endl
     << "  -p, --progress                show progress" << endl
     << "input options:" << endl
@@ -309,6 +309,7 @@ void help_giraffe(char** argv) {
     << "  -n, --discard                 discard all output alignments (for profiling)" << endl
     << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
     << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
+    << "  --show-work                   log how the mapper comes to its conclusions about mapping locations" << endl
     << "algorithm presets:" << endl
     << "  -b, --parameter-preset NAME   set computational parameters (fast / default) [default]" << endl
     << "computational parameters:" << endl
@@ -354,13 +355,13 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_CLUSTER_STDEV 1007
     #define OPT_RESCUE_STDEV 1008
     #define OPT_REF_PATHS 1009
+    #define OPT_SHOW_WORK 1010
     
 
     // initialize parameters with their default options
     
     // This holds and manages finding our indexes.
     IndexManager indexes;
-    vector<string> minimizer_names;
     string output_basename;
     string report_name;
     // How close should two hits be to be in the same cluster?
@@ -426,6 +427,8 @@ int main_giraffe(int argc, char** argv) {
     bool track_provenance = false;
     // Should we track candidate correctness?
     bool track_correctness = false;
+    // Should we log our mapping decision making?
+    bool show_work = false;
 
     // Chain all the ranges and get a function that loops over all combinations.
     auto for_each_combo = distance_limit
@@ -510,6 +513,7 @@ int main_giraffe(int argc, char** argv) {
             {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
             {"track-provenance", no_argument, 0, OPT_TRACK_PROVENANCE},
             {"track-correctness", no_argument, 0, OPT_TRACK_CORRECTNESS},
+            {"show-work", no_argument, 0, OPT_SHOW_WORK},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
@@ -555,8 +559,6 @@ int main_giraffe(int argc, char** argv) {
                     exit(1);
                 }
                 indexes.set_minimizer_override(optarg);
-                // In case we have multiple minimizer indexes, save all the names.
-                minimizer_names.emplace_back(optarg);
                 break;
                 
             case 'd':
@@ -838,6 +840,10 @@ int main_giraffe(int argc, char** argv) {
                 track_correctness = true;
                 break;
                 
+            case OPT_SHOW_WORK:
+                show_work = true;
+                break;
+                
             case 't':
             {
                 int num_threads = parse<int>(optarg);
@@ -994,27 +1000,7 @@ int main_giraffe(int argc, char** argv) {
         path_position_graph = overlay_helper.apply(graph.get());
     }
 
-    vector<unique_ptr<gbwtgraph::DefaultMinimizerIndex>> minimizer_index_owner;
-    shared_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index_ref;
-    vector<gbwtgraph::DefaultMinimizerIndex*> minimizer_indexes;
-    if (minimizer_names.size() > 1) {
-        // Working with multiple minimizer indexes
-        for (const string& minimizer_name : minimizer_names) {
-            if (show_progress) {
-                cerr << "Loading minimizer index " << minimizer_name << endl;
-            }
-            // They need to be owned by this vector
-            minimizer_index_owner.emplace_back(vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(minimizer_name));
-            // But this vector we will use to build the index
-            minimizer_indexes.push_back(minimizer_index_owner.back().get());
-        }
-    } else {
-        // Just one index (or we have to make one).
-        // Store a counted reference to it.
-        minimizer_index_ref = indexes.get_minimizer();
-        // And show a pointer to the mapper
-        minimizer_indexes.push_back(minimizer_index_ref.get());
-    }
+    std::shared_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index = indexes.get_minimizer();
 
     // Grab the GBWTGraph
     auto gbwt_graph = indexes.get_gbwtgraph();
@@ -1026,7 +1012,7 @@ int main_giraffe(int argc, char** argv) {
     if (show_progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(*gbwt_graph, minimizer_indexes, *distance_index, path_position_graph);
+    MinimizerMapper minimizer_mapper(*gbwt_graph, *minimizer_index, *distance_index, path_position_graph);
     if (forced_mean && forced_stdev) {
         minimizer_mapper.force_fragment_length_distr(fragment_mean, fragment_stdev);
     }
@@ -1170,6 +1156,11 @@ int main_giraffe(int argc, char** argv) {
             cerr << "--track-correctness " << endl;
         }
         minimizer_mapper.track_correctness = track_correctness;
+        
+        if (show_progress && show_work) {
+            cerr << "--show-work " << endl;
+        }
+        minimizer_mapper.show_work = show_work;
 
         if (show_progress && paired) {
             if (forced_mean && forced_stdev) {
@@ -1396,6 +1387,4 @@ int main_giraffe(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_giraffe("giraffe", "Graph Alignment Format Fast Emitter", DEVELOPMENT, main_giraffe);
-
-
+static Subcommand vg_giraffe("giraffe", "fast haplotype-aware short read alignment", PIPELINE, 4, main_giraffe);

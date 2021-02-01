@@ -1,20 +1,18 @@
 /** \file minimizer_main.cpp
  *
- * Defines the "vg minimizer" subcommand, which builds the experimental
- * minimizer index.
+ * Defines the "vg minimizer" subcommand, which builds the minimizer index.
  *
  * The index contains the lexicographically smallest kmer in a window of w
  * successive kmers and their reverse complements. If the kmer contains
  * characters other than A, C, G, and T, it will not be indexed.
  *
  * The index contains either all or haplotype-consistent minimizers. Indexing all
- * minimizers from complex graph regions can take a long time (e.g. 65 hours
- * vs 10 minutes for 1000GP), because many windows have the same minimizer.
- * As the total number of minimizers is manageable (e.g. 2.1 billion vs.
- * 1.4 billion for 1000GP), it should be possible to develop a better
- * algorithm for finding the minimizers.
+ * minimizers from complex graph regions can take a long time (e.g. tens of hours
+ * vs 5-10 minutes for 1000GP), because many windows have the same minimizer.
+ * As the total number of minimizers is manageable (e.g. 1.5x more for 1000GP)
+ * it should be possible to develop a better algorithm for finding the minimizers.
  *
- * A quick idea:
+ * A quick idea for indexing the entire graph:
  * - For each node v, extract the subgraph for the windows starting in v.
  * - Extract all k'-mers from the subgraph and use them to determine where the
  *   minimizers can start.
@@ -40,7 +38,6 @@
 #include "../utility.hpp"
 
 using namespace vg;
-using namespace vg::subcommand;
 
 // Using too many threads just wastes CPU time without speeding up the construction.
 constexpr int DEFAULT_MAX_THREADS = 16;
@@ -64,9 +61,9 @@ size_t get_default_s() {
 void help_minimizer(char** argv) {
     std::cerr << "usage: " << argv[0] << " minimizer -g gbwt_name -i index_name [options] graph" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Builds a minimizer index of the haplotypes in the GBWT index over the input graph." << std::endl;
-    std::cerr << "The graph can be any HandleGraph, but it will be transformed into a GBWTGraph. The" << std::endl;
-    std::cerr << "transformation can be avoided by providing a prebuilt GBWTGraph and using option -G." << std::endl;
+    std::cerr << "Builds a (w, k)-minimizer index or a (k, s)-syncmer index of the threads in the GBWT" << std::endl;
+    std::cerr << "index. The graph can be any HandleGraph, which will be transformed into a GBWTGraph." << std::endl;
+    std::cerr << "The transformation can be avoided by providing a GBWTGraph and using option -G." << std::endl;
     std::cerr << std::endl;
     std::cerr << "Required options:" << std::endl;
     std::cerr << "    -g, --gbwt-name X       use the GBWT index in file X" << std::endl;
@@ -75,13 +72,13 @@ void help_minimizer(char** argv) {
     std::cerr << "Minimizer options:" << std::endl;
     std::cerr << "    -k, --kmer-length N     length of the kmers in the index (default " << get_default_k() << ", max " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH << ")" << std::endl;
     std::cerr << "    -w, --window-length N   choose the minimizer from a window of N kmers (default " << get_default_w() << ")" << std::endl;
+    std::cerr << "    -b, --bounded-syncmers  index bounded syncmers instead of minimizers" << std::endl;
     std::cerr << "    -s, --smer-length N     use smers of length N in bounded syncmers (default " << get_default_s() << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
-    std::cerr << "    -b, --bounded-syncmers  index bounded syncmers instead of minimizers" << std::endl;
     std::cerr << "    -d, --distance-index X  annotate the hits with positions in this distance index" << std::endl;
     std::cerr << "    -l, --load-index X      load the index from file X and insert the new kmers into it" << std::endl;
-    std::cerr << "                            (overrides -k, -w, -s, and -b)" << std::endl;
+    std::cerr << "                            (overrides -k, -w, -b, and -s)" << std::endl;
     std::cerr << "    -G, --gbwt-graph        the input graph is a GBWTGraph" << std::endl;
     std::cerr << "    -p, --progress          show progress information" << std::endl;
     std::cerr << "    -t, --threads N         use N threads for index construction (default " << get_default_threads() << ")" << std::endl;
@@ -115,8 +112,8 @@ int main_minimizer(int argc, char** argv) {
             { "index-name", required_argument, 0, 'i' },
             { "kmer-length", required_argument, 0, 'k' },
             { "window-length", required_argument, 0, 'w' },
-            { "smer-length", required_argument, 0, 's' },
             { "bounded-syncmers", no_argument, 0, 'b' },
+            { "smer-length", required_argument, 0, 's' },
             { "distance-index", required_argument, 0, 'd' },
             { "load-index", required_argument, 0, 'l' },
             { "gbwt-graph", no_argument, 0, 'G' },
@@ -126,7 +123,7 @@ int main_minimizer(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "g:i:k:w:s:bd:l:Gpt:h", long_options, &option_index);
+        c = getopt_long(argc, argv, "g:i:k:w:bs:d:l:Gpt:h", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -143,11 +140,11 @@ int main_minimizer(int argc, char** argv) {
         case 'w':
             window_length = parse<size_t>(optarg);
             break;
-        case 's':
-            smer_length = parse<size_t>(optarg);
-            break;
         case 'b':
             use_syncmers = true;
+            break;
+        case 's':
+            smer_length = parse<size_t>(optarg);
             break;
         case 'd':
             distance_name = optarg;
@@ -277,7 +274,5 @@ int main_minimizer(int argc, char** argv) {
     return 0;
 }
 
-// FIXME change from DEVELOPMENT to TOOLKIT or PIPELINE later
 // Register subcommand
-static Subcommand vg_minimizer("minimizer", "build a minimizer index", DEVELOPMENT, main_minimizer);
-
+static vg::subcommand::Subcommand vg_minimizer("minimizer", "build a minimizer index or a syncmer index", vg::subcommand::TOOLKIT, main_minimizer);

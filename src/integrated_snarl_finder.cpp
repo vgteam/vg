@@ -6,7 +6,6 @@
 #include "integrated_snarl_finder.hpp"
 
 #include "algorithms/three_edge_connected_components.hpp"
-#include "algorithms/weakly_connected_components.hpp"
 #include "subgraph_overlay.hpp"
 
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -1801,7 +1800,7 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
 
 SnarlManager IntegratedSnarlFinder::find_snarls_parallel() {
 
-    vector<unordered_set<id_t>> weak_components = algorithms::weakly_connected_components(graph);    
+    vector<unordered_set<id_t>> weak_components = handlealgs::weakly_connected_components(graph);
     vector<SnarlManager> snarl_managers(weak_components.size());
 
     #pragma omp parallel for schedule(dynamic, 1)

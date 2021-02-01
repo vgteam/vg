@@ -20,8 +20,6 @@
 #include <vg/io/stream.hpp>
 #include <vg/io/alignment_emitter.hpp>
 
-#include "../algorithms/copy_graph.hpp"
-
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -43,6 +41,7 @@ void help_paths(char** argv) {
          << "    -A, --extract-gaf        print (as GAF alignments) the stored paths in the graph" << endl
          << "    -L, --list               print (as a list of names, one per line) the path (or thread) names" << endl
          << "    -E, --lengths            print a list of path names (as with -L) but paired with their lengths" << endl
+         << "    -C, --cyclicity          print a list of path names (as with -L) but paired with flag denoting the cyclicity" << endl
          << "    -F, --extract-fasta      print the paths in FASTA format" << endl
          << "  path selection:" << endl
          << "    -p, --paths-file FILE    select the paths named in a file (one per line)" << endl
@@ -98,6 +97,7 @@ int main_paths(int argc, char** argv) {
     bool select_alt_paths = false;
     bool list_lengths = false;
     size_t output_formats = 0, selection_criteria = 0;
+    bool list_cyclicity = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -120,6 +120,7 @@ int main_paths(int argc, char** argv) {
             {"paths-by", required_argument, 0, 'Q'},
             {"sample", required_argument, 0, 'S'},
             {"variant-paths", no_argument, 0, 'a'},
+            {"cyclicity", no_argument, 0, 'C'},
 
             // Hidden options for backward compatibility.
             {"threads", no_argument, 0, 'T'},
@@ -129,7 +130,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEFAS:Tq:drap:",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEFAS:Tq:drap:C",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -212,6 +213,12 @@ int main_paths(int argc, char** argv) {
             selection_criteria++;
             break;
 
+        case 'C':
+            list_names = true;          
+            list_cyclicity = true;
+            output_formats++;
+            break;
+
         case 'T':
             std::cerr << "warning: [vg paths] option --threads is obsolete and unnecessary" << std::endl;
             break;
@@ -238,7 +245,7 @@ int main_paths(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
     if (!gbwt_file.empty()) {
-        bool need_graph = (extract_as_gam || extract_as_gaf || extract_as_vg || list_lengths || extract_as_fasta);
+        bool need_graph = (extract_as_gam || extract_as_gaf || extract_as_vg || list_lengths || extract_as_fasta || list_cyclicity);
         if (need_graph && xg_file.empty() && vg_file.empty()) {
             std::cerr << "error: [vg paths] an XG index or vg graph needed for extracting threads in -X, -A, -V, -d, -r, -E or -F format" << std::endl;
             std::exit(EXIT_FAILURE);
@@ -251,7 +258,7 @@ int main_paths(int argc, char** argv) {
         }
     }
     if (output_formats != 1) {
-        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -L, -F, or -E) must be specified" << std::endl;
+        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -L, -F, -E or -C) must be specified" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (selection_criteria > 1) {
@@ -398,6 +405,19 @@ int main_paths(int argc, char** argv) {
             if (list_lengths) {
                 cout << path.name() << "\t" << path_to_length(path) << endl;
             }
+            if (list_cyclicity) {
+                bool cyclic = false;
+                unordered_set<pair<nid_t, bool>> visits;
+                for (size_t i = 0; i < path.mapping_size() && !cyclic; ++i) {
+                    const Mapping& mapping = path.mapping(i);
+                    pair<unordered_set<pair<nid_t, bool>>::iterator, bool> ret =
+                        visits.insert(make_pair(mapping.position().node_id(), mapping.position().is_reverse()));
+                    if (ret.second == false) {
+                        cyclic = true;
+                    }
+                }
+                cout << path.name() << "\t" << (cyclic ? "cyclic" : "acyclic") << endl;
+            }
         }
     } else if (graph.get() != nullptr) {
         
@@ -420,13 +440,13 @@ int main_paths(int argc, char** argv) {
             VG new_graph;
             
             // copy the nodes and edges
-            algorithms::copy_handle_graph(&(*graph), &new_graph);
+            handlealgs::copy_handle_graph(&(*graph), &new_graph);
             
             // copy the indicated paths
             graph->for_each_path_handle([&](const path_handle_t& path_handle) {
                 string name = graph->get_path_name(path_handle);
                 if (check_path_name(name) != drop_paths) {
-                    algorithms::copy_path(&(*graph), path_handle, &new_graph);
+                    handlealgs::copy_path(&(*graph), path_handle, &new_graph);
                 }
             });
             
@@ -445,6 +465,18 @@ int main_paths(int argc, char** argv) {
                                 path_length += graph->get_length(handle);
                             }
                             cout << "\t" << path_length;
+                        }
+                        if (list_cyclicity) {
+                            bool cyclic = false;
+                            unordered_set<handle_t> visits;
+                            graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
+                                    pair<unordered_set<handle_t>::iterator, bool> ret = visits.insert(graph->get_handle_of_step(step_handle));
+                                    if (ret.second == false) {
+                                        cyclic = true;
+                                    }
+                                    return !cyclic;
+                                });
+                            cout << "\t" << (cyclic ? "cyclic" : "acyclic");
                         }
                         cout << endl;
                     } else {

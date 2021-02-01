@@ -72,6 +72,10 @@ public:
     // reference by vcflib (true)?
     bool flat = false;
     
+    // In non-flat mode, how big can the longest allele of a variant be before
+    // we fall back to flat mode anyway?
+    size_t max_parsed_variant_size = 100;
+    
     // Should we add paths for the different alts of variants, like
     // _alt_6079b4a76d0ddd6b4b44aeb14d738509e266961c_0 and
     // _alt_6079b4a76d0ddd6b4b44aeb14d738509e266961c_1?

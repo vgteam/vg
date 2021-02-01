@@ -1,8 +1,6 @@
 
 #include <thread>
 
-#include "../algorithms/topological_sort.hpp"
-#include "../algorithms/apply_bulk_modifications.hpp"
 #include "../io/save_handle_graph.hpp"
 
 #include "transcriptome.hpp"
@@ -1599,7 +1597,7 @@ void Transcriptome::remove_non_transcribed(const bool new_reference_paths) {
 void Transcriptome::compact_ordered() {
 
     assert(_transcript_paths.empty());
-    _splice_graph->apply_ordering(algorithms::topological_order(_splice_graph.get()), true);
+    _splice_graph->apply_ordering(handlealgs::topological_order(_splice_graph.get()), true);
 }
 
 int32_t Transcriptome::embed_transcript_paths(const bool add_reference_paths, const bool add_non_reference_paths) {
@@ -1657,7 +1655,7 @@ int32_t Transcriptome::add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder,
             gbwt_builder->insert(gbwt_thread, add_bidirectional);
 
             // Insert transcript path name into GBWT index.
-            gbwt_builder->index.metadata.addPath({static_cast<gbwt::PathName::path_name_type>(sample_names.size()), 0, 0, 0});
+            gbwt_builder->index.metadata.addPath(sample_names.size(), 0, 0, 0);
             sample_names.emplace_back(transcript_path.name);
         }
     }

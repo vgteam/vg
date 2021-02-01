@@ -603,7 +603,44 @@ namespace vg {
                     // reference allele of the variant won't appear here.
 
                     map<string, vector<vcflib::VariantAllele>> alternates;
-                    if (flat) {
+                    
+                    // Decide if we should parse (i.e. align) the variant alts.
+                    // We don';t want to do it if the alignment would be too big.
+                    bool can_parse = !flat;
+                    if (can_parse) {
+                        if (variant->isSymbolicSV()) {
+                            // All the variants are probably canonicalized by now and
+                            // probably should not look like SVs. And vcflib is
+                            // smart enough to give us flat alts when we ask to
+                            // parse something that still does look like an SV.
+                            // But we still probably want the flat alt
+                            // postprocessing, so go with flat alts here.
+                            can_parse = false;
+                        } else {
+                            // We (no longer?) have symbolic alleles, so just
+                            // bail if any allele is too long. Only ref and alt
+                            // fields will be filled in with sequence; alleles
+                            // field may still be symbolic.
+                            if (variant->ref.size() > max_parsed_variant_size) {
+                                // Ref is too long. Handle as flat.
+                                can_parse = false;
+                            } else {
+                                for (auto& a : variant->alt) {
+                                    if (a.size() > max_parsed_variant_size) {
+                                        // This alt is too long. Handle as flat.
+                                        can_parse = false;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    
+                    if (can_parse) {
+                        // Do alignments to parse the alleles
+                        alternates = variant->parsedAlternates();
+                    } else {
                         alternates = variant->flatAlternates();
                         // if we can, remove the 1bp "standard" base that's added at the beginning of indels
                         if (this->trim_indels){
@@ -617,9 +654,6 @@ namespace vg {
                                 }
                             }
                         }
-                        
-                    } else {
-                        alternates = variant->parsedAlternates();
                     }
                     
                     // Get the variable bounds in VCF space for all the trimmed alts of this variant

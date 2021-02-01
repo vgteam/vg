@@ -8,8 +8,6 @@
 #include <utility>
  
 #include "dozeu_interface.hpp"
-
-#include "algorithms/topological_sort.hpp"
  
 // Configure dozeu:
 // We want the full length bonus included
@@ -606,7 +604,7 @@ void DozeuInterface::debug_print(const Alignment& alignment, const OrderedGraph&
 void DozeuInterface::align(Alignment& alignment, const HandleGraph& graph, const vector<MaximalExactMatch>& mems,
                            bool reverse_complemented, int8_t full_length_bonus, uint16_t max_gap_length)
 {
-    vector<handle_t> topological_order = algorithms::lazy_topological_order(&graph);
+    vector<handle_t> topological_order = handlealgs::lazy_topological_order(&graph);
     return align(alignment, graph, topological_order, mems, reverse_complemented, max_gap_length);
 }
   
@@ -723,7 +721,7 @@ void DozeuInterface::align_pinned(Alignment& alignment, const HandleGraph& g, bo
                                   int8_t full_length_bonus, uint16_t max_gap_length)
 {
     // Compute our own topological order
-    vector<handle_t> order = algorithms::lazy_topological_order(&g);
+    vector<handle_t> order = handlealgs::lazy_topological_order(&g);
     
     if (order.empty()) {
         // Can't do anything with no nodes in the graph.

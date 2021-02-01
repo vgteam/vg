@@ -6,9 +6,8 @@
 #include <vg/io/vpkg.hpp>
 #include "../kmer.hpp"
 #include "../build_index.hpp"
-#include "../algorithms/topological_sort.hpp"
 #include "../algorithms/normalize.hpp"
-#include "../algorithms/copy_graph.hpp"
+#include "../algorithms/prune.hpp"
 #include "../chunker.hpp"
 #include "xg.hpp"
 
@@ -86,6 +85,12 @@ void help_msga(char** argv) {
 
 int main_msga(int argc, char** argv) {
 
+    cerr << "!!!" << endl;
+    cerr << "WARNING" << endl;
+    cerr << "!!!" << endl;
+    cerr << "vg msga was an early prototype for constructing genome graphs from multiple sequence alignments, but it is no longer state-of-the-art or even actively maintained. VG team members have developed improved graph construction algorithms in Cactus and PGGB, and several other tools have been developed by other groups." << endl << endl;
+    
+    
     if (argc == 2) {
         help_msga(argv);
         return 1;
@@ -429,7 +434,7 @@ int main_msga(int argc, char** argv) {
         if (graph == nullptr) {
             // Copy instead.
             graph = new vg::VG();
-            algorithms::copy_path_handle_graph(loaded.get(), graph);
+            handlealgs::copy_path_handle_graph(loaded.get(), graph);
             // Make sure the paths are all synced up
             graph->paths.to_graph(graph->graph);
         }
@@ -616,7 +621,9 @@ int main_msga(int argc, char** argv) {
             vg::id_t tail_id = head_id+1;
             graph->paths.for_each_name([&](const string& name) {
                     VG path_graph = *graph;
-                    if (edge_max) path_graph.prune_complex_with_head_tail(idx_kmer_size, edge_max);
+                    if (edge_max){
+                        algorithms::prune_complex_with_head_tail(path_graph, idx_kmer_size, edge_max);
+                    }
                     path_graph.keep_path(name);
                     size_t limit = ~(size_t)0;
                     tmpfiles.push_back(
@@ -637,8 +644,10 @@ int main_msga(int argc, char** argv) {
         } else if (edge_max) {
             VG gcsa_graph = *graph; // copy the graph
             // remove complex components
-            gcsa_graph.prune_complex_with_head_tail(idx_kmer_size, edge_max);
-            if (subgraph_prune) gcsa_graph.prune_short_subgraphs(subgraph_prune);
+            algorithms::prune_complex_with_head_tail(gcsa_graph, idx_kmer_size, edge_max);
+            if (subgraph_prune){
+                algorithms::prune_short_subgraphs(gcsa_graph, subgraph_prune);
+            }
             // then index
             build_gcsa_lcp(gcsa_graph, gcsaidx, lcpidx, idx_kmer_size, doubling_steps);
         } else {
@@ -910,4 +919,4 @@ int main_msga(int argc, char** argv) {
     return 0;
 }
 
-static Subcommand vg_msga("msga", "multiple sequence graph alignment", main_msga);
+static Subcommand vg_msga("msga", "multiple sequence graph alignment", DEPRECATED, main_msga);

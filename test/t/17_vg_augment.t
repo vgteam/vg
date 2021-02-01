@@ -52,7 +52,7 @@ is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg 
 
 is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAATATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i -m 2 | vg view - | grep ^S | wc -l) 1 "path inclusion does not modify the graph when alignment has a SNP but doesnt meet the coverage threshold"
 
-is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAATATATTCCAACTCTCTG -V read -d t.idx | vg augment t.vg - -i -m 2 -A read_aug.gam | vg view - | grep ^P | awk '{print $4}' | uniq) "50M" "path inclusion does not modify the included path when alignment has a SNP but doesnt meet the coverage threshold"
+is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTAATATATTCCAACTCTCTG -V read -d t.idx | vg augment t.vg - -i -m 2 -A read_aug.gam | vg view - | grep ^P | awk '{print $3}' | uniq) "1+" "path inclusion does not modify the included path when alignment has a SNP but doesnt meet the coverage threshold"
 
 is $(vg view -a read_aug.gam | jq . | grep edit | wc -l) 1 "output GAM has single edit when SNP was filtered out due to coverage"
 

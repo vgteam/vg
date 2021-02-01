@@ -1,5 +1,4 @@
 #include "catch.hpp"
-#include "../algorithms/copy_graph.hpp"
 #include "../handle.hpp"
 #include "../vg.hpp"
 #include "xg.hpp"
@@ -15,14 +14,14 @@ namespace vg {
         TEST_CASE("copy_handle_graph converter works on empty graph, xg to vg", "[handle][vg][xg]") {
             xg::XG xg;
             VG vg;
-           algorithms::copy_handle_graph(&xg, &vg);
+           handlealgs::copy_handle_graph(&xg, &vg);
             REQUIRE(vg.node_count() == 0);
             REQUIRE(vg.edge_count() == 0);
         }
         TEST_CASE( "copy_handle_graph converter works on empty graph, xg to pg", "[handle][pg][xg]") {
             xg::XG xg;
             bdsg::PackedGraph pg;
-            algorithms::copy_handle_graph(&xg, &pg);
+            handlealgs::copy_handle_graph(&xg, &pg);
             REQUIRE(pg.get_node_count() == 0);
             
             int edge_count = 0;
@@ -35,7 +34,7 @@ namespace vg {
         TEST_CASE( "copy_handle_graph converter works on empty graph, xg to hg", "[handle][hg][xg]") {
             xg::XG xg;
             bdsg::HashGraph hg;
-            algorithms::copy_handle_graph(&xg, &hg);
+            handlealgs::copy_handle_graph(&xg, &hg);
             REQUIRE(hg.get_node_count() == 0);
             
             int edge_count = 0;
@@ -60,7 +59,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
-            algorithms::copy_handle_graph(&xg, &vg);
+            handlealgs::copy_handle_graph(&xg, &vg);
             
             REQUIRE(xg.get_node_count() == 1);
             REQUIRE(vg.get_node_count() == 1);
@@ -79,7 +78,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
-            algorithms::copy_handle_graph(&xg, &pg);
+            handlealgs::copy_handle_graph(&xg, &pg);
             
             REQUIRE(xg.get_node_count() == 1);
             REQUIRE(pg.get_node_count() == 1);
@@ -98,7 +97,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
-            algorithms::copy_handle_graph(&xg, &hg);
+            handlealgs::copy_handle_graph(&xg, &hg);
             
             REQUIRE(xg.get_node_count() == 1);
             REQUIRE(hg.get_node_count() == 1);
@@ -127,7 +126,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
-            algorithms::copy_handle_graph(&xg, &vg);
+            handlealgs::copy_handle_graph(&xg, &vg);
             
             REQUIRE(xg.get_node_count() == 4);
             REQUIRE(vg.get_node_count() == 4);
@@ -158,7 +157,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
-            algorithms::copy_handle_graph(&xg, &pg);
+            handlealgs::copy_handle_graph(&xg, &pg);
             
             REQUIRE(xg.get_node_count() == 4);
             REQUIRE(pg.get_node_count() == 4);
@@ -201,7 +200,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
-            algorithms::copy_handle_graph(&xg, &hg);
+            handlealgs::copy_handle_graph(&xg, &hg);
             
             REQUIRE(xg.get_node_count() == 4);
             REQUIRE(hg.get_node_count() == 4);
@@ -246,7 +245,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
-            algorithms::copy_handle_graph(&xg, &vg);
+            handlealgs::copy_handle_graph(&xg, &vg);
             
             REQUIRE(xg.get_sequence(xg.get_handle(1)) == "GATT");
             REQUIRE(xg.get_sequence(xg.get_handle(3)) == "CGAT");
@@ -281,7 +280,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
-            algorithms::copy_handle_graph(&xg, &pg);
+            handlealgs::copy_handle_graph(&xg, &pg);
             
             REQUIRE(xg.get_sequence(xg.get_handle(1)) == "GATT");
             REQUIRE(xg.get_sequence(xg.get_handle(3)) == "CGAT");
@@ -328,7 +327,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
-            algorithms::copy_handle_graph(&xg, &hg);
+            handlealgs::copy_handle_graph(&xg, &hg);
             
             REQUIRE(xg.get_sequence(xg.get_handle(1)) == "GATT");
             REQUIRE(xg.get_sequence(xg.get_handle(3)) == "CGAT");
@@ -389,7 +388,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             VG vg;
-           algorithms::copy_path_handle_graph(&xg, &vg);
+           handlealgs::copy_path_handle_graph(&xg, &vg);
             
             
             
@@ -451,7 +450,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             bdsg::PackedGraph pg;
-           algorithms::copy_path_handle_graph(&xg, &pg);
+           handlealgs::copy_path_handle_graph(&xg, &pg);
             
             
             
@@ -528,7 +527,7 @@ namespace vg {
             xg::XG xg;
             xg.from_path_handle_graph(VG(proto_graph));
             bdsg::HashGraph hg;
-           algorithms::copy_path_handle_graph(&xg, &hg);
+           handlealgs::copy_path_handle_graph(&xg, &hg);
             
             
             

@@ -138,7 +138,7 @@ namespace algorithms {
     size_t shortest_cycle_length(const HandleGraph* graph, const handle_t& source) {
         
         // compute a small FAS layout
-        vector<handle_t> layout = eades_algorithm(graph);
+        vector<handle_t> layout = handlealgs::eades_algorithm(graph);
         
         // identify each handle with its index in the layout
         unordered_map<handle_t, size_t> handle_index;
@@ -164,7 +164,7 @@ namespace algorithms {
     size_t shortest_cycle_length(const HandleGraph* graph) {
         
         // compute a small FAS layout
-        vector<handle_t> layout = eades_algorithm(graph);
+        vector<handle_t> layout = handlealgs::eades_algorithm(graph);
         
         // identify each handle with its index in the layout
         unordered_map<handle_t, size_t> handle_index;

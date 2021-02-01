@@ -18,7 +18,6 @@
 #include <exception>
 
 #include "handle.hpp"
-#include "algorithms/topological_sort.hpp"
 
 
 using namespace std;
