@@ -48,7 +48,7 @@ First, obtain the repo and its submodules:
     git clone --recursive https://github.com/vgteam/vg.git
     cd vg
     
-Then, install VG's dependencies. You'll need the protobuf and jansson development libraries installed, and to run the tests you will need `jq`, `bc`, `rs`, `parallel`, and [`npm` for testing documentation examples](https://github.com/anko/txm)). On Ubuntu, you should be able to do:
+Then, install VG's dependencies. You'll need the protobuf and jansson development libraries installed, and to run the tests you will need `jq`, `bc`, `rs`, `parallel`, `hexdump` and `column` from `bsdmainutils`, and [`npm` for testing documentation examples](https://github.com/anko/txm)). On Ubuntu, you should be able to do:
 
     make get-deps
     
@@ -56,9 +56,9 @@ On other distros, you will need to perform the equivalent of:
 
     sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
                          protobuf-compiler libprotoc-dev libprotobuf-dev libjansson-dev \
-                         automake libtool jq bc rs parallel npm curl unzip redland-utils \
-                         librdf-dev bison flex gawk lzma-dev liblzma-dev liblz4-dev \
-                         libffi-dev libcairo-dev libboost-all-dev
+                         automake libtool jq bsdmainutils bc rs parallel npm curl unzip \
+                         redland-utils librdf-dev bison flex gawk lzma-dev liblzma-dev \
+                         liblz4-dev libffi-dev libcairo-dev libboost-all-dev
                          
 Note that **Ubuntu 16.04** does not ship a sufficiently new Protobuf; vg requires **Protobuf 3** which will have to be manually installed.
 
