@@ -33,8 +33,39 @@ stages:
   - test
   - report
   
+# We define one job to do the out-of-container (re)build, and run the Bash tests
+# It uses a Gitlab-managed cache to prevent a full rebuild every time
+local-build-test-job:
+  stage: build
+  cache:
+    # Gitlab isn't clever enough to fill PR caches from the main branch, so we
+    # just use one megacache and hope the Makefile is smart enough to recover
+    # from the future
+    key: local-build-test-cache
+    paths:
+      - deps/
+      - include/
+      - lib/
+      - bin/
+      - obj/
+  before_script:
+    - sudo apt-get -q -y update
+  script:
+    - python ./configure.py
+    - source ./source_me.sh
+    - make get-deps
+    - make -j8
+    - echo Testing
+    - bin/vg test "Target to alignment extraction"
+    - echo Full Testing
+    - make test
+    - make static -j8
+  variables:
+    VG_FULL_TRACEBACK: "1"
+    GIT_SUBMODULE_STRATEGY: recursive
 
-# We define one job to do the build
+
+# We define one job to do the Docker container build
 build-job:
   stage: build
   script: 

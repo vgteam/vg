@@ -108,9 +108,6 @@ addons:
       - libffi-dev
       - doxygen
 
-os:
-  - linux
-  - osx
 osx_image: xcode12.2
 compiler:
   - gcc
@@ -124,3 +121,4 @@ matrix:
     # We have a special entry to do the docs build
     - os: linux
       env: BUILD_DOCS_ONLY=1
+    - os: osx
