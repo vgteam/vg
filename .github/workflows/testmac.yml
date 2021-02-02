@@ -1,0 +1,60 @@
+name: Test Mac
+
+# Run on our main branch and any PRs to it, and on release tags, but not every
+# commit in every branch.
+on:
+  push:
+    branches:    
+      - master
+    tags:
+      - "*"
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  testmac:
+    name: Test on Mac
+    runs-on: macos-10.15
+
+    steps:
+      - name: Use cache
+        uses: actions/cache@v2
+        with:
+          path: | 
+            deps
+            lib
+            include
+            bin
+          key: ${{ runner.os }}-${{ github.ref }}
+          # Restore keys are a "list", but really only a multiline string is
+          # accepted. Also we match by prefix. And the most recent cache is
+          # used, not the most specific.
+          # See: https://docs.github.com/en/actions/guides/caching-dependencies-to-speed-up-workflows#matching-a-cache-key
+          restore-keys: |
+            ${{ runner.os }}-${{ github.base_ref }}
+            ${{ runner.os }}
+          
+      - name: Checkout code without submodules
+        uses: actions/checkout@v2
+      
+      - name: Get or restore dependencies
+        run: scripts/restore-deps.sh
+       
+      - name: Install packages
+        # We don't use artemnovichkov/action-homebrew because that's for Linux
+        run: brew bundle
+
+      - name: Run build and test
+        run: |
+          brew --prefix
+          export PATH="$(brew --prefix)/opt/coreutils/libexec/gnubin:/usr/local/opt/bison/bin:$(pwd)/bin:/usr/local/bin:$PATH"
+          which wc
+          wc --version
+          export LD_LIBRARY_PATH=/usr/local/lib/
+          export LIBRARY_PATH=/usr/local/lib/
+          export CFLAGS="-isystem /usr/local/include/"
+          export VG_FULL_TRACEBACK=1
+          echo "Build with $(nproc) threads"
+          make -j$(nproc) test
+        shell: bash
