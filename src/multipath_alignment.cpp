@@ -2651,9 +2651,13 @@ namespace vg {
             tie(i, j, k, l, pj, pk, pl) = stack.back();
             stack.pop_back();
             
-            bool any_new_match = first_iter;
-            first_iter = false;
             
+            // the indexes of the last non-empty match for each index
+            int64_t ni, nj, nk, nl, npj, npk, npl;
+            tie(ni, nj, nk, nl, npj, npk, npl) = tie(i, j, k, l, pj, pk, pl);
+            bool any_new_matches = first_iter;
+            first_iter = false;
+                        
 #ifdef debug_trace
             cerr << "destack (" << i << " " << j << " " << k << " " << l << ") (" << pj << " " << pk << " " << pl << ")" << endl;
 #endif
@@ -2697,7 +2701,6 @@ namespace vg {
                     else {
                         k = 0;
                     }
-                    any_new_match = true;
                     continue;
                 }
                 // skip over the path mapping if it's empty
@@ -2722,7 +2725,6 @@ namespace vg {
                     else {
                         pk = 0;
                     }
-                    any_new_match = true;
                     continue;
                 }
                 
@@ -2766,7 +2768,6 @@ namespace vg {
                     reached_mismatch = true;
                 }
                 
-                bool extended_by_nonempty_edits = false;
                 
                 // try to match edits
                 while (k < mmapping.edit_size() && k >= 0 && pk < pmapping.edit_size() && pk >= 0 && !reached_mismatch) {
@@ -2839,6 +2840,9 @@ namespace vg {
                             cerr << "p edit is prefix" << endl;
 #endif
                         }
+                        // we made a non-empty match, update the non-empty index trackers
+                        tie(ni, nj, nk, nl, npj, npk, npl) = tie(i, j, k, l, pj, pk, pl);
+                        any_new_matches = true;
                     }
                     else {
                         // the edits do not match
@@ -2847,7 +2851,6 @@ namespace vg {
                         cerr << "edits mismatch" << endl;
 #endif
                     }
-                    any_new_match = any_new_match || !reached_mismatch;
                 }
                 
                 // did we finish off either mapping?
@@ -2874,27 +2877,29 @@ namespace vg {
                     pl = 0;
                 }
             }
-            // how far did we get along the path by walking this subpath?
-            if ((search_left && (pj < get<0>(pfarthest) ||
-                                 (pj == get<0>(pfarthest) && pk < get<1>(pfarthest)) ||
-                                 (pj == get<0>(pfarthest) && pk == get<1>(pfarthest) && pl < get<2>(pfarthest)))) ||
-                (!search_left && (pj > get<0>(pfarthest) ||
-                                  (pj == get<0>(pfarthest) && pk > get<1>(pfarthest)) ||
-                                  (pj == get<0>(pfarthest) && pk == get<1>(pfarthest) && pl > get<2>(pfarthest))))) {
-                // we've traversed more of the path than on any previous subpath
+            // how far did we get along the path by walking this subpath (looking at non-empty matches only)?
+            if (any_new_matches) {
+                if ((search_left && (npj < get<0>(pfarthest) ||
+                                     (npj == get<0>(pfarthest) && npk < get<1>(pfarthest)) ||
+                                     (npj == get<0>(pfarthest) && npk == get<1>(pfarthest) && npl < get<2>(pfarthest)))) ||
+                    (!search_left && (npj > get<0>(pfarthest) ||
+                                      (npj == get<0>(pfarthest) && npk > get<1>(pfarthest)) ||
+                                      (npj == get<0>(pfarthest) && npk == get<1>(pfarthest) && npl > get<2>(pfarthest))))) {
+                    // we've traversed more of the path than on any previous subpath
 #ifdef debug_trace
-                cerr << "new farthest at subpath index " << i << ", " << j << ", " << k << ", " << l << " and path index " << pj << ", " << pk << ", " << pl << endl;
+                    cerr << "new farthest at subpath index " << ni << ", " << nj << ", " << nk << ", " << nl << " and path index " << npj << ", " << npk << ", " << npl << endl;
 #endif
-                pfarthest = make_tuple(pj, pk, pl);
-                mfarthest.clear();
-                mfarthest.emplace_back(i, j, k, l);
-            }
-            else if (pj == get<0>(pfarthest) && pk == get<1>(pfarthest) && pl == get<2>(pfarthest) && any_new_match) {
-                // we've tied the farthest we've gone along the path previously
+                    pfarthest = make_tuple(npj, npk, npl);
+                    mfarthest.clear();
+                    mfarthest.emplace_back(ni, nj, nk, nl);
+                }
+                else if (npj == get<0>(pfarthest) && npk == get<1>(pfarthest) && npl == get<2>(pfarthest)) {
+                    // we've tied the farthest we've gone along the path previously
 #ifdef debug_trace
-                cerr << "tied existing farthest at subpath index " << i << ", " << j << ", " << k << ", " << l << endl;
+                    cerr << "tied existing farthest at subpath index " << ni << ", " << nj << ", " << nk << ", " << nl << endl;
 #endif
-                mfarthest.emplace_back(i, j, k, l);
+                    mfarthest.emplace_back(ni, nj, nk, nl);
+                }
             }
             
             if (pj == path.mapping_size() || pj < 0) {
@@ -2915,6 +2920,9 @@ namespace vg {
                                 next_edit_idx = next_mapping.edit_size() - 1;
                             }
                             stack.emplace_back(n, next_mapping_idx, next_edit_idx, 0, pj, pk, pl);
+#ifdef debug_trace
+                            cerr << "stack up (" << n << " " << next_mapping_idx << " " << next_edit_idx << " " << 0 << ") (" << pj << " " << pk << " " << pl << ")" << endl;
+#endif
                         }
                     }
                 }
@@ -2923,12 +2931,18 @@ namespace vg {
                         if (!stacked[n]) {
                             stacked[n] = true;
                             stack.emplace_back(n, 0, 0, 0, pj, pk, pl);
+#ifdef debug_trace
+                            cerr << "stack up (" << n << " " << 0 << " " << 0 << " " << 0 << ") (" << pj << " " << pk << " " << pl << ")" << endl;
+#endif
                         }
                     }
                     for (const auto& c : subpath.connection()) {
                         if (!stacked[c.next()]) {
                             stacked[c.next()] = true;
                             stack.emplace_back(c.next(), 0, 0, 0, pj, pk, pl);
+#ifdef debug_trace
+                            cerr << "stack up (" << c.next() << " " << 0 << " " << 0 << " " << 0 << ") (" << pj << " " << pk << " " << pl << ")" << endl;
+#endif
                         }
                     }
                 }
