@@ -1,0 +1,45 @@
+name: TestMac
+
+# Run on our main branch and any PRs to it, and on release tags, but not every
+# commit in every branch.
+on:
+  push:
+    branches:    
+      - master
+    tags:
+      - "*"
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  testmac:
+    name: Test on mac
+    runs-on: macos-10.15
+
+    steps:
+      - name: Use cache
+        uses: actions/cache@v2
+        with:
+          path: | 
+            deps
+            lib
+            include
+            bin
+        key: ${{ runner.os }}
+    
+      - name: Checkout code
+        uses: actions/checkout@v2
+        
+      - name: Install packages
+        # We don't use artemnovichkov/action-homebrew because that's for Linux
+        run: brew bundle
+
+      - name: Run build and test
+        run: |
+          export PATH="/usr/local/opt/bison/bin:$(pwd)/bin:/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
+          export LD_LIBRARY_PATH=/usr/local/lib/
+          export LIBRARY_PATH=/usr/local/lib/
+          export CFLAGS="-isystem /usr/local/include/"
+          make -j4 test
+        shell: bash
