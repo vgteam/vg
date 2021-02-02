@@ -26,14 +26,6 @@ COMMIT_AUTHOR_EMAIL="anovak+vgdocbot@soe.ucsc.edu"
 # Assumes we are running in the repo root.
 make docs
 
-if [[ -z "${CI_COMMIT_BRANCH}" || "${CI_COMMIT_BRANCH}" != "${CI_DEFAULT_BRANCH}" ]]; then
-    # This is an external PR. We have no access to the encryption keys for the encrypted deploy SSH key.
-    # We want to check out the dest repo with that key because it's much simpler than hacking the remote from https to ssh.
-    # So we won't even test copying the docs over to the destination repo.
-    echo "Not deploying docs."
-    exit 0
-fi
-
 # Get ready to deploy the docs
 
 # Make a scratch directory *outside* our normal git repo
