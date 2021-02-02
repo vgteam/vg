@@ -134,5 +134,13 @@ report-job:
     # We still need the Docker for version detection.
     # Make sure IO to Gitlab is in blocking mode so we can't swamp it and crash
     - vgci/blockify.py bash vgci/vgci.sh -J junit.all.xml -T vgci-docker-vg-local -W test_output
+    
+# We need a separate job to build the Doxygen docs
+docs-job:
+    stage: build
+    script:
+      - doc/publish-docs.sh
+    variables:
+      GIT_SUBMODULE_STRATEGY: recursive
    
   
