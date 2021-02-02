@@ -30,7 +30,7 @@ if [[ -z "${CI_COMMIT_BRANCH}" || "${CI_COMMIT_BRANCH}" != "${CI_DEFAULT_BRANCH}
     # This is an external PR. We have no access to the encryption keys for the encrypted deploy SSH key.
     # We want to check out the dest repo with that key because it's much simpler than hacking the remote from https to ssh.
     # So we won't even test copying the docs over to the destination repo.
-    echo "Not testing deploy; no encryption keys available for external PRs."
+    echo "Not deploying docs."
     exit 0
 fi
 
@@ -39,6 +39,7 @@ fi
 # Make a scratch directory *outside* our normal git repo
 SCRATCH_DIR="../tmp"
 mkdir -p "${SCRATCH_DIR}"
+
 
 # Set up our SSH key
 touch "${SCRATCH_DIR}/deploy_key"

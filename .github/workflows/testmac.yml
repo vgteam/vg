@@ -55,5 +55,6 @@ jobs:
           export LIBRARY_PATH=/usr/local/lib/
           export CFLAGS="-isystem /usr/local/include/"
           export VG_FULL_TRACEBACK=1
-          make -j4 test
+          echo "Build with $(nproc) threads"
+          make -j$(nproc) test
         shell: bash
