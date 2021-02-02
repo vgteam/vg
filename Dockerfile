@@ -40,10 +40,6 @@ RUN apt-get -qq -y update && apt-get -qq -y upgrade && apt-get -qq -y install \
 # Copy vg build tree into place
 COPY . /vg
 
-# Updater again after vg sources are imported so vg will always have an
-# up to date package index to get its dependencies.
-RUN apt-get -qq -y update
-
 # If we're trying to build from a non-recursively-cloned repo, go get the
 # submodules.
 RUN bash -c "[[ -e deps/sdsl-lite/CMakeLists.txt ]] || git submodule update --init --recursive"
