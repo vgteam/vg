@@ -300,7 +300,7 @@ if [ ! "${REUSE_VENV}" == "1" ]; then
     rm -rf .env
 fi
 if [ ! -e .env ]; then
-    virtualenv --python=python3.6  .env
+    virtualenv --python=python3  .env
 fi
 . .env/bin/activate
 
