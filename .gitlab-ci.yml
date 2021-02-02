@@ -44,7 +44,6 @@ local-build-test-job:
     key: local-build-test-cache
     paths:
       - deps/
-      - deps_clean/
       - include/
       - lib/
       - bin/

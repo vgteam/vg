@@ -20,19 +20,13 @@ if [[ -e deps ]]; then
 fi
 mkdir -p deps_cached
 
-if [[ -e deps_clean ]]; then
-    # If we have cached unbuilt dependencies, put them in place.
-    mv deps_clean deps
-fi
-
 # Get the correct code
 git submodule update --init --recursive
 
 # Clobber any differing files
 rsync -r --links --checksum deps/ deps_cached/
 
-# Move the unbuilt dependencies out of the way
-mv deps deps_clean
+rm -Rf deps
 
 # And move the built dependencies into place
 mv deps_cached deps

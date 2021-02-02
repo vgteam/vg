@@ -23,7 +23,6 @@ jobs:
         with:
           path: | 
             deps
-            deps_clean
             lib
             include
             bin
@@ -31,6 +30,7 @@ jobs:
           # Restore keys are a "list", but really only a multiline string is
           # accepted. Also we match by prefix. And the most recent cache is
           # used, not the most specific.
+          # See: https://docs.github.com/en/actions/guides/caching-dependencies-to-speed-up-workflows#matching-a-cache-key
           restore-keys: |
             ${{ runner.os }}-${{ github.base_ref }}
             ${{ runner.os }}
