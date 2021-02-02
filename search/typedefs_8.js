@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['load_5ffunction_5ft',['load_function_t',['../namespacevg_1_1io.html#a645533291ad3ae31bd8db73e51b3ac31',1,'vg::io']]]
+  ['jointrecipefunc_10694',['JointRecipeFunc',['../namespacevg.html#ae22eddd5f73bc495eafae880ccfed48a',1,'vg']]]
 ];

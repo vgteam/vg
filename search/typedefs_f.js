@@ -1,8 +1,10 @@
 var searchData=
 [
-  ['taggedmessage',['TaggedMessage',['../classvg_1_1io_1_1MessageIterator.html#ac914a651c928eedea34171366c9f62e8',1,'vg::io::MessageIterator']]],
-  ['thread_5fids_5ft',['thread_ids_t',['../namespacevg.html#a5c7b3ebb9ad8d6c01a0c54668b102c26',1,'vg']]],
-  ['thread_5ft',['thread_t',['../namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2',1,'vg::thread_t()'],['../trace__main_8cpp.html#a02bec433061240167abf72c66d6c253e',1,'thread_t():&#160;trace_main.cpp']]],
-  ['time_5fpoint',['time_point',['../classvg_1_1Watchdog.html#adbdb9378ef086d2e9255f22ff9ef454d',1,'vg::Watchdog']]],
-  ['type',['type',['../structvg_1_1Range.html#a5ea713fb16f3d49d94278914668503a9',1,'vg::Range']]]
+  ['save_5ffunction_5ft_10722',['save_function_t',['../namespacevg_1_1io.html#a161bd20a13c1fd9993bcddd7ea3cbe57',1,'vg::io']]],
+  ['search_5ftype_10723',['search_type',['../classvg_1_1PhaseUnfolder.html#a7484966dc448f4c3b894a53233f46d9f',1,'vg::PhaseUnfolder']]],
+  ['seed_10724',['Seed',['../classvg_1_1MinimizerMapper.html#a72644e4df554de0f0a2d3b50a9a3094a',1,'vg::MinimizerMapper']]],
+  ['seed_5ftype_10725',['seed_type',['../structvg_1_1GaplessExtension.html#a8c8a3d415e13a943e87b4c1e33347081',1,'vg::GaplessExtension::seed_type()'],['../classvg_1_1GaplessExtender.html#a8891a422c7921863c589850636d9f252',1,'vg::GaplessExtender::seed_type()']]],
+  ['serializablehandlegraph_10726',['SerializableHandleGraph',['../namespacevg.html#a7378a177b4ed2e7be87e02a9bfcb7d4e',1,'vg']]],
+  ['state_5ftype_10727',['state_type',['../classvg_1_1PhaseUnfolder.html#a95529e399d5ef61f6a426e1b5cfe9237',1,'vg::PhaseUnfolder']]],
+  ['step_5fhandle_5ft_10728',['step_handle_t',['../namespacevg.html#a40b137bbd07d198ca2b77962eeeaf7c8',1,'vg::step_handle_t()'],['../namespacevg_1_1io.html#a5473f8a5ac351719453cfd62655beebb',1,'vg::io::step_handle_t()']]]
 ];

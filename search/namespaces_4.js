@@ -1,9 +1,5 @@
 var searchData=
 [
-  ['algorithms',['algorithms',['../namespacevg_1_1algorithms.html',1,'vg']]],
-  ['io',['io',['../namespacevg_1_1io.html',1,'vg']]],
-  ['subcommand',['subcommand',['../namespacevg_1_1subcommand.html',1,'vg']]],
-  ['temp_5ffile',['temp_file',['../namespacevg_1_1temp__file.html',1,'vg']]],
-  ['unittest',['unittest',['../namespacevg_1_1unittest.html',1,'vg']]],
-  ['vg',['vg',['../namespacevg.html',1,'']]]
+  ['temp_5ffile_5721',['temp_file',['../namespacexg_1_1temp__file.html',1,'xg']]],
+  ['xg_5722',['xg',['../namespacexg.html',1,'']]]
 ];

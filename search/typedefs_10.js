@@ -1,6 +1,8 @@
 var searchData=
 [
-  ['value',['Value',['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html#a74a157bf3bce2696b04754f1c6dd72b9',1,'vg::Option&lt; vector&lt; Item &gt;, Parser &gt;']]],
-  ['value_5ftype',['value_type',['../classvg_1_1PhasedGenome_1_1iterator.html#a93f9129d2273ed4e7475456485be17b1',1,'vg::PhasedGenome::iterator::value_type()'],['../structstd_1_1iterator__traits_3_01vg_1_1PhasedGenome_1_1iterator_01_4.html#a5d5cc51db9a7bee260aa4b303b8d593a',1,'std::iterator_traits&lt; vg::PhasedGenome::iterator &gt;::value_type()'],['../classvg_1_1SmallBitset.html#a424751e879964b97d81879b1c2ef2e25',1,'vg::SmallBitset::value_type()']]],
-  ['vectorizablehandlegraph',['VectorizableHandleGraph',['../namespacevg.html#a449aa64ac606119e59f71cecb8a3b218',1,'vg']]]
+  ['taggedmessage_10729',['TaggedMessage',['../classvg_1_1io_1_1MessageIterator.html#ac914a651c928eedea34171366c9f62e8',1,'vg::io::MessageIterator']]],
+  ['thread_5fids_5ft_10730',['thread_ids_t',['../namespacevg.html#a5c7b3ebb9ad8d6c01a0c54668b102c26',1,'vg']]],
+  ['thread_5ft_10731',['thread_t',['../namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2',1,'vg::thread_t()'],['../trace__main_8cpp.html#a02bec433061240167abf72c66d6c253e',1,'thread_t():&#160;trace_main.cpp']]],
+  ['time_5fpoint_10732',['time_point',['../classvg_1_1Watchdog.html#adbdb9378ef086d2e9255f22ff9ef454d',1,'vg::Watchdog']]],
+  ['type_10733',['type',['../structvg_1_1Range.html#a5ea713fb16f3d49d94278914668503a9',1,'vg::Range']]]
 ];

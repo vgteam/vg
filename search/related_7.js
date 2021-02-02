@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['shuffledpairs',['ShuffledPairs',['../classvg_1_1ShuffledPairs_1_1iterator.html#a716354d123e5197d160a8d6c4da7817d',1,'vg::ShuffledPairs::iterator']]],
-  ['snarlindex',['SnarlIndex',['../classvg_1_1MinimumDistanceIndex.html#a840981c535f0ee72ad44a29f40364c24',1,'vg::MinimumDistanceIndex']]],
-  ['snarlseedclusterer',['SnarlSeedClusterer',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a580011ffaaa65265389daaad29189535',1,'vg::MinimumDistanceIndex::SnarlIndex::SnarlSeedClusterer()'],['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#a580011ffaaa65265389daaad29189535',1,'vg::MinimumDistanceIndex::ChainIndex::SnarlSeedClusterer()'],['../classvg_1_1MinimumDistanceIndex.html#a580011ffaaa65265389daaad29189535',1,'vg::MinimumDistanceIndex::SnarlSeedClusterer()']]]
+  ['pathforeachsocket_10865',['PathForEachSocket',['../classhandlegraph_1_1PathForEachSocket_1_1iterator.html#ad5b94c4a72e3d6d48be27cb00bc41ca2',1,'handlegraph::PathForEachSocket::iterator']]],
+  ['pathhandlegraph_10866',['PathHandleGraph',['../classhandlegraph_1_1PathForEachSocket.html#a4260787fbe094766e75485f7d7d9d0ca',1,'handlegraph::PathForEachSocket']]],
+  ['phasedgenome_10867',['PhasedGenome',['../classvg_1_1PhasedGenome_1_1Haplotype.html#a9a2572c185819a46668ffbb59ff09008',1,'vg::PhasedGenome::Haplotype::PhasedGenome()'],['../classvg_1_1PhasedGenome_1_1iterator.html#a9a2572c185819a46668ffbb59ff09008',1,'vg::PhasedGenome::iterator::PhasedGenome()']]]
 ];

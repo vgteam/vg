@@ -1,6 +1,12 @@
 var searchData=
 [
-  ['nid_5ft',['nid_t',['../namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb',1,'vg::nid_t()'],['../namespacexg.html#a8f8752f074f0e121862f9dd3aabfbb45',1,'xg::nid_t()'],['../namespacebdsg.html#aff7379503bb3493f556fdc1f8111c3e1',1,'bdsg::nid_t()'],['../namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b',1,'handlegraph::nid_t()'],['../namespacevg_1_1io.html#a43c8209ab6c2c1d48c0ca50c24fd0d13',1,'vg::io::nid_t()']]],
-  ['node',['Node',['../structvg_1_1Tree.html#ad5b04c67e4c1390c2ae46d1db40548f7',1,'vg::Tree']]],
-  ['nodetype',['nodeType',['../structhaplo_1_1linear__haplo__structure.html#a5a445bf4e35551e91c00b4dfeec294d5',1,'haplo::linear_haplo_structure']]]
+  ['match_5ffanouts_5ft_10696',['match_fanouts_t',['../classvg_1_1MEMClusterer.html#a3127930f2b575bed2937c21382924480',1,'vg::MEMClusterer::match_fanouts_t()'],['../classvg_1_1MultipathMapper.html#a165e5c0531ff4337ce6542da263d3fbd',1,'vg::MultipathMapper::match_fanouts_t()']]],
+  ['memcluster_5ft_10697',['memcluster_t',['../classvg_1_1MultipathMapper.html#acae95760b8750cf3b2bb48d00fe499fd',1,'vg::MultipathMapper']]],
+  ['message_5fconsumer_5ffunction_5ft_10698',['message_consumer_function_t',['../namespacevg_1_1io.html#a618e8c9e44f63328bb2c0742ab0e69c2',1,'vg::io']]],
+  ['message_5flistener_5ft_10699',['message_listener_t',['../classvg_1_1io_1_1ProtobufEmitter.html#a735167dc9e644a83d0e9fd206b241ce1',1,'vg::io::ProtobufEmitter']]],
+  ['message_5fsender_5ffunction_5ft_10700',['message_sender_function_t',['../namespacevg_1_1io.html#a26ea41d1ec4cf44b436a345f1eefccf1',1,'vg::io']]],
+  ['mutablehandlegraph_10701',['MutableHandleGraph',['../namespacevg.html#a293aa7465cc63a2581914d6a85a0e4b8',1,'vg']]],
+  ['mutablepathdeletablehandlegraph_10702',['MutablePathDeletableHandleGraph',['../namespacevg.html#a2f0cc7bac7a4f92b2b523357f8940aa5',1,'vg']]],
+  ['mutablepathhandlegraph_10703',['MutablePathHandleGraph',['../namespacevg.html#a24350c08e6d69244e6930f41fee00e1f',1,'vg']]],
+  ['mutablepathmutablehandlegraph_10704',['MutablePathMutableHandleGraph',['../namespacevg.html#aa2f83c48d4ecdcfd8f2604f10e863aea',1,'vg']]]
 ];
