@@ -47,7 +47,10 @@ jobs:
 
       - name: Run build and test
         run: |
-          export PATH="/usr/local/opt/bison/bin:$(pwd)/bin:/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
+          brew --prefix
+          export PATH="$(brew --prefix)/opt/coreutils/libexec/gnubin:/usr/local/opt/bison/bin:$(pwd)/bin:/usr/local/bin:$PATH"
+          which wc
+          wc --version
           export LD_LIBRARY_PATH=/usr/local/lib/
           export LIBRARY_PATH=/usr/local/lib/
           export CFLAGS="-isystem /usr/local/include/"
