@@ -33,10 +33,12 @@ stages:
   - test
   - report
   
-# We define one job to do the out-of-container (re)build, and run the Bash tests
-# It uses a Gitlab-managed cache to prevent a full rebuild every time
+# We define one job to do the out-of-container (re)build, and run the Bash
+# tests. It uses a Gitlab-managed cache to prevent a full rebuild every time. It
+# still takes longer than the Docker build, so we put it in the test stage
+# alongside other longer jobs.
 local-build-test-job:
-  stage: build
+  stage: test
   cache:
     # Gitlab isn't clever enough to fill PR caches from the main branch, so we
     # just use one megacache and hope the Makefile is smart enough to recover
