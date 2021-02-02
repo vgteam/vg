@@ -29,7 +29,7 @@ fi
 git submodule update --init --recursive
 
 # Clobber any differing files
-rsync -rv --links --checksum deps/ deps_cached/
+rsync -r --links --checksum deps/ deps_cached/
 
 # Move the unbuilt dependencies out of the way
 mv deps deps_clean
