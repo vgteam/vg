@@ -1,4 +1,4 @@
-name: TestMac
+name: Test Mac
 
 # Run on our main branch and any PRs to it, and on release tags, but not every
 # commit in every branch.
@@ -14,7 +14,7 @@ on:
 
 jobs:
   testmac:
-    name: Test on mac
+    name: Test on Mac
     runs-on: macos-10.15
 
     steps:
@@ -23,14 +23,19 @@ jobs:
         with:
           path: | 
             deps
+            deps_clean
             lib
             include
             bin
-          key: ${{ runner.os }}
-    
-      - name: Checkout code
+          key: ${{ runner.os }}-${{ github.ref }}
+          restore-keys: ${{ runner.os }}-${{ github.base_ref }} ${{ runner.os }}
+          
+      - name: Checkout code without submodules
         uses: actions/checkout@v2
-        
+      
+      - name: Get or restore dependencies
+        run: scripts/restore-deps.sh
+       
       - name: Install packages
         # We don't use artemnovichkov/action-homebrew because that's for Linux
         run: brew bundle
