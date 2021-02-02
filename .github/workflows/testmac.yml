@@ -28,9 +28,12 @@ jobs:
             include
             bin
           key: ${{ runner.os }}-${{ github.ref }}
-          restore-keys:
-            - ${{ runner.os }}-${{ github.base_ref }}
-            - ${{ runner.os }}
+          # Restore keys are a "list", but really only a multiline string is
+          # accepted. Also we match by prefix. And the most recent cache is
+          # used, not the most specific.
+          restore-keys: |
+            ${{ runner.os }}-${{ github.base_ref }}
+            ${{ runner.os }}
           
       - name: Checkout code without submodules
         uses: actions/checkout@v2
