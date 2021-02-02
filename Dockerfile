@@ -37,23 +37,23 @@ RUN apt-get -qq -y update && apt-get -qq -y upgrade && apt-get -qq -y install \
 ###DEPS_END###
 
 # Bring in any includes we pre-made, like the git version
-COPY ./include /vg/include
+COPY include /vg/include
 # Pre-build non-package dependencies
-COPY ./source_me.sh /vg/source_me.sh
-COPY ./deps /vg/deps
+COPY source_me.sh /vg/source_me.sh
+COPY deps /vg/deps
 # To increase portability of the docker image, set the target CPU architecture to
 # Nehalem (2008) rather than auto-detecting the build machine's CPU.
 # This has no AVX1, AVX2, or PCLMUL, but it does have SSE4.2.
 # UCSC has a Nehalem machine that we want to support.
 RUN sed -i s/march=native/march=nehalem/ deps/sdsl-lite/CMakeLists.txt
-COPY ./Makefile /vg/Makefile
+COPY Makefile /vg/Makefile
 RUN . ./source_me.sh && CXXFLAGS=" -march=nehalem " make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) deps
 
 # Bring in the rest of the build tree that we need
-COPY ./src /vg/src
-COPY ./test /vg/test
-COPY ./doc /vg/doc
-COPY ./scripts /vg/scripts
+COPY src /vg/src
+COPY test /vg/test
+COPY doc /vg/doc
+COPY scripts /vg/scripts
 
 # Do the build. Trim down the resulting binary but make sure to include enough debug info for profiling.
 # Also pass the arch here
