@@ -65,7 +65,7 @@ local-build-test-job:
     - mkdir -p deps; touch "deps/gcc$(gcc -dumpversion)"
     - git submodule update --init --recursive
   script:
-    - python ./configure.py
+    - python3 ./configure.py
     - source ./source_me.sh
     - make get-deps
     - make -j8
@@ -85,6 +85,8 @@ build-job:
   script: 
     - bash vgci/vgci.sh -t None -H
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
+    #- make include/vg_git_version.hpp
+    #- docker buildx build --push --build-arg THREADS=8 -t "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" -f Dockerfile .
     - docker tag vgci-docker-vg-local "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}"
     - docker push "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}"
     # No more artifacts here; we now use this deterministic name to get the container.
