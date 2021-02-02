@@ -29,7 +29,7 @@ make docs
 # Get ready to deploy the docs
 
 # Make a scratch directory *outside* our normal git repo
-SCRATCH_DIR="../tmp"
+SCRATCH_DIR="$(pwd)/../tmp"
 mkdir -p "${SCRATCH_DIR}"
 
 
@@ -54,7 +54,7 @@ cat ~/.ssh/known_hosts
 
 # Clone the dest repo, now that we can authenticate.
 # Don't check it out, so we can get just the branch we want or start a new branch with a clean working copy.
-git -c "core.sshCommand=\"ssh -i ${SCRATCH_DIR}/deploy_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no\"" clone --no-checkout "${DEST_REPO}" "${SCRATCH_DIR}/dest"
+git -c "core.sshCommand=ssh -i ${SCRATCH_DIR}/deploy_key -o 'UserKnownHostsFile=/dev/null' -o 'StrictHostKeyChecking=no'" clone --no-checkout "${DEST_REPO}" "${SCRATCH_DIR}/dest"
 
 # Go in and get/make the destination branch
 pushd "${SCRATCH_DIR}/dest"
@@ -91,7 +91,7 @@ fi
 
 # If we are on the right branch, actually push the commit.
 # Push the commit. This does not fail if there is no commit.
-git -c "core.sshCommand=\"ssh -i ${SCRATCH_DIR}/deploy_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no\"" push origin "${DEST_BRANCH}"
+git -c "core.sshCommand=ssh -i ${SCRATCH_DIR}/deploy_key -o 'UserKnownHostsFile=/dev/null' -o 'StrictHostKeyChecking=no'" push origin "${DEST_BRANCH}"
 
 
 
