@@ -36,8 +36,6 @@ RUN apt-get -qq -y update && apt-get -qq -y upgrade && apt-get -qq -y install \
     libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev libboost-all-dev
 ###DEPS_END###
 
-# Bring in any includes we pre-made, like the git version
-COPY include /vg/include
 # Pre-build non-package dependencies
 COPY source_me.sh /vg/source_me.sh
 COPY deps /vg/deps
@@ -54,6 +52,8 @@ COPY src /vg/src
 COPY test /vg/test
 COPY doc /vg/doc
 COPY scripts /vg/scripts
+# Bring in any includes we pre-made, like the git version
+COPY include /vg/include
 
 # Do the build. Trim down the resulting binary but make sure to include enough debug info for profiling.
 # Also pass the arch here
