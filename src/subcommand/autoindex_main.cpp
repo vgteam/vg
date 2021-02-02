@@ -111,7 +111,7 @@ int main_autoindex(int argc, char** argv) {
     // load the registry
     IndexRegistry registry = VGIndexes::get_vg_index_registry();
     bool print_dot = false;
-    vector<string> targets;
+    vector<IndexName> targets;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -164,21 +164,21 @@ int main_autoindex(int argc, char** argv) {
                 }
                 break;
             case 'r':
-                registry.provide("Reference FASTA", optarg);
+                registry.provide({"Reference FASTA"}, optarg);
                 break;
             case 'v':
                 if (vcf_is_phased(optarg)) {
-                    registry.provide("Phased VCF", optarg);
+                    registry.provide({"Phased VCF"}, optarg);
                 }
                 else {
-                    registry.provide("VCF", optarg);
+                    registry.provide({"VCF"}, optarg);
                 }
                 break;
             case 'i':
-                registry.provide("Insertion Sequence FASTA", optarg);
+                registry.provide({"Insertion Sequence FASTA"}, optarg);
                 break;
             case 'g':
-                registry.provide("Reference GFA", optarg);
+                registry.provide({"Reference GFA"}, optarg);
                 break;
             case 'T':
                 temp_file::set_dir(optarg);
