@@ -82,14 +82,12 @@ local-build-test-job:
 # We define one job to do the Docker container build
 build-job:
   stage: build
-  script: 
-    - bash vgci/vgci.sh -t None -H
+  script:
+    - mkdir -p ~/.docker/cli-plugins/ ; curl -L https://github.com/docker/buildx/releases/download/v0.5.1/buildx-v0.5.1.linux-amd64 >  ~/.docker/cli-plugins/docker-buildx ; chmod u+x ~/.docker/cli-plugins/docker-buildx
+    - docker buildx create --use --name=buildkit --platform=linux/amd64 --node=buildkit-amd64 --driver=kubernetes --driver-opt="nodeselector=kubernetes.io/arch=amd64"
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
-    #- make include/vg_git_version.hpp
-    #- docker buildx build --push --build-arg THREADS=8 -t "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" -f Dockerfile .
-    - docker tag vgci-docker-vg-local "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}"
-    - docker push "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}"
-    # No more artifacts here; we now use this deterministic name to get the container.
+    - make include/vg_git_version.hpp
+    - docker buildx build --push --build-arg THREADS=8 -t "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" -f Dockerfile .
     
 # We define a second follow-on phase to run the tests
 # Note that WE ONLY RUN TESTS LISTED IN vgci/test-list.txt
