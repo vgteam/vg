@@ -19,8 +19,12 @@ DEST_DIR="./"
 COMMIT_AUTHOR_NAME="VG Doc Bot"
 COMMIT_AUTHOR_EMAIL="anovak+vgdocbot@soe.ucsc.edu"
 
-# We expect DOCS_KEY_ENCRYPTION_LABEL to come in from the environment, specifying the ID
-# of the encrypted deploy key we will use to get at the docs repo.
+# We expect GITLAB_SECRET_FILE_DOCS_SSH_KEY to come in from the environment,
+# specifying the private deploy key we will use to get at the docs repo.
+
+# Find all the submodules that Doxygen wants to look at and make sure we have
+# those.
+cat Doxyfile  | grep "^INPUT *=" | cut -f2 -d'=' | tr ' ' '\n' | grep "^ *deps" | sed 's_ *\(deps/[^/]*\).*_\1_' | sort | uniq | xargs -n 1 git submodule update --init --recursive
 
 # Build the documentation.
 # Assumes we are running in the repo root.
@@ -83,7 +87,7 @@ git config user.email "${COMMIT_AUTHOR_EMAIL}"
 # Make the commit. Tolerate failure because this fails when there is nothing to commit.
 git commit -m "Commit new auto-generated docs" || true
 
-if [[ -z "${CI_COMMIT_BRANCH}" || "${CI_COMMIT_BRANCH}" == "${CI_DEFAULT_BRANCH}" ]]; then
+if [[ -z "${CI_COMMIT_BRANCH}" || "${CI_COMMIT_BRANCH}" != "${CI_DEFAULT_BRANCH}" ]]; then
     # If we're not a real mainline commit, we just make sure the docs build.
     echo "Documentation should not be deployed because this is not a mainline build"
     exit 0
