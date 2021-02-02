@@ -4,14 +4,14 @@
 # So we either have to genuinely nest Docker inside another Docker, or we have to run the build on the real host.
 
 # Pull in an image that has our apt packages pre-installed, to save time installing them for every test.
-image: quay.io/vgteam/vg_ci_prebake
+# Make sure to use :latest so we re-check and re-pull if needed on every run.
+image: quay.io/vgteam/vg_ci_prebake:latest
 
 before_script:
   - sudo apt-get -q -y update
   # Make sure we have some curl stuff for pycurl which we need for some Python stuff
-  # We also need Node >4 for junit merging (so we need to be on Ubuntu 18.04+)
   # And the CI report upload needs uuidgen from uuid-runtime
-  - sudo apt-get -q -y install --no-upgrade docker.io python-pip python-virtualenv libcurl4-gnutls-dev python-dev npm nodejs node-gyp nodejs-dev libssl1.0-dev uuid-runtime libgnutls28-dev
+  - sudo apt-get -q -y install --no-upgrade docker.io python3-pip python3-virtualenv libcurl4-gnutls-dev python-dev npm nodejs node-gyp uuid-runtime libgnutls28-dev doxygen
   - which junit-merge || sudo npm install -g junit-merge
   # Configure Docker to use a mirror for Docker Hub and restart the daemon
   # Set the registry as insecure because it is probably cluster-internal over plain HTTP.
@@ -33,16 +33,64 @@ stages:
   - test
   - report
   
+# We define one job to do the out-of-container (re)build, and run the Bash
+# tests. It uses a Gitlab-managed cache to prevent a full rebuild every time. It
+# still takes longer than the Docker build, so we put it in the test stage
+# alongside other longer jobs.
+local-build-test-job:
+  stage: test
+  cache:
+    # Gitlab isn't clever enough to fill PR caches from the main branch, so we
+    # just use one megacache and hope the Makefile is smart enough to recover
+    # from the future
+    key: local-build-test-cache
+    paths:
+      - deps/
+      - include/
+      - lib/
+      - bin/
+      - obj/
+  before_script:
+    - sudo apt-get -q -y update
+    # We need to make sure we get the right submodule files for this version
+    # and don't clobber sources with the cache. We want to have a dirty state
+    # with the correct source files.
+    - scripts/restore-deps.sh
+  script:
+    - python3 ./configure.py
+    - source ./source_me.sh
+    - make get-deps
+    - make -j8
+    - echo Testing
+    - bin/vg test "Target to alignment extraction"
+    - echo Full Testing
+    - make test
+    - make static -j8
+  variables:
+    VG_FULL_TRACEBACK: "1"
+    GIT_SUBMODULE_STRATEGY: none
 
-# We define one job to do the build
+
+# We define one job to do the Docker container build
 build-job:
   stage: build
-  script: 
-    - bash vgci/vgci.sh -t None -H
+  before_script:
+    # Don't bother starting the Docker daemon or installing much
+    - which docker || (sudo apt-get -q -y update && sudo apt-get -q -y install --no-upgrade docker.io)
+    # Get buildx
+    - mkdir -p ~/.docker/cli-plugins/ ; curl -L https://github.com/docker/buildx/releases/download/v0.5.1/buildx-v0.5.1.linux-amd64 >  ~/.docker/cli-plugins/docker-buildx ; chmod u+x ~/.docker/cli-plugins/docker-buildx
+    # Connect to the Kubernetes-based builder "buildkit"
+    # See vgci/buildkit-deployment.yml
+    - docker buildx create --use --name=buildkit --platform=linux/amd64 --node=buildkit-amd64 --driver=kubernetes --driver-opt="nodeselector=kubernetes.io/arch=amd64"
+    # Connect so we can upload our images
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
-    - docker tag vgci-docker-vg-local "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}"
-    - docker push "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}"
-    # No more artifacts here; we now use this deterministic name to get the container.
+  script:
+    - make include/vg_git_version.hpp
+    - docker buildx build --push --build-arg THREADS=8 --target run -t "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" -f Dockerfile .
+    # Also run the tests
+    - docker buildx build --build-arg THREADS=8 --target test -f Dockerfile .
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
     
 # We define a second follow-on phase to run the tests
 # Note that WE ONLY RUN TESTS LISTED IN vgci/test-list.txt
@@ -56,6 +104,11 @@ test-job:
     - docker pull "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}"
     - docker tag "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" vgci-docker-vg-local
     - mkdir -p junit
+    # Drop secrets before we do any Toil; it might want to log the environment
+    - export GITLAB_SECRET_FILE_AWS_CREDENTIALS=""
+    - export GITLAB_SECRET_FILE_DOCS_SSH_KEY=""
+    - export CI_REGISTRY_PASSWORD=""
+    - export GH_TOKEN=""
     # Make sure IO to Gitlab is in blocking mode so we can't swamp it and crash
     - vgci/blockify.py bash vgci/vgci-parallel-wrapper.sh vgci/test-list.txt vgci-docker-vg-local ${CI_NODE_INDEX} ${CI_NODE_TOTAL} ./junit ./test_output
   artifacts:
@@ -87,5 +140,11 @@ report-job:
     # We still need the Docker for version detection.
     # Make sure IO to Gitlab is in blocking mode so we can't swamp it and crash
     - vgci/blockify.py bash vgci/vgci.sh -J junit.all.xml -T vgci-docker-vg-local -W test_output
+    
+# We need a separate job to build the Doxygen docs
+docs-job:
+    stage: build
+    script:
+      - doc/publish-docs.sh
    
   

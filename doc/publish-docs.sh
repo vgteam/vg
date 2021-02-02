@@ -16,65 +16,49 @@ SOURCE_DIR="doc/doxygen/html/"
 # Also probably needs a trailing slash
 DEST_DIR="./"
 # Who should be seen as making the commits?
-COMMIT_AUTHOR_NAME="Travis Doc Bot"
-COMMIT_AUTHOR_EMAIL="anovak+travisdocbot@soe.ucsc.edu"
-# What SSH key, relative to this repo's root, should we decrypt and use for doc deployment?
-ENCRYPTED_SSH_KEY_FILE="doc/deploy_key.enc"
+COMMIT_AUTHOR_NAME="VG Doc Bot"
+COMMIT_AUTHOR_EMAIL="anovak+vgdocbot@soe.ucsc.edu"
 
-# We expect DOCS_KEY_ENCRYPTION_LABEL to come in from the environment, specifying the ID
-# of the encrypted deploy key we will use to get at the docs repo.
+# We expect GITLAB_SECRET_FILE_DOCS_SSH_KEY to come in from the environment,
+# specifying the private deploy key we will use to get at the docs repo.
+
+# Find all the submodules that Doxygen wants to look at and make sure we have
+# those.
+cat Doxyfile  | grep "^INPUT *=" | cut -f2 -d'=' | tr ' ' '\n' | grep "^ *deps" | sed 's_ *\(deps/[^/]*\).*_\1_' | sort | uniq | xargs -n 1 git submodule update --init --recursive
 
 # Build the documentation.
 # Assumes we are running in the repo root.
 make docs
 
-if [[ ! -z "${TRAVIS_PULL_REQUEST_SLUG}" && "${TRAVIS_PULL_REQUEST_SLUG}" != "${TRAVIS_REPO_SLUG}" ]]; then
-    # This is an external PR. We have no access to the encryption keys for the encrypted deploy SSH key.
-    # We want to check out the dest repo with that key because it's much simpler than hacking the remote from https to ssh.
-    # So we won't even test copying the docs over to the destination repo.
-    echo "Not testing deploy; no encryption keys available for external PRs."
-    exit 0
-fi
-
 # Get ready to deploy the docs
 
 # Make a scratch directory *outside* our normal git repo
-SCRATCH_DIR="../tmp"
+SCRATCH_DIR="$(pwd)/../tmp"
 mkdir -p "${SCRATCH_DIR}"
 
-# Get our encryption key and IV variable names
-ENCRYPTION_KEY_VAR="encrypted_${DOCS_KEY_ENCRYPTION_LABEL}_key"
-ENCRYPTION_IV_VAR="encrypted_${DOCS_KEY_ENCRYPTION_LABEL}_iv"
 
-echo "Want to decrypt ${ENCRYPTED_SSH_KEY_FILE} using key from variable ${ENCRYPTION_KEY_VAR} and IV from variable ${ENCRYPTION_IV_VAR}"
+# Set up our SSH key
+touch "${SCRATCH_DIR}/deploy_key"
 
-if [[ -z "${!ENCRYPTION_KEY_VAR}" ]]; then
-    echo "Encryption key not found!"
-    exit 1
-fi
-
-if [[ -z "${!ENCRYPTION_IV_VAR}" ]]; then
-    echo "Encryption IV not found!"
-    exit 1
-fi
-
-# Decrypt the encrypted deploy SSH key
-# Get the key and IV from the variables we have the names of.
-openssl aes-256-cbc -K "${!ENCRYPTION_KEY_VAR}" -iv "${!ENCRYPTION_IV_VAR}" -in "${ENCRYPTED_SSH_KEY_FILE}" -out "${SCRATCH_DIR}/deploy_key" -d
 # Protect it so the agent is happy
 chmod 600 "${SCRATCH_DIR}/deploy_key"
 
-# Start an agent and add the key
-eval "$(ssh-agent -s)"
-ssh-add "${SCRATCH_DIR}/deploy_key"
+# Fill it in with NO COMMAND ECHO
+set +x
+echo "${GITLAB_SECRET_FILE_DOCS_SSH_KEY}" > ${SCRATCH_DIR}/deploy_key
 
 # Turn on echo so we can see what we're doing.
-# This MUST happen only AFTER we are done toucking the encryption stuff.
+# This MUST happen only AFTER we are done touching the encryption stuff.
 set -x
+
+# Make sure we have an known_hosts
+mkdir -p ~/.ssh
+touch ~/.ssh/known_hosts
+cat ~/.ssh/known_hosts
 
 # Clone the dest repo, now that we can authenticate.
 # Don't check it out, so we can get just the branch we want or start a new branch with a clean working copy.
-git clone --no-checkout "${DEST_REPO}" "${SCRATCH_DIR}/dest"
+git -c "core.sshCommand=ssh -i ${SCRATCH_DIR}/deploy_key -o 'UserKnownHostsFile=/dev/null' -o 'StrictHostKeyChecking=no'" clone --no-checkout "${DEST_REPO}" "${SCRATCH_DIR}/dest"
 
 # Go in and get/make the destination branch
 pushd "${SCRATCH_DIR}/dest"
@@ -103,17 +87,15 @@ git config user.email "${COMMIT_AUTHOR_EMAIL}"
 # Make the commit. Tolerate failure because this fails when there is nothing to commit.
 git commit -m "Commit new auto-generated docs" || true
 
-if [[ "${TRAVIS_PULL_REQUEST}" != "false" || "${TRAVIS_BRANCH}" != "master" ]]; then
-    # If we're not a real master commit, we just make sure the docs build.
-    # Also, unless we're a branch in the main vgteam/vg repo, we don't have access to the encryption keys anyway.
-    # So we can't even try to deploy.
-    echo "Documentation should not be deployed because this is not a mainline master build"
+if [[ -z "${CI_COMMIT_BRANCH}" || "${CI_COMMIT_BRANCH}" != "${CI_DEFAULT_BRANCH}" ]]; then
+    # If we're not a real mainline commit, we just make sure the docs build.
+    echo "Documentation should not be deployed because this is not a mainline build"
     exit 0
 fi
 
 # If we are on the right branch, actually push the commit.
 # Push the commit. This does not fail if there is no commit.
-git push origin "${DEST_BRANCH}"
+git -c "core.sshCommand=ssh -i ${SCRATCH_DIR}/deploy_key -o 'UserKnownHostsFile=/dev/null' -o 'StrictHostKeyChecking=no'" push origin "${DEST_BRANCH}"
 
 
 

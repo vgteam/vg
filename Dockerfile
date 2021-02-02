@@ -15,34 +15,49 @@ ARG THREADS=8
 
 RUN echo build > /stage.txt
 
-# Copy vg build tree into place
-COPY . /vg
-
-# Install the base packages needed to let vg install packages.
-# Make sure this runs after vg sources are imported so vg will always have an
-# up to date package index to get its dependencies.
-# We don't need to clean the package index since we don't ship this image and
-# don't care about its size.
-# We don't want to install too much stuff here, because we want to test vg's
-# make get-deps to make sure it isn't missing something
 RUN apt-get -qq -y update && \
     apt-get -qq -y upgrade && \
-    apt-get -qq -y install --no-upgrade \
-    make \
-    sudo \
-    git
+    apt-get -qq -y install sudo
 
-# If we're trying to build from a non-recursively-cloned repo, go get the
-# submodules.
-RUN bash -c "[[ -e deps/sdsl-lite/CMakeLists.txt ]] || git submodule update --init --recursive"
+# Install all vg's dependencies.
+# The Makefile will come parse the Dockerfile to get the correct dependencies;
+# this is the One True Depencency List.
+# We don't need to clean the package index since we don't ship this image and
+# don't care about its size.
+# We clip out everything between these begin and end markers, except the line
+# that starts with RUN, or comments. And we pull out line continuation slashes.
+# TODO: can we read them here and in the Makefile from the README instead?
+###DEPS_BEGIN###
+RUN apt-get -qq -y update && apt-get -qq -y upgrade && apt-get -qq -y install \
+    make git build-essential protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev \
+    libncurses5-dev automake libtool jq bsdmainutils bc rs parallel npm samtools curl \
+    unzip redland-utils librdf-dev cmake pkg-config wget gtk-doc-tools raptor2-utils \
+    rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev \
+    libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev libboost-all-dev
+###DEPS_END###
 
+# Pre-build non-package dependencies
+COPY source_me.sh /vg/source_me.sh
+COPY deps /vg/deps
 # To increase portability of the docker image, set the target CPU architecture to
 # Nehalem (2008) rather than auto-detecting the build machine's CPU.
 # This has no AVX1, AVX2, or PCLMUL, but it does have SSE4.2.
 # UCSC has a Nehalem machine that we want to support.
 RUN sed -i s/march=native/march=nehalem/ deps/sdsl-lite/CMakeLists.txt
+COPY Makefile /vg/Makefile
+RUN . ./source_me.sh && CXXFLAGS=" -march=nehalem " make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) deps
+
+# Bring in the rest of the build tree that we need
+COPY src /vg/src
+COPY test /vg/test
+COPY doc /vg/doc
+COPY scripts /vg/scripts
+# Bring in any includes we pre-made, like the git version
+COPY include /vg/include
+
 # Do the build. Trim down the resulting binary but make sure to include enough debug info for profiling.
-RUN make get-deps && . ./source_me.sh && env && make include/vg_git_version.hpp && CXXFLAGS=" -march=nehalem " make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) && make static && strip -d bin/vg
+# Also pass the arch here
+RUN . ./source_me.sh && CXXFLAGS=" -march=nehalem " make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) static && strip -d bin/vg
 
 ENV PATH /vg/bin:$PATH
 
@@ -51,24 +66,6 @@ FROM build AS test
 ARG THREADS=8
 
 RUN echo test > /stage.txt
-
-# The tests also need some other extra packages.
-# TODO: Which of these can we remove?
-# No clean necessary since we aren't shipping this
-RUN apt-get -qq -y update && \
-    apt-get -qq -y upgrade && \
-    apt-get -qq -y install --no-upgrade \
-    bwa \
-    pigz \
-    dstat \
-    pv \
-    jq \
-    samtools \
-    tabix \
-    parallel \
-    bsdmainutils \
-    rs \
-    fontconfig-config
 
 # Fail if any non-portable instructions were used
 RUN /bin/bash -e -c 'if objdump -d /vg/bin/vg | grep vperm2i128 ; then exit 1 ; else exit 0 ; fi'
@@ -80,12 +77,6 @@ RUN export OMP_NUM_THREADS=$((THREADS < $(nproc) ? THREADS : $(nproc))) make tes
 FROM base AS run
 
 RUN echo run > /stage.txt
-
-COPY --from=build /vg/bin/vg /vg/bin/
-
-COPY --from=build /vg/scripts/* /vg/scripts/
-# Make sure we have the flame graph scripts so we can do self-profiling
-COPY deps/FlameGraph /vg/deps/FlameGraph
 
 # Install packages which toil-vg needs to be available inside the image, for
 # pipes and profiling, and good usability on Kubernetes.
@@ -120,7 +111,12 @@ RUN ls -lah /vg && \
     linux-tools-generic \
     perl \
     && apt-get -qq -y clean
+    
+COPY --from=build /vg/bin/vg /vg/bin/
 
+COPY --from=build /vg/scripts/* /vg/scripts/
+# Make sure we have the flame graph scripts so we can do self-profiling
+COPY deps/FlameGraph /vg/deps/FlameGraph
 
 ENV PATH /vg/bin:$PATH
 
