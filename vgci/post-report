@@ -212,7 +212,7 @@ cat "${MD_IN}" | sed "s|{{REPORT_URL}}|${REPORT_URL}|g" | tee processed.md
 if [ ! -z "${CI}" ]; then
     # On cloud CI, so actually post a comment
 	 
-	 pip install pygithub
+    pip3 install pygithub
 	 
     # Comment on the commit we built.
     # We don't have a good way to know if there is an open PR for it, and there might be more than one maybe.
