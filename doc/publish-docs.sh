@@ -43,17 +43,18 @@ chmod 600 "${SCRATCH_DIR}/deploy_key"
 set +x
 echo "${GITLAB_SECRET_FILE_DOCS_SSH_KEY}" > ${SCRATCH_DIR}/deploy_key
 
-# Start an agent and add the key
-eval "$(ssh-agent -s)"
-ssh-add "${SCRATCH_DIR}/deploy_key"
-
 # Turn on echo so we can see what we're doing.
-# This MUST happen only AFTER we are done toucking the encryption stuff.
+# This MUST happen only AFTER we are done touching the encryption stuff.
 set -x
+
+# Make sure we have an known_hosts
+mkdir -p ~/.ssh
+touch ~/.ssh/known_hosts
+cat ~/.ssh/known_hosts
 
 # Clone the dest repo, now that we can authenticate.
 # Don't check it out, so we can get just the branch we want or start a new branch with a clean working copy.
-git clone --no-checkout "${DEST_REPO}" "${SCRATCH_DIR}/dest"
+git -c core.sshCommand="ssh -i ${SCRATCH_DIR}/deploy_key" clone --no-checkout "${DEST_REPO}" "${SCRATCH_DIR}/dest"
 
 # Go in and get/make the destination branch
 pushd "${SCRATCH_DIR}/dest"
@@ -90,7 +91,7 @@ fi
 
 # If we are on the right branch, actually push the commit.
 # Push the commit. This does not fail if there is no commit.
-git push origin "${DEST_BRANCH}"
+git -c core.sshCommand="ssh -i ${SCRATCH_DIR}/deploy_key" push origin "${DEST_BRANCH}"
 
 
 
