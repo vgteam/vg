@@ -41,5 +41,6 @@ jobs:
           export LD_LIBRARY_PATH=/usr/local/lib/
           export LIBRARY_PATH=/usr/local/lib/
           export CFLAGS="-isystem /usr/local/include/"
+          export VG_FULL_TRACEBACK=1
           make -j4 test
         shell: bash
