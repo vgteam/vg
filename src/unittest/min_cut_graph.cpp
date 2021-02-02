@@ -12,13 +12,15 @@
 #include <unordered_set>
 #include "sparse_union_find.hpp"
 #include <stdlib.h>     
-#include <time.h>      
+#include <time.h>
+#include <chrono>       
 #define debug
 
 namespace vg {
     namespace unittest {
         
         using namespace std;
+        using namespace std::chrono; 
         using vg::algorithms::Graph;
         using vg::algorithms::Edge;
         using vg::algorithms::Node;
@@ -839,17 +841,16 @@ namespace vg {
         }
         TEST_CASE("min-cut-decompomposition works on a 1000 node graph", "[Min-cut-graph][MCG-Test10]") {
             Graph graph;
-            size_t max_nodes = 1000;
+            size_t max_nodes = 850;
             for(size_t i = 0; i<max_nodes; i++){
                 
-                //assign it a random edge weight using a rand num generator 
-                
+                //assign edge a random edge weight using a rand num generator 
                 int random_weight = rand() % 1000;    
-#ifdef debug
-                cout << "============================================================================= " << endl;
-                cout << "random weight" << random_weight << endl;        
-                cout << "============================================================================= " << endl;
-#endif  
+// #ifdef debug
+//                 cout << "============================================================================= " << endl;
+//                 cout << "random weight" << random_weight << endl;        
+//                 cout << "============================================================================= " << endl;
+// #endif  
                 //assign it an `other` -> next for forward , and prev for backward edge
                 //case 1 : first node
                 if(i == 0 ){
@@ -889,11 +890,11 @@ namespace vg {
                     forward_edge.other = next_node_id;
                     Node prev_node = graph.get_node_by_id(prev_node_id);
                     size_t prev_node_weight = graph.get_weight_using_other(prev_node, i);
- #ifdef debug
-                cout << "============================================================================= " << endl;
-                cout << "prev weight" << prev_node_weight << endl;        
-                cout << "============================================================================= " << endl;
-#endif 
+//  #ifdef debug
+//                 cout << "============================================================================= " << endl;
+//                 cout << "prev weight" << prev_node_weight << endl;        
+//                 cout << "============================================================================= " << endl;
+// #endif 
                     backward_edge.weight = prev_node_weight;
                     node.edges.push_back(backward_edge);
                     node.edges.push_back(forward_edge);
@@ -904,22 +905,37 @@ namespace vg {
                 
             }
 
- #ifdef debug
-                cout << "============================================================================= " << endl;
-                cout << "original graph" <<endl;        
-                for (auto& id_and_node : graph.nodes){
-                
-                    cout << "Node: "<<id_and_node.first  << ",weight: "<< id_and_node.second.weight <<endl; 
-                    for (size_t j = 0; j < id_and_node.second.edges.size(); j++){
-                        cout << "edge "<< id_and_node.first  << "->" << id_and_node.second.edges[j].other <<", weight: " << id_and_node.second.edges[j].weight << endl;
-                    }                       
-                } 
-                
-                cout << "============================================================================= " << endl;
-#endif             
-                //call min-cut-decomposition
+//  #ifdef debug
+//             cout << "============================================================================= " << endl;
+//             cout << "original graph" <<endl;        
+//             for (auto& id_and_node : graph.nodes){
+            
+//                 cout << "Node: "<<id_and_node.first  << ",weight: "<< id_and_node.second.weight <<endl; 
+//                 for (size_t j = 0; j < id_and_node.second.edges.size(); j++){
+//                     cout << "edge "<< id_and_node.first  << "->" << id_and_node.second.edges[j].other <<", weight: " << id_and_node.second.edges[j].weight << endl;
+//                 }                       
+//             } 
+            
+//             cout << "============================================================================= " << endl;
+// #endif             
+            // Get starting timepoint 
+            auto start = high_resolution_clock::now(); 
+            //call min-cut-decomposition
             vector<unordered_set<size_t>> to_recv =  min_cut_decomposition(graph, n_iterations, seed);
+            // Get ending timepoint 
+            auto stop = high_resolution_clock::now(); 
+            auto duration = duration_cast<microseconds>(stop - start); 
+            cout << "Size of Gamma "<< to_recv.size() << endl;
+            
+#ifdef debug
+            for(size_t i = 0; i < to_recv.size(); i++){
+                for (auto& x:to_recv[i] ) {
 
+                cout << "set "<<i<<" has" << x <<endl;
+                }
+            }
+#endif 
+            cout << "Time taken by function: " << duration.count() / 1000000 << " seconds" <<endl;
         }
 
     }

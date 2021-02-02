@@ -3,7 +3,7 @@
  *
  * Contains implementation of min_cut_graph function
  */
-#include <random>
+
 #include "min_cut_graph.hpp"
 #include <stdio.h> 
 #include <stdlib.h>
@@ -16,7 +16,9 @@
 #include <unordered_set>
 #include <functional>
 
-#define debug
+#define debug_min_decomp
+#define debug_kargers_min
+#define debug_compute_min
 
 namespace vg {
     namespace algorithms {
@@ -35,7 +37,7 @@ namespace vg {
             for (auto& id_and_node : graph.nodes){
                 if(id_and_node.second.edges.size() <=0){
                     //return empty container
-#ifdef debug
+#ifdef debug_kargers_min
                     cout << "============================================================================= " << endl;    
                     cout << "Disconnected graph " << endl; 
                     cout << "Node " <<id_and_node.first << "has 0 edges"<<endl;         
@@ -46,7 +48,7 @@ namespace vg {
 
             //check for empty graph or 1-node graph
             if (V == 0 || V==1){
-#ifdef debug
+#ifdef debug_kargers_min
                 cout << "============================================================================= " << endl;    
                 cout << "Empty or 1-node graph "  << endl;         
 #endif
@@ -57,7 +59,7 @@ namespace vg {
             }
             //graph with exactly 2-nodes
             if (V==2){
-#ifdef debug
+#ifdef debug_kargers_min
                 cout << "============================================================================= " << endl;
                 cout << "2-node graph "  << endl; 
 #endif
@@ -68,7 +70,7 @@ namespace vg {
                 vector<size_t> vnodes;
                 
                 for(auto& id_and_node : graph.nodes){
-#ifdef debug            
+#ifdef debug_kargers_min            
                    
                     // node id
                     cout << "node "<<id_and_node.first  << endl; 
@@ -97,7 +99,7 @@ namespace vg {
                     //get total edge weights for each super node
                     unordered_map<size_t, size_t> supernode_edge_weights = cg.get_edges(super_nodes[i]);
                 
-#ifdef debug
+#ifdef debug_kargers_min
                     cout << "============================================================================= " << endl;    
                     cout << "supernode edge weights for node " << super_nodes[i]   << endl;         
 #endif
@@ -105,7 +107,7 @@ namespace vg {
             int total_weight = 0;
             for(pair<size_t, size_t > element: supernode_edge_weights){
                     total_weight += element.second;
-#ifdef debug
+#ifdef debug_kargers_min
                     cout << element.first   << ":" <<element.second <<endl;
 #endif
             }
@@ -113,7 +115,7 @@ namespace vg {
                     //add total edge weight for each super node
                     //ex: 2: {1:1, 4:14}, sum up 1  4 and put that in the total edge weight list for node #2
                     cgraph_total_edge_weights[super_nodes[i]] = total_weight;
- #ifdef debug
+ #ifdef debug_kargers_min
             cout << "============================================================================= " << endl;    
             cout << "supernode edge weights total " << total_weight <<  " for node " << super_nodes[i]   << endl;
             
@@ -123,7 +125,7 @@ namespace vg {
 
             }
 
-#ifdef debug
+#ifdef debug_kargers_min
             cout << "============================================================================= " << endl;    
             cout << "number of nodes: " << V << endl;
             for (int i =0; i <V; i++){
@@ -216,7 +218,7 @@ namespace vg {
                     cgraph_total_edge_weights[super_nodes[i]] = total_weight;
 
                 }
-#ifdef debug
+#ifdef debug_kargers_min
                 cout << "============================================================================= " << endl;
                 cout << "random node " << random_node   << " and other node " << other_node   << " have been unioned" << endl;
                 cout << "number of nodes after union: " << V << endl;
@@ -228,7 +230,7 @@ namespace vg {
 
                 
 #endif  
-#ifdef debug
+#ifdef debug_kargers_min
                 cout << "============================================================================= " << endl;
                 cout << "Printing contracted graph total edge weights " << endl;
                 for (pair<size_t, size_t> element: cgraph_total_edge_weights){
@@ -243,7 +245,7 @@ namespace vg {
                 // if we have only two we can break out of the while loop
                 if(V == 2){
                     vector<vector<size_t>> disjoint_vector = cg.get_disjoint_sets();
- #ifdef debug   
+ #ifdef debug_kargers_min   
                 cout << "============================================================================= " << endl;
                 cout << "vector"<<endl;
                 for(int i = 0; i < 2; i++){
@@ -268,7 +270,7 @@ namespace vg {
                     for (pair<size_t, size_t> element: cgraph_total_edge_weights){
                         weight_of_cut = element.second;
                     }
-#ifdef debug
+#ifdef debug_kargers_min
                 cout << "============================================================================= " << endl;
                 cout << "Weight of cut " << weight_of_cut<< endl;
                 cout << "============================================================================= " << endl;
@@ -299,7 +301,7 @@ namespace vg {
             if (min_cut1.second == 0 || min_cut2.second == 0 ){
                 // if pair is empty pair.first and pair.second will both be initialized to 0 during contruction
                 //return empty container
-#ifdef debug
+#ifdef debug_compute_min
                 cout << "============================================================================= " << endl;
                 cout << "RETURNING EMPTY MINCUT"  <<endl;
                 cout << "============================================================================= " << endl;
@@ -307,7 +309,7 @@ namespace vg {
 #endif
                 return to_return;
             }
-#ifdef debug   
+#ifdef debug_compute_min   
             cout << "============================================================================= " << endl;
             cout << "MIN-CUT-GRAPH: set"<<endl;
             cout << "disjoint sets in min cut 1 " << endl;
@@ -352,28 +354,28 @@ namespace vg {
             const int rand_seed = seed;
 
             function<void(Graph)> recurse = [&](Graph graph){
- #ifdef debug
-                cout << "============================================================================= " << endl;
-                cout << "MIN-CUT-DECOMPOSITION"  <<endl;
-                cout << "============================================================================= " << endl;
-                cout << "============================================================================= " << endl;
-                cout << "original graph" <<endl;        
-                for (auto& id_and_node : graph.nodes){
+// #ifdef debug_min_decomp
+//                 cout << "============================================================================= " << endl;
+//                 cout << "MIN-CUT-DECOMPOSITION"  <<endl;
+//                 cout << "============================================================================= " << endl;
+//                 cout << "============================================================================= " << endl;
+//                 cout << "original graph" <<endl;        
+//                 for (auto& id_and_node : graph.nodes){
                 
-                    cout << "Node: "<<id_and_node.first  << ",weight: "<< id_and_node.second.weight <<endl; 
-                    for (size_t j = 0; j < id_and_node.second.edges.size(); j++){
-                        cout << "edge "<< id_and_node.first  << "->" << id_and_node.second.edges[j].other <<", weight: " << id_and_node.second.edges[j].weight << endl;
-                    }                       
-                } 
+//                     cout << "Node: "<<id_and_node.first  << ",weight: "<< id_and_node.second.weight <<endl; 
+//                     for (size_t j = 0; j < id_and_node.second.edges.size(); j++){
+//                         cout << "edge "<< id_and_node.first  << "->" << id_and_node.second.edges[j].other <<", weight: " << id_and_node.second.edges[j].weight << endl;
+//                     }                       
+//                 } 
                 
-                cout << "============================================================================= " << endl;
-#endif               
+//                 cout << "============================================================================= " << endl;
+// #endif               
                 size_t V = graph.nodes.size();
 
                 //base case
                 //singleton nodes won't be added to Gamma
                 if(V <= 2){
-#ifdef debug             
+#ifdef debug_min_decomp             
                     cout << "Base Case"  <<endl;
                     cout << "V= " << V <<endl;
            
@@ -384,12 +386,12 @@ namespace vg {
                 vector<unordered_set<size_t>> disjoint_sets = to_recv.first;
                
                 if(disjoint_sets.empty()==1){
-#ifdef debug             
+#ifdef debug_min_decomp             
                     cout << "Empty sets"  <<endl;
 #endif
                     return;
                 }
-#ifdef debug             
+#ifdef debug_min_decomp             
                 cout << "set size "<<disjoint_sets[0].size() << ", " << disjoint_sets[1].size() <<endl;
 #endif
                 //push sets into Gamma at each iteration, only if size >=2
@@ -444,7 +446,7 @@ namespace vg {
             };
             
             recurse(graph);
-#ifdef debug
+#ifdef debug_min_decomp
             for(size_t i = 0; i < Gamma.size(); i++){
                 for (auto& x:Gamma[i] ) {
                     cout << "Gamma " << i <<"has " << x <<endl; 
