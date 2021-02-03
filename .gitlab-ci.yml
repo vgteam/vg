@@ -88,9 +88,9 @@ build-job:
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
   script:
     - make include/vg_git_version.hpp
-    - docker buildx build --platform=linux/amd64 --build-arg THREADS=8 --target run --push -t "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" -f Dockerfile .
+    - docker buildx build --platform=linux/amd64 --cache-to=type=registry,ref=quay.io/vgteam/vg --cache-from=type=registry,ref=quay.io/vgteam/vg --build-arg THREADS=8 --target run --push -t "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" -f Dockerfile .
     # Also run the tests
-    - docker buildx build --platform=linux/amd64 --build-arg THREADS=8 --target test -f Dockerfile .
+    - docker buildx build --platform=linux/amd64 --cache-to=type=registry,ref=quay.io/vgteam/vg --cache-from=type=registry,ref=quay.io/vgteam/vg --build-arg THREADS=8 --target test -f Dockerfile .
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
 
@@ -113,9 +113,9 @@ arm-build-job:
   script:
     - make include/vg_git_version.hpp
     # Build the arm container (emulated!)
-    - docker buildx build --platform=linux/arm64 --build-arg THREADS=8 --target run --push -t "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" -f Dockerfile .
+    - docker buildx build --platform=linux/arm64 --cache-to=type=registry,ref=quay.io/vgteam/vg --cache-from=type=registry,ref=quay.io/vgteam/vg --build-arg THREADS=8 --target run --push -t "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" -f Dockerfile .
     # Also run the tests (emulated!)
-    - docker buildx build --platform=linux/arm64 --build-arg THREADS=8 --target test -f Dockerfile .
+    - docker buildx build --platform=linux/arm64 --cache-to=type=registry,ref=quay.io/vgteam/vg --cache-from=type=registry,ref=quay.io/vgteam/vg --build-arg THREADS=8 --target test -f Dockerfile .
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
 
