@@ -35,7 +35,26 @@ spec:
       - name: configure
         image: moby/buildkit:buildx-stable-1
         imagePullPolicy: IfNotPresent
-        command: [/bin/sh, "-c", 'printf "[registry.\"docker.io\"]\nmirrors = [\"${DOCKER_HUB_MIRROR#*://}\"]\n[registry.\"${DOCKER_HUB_MIRROR#*://}\"]\nhttp = true\ninsecure = true\n" | tee /etc/buildkit/buildkitd.toml']
+        # Set up to GC any container data over 80 GB.
+        # In the background? See https://github.com/moby/buildkit/issues/1962
+        command:
+          - /bin/sh
+          - -c
+          - |
+            cat >/etc/buildkit/buildkitd.toml <<END
+              [registry."docker.io"]
+              mirrors = ["${DOCKER_HUB_MIRROR#*://}"]
+              [registry."${DOCKER_HUB_MIRROR#*://}"]
+              http = true
+              insecure = true
+              [worker.oci]
+              enabled = true
+              gc = true
+              gckeepstorage = 85899345920
+              [[worker.oci.gcpolicy]]
+              all = true
+              keepBytes = 85899345920
+            END
         volumeMounts:
         - name: buildkitconf
           mountPath: "/etc/buildkit"
@@ -91,11 +110,11 @@ spec:
           requests:
             cpu: 8000m
             memory: "24Gi"
-            ephemeral-storage: "30Gi"
+            ephemeral-storage: "100Gi"
           limits:
             cpu: 8000m
             memory: "24Gi"
-            ephemeral-storage: "30Gi"
+            ephemeral-storage: "100Gi"
         securityContext:
           privileged: true
         terminationMessagePath: /dev/termination-log
