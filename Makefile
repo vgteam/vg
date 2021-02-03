@@ -358,10 +358,21 @@ ifneq ($(shell uname -s),Darwin)
 	LD_LIB_FLAGS += -ljemalloc
 endif
 
-.PHONY: clean get-deps deps test set-path static static-docker docs man .pre-build .check-environment .check-git .no-git 
+.PHONY: clean get-deps deps test set-path objs static static-docker docs man .pre-build .check-environment .check-git .no-git 
+
+# Aggregate all libvg deps, and exe deps other than libvg
+LIBVG_DEPS = $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)
+EXE_DEPS = $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
+
+# We have a target we can build to do everything but link the library and executable
+objs: $(LIBVG_DEPS) $(EXE_DEPS)
+
+$(LIB_DIR)/libvg.a: $(LIBVG_DEPS)
+	rm -f $@
+	ar rs $@ $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ)
 
 # For a normal dynamic build we remove the static build marker
-$(BIN_DIR)/$(EXE): $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
+$(BIN_DIR)/$(EXE): $(LIB_DIR)/libvg.a $(EXE_DEPS)
 	-rm -f $(LIB_DIR)/vg_is_static
 	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) 
 # We keep a file that we touch on the last static build.
@@ -381,10 +392,6 @@ static: $(LIB_DIR)/vg_is_static
 static-docker: static scripts/*
 	strip -d $(BIN_DIR)/$(EXE)
 	DOCKER_BUILDKIT=1 docker build . -f Dockerfile.static -t vg
-
-$(LIB_DIR)/libvg.a: $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)
-	rm -f $@
-	ar rs $@ $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ)
 
 # We have system-level deps to install
 # We want the One True Place for them to be in the Dockerfile.

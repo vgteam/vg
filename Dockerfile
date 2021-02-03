@@ -37,25 +37,32 @@ RUN apt-get -qq -y update && apt-get -qq -y upgrade && apt-get -qq -y install \
     libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev libboost-all-dev
 ###DEPS_END###
 
-# Pre-build non-package dependencies
+# Prepare to build submodule dependencies
 COPY source_me.sh /vg/source_me.sh
 COPY deps /vg/deps
 # To increase portability of the docker image, when building for amd64, set the
 # target CPU architecture to Nehalem (2008) rather than auto-detecting the
 # build machine's CPU. This has no AVX1, AVX2, or PCLMUL, but it does have
 # SSE4.2. UCSC has a Nehalem machine that we want to support.
-RUN if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" -eq "amd64" ] ; then sed -i s/march=native/march=nehalem/ deps/sdsl-lite/CMakeLists.txt; fi
+RUN if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then sed -i s/march=native/march=nehalem/ deps/sdsl-lite/CMakeLists.txt; fi
+# Clear any CMake caches in case we are building from someone's checkout
+RUN find . -name CMakeCache.txt | xargs rm
+# Build the dependencies
 COPY Makefile /vg/Makefile
-RUN . ./source_me.sh && CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" -eq "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) deps
+RUN . ./source_me.sh && CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) deps
 
 # Bring in the sources, which we need in order to build
 COPY src /vg/src
+
+# Build all the object files for vg, but don't link.
+# Also pass the arch here
+RUN . ./source_me.sh && CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) objs
+
 # Bring in any includes we pre-made, like the git version
 COPY include /vg/include
 
-# Do the build. Trim down the resulting binary but make sure to include enough debug info for profiling.
-# Also pass the arch here
-RUN . ./source_me.sh && CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" -eq "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) static && strip -d bin/vg
+# Do the final build and link, knowing the version. Trim down the resulting binary but make sure to include enough debug info for profiling.
+RUN . ./source_me.sh && CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) static && strip -d bin/vg
 
 # Ship the scripts
 COPY scripts /vg/scripts
