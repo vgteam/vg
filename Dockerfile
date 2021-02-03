@@ -1,5 +1,5 @@
 # Multi-container Dockerfile for build and run containers for vg
-FROM ubuntu:18.04 AS base
+FROM ubuntu:20.04 AS base
 MAINTAINER vgteam
 
 RUN echo base > /stage.txt
