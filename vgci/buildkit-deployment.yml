@@ -51,6 +51,24 @@ spec:
             cpu: 500m
             memory: "1Gi"
             ephemeral-storage: "10Gi"
+      - name: binfmt
+        # We need this to set up the emulators in the host kernel for running
+        # ARM binaries. This image tells the kernel to go looking for qemu when
+        # it finds an ARM binary.
+        image: tonistiigi/binfmt
+        imagePullPolicy: IfNotPresent
+        args: ["--install", "arm64,arm"]
+        resources:
+          requests:
+            cpu: 500m
+            memory: "1Gi"
+            ephemeral-storage: "10Gi"
+          limits:
+            cpu: 500m
+            memory: "1Gi"
+            ephemeral-storage: "10Gi"
+        securityContext:
+          privileged: true
       containers:
       - image: moby/buildkit:buildx-stable-1
         imagePullPolicy: IfNotPresent
