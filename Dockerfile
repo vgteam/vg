@@ -71,7 +71,8 @@ RUN echo test > /stage.txt
 # Fail if any non-portable instructions were used
 RUN /bin/bash -e -c 'if objdump -d /vg/bin/vg | grep vperm2i128 ; then exit 1 ; else exit 0 ; fi'
 # Run tests in the middle so the final container that gets tagged is the run container.
-RUN export OMP_NUM_THREADS=$((THREADS < $(nproc) ? THREADS : $(nproc))) make test
+# Tests may not actually be run by smart builders like buildkit.
+RUN /bin/bash -e -c "export OMP_NUM_THREADS=$((THREADS < $(nproc) ? THREADS : $(nproc))); make test"
 
 
 ############################################################################################
