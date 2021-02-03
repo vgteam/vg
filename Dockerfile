@@ -12,6 +12,7 @@ ENV DEBCONF_NONINTERACTIVE_SEEN true
 
 FROM base AS build
 ARG THREADS=8
+ARG TARGETARCH
 
 RUN echo build > /stage.txt
 
@@ -39,13 +40,13 @@ RUN apt-get -qq -y update && apt-get -qq -y upgrade && apt-get -qq -y install \
 # Pre-build non-package dependencies
 COPY source_me.sh /vg/source_me.sh
 COPY deps /vg/deps
-# To increase portability of the docker image, set the target CPU architecture to
-# Nehalem (2008) rather than auto-detecting the build machine's CPU.
-# This has no AVX1, AVX2, or PCLMUL, but it does have SSE4.2.
-# UCSC has a Nehalem machine that we want to support.
-RUN sed -i s/march=native/march=nehalem/ deps/sdsl-lite/CMakeLists.txt
+# To increase portability of the docker image, when building for amd64, set the
+# target CPU architecture to Nehalem (2008) rather than auto-detecting the
+# build machine's CPU. This has no AVX1, AVX2, or PCLMUL, but it does have
+# SSE4.2. UCSC has a Nehalem machine that we want to support.
+RUN if [[ -z "${TARGETARCH}" || "${TARGETARCH}" -eq "amd64" ]] ; then sed -i s/march=native/march=nehalem/ deps/sdsl-lite/CMakeLists.txt; fi
 COPY Makefile /vg/Makefile
-RUN . ./source_me.sh && CXXFLAGS=" -march=nehalem " make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) deps
+RUN . ./source_me.sh && CXXFLAGS="$(if [[ -z "${TARGETARCH}" || "${TARGETARCH}" -eq "amd64" ]] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) deps
 
 # Bring in the rest of the build tree that we need
 COPY src /vg/src
@@ -57,7 +58,7 @@ COPY include /vg/include
 
 # Do the build. Trim down the resulting binary but make sure to include enough debug info for profiling.
 # Also pass the arch here
-RUN . ./source_me.sh && CXXFLAGS=" -march=nehalem " make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) static && strip -d bin/vg
+RUN . ./source_me.sh && CXXFLAGS="$(if [[ -z "${TARGETARCH}" || "${TARGETARCH}" -eq "amd64" ]] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) static && strip -d bin/vg
 
 ENV PATH /vg/bin:$PATH
 
