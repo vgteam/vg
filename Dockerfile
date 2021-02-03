@@ -100,7 +100,6 @@ RUN ls -lah /vg && \
     fontconfig-config \
     awscli \
     binutils \
-    libssl1.0.0 \
     libpython2.7 \
     libperl-dev \
     libelf1 \
