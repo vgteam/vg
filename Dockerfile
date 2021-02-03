@@ -46,7 +46,7 @@ COPY deps /vg/deps
 # SSE4.2. UCSC has a Nehalem machine that we want to support.
 RUN if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then sed -i s/march=native/march=nehalem/ deps/sdsl-lite/CMakeLists.txt; fi
 # Clear any CMake caches in case we are building from someone's checkout
-RUN find . -name CMakeCache.txt | xargs rm
+RUN find . -name CMakeCache.txt | xargs rm -f
 # Build the dependencies
 COPY Makefile /vg/Makefile
 RUN . ./source_me.sh && CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) deps
