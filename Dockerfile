@@ -36,21 +36,28 @@ RUN apt-get -qq -y update && apt-get -qq -y upgrade && apt-get -qq -y install \
     libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev libboost-all-dev
 ###DEPS_END###
 
-
-# Copy vg build tree into place
-COPY . /vg
-
-# If we're trying to build from a non-recursively-cloned repo, go get the
-# submodules.
-RUN bash -c "[[ -e deps/sdsl-lite/CMakeLists.txt ]] || git submodule update --init --recursive"
-
+# Pre-build non-package dependencies
+COPY source_me.sh /vg/source_me.sh
+COPY deps /vg/deps
 # To increase portability of the docker image, set the target CPU architecture to
 # Nehalem (2008) rather than auto-detecting the build machine's CPU.
 # This has no AVX1, AVX2, or PCLMUL, but it does have SSE4.2.
 # UCSC has a Nehalem machine that we want to support.
 RUN sed -i s/march=native/march=nehalem/ deps/sdsl-lite/CMakeLists.txt
+COPY Makefile /vg/Makefile
+RUN . ./source_me.sh && CXXFLAGS=" -march=nehalem " make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) deps
+
+# Bring in the rest of the build tree that we need
+COPY src /vg/src
+COPY test /vg/test
+COPY doc /vg/doc
+COPY scripts /vg/scripts
+# Bring in any includes we pre-made, like the git version
+COPY include /vg/include
+
 # Do the build. Trim down the resulting binary but make sure to include enough debug info for profiling.
-RUN . ./source_me.sh && make include/vg_git_version.hpp && CXXFLAGS=" -march=nehalem " make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) static && strip -d bin/vg
+# Also pass the arch here
+RUN . ./source_me.sh && CXXFLAGS=" -march=nehalem " make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) static && strip -d bin/vg
 
 ENV PATH /vg/bin:$PATH
 
