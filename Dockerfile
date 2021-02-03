@@ -48,17 +48,17 @@ RUN if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" -eq "amd64" ] ; then sed -i s
 COPY Makefile /vg/Makefile
 RUN . ./source_me.sh && CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" -eq "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) deps
 
-# Bring in the rest of the build tree that we need
+# Bring in the sources, which we need in order to build
 COPY src /vg/src
-COPY test /vg/test
-COPY doc /vg/doc
-COPY scripts /vg/scripts
 # Bring in any includes we pre-made, like the git version
 COPY include /vg/include
 
 # Do the build. Trim down the resulting binary but make sure to include enough debug info for profiling.
 # Also pass the arch here
 RUN . ./source_me.sh && CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" -eq "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) static && strip -d bin/vg
+
+# Ship the scripts
+COPY scripts /vg/scripts
 
 ENV PATH /vg/bin:$PATH
 
@@ -70,6 +70,13 @@ RUN echo test > /stage.txt
 
 # Fail if any non-portable instructions were used
 RUN /bin/bash -e -c 'if objdump -d /vg/bin/vg | grep vperm2i128 ; then exit 1 ; else exit 0 ; fi'
+
+# Bring in the tests and docs, which have doctests
+COPY test /vg/test
+COPY doc /vg/doc
+# We test the README so bring it along.
+COPY README.md /vg/
+
 # Run tests in the middle so the final container that gets tagged is the run container.
 # Tests may not actually be run by smart builders like buildkit.
 RUN /bin/bash -e -c "export OMP_NUM_THREADS=$((THREADS < $(nproc) ? THREADS : $(nproc))); make test"
@@ -117,7 +124,7 @@ COPY --from=build /vg/bin/vg /vg/bin/
 
 COPY --from=build /vg/scripts/* /vg/scripts/
 # Make sure we have the flame graph scripts so we can do self-profiling
-COPY deps/FlameGraph /vg/deps/FlameGraph
+COPY --from=build /vg/deps/FlameGraph /vg/deps/FlameGraph
 
 ENV PATH /vg/bin:$PATH
 
