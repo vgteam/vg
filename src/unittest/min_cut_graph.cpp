@@ -841,11 +841,15 @@ namespace vg {
         }
         TEST_CASE("min-cut-decompomposition works on a 1000 node graph", "[Min-cut-graph][MCG-Test10]") {
             Graph graph;
-            size_t max_nodes = 850;
+            size_t max_nodes = 1000;
             for(size_t i = 0; i<max_nodes; i++){
                 
                 //assign edge a random edge weight using a rand num generator 
-                int random_weight = rand() % 1000;    
+                int random_weight = 0;  
+                // 0 weights not allowed  
+                while(random_weight == 0){
+                    random_weight = rand() % 1000; 
+                }
 // #ifdef debug
 //                 cout << "============================================================================= " << endl;
 //                 cout << "random weight" << random_weight << endl;        

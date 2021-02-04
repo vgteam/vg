@@ -72,7 +72,8 @@ namespace vg {
 
         pair<vector<unordered_set<size_t>>, size_t> compute_min_cut(Graph graph, const int n_iterations, const int seed);
 
-        // Assumption: handles one connected component at a time
+        //Assumption: handles one connected component at a time
+        //Assumption: all edge weights are > 0
         vector<unordered_set<size_t>> min_cut_decomposition(Graph graph, const int n_iterations, const int seed);
         
         
