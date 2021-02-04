@@ -1,5 +1,5 @@
 # Multi-container Dockerfile for build and run containers for vg
-FROM ubuntu:18.04 AS base
+FROM ubuntu:20.04 AS base
 MAINTAINER vgteam
 
 RUN echo base > /stage.txt
@@ -12,6 +12,7 @@ ENV DEBCONF_NONINTERACTIVE_SEEN true
 
 FROM base AS build
 ARG THREADS=8
+ARG TARGETARCH
 
 RUN echo build > /stage.txt
 
@@ -36,28 +37,35 @@ RUN apt-get -qq -y update && apt-get -qq -y upgrade && apt-get -qq -y install \
     libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev libboost-all-dev
 ###DEPS_END###
 
-# Pre-build non-package dependencies
+# Prepare to build submodule dependencies
 COPY source_me.sh /vg/source_me.sh
 COPY deps /vg/deps
-# To increase portability of the docker image, set the target CPU architecture to
-# Nehalem (2008) rather than auto-detecting the build machine's CPU.
-# This has no AVX1, AVX2, or PCLMUL, but it does have SSE4.2.
-# UCSC has a Nehalem machine that we want to support.
-RUN sed -i s/march=native/march=nehalem/ deps/sdsl-lite/CMakeLists.txt
+# To increase portability of the docker image, when building for amd64, set the
+# target CPU architecture to Nehalem (2008) rather than auto-detecting the
+# build machine's CPU. This has no AVX1, AVX2, or PCLMUL, but it does have
+# SSE4.2. UCSC has a Nehalem machine that we want to support.
+RUN if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then sed -i s/march=native/march=nehalem/ deps/sdsl-lite/CMakeLists.txt; fi
+# Clear any CMake caches in case we are building from someone's checkout
+RUN find . -name CMakeCache.txt | xargs rm -f
+# Build the dependencies
 COPY Makefile /vg/Makefile
-RUN . ./source_me.sh && CXXFLAGS=" -march=nehalem " make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) deps
+RUN . ./source_me.sh && CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) deps
 
-# Bring in the rest of the build tree that we need
+# Bring in the sources, which we need in order to build
 COPY src /vg/src
-COPY test /vg/test
-COPY doc /vg/doc
-COPY scripts /vg/scripts
+
+# Build all the object files for vg, but don't link.
+# Also pass the arch here
+RUN . ./source_me.sh && CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) objs
+
 # Bring in any includes we pre-made, like the git version
 COPY include /vg/include
 
-# Do the build. Trim down the resulting binary but make sure to include enough debug info for profiling.
-# Also pass the arch here
-RUN . ./source_me.sh && CXXFLAGS=" -march=nehalem " make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) static && strip -d bin/vg
+# Do the final build and link, knowing the version. Trim down the resulting binary but make sure to include enough debug info for profiling.
+RUN . ./source_me.sh && CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) static && strip -d bin/vg
+
+# Ship the scripts
+COPY scripts /vg/scripts
 
 ENV PATH /vg/bin:$PATH
 
@@ -69,8 +77,16 @@ RUN echo test > /stage.txt
 
 # Fail if any non-portable instructions were used
 RUN /bin/bash -e -c 'if objdump -d /vg/bin/vg | grep vperm2i128 ; then exit 1 ; else exit 0 ; fi'
+
+# Bring in the tests and docs, which have doctests
+COPY test /vg/test
+COPY doc /vg/doc
+# We test the README so bring it along.
+COPY README.md /vg/
+
 # Run tests in the middle so the final container that gets tagged is the run container.
-RUN export OMP_NUM_THREADS=$((THREADS < $(nproc) ? THREADS : $(nproc))) make test
+# Tests may not actually be run by smart builders like buildkit.
+RUN /bin/bash -e -c "export OMP_NUM_THREADS=$((THREADS < $(nproc) ? THREADS : $(nproc))); make test"
 
 
 ############################################################################################
@@ -98,7 +114,6 @@ RUN ls -lah /vg && \
     fontconfig-config \
     awscli \
     binutils \
-    libssl1.0.0 \
     libpython2.7 \
     libperl-dev \
     libelf1 \
@@ -116,7 +131,7 @@ COPY --from=build /vg/bin/vg /vg/bin/
 
 COPY --from=build /vg/scripts/* /vg/scripts/
 # Make sure we have the flame graph scripts so we can do self-profiling
-COPY deps/FlameGraph /vg/deps/FlameGraph
+COPY --from=build /vg/deps/FlameGraph /vg/deps/FlameGraph
 
 ENV PATH /vg/bin:$PATH
 

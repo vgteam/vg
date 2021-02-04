@@ -81,16 +81,49 @@ build-job:
     - mkdir -p ~/.docker/cli-plugins/ ; curl -L https://github.com/docker/buildx/releases/download/v0.5.1/buildx-v0.5.1.linux-amd64 >  ~/.docker/cli-plugins/docker-buildx ; chmod u+x ~/.docker/cli-plugins/docker-buildx
     # Connect to the Kubernetes-based builder "buildkit"
     # See vgci/buildkit-deployment.yml
-    - docker buildx create --use --name=buildkit --platform=linux/amd64 --node=buildkit-amd64 --driver=kubernetes --driver-opt="nodeselector=kubernetes.io/arch=amd64"
+    - docker buildx create --use --name=buildkit --platform=linux/amd64,linux/arm64 --node=buildkit-amd64 --driver=kubernetes --driver-opt="nodeselector=kubernetes.io/arch=amd64"
+    # Prune down build cache to make space
+    - docker buildx prune --keep-storage 80G
     # Connect so we can upload our images
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
   script:
     - make include/vg_git_version.hpp
-    - docker buildx build --push --build-arg THREADS=8 -t "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" -f Dockerfile .
+    - docker buildx build --platform=linux/amd64 --build-arg THREADS=8 --target run --push -t "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" -f Dockerfile .
+    # Also run the tests
+    - docker buildx build --platform=linux/amd64 --build-arg THREADS=8 --target test -f Dockerfile .
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
-    
-# We define a second follow-on phase to run the tests
+
+# The arm container build takes like 90 minutes, so we don't want to run it
+# before the main test phase where the other long tests live.
+# They also don't pass yet.
+arm-build-job:
+  stage: test
+  only:
+    - /^arm/
+  before_script:
+    # Don't bother starting the Docker daemon or installing much
+    - which docker || (sudo apt-get -q -y update && sudo apt-get -q -y install --no-upgrade docker.io)
+    # Get buildx
+    - mkdir -p ~/.docker/cli-plugins/ ; curl -L https://github.com/docker/buildx/releases/download/v0.5.1/buildx-v0.5.1.linux-amd64 >  ~/.docker/cli-plugins/docker-buildx ; chmod u+x ~/.docker/cli-plugins/docker-buildx
+    # Connect to the Kubernetes-based builder "buildkit"
+    # See vgci/buildkit-deployment.yml
+    - docker buildx create --use --name=buildkit --platform=linux/amd64,linux/arm64 --node=buildkit-amd64 --driver=kubernetes --driver-opt="nodeselector=kubernetes.io/arch=amd64"
+    # Prune down build cache to make space
+    - docker buildx prune --keep-storage 80G
+    # Connect so we can upload our images
+    - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
+  script:
+    - make include/vg_git_version.hpp
+    # Build the arm container (emulated!)
+    - docker buildx build --platform=linux/arm64 --build-arg THREADS=8 --target run --push -t "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" -f Dockerfile .
+    # Also run the tests (emulated!)
+    # But don't fail if they fail yet, because they don't yet actually work.
+    - docker buildx build --platform=linux/arm64 --build-arg THREADS=8 --target test -f Dockerfile . || true
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+
+# We also run the toil-vg/pytest-based tests
 # Note that WE ONLY RUN TESTS LISTED IN vgci/test-list.txt
 test-job:
   stage: test
