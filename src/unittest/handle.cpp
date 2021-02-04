@@ -13,6 +13,7 @@
 
 #include "bdsg/packed_graph.hpp"
 #include "bdsg/hash_graph.hpp"
+#include "bdsg/odgi.hpp"
 
 #include <handlegraph/util.hpp>
 
@@ -555,6 +556,137 @@ TEST_CASE("Deletable handle graphs work", "[handle][vg]") {
                     REQUIRE(node_count == 1);
                 }
             }
+        }
+    }
+}
+
+TEST_CASE("divide_handle works on both strands", "[handle][vg][odgi][packed][hashgraph]") {
+    vector<pair<MutablePathMutableHandleGraph*, MutablePathMutableHandleGraph*>> implementations;
+    
+    // Add implementations
+    
+    VG vg, vg2;
+    implementations.push_back(make_pair(&vg, &vg2));
+
+    bdsg::ODGI og, og2;
+    implementations.push_back(make_pair(&og, &og2));
+
+    bdsg::HashGraph hg, hg2;
+    implementations.push_back(make_pair(&hg, &hg2));
+
+    bdsg::PackedGraph pg, pg2;
+    implementations.push_back(make_pair(&pg, &pg2));
+        
+    // And test them
+    for (int imp = 0; imp < implementations.size(); ++imp) {
+
+        for (bool backwards : {false, true}) {
+
+            MutablePathMutableHandleGraph* g = backwards ? implementations[imp].first : implementations[imp].second;
+        
+            REQUIRE(g->get_node_count() == 0);
+
+            handle_t handle = g->create_handle("TTATATTCCAACTCTCTG");
+            if (backwards) {
+                handle = g->flip(handle);
+            }
+            path_handle_t path_handle = g->create_path_handle("Path");
+            g->append_step(path_handle, handle);
+            string seq = g->get_sequence(handle);
+            vector<string> true_parts = { seq.substr(0, 1), seq.substr(1, 4), seq.substr(5, 5), seq.substr(10) };
+
+            // Should get (C,AGAG,AGTTG,GAATATAA)  (forward)
+            // Should get (T,TATA,TTCCA,ACTCTCTG)  (reverse)
+            auto parts = g->divide_handle(handle, {1, 5, 10});
+            
+            REQUIRE(parts.size() == true_parts.size());
+            for (int i = 0; i < parts.size(); ++i) {
+                REQUIRE(g->get_sequence(parts[i]) == true_parts[i]);
+                REQUIRE(g->get_is_reverse(parts[i]) == backwards);
+            }
+        
+            vector<handle_t> steps;
+            g->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
+                    steps.push_back(g->get_handle_of_step(step_handle));
+                });
+            REQUIRE(steps.size() == true_parts.size());
+            for (int i = 0; i < parts.size(); ++i) {
+                REQUIRE(g->get_sequence(steps[i]) == true_parts[i]);
+                REQUIRE(g->get_is_reverse(steps[i]) == backwards);
+            }
+        }
+    }
+}
+
+TEST_CASE("divide_handle and destroy_handle work together on both strands", "[handle][vg][odgi][packed][hashgraph]") {
+    vector<pair<MutablePathMutableHandleGraph*, MutablePathMutableHandleGraph*>> implementations;
+    
+    // Add implementations
+    
+    VG vg, vg2;
+    implementations.push_back(make_pair(&vg, &vg2));
+
+    bdsg::ODGI og, og2;
+    implementations.push_back(make_pair(&og, &og2));
+
+    bdsg::HashGraph hg, hg2;
+    implementations.push_back(make_pair(&hg, &hg2));
+
+    bdsg::PackedGraph pg, pg2;
+    implementations.push_back(make_pair(&pg, &pg2));
+        
+    // And test them
+    for (int imp = 0; imp < implementations.size(); ++imp) {
+
+        for (bool backwards : {false, true}) {
+
+            MutablePathMutableHandleGraph* g = backwards ? implementations[imp].first : implementations[imp].second;
+        
+            REQUIRE(g->get_node_count() == 0);
+
+            handle_t handle1 = g->create_handle("CAAATAAGGCTTGGAAATTTTCTGGAGTTCTA");
+            handle_t handle2 = g->create_handle("TTATATTCCAACTCTCTG");
+            path_handle_t path_handle = g->create_path_handle("x");
+            g->create_edge(handle1, handle2);
+            
+            if (backwards) {
+                handle1 = g->flip(handle1);
+                handle2 = g->flip(handle2);
+                g->append_step(path_handle, handle2);
+                g->append_step(path_handle, handle1);                
+            } else {
+                g->append_step(path_handle, handle1);
+                g->append_step(path_handle, handle2);                
+            }
+
+            g->divide_handle(handle2, vector<size_t>({1, 5, 10}));
+            g->divide_handle(handle1, vector<size_t>({2, 7, 22, 31}));
+
+            vector<handle_t> steps;
+            g->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
+                    steps.push_back(g->get_handle_of_step(step_handle));
+                });
+            REQUIRE(steps.size() == 9);
+            int i = 0;
+            vector<handle_t> to_delete;
+            g->append_step(g->create_path_handle(to_string(i)), steps[i++]);            
+            to_delete.push_back(steps[i++]);
+            g->append_step(g->create_path_handle(to_string(i)), steps[i++]);
+            to_delete.push_back(steps[i++]);
+            to_delete.push_back(steps[i++]);
+            to_delete.push_back(steps[i++]);
+            g->append_step(g->create_path_handle(to_string(i)), steps[i++]);
+            to_delete.push_back(steps[i++]);
+            g->append_step(g->create_path_handle(to_string(i)), steps[i++]);            
+                                
+            g->destroy_path(path_handle);
+
+            for (auto handle : to_delete) {
+                dynamic_cast<DeletableHandleGraph*>(g)->destroy_handle(handle);
+            }
+
+            REQUIRE(g->get_node_count() == 4);
+            REQUIRE(g->get_path_count() == 4);
         }
     }
 }

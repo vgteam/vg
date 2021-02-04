@@ -2,7 +2,10 @@
 
 #include <iostream>
 #include <cstdlib>
+
+#ifdef __x86_64__
 #include <cpuid.h>
+#endif
 
 namespace vg {
 
@@ -10,6 +13,7 @@ using namespace std;
 
 void preflight_check() {
     
+#ifdef __x86_64__
     // We assume we are on x86_64 on POSIX (and not Windows).
     // We use the method of dlib's dlib/simd/simd_check.h
     
@@ -27,6 +31,8 @@ void preflight_check() {
             << "Please use a system with SSE4.2 support." << endl;
         exit(1);
     }
+#endif
+    // If not on x86_64, we are probably on ARM and using fake SSE anyway.
     
 }
 

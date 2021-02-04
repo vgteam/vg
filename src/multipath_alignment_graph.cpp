@@ -4766,7 +4766,7 @@ namespace vg {
                     
                     // figure out how far we need to try to align out to
                     int64_t tail_length = path_node.begin - alignment.sequence().begin();
-                    int64_t gap =  min(aligner->longest_detectable_gap(alignment, path_node.end), max_gap);
+                    int64_t gap =  min(aligner->longest_detectable_gap(alignment, path_node.begin), max_gap);
                     if (pessimistic_tail_gap_multiplier) {
                         gap = min(gap, pessimistic_tail_gap(tail_length, pessimistic_tail_gap_multiplier));
                     }

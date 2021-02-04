@@ -242,7 +242,8 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                                            const HandleGraph& graph, const GSSWAligner& aligner);
 
 // remove the portion of the path either to the left or right of a given position along it,
-// described in terms of the indexes in the path object
+// described in terms of the indexes in the path object. returns true if any edits were
+// actually removed.
 bool trim_path(path_t* path, bool from_left, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx);
 
 // consumes two multipath alignments and returns a spliced multipath alignment, which is connected
@@ -253,7 +254,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
                                                 multipath_alignment_t&& left_mp_aln, multipath_alignment_t&& right_mp_aln,
                                                 int64_t left_bridge_point, const Alignment& splice_segment,
                                                 int64_t splice_junction_idx, int32_t splice_score, const GSSWAligner& scorer,
-                                                const HandleGraph& graph);
+                                                const HandleGraph& graph);  
 
 }
 

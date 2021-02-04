@@ -1,7 +1,7 @@
 <!-- !test program bash -eo pipefail -->
 # vg
 
-[![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Latest Release](https://img.shields.io/github/release/vgteam/vg.svg)](https://github.com/vgteam/vg/releases/latest) [![Build Status](https://travis-ci.org/vgteam/vg.svg?branch=master)](https://travis-ci.org/vgteam/vg) [![Performance Report](https://img.shields.io/badge/performance-report-brightgreen.svg)](https://vg-data.s3.amazonaws.com/vg_ci/vgci_reports/branch/master/index.html) 
+[![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Latest Release](https://img.shields.io/github/release/vgteam/vg.svg)](https://github.com/vgteam/vg/releases/latest) [![Performance Report](https://img.shields.io/badge/performance-report-brightgreen.svg)](https://vg-data.s3.amazonaws.com/vg_ci/vgci_reports/branch/master/index.html) 
 [![Doxygen API Documentation](https://img.shields.io/badge/doxygen-docs-brightgreen.svg)](https://vgteam.github.io/vg/)
 
 ## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
@@ -48,7 +48,11 @@ First, obtain the repo and its submodules:
     git clone --recursive https://github.com/vgteam/vg.git
     cd vg
     
-Then, install VG's dependencies. You'll need the protobuf and jansson development libraries installed, and to run the tests you will need `jq`, `bc`, `rs`, `parallel`, and [`npm` for testing documentation examples](https://github.com/anko/txm)). On Ubuntu, you should be able to do:
+Then, install VG's dependencies. You'll need the protobuf and jansson development libraries installed, and to run the tests you will need:
+    * `jq`, `bc`, `rs`, and `parallel`
+    * `hexdump` and `column` from `bsdmainutils`
+    * [`npm` for testing documentation examples](https://github.com/anko/txm)).
+On Ubuntu, you should be able to do:
 
     make get-deps
     
@@ -56,9 +60,9 @@ On other distros, you will need to perform the equivalent of:
 
     sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
                          protobuf-compiler libprotoc-dev libprotobuf-dev libjansson-dev \
-                         automake libtool jq bc rs parallel npm curl unzip redland-utils \
-                         librdf-dev bison flex gawk lzma-dev liblzma-dev liblz4-dev \
-                         libffi-dev libcairo-dev libboost-all-dev
+                         automake libtool jq bsdmainutils bc rs parallel npm curl unzip \
+                         redland-utils librdf-dev bison flex gawk lzma-dev liblzma-dev \
+                         liblz4-dev libffi-dev libcairo-dev libboost-all-dev
                          
 Note that **Ubuntu 16.04** does not ship a sufficiently new Protobuf; vg requires **Protobuf 3** which will have to be manually installed.
 
@@ -66,7 +70,7 @@ At present, you will need GCC version 4.9 or greater, with support for C++14, to
 
 Other libraries may be required. Please report any build difficulties.
 
-Note that a 64-bit OS is required. Ubuntu 18.04 should work. You will also need a CPU that supports SSE 4.2 to run VG; you can check this with `cat /proc/cpuinfo | grep sse4_2`.
+Note that a 64-bit OS is required. Ubuntu 18.04 should work.
 
 When you are ready, build with `. ./source_me.sh && make`, and run with `./bin/vg`.
 
