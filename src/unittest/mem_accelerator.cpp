@@ -57,7 +57,7 @@ TEST_CASE("MEMAccelerator returns same ranges as direct LF queries",
             auto memo_range = accelerator.memoized_LF(seq.end() - 1);
             auto direct_range = gcsa::range_type(0, gcsaidx->size() - 1);
             auto cursor = seq.end() - 1;
-            while (cursor >= seq.begin()) {
+            while (cursor >= seq.begin() && !gcsa::Range::empty(direct_range)) {
                 direct_range = gcsaidx->LF(direct_range,
                                            gcsaidx->alpha.char2comp[*cursor]);
                 --cursor;
