@@ -37,8 +37,15 @@ MEMAccelerator::MEMAccelerator(const gcsa::GCSA& gcsa_index, size_t k)
             // extend the current range by the next character
             auto next = get<0>(stack.back())++;
             auto enc = (next << (2 * (stack.size() - 1))) | get<1>(stack.back());
-            auto range = gcsa_index.LF(get<2>(stack.back()),
-                                       gcsa_index.alpha.char2comp[alphabet[next]]);
+            
+            gcsa::range_type range;
+            if (!gcsa::Range::empty(get<2>(stack.back()))) {
+                range = gcsa_index.LF(get<2>(stack.back()),
+                                      gcsa_index.alpha.char2comp[alphabet[next]]);
+            }
+            else {
+                range = get<2>(stack.back());
+            }
             stack.emplace_back(0, enc, range);
         }
     }
