@@ -265,7 +265,7 @@ int main_mpmap(int argc, char** argv) {
     vector<size_t> calibration_read_lengths{50, 100, 150, 250, 450};
     size_t order_length_repeat_hit_max = 3000;
     size_t sub_mem_count_thinning = 4;
-    size_t sub_mem_thinning_burn_in = 16;
+    size_t sub_mem_thinning_burn_in_diff = 1;
     double secondary_rescue_score_diff = 0.8;
     size_t secondary_rescue_attempts = 4;
     size_t secondary_rescue_attempts_arg = numeric_limits<size_t>::max();
@@ -299,7 +299,7 @@ int main_mpmap(int argc, char** argv) {
     int full_length_bonus_arg = std::numeric_limits<int>::min();
     int reversing_walk_length = 1;
     int min_splice_length = 20;
-    int mem_accelerator_length = 10;
+    int mem_accelerator_length = 12;
     bool no_output = false;
     string out_format = "GAMP";
 
@@ -1701,7 +1701,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.fast_reseed = true;
     multipath_mapper.fast_reseed_length_diff = reseed_diff;
     multipath_mapper.sub_mem_count_thinning = sub_mem_count_thinning;
-    multipath_mapper.sub_mem_thinning_burn_in = sub_mem_thinning_burn_in;
+    multipath_mapper.sub_mem_thinning_burn_in = int(ceil(log(total_seq_length) / log(4.0))) + sub_mem_thinning_burn_in_diff;
     multipath_mapper.order_length_repeat_hit_max = order_length_repeat_hit_max;
     multipath_mapper.min_mem_length = min_mem_length;
     multipath_mapper.stripped_match_alg_strip_length = stripped_match_alg_strip_length;
