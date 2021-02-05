@@ -77,5 +77,84 @@ net_handle_t SnarlDistanceIndex::get_parent(const net_handle_t& child) const {
     return get_net_handle(parent_pointer, parent_connectivity);
 }
 
+net_handle_t SnarlDistanceIndex::get_bound(const net_handle_t& snarl, bool get_end, bool face_in) const {
+    id_t id = get_end ? snarl_tree_record_t(snarl).get_end_id() : snarl_tree_record_t(snarl).get_start_id();
+    bool rev_in_parent = node_record_t(id).get_rev_in_parent();
+    if (get_end) {
+        rev_in_parent = !rev_in_parent;
+    }
+    if (!face_in){
+        rev_in_parent = !rev_in_parent;
+    }
+    ConnectivityType connectivity = rev_in_parent ? END_START : START_END;
+    return get_net_handle(id, connectivity);
+}
+
+net_handle_t SnarlDistanceIndex::flip(const net_handle_t& net) const {
+    ConnectivityType old_connectivity = get_connectivity(net);
+    ConnectivityType new_connectivity;
+    if (old_connectivity == START_END) {
+        new_connectivity = END_START;
+    } else if (old_connectivity == START_TIP) {
+        new_connectivity = TIP_START;
+    } else if (old_connectivity = END_START) {
+        new_connectivity = START_END;
+    } else if (old_connectivity = END_TIP) {
+        new_connectivity = TIP_END;
+    } else if (old_connectivity = TIP_START) {
+        new_connectivity = START_TIP;
+    } else if (old_connectivity = TIP_END) {
+        new_connectivity = END_TIP;
+    } else {
+        new_connectivity = old_connectivity;
+    }
+    return get_net_handle(get_record_offset(net), new_connectivity);
+}
+
+net_handle_t SnarlDistanceIndex::canonical(const net_handle_t& net) const {
+    snarl_tree_record_t record(net);
+    ConnectivityType connectivity;
+    if (record.is_start_end_connected()) {
+        connectivity = START_END;
+    } else if (record.is_start_tip_connected()) {
+        connectivity = START_TIP;
+    } else if (record.is_end_tip_connected()) {
+        connectivity = END_TIP;
+    } else if (record.is_start_start_connected()) {
+        connectivity = START_START;
+    } else if (record.is_end_end_connected()) {
+        connectivity = END_END;
+    } else if (record.is_tip_tip_connected()) {
+        connectivity = TIP_TIP;
+    } else {
+        throw runtime_error("error: This node has no connectivity");
+    }
+    return get_net_handle(get_record_offset(net), connectivity);
+}
+
+SnarlDecomposition::endpoint_t SnarlDistanceIndex::starts_at(const net_handle_t& traversal) const {
+    ConnectivityType connectivity = get_connectivity(traversal);
+    if (connectivity == START_START || connectivity == START_END || connectivity == START_TIP ){
+        return START;
+    } else if (connectivity == END_START || connectivity == END_END || connectivity == END_TIP ){
+        return END;
+    } else if (connectivity == TIP_START || connectivity == TIP_END || connectivity == TIP_TIP ){
+        return TIP;
+    } else {
+        throw runtime_error("error: This node has no connectivity");
+    }
+}
+SnarlDecomposition::endpoint_t SnarlDistanceIndex::ends_at(const net_handle_t& traversal) const {
+    ConnectivityType connectivity = get_connectivity(traversal);
+    if (connectivity == START_START || connectivity == END_START || connectivity == TIP_START ){
+        return START;
+    } else if (connectivity == START_END || connectivity == END_END || connectivity == TIP_END ){
+        return END;
+    } else if (connectivity == START_TIP || connectivity == END_TIP || connectivity == TIP_TIP ){
+        return TIP;
+    } else {
+        throw runtime_error("error: This node has no connectivity");
+    }
+}
 
 }
