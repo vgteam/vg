@@ -27,20 +27,21 @@ namespace vg {
 
         pair<vector<unordered_set<size_t>>, size_t> kargers_min_cut(Graph graph, const int n_iterations, const int seed) {
  
-            size_t V = graph.nodes.size();
+            size_t V = graph.get_size();
             minstd_rand0 random_engine(seed);
             ContractingGraph cg(graph); 
             unordered_map<size_t, size_t> cgraph_total_edge_weights;
             pair<vector<unordered_set<size_t>>, size_t> to_return;
 
+            vector<size_t> node_ids = graph.get_node_ids();
             // check for graph containing a node without an edge
-            for (auto& id_and_node : graph.nodes){
-                if(id_and_node.second.edges.size() <=0){
+            for (auto& id : node_ids){
+                if(graph.get_node_by_id(id).edges.size() <=0){
                     //return empty container
 #ifdef debug_kargers_min
                     cout << "============================================================================= " << endl;    
                     cout << "Disconnected graph " << endl; 
-                    cout << "Node " <<id_and_node.first << "has 0 edges"<<endl;         
+                    cout << "Node " <<id << "has 0 edges"<<endl;         
 #endif
                     return to_return;
                 }
@@ -67,15 +68,15 @@ namespace vg {
                 vector<unordered_set<size_t>> disjoint_sets;
                 //disjoint sets will just be two sets, each containing one node
                 //using index starting at 0 for nodes
-                vector<size_t> vnodes;
                 
-                for(auto& id_and_node : graph.nodes){
+                
+                vector<size_t> vnodes = graph.get_node_ids();
+                for(auto& id : vnodes){
 #ifdef debug_kargers_min            
                    
                     // node id
-                    cout << "node "<<id_and_node.first  << endl; 
-#endif
-                    vnodes.push_back(id_and_node.first);                   
+                    cout << "node "<<id  << endl; 
+#endif                 
                 }    
                 
                 
@@ -85,7 +86,8 @@ namespace vg {
                 disjoint_sets.push_back(supernode1);
 
                 //assumes weights from node 0->node 1 and node 1->node 0 are equal
-                size_t weight_of_cut = graph.nodes[0].edges[0].weight;
+                size_t node_id = vnodes[0];
+                size_t weight_of_cut = graph.get_node_by_id(node_id).edges[0].weight;
                 to_return = make_pair(disjoint_sets, weight_of_cut);
                 
             }
@@ -370,7 +372,7 @@ namespace vg {
                 
 //                 cout << "============================================================================= " << endl;
 // #endif               
-                size_t V = graph.nodes.size();
+                size_t V = graph.get_size();
 
                 //base case
                 //singleton nodes won't be added to Gamma
@@ -406,21 +408,22 @@ namespace vg {
 
                 //build the subgraphs from disjoint sets
                 vector<Graph> subgraph(2);
+                vector<size_t> node_ids = graph.get_node_ids();
                 for(size_t h =0; h < disjoint_sets.size(); h++){
 
-                    for(auto& id_and_node : graph.nodes){
+                    for(auto& id : node_ids){
                     // if node from original graph is in the disjoint set
-                        if (disjoint_sets[h].count(id_and_node.first)==1){
+                        if (disjoint_sets[h].count(id)==1){
                      
                             size_t node_weight =0;
                             Node node;
                             Edge edge;
                             // check if any edges connect to other nodes in the disjoint set
-                            for(size_t j =0; j < id_and_node.second.edges.size(); j++){
+                            for(size_t j =0; j < graph.get_node_by_id(id).edges.size(); j++){
                                 
-                                if (disjoint_sets[h].count(id_and_node.second.edges[j].other)==1){
-                                    edge.other = id_and_node.second.edges[j].other;
-                                    edge.weight = id_and_node.second.edges[j].weight;
+                                if (disjoint_sets[h].count(graph.get_node_by_id(id).edges[j].other)==1){
+                                    edge.other = graph.get_node_by_id(id).edges[j].other;
+                                    edge.weight = graph.get_node_by_id(id).edges[j].weight;
                                     node_weight += edge.weight;
                                     node.edges.push_back(edge);                                   
 
@@ -429,7 +432,7 @@ namespace vg {
                             }
                             //tally the node weight using the edges
                             node.weight = node_weight; 
-                            subgraph[h].nodes.emplace(id_and_node.first, node);
+                            subgraph[h].add_node(id, node);
 
                         
                         }

@@ -94,10 +94,10 @@ namespace vg {
             node3.edges.push_back(edge32);
             node3.weight = 24;
 
-            graph.nodes.emplace(0,node0);
-            graph.nodes.emplace(1,node1);
-            graph.nodes.emplace(2,node2);
-            graph.nodes.emplace(3,node3);
+            graph.add_node(0,node0);
+            graph.add_node(1,node1);
+            graph.add_node(2,node2);
+            graph.add_node(3,node3);
             
         
             //Karger's min-cut
@@ -241,15 +241,15 @@ namespace vg {
             node8.edges.push_back(edge87);
             node8.weight = 600;
             
-            graph.nodes.emplace(0,node0);
-            graph.nodes.emplace(1,node1);
-            graph.nodes.emplace(2,node2);
-            graph.nodes.emplace(3,node3);
-            graph.nodes.emplace(4,node4);
-            graph.nodes.emplace(5,node5);
-            graph.nodes.emplace(6,node6);
-            graph.nodes.emplace(7,node7);
-            graph.nodes.emplace(8,node8);
+            graph.add_node(0,node0);
+            graph.add_node(1,node1);
+            graph.add_node(2,node2);
+            graph.add_node(3,node3);
+            graph.add_node(4,node4);
+            graph.add_node(5,node5);
+            graph.add_node(6,node6);
+            graph.add_node(7,node7);
+            graph.add_node(8,node8);
         
             //Karger's min-cut
             pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed);
@@ -310,8 +310,8 @@ namespace vg {
             node1.weight = 10;
 
 
-            graph.nodes.emplace(0,node0);
-            graph.nodes.emplace(1,node1);
+            graph.add_node(0,node0);
+            graph.add_node(1,node1);
 
             
             //Karger's min-cut
@@ -360,8 +360,8 @@ namespace vg {
             node1.weight = 0;
 
 
-            graph.nodes.emplace(0,node0);
-            graph.nodes.emplace(1,node1);
+            graph.add_node(0,node0);
+            graph.add_node(1,node1);
 
             //Karger's min-cut
             pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iterations, seed);
@@ -393,10 +393,10 @@ namespace vg {
             node3.weight = 0;
 
 
-            graph.nodes.emplace(0,node0);
-            graph.nodes.emplace(1,node1);
-            graph.nodes.emplace(2,node2);
-            graph.nodes.emplace(3,node3);
+            graph.add_node(0,node0);
+            graph.add_node(1,node1);
+            graph.add_node(2,node2);
+            graph.add_node(3,node3);
 
 
             //Karger's min-cut
@@ -473,10 +473,10 @@ namespace vg {
             node3.edges.push_back(edge32);
             node3.weight = 24;
 
-            graph.nodes.emplace(0,node0);
-            graph.nodes.emplace(1,node1);
-            graph.nodes.emplace(2,node2);
-            graph.nodes.emplace(3,node3);
+            graph.add_node(0,node0);
+            graph.add_node(1,node1);
+            graph.add_node(2,node2);
+            graph.add_node(3,node3);
             
             //call min-cut-decomposition
             vector<unordered_set<size_t>> to_recv =  min_cut_decomposition(graph, n_iterations, seed);
@@ -571,10 +571,10 @@ namespace vg {
             node3.edges.push_back(edge32);
             node3.weight = 24;
 
-            graph.nodes.emplace(5,node0);
-            graph.nodes.emplace(6,node1);
-            graph.nodes.emplace(7,node2);
-            graph.nodes.emplace(8,node3);
+            graph.add_node(5,node0);
+            graph.add_node(6,node1);
+            graph.add_node(7,node2);
+            graph.add_node(8,node3);
             
 
             SparseUnionFind suf = SparseUnionFind(true, graph.get_node_ids());
@@ -757,15 +757,15 @@ namespace vg {
             node8.edges.push_back(edge87);
             node8.weight = 600;
             
-            graph.nodes.emplace(0,node0);
-            graph.nodes.emplace(1,node1);
-            graph.nodes.emplace(2,node2);
-            graph.nodes.emplace(3,node3);
-            graph.nodes.emplace(4,node4);
-            graph.nodes.emplace(5,node5);
-            graph.nodes.emplace(6,node6);
-            graph.nodes.emplace(7,node7);
-            graph.nodes.emplace(8,node8);
+            graph.add_node(0,node0);
+            graph.add_node(1,node1);
+            graph.add_node(2,node2);
+            graph.add_node(3,node3);
+            graph.add_node(4,node4);
+            graph.add_node(5,node5);
+            graph.add_node(6,node6);
+            graph.add_node(7,node7);
+            graph.add_node(8,node8);
         
             //call min-cut-decomposition
             vector<unordered_set<size_t>> to_recv =  min_cut_decomposition(graph, n_iterations, seed);

@@ -31,8 +31,10 @@ namespace vg {
             vector<Edge> edges;
         };
         struct Graph {
+            private: 
             unordered_map<size_t,Node> nodes;
 
+            public: 
             inline vector<size_t> get_node_ids(){
                 vector<size_t> node_ids;
                 for (auto& id_and_node : nodes){

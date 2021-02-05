@@ -3,7 +3,7 @@
 #include <iostream>
 
 
-#define debug
+// #define debug
 namespace vg{
     using namespace std;
     using namespace structures;
@@ -45,12 +45,12 @@ namespace vg{
         //if an adj_node exists in group_nodes then it is a contracted edge, we treat it as a special case  
         for(size_t i = 0; i<group_nodes.size(); i++){
             int member = group_nodes[i];
-            for (size_t j = 0; j < graph.nodes.at(member).edges.size(); j++){
+            for (size_t j = 0; j < graph.get_node_by_id(member).edges.size(); j++){
 #ifdef debug
             cout << "============================================================================= " << endl;    
-            cout << "edge " << member  << "->"<< graph.nodes.at(member).edges[j].other  << endl;        
+            cout << "edge " << member  << "->"<< graph.get_node_by_id(member).edges[j].other  << endl;        
 #endif
-                size_t connecting_node = graph.nodes.at(member).edges[j].other;
+                size_t connecting_node = graph.get_node_by_id(member).edges[j].other;
 
                 // check if the connecting node is contracted with other nodes
                 size_t connecting_node_group_id = uf.find_group(connecting_node);
@@ -67,11 +67,11 @@ namespace vg{
             cout << "connecting node" << connecting_node <<endl;
             cout << "connecting node group id " << connecting_node_group_id << endl;
             cout << "node edges prev " << group_edges[connecting_node_group_id] << endl;  
-            cout << "node edges new " << graph.nodes.at(member).edges[j].weight << endl;  
+            cout << "node edges new " << graph.get_node_by_id(member).edges[j].weight << endl;  
 #endif
                 //if it doesn't exist add, otherwise add weight to existing value
                 // group edges indexed by connecting node group number 
-                group_edges[connecting_node_group_id] += graph.nodes.at(member).edges[j].weight;
+                group_edges[connecting_node_group_id] += graph.get_node_by_id(member).edges[j].weight;
 #ifdef debug     
 
             cout << "node edges total group id " << group_edges[connecting_node_group_id] << endl;  
