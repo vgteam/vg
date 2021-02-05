@@ -4,6 +4,7 @@
  */
 #include <getopt.h>
 #include <iostream>
+#include <algorithm>
 
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
@@ -16,7 +17,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-bool vcf_is_phased(const string& filepath) {
+bool vcf_is_phased(const IndexRegistry& registry, const string& filepath) {
     
     if (IndexingParameters::verbose) {
         cerr << "[IndexRegistry]: Checking for phasing in VCF." << endl;
@@ -88,7 +89,8 @@ void help_autoindex(char** argv) {
     << "options:" << endl
     << "  output:" << endl
     << "    -p, --prefix PREFIX   prefix to use for all output (default: index)" << endl
-    << "    -w, --workflow NAME   workflow to produce indexes for: map, mpmap, giraffe (default: map)" << endl
+    << "    -w, --workflow NAME   workflow to produce indexes for, can be provided multiple" << endl
+    << "                          times. options: map, mpmap, giraffe (default: map)" << endl
     << "  input data:" << endl
     << "    -r, --ref-fasta FILE  FASTA file containing the reference sequence" << endl
     << "    -v, --vcf FILE        VCF file with sequence names matching -r" << endl
@@ -146,16 +148,21 @@ int main_autoindex(int argc, char** argv) {
                 break;
             case 'w':
                 if (optarg == string("map")) {
-                    targets = VGIndexes::get_default_map_indexes();
+                    for (auto& target : VGIndexes::get_default_map_indexes()) {
+                        targets.emplace_back(move(target));
+                    }
                 }
                 else if (optarg == string("mpmap")) {
-                    targets = VGIndexes::get_default_mpmap_indexes();
+                    for (auto& target : VGIndexes::get_default_mpmap_indexes()) {
+                        targets.emplace_back(move(target));
+                    }
                     cerr << "mpmap indexing not yet implemented" << endl;
                     return 1;
                 }
                 else if (optarg == string("giraffe")) {
-                    targets = VGIndexes::get_default_giraffe_indexes();
-                    cerr << "giraffe indexing not yet implemented" << endl;
+                    for (auto& target : VGIndexes::get_default_giraffe_indexes()) {
+                        targets.emplace_back(move(target));
+                    }                    cerr << "giraffe indexing not yet implemented" << endl;
                     return 1;
                 }
                 else {
@@ -207,6 +214,9 @@ int main_autoindex(int argc, char** argv) {
         // default to vg map indexes
         targets = VGIndexes::get_default_map_indexes();
     }
+    // deduplicate
+    sort(targets.begin(), targets.end());
+    targets.resize(unique(targets.begin(), targets.end()) - targets.begin());
     
     registry.make_indexes(targets);
     
