@@ -346,14 +346,7 @@ int main_paths(int argc, char** argv) {
         // Select the threads we are interested in.
         std::vector<gbwt::size_type> thread_ids;
         if (!sample_name.empty()) {
-            if (!gbwt_index->metadata.hasSampleNames()) {
-                std::cerr << "error: [vg paths] the GBWT index does not contain sample names" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            gbwt::size_type sample_id = gbwt_index->metadata.sample(sample_name);
-            if (sample_id < gbwt_index->metadata.samples()) {
-                thread_ids = gbwt_index->metadata.pathsForSample(sample_id);
-            }
+            thread_ids = threads_for_sample(*gbwt_index, sample_name);
         } else if(!path_prefix.empty()) {
             for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
                 std::string name = thread_name(*gbwt_index, i);

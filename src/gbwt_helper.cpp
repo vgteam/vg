@@ -202,7 +202,27 @@ void GBWTHandler::clear() {
 
 //------------------------------------------------------------------------------
 
-std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
+std::vector<gbwt::size_type> threads_for_sample(const gbwt::GBWT& gbwt_index, const std::string& sample_name) {
+    if (gbwt_index.hasMetadata() && gbwt_index.metadata.hasSampleNames() && gbwt_index.metadata.hasPathNames()) {
+        gbwt::size_type sample_id = gbwt_index.metadata.sample(sample_name);
+        if (sample_id < gbwt_index.metadata.samples()) {
+            return gbwt_index.metadata.pathsForSample(sample_id);
+        }
+    }
+    return std::vector<gbwt::size_type>();
+}
+
+std::vector<gbwt::size_type> threads_for_contig(const gbwt::GBWT& gbwt_index, const std::string& contig_name) {
+    if (gbwt_index.hasMetadata() && gbwt_index.metadata.hasContigNames() && gbwt_index.metadata.hasPathNames()) {
+        gbwt::size_type contig_id = gbwt_index.metadata.contig(contig_name);
+        if (contig_id < gbwt_index.metadata.contigs()) {
+            return gbwt_index.metadata.pathsForContig(contig_id);
+        }
+    }
+    return std::vector<gbwt::size_type>();
+}
+
+std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id, std::string path_name) {
 
     gbwt::size_type sequence_id = gbwt::Path::encode(id, false);
     if (sequence_id >= gbwt_index.sequences()) {
@@ -210,10 +230,10 @@ std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gb
         return "";
     }
 
-    std::string path_name = thread_name(gbwt_index, id);
-    if (path_name.empty()) {
-        path_name = std::to_string(id);
-    }
+    // If the path name was not specified, try first using the default name generated from GBWT metadata.
+    // If that fails, simply use the id.
+    if (path_name.empty()) { path_name = thread_name(gbwt_index, id); }
+    if (path_name.empty()) { path_name = std::to_string(id); }
     if (graph.has_path(path_name)) {
         std::cerr << "error: [insert_gbwt_path()] path name already exists: " << path_name << std::endl;
         return "";

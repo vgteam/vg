@@ -128,9 +128,16 @@ struct GBWTHandler {
 
 //------------------------------------------------------------------------------
 
+/// Return the list of thread ids / gbwt path ids for the given sample.
+std::vector<gbwt::size_type> threads_for_sample(const gbwt::GBWT& gbwt_index, const std::string& sample_name);
+
+/// Return the list of thread ids / gbwt path ids for the given contig.
+std::vector<gbwt::size_type> threads_for_contig(const gbwt::GBWT& gbwt_index, const std::string& contig_name);
+
 /// Insert a GBWT thread into the graph and return its name. Returns an empty string on failure.
+/// If a path name is specified and not empty, that name will be used for the inserted path.
 /// NOTE: id is a gbwt path id, not a gbwt sequence id.
-std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id);
+std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id, std::string path_name = "");
 
 /// Extract a GBWT thread as a path in the given graph.
 /// NOTE: id is a gbwt path id, not a gbwt sequence id.
