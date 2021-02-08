@@ -17,7 +17,8 @@ CWD:=$(shell pwd)
 CXX ?= g++
 PKG_CONFIG ?= pkg-config
 
-EXE:=vg
+SFX :=
+EXE:=vg$(SFX)
 
 all: $(BIN_DIR)/$(EXE)
 
@@ -181,9 +182,11 @@ else
     # We get OpenMP the normal way, using whatever the compiler knows about
     CXXFLAGS += -fopenmp
 
-    # We care about building for SSE4.2 only and not AVX, to have vaguely portable binaries
-    CXXFLAGS += -msse4.2
-    
+    ifeq ($(shell arch), x86_64)
+        # We care about building for SSE4.2 only and not AVX, to have vaguely portable binaries
+        CXXFLAGS += -msse4.2
+    endif
+
     # Note shared libraries are so files
     SHARED_SUFFIX = so
     # Define options to start static linking of libraries on GNU ld.
@@ -355,10 +358,21 @@ ifneq ($(shell uname -s),Darwin)
 	LD_LIB_FLAGS += -ljemalloc
 endif
 
-.PHONY: clean get-deps deps test set-path static static-docker docs man .pre-build .check-environment .check-git .no-git 
+.PHONY: clean get-deps deps test set-path objs static static-docker docs man .pre-build .check-environment .check-git .no-git 
+
+# Aggregate all libvg deps, and exe deps other than libvg
+LIBVG_DEPS = $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)
+EXE_DEPS = $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
+
+# We have a target we can build to do everything but link the library and executable
+objs: $(LIBVG_DEPS) $(EXE_DEPS)
+
+$(LIB_DIR)/libvg.a: $(LIBVG_DEPS)
+	rm -f $@
+	ar rs $@ $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ)
 
 # For a normal dynamic build we remove the static build marker
-$(BIN_DIR)/$(EXE): $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
+$(BIN_DIR)/$(EXE): $(LIB_DIR)/libvg.a $(EXE_DEPS)
 	-rm -f $(LIB_DIR)/vg_is_static
 	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) 
 # We keep a file that we touch on the last static build.
@@ -379,13 +393,10 @@ static-docker: static scripts/*
 	strip -d $(BIN_DIR)/$(EXE)
 	DOCKER_BUILDKIT=1 docker build . -f Dockerfile.static -t vg
 
-$(LIB_DIR)/libvg.a: $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)
-	rm -f $@
-	ar rs $@ $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ)
-
 # We have system-level deps to install
+# We want the One True Place for them to be in the Dockerfile.
 get-deps:
-	sudo apt-get install -qq -y --no-upgrade build-essential git protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq bc rs parallel npm samtools curl unzip redland-utils librdf-dev cmake pkg-config wget gtk-doc-tools raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev libboost-all-dev
+	sudo apt-get install -qq -y --no-upgrade $(shell cat Dockerfile | sed -n '/^###DEPS_BEGIN###/,$${p;/^###DEPS_END###/q}' | grep -v '^ *#' | grep -v "^RUN" | tr '\n' ' ' | tr -d '\\')
 
 # And we have submodule deps to build
 deps: $(DEPS)
@@ -427,8 +438,8 @@ else
 	+. ./source_me.sh && cd $(SDSL_DIR) && BUILD_PORTABLE=1 CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" ./install.sh $(CWD) $(FILTER)
 endif
 
-$(LIB_DIR)/libssw.a: $(SSW_DIR)/*.c $(SSW_DIR)/*.h
-	+. ./source_me.sh && cd $(SSW_DIR) && $(MAKE) $(FILTER) && ar rs $(CWD)/$(LIB_DIR)/libssw.a ssw.o ssw_cpp.o && cp ssw_cpp.h ssw.h $(CWD)/$(LIB_DIR)
+$(LIB_DIR)/libssw.a: $(SSW_DIR)/*.c $(SSW_DIR)/*.cpp $(SSW_DIR)/*.h
+	+. ./source_me.sh && cd $(SSW_DIR) && $(MAKE) $(FILTER) && ar rs $(CWD)/$(LIB_DIR)/libssw.a ssw.o ssw_cpp.o && cp ssw_cpp.h ssw.h $(CWD)/$(INC_DIR)
 
 # We need to hide -Xpreprocessor -fopenmp from Snappy, at least on Mac, because
 # it will drop the -Xpreprocessor and keep the -fopenmp and upset Clang.
@@ -471,8 +482,9 @@ $(INC_DIR)/progress_bar.hpp: $(PROGRESS_BAR_DIR)/progress_bar.hpp
 $(OBJ_DIR)/progress_bar.o: $(PROGRESS_BAR_DIR)/*.hpp $(PROGRESS_BAR_DIR)/*.cpp
 	+. ./source_me.sh && cd $(PROGRESS_BAR_DIR) && $(MAKE) $(FILTER) && cp progress_bar.o $(CWD)/$(OBJ_DIR)
 
-$(OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/*.h $(FASTAHACK_DIR)/*.cpp
-	+. ./source_me.sh && cd $(FASTAHACK_DIR) && $(MAKE) $(FILTER) && mv Fasta.o $(CWD)/$(OBJ_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
+# We also run the fastahack build process in another rule, which we need to depend on to avoid races
+$(OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/fastahack
+	+. ./source_me.sh && cd $(FASTAHACK_DIR) && $(MAKE) $(FILTER) && cp Fasta.o $(CWD)/$(OBJ_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
 
 # We have this target to clean up the old Protobuf we used to have.
 # We can remove it after we no longer care about building properly on a dirty
@@ -536,19 +548,19 @@ $(FASTAHACK_DIR)/fastahack: $(FASTAHACK_DIR)/*.c $(FASTAHACK_DIR)/*.h $(FASTAHAC
 	+. ./source_me.sh && cd $(FASTAHACK_DIR) && $(MAKE) $(FILTER)
 
 $(LIB_DIR)/libgssw.a: $(GSSW_DIR)/src/gssw.c $(GSSW_DIR)/src/gssw.h
-	+. ./source_me.sh && cd $(GSSW_DIR) && $(MAKE) $(FILTER) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp obj/* $(CWD)/$(OBJ_DIR) && cp src/*.h $(CWD)/$(INC_DIR)
+	+. ./source_me.sh && cd $(GSSW_DIR) && $(MAKE) $(FILTER) && cp lib/libgssw.a $(CWD)/$(LIB_DIR)/ && cp src/gssw.h $(CWD)/$(INC_DIR)/
 
 $(INC_DIR)/lru_cache.h: $(DEP_DIR)/lru_cache/*.h $(DEP_DIR)/lru_cache/*.cc
 	+cd $(DEP_DIR)/lru_cache && cp *.h* $(CWD)/$(INC_DIR)/
 
 # We moved the Dynamic headers so make sure to clean up the old ones.
-$(INC_DIR)/dynamic/dynamic.hpp: $(DYNAMIC_DIR)/include/*.hpp $(DYNAMIC_DIR)/include/internal/*.hpp
+$(INC_DIR)/dynamic/dynamic.hpp: $(DYNAMIC_DIR)/include/dynamic/*.hpp $(DYNAMIC_DIR)/include/dynamic/*/*.hpp
 	rm -Rf $(INC_DIR)/dynamic.hpp $(INC_DIR)/dynamic
 	# annoyingly doesn't have an install option on the cmake, so we manually move their external dependency headers
 	cd $(CWD)/$(DYNAMIC_DIR) && rm -Rf build && mkdir -p build && cd build && export CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" && cmake -DCMAKE_VERBOSE_MAKEFILE=ON .. && make && cp -r hopscotch_map-prefix/src/hopscotch_map/include/* $(CWD)/$(INC_DIR)/
 	# Do the copy of the main file last so we can tell if this recipe failed and redo it.
 	# Otherwise we get dynamic.hpp without its deps
-	mkdir -p $(INC_DIR)/dynamic && cp -r $(CWD)/$(DYNAMIC_DIR)/include/* $(INC_DIR)/dynamic
+	mkdir -p $(INC_DIR)/dynamic && cp -r $(CWD)/$(DYNAMIC_DIR)/include/dynamic/* $(INC_DIR)/dynamic/
 
 $(INC_DIR)/sparsehash/sparse_hash_map: $(wildcard $(SPARSEHASH_DIR)/**/*.cc) $(wildcard $(SPARSEHASH_DIR)/**/*.h) 
 	+. ./source_me.sh && cd $(SPARSEHASH_DIR) && ./autogen.sh && LDFLAGS="-L/opt/local/lib" ./configure --prefix=$(CWD) $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install

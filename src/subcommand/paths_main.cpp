@@ -97,6 +97,7 @@ int main_paths(int argc, char** argv) {
     bool select_alt_paths = false;
     bool list_lengths = false;
     size_t output_formats = 0, selection_criteria = 0;
+    size_t input_formats = 0;
     bool list_cyclicity = false;
 
     int c;
@@ -142,14 +143,17 @@ int main_paths(int argc, char** argv) {
 
         case 'v':
             vg_file = optarg;
+            ++input_formats;
             break;
 
         case 'x':
             xg_file = optarg;
+            ++input_formats;
             break;
 
         case 'g':
             gbwt_file = optarg;
+            ++input_formats;
             break;
 
         case 'V':
@@ -244,10 +248,14 @@ int main_paths(int argc, char** argv) {
         std::cerr << "error: [vg paths] cannot read input from multiple sources" << std::endl;
         std::exit(EXIT_FAILURE);
     }
+    if (input_formats != 1 && input_formats != 2) {
+        std::cerr << "error: [vg paths] at least one input format (-v, -x, -g) must be specified" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
     if (!gbwt_file.empty()) {
-        bool need_graph = (extract_as_gam || extract_as_gaf || extract_as_vg || list_lengths || extract_as_fasta || list_cyclicity);
+        bool need_graph = (extract_as_gam || extract_as_gaf || extract_as_vg || drop_paths || retain_paths || extract_as_fasta);
         if (need_graph && xg_file.empty() && vg_file.empty()) {
-            std::cerr << "error: [vg paths] an XG index or vg graph needed for extracting threads in -X, -A, -V, -d, -r, -E or -F format" << std::endl;
+            std::cerr << "error: [vg paths] an XG index or vg graph needed for extracting threads in -X, -A, -V, -d, -r or -F format" << std::endl;
             std::exit(EXIT_FAILURE);
         }
         if (!need_graph && (!xg_file.empty() || !vg_file.empty())) {
@@ -256,7 +264,7 @@ int main_paths(int argc, char** argv) {
             //std::exit(EXIT_FAILURE);
             std::cerr << "warning: [vg paths] XG index and/or vg graph  unnecessary for listing GBWT threads" << std::endl;
         }
-    }
+    } 
     if (output_formats != 1) {
         std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -L, -F, -E or -C) must be specified" << std::endl;
         std::exit(EXIT_FAILURE);
@@ -331,7 +339,7 @@ int main_paths(int argc, char** argv) {
         // Open up a GAM/GAF output stream
         aln_emitter = vg::io::get_non_hts_alignment_emitter("-", extract_as_gaf ? "GAF" : "GAM", {}, get_thread_count(),
                                                             graph.get());
-    } else if (extract_as_vg || drop_paths || retain_paths) {
+    } else if (extract_as_vg) {
         // Open up a VG Graph chunk output stream
         graph_emitter = unique_ptr<vg::io::ProtobufEmitter<Graph>>(new vg::io::ProtobufEmitter<Graph>(cout));
     }
@@ -429,22 +437,20 @@ int main_paths(int argc, char** argv) {
         };
 
         if (drop_paths || retain_paths) {
-            
-            VG new_graph;
-            
-            // copy the nodes and edges
-            handlealgs::copy_handle_graph(&(*graph), &new_graph);
-            
-            // copy the indicated paths
+
+            vector<string> to_destroy;
             graph->for_each_path_handle([&](const path_handle_t& path_handle) {
-                string name = graph->get_path_name(path_handle);
-                if (check_path_name(name) != drop_paths) {
-                    handlealgs::copy_path(&(*graph), path_handle, &new_graph);
+                    string name = graph->get_path_name(path_handle);
+                    if (check_path_name(name) == drop_paths) {
+                        to_destroy.push_back(name);
                 }
             });
+            for (string& path_name : to_destroy) {
+                dynamic_cast<MutablePathMutableHandleGraph*>(graph.get())->destroy_path(graph->get_path_handle(path_name));
+            }
             
             // output the graph
-            new_graph.serialize(cout);
+            dynamic_cast<SerializableHandleGraph*>(graph.get())->serialize(cout);
         }
         else {
             graph->for_each_path_handle([&](path_handle_t path_handle) {

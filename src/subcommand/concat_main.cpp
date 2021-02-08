@@ -106,5 +106,5 @@ int main_concat(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_concat("concat", "concatenate graphs tail-to-head", main_concat);
+static Subcommand vg_concat("concat", "concatenate graphs tail-to-head", DEPRECATED, main_concat);
 

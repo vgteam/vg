@@ -11,6 +11,7 @@
 
 #include <vg/io/vpkg.hpp>
 #include "../multipath_mapper.hpp"
+#include "../mem_accelerator.hpp"
 #include "../surjector.hpp"
 #include "../multipath_alignment_emitter.hpp"
 #include "../path.hpp"
@@ -264,7 +265,7 @@ int main_mpmap(int argc, char** argv) {
     vector<size_t> calibration_read_lengths{50, 100, 150, 250, 450};
     size_t order_length_repeat_hit_max = 3000;
     size_t sub_mem_count_thinning = 4;
-    size_t sub_mem_thinning_burn_in = 16;
+    size_t sub_mem_thinning_burn_in_diff = 1;
     double secondary_rescue_score_diff = 0.8;
     size_t secondary_rescue_attempts = 4;
     size_t secondary_rescue_attempts_arg = numeric_limits<size_t>::max();
@@ -298,6 +299,7 @@ int main_mpmap(int argc, char** argv) {
     int full_length_bonus_arg = std::numeric_limits<int>::min();
     int reversing_walk_length = 1;
     int min_splice_length = 20;
+    int mem_accelerator_length = 12;
     bool no_output = false;
     string out_format = "GAMP";
 
@@ -1561,12 +1563,23 @@ int main_mpmap(int argc, char** argv) {
     bdsg::PathPositionOverlayHelper overlay_helper;
     PathPositionHandleGraph* path_position_handle_graph = overlay_helper.apply(path_handle_graph.get());
     
+    // compute this once in case the backing graph doesn't have an efficient implementation
+    size_t total_seq_length = path_position_handle_graph->get_total_length();
+    
     if (!suppress_progress) {
         cerr << progress_boilerplate() << "Loading GCSA2 from " << gcsa_name << endl;
     }
     unique_ptr<gcsa::GCSA> gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
+    
+    unique_ptr<MEMAccelerator> mem_accelerator;
     unique_ptr<gcsa::LCPArray> lcp_array;
     if (!use_stripped_match_alg) {
+        // don't make a huge table for a small graph
+        mem_accelerator_length = min<int>(mem_accelerator_length, round(log(total_seq_length) / log(4.0)));
+        if (!suppress_progress) {
+            cerr << progress_boilerplate() << "Memoizing GCSA2 queries" << endl;
+        }
+        mem_accelerator = unique_ptr<MEMAccelerator>(new MEMAccelerator(*gcsa_index, mem_accelerator_length));
         // The stripped algorithm doesn't use the LCP, but we aren't doing it
         if (!suppress_progress) {
             cerr << progress_boilerplate() << "Loading LCP from " << lcp_name << endl;
@@ -1662,6 +1675,8 @@ int main_mpmap(int argc, char** argv) {
     
     MultipathMapper multipath_mapper(path_position_handle_graph, gcsa_index.get(), lcp_array.get(), haplo_score_provider,
         snarl_manager.get(), distance_index.get());
+    // give it the MEMAccelerator
+    multipath_mapper.accelerator = mem_accelerator.get();
     
     // set alignment parameters
     if (matrix_stream.is_open()) {
@@ -1686,7 +1701,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.fast_reseed = true;
     multipath_mapper.fast_reseed_length_diff = reseed_diff;
     multipath_mapper.sub_mem_count_thinning = sub_mem_count_thinning;
-    multipath_mapper.sub_mem_thinning_burn_in = sub_mem_thinning_burn_in;
+    multipath_mapper.sub_mem_thinning_burn_in = int(ceil(log(total_seq_length) / log(4.0))) + sub_mem_thinning_burn_in_diff;
     multipath_mapper.order_length_repeat_hit_max = order_length_repeat_hit_max;
     multipath_mapper.min_mem_length = min_mem_length;
     multipath_mapper.stripped_match_alg_strip_length = stripped_match_alg_strip_length;
@@ -1703,7 +1718,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.use_fanout_match_alg = use_fanout_match_alg;
     multipath_mapper.max_fanout_base_quality = max_fanout_base_quality;
     multipath_mapper.max_fans_out = max_fans_out;
-    multipath_mapper.fanout_length_threshold = int(ceil(log(path_position_handle_graph->get_total_length()) / log(4.0))) + fanout_pruning_diff;
+    multipath_mapper.fanout_length_threshold = int(ceil(log(total_seq_length) / log(4.0))) + fanout_pruning_diff;
     multipath_mapper.adaptive_reseed_diff = use_adaptive_reseed;
     multipath_mapper.adaptive_diff_exponent = reseed_exp;
     multipath_mapper.use_approx_sub_mem_count = false;
@@ -1778,7 +1793,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.agglomerate_multipath_alns = agglomerate_multipath_alns;
     
     // splicing parameters
-    int64_t min_softclip_length_for_splice = int(ceil(log(path_position_handle_graph->get_total_length() * 2) / log(4.0))) + 2;
+    int64_t min_softclip_length_for_splice = int(ceil(log(total_seq_length * 2) / log(4.0))) + 2;
     multipath_mapper.set_min_softclip_length_for_splice(min_softclip_length_for_splice);
     multipath_mapper.max_softclip_overlap = max_softclip_overlap;
     multipath_mapper.max_splice_overhang = max_splice_overhang;

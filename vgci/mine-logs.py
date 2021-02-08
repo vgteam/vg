@@ -18,7 +18,7 @@ import xml.etree.cElementTree as ET
 import textwrap
 import shutil
 import datetime
-import cgi
+import html
 import io
 import traceback
 from collections import defaultdict
@@ -301,7 +301,7 @@ def escape(string):
     every user-supplied string before being included in HTML output. Escapes
     quotes, so the string can be used as an HTML attribute value.
     """
-    return cgi.escape(string, quote=True)
+    return html.escape(string, quote=True)
         
 def html_header(xml_root):
     """

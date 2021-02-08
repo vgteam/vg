@@ -83,7 +83,6 @@ BaseMapper::find_mems_simple(string::const_iterator seq_begin,
         exit(1);
     }
     
-    string::const_iterator cursor = seq_end;
     vector<MaximalExactMatch> mems;
     
     // an empty sequence matches the entire bwt
@@ -110,56 +109,53 @@ BaseMapper::find_mems_simple(string::const_iterator seq_begin,
     
     // the temporary MEM we'll build up in this process
     auto full_range = gcsa::range_type(0, gcsa->size() - 1);
-    MaximalExactMatch match(cursor, cursor, full_range);
-    gcsa::range_type last_range = match.range;
-    --cursor; // start off looking at the last character in the query
+    string::const_iterator curr_end = seq_end;
+    string::const_iterator cursor = seq_end - 1;
+    // start off looking at the last character in the query
+    gcsa::range_type range = accelerate_mem_query(seq_begin, cursor);
     while (cursor >= seq_begin) {
         // hold onto our previous range
-        last_range = match.range;
+        auto last_range = range;
         // execute one step of LF mapping
-        match.range = gcsa->LF(match.range, gcsa->alpha.char2comp[*cursor]);
-        if (gcsa::Range::empty(match.range)
-            || (max_mem_length && match.end-cursor > max_mem_length)
-            || match.end-cursor > gcsa->order()) {
+        range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
+        if (gcsa::Range::empty(range)
+            || (max_mem_length && curr_end - cursor > max_mem_length)
+            || curr_end - cursor > gcsa->order()) {
             // break on N; which for DNA we assume is non-informative
             // this *will* match many places in assemblies; this isn't helpful
             if (*cursor == 'N' || last_range == full_range) {
                 // we mismatched in a single character
                 // there is no MEM here
-                match.begin = cursor+1;
-                match.range = last_range;
-                mems.push_back(match);
-                match.end = cursor;
-                match.range = full_range;
+                mems.emplace_back(cursor + 1, curr_end, last_range);
+                curr_end = cursor;
+                range = full_range;
                 --cursor;
             } else {
                 // we've exhausted our BWT range, so the last match range was maximal
                 // or: we have exceeded the order of the graph (FPs if we go further)
                 //     we have run over our parameter-defined MEM limit
                 // record the last MEM
-                match.begin = cursor+1;
-                match.range = last_range;
-                mems.push_back(match);
+                mems.emplace_back(cursor + 1, curr_end, last_range);
                 // set up the next MEM using the parent node range
                 // length of last MEM, which we use to update our end pointer for the next MEM
-                size_t last_mem_length = match.end - match.begin;
+                int64_t last_mem_length = (curr_end - cursor) - 1;
                 // get the parent suffix tree node corresponding to the parent of the last MEM's STNode
                 gcsa::STNode parent = lcp->parent(last_range);
                 // change the end for the next mem to reflect our step size
                 size_t step_size = last_mem_length - parent.lcp();
-                match.end = mems.back().end-step_size;
+                curr_end = curr_end - step_size;
                 // and set up the next MEM using the parent node range
-                match.range = parent.range();
+                range = parent.range();
             }
         } else {
-            // we are matching
-            match.begin = cursor;
             // just step to the next position
             --cursor;
         }
     }
     // if we have a non-empty MEM at the end, record it
-    if (match.end - match.begin > 0) mems.push_back(match);
+    if (curr_end > seq_begin) {
+        mems.emplace_back(seq_begin, curr_end, range);
+    }
     
     // find the SMEMs from the mostly-SMEM and some MEM list we've built
     // FIXME: un-hack this (it shouldn't be needed!)
@@ -931,11 +927,9 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     }
     vector<MaximalExactMatch> mems;
     
-    gcsa::range_type full_range = gcsa::range_type(0, gcsa->size() - 1);
-
     // an empty sequence matches the entire bwt
     if (seq_begin == seq_end) {
-        mems.push_back(MaximalExactMatch(seq_begin, seq_end, full_range));
+        mems.push_back(MaximalExactMatch(seq_begin, seq_end, gcsa::range_type(0, gcsa->size() - 1)));
     }
     
     // find SMEMs using GCSA+LCP array
@@ -955,12 +949,10 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     
     // next position we will extend matches to
     string::const_iterator cursor = seq_end - 1;
-    
-    // range of the last iteration
-    gcsa::range_type last_range = full_range;
-    
-    // the temporary MEM we'll build up in this process
-    MaximalExactMatch match(cursor, seq_end, full_range);
+    // the end of the current MEM
+    string::const_iterator curr_end = seq_end;
+    // range of the current iteration
+    gcsa::range_type range = accelerate_mem_query(seq_begin, cursor);
     
     // did we move the cursor or the end of the match last iteration?
     bool prev_iter_jumped_lcp = false;
@@ -968,7 +960,6 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     int filtered_mems = 0;
     int total_mems = 0;
     int max_lcp = 0;
-    size_t mem_length = 0;
     vector<int> lcp_maxima;
     
 
@@ -978,14 +969,11 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         // break the MEM on N; which for DNA we assume is non-informative
         // this *will* match many places in assemblies, but it isn't helpful
         if (*cursor == 'N') {
-            match.begin = cursor + 1;
-            
-            mem_length = match.length();
-            
-            if (mem_length >= min_mem_length) {
+            auto curr_begin = cursor + 1;
+            if (curr_end - curr_begin >= min_mem_length) {
 
-                mems.push_back(match);
-                mems.back().match_count = gcsa->count(mems.back().range);
+                mems.emplace_back(curr_begin, curr_end, range);
+                mems.back().match_count = gcsa->count(range);
                 mems.back().primary = true;
                 
                 lcp_maxima.push_back(max_lcp);
@@ -993,11 +981,11 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
 #ifdef debug_mapper
                 vector<gcsa::node_type> locations;
                 if (hit_max) {
-                    gcsa->locate(match.range, hit_max, locations);
+                    gcsa->locate(mems.back().range, hit_max, locations);
                 } else {
-                    gcsa->locate(match.range, locations);
+                    gcsa->locate(mems.back().range, locations);
                 }
-                cerr << "adding MEM " << match.sequence() << " after hitting N at positions ";
+                cerr << "adding MEM " << mems.back().sequence() << " after hitting N at positions ";
                 for (auto nt : locations) {
                     cerr << make_pos_t(nt) << " ";
                 }
@@ -1005,9 +993,9 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
 #endif
             }
             
-            match.end = cursor;
-            match.range = full_range;
+            curr_end = cursor;
             --cursor;
+            range = accelerate_mem_query(seq_begin, cursor);
             
             prev_iter_jumped_lcp = false;
 
@@ -1018,50 +1006,48 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         }
         
         // hold onto our previous range
-        last_range = match.range;
+        auto last_range = range;
         
         // execute one step of LF mapping
-        match.range = gcsa->LF(match.range, gcsa->alpha.char2comp[*cursor]);
+        range = gcsa->LF(range, gcsa->alpha.char2comp[*cursor]);
         
-        if (gcsa::Range::empty(match.range)
-            || (max_mem_length && match.end - cursor > max_mem_length)
-            || match.end - cursor > gcsa->order()) {
+        if (gcsa::Range::empty(range)
+            || (max_mem_length && curr_end - cursor > max_mem_length)
+            || curr_end - cursor > gcsa->order()) {
             
             // we've exhausted our BWT range, so the last match range was maximal
             // or: we have exceeded the order of the graph (FPs if we go further)
             // or: we have run over our parameter-defined MEM limit
             
-            if (cursor + 1 == match.end) {
+            if (cursor + 1 == curr_end) {
                 // avoid getting caught in infinite loop when a single character mismatches
                 // entire index (b/c then advancing the LCP doesn't move the search forward
                 // at all, need to move the cursor instead)
-                match.begin = cursor + 1;
-                match.range = last_range;
+                auto curr_begin = cursor + 1;
                 
-                if (match.end - match.begin >= min_mem_length) {
-                    mems.push_back(match);
+                if (curr_end - curr_begin >= min_mem_length) {
+                    mems.emplace_back(curr_begin, curr_end, last_range);
                     mems.back().match_count = gcsa->count(mems.back().range);
                     mems.back().primary = true;
                     lcp_maxima.push_back(max_lcp);
                 }
                 
-                match.end = cursor;
-                match.range = full_range;
+                curr_end = cursor;
                 --cursor;
+                range = accelerate_mem_query(seq_begin, cursor);
                 
                 // don't reseed in empty MEMs
                 prev_iter_jumped_lcp = false;
                 max_lcp = 0;
             }
             else {
-                match.begin = cursor + 1;
-                match.range = last_range;
+                auto curr_begin = cursor + 1;
                 
                 // record the last MEM, but check to make sure were not actually still searching
                 // for the end of the next MEM
-                bool add_mem = (match.length() >= min_mem_length && !prev_iter_jumped_lcp);
+                bool add_mem = (curr_end - curr_begin >= min_mem_length && !prev_iter_jumped_lcp);
                 if (add_mem) {
-                    mems.push_back(match);
+                    mems.emplace_back(curr_begin, curr_end, last_range);
                     mems.back().match_count = gcsa->count(mems.back().range);
                     mems.back().primary = true;
                     lcp_maxima.push_back(max_lcp);
@@ -1069,11 +1055,11 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
 #ifdef debug_mapper
                     vector<gcsa::node_type> locations;
                     if (hit_max) {
-                        gcsa->locate(match.range, hit_max, locations);
+                        gcsa->locate(mems.back().range, hit_max, locations);
                     } else {
-                        gcsa->locate(match.range, locations);
+                        gcsa->locate(mems.back().range, locations);
                     }
-                    cerr << "adding MEM " << match.sequence() << " after hitting an empty extension at positions ";
+                    cerr << "adding MEM " << mems.back().sequence() << " after hitting an empty extension at positions ";
                     for (auto nt : locations) {
                         cerr << make_pos_t(nt) << " ";
                     }
@@ -1086,7 +1072,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                 gcsa::STNode parent;
                 
                 if (add_mem && use_greedy_mem_restarts
-                    && match.length() >= greedy_restart_min_length
+                    && curr_end - curr_begin >= greedy_restart_min_length
                     && mems.back().match_count <= greedy_restart_max_count) {
                     // the current match was relatively long and unique, so we think
                     // that we can get away with moving past it rather than looking
@@ -1110,10 +1096,9 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                         // base further (which will create one fewer noise MEM if the current
                         // match was ended by a base substitution, but will make an artificially
                         // short MEM if it was ended by a deletion)
-                        match.end = greedy_restart_assume_substitution ? match.begin - 1 : match.begin;
-                        cursor = match.end - 1;
-                        match.begin = cursor;
-                        match.range = gcsa::range_type(0, gcsa->size() - 1);
+                        curr_end = greedy_restart_assume_substitution ? cursor : cursor + 1;
+                        cursor = curr_end - 1;
+                        range = accelerate_mem_query(seq_begin, cursor);
                         // we don't worry that we might still be jumping through prefixes
                         // of the current MEM because we've moved completely past it
                         prev_iter_jumped_lcp = false;
@@ -1125,10 +1110,10 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
                     parent = lcp->parent(last_range);
                 }
                 
-                // set the MEM to be the longest prefix that is shared with another MEM
-                match.end = match.begin + parent.lcp();
+                // set the match to be the longest prefix that is shared with another MEM
+                curr_end = cursor + 1 + parent.lcp();
                 // and set up the next MEM using the parent node range
-                match.range = parent.range();
+                range = parent.range();
                 // record our max lcp
                 if (record_max_lcp) max_lcp = (int)parent.lcp();
                 prev_iter_jumped_lcp = true;
@@ -1136,8 +1121,7 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
         }
         else {
             prev_iter_jumped_lcp = false;
-            if (record_max_lcp) max_lcp = max(max_lcp, (int)lcp->parent(match.range).lcp());
-            ++mem_length;
+            if (record_max_lcp) max_lcp = max(max_lcp, (int)lcp->parent(range).lcp());
             // just step to the next position
             --cursor;
         }
@@ -1147,22 +1131,20 @@ vector<MaximalExactMatch> BaseMapper::find_mems_deep(string::const_iterator seq_
     // times before escaping out of the loop?
     
     // if we have a MEM at the beginning of the read, record it
-    match.begin = seq_begin;
-    mem_length = match.end - match.begin;
-    if (mem_length >= min_mem_length) {
-        if (record_max_lcp) max_lcp = (int)lcp->parent(match.range).lcp();
-        mems.push_back(match);
+    if (curr_end - seq_begin >= min_mem_length) {
+        if (record_max_lcp) max_lcp = (int)lcp->parent(range).lcp();
+        mems.emplace_back(seq_begin, curr_end, range);
         mems.back().match_count = gcsa->count(mems.back().range);
         mems.back().primary = true;
         lcp_maxima.push_back(max_lcp);
 #ifdef debug_mapper
         vector<gcsa::node_type> locations;
         if (hit_max) {
-            gcsa->locate(match.range, hit_max, locations);
+            gcsa->locate(mems.back().range, hit_max, locations);
         } else {
-            gcsa->locate(match.range, locations);
+            gcsa->locate(mems.back().range, locations);
         }
-        cerr << "adding MEM " << match.sequence() << " after hitting beginning of read at positions ";
+        cerr << "adding MEM " << mems.back().sequence() << " after hitting beginning of read at positions ";
         for (auto nt : locations) {
             cerr << make_pos_t(nt) << " ";
         }
@@ -1527,7 +1509,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
         
         // set up LF searching
         string::const_iterator cursor = probe_string_end - 1;
-        gcsa::range_type range = gcsa::range_type(0, gcsa->size() - 1);
+        gcsa::range_type range = accelerate_mem_query(probe_string_begin, cursor);
         
         // check if the probe substring is more frequent than the SMEM its contained in
         bool probe_string_more_frequent = true;
@@ -1607,7 +1589,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                 
                 // set up LF searching
                 cursor = middle - 1;
-                range = gcsa::range_type(0, gcsa->size() - 1);
+                range = accelerate_mem_query(probe_string_begin, cursor);
                 
                 size_t extension_mem_count = 0;
                 
@@ -1667,7 +1649,7 @@ void BaseMapper::find_sub_mems_fast(const vector<MaximalExactMatch>& mems,
                 
                 // get the GCSA range of the current sub-MEM extended one base past the end of the current parent MEM
                 cursor = right_search_bound;
-                range = gcsa::range_type(0, gcsa->size() - 1);
+                range = accelerate_mem_query(probe_string_begin, cursor);
                 size_t extended_count = numeric_limits<size_t>::max();
                 bool contained_in_independent_match = true;
                 while (cursor >= probe_string_begin) {
@@ -1808,6 +1790,8 @@ vector<MaximalExactMatch> BaseMapper::find_stripped_matches(string::const_iterat
             // the end of other strip match we will find
             auto strip_end = seq_end - strip_num * strip_length;
             // empty string starts matching entire index
+            // note: because the stopping conditions are different here we can't
+            // accelerate this MEM init query without changing results
             auto range = gcsa::range_type(0, gcsa->size() - 1);
             // a pointer to the next char we will match to
             auto cursor = strip_end - 1;
@@ -1898,6 +1882,30 @@ vector<MaximalExactMatch> BaseMapper::find_stripped_matches(string::const_iterat
     
     
     return matches;
+}
+
+gcsa::range_type BaseMapper::accelerate_mem_query(string::const_iterator begin,
+                                                  string::const_iterator& cursor) const {
+    
+    if (!accelerator
+        || cursor - begin < accelerator->length() - 1
+        || find(cursor - accelerator->length() + 1, cursor + 1, 'N') <= cursor) {
+        // we don't have an accelerator, the string we're querying is too short,
+        // or there's an N (which we can't handle). decline to accelerate
+        return gcsa::range_type(0, gcsa->size() - 1);
+    }
+    
+    auto range = accelerator->memoized_LF(cursor);
+    if (gcsa::Range::empty(range)) {
+        // the acceleration lead to an empty range, so we might have been able to
+        // get a non-empty one by actually doing each LF
+        return gcsa::range_type(0, gcsa->size() - 1);
+    }
+    else {
+        // success, update the cursor and return
+        cursor -= accelerator->length();
+        return range;
+    }
 }
 
 void BaseMapper::prefilter_redundant_sub_mems(vector<MaximalExactMatch>& mems,
