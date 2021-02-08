@@ -223,8 +223,8 @@ rm -f sorted.gfa converted.gfa
 
 
 # GFA to GBWTGraph with paths and walks
-vg gbwt -o components.gbwt -g components.gg -G graphs/components_walks_paths.gfa
-vg convert -g -a graphs/components_walks_paths.gfa > direct.hg
+vg gbwt -o components.gbwt -g components.gg -G graphs/components_paths_walks.gfa
+vg convert -g -a graphs/components_paths_walks.gfa > direct.hg
 vg paths -v direct.hg -A > correct_paths.gaf
 
 # GBWTGraph to HashGraph with paths and walks
