@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 107
+plan tests 113
 
 
 # Build vg graphs for two chromosomes
@@ -227,7 +227,7 @@ rm -f x.gbwt x.extract
 
 # Build and serialize GBWTGraph
 vg gbwt -x x.vg -g x.gg -o x.gbwt -v small/xy2.vcf.gz
-is $? 0 "GBWTGraph construction was successful"
+is $? 0 "GBWTGraph construction"
 vg view --extract-tag GBWTGraph x.gg > x.extracted.gg
 is $(md5sum x.extracted.gg | cut -f 1 -d\ ) 62d451917c5076d7e84a6837dfb836cb "GBWTGraph was serialized correctly"
 
@@ -236,7 +236,7 @@ rm -f x.gbwt x.gg x.extracted.gg
 
 # Build both GBWT and GBWTGraph from a 16-path cover
 vg gbwt -P -n 16 -x xy.xg -g xy.cover.gg -o xy.cover.gbwt
-is $? 0 "Path cover GBWTGraph construction was successful"
+is $? 0 "Path cover GBWTGraph construction"
 vg view --extract-tag GBWTGraph xy.cover.gg > xy.extracted.gg
 is $(md5sum xy.extracted.gg | cut -f 1 -d\ ) ae6ba365e7e5fac6456f9a5a130aa98f "GBWTGraph was serialized correctly"
 is $(vg gbwt -c xy.cover.gbwt) 32 "path cover: 32 threads"
@@ -249,7 +249,7 @@ rm -f xy.cover.gg xy.cover.gbwt xy.extracted.gg
 
 # Build both GBWT and GBWTGraph from 16 paths of local haplotypes
 vg gbwt -x xy-alt.xg -g xy.local.gg -l -n 16 -o xy.local.gbwt -v small/xy2.vcf.gz
-is $? 0 "Local haplotypes GBWTGraph construction was successful"
+is $? 0 "Local haplotypes GBWTGraph construction"
 vg view --extract-tag GBWTGraph xy.local.gg > xy.extracted.gg
 is $(md5sum xy.extracted.gg | cut -f 1 -d\ ) b7b40fb5296ded80cc659cd2300015af "GBWTGraph was serialized correctly"
 is $(vg gbwt -c xy.local.gbwt) 32 "local haplotypes: 32 threads"
@@ -263,7 +263,7 @@ rm -f xy.local.gg xy.local.gbwt xy.extracted.gg
 # Build GBWTGraph from an augmented GBWT
 vg gbwt -x x.vg -o x.gbwt -v small/xy2.vcf.gz
 vg gbwt -a -n 16 -x xy.xg -g augmented.gg -o augmented.gbwt x.gbwt
-is $? 0 "Augmented GBWTGraph construction was successful"
+is $? 0 "Augmented GBWTGraph construction"
 vg view --extract-tag GBWTGraph augmented.gg > augmented.extracted.gg
 is $(md5sum augmented.extracted.gg | cut -f 1 -d\ ) b7b40fb5296ded80cc659cd2300015af "GBWTGraph was serialized correctly"
 is $(vg gbwt -c augmented.gbwt) 18 "augmented: 18 threads"
@@ -280,7 +280,7 @@ rm -f x.vg y.vg x.xg xy.xg xy-alt.xg
 
 # Build GBWT from GFA
 vg gbwt -o gfa.gbwt -G graphs/components_walks.gfa
-is $? 0 "GBWT construction from GFA was successful"
+is $? 0 "GBWT construction from GFA"
 vg view --extract-tag GBWT gfa.gbwt > gfa.extracted.gbwt
 is $(md5sum gfa.extracted.gbwt | cut -f 1 -d\ ) 0dc7b0a99818f2fa4c79a9423e5a1e23 "GBWT was serialized correctly"
 is $(vg gbwt -c gfa.gbwt) 4 "gfa: 4 threads"
@@ -290,7 +290,7 @@ is $(vg gbwt -S gfa.gbwt) 1 "gfa: 1 sample"
 
 # Build GBWT and GBWTGraph from GFA
 vg gbwt -o gfa2.gbwt -g gfa2.gg --translation gfa2.trans -G graphs/components_walks.gfa
-is $? 0 "GBWT+GBWTGraph construction from GFA was successful"
+is $? 0 "GBWT+GBWTGraph construction from GFA"
 cmp gfa.gbwt gfa2.gbwt
 is $? 0 "Identical construction results with and without GBWTGraph"
 vg view --extract-tag GBWT gfa2.gg > gfa2.extracted.gg
@@ -299,13 +299,23 @@ is $(wc -l < gfa2.trans) 0 "no chopping: 0 translations"
 
 # Build GBWT and GBWTGraph from GFA with node chopping
 vg gbwt -o chopping.gbwt -g chopping.gg --translation chopping.trans --max-node 2 -G graphs/chopping_walks.gfa
-is $? 0 "GBWT+GBWTGraph construction from GFA with chopping was successful"
+is $? 0 "GBWT+GBWTGraph construction from GFA with chopping"
 is $(vg gbwt -c chopping.gbwt) 3 "chopping: 3 threads"
 is $(vg gbwt -C chopping.gbwt) 1 "chopping: 1 contig"
 is $(vg gbwt -H chopping.gbwt) 3 "chopping: 3 haplotypes"
 is $(vg gbwt -S chopping.gbwt) 2 "chopping: 2 samples"
 is $(wc -l < chopping.trans) 9 "chopping: 9 translations"
 
+# Build GBWT and GBWTGraph from GFA with both paths and walks
+vg gbwt -o ref_paths.gbwt -g ref_paths.gg --translation ref_paths.trans -G graphs/components_paths_walks.gfa
+is $? 0 "GBWT+GBWTGraph construction from GFA with reference paths"
+is $(vg gbwt -c ref_paths.gbwt) 6 "ref paths: 6 threads"
+is $(vg gbwt -C ref_paths.gbwt) 2 "ref paths: 2 contigs"
+is $(vg gbwt -H ref_paths.gbwt) 3 "ref paths: 3 haplotypes"
+is $(vg gbwt -S ref_paths.gbwt) 2 "ref paths: 2 samples"
+is $(wc -l < ref_paths.trans) 0 "ref paths: 0 translations"
+
 rm -f gfa.gbwt gfa.extracted.gbwt
 rm -f gfa2.gbwt gfa2.gg gfa2.extracted.gg gfa2.trans
+rm -f ref_paths.gbwt ref_paths.gg ref_paths.trans
 rm -f chopping.gbwt chopping.gg chopping.trans
