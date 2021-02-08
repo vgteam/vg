@@ -395,7 +395,7 @@ void gbwtgraph_to_xg(const gbwtgraph::GBWTGraph* input, xg::XG* output, const st
     const gbwt::GBWT& index = *(input->index);
     std::vector<gbwt::size_type> thread_ids = threads_for_sample(index, ref_sample);
     if (thread_ids.empty()) {
-        std::cerr << "warning [vg convert]: no threads for sample " << ref_sample << " in the GBWT index" << std::endl;
+        std::cerr << "warning [vg convert]: no threads for reference sample " << ref_sample << " in the GBWT index" << std::endl;
     }
 
     // Enumerate nodes.
@@ -438,7 +438,7 @@ void add_paths(const gbwtgraph::GBWTGraph* input, MutablePathHandleGraph* output
     const gbwt::GBWT& index = *(input->index);
     std::vector<gbwt::size_type> thread_ids = threads_for_sample(index, ref_sample);
     if (thread_ids.empty()) {
-        std::cerr << "warning [vg convert]: no threads for sample " << ref_sample << " in the GBWT index" << std::endl;
+        std::cerr << "warning [vg convert]: no threads for reference sample " << ref_sample << " in the GBWT index" << std::endl;
     }
 
     for (gbwt::size_type thread_id : thread_ids) {
