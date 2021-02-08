@@ -79,6 +79,7 @@ $(function() {
 <code>#include &quot;<a class="el" href="gfa__to__handle_8hpp.html">../algorithms/gfa_to_handle.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="save__handle__graph_8hpp.html">../io/save_handle_graph.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="gfa_8hpp.html">../gfa.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="gbwt__helper_8hpp.html">../gbwt_helper.hpp</a>&quot;</code><br />
 <code>#include &lt;<a class="el" href="stream_8hpp.html">vg/io/stream.hpp</a>&gt;</code><br />
 <code>#include &lt;<a class="el" href="vpkg_8hpp.html">vg/io/vpkg.hpp</a>&gt;</code><br />
 <code>#include &lt;<a class="el" href="alignment__emitter_8hpp.html">vg/io/alignment_emitter.hpp</a>&gt;</code><br />
@@ -93,10 +94,82 @@ $(function() {
 Functions</h2></td></tr>
 <tr class="memitem:a61c2208fb6645c58f794c57e1851a194"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#a61c2208fb6645c58f794c57e1851a194">help_convert</a> (char **argv)</td></tr>
 <tr class="separator:a61c2208fb6645c58f794c57e1851a194"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a70b8ea6a09a848fccb017bb2eb16cc8b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#a70b8ea6a09a848fccb017bb2eb16cc8b">gbwtgraph_to_xg</a> (const gbwtgraph::GBWTGraph *input, <a class="el" href="classxg_1_1XG.html">xg::XG</a> *output, const std::string &amp;ref_sample)</td></tr>
+<tr class="separator:a70b8ea6a09a848fccb017bb2eb16cc8b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a094fbac0ecc5cde5c47dfc030da6c29e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#a094fbac0ecc5cde5c47dfc030da6c29e">add_paths</a> (const gbwtgraph::GBWTGraph *input, <a class="el" href="namespacevg.html#a24350c08e6d69244e6930f41fee00e1f">MutablePathHandleGraph</a> *output, const std::string &amp;ref_sample)</td></tr>
+<tr class="separator:a094fbac0ecc5cde5c47dfc030da6c29e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abd9dc3a752930342a8096088f2d4b742"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#abd9dc3a752930342a8096088f2d4b742">main_convert</a> (int argc, char **argv)</td></tr>
 <tr class="separator:abd9dc3a752930342a8096088f2d4b742"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Function Documentation</h2>
+<a id="a094fbac0ecc5cde5c47dfc030da6c29e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a094fbac0ecc5cde5c47dfc030da6c29e">&#9670;&nbsp;</a></span>add_paths()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void add_paths </td>
+          <td>(</td>
+          <td class="paramtype">const gbwtgraph::GBWTGraph *&#160;</td>
+          <td class="paramname"><em>input</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a24350c08e6d69244e6930f41fee00e1f">MutablePathHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>output</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>ref_sample</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a70b8ea6a09a848fccb017bb2eb16cc8b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a70b8ea6a09a848fccb017bb2eb16cc8b">&#9670;&nbsp;</a></span>gbwtgraph_to_xg()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void gbwtgraph_to_xg </td>
+          <td>(</td>
+          <td class="paramtype">const gbwtgraph::GBWTGraph *&#160;</td>
+          <td class="paramname"><em>input</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classxg_1_1XG.html">xg::XG</a> *&#160;</td>
+          <td class="paramname"><em>output</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>ref_sample</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a61c2208fb6645c58f794c57e1851a194"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a61c2208fb6645c58f794c57e1851a194">&#9670;&nbsp;</a></span>help_convert()</h2>
 

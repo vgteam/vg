@@ -1138,8 +1138,14 @@ Functions</h2></td></tr>
 <tr class="memitem:a5463a09e3854197eae3f257614049a83"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5463a09e3854197eae3f257614049a83">load_gbwt</a> (const std::string &amp;filename, gbwt::DynamicGBWT &amp;index, bool show_progress=false)</td></tr>
 <tr class="memdesc:a5463a09e3854197eae3f257614049a83"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load a dynamic GBWT from the file.  <a href="namespacevg.html#a5463a09e3854197eae3f257614049a83">More...</a><br /></td></tr>
 <tr class="separator:a5463a09e3854197eae3f257614049a83"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2a5c03248078b33eab4f3126d668a2f6"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2a5c03248078b33eab4f3126d668a2f6">insert_gbwt_path</a> (<a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">MutablePathHandleGraph</a> &amp;graph, const gbwt::GBWT &amp;gbwt_index, gbwt::size_type <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>)</td></tr>
-<tr class="separator:a2a5c03248078b33eab4f3126d668a2f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2d4b0a9961f932a8caccb1d0723fd171"><td class="memItemLeft" align="right" valign="top">std::vector&lt; gbwt::size_type &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2d4b0a9961f932a8caccb1d0723fd171">threads_for_sample</a> (const gbwt::GBWT &amp;gbwt_index, const std::string &amp;sample_name)</td></tr>
+<tr class="memdesc:a2d4b0a9961f932a8caccb1d0723fd171"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the list of thread ids / gbwt path ids for the given sample.  <a href="namespacevg.html#a2d4b0a9961f932a8caccb1d0723fd171">More...</a><br /></td></tr>
+<tr class="separator:a2d4b0a9961f932a8caccb1d0723fd171"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5813ee7997572d371f9ff7b45bbe4843"><td class="memItemLeft" align="right" valign="top">std::vector&lt; gbwt::size_type &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5813ee7997572d371f9ff7b45bbe4843">threads_for_contig</a> (const gbwt::GBWT &amp;gbwt_index, const std::string &amp;contig_name)</td></tr>
+<tr class="memdesc:a5813ee7997572d371f9ff7b45bbe4843"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the list of thread ids / gbwt path ids for the given contig.  <a href="namespacevg.html#a5813ee7997572d371f9ff7b45bbe4843">More...</a><br /></td></tr>
+<tr class="separator:a5813ee7997572d371f9ff7b45bbe4843"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9bf4a7dd2a81bb5b873127156a2dfb33"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9bf4a7dd2a81bb5b873127156a2dfb33">insert_gbwt_path</a> (<a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">MutablePathHandleGraph</a> &amp;graph, const gbwt::GBWT &amp;gbwt_index, gbwt::size_type <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, std::string path_name)</td></tr>
+<tr class="separator:a9bf4a7dd2a81bb5b873127156a2dfb33"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a768828fcd9f2ecf7661e7d873f23bc58"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Path.html">Path</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a768828fcd9f2ecf7661e7d873f23bc58">extract_gbwt_path</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const gbwt::GBWT &amp;gbwt_index, gbwt::size_type <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>)</td></tr>
 <tr class="separator:a768828fcd9f2ecf7661e7d873f23bc58"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a490ce7f2c377c649eed822596c8a1916"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a490ce7f2c377c649eed822596c8a1916">thread_name</a> (const gbwt::GBWT &amp;gbwt_index, gbwt::size_type <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>)</td></tr>
@@ -10354,8 +10360,8 @@ template&lt;class Element &gt; </div>
 
 </div>
 </div>
-<a id="a2a5c03248078b33eab4f3126d668a2f6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2a5c03248078b33eab4f3126d668a2f6">&#9670;&nbsp;</a></span>insert_gbwt_path()</h2>
+<a id="a9bf4a7dd2a81bb5b873127156a2dfb33"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9bf4a7dd2a81bb5b873127156a2dfb33">&#9670;&nbsp;</a></span>insert_gbwt_path()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -10376,7 +10382,13 @@ template&lt;class Element &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">gbwt::size_type&#160;</td>
-          <td class="paramname"><em>id</em>&#160;</td>
+          <td class="paramname"><em>id</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::string&#160;</td>
+          <td class="paramname"><em>path_name</em> = <code>&quot;&quot;</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -10385,7 +10397,7 @@ template&lt;class Element &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Insert a GBWT thread into the graph and return its name. Returns an empty string on failure. NOTE: id is a gbwt path id, not a gbwt sequence id. </p>
+<p>Insert a GBWT thread into the graph and return its name. Returns an empty string on failure. If a path name is specified and not empty, that name will be used for the inserted path. NOTE: id is a gbwt path id, not a gbwt sequence id. </p>
 
 </div>
 </div>
@@ -18373,6 +18385,66 @@ template&lt;typename Collection &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a5813ee7997572d371f9ff7b45bbe4843"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5813ee7997572d371f9ff7b45bbe4843">&#9670;&nbsp;</a></span>threads_for_contig()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt; gbwt::size_type &gt; vg::threads_for_contig </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>gbwt_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>contig_name</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Return the list of thread ids / gbwt path ids for the given contig. </p>
+
+</div>
+</div>
+<a id="a2d4b0a9961f932a8caccb1d0723fd171"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2d4b0a9961f932a8caccb1d0723fd171">&#9670;&nbsp;</a></span>threads_for_sample()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt; gbwt::size_type &gt; vg::threads_for_sample </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>gbwt_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>sample_name</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Return the list of thread ids / gbwt path ids for the given sample. </p>
 
 </div>
 </div>
