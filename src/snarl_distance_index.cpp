@@ -73,6 +73,13 @@ net_handle_t SnarlDistanceIndex::get_parent(const net_handle_t& child) const {
         //TODO: This also needs to take into account the orientation of the child, which I might be able to get around?
         parent_connectivity = child_connectivity;
     }
+    if (get_handle_type(child) == NODE_HANDLE && 
+        (parent_type == ROOT || parent_type == SNARL || parent_type == DISTANCED_SNARL || 
+         parent_type == SIMPLE_SNARL || parent_type == OVERSIZED_SNARL)) {
+        //If this is a node and it's parent is not a chain, we want to pretend that its 
+        //parent is a chain
+        return get_net_handle(parent_pointer, parent_connectivity, CHAIN_HANDLE);
+    }
 
     return get_net_handle(parent_pointer, parent_connectivity);
 }
@@ -155,6 +162,32 @@ SnarlDecomposition::endpoint_t SnarlDistanceIndex::ends_at(const net_handle_t& t
     } else {
         throw runtime_error("error: This node has no connectivity");
     }
+}
+
+//TODO: I'm also allowing this for the root
+bool SnarlDistanceIndex::for_each_child_impl(const net_handle_t& traversal, const std::function<bool(const net_handle_t&)>& iteratee) const {
+    //What is this according to the snarl tree
+    RecordType type = snarl_tree_record_t(traversal).get_record_type();
+    //What is this according to the handle 
+    //(could be a trivial chain but actually a node according to the snarl tree)
+    HandleType handle_type = get_handle_type(traversal);
+    if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL) {
+        snarl_record_t snarl_record(traversal);
+        return snarl_record.for_each_child(iteratee);
+    } else if (type == CHAIN || type == DISTANCED_CHAIN) {
+        chain_record_t chain_record(traversal);
+        return chain_record.for_each_child(iteratee);
+    } else if (type == ROOT) {
+        root_record_t root_record(traversal);
+        return root_record.for_each_child(iteratee);
+    } else if ((type == NODE || type == DISTANCED_NODE) && handle_type == CHAIN_HANDLE) {
+        //This is actually a node but we're pretending it's a chain
+        chain_record_t trivial_chain_record_t(traversal);
+        return chain_record_t(traversal).for_each_child(iteratee);
+    } else {
+        throw runtime_error("error: Looking for children of a node");
+    }
+    
 }
 
 }
