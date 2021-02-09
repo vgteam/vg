@@ -66,7 +66,7 @@ var searchData=
   ['parse_5fregion_3413',['parse_region',['../namespacevg.html#a253257615743a1cfb948b749be7700e2',1,'vg::parse_region(const string &amp;target, string &amp;name, int64_t &amp;start, int64_t &amp;end)'],['../namespacevg.html#af0a3beb8908adf7a6e4d641243937830',1,'vg::parse_region(string &amp;region, Region &amp;out_region)']]],
   ['parse_5frg_5fsample_5fmap_3414',['parse_rg_sample_map',['../namespacevg.html#a637c855dffc0296c6575ae8a4cac6b43',1,'vg']]],
   ['parse_5frsem_5fexpression_5ffile_3415',['parse_rsem_expression_file',['../sim__main_8cpp.html#aa1964053fdd12fb9dde544ce6d18ab70',1,'sim_main.cpp']]],
-  ['parse_5fsubpath_5fname_3416',['parse_subpath_name',['../classvg_1_1Paths.html#a163c64847cf4eb884e5ba10b78a0da3f',1,'vg::Paths']]],
+  ['parse_5fsubpath_5fname_3416',['parse_subpath_name',['../classvg_1_1Paths.html#ad435e28133a430c86840081efd04d57d',1,'vg::Paths']]],
   ['parse_5ftranscripts_3417',['parse_transcripts',['../classvg_1_1Transcriptome.html#afa3c7cc77b2c739eef309cf7cd9c64bb',1,'vg::Transcriptome']]],
   ['parse_5ftranslation_3418',['parse_translation',['../structvg_1_1PathIndex.html#aa5272234ddb7686f1ae88881ebf99a61',1,'vg::PathIndex']]],
   ['parse_5fvcf_3419',['parse_vcf',['../classvg_1_1HaplotypeIndexer.html#ad3eda4acd04b8bae303b4604410ece41',1,'vg::HaplotypeIndexer::parse_vcf(const std::string &amp;filename, const PathHandleGraph &amp;graph, const std::string &amp;job_name=&quot;GBWT&quot;) const'],['../classvg_1_1HaplotypeIndexer.html#ad81dbd24bba40aaa14536d79754d387b',1,'vg::HaplotypeIndexer::parse_vcf(const std::string &amp;filename, const PathHandleGraph &amp;graph, const std::vector&lt; path_handle_t &gt; &amp;paths, const std::string &amp;job_name=&quot;GBWT&quot;) const']]],

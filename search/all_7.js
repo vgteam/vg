@@ -388,7 +388,7 @@ var searchData=
   ['graph_5fsource_1886',['graph_source',['../structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50a66269d0a2331df8645dfca4cdbc4a2ea',1,'GraphHandler']]],
   ['graph_5fsynchronizer_2ecpp_1887',['graph_synchronizer.cpp',['../graph__synchronizer_8cpp.html',1,'']]],
   ['graph_5fsynchronizer_2ehpp_1888',['graph_synchronizer.hpp',['../graph__synchronizer_8hpp.html',1,'']]],
-  ['graph_5fto_5fgfa_1889',['graph_to_gfa',['../namespacevg.html#a1c6341362a7fdd2979de326fb60c41b2',1,'vg']]],
+  ['graph_5fto_5fgfa_1889',['graph_to_gfa',['../namespacevg.html#a35960777a5eec45e94256c0f5c6317dc',1,'vg']]],
   ['graph_5ftype_1890',['graph_type',['../structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50',1,'GraphHandler']]],
   ['graphcaller_1891',['GraphCaller',['../classvg_1_1GraphCaller.html',1,'vg::GraphCaller'],['../classvg_1_1GraphCaller.html#a621386ff80a0fe3289719c75c282bc5a',1,'vg::GraphCaller::GraphCaller()']]],
   ['graphhandler_1892',['GraphHandler',['../structGraphHandler.html',1,'']]],

@@ -1217,9 +1217,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a234b2ca417edb50a3c738991fcfc269a"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:a234b2ca417edb50a3c738991fcfc269a"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a234b2ca417edb50a3c738991fcfc269a">set_intersection</a> (const unordered_set&lt; T &gt; &amp;set_1, const unordered_set&lt; T &gt; &amp;set_2, unordered_set&lt; T &gt; *out_intersection)</td></tr>
 <tr class="separator:a234b2ca417edb50a3c738991fcfc269a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1c6341362a7fdd2979de326fb60c41b2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1c6341362a7fdd2979de326fb60c41b2">graph_to_gfa</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, ostream &amp;out, const set&lt; string &gt; &amp;rgfa_paths={})</td></tr>
-<tr class="memdesc:a1c6341362a7fdd2979de326fb60c41b2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Export the given <a class="el" href="classvg_1_1VG.html">VG</a> graph to the given GFA file.  <a href="namespacevg.html#a1c6341362a7fdd2979de326fb60c41b2">More...</a><br /></td></tr>
-<tr class="separator:a1c6341362a7fdd2979de326fb60c41b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a35960777a5eec45e94256c0f5c6317dc"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a35960777a5eec45e94256c0f5c6317dc">graph_to_gfa</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph, ostream &amp;out, const set&lt; string &gt; &amp;rgfa_paths={}, bool rgfa_pline=false, const string &amp;wline_sep=&quot;&quot;)</td></tr>
+<tr class="memdesc:a35960777a5eec45e94256c0f5c6317dc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Export the given <a class="el" href="classvg_1_1VG.html">VG</a> graph to the given GFA file.  <a href="namespacevg.html#a35960777a5eec45e94256c0f5c6317dc">More...</a><br /></td></tr>
+<tr class="separator:a35960777a5eec45e94256c0f5c6317dc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a984c1d2199f90f58677096772b870390"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a984c1d2199f90f58677096772b870390">sort_by_id_dedup_and_clean</a> (<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;graph)</td></tr>
 <tr class="memdesc:a984c1d2199f90f58677096772b870390"><td class="mdescLeft">&#160;</td><td class="mdescRight">remove duplicates and sort by id  <a href="namespacevg.html#a984c1d2199f90f58677096772b870390">More...</a><br /></td></tr>
 <tr class="separator:a984c1d2199f90f58677096772b870390"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -9681,8 +9681,8 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
 
 </div>
 </div>
-<a id="a1c6341362a7fdd2979de326fb60c41b2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1c6341362a7fdd2979de326fb60c41b2">&#9670;&nbsp;</a></span>graph_to_gfa()</h2>
+<a id="a35960777a5eec45e94256c0f5c6317dc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a35960777a5eec45e94256c0f5c6317dc">&#9670;&nbsp;</a></span>graph_to_gfa()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -9703,7 +9703,19 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const set&lt; string &gt; &amp;&#160;</td>
-          <td class="paramname"><em>rgfa_paths</em>&#160;</td>
+          <td class="paramname"><em>rgfa_paths</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>rgfa_pline</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>wline_sep</em>&#160;</td>
         </tr>
         <tr>
           <td></td>

@@ -78,7 +78,7 @@ var searchData=
   ['make_5fposition_7818',['make_position',['../namespacevg.html#a6247de8deb27aaabf2bc0d6fc755f693',1,'vg::make_position(const pos_t &amp;pos)'],['../namespacevg.html#a2794a8e24388f4dca7063d583b74ba2f',1,'vg::make_position(id_t id, bool is_rev, off_t off)'],['../namespacevg.html#a4cdd9b08b7b6d6e15d00536554f3ca56',1,'vg::make_position(gcsa::node_type node)']]],
   ['make_5fshuffle_5fseed_7819',['make_shuffle_seed',['../namespacevg.html#acc312d814d6a06a4a5159c7943675bbe',1,'vg::make_shuffle_seed(const Alignment &amp;aln)'],['../namespacevg.html#a31063b9139a2b92d5c5742635ca9e090',1,'vg::make_shuffle_seed(const Alignment *aln)'],['../namespacevg.html#a1366c7a10c9c94dd390323fe8c3fe026',1,'vg::make_shuffle_seed(const pair&lt; Alignment, Alignment &gt; *alns)']]],
   ['make_5fsingle_5fstranded_7820',['make_single_stranded',['../namespacehandlegraph_1_1algorithms.html#a8cac1e5f4dc0c5e0e501ebb9fc58fca3',1,'handlegraph::algorithms']]],
-  ['make_5fsubpath_5fname_7821',['make_subpath_name',['../classvg_1_1Paths.html#a65e9a657d619c08bddf9467dd29bd96b',1,'vg::Paths']]],
+  ['make_5fsubpath_5fname_7821',['make_subpath_name',['../classvg_1_1Paths.html#a94afdbfca9131fff00ccea9d3506afdd',1,'vg::Paths']]],
   ['make_5fsubset_5fgraph_7822',['make_subset_graph',['../classvg_1_1Genotyper.html#ab11a87f5f21d3a7122ec85f6d853f336',1,'vg::Genotyper']]],
   ['make_5fsupport_7823',['make_support',['../namespacevg.html#a1c0ae5cc687e77bb7cee28e975a005b3',1,'vg']]],
   ['make_5ftranslation_7824',['make_translation',['../namespacevg.html#a028aa842a68b6993a37a82c7645e0633',1,'vg']]],
