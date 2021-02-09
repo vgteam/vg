@@ -41,15 +41,16 @@ private:
      *          (plus an extra node id, prefix sum, fd loop, rev loop at the end for the last node), 0, 0
      *    The two 0's at the end indicates that it's the end of the chain
      *    snarl_record_size is the number of things in the snarl record (so 0 if there is no snarl there)
+     *    start/end include the orientations
      * 
      * - A snarl record for each snarl, which are stuck in chains
      *   [snarl tag, # nodes, pointer to parent, min length, max length, rank in parent, 
-     *      pointer to children (in child vector), distance vector]
+     *      pointer to children (in child vector), start, end, distance vector]
      *   Trivial snarls will still be contained within a chain
      *   Single nodes will technically be contained in a chain, but not stored as a chain
      *   The first node in a snarl (rank 0 and first in child vector) will always be the start node,
      *   and the last node will always be the end node
-     *   TODO: Might also add start and end node ids and maybe orientations too
+     *   start/end are the start and end nodes, include the orientations
      *   For the first and last nodes, we only care about the node sides pointing in
      *   Each node side in the actual distance matrix will be 2*rank-1 for the left side, and 
      *   2*rank for the right side, and 0 for the start, 2*(num_nodes-1)-1 for the end
@@ -68,14 +69,14 @@ private:
 
     /*
      *
-     * The "tags" for defining what kind of record we're looking at will be a RecordType and a 
+     * The "tags" for defining what kind of record we're looking at will be a record_t and a 
      * bit vector indicating connectivity. The bit vector will be the last 6 bits of the tag
      * 
      * Each bit represents one type of connectivity:
      * start-start, start-end, start-tip, end-end, end-tip, tip-tip
      * std::bitset<6> connectivity;
      * 
-     * The remainder of the tag will be the RecordType of the record
+     * The remainder of the tag will be the record_t of the record
      * NODE, SNARL, and CHAIN indicate that they don't store distances.
      * SIMPLE_SNARL is a snarl with all children connecting only to the boundary nodes
      * OVERSIZED_SNARL only stores distances to the boundaries
@@ -83,13 +84,13 @@ private:
     //TODO: Make simple snarls work
     //TODO: Maybe also add a tag for trivial snarls/chains, or for defining connectivity
     //TODO: Unary snarls? Looping chains?
-    enum RecordType {ROOT=1, 
+    enum record_t {ROOT=1, 
                      NODE, DISTANCED_NODE, 
                      SNARL, DISTANCED_SNARL, SIMPLE_SNARL, OVERSIZED_SNARL, 
                      CHAIN, DISTANCED_CHAIN, 
                      CHILDREN};
 
-    enum ConnectivityType { START_START=1, START_END, START_TIP, 
+    enum connectivity_t { START_START=1, START_END, START_TIP, 
                             END_START, END_END, END_TIP, 
                             TIP_START, TIP_END, TIP_TIP};
     //Type of a net_handle_t. This is to allow a node record to be seen as a chain from the 
@@ -104,9 +105,8 @@ public:
     /**
      * Get a net handle referring to a tip-to-tip traversal of the contents of the root snarl.
      * TODO: Special handling for circular things in the root snarl? Circular traversal type?
-     * TODO: I made net not const because I think it's not supposed to be? need to change that in libhandlegraph
      */
-    bool get_root(net_handle_t& net) const ;
+    net_handle_t get_root() const ;
     
     /**
      * Return true if the given handle refers to (a traversal of) the root
@@ -211,21 +211,50 @@ public:
      */
     bool for_each_child_impl(const net_handle_t& traversal, const std::function<bool(const net_handle_t&)>& iteratee) const;
 
+    /**
+     * Internal implementation for for_each_traversal.
+     */
+    bool for_each_traversal_impl(const net_handle_t& item, const std::function<bool(const net_handle_t&)>& iteratee) const;
+
+    //TODO: Not sure about this one
+    /**
+     * Internal implementation for follow_net_edges.
+     */
+    bool follow_net_edges_impl(const net_handle_t& here, bool go_left, const std::function<bool(const net_handle_t&)>& iteratee) const;
+        /**
+     * Get a net handle for traversals of a the snarl or chain that contains
+     * the given oriented bounding node traversals or sentinels. Given two
+     * sentinels for a snarl, produces a net handle to a start-to-end,
+     * end-to-end, end-to-start, or start-to-start traversal of that snarl.
+     * Given handles to traversals of the bounding nodes of a chain, similarly
+     * produces a net handle to a traversal of the chain.
+     *
+     * For a chain, either or both handles can also be a snarl containing tips,
+     * for a tip-to-start, tip-to-end, start-to-tip, end-to-tip, or tip-to-tip
+     * traversal. Similarly, for a snarl, either or both handles can be a chain
+     * in the snarl that contains internal tips, or that has no edges on the
+     * appropriate end.
+     *
+     * May only be called if a path actually exists between the given start
+     * and end.
+     */
+    net_handle_t get_parent_traversal(const net_handle_t& traversal_start, const net_handle_t& traversal_end) const;
+
 
 ////////////////////////////// How to interpret net_handle_ts
 //TODO: Does this depend on endianness???
 //TODO: Should this also know what kind of node it's pointing to?
-//Last 2 bits are the HandleType, next four are the ConnectivityType, last are the offset into snarl_tree_records
+//Last 2 bits are the HandleType, next four are the connectivity_t, last are the offset into snarl_tree_records
 //
     private:
 
     const static size_t get_record_offset (const handlegraph::net_handle_t& net_handle) {
         return as_integer(net_handle) >> 6;
     }
-    const static ConnectivityType get_connectivity (const handlegraph::net_handle_t& net_handle){
+    const static connectivity_t get_connectivity (const handlegraph::net_handle_t& net_handle){
         size_t connectivity_as_int = (as_integer(net_handle)>>2) & 15; //Get last 4 bits
         assert (connectivity_as_int <= 9);
-        return static_cast<ConnectivityType>(connectivity_as_int);
+        return static_cast<connectivity_t>(connectivity_as_int);
     }
     const static HandleType get_handle_type (const handlegraph::net_handle_t& net_handle) {
         size_t connectivity_as_int = as_integer(net_handle) & 5; //Get last 2 bits
@@ -233,20 +262,20 @@ public:
         return static_cast<HandleType>(connectivity_as_int);
     }
 
-    const static handlegraph::net_handle_t get_net_handle(size_t pointer, ConnectivityType connectivity, HandleType type) {
+    const static handlegraph::net_handle_t get_net_handle(size_t pointer, connectivity_t connectivity, HandleType type) {
         return as_net_handle( (((pointer << 6) & connectivity)<<2) & type); 
     
     }
-    const static handlegraph::net_handle_t get_net_handle(id_t id , ConnectivityType connectivity, HandleType type) {
+    const static handlegraph::net_handle_t get_net_handle(id_t id , connectivity_t connectivity, HandleType type) {
         size_t pointer = get_offset_from_node_id(id);  
         return get_net_handle(pointer, connectivity, type); 
     }
-    const static handlegraph::net_handle_t get_net_handle(size_t pointer, ConnectivityType connectivity){
+    const static handlegraph::net_handle_t get_net_handle(size_t pointer, connectivity_t connectivity){
         HandleType type = snarl_tree_record_t(pointer).get_handle_type(); 
         return get_net_handle(pointer, connectivity, type); 
     
     }
-    const static handlegraph::net_handle_t get_net_handle(id_t id , ConnectivityType connectivity) {
+    const static handlegraph::net_handle_t get_net_handle(id_t id , connectivity_t connectivity) {
         size_t pointer = get_offset_from_node_id(id);  
         return get_net_handle(pointer, connectivity); 
     }
@@ -255,8 +284,8 @@ public:
 private:
 
 
-    /////////////////////////////// My methods for interpreting the snarl tree records
-    //// Uses a snarl_tree_record_t as the main class for defining and interpreting the records
+/////////////////////////////// My methods for interpreting the snarl tree records
+//// Uses a snarl_tree_record_t as the main class for defining and interpreting the records
     
     //TODO: Replace this once everything is set
     //The offset of each value in snarl_tree_records, offset from the start of the record
@@ -286,7 +315,7 @@ private:
     const static size_t CHAIN_START_NODE_OFFSET = 6;
     const static size_t CHAIN_END_NODE_OFFSET = 7;
 
-    const static size_t CHAIN_NODE_RECORD_SIZE = 5; //# things for a node (before snarl record)
+    const static size_t CHAIN_NODE_RECORD_SIZE = 5; //# things for a node (not including snarl record)
     const static size_t CHAIN_NODE_PREFIX_SUM_OFFSET = 1;
     const static size_t CHAIN_NODE_FORWARD_LOOP_OFFSET = 2;
     const static size_t CHAIN_NODE_REVERSE_LOOP_OFFSET = 3;
@@ -301,6 +330,7 @@ private:
         return node_records_offset + 2 + record_offset; 
     }
     //And its inverse, get the id from the offset of the node record
+    //TODO: Do I want to add the min_node_id?
     static id_t get_node_id_from_offset(size_t offset) {
         size_t node_records_offset = snarl_tree_records[1] + 2; 
         size_t min_node_id = snarl_tree_records[node_records_offset + 1];
@@ -310,7 +340,7 @@ private:
     //Define a struct for interpreting each type of snarl tree node record (For node, snarl, chain)
     //These will be used with net_handle_t's, which store a pointer into snarl_tree_records 
     //as an offset. The last 4 bits of the net handle will be the connectivity of the handle,
-    //as a ConnectivityType
+    //as a connectivity_t
     //TODO: This might be overkill but I want it to be easy to change what gets stored in the index
     //
     struct snarl_tree_record_t {
@@ -323,14 +353,14 @@ private:
         snarl_tree_record_t();
         snarl_tree_record_t (size_t pointer){
             record_offset = pointer;
-            RecordType type = get_record_type();
+            record_t type = get_record_type();
             assert(type == ROOT || type == NODE || type == DISTANCED_NODE || type == SNARL || 
                     type == DISTANCED_SNARL || type == OVERSIZED_SNARL || type == CHAIN || 
                     type == DISTANCED_CHAIN );
         }
         snarl_tree_record_t (const net_handle_t& net) {
             record_offset = (as_integer(net) >> 4);
-            RecordType type = get_record_type();
+            record_t type = get_record_type();
             assert(type == ROOT || type == NODE || type == DISTANCED_NODE || type == SNARL || 
                     type == DISTANCED_SNARL || type == OVERSIZED_SNARL || type == CHAIN || 
                     type == DISTANCED_CHAIN );
@@ -339,12 +369,12 @@ private:
 
         //What type of snarl tree node is this?
         //This will be the first value of any record
-        RecordType get_record_type() const {
-            return static_cast<RecordType>(snarl_tree_records[record_offset] >> 6);
+        record_t get_record_type() const {
+            return static_cast<record_t>(snarl_tree_records[record_offset] >> 6);
         }
 
         HandleType get_handle_type() const {
-            RecordType type= get_record_type();
+            record_t type= get_record_type();
             if (type == ROOT) {
                 return ROOT_HANDLE;
             } else if (type == NODE || type == DISTANCED_NODE) {
@@ -357,12 +387,12 @@ private:
                 throw runtime_error("error: trying to get the handle type of a list of children");
             }
         }
-        bool is_start_start_connected() {return snarl_tree_records[record_offset] & 32;}
-        bool is_start_end_connected() {return snarl_tree_records[record_offset] & 16;}
-        bool is_start_tip_connected() {return snarl_tree_records[record_offset] & 8;}
-        bool is_end_end_connected() {return snarl_tree_records[record_offset] & 4;}
-        bool is_end_tip_connected() {return snarl_tree_records[record_offset] & 2;}
-        bool is_tip_tip_connected() {return snarl_tree_records[record_offset] & 1;}
+        bool is_start_start_connected() const {return snarl_tree_records[record_offset] & 32;}
+        bool is_start_end_connected() const {return snarl_tree_records[record_offset] & 16;}
+        bool is_start_tip_connected() const {return snarl_tree_records[record_offset] & 8;}
+        bool is_end_end_connected() const {return snarl_tree_records[record_offset] & 4;}
+        bool is_end_tip_connected() const {return snarl_tree_records[record_offset] & 2;}
+        bool is_tip_tip_connected() const {return snarl_tree_records[record_offset] & 1;}
         void set_start_start_connected() {snarl_tree_records[record_offset] = snarl_tree_records[record_offset] | 32;}
         void set_start_end_connected() {snarl_tree_records[record_offset] = snarl_tree_records[record_offset] | 16;}
         void set_start_tip_connected() {snarl_tree_records[record_offset] = snarl_tree_records[record_offset] | 8;}
@@ -370,33 +400,64 @@ private:
         void set_end_tip_connected() {snarl_tree_records[record_offset] = snarl_tree_records[record_offset] | 2;}
         void set_tip_tip_connected() {snarl_tree_records[record_offset] = snarl_tree_records[record_offset] | 1;}
 
+        bool has_connectivity(connectivity_t connectivity) const {
+            if (connectivity == START_START) {
+                return is_start_start_connected();
+            } else if (connectivity == START_END || connectivity == END_START) {
+                return is_start_end_connected();
+            } else if (connectivity == START_TIP || connectivity == TIP_START) {
+                return is_start_tip_connected();
+            } else if (connectivity == END_END) {
+                return is_end_end_connected();
+            } else if (connectivity == END_TIP || connectivity == TIP_END) {
+                return is_end_tip_connected(); 
+            } else if (connectivity == TIP_TIP) {
+                return is_tip_tip_connected();
+            } else {
+                throw runtime_error("error: Invalid connectivity");
+            }
+        }
+        bool has_connectivity(endpoint_t start, endpoint_t end){
+            return has_connectivity(endpoints_to_connectivity(start, end));
+        }
 
-        //Get and set a pointer to this node's parent
+        //Get and set a pointer to this node's parent, including its orientation
+        //TODO: I don't think it matters if a chain is reversed or not, also it might not matter if a snarl is
         size_t get_parent_record_pointer() const {
-            RecordType type = get_record_type();
+            record_t type = get_record_type();
             if (type == ROOT ) {
                 return 0;
             } else if (type == NODE || type == DISTANCED_NODE) {
-                return snarl_tree_records[record_offset + NODE_PARENT_OFFSET];
+                return (snarl_tree_records[record_offset + NODE_PARENT_OFFSET]) >> 1;
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-
-                return snarl_tree_records[record_offset + SNARL_PARENT_OFFSET];
+                return (snarl_tree_records[record_offset + SNARL_PARENT_OFFSET]) >> 1;
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
-
-                return snarl_tree_records[record_offset + CHAIN_PARENT_OFFSET];
+                return (snarl_tree_records[record_offset + CHAIN_PARENT_OFFSET]);
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
         };
-        void set_parent_record_pointer(size_t pointer){
-            RecordType type = get_record_type();
-            if (type == NODE || type == DISTANCED_NODE) {
-                snarl_tree_records[record_offset + NODE_PARENT_OFFSET] = pointer;
+        bool get_is_reversed_in_parent() const {
+            record_t type = get_record_type();
+            if (type == ROOT ) {
+                return false;
+            } else if (type == NODE || type == DISTANCED_NODE) {
+                return (snarl_tree_records[record_offset + NODE_PARENT_OFFSET]) & 1;
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-
-                snarl_tree_records[record_offset + SNARL_PARENT_OFFSET] = pointer;
+                return (snarl_tree_records[record_offset + SNARL_PARENT_OFFSET]) & 1;
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
-
+                return false;
+            } else {
+                throw runtime_error("error: trying to access a snarl tree node of the wrong type");
+            }
+        }
+        void set_parent_record_pointer(size_t pointer, bool is_rev=false){
+            record_t type = get_record_type();
+            if (type == NODE || type == DISTANCED_NODE) {
+                snarl_tree_records[record_offset + NODE_PARENT_OFFSET] = (pointer<<1) & is_rev;
+            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
+                snarl_tree_records[record_offset + SNARL_PARENT_OFFSET] = (pointer<<1) & is_rev;
+            } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
                 snarl_tree_records[record_offset + CHAIN_PARENT_OFFSET] = pointer;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
@@ -406,7 +467,7 @@ private:
         //Get and set the minimum length (distance from start to end, including boundaries for 
         //snarls and chains, just node length for nodes)
         size_t get_min_length() const {
-            RecordType type = get_record_type();
+            record_t type = get_record_type();
             if (type == DISTANCED_NODE) {
                 return snarl_tree_records[record_offset + NODE_LENGTH_OFFSET];
             } else if (type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
@@ -420,7 +481,7 @@ private:
             }
         };
         void set_min_length(size_t length) {
-            RecordType type = get_record_type();
+            record_t type = get_record_type();
             if (type == DISTANCED_NODE) {
                 snarl_tree_records[record_offset + NODE_LENGTH_OFFSET] = length;
             } else if (type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
@@ -438,7 +499,7 @@ private:
         //This isn't actually a maximum, it's the maximum among minimum distance paths 
         //through each node in the snarl/chain
         size_t get_max_length() const {
-            RecordType type = get_record_type();
+            record_t type = get_record_type();
             if (type == DISTANCED_NODE) {
                 return snarl_tree_records[record_offset + NODE_LENGTH_OFFSET];
             } else if (type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
@@ -452,7 +513,7 @@ private:
             }
         };
         void set_max_length(size_t length) {
-            RecordType type = get_record_type();
+            record_t type = get_record_type();
             if (type == DISTANCED_NODE) {
                 snarl_tree_records[record_offset + NODE_LENGTH_OFFSET] = length;
             } else if (type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
@@ -470,7 +531,7 @@ private:
         //For children of snarls, this means the actual rank
         //For children of chains, it points to the node in the chain
         size_t get_rank_in_parent() const {
-            RecordType type = get_record_type();
+            record_t type = get_record_type();
             if (type == NODE || type == DISTANCED_NODE) {
                 return snarl_tree_records[record_offset + NODE_RANK_OFFSET] >> 1;
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
@@ -482,7 +543,7 @@ private:
             }
         };
         void set_rank_in_parent(size_t rank) {
-            RecordType type = get_record_type();
+            record_t type = get_record_type();
             size_t offset;
             if (type == NODE || type == DISTANCED_NODE) {
                 offset = record_offset + NODE_RANK_OFFSET;
@@ -499,7 +560,7 @@ private:
 
         //Is this node reversed in its parent
         bool get_rev_in_parent() const {
-            RecordType type = get_record_type();
+            record_t type = get_record_type();
             if (type == NODE || type == DISTANCED_NODE) {
                 return snarl_tree_records[record_offset + NODE_RANK_OFFSET] & 1;
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
@@ -511,7 +572,7 @@ private:
             }
         };
         void set_rev_in_parent(bool rev) {
-            RecordType type = get_record_type();
+            record_t type = get_record_type();
             size_t offset;
             if (type == NODE || type == DISTANCED_NODE) {
                 offset = record_offset + NODE_RANK_OFFSET;
@@ -526,28 +587,47 @@ private:
         };
 
         //Get the node id of the start/end of this structure (start node of a snarl/chain)
+        //TODO: Also need to add min node id
         id_t get_start_id() const {
-            RecordType type = get_record_type();
+            record_t type = get_record_type();
             if (type == ROOT) {
                 //TODO: Also not totally sure what this should do
-                return snarl_tree_record_t(snarl_tree_records[record_offset]).get_start_id();
+                throw runtime_error("error: trying to get the start node of the root");
             } else if (type == NODE || type == DISTANCED_NODE) {
                 //TODO: I'm not sure if I want to allow this
                 cerr << "warning: Looking for the start of a node" << endl;
                 return get_node_id_from_offset(record_offset);
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                return snarl_tree_records[record_offset + SNARL_START_NODE_OFFSET];
+                return (snarl_tree_records[record_offset + SNARL_START_NODE_OFFSET]) >> 1;
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
-                return snarl_tree_records[record_offset + CHAIN_START_NODE_OFFSET];
+                return (snarl_tree_records[record_offset + CHAIN_START_NODE_OFFSET]) >> 1;
+            } else {
+                throw runtime_error("error: trying to access a snarl tree node of the wrong type");
+            }
+        }
+        //True if the node is traversed backwards to enter the structure
+        bool get_start_orientation() const {
+            record_t type = get_record_type();
+            if (type == ROOT) {
+                //TODO: Also not totally sure what this should do
+                throw runtime_error("error: trying to get the start node of the root");
+            } else if (type == NODE || type == DISTANCED_NODE) {
+                //TODO: I'm not sure if I want to allow this
+                cerr << "warning: Looking for the start of a node" << endl;
+                return false;
+            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
+                return (snarl_tree_records[record_offset + SNARL_START_NODE_OFFSET] & 1);
+            } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
+                return (snarl_tree_records[record_offset + CHAIN_START_NODE_OFFSET]) & 1;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
         }
         id_t get_end_id() const {
-            RecordType type = get_record_type();
+            record_t type = get_record_type();
             if (type == ROOT) {
                 //TODO: Also not totally sure what this should do
-                return snarl_tree_record_t(snarl_tree_records[record_offset]).get_start_id();
+                throw runtime_error("error: trying to get the end node of the root");
             } else if (type == NODE || type == DISTANCED_NODE) {
                 //TODO: I'm not sure if I want to allow this
                 cerr << "warning: Looking for the end of a node" << endl;
@@ -555,33 +635,55 @@ private:
                 //Offset of the start of the node vector
                 return get_node_id_from_offset(record_offset);
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                return snarl_tree_records[record_offset + SNARL_END_NODE_OFFSET];
+                return (snarl_tree_records[record_offset + SNARL_END_NODE_OFFSET]) >> 1;
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
-                return snarl_tree_records[record_offset + CHAIN_END_NODE_OFFSET];
+                return (snarl_tree_records[record_offset + CHAIN_END_NODE_OFFSET]) >> 1;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
         }
-        void set_start_id(id_t id) {
-            RecordType type = get_record_type();
-            if (type == ROOT || type == NODE || type == DISTANCED_NODE) {
-                throw runtime_error("error: trying to set the node id of a node or root");
+        //Return true if the end node is traversed backwards to leave the snarl
+        id_t get_end_orientation() const {
+            record_t type = get_record_type();
+            if (type == ROOT) {
+                //TODO: Also not totally sure what this should do
+                throw runtime_error("error: trying to get the end node of the root");
+            } else if (type == NODE || type == DISTANCED_NODE) {
+                //TODO: I'm not sure if I want to allow this
+                cerr << "warning: Looking for the end of a node" << endl;
+                //TODO: Put this in its own function? Also double check for off by ones
+                //Offset of the start of the node vector
+                return get_node_id_from_offset(record_offset);
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                snarl_tree_records[record_offset + SNARL_START_NODE_OFFSET] = id;
+                return (snarl_tree_records[record_offset + SNARL_END_NODE_OFFSET]) & 1;
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
-                snarl_tree_records[record_offset + CHAIN_START_NODE_OFFSET] = id;
+                return (snarl_tree_records[record_offset + CHAIN_END_NODE_OFFSET]) & 1;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
         }
-        void set_end_id(id_t id) const {
-            RecordType type = get_record_type();
+        //Rev is true if the node is traversed backwards to enter the snarl
+        void set_start_node(id_t id, bool rev) {
+            record_t type = get_record_type();
             if (type == ROOT || type == NODE || type == DISTANCED_NODE) {
                 throw runtime_error("error: trying to set the node id of a node or root");
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                snarl_tree_records[record_offset + SNARL_END_NODE_OFFSET] = id;
+                snarl_tree_records[record_offset + SNARL_START_NODE_OFFSET] = (id << 1) & rev;
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
-                snarl_tree_records[record_offset + CHAIN_END_NODE_OFFSET] = id;
+                snarl_tree_records[record_offset + CHAIN_START_NODE_OFFSET] = (id << 1) & rev;
+            } else {
+                throw runtime_error("error: trying to access a snarl tree node of the wrong type");
+            }
+        }
+        //Rev is true if the node is traversed backwards to leave the snarl
+        void set_end_id(id_t id, bool rev) const {
+            record_t type = get_record_type();
+            if (type == ROOT || type == NODE || type == DISTANCED_NODE) {
+                throw runtime_error("error: trying to set the node id of a node or root");
+            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
+                snarl_tree_records[record_offset + SNARL_END_NODE_OFFSET] = (id << 1) & rev;
+            } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
+                snarl_tree_records[record_offset + CHAIN_END_NODE_OFFSET] = (id << 1) & rev;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
@@ -600,7 +702,7 @@ private:
             assert(get_record_type() == ROOT);
         }
         //Constructor meant for creating a new record, at the end of snarl_tree_records
-        root_record_t (size_t pointer, RecordType type, size_t connected_component_count) {
+        root_record_t (size_t pointer, record_t type, size_t connected_component_count) {
             record_offset = pointer;
             snarl_tree_records.resize(snarl_tree_records.size() + 2 + connected_component_count, 0);
             snarl_tree_records[record_offset] = type << 6;
@@ -645,7 +747,7 @@ private:
             assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
         }
         //Constructor meant for creating a new record, at the end of snarl_tree_records
-        node_record_t (size_t pointer, RecordType type) {
+        node_record_t (size_t pointer, record_t type) {
             record_offset = pointer;
             snarl_tree_records.resize(snarl_tree_records.size() + NODE_RECORD_SIZE, 0);
             snarl_tree_records[record_offset] = type << 6;
@@ -673,17 +775,17 @@ private:
 
         snarl_record_t (size_t pointer){
             record_offset = pointer;
-            RecordType type = get_record_type();
+            record_t type = get_record_type();
             assert(type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL);
         }
 
         snarl_record_t (net_handle_t net){
             record_offset = get_record_offset(net);
-            RecordType type = get_record_type();
+            record_t type = get_record_type();
             assert(type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL);
         }
 
-        snarl_record_t (size_t pointer, RecordType type, size_t node_count){
+        snarl_record_t (size_t pointer, record_t type, size_t node_count){
             //Constructor for making a new record, including allocating memory.
             //Assumes that this is the latest record being made, so pointer will be the end of
             //the array and we need to allocate extra memory past it
@@ -696,7 +798,7 @@ private:
         }
 
         //How big is the entire snarl record?
-        size_t record_size (RecordType type, size_t node_count) {
+        size_t record_size (record_t type, size_t node_count) {
             if (type == SNARL){
                 //For a normal snarl, its just the record size and the pointers to children
                 return SNARL_RECORD_SIZE + node_count; 
@@ -715,7 +817,7 @@ private:
             }
         }
         size_t record_size() { 
-            RecordType type = get_record_type();
+            record_t type = get_record_type();
             return record_size(type, get_node_count()); 
         }
 
@@ -751,7 +853,7 @@ private:
                 rank2 = tmp;
             }
             
-            RecordType type = get_record_type();
+            record_t type = get_record_type();
             if (type == SNARL) {
                 throw runtime_error("error: trying to access distance in a distanceless snarl tree");
             } else if (type == DISTANCED_SNARL) {
@@ -827,13 +929,13 @@ private:
 
         chain_record_t (size_t pointer){
             record_offset = pointer;
-            RecordType type = static_cast<RecordType>(snarl_tree_records[record_offset]>>6);
+            record_t type = static_cast<record_t>(snarl_tree_records[record_offset]>>6);
             assert(type == CHAIN || 
                    type == DISTANCED_CHAIN);
         }
         chain_record_t (net_handle_t net){
             record_offset = get_record_offset(net);
-            RecordType type = static_cast<RecordType>(snarl_tree_records[record_offset]>>6);
+            record_t type = static_cast<record_t>(snarl_tree_records[record_offset]>>6);
             assert(type == CHAIN || 
                    type == DISTANCED_CHAIN);
         }
@@ -998,20 +1100,79 @@ private:
 
 private:
     ////////////////////// More methods for dealing with net_handle_ts
-    snarl_tree_record_t get_snarl_tree_record(handlegraph::net_handle_t net_handle) {
+    const static snarl_tree_record_t get_snarl_tree_record(const handlegraph::net_handle_t& net_handle) {
         return snarl_tree_record_t(as_integer(net_handle) >> 6);
     }
-    snarl_tree_record_t get_node_record(handlegraph::net_handle_t net_handle) {
+    const static snarl_tree_record_t get_node_record(const handlegraph::net_handle_t& net_handle) {
         return node_record_t(as_integer(net_handle) >> 6); 
     }
-    snarl_tree_record_t get_snarl_record(handlegraph::net_handle_t net_handle) {
+    const static snarl_tree_record_t get_snarl_record(const handlegraph::net_handle_t& net_handle) {
         return snarl_record_t(as_integer(net_handle) >> 6); 
     }
-    snarl_tree_record_t get_chain_record(handlegraph::net_handle_t net_handle) {
+    const static snarl_tree_record_t get_chain_record(const handlegraph::net_handle_t& net_handle) {
         return chain_record_t(as_integer(net_handle) >> 6); 
     }
-    snarl_tree_record_t get_trivial_chain_record(handlegraph::net_handle_t net_handle) {
+    const static snarl_tree_record_t get_trivial_chain_record(const handlegraph::net_handle_t& net_handle) {
         return trivial_chain_record_t(as_integer(net_handle) >> 6); 
+    }
+
+    const static connectivity_t endpoints_to_connectivity(endpoint_t start, endpoint_t end) {
+        if (start == START && end == START) {
+            return START_START;
+        } else if (start == START && end == END) {
+            return START_END;
+        } else if (start == START && end == TIP) {
+            return START_TIP;
+        } else if (start == END && end == START) {
+            return END_START;
+        } else if (start == END && end == END) {
+            return END_END;
+        } else if (start == END && end == TIP) {
+            return END_TIP;
+        } else if (start == TIP && end == START) {
+            return TIP_START;
+        } else if (start == TIP && end == END) {
+            return TIP_END;
+        } else if (start == TIP && end == TIP) {
+            return TIP_TIP;
+        } else {
+            throw runtime_error("error: invalid endpoints");
+        }
+    }
+    const static endpoint_t get_start_endpoint(connectivity_t connectivity) {
+        endpoint_t start_endpoint;
+        if (connectivity == START_START || connectivity == START_END || connectivity == START_TIP){
+            start_endpoint = START;
+        } else if (connectivity == END_START || connectivity == END_END || connectivity == END_TIP){
+            start_endpoint = END;
+        } else if (connectivity == TIP_START || connectivity == TIP_END || connectivity == TIP_TIP){
+            start_endpoint = TIP;
+        } else {
+            throw runtime_error("error: invalid connectivity");
+        }
+        return start_endpoint;
+    }
+    const static endpoint_t get_start_endpoint(net_handle_t net) {
+        return get_start_endpoint(get_connectivity(net));
+    }
+    const static endpoint_t get_end_endpoint(connectivity_t connectivity) {
+        endpoint_t end_endpoint;
+        if (connectivity == START_START || connectivity == END_START || connectivity == TIP_START){
+            end_endpoint = START;
+        } else if (connectivity == START_END || connectivity == END_END || connectivity == TIP_END){
+            end_endpoint = END;
+        } else if (connectivity == START_TIP || connectivity == END_TIP || connectivity == TIP_TIP){
+            end_endpoint = TIP;
+        } else {
+            throw runtime_error("error: invalid connectivity");
+        }
+        return end_endpoint;
+    }
+    const static endpoint_t get_end_endpoint(net_handle_t net) {
+        return get_end_endpoint(get_connectivity(net));
+    }
+    const static pair<endpoint_t, endpoint_t> connectivity_to_endpoints(connectivity_t connectivity) {
+        return make_pair(get_start_endpoint(connectivity), get_end_endpoint(connectivity));
     }
 };
 
