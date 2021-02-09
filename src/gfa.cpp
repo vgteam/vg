@@ -12,7 +12,7 @@ static bool write_w_line(const PathHandleGraph* graph, ostream& out, const strin
                          path_handle_t path_handle);
 
 void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>& rgfa_paths,
-                  const string& wline_sep) {
+                  bool rgfa_pline, const string& wline_sep) {
     GFAKluge gg;
     gg.set_version(1.0);
     for (auto h : gg.get_header()){
@@ -64,7 +64,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     graph->for_each_path_handle([&](const path_handle_t& h) {
         path_elem p_elem;
         p_elem.name = graph->get_path_name(h);
-        if (!rgfa_paths.count(p_elem.name)) {
+        if (rgfa_pline || !rgfa_paths.count(p_elem.name)) {
             bool wrote_w_line = write_w_line(graph, out, wline_sep, h);
             if (!wrote_w_line) {
                 graph->for_each_step_in_path(h, [&](const step_handle_t& ph) {

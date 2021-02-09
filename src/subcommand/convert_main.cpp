@@ -43,6 +43,7 @@ int main_convert(int argc, char** argv) {
     bool gaf_to_gam = false;
     set<string> rgfa_paths;
     vector<string> rgfa_prefixes;
+    bool rgfa_pline = false;
     string wline_sep;
 
     if (argc == 2) {
@@ -70,6 +71,7 @@ int main_convert(int argc, char** argv) {
             {"gfa-out", no_argument, 0, 'f'},
             {"rgfa-path", required_argument, 0, 'P'},
             {"rgfa-prefix", required_argument, 0, 'Q'},
+            {"rgfa-pline", no_argument, 0, 'B'},
             {"gfa-trans", required_argument, 0, 'T'},
             {"wline-sep", required_argument, 0, 'w'},
             {"gam-to-gaf", required_argument, 0, 'G'},
@@ -79,7 +81,7 @@ int main_convert(int argc, char** argv) {
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hgr:b:vxapxofP:Q:T:w:G:F:t:",
+        c = getopt_long (argc, argv, "hgr:b:vxapxofP:Q:BT:w:G:F:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -128,6 +130,9 @@ int main_convert(int argc, char** argv) {
             break;
         case 'Q':
             rgfa_prefixes.push_back(optarg);
+            break;
+        case 'B':
+            rgfa_pline = true;
             break;
         case 'T':
             gfa_trans_path = optarg;
@@ -359,7 +364,7 @@ int main_convert(int argc, char** argv) {
                     }
                 }
             });
-        graph_to_gfa(graph_to_write, std::cout, rgfa_paths, wline_sep);
+        graph_to_gfa(graph_to_write, std::cout, rgfa_paths, rgfa_pline, wline_sep);
     }
     // Serialize the output graph.
     else {
@@ -388,6 +393,7 @@ void help_convert(char** argv) {
          << "gfa options:" << endl
          << "    -P, --rgfa-path STR    write given path as rGFA tags instead of P-line (use with -f, multiple allowed, only rank-0 supported)" << endl
          << "    -Q, --rgfa-prefix STR  write paths with given prefix as rGFA tags instead of P-lines (use with -f, multiple allowed, only rank-0 supported)" << endl
+         << "    -B, --rgfa-pline       paths written as rGFA tags also written as P-lines (or W-lines if selected by -w)" << endl
          << "    -T, --gfa-trans FILE   write gfa id conversions to FILE (use with -g)" << endl
          << "    -w, --wline-sep SEP    write paths with names that can be parsed as <sample><SEP><hap><SEP><contig> as GFA W-lines. (use with -f)" << endl
          << "                           suffixes of the form [start] or [start-end] will be converted into start and end coordinates if found." << endl
