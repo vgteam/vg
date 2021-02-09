@@ -37,25 +37,43 @@ const std::function<bool(const string&)> Paths::is_alt = [](const string& path_n
 
 // Check if using subpath naming scheme.  If it is return true,
 // the root path name, and the offset (false otherwise)
-tuple<bool, string, size_t> Paths::parse_subpath_name(const string& path_name) {
+// formats accepted:
+// name[start]  (0-based)
+// name[start-end] (0-based, open-ended like BED, end defaults to 0 in above case)
+tuple<bool, string, size_t, size_t> Paths::parse_subpath_name(const string& path_name) {
     size_t tag_offset = path_name.rfind("[");
     if (tag_offset == string::npos || tag_offset + 2 >= path_name.length() || path_name.back() != ']') {
-        return make_tuple(false, "", 0);
+        return make_tuple(false, "", 0, 0);
     } else {
         string offset_str = path_name.substr(tag_offset + 1, path_name.length() - tag_offset - 2);
+        size_t sep_offset = offset_str.find("-");
+        string end_offset_str;
+        if (sep_offset != string::npos && !offset_str.empty() && sep_offset < offset_str.length() - 1) {
+            end_offset_str = offset_str.substr(sep_offset + 1, offset_str.length() - sep_offset - 1);
+            offset_str = offset_str.substr(0, sep_offset);
+        }
         size_t offset_val;
+        size_t end_offset_val = 0;
         try {
            offset_val = std::stol(offset_str);
+           if (!end_offset_str.empty()) {
+               end_offset_val = std::stol(end_offset_str);
+           }
         } catch(...) {
-          return make_tuple(false, "", 0);
+            return make_tuple(false, "", 0, 0);
         }
-        return make_tuple(true, path_name.substr(0, tag_offset), offset_val);
+        return make_tuple(true, path_name.substr(0, tag_offset), offset_val, end_offset_val);
     }
 }
 
 // Create a subpath name
-string Paths::make_subpath_name(const string& path_name, size_t offset) {
-    return path_name + "[" + std::to_string(offset) + "]";
+string Paths::make_subpath_name(const string& path_name, size_t offset, size_t end_offset) {
+    string out_name = path_name + "[" + std::to_string(offset);
+    if (end_offset > 0) {
+        out_name += "-" + std::to_string(end_offset);
+    }
+    out_name += "]";
+    return out_name;
 }
 
 
