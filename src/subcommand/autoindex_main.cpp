@@ -4,10 +4,12 @@
  */
 #include <getopt.h>
 #include <iostream>
+#include <sstream>
 #include <algorithm>
 
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
+#include <omp.h>
 
 #include "subcommand.hpp"
 #include "index_registry.hpp"
@@ -17,7 +19,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-bool vcf_is_phased(const IndexRegistry& registry, const string& filepath) {
+bool vcf_is_phased(const string& filepath) {
     
     if (IndexingParameters::verbose) {
         cerr << "[IndexRegistry]: Checking for phasing in VCF." << endl;
@@ -92,12 +94,13 @@ void help_autoindex(char** argv) {
     << "    -w, --workflow NAME   workflow to produce indexes for, can be provided multiple" << endl
     << "                          times. options: map, mpmap, giraffe (default: map)" << endl
     << "  input data:" << endl
-    << "    -r, --ref-fasta FILE  FASTA file containing the reference sequence" << endl
-    << "    -v, --vcf FILE        VCF file with sequence names matching -r" << endl
+    << "    -r, --ref-fasta FILE  FASTA file containing the reference sequence (may repeat)" << endl
+    << "    -v, --vcf FILE        VCF file with sequence names matching -r (may repeat)" << endl
     << "    -i, --ins-fasta FILE  FASTA file with sequences of INS variants from -v" << endl
     << "    -g, --gfa FILE        GFA file to make a graph from" << endl
     << "  logging and computation:" << endl
     << "    -T, --tmp-dir DIR     temporary directory to use for intermediate files" << endl
+    << "    -t, --threads NUM     number of threads (default: all available)" << endl
     << "    -V, --verbose         log progress to stderr" << endl
     << "    -d, --dot             print the dot-formatted graph of index recipes and exit" << endl
     << "    -h, --help            print this help message to stderr and exit" << endl;
@@ -109,6 +112,8 @@ int main_autoindex(int argc, char** argv) {
         help_autoindex(argv);
         return 1;
     }
+    
+#define OPT_KEEP_INTERMEDIATE 1000
     
     // load the registry
     IndexRegistry registry = VGIndexes::get_vg_index_registry();
@@ -127,14 +132,16 @@ int main_autoindex(int argc, char** argv) {
             {"ins-fasta", required_argument, 0, 'i'},
             {"gfa", required_argument, 0, 'g'},
             {"tmp-dir", required_argument, 0, 'T'},
+            {"threads", required_argument, 0, 't'},
             {"verbose", no_argument, 0, 'V'},
             {"dot", no_argument, 0, 'd'},
             {"help", no_argument, 0, 'h'},
+            {"keep-intermediate", no_argument, 0, OPT_KEEP_INTERMEDIATE},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "p:w:r:v:i:g:T:dVh",
+        c = getopt_long (argc, argv, "p:w:r:v:i:g:T:t:dVh",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -190,11 +197,17 @@ int main_autoindex(int argc, char** argv) {
             case 'T':
                 temp_file::set_dir(optarg);
                 break;
+            case 't':
+                omp_set_num_threads(parse<int>(optarg));
+                break;
             case 'V':
                 IndexingParameters::verbose = true;
                 break;
             case 'd':
                 print_dot = true;
+                break;
+            case OPT_KEEP_INTERMEDIATE:
+                registry.set_intermediate_file_keeping(true);
                 break;
             case 'h':
                 help_autoindex(argv);
