@@ -633,6 +633,10 @@ private:
         /// And this is what index we are at in the chain;
         size_t parent_chain_index = 0;
 
+        /// This holds the index of the SnarlRecord* in the deque
+        /// We are doing this because a deque is not contiguous and the index lookup using a SnarlRecord* isn't easily derivable 
+        size_t snarl_number;
+
         
         /// Allow assignment from a Snarl object, fluffing it up into a full SnarlRecord
         SnarlRecord& operator=(const Snarl& other) {

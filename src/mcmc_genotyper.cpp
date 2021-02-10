@@ -317,6 +317,79 @@ namespace vg {
 
         return genome;
     }
+    unordred_map<pair<const Snarl*, const Snarl*>, size_t> MCMCGenotyper::make_snarl_map(SnarlManager& snarls, const vector<multipath_alignment_t>& reads, unique_ptr<PhasedGenome>& phased_genome) const{
+        
+        unordered_set<const Snarl*> snarl_set;
+        //loop over reads
+        for(const multipath_alignment_t& multipath_aln : reads){
+            //for each pair of snarls that touches that read
+                    for (const auto& subpath : multipath_aln.subpath()) {
+                        if(subpath.has_path()){
+                            Path& path = subpath.path();
+                            int_64 node_id = path.mapping.position().node_id();
+                            const Snarl* back_snarl = into_which_snarl(node_id, reverse==true); 
+                            const Snarl* fwd_snarl* = into_which_snarl(node_id, reverse==false);
+                            
+                            // insert snarls into unordered set with only unique entries 
+                            snarl_set.insert(back_snarl*);
+                            snarl_set.insert(fwd_snarl*);
+                        }
+                        
+                    }
+
+            //get_optimal_score_on_genome(genome_before_swap, read)
+            int32_t score = phased_genome->optimal_score_on_genome(multipath_aln, graph);
+            
+            pair<const Snarl*, const Snarl*> pairs;
+
+            //for each pair of snarls - check if both haplotypes visited these snarls, 
+            vector<const Snarl*> v;
+            vector.insert(v.end(), snarl_set.begin(), snarl_set.end());
+            for(int i =0; i < v.size(); i++){
+                for(int j =i+1; j < v.size(); j++){
+                    pairs.insert(make_pair(v[i], v[j]));
+
+                }
+            }
+
+            for(auto snarl_ptr:pairs){
+                // note for later: doesn't think right about cyclic graph
+                // check that both haplotypes visit each snarl in the snarl pair
+                vector<id_t> haplo_ids1 = get_haplotypes_with_snarl(snarl_ptr.first);
+                vector<id_t> haplo_ids2 = get_haplotypes_with_snarl(snarl_ptr.second);
+                //if so:
+                if(haplo_ids1.size()==2 && haplo_ids2.size()==2){
+                    int lower_bound =0;
+                    int upper_bound =1;
+                    int random_num = generate_discrete_uniform(random_engine, lower_bound, upper_bound);
+                    //exchange their alleles with each other at one of the snarls (chosen randomly)
+                    //TODO: for < 2 or > 2 haplotypes that overlap snarl pair , skip snarl pair for that read 
+                    if(random_num == 1){
+                        //exhange alleles at first snarl in pair
+                    }else{
+                        //exchange alleles at second snarl in pair
+                    }
+                    
+                    
+                    //get_optimal_score_on_genome(genome_with_swap, read)
+                    //swap back to genome_before_swap
+                    //get_difference_of_scores(genome_before_swap,genome_with_swap)
+                    //push pair<first_snarl*, second_snarl*> , sum_weight> //multiple reads overlapping snarl pair, sum score/weight of those reads
+
+                }
+                    
+                //if not skip them 
+                }
+            
+        } 
+    }
+
+    Graph make_snarl_graph(unordred_map<pair<const Snarl*, const Snarl*>, size_t>& map) const{
+        //TODO: find where the SnarlRecord* are being added to deque and store the index in snarls.cpp
+        
+        
+
+    }
 
 }
 
