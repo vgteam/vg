@@ -8,9 +8,28 @@ using namespace std;
 namespace vg {
 
 
-//SnarlDistanceIndex::SnarlDistanceIndex() {
-//    //TODO: Constructor
-//}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//Constructor
+SnarlDistanceIndex::SnarlDistanceIndex(const HandleGraphSnarlFinder* snarl_finder){
+    TemporaryDistanceIndex temp_index(snarl_finder);
+}
+SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(const HandleGraphSnarlFinder* snarl_finder) {
+    //Construct the distance index using the snarl decomposition
+    //traverse_decomposition will visit all structures (including trivial snarls), calling
+    //each of the given functions for the start and ends of the snarls and chains
+
+
+    snarl_finder->traverse_decomposition(
+    [&](handle_t chain_start_handle) {
+        //This gets called when a new chain is found, starting at the start handle
+    },
+    [&](handle_t chain_end_handle) {
+    },
+    [&](handle_t snarl_start_handle) {
+    },
+    [&](handle_t snarl_end_handle){
+    });
+}
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //Implement the SnarlDecomposition's functions for moving around the snarl tree
 //
@@ -26,17 +45,17 @@ bool SnarlDistanceIndex::is_root(const net_handle_t& net) const {
 }
 
 bool SnarlDistanceIndex::is_snarl(const net_handle_t& net) const {
-    SnarlDistanceIndex::record_t type = snarl_tree_record_t(net).get_record_type();
+    SnarlDistanceIndex::record_t type = SnarlTreeRecord(net).get_record_type();
     return (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL);
 }
 
 bool SnarlDistanceIndex::is_chain(const net_handle_t& net) const {
-    SnarlDistanceIndex::record_t type = snarl_tree_record_t(net).get_record_type();
+    SnarlDistanceIndex::record_t type = SnarlTreeRecord(net).get_record_type();
     return (type == CHAIN || type == DISTANCED_CHAIN);
 }
 
 bool SnarlDistanceIndex::is_node(const net_handle_t& net) const {
-    SnarlDistanceIndex::record_t type = snarl_tree_record_t(net).get_record_type();
+    SnarlDistanceIndex::record_t type = SnarlTreeRecord(net).get_record_type();
     return type == NODE;
 }
 
@@ -44,8 +63,8 @@ bool SnarlDistanceIndex::is_node(const net_handle_t& net) const {
 //TODO: I'm interpreting this to mean is this handle a node that is the boundary of a snarl. 
 //If its parent is a chain, then it is
 bool SnarlDistanceIndex::is_sentinel(const net_handle_t& net) const {
-    if (snarl_tree_record_t(net).get_record_type() == NODE) {
-        HandleType type = snarl_tree_record_t(snarl_tree_record_t(net).get_parent_record_offset()).get_record_handle_type();
+    if (SnarlTreeRecord(net).get_record_type() == NODE) {
+        net_handle_record_t type = SnarlTreeRecord(SnarlTreeRecord(net).get_parent_record_offset()).get_record_handle_type();
         return type == CHAIN_HANDLE;
     } else {
         return false ;
@@ -61,7 +80,7 @@ handle_t SnarlDistanceIndex::get_handle(const net_handle_t& net, const handlegra
     if (get_handle_type(net) != NODE_HANDLE) {
         throw runtime_error("error: trying to get a handle from a snarl, chain, or root");
     } else {
-        node_record_t node_record(net);
+        NodeRecord node_record(net);
         return graph->get_handle(node_record.get_node_id(), 
                                  get_connectivity(net) == START_END ? false : true);
     }
@@ -69,11 +88,11 @@ handle_t SnarlDistanceIndex::get_handle(const net_handle_t& net, const handlegra
 
 net_handle_t SnarlDistanceIndex::get_parent(const net_handle_t& child) const {
     //Get the pointer to the parent, and keep the connectivity of the current handle
-    size_t parent_pointer = snarl_tree_record_t(child).get_parent_record_offset();
+    size_t parent_pointer = SnarlTreeRecord(child).get_parent_record_offset();
 
     connectivity_t child_connectivity = get_connectivity(child);
     //TODO: I"m going into the parent record here, which could be avoided if things knew what their parents were, but I think if you're doing this you'd later go into the parent anyway so it's probably fine
-    record_t parent_type = snarl_tree_record_t(parent_pointer).get_record_type();
+    record_t parent_type = SnarlTreeRecord(parent_pointer).get_record_type();
     connectivity_t parent_connectivity = START_END;
     if ((child_connectivity == START_END || child_connectivity == END_START) 
         && (parent_type == CHAIN  || parent_type == DISTANCED_CHAIN)) {
@@ -92,8 +111,8 @@ net_handle_t SnarlDistanceIndex::get_parent(const net_handle_t& child) const {
 }
 
 net_handle_t SnarlDistanceIndex::get_bound(const net_handle_t& snarl, bool get_end, bool face_in) const {
-    id_t id = get_end ? snarl_tree_record_t(snarl).get_end_id() : snarl_tree_record_t(snarl).get_start_id();
-    bool rev_in_parent = node_record_t(id).get_is_rev_in_parent();
+    id_t id = get_end ? SnarlTreeRecord(snarl).get_end_id() : SnarlTreeRecord(snarl).get_start_id();
+    bool rev_in_parent = NodeRecord(id).get_is_rev_in_parent();
     if (get_end) {
         rev_in_parent = !rev_in_parent;
     }
@@ -126,7 +145,7 @@ net_handle_t SnarlDistanceIndex::flip(const net_handle_t& net) const {
 }
 
 net_handle_t SnarlDistanceIndex::canonical(const net_handle_t& net) const {
-    snarl_tree_record_t record(net);
+    SnarlTreeRecord record(net);
     connectivity_t connectivity;
     if (record.is_start_end_connected()) {
         connectivity = START_END;
@@ -174,24 +193,23 @@ SnarlDecomposition::endpoint_t SnarlDistanceIndex::ends_at(const net_handle_t& t
 //TODO: I'm also allowing this for the root
 bool SnarlDistanceIndex::for_each_child_impl(const net_handle_t& traversal, const std::function<bool(const net_handle_t&)>& iteratee) const {
     //What is this according to the snarl tree
-    record_t type = snarl_tree_record_t(traversal).get_record_type();
+    net_handle_record_t record_type = SnarlTreeRecord(traversal).get_record_handle_type();
     //What is this according to the handle 
     //(could be a trivial chain but actually a node according to the snarl tree)
-    HandleType handle_type = get_handle_type(traversal);
-    if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL) {
-        snarl_record_t snarl_record(traversal);
+    net_handle_record_t handle_type = get_handle_type(traversal);
+    if (record_type == SNARL_HANDLE) {
+        SnarlRecord snarl_record(traversal);
         return snarl_record.for_each_child(iteratee);
-    } else if (type == CHAIN || type == DISTANCED_CHAIN) {
-        chain_record_t chain_record(traversal);
+    } else if (record_type == CHAIN_HANDLE) {
+        ChainRecord chain_record(traversal);
         return chain_record.for_each_child(iteratee);
-    } else if (type == ROOT) {
-        root_record_t root_record(traversal);
+    } else if (record_type == ROOT_HANDLE) {
+        RootRecord root_record(traversal);
         return root_record.for_each_child(iteratee);
-    } else if ((type == NODE || type == DISTANCED_NODE) && handle_type == CHAIN_HANDLE) {
+    } else if (record_type == NODE_HANDLE && handle_type == CHAIN_HANDLE) {
         //This is actually a node but we're pretending it's a chain
-        //TODO: Just need to do this for the node so maybe I'll get rid of the trivial_chain_record
-        chain_record_t trivial_chain_record_t(traversal);
-        return chain_record_t(traversal).for_each_child(iteratee);
+        NodeRecord chain_as_node_record(traversal);
+        return iteratee(get_net_handle(get_record_offset(traversal), get_connectivity(traversal), NODE_HANDLE));
     } else {
         throw runtime_error("error: Looking for children of a node");
     }
@@ -199,7 +217,7 @@ bool SnarlDistanceIndex::for_each_child_impl(const net_handle_t& traversal, cons
 }
 
 bool SnarlDistanceIndex::for_each_traversal_impl(const net_handle_t& item, const std::function<bool(const net_handle_t&)>& iteratee) const {
-    snarl_tree_record_t record(item);
+    SnarlTreeRecord record(item);
     for ( size_t type = 1 ; type <= 9 ; type ++ ){
         connectivity_t connectivity = static_cast<connectivity_t>(type);
         if (record.has_connectivity(connectivity)) {
@@ -213,8 +231,8 @@ bool SnarlDistanceIndex::for_each_traversal_impl(const net_handle_t& item, const
 
 bool SnarlDistanceIndex::follow_net_edges_impl(const net_handle_t& here, const handlegraph::HandleGraph* graph, bool go_left, const std::function<bool(const net_handle_t&)>& iteratee) const {
 
-    snarl_tree_record_t this_record(here);
-    snarl_tree_record_t parent_record (this_record.get_parent_record_offset());
+    SnarlTreeRecord this_record(here);
+    SnarlTreeRecord parent_record (this_record.get_parent_record_offset());
 
     if (parent_record.get_record_handle_type() == ROOT_HANDLE) {
         //TODO: I'm not sure what to do in this case
@@ -236,7 +254,7 @@ bool SnarlDistanceIndex::follow_net_edges_impl(const net_handle_t& here, const h
             } else{
                 //It is either another chain or a node, but the node needs to pretend to be a chain
                 net_handle_t node_handle = get_net(h, graph); //Netgraph of the next node
-                snarl_tree_record_t next_record(node_handle);
+                SnarlTreeRecord next_record(node_handle);
                 net_handle_t next_net;
                 if (next_record.get_parent_record_offset() == parent_record.record_offset) {
                     //If the next node's parent is also the current node's parent, then it is a node
@@ -259,7 +277,7 @@ bool SnarlDistanceIndex::follow_net_edges_impl(const net_handle_t& here, const h
         
     } else if (get_handle_type(here) == SNARL_HANDLE || get_handle_type(here) == NODE_HANDLE) {
         //If this is a snarl or node, then it is the component of a (possibly pretend) chain
-        chain_record_t this_chain_record(here);
+        ChainRecord this_chain_record(here);
         net_handle_t next_net = this_chain_record.get_next_child(here, go_left);
         if (next_net == here) {
             //If this is the end of the chain
@@ -273,14 +291,14 @@ bool SnarlDistanceIndex::follow_net_edges_impl(const net_handle_t& here, const h
 
 net_handle_t SnarlDistanceIndex::get_parent_traversal(const net_handle_t& traversal_start, const net_handle_t& traversal_end) const {
     
-    HandleType start_handle_type = get_handle_type(traversal_start);
-    HandleType end_handle_type = get_handle_type(traversal_end);
-    snarl_tree_record_t start_record = get_snarl_tree_record(traversal_start);
-    snarl_tree_record_t end_record = get_snarl_tree_record(traversal_end);
+    net_handle_record_t start_handle_type = get_handle_type(traversal_start);
+    net_handle_record_t end_handle_type = get_handle_type(traversal_end);
+    SnarlTreeRecord start_record = get_snarl_tree_record(traversal_start);
+    SnarlTreeRecord end_record = get_snarl_tree_record(traversal_end);
     if (start_record.get_parent_record_offset() != end_record.get_parent_record_offset()) {
         throw runtime_error("error: Looking for parent traversal of two non-siblings");
     }
-    snarl_tree_record_t parent_record (start_record.get_parent_record_offset());
+    SnarlTreeRecord parent_record (start_record.get_parent_record_offset());
 
     endpoint_t start_endpoint;
     if (start_handle_type == NODE_HANDLE && 
@@ -302,7 +320,7 @@ net_handle_t SnarlDistanceIndex::get_parent_traversal(const net_handle_t& traver
         //TODO: I"m assuming that this can't return a traversal from a boundary node along a chain to anything other than a snarl it contains
         size_t node_in_parent = start_record.get_parent_record_offset();
         bool rev_in_parent = start_record.get_is_rev_in_parent();
-        chain_record_t parent_as_chain = chain_record_t(start_record.get_parent_record_offset());
+        ChainRecord parent_as_chain = ChainRecord(start_record.get_parent_record_offset());
         pair<size_t, bool> next_node = parent_as_chain.get_next_child(make_pair(node_in_parent, false), rev_in_parent);
         if (!next_node.second) {
             //If this is not pointing into a snarl

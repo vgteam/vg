@@ -16,6 +16,8 @@ namespace vg {
 //TODO: Check about looping chains and unary snarls
 
 class SnarlDistanceIndex : public SnarlDecomposition {
+public:
+    SnarlDistanceIndex(const HandleGraphSnarlFinder* snarl_finder);
 
 private:
     
@@ -95,7 +97,7 @@ private:
                             TIP_START, TIP_END, TIP_TIP};
     //Type of a net_handle_t. This is to allow a node record to be seen as a chain from the 
     //perspective of a handle
-    enum HandleType {ROOT_HANDLE=0, NODE_HANDLE, SNARL_HANDLE, CHAIN_HANDLE};
+    enum net_handle_record_t {ROOT_HANDLE=0, NODE_HANDLE, SNARL_HANDLE, CHAIN_HANDLE};
 
 public:
 
@@ -244,7 +246,7 @@ public:
 ////////////////////////////// How to interpret net_handle_ts
 //TODO: Does this depend on endianness???
 //TODO: Should this also know what kind of node it's pointing to?
-//Last 2 bits are the HandleType, next four are the connectivity_t, last are the offset into snarl_tree_records
+//Last 2 bits are the net_handle_record_t, next four are the connectivity_t, last are the offset into snarl_tree_records
 //
     private:
 
@@ -256,22 +258,22 @@ public:
         assert (connectivity_as_int <= 9);
         return static_cast<connectivity_t>(connectivity_as_int);
     }
-    const static HandleType get_handle_type (const handlegraph::net_handle_t& net_handle) {
+    const static net_handle_record_t get_handle_type (const handlegraph::net_handle_t& net_handle) {
         size_t connectivity_as_int = as_integer(net_handle) & 5; //Get last 2 bits
         assert (connectivity_as_int <= 3);
-        return static_cast<HandleType>(connectivity_as_int);
+        return static_cast<net_handle_record_t>(connectivity_as_int);
     }
 
-    const static handlegraph::net_handle_t get_net_handle(size_t pointer, connectivity_t connectivity, HandleType type) {
+    const static handlegraph::net_handle_t get_net_handle(size_t pointer, connectivity_t connectivity, net_handle_record_t type) {
         return as_net_handle( (((pointer << 6) & connectivity)<<2) & type); 
     
     }
-    const static handlegraph::net_handle_t get_net_handle(id_t id , connectivity_t connectivity, HandleType type) {
+    const static handlegraph::net_handle_t get_net_handle(id_t id , connectivity_t connectivity, net_handle_record_t type) {
         size_t pointer = get_offset_from_node_id(id);  
         return get_net_handle(pointer, connectivity, type); 
     }
     const static handlegraph::net_handle_t get_net_handle(size_t pointer, connectivity_t connectivity){
-        HandleType type = snarl_tree_record_t(pointer).get_record_handle_type(); 
+        net_handle_record_t type = SnarlTreeRecord(pointer).get_record_handle_type(); 
         return get_net_handle(pointer, connectivity, type); 
     
     }
@@ -285,7 +287,7 @@ private:
 
 
 /////////////////////////////// My methods for interpreting the snarl tree records
-//// Uses a snarl_tree_record_t as the main class for defining and interpreting the records
+//// Uses a SnarlTreeRecord as the main class for defining and interpreting the records
     
     //TODO: Replace this once everything is set
     //The offset of each value in snarl_tree_records, offset from the start of the record
@@ -343,22 +345,22 @@ private:
     //as a connectivity_t
     //TODO: This might be overkill but I want it to be easy to change what gets stored in the index
     //
-    struct snarl_tree_record_t {
+    struct SnarlTreeRecord {
 
 
         //The offset of the start of this record in snarl_tree_records
         size_t record_offset;
 
         //Constructors assuming that this record already exists
-        snarl_tree_record_t();
-        snarl_tree_record_t (size_t pointer){
+        SnarlTreeRecord();
+        SnarlTreeRecord (size_t pointer){
             record_offset = pointer;
             record_t type = get_record_type();
             assert(type == ROOT || type == NODE || type == DISTANCED_NODE || type == SNARL || 
                     type == DISTANCED_SNARL || type == OVERSIZED_SNARL || type == CHAIN || 
                     type == DISTANCED_CHAIN );
         }
-        snarl_tree_record_t (const net_handle_t& net) {
+        SnarlTreeRecord (const net_handle_t& net) {
             record_offset = (as_integer(net) >> 4);
             record_t type = get_record_type();
             assert(type == ROOT || type == NODE || type == DISTANCED_NODE || type == SNARL || 
@@ -375,7 +377,7 @@ private:
 
         //This is a bit misleading, it is the handle type that the record thinks it is, 
         //not necessarily the record type of the net_handle_t that was used to produce it
-        HandleType get_record_handle_type() const {
+        net_handle_record_t get_record_handle_type() const {
             record_t type= get_record_type();
             if (type == ROOT) {
                 return ROOT_HANDLE;
@@ -678,19 +680,19 @@ private:
         }
     };
 
-    struct root_record_t : snarl_tree_record_t {
+    struct RootRecord : SnarlTreeRecord {
 
 
-        root_record_t (size_t pointer) {
+        RootRecord (size_t pointer) {
             record_offset = pointer;
             assert(get_record_type() == ROOT);
         }
-        root_record_t (net_handle_t net) {
+        RootRecord (net_handle_t net) {
             record_offset = get_record_offset(net);
             assert(get_record_type() == ROOT);
         }
         //Constructor meant for creating a new record, at the end of snarl_tree_records
-        root_record_t (size_t pointer, record_t type, size_t connected_component_count) {
+        RootRecord (size_t pointer, record_t type, size_t connected_component_count) {
             record_offset = pointer;
             snarl_tree_records.resize(snarl_tree_records.size() + 2 + connected_component_count, 0);
             snarl_tree_records[record_offset] = type << 6;
@@ -702,9 +704,9 @@ private:
         void set_connected_component_count(size_t connected_component_count) {
             snarl_tree_records[record_offset+1]=connected_component_count;
         }
-        snarl_tree_record_t get_component_record(size_t component_number) const {
+        SnarlTreeRecord get_component_record(size_t component_number) const {
             //TODO: Maybe should be +1 if the component numbers start at 1?
-            return snarl_tree_record_t(snarl_tree_records[record_offset+2+component_number]);
+            return SnarlTreeRecord(snarl_tree_records[record_offset+2+component_number]);
         }
         bool for_each_child(const std::function<bool(const handlegraph::net_handle_t&)>& iteratee) const {
             size_t connected_component_count = get_connected_component_count();
@@ -719,24 +721,24 @@ private:
         }
 
     };
-    struct node_record_t : snarl_tree_record_t {
+    struct NodeRecord : SnarlTreeRecord {
 
 
-        node_record_t (size_t pointer) {
+        NodeRecord (size_t pointer) {
             record_offset = pointer;
             assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
         }
-        node_record_t (id_t node_id) {
+        NodeRecord (id_t node_id) {
             record_offset = get_offset_from_node_id(node_id);
             assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
         }
-        node_record_t (net_handle_t net) {
+        NodeRecord (net_handle_t net) {
             record_offset = get_record_offset(net);
             assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
             assert(get_connectivity(net) == START_END || get_connectivity(net) == END_START);
         }
         //Constructor meant for creating a new record, at the end of snarl_tree_records
-        node_record_t (size_t pointer, record_t type) {
+        NodeRecord (size_t pointer, record_t type) {
             record_offset = pointer;
             snarl_tree_records.resize(snarl_tree_records.size() + NODE_RECORD_SIZE, 0);
             snarl_tree_records[record_offset] = type << 6;
@@ -762,27 +764,27 @@ private:
         }
 
         bool in_chain() const {
-            return snarl_tree_record_t(get_parent_record_offset()).get_record_handle_type() == CHAIN_HANDLE;
+            return SnarlTreeRecord(get_parent_record_offset()).get_record_handle_type() == CHAIN_HANDLE;
         }
 
     };
 
-    struct snarl_record_t : snarl_tree_record_t {
+    struct SnarlRecord : SnarlTreeRecord {
 
 
-        snarl_record_t (size_t pointer){
+        SnarlRecord (size_t pointer){
             record_offset = pointer;
             record_t type = get_record_type();
             assert(type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL);
         }
 
-        snarl_record_t (net_handle_t net){
+        SnarlRecord (net_handle_t net){
             record_offset = get_record_offset(net);
             record_t type = get_record_type();
             assert(type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL);
         }
 
-        snarl_record_t (size_t pointer, record_t type, size_t node_count){
+        SnarlRecord (size_t pointer, record_t type, size_t node_count){
             //Constructor for making a new record, including allocating memory.
             //Assumes that this is the latest record being made, so pointer will be the end of
             //the array and we need to allocate extra memory past it
@@ -921,16 +923,16 @@ private:
 
     };
 
-    struct chain_record_t : snarl_tree_record_t {
+    struct ChainRecord : SnarlTreeRecord {
 
 
-        chain_record_t (size_t pointer){
+        ChainRecord (size_t pointer){
             record_offset = pointer;
             record_t type = static_cast<record_t>(snarl_tree_records[record_offset]>>6);
             assert(type == CHAIN || 
                    type == DISTANCED_CHAIN);
         }
-        chain_record_t (net_handle_t net){
+        ChainRecord (net_handle_t net){
             record_offset = get_record_offset(net);
             record_t type = static_cast<record_t>(snarl_tree_records[record_offset]>>6);
             assert(type == CHAIN || 
@@ -1025,7 +1027,7 @@ private:
                 if (go_left) {
                     return make_pair(pointer.first - CHAIN_NODE_RECORD_SIZE, false);
                 } else {
-                    size_t snarl_record_length = snarl_record_t(pointer.first).record_size();
+                    size_t snarl_record_length = SnarlRecord(pointer.first).record_size();
                     return make_pair(pointer.first + snarl_record_length + 1, false);
                 }
             } else {
@@ -1065,7 +1067,7 @@ private:
             if (next_pointer.first == 0 ){
                 return net_handle;
             }
-            bool next_is_reversed_in_parent = snarl_tree_record_t(next_pointer.first).get_is_rev_in_parent();
+            bool next_is_reversed_in_parent = SnarlTreeRecord(next_pointer.first).get_is_rev_in_parent();
             return get_net_handle(next_pointer.first,
                                   go_left == next_is_reversed_in_parent ? START_END : END_START,
                                   next_pointer.first ? SNARL_HANDLE : NODE_HANDLE);
@@ -1088,46 +1090,46 @@ private:
 
 
 //TODO: Maybe get rid of this
-    struct trivial_chain_record_t : snarl_tree_record_t {
-        //Struct for a chain record of a trivial chain, that's actually just a node
-        trivial_chain_record_t (size_t pointer) {
-            record_offset = pointer;
-            assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
-        }
-        trivial_chain_record_t (net_handle_t net) {
-            record_offset = get_record_offset(net);
-            assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
-        }
-        trivial_chain_record_t (id_t node_id) {
-            record_offset = get_offset_from_node_id(node_id);
-            assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
-        }
-
-        //The only child of a trivial chain is the node it contains
-        bool for_each_child(const std::function<bool(const net_handle_t&)>& iteratee) const {
-            return iteratee(get_net_handle(record_offset, START_END));
-        }
-
-    };
+//    struct trivial_ChainRecord : SnarlTreeRecord {
+//        //Struct for a chain record of a trivial chain, that's actually just a node
+//        trivial_ChainRecord (size_t pointer) {
+//            record_offset = pointer;
+//            assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
+//        }
+//        trivial_ChainRecord (net_handle_t net) {
+//            record_offset = get_record_offset(net);
+//            assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
+//        }
+//        trivial_ChainRecord (id_t node_id) {
+//            record_offset = get_offset_from_node_id(node_id);
+//            assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
+//        }
+//
+//        //The only child of a trivial chain is the node it contains
+//        bool for_each_child(const std::function<bool(const net_handle_t&)>& iteratee) const {
+//            return iteratee(get_net_handle(record_offset, START_END));
+//        }
+//
+//    };
 
 
 private:
     ////////////////////// More methods for dealing with net_handle_ts
-    const static snarl_tree_record_t get_snarl_tree_record(const handlegraph::net_handle_t& net_handle) {
-        return snarl_tree_record_t(as_integer(net_handle) >> 6);
+    const static SnarlTreeRecord get_snarl_tree_record(const handlegraph::net_handle_t& net_handle) {
+        return SnarlTreeRecord(as_integer(net_handle) >> 6);
     }
-    const static snarl_tree_record_t get_node_record(const handlegraph::net_handle_t& net_handle) {
-        return node_record_t(as_integer(net_handle) >> 6); 
+    const static SnarlTreeRecord get_node_record(const handlegraph::net_handle_t& net_handle) {
+        return NodeRecord(as_integer(net_handle) >> 6); 
     }
-    const static snarl_tree_record_t get_snarl_record(const handlegraph::net_handle_t& net_handle) {
-        return snarl_record_t(as_integer(net_handle) >> 6); 
+    const static SnarlTreeRecord get_snarl_record(const handlegraph::net_handle_t& net_handle) {
+        return SnarlRecord(as_integer(net_handle) >> 6); 
     }
-    const static snarl_tree_record_t get_chain_record(const handlegraph::net_handle_t& net_handle) {
-        return chain_record_t(as_integer(net_handle) >> 6); 
+    const static SnarlTreeRecord get_chain_record(const handlegraph::net_handle_t& net_handle) {
+        return ChainRecord(as_integer(net_handle) >> 6); 
     }
-    const static snarl_tree_record_t get_trivial_chain_record(const handlegraph::net_handle_t& net_handle) {
-        return trivial_chain_record_t(as_integer(net_handle) >> 6); 
-    }
+//    const static SnarlTreeRecord get_trivial_chain_record(const handlegraph::net_handle_t& net_handle) {
+//        return trivial_ChainRecord(as_integer(net_handle) >> 6); 
+//    }
 
     const static connectivity_t endpoints_to_connectivity(endpoint_t start, endpoint_t end) {
         if (start == START && end == START) {
@@ -1187,6 +1189,40 @@ private:
     const static pair<endpoint_t, endpoint_t> connectivity_to_endpoints(connectivity_t connectivity) {
         return make_pair(get_start_endpoint(connectivity), get_end_endpoint(connectivity));
     }
+
+
+protected:
+
+    /*
+     * A structure to store everything in the distance index, but not in just one vector to make it easier to construct
+     * This can also be used to combine distance indexes
+     */
+    class TemporaryDistanceIndex{
+    public:
+        TemporaryDistanceIndex(const HandleGraphSnarlFinder* snarl_finder);
+    
+    protected:
+        id_t min_node_id;
+
+        //This will actually store each individual record separately
+        struct TemporaryRecord {
+        };
+        struct TemporaryRootRecord : TemporaryRecord{
+        };
+        struct TemporaryChainRecord : TemporaryRecord {
+            id_t start_node_id;
+            id_t end_node_id;
+            vector<TemporaryRecord*> children; //All children, both nodes and snarls
+        };
+        struct TemporarySnarlRecord : TemporaryRecord{
+            id_t start_node_id;
+            id_t end_node_id;
+        };
+        struct TemporaryNodeRecord : TemporaryRecord{
+            id_t node_id;
+            size_t node_length;
+        };
+    };
 };
 
 }
