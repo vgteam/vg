@@ -135,13 +135,13 @@ public:
     /**
      * Turn a handle to an oriented node into a net handle for a start-to-end or end-to-start traversal of the node, as appropriate.
      */
-    net_handle_t get_net(const handle_t& handle) const;
+    net_handle_t get_net(const handle_t& handle, const handlegraph::HandleGraph* graph) const;
     
     /**
      * For a net handle to a traversal of a single node, get the handle for that node in the orientation it is traversed.
      * May not be called for other net handles.
      */
-    handle_t get_handle(const net_handle_t& net) const;
+    handle_t get_handle(const net_handle_t& net, const handlegraph::HandleGraph* graph) const;
     
     /**
      * Get the parent snarl of a chain, or the parent chain of a snarl or node.
@@ -220,7 +220,7 @@ public:
     /**
      * Internal implementation for follow_net_edges.
      */
-    bool follow_net_edges_impl(const net_handle_t& here, bool go_left, const std::function<bool(const net_handle_t&)>& iteratee) const;
+    bool follow_net_edges_impl(const net_handle_t& here, const handlegraph::HandleGraph* graph, bool go_left, const std::function<bool(const net_handle_t&)>& iteratee) const;
         /**
      * Get a net handle for traversals of a the snarl or chain that contains
      * the given oriented bounding node traversals or sentinels. Given two
@@ -271,7 +271,7 @@ public:
         return get_net_handle(pointer, connectivity, type); 
     }
     const static handlegraph::net_handle_t get_net_handle(size_t pointer, connectivity_t connectivity){
-        HandleType type = snarl_tree_record_t(pointer).get_handle_type(); 
+        HandleType type = snarl_tree_record_t(pointer).get_record_handle_type(); 
         return get_net_handle(pointer, connectivity, type); 
     
     }
@@ -373,7 +373,9 @@ private:
             return static_cast<record_t>(snarl_tree_records[record_offset] >> 6);
         }
 
-        HandleType get_handle_type() const {
+        //This is a bit misleading, it is the handle type that the record thinks it is, 
+        //not necessarily the record type of the net_handle_t that was used to produce it
+        HandleType get_record_handle_type() const {
             record_t type= get_record_type();
             if (type == ROOT) {
                 return ROOT_HANDLE;
@@ -423,40 +425,26 @@ private:
 
         //Get and set a pointer to this node's parent, including its orientation
         //TODO: I don't think it matters if a chain is reversed or not, also it might not matter if a snarl is
-        size_t get_parent_record_pointer() const {
+        size_t get_parent_record_offset() const {
             record_t type = get_record_type();
             if (type == ROOT ) {
                 return 0;
             } else if (type == NODE || type == DISTANCED_NODE) {
-                return (snarl_tree_records[record_offset + NODE_PARENT_OFFSET]) >> 1;
+                return (snarl_tree_records[record_offset + NODE_PARENT_OFFSET]);
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                return (snarl_tree_records[record_offset + SNARL_PARENT_OFFSET]) >> 1;
+                return (snarl_tree_records[record_offset + SNARL_PARENT_OFFSET]);
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
                 return (snarl_tree_records[record_offset + CHAIN_PARENT_OFFSET]);
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
         };
-        bool get_is_reversed_in_parent() const {
-            record_t type = get_record_type();
-            if (type == ROOT ) {
-                return false;
-            } else if (type == NODE || type == DISTANCED_NODE) {
-                return (snarl_tree_records[record_offset + NODE_PARENT_OFFSET]) & 1;
-            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                return (snarl_tree_records[record_offset + SNARL_PARENT_OFFSET]) & 1;
-            } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
-                return false;
-            } else {
-                throw runtime_error("error: trying to access a snarl tree node of the wrong type");
-            }
-        }
-        void set_parent_record_pointer(size_t pointer, bool is_rev=false){
+        void set_parent_record_pointer(size_t pointer){
             record_t type = get_record_type();
             if (type == NODE || type == DISTANCED_NODE) {
-                snarl_tree_records[record_offset + NODE_PARENT_OFFSET] = (pointer<<1) & is_rev;
+                snarl_tree_records[record_offset + NODE_PARENT_OFFSET] = pointer;
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                snarl_tree_records[record_offset + SNARL_PARENT_OFFSET] = (pointer<<1) & is_rev;
+                snarl_tree_records[record_offset + SNARL_PARENT_OFFSET] = pointer;
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
                 snarl_tree_records[record_offset + CHAIN_PARENT_OFFSET] = pointer;
             } else {
@@ -559,7 +547,7 @@ private:
         };
 
         //Is this node reversed in its parent
-        bool get_rev_in_parent() const {
+        bool get_is_rev_in_parent() const {
             record_t type = get_record_type();
             if (type == NODE || type == DISTANCED_NODE) {
                 return snarl_tree_records[record_offset + NODE_RANK_OFFSET] & 1;
@@ -571,7 +559,7 @@ private:
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
         };
-        void set_rev_in_parent(bool rev) {
+        void set_is_rev_in_parent(bool rev) {
             record_t type = get_record_type();
             size_t offset;
             if (type == NODE || type == DISTANCED_NODE) {
@@ -745,12 +733,17 @@ private:
         node_record_t (net_handle_t net) {
             record_offset = get_record_offset(net);
             assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
+            assert(get_connectivity(net) == START_END || get_connectivity(net) == END_START);
         }
         //Constructor meant for creating a new record, at the end of snarl_tree_records
         node_record_t (size_t pointer, record_t type) {
             record_offset = pointer;
             snarl_tree_records.resize(snarl_tree_records.size() + NODE_RECORD_SIZE, 0);
             snarl_tree_records[record_offset] = type << 6;
+        }
+
+        id_t get_node_id() const {
+            return get_node_id_from_offset(record_offset);
         }
 
         //TODO: This one is a bit redundant but fine I think
@@ -766,6 +759,10 @@ private:
         }
         void set_root_component(size_t component) {
             snarl_tree_records[record_offset + NODE_COMPONENT_OFFSET] = component;
+        }
+
+        bool in_chain() const {
+            return snarl_tree_record_t(get_parent_record_offset()).get_record_handle_type() == CHAIN_HANDLE;
         }
 
     };
@@ -1022,7 +1019,7 @@ private:
         //bool is true if it is a snarl, false if it is a node
         //go_left is true if we are traversing the chain right to left
         //returns 0 if this was the last (/first) node in the chain
-        pair<size_t, bool> get_next_child_pointer(const pair<size_t, bool> pointer, bool go_left) const {
+        pair<size_t, bool> get_next_child(const pair<size_t, bool> pointer, bool go_left) const {
             if (pointer.second) {
                 //This is a snarl
                 if (go_left) {
@@ -1059,6 +1056,21 @@ private:
                 }
             }
         }
+        //The same thing but take and return a net_handle_t
+        //return the same net_handle_t if this is the end of the chain
+        net_handle_t get_next_child(const net_handle_t& net_handle, bool go_left) const {
+            //get the next child in the chain. net_handle must point to a snarl or node in the chain 
+            bool is_snarl = get_handle_type(net_handle) == SNARL_HANDLE ? true : false;
+            pair<size_t, bool> next_pointer = get_next_child(make_pair(get_record_offset(net_handle), is_snarl), go_left);
+            if (next_pointer.first == 0 ){
+                return net_handle;
+            }
+            bool next_is_reversed_in_parent = snarl_tree_record_t(next_pointer.first).get_is_rev_in_parent();
+            return get_net_handle(next_pointer.first,
+                                  go_left == next_is_reversed_in_parent ? START_END : END_START,
+                                  next_pointer.first ? SNARL_HANDLE : NODE_HANDLE);
+
+        }
 
         bool for_each_child(const std::function<bool(const net_handle_t&)>& iteratee) const {
             pair<size_t, bool> current_child (get_first_node_offset(), START_END);
@@ -1068,13 +1080,14 @@ private:
                 if (result == false) {
                     return false;
                 }
-                current_child = get_next_child_pointer(current_child, false); 
+                current_child = get_next_child(current_child, false); 
             }
             return true;
         }
     };
 
 
+//TODO: Maybe get rid of this
     struct trivial_chain_record_t : snarl_tree_record_t {
         //Struct for a chain record of a trivial chain, that's actually just a node
         trivial_chain_record_t (size_t pointer) {
