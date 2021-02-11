@@ -11,12 +11,13 @@
 #include <vector>
 #include "phased_genome.hpp"
 #include "multipath_alignment.hpp"
-
+#include "algorithms/min_cut_graph.hpp"
+#include <structures/union_find.hpp>
 
 namespace vg {
 
 using namespace std;
-    
+   
 /** 
  * This class is a genotyper that uses MCMC to find two optimal paths through the graph given a set of aligned reads. 
  *  
@@ -65,6 +66,16 @@ public:
       * Uses the two non-alt paths from the linear reference as haplotypes
       */
      unique_ptr<PhasedGenome> generate_initial_guess()const;
+     /**
+      * Generate a map from a pair of snarls to an edge weight 
+      * Uses snarls read API, reads and the optimal_score_on pahsed genome as a 
+      * scoring scheme for the edge weight overlapping the snarl pair.
+      */
+     unordered_map<pair<const Snarl*, const Snarl*>, size_t> make_snarl_map(SnarlManager& snarls, const vector<multipath_alignment_t>& reads, unique_ptr<PhasedGenome>& phased_genome) const;
+     /**
+      * Generate a graph using the snarl map
+      */
+     algorithms::Graph make_snarl_graph(unordered_map<pair<const Snarl*, const Snarl*>, size_t> map) const;
 
 
 };

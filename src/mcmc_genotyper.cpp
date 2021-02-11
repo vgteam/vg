@@ -317,46 +317,51 @@ namespace vg {
 
         return genome;
     }
-    unordred_map<pair<const Snarl*, const Snarl*>, size_t> MCMCGenotyper::make_snarl_map(SnarlManager& snarls, const vector<multipath_alignment_t>& reads, unique_ptr<PhasedGenome>& phased_genome) const{
+    unordered_map<pair<const Snarl*, const Snarl*>, size_t> MCMCGenotyper::make_snarl_map(SnarlManager& snarls, const vector<multipath_alignment_t>& reads, unique_ptr<PhasedGenome>& phased_genome) const{
         
         unordered_set<const Snarl*> snarl_set;
+        unordered_map<pair<const Snarl*, const Snarl*>, size_t> map;
+        vector<pair<const Snarl*, const Snarl*>> pairs;
         //loop over reads
         for(const multipath_alignment_t& multipath_aln : reads){
             //for each pair of snarls that touches that read
-                    for (const auto& subpath : multipath_aln.subpath()) {
-                        if(subpath.has_path()){
-                            Path& path = subpath.path();
-                            int_64 node_id = path.mapping.position().node_id();
-                            const Snarl* back_snarl = into_which_snarl(node_id, reverse==true); 
-                            const Snarl* fwd_snarl* = into_which_snarl(node_id, reverse==false);
-                            
-                            // insert snarls into unordered set with only unique entries 
-                            snarl_set.insert(back_snarl*);
-                            snarl_set.insert(fwd_snarl*);
-                        }
+            for (const auto& subpath : multipath_aln.subpath()) {
+                
+                if(subpath.has_path()){
+                    auto& path = subpath.path();
+                    //for every mapping in the path
+                    for(size_t i = 0; i < path.mapping_size(); i++){
+                        auto& mapping = path.mapping(i);
+                        int64_t node_id = mapping.position().node_id();
+                        const Snarl* back_snarl = snarls.into_which_snarl(node_id, true); 
+                        const Snarl* fwd_snarl = snarls.into_which_snarl(node_id, false);
                         
+                        // insert snarls into unordered set with only unique entries 
+                        snarl_set.insert(back_snarl);
+                        snarl_set.insert(fwd_snarl);
                     }
+                    
+                }
+                
+            }
 
             //get_optimal_score_on_genome(genome_before_swap, read)
             int32_t score = phased_genome->optimal_score_on_genome(multipath_aln, graph);
             
-            pair<const Snarl*, const Snarl*> pairs;
-
             //for each pair of snarls - check if both haplotypes visited these snarls, 
-            vector<const Snarl*> v;
-            vector.insert(v.end(), snarl_set.begin(), snarl_set.end());
+            vector<const Snarl*> v(snarl_set.begin(), snarl_set.end());
             for(int i =0; i < v.size(); i++){
                 for(int j =i+1; j < v.size(); j++){
-                    pairs.insert(make_pair(v[i], v[j]));
+                    pairs.push_back(make_pair(v[i], v[j]));
 
                 }
             }
 
             for(auto snarl_ptr:pairs){
-                // note for later: doesn't think right about cyclic graph
+                // TODO: update to consider cyclic paths
                 // check that both haplotypes visit each snarl in the snarl pair
-                vector<id_t> haplo_ids1 = get_haplotypes_with_snarl(snarl_ptr.first);
-                vector<id_t> haplo_ids2 = get_haplotypes_with_snarl(snarl_ptr.second);
+                vector<id_t> haplo_ids1 = phased_genome->get_haplotypes_with_snarl(snarl_ptr.first);
+                vector<id_t> haplo_ids2 = phased_genome->get_haplotypes_with_snarl(snarl_ptr.second);
                 //if so:
                 if(haplo_ids1.size()==2 && haplo_ids2.size()==2){
                     int lower_bound =0;
@@ -382,12 +387,14 @@ namespace vg {
                 }
             
         } 
+        return  map;
     }
 
-    Graph make_snarl_graph(unordred_map<pair<const Snarl*, const Snarl*>, size_t>& map) const{
+    algorithms::Graph MCMCGenotyper::make_snarl_graph(unordered_map<pair<const Snarl*, const Snarl*>, size_t> map) const{
         //TODO: find where the SnarlRecord* are being added to deque and store the index in snarls.cpp
+        algorithms::Graph snarl_graph;
         
-        
+        return snarl_graph; 
 
     }
 
