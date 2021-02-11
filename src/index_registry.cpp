@@ -274,18 +274,19 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  const IndexName& constructing) {
+        
         if (IndexingParameters::verbose) {
             cerr << "[IndexRegistry]: Stripping allele paths from VG." << endl;
         }
         
         vector<string> output_names;
-        for (int i = 0; i < inputs.size(); ++i) {
+        for (int i = 0; i < inputs.at(0)->get_filenames().size(); ++i) {
             // test streams for I/O
             ifstream infile;
-            init_in(infile, inputs.at(i)->get_filenames().front());
+            init_in(infile, inputs.at(0)->get_filenames()[i]);
             
             string output_name = plan->prefix(constructing);
-            if (inputs.size() != 1) {
+            if (inputs.front()->get_filenames().size() != 1) {
                 output_name += "." + to_string(i);
             }
             output_name += "." + plan->suffix(constructing);
@@ -293,9 +294,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             ofstream outfile;
             init_out(outfile, output_name);
-            
-            unique_ptr<MutablePathHandleGraph> graph
-                = vg::io::VPKG::load_one<MutablePathHandleGraph>(infile);
+
+            // FIXME: this crashes as a MutablePathHandleGraph for some reason...
+            unique_ptr<MutablePathMutableHandleGraph> graph
+                = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(infile);
             
             // gather handles to the alt allele paths
             vector<path_handle_t> alt_paths;
@@ -663,7 +665,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             HaplotypeIndexer haplotype_indexer;
             haplotype_indexer.show_progress = IndexingParameters::verbose;
             
-            vector<string> parse_files = haplotype_indexer.parse_vcf(inputs[0]->get_filenames()[i],
+            vector<string> parse_files = haplotype_indexer.parse_vcf(inputs[1]->get_filenames()[i],
                                                                      graph);
             // we don't want to do this here, since we're reusing the graph
             //graph.reset(); // Save memory by deleting the graph.
@@ -988,6 +990,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // execute meta recipe
         return construct_gcsa(inputs, plan, constructing);
     });
+    
     
     return registry;
 }
@@ -1349,11 +1352,11 @@ IndexingPlan IndexRegistry::make_plan(const vector<IndexName>& end_products) con
 #ifdef debug_index_registry_path_state
             cerr << "new iteration, path:" << endl;
             for (auto pe : plan_path) {
-                cerr << "\t" << identifier_order[get<0>(pe)] << ", requester: " << (get<1>(pe) == identifier_order.size() ? string("PLAN TARGET") : to_string(identifier_order[get<1>(pe)])) << ", recipe " << get<2>(pe) << endl;
+                cerr << "\t" << to_string(identifier_order[get<0>(pe)]) << ", requester: " << (get<1>(pe) == identifier_order.size() ? string("PLAN TARGET") : to_string(identifier_order[get<1>(pe)])) << ", recipe " << get<2>(pe) << endl;
             }
             cerr << "state of queue:" << endl;
             for (auto q : queue) {
-                cerr << "\t" << identifier_order[q.first] << ", requester: " << (q.second.first == identifier_order.size() ? string("PLAN TARGET") : to_string(identifier_order[q.second.first])) << ", num requesters " << q.second.second << endl;
+                cerr << "\t" << to_string(identifier_order[q.first]) << ", requester: " << (q.second.first == identifier_order.size() ? string("PLAN TARGET") : to_string(identifier_order[q.second.first])) << ", num requesters " << q.second.second << endl;
             }
 #endif
             
