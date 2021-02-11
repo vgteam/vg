@@ -33,9 +33,9 @@
 #include "algorithms/gfa_to_handle.hpp"
 #include "algorithms/prune.hpp"
 
-#define debug_index_registry
-#define debug_index_registry_setup
-#define debug_index_registry_recipes
+//#define debug_index_registry
+//#define debug_index_registry_setup
+//#define debug_index_registry_recipes
 //#define debug_index_registry_path_state
 
 namespace std {
@@ -774,7 +774,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         vector<string> output_names;
         for (size_t i = 0; i < inputs.at(0)->get_filenames().size(); ++i) {
             
-            cerr << "pruning VG files " << inputs.at(0)->get_filenames()[i] << endl;
             ifstream infile_vg;
             init_in(infile_vg, inputs.at(0)->get_filenames()[i]);
             
