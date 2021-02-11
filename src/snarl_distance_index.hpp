@@ -268,16 +268,16 @@ public:
         return as_net_handle( (((pointer << 6) & connectivity)<<2) & type); 
     
     }
-    const static handlegraph::net_handle_t get_net_handle(id_t id , connectivity_t connectivity, net_handle_record_t type) {
+    handlegraph::net_handle_t get_net_handle(id_t id , connectivity_t connectivity, net_handle_record_t type) const {
         size_t pointer = get_offset_from_node_id(id);  
         return get_net_handle(pointer, connectivity, type); 
     }
-    const static handlegraph::net_handle_t get_net_handle(size_t pointer, connectivity_t connectivity){
-        net_handle_record_t type = SnarlTreeRecord(pointer).get_record_handle_type(); 
+    handlegraph::net_handle_t get_net_handle(size_t pointer, connectivity_t connectivity) const {
+        net_handle_record_t type = SnarlTreeRecord(pointer, snarl_tree_records).get_record_handle_type(); 
         return get_net_handle(pointer, connectivity, type); 
     
     }
-    const static handlegraph::net_handle_t get_net_handle(id_t id , connectivity_t connectivity) {
+    handlegraph::net_handle_t get_net_handle(id_t id , connectivity_t connectivity) const {
         size_t pointer = get_offset_from_node_id(id);  
         return get_net_handle(pointer, connectivity); 
     }
@@ -326,16 +326,16 @@ private:
 
 
     //Get the offset into snarl_tree_records for a node record
-    static size_t get_offset_from_node_id (id_t id){
-        size_t node_records_offset = snarl_tree_records[1] + 2; 
-        size_t record_offset = (id-snarl_tree_records[node_records_offset+1]) * NODE_RECORD_SIZE;
+    size_t get_offset_from_node_id (id_t id) const {
+        size_t node_records_offset = snarl_tree_records.at(1) + 2; 
+        size_t record_offset = (id-snarl_tree_records.at(node_records_offset+1)) * NODE_RECORD_SIZE;
         return node_records_offset + 2 + record_offset; 
     }
     //And its inverse, get the id from the offset of the node record
     //TODO: Do I want to add the min_node_id?
-    static id_t get_node_id_from_offset(size_t offset) {
-        size_t node_records_offset = snarl_tree_records[1] + 2; 
-        size_t min_node_id = snarl_tree_records[node_records_offset + 1];
+    id_t get_node_id_from_offset(size_t offset) const {
+        size_t node_records_offset = snarl_tree_records.at(1) + 2; 
+        size_t min_node_id = snarl_tree_records.at(node_records_offset + 1);
         return ((offset-node_records_offset-2) / NODE_RECORD_SIZE) + min_node_id;
     }
 
@@ -350,17 +350,20 @@ private:
 
         //The offset of the start of this record in snarl_tree_records
         size_t record_offset;
+        vector<size_t>& records;
 
         //Constructors assuming that this record already exists
         SnarlTreeRecord();
-        SnarlTreeRecord (size_t pointer){
-            record_offset = pointer;
+        SnarlTreeRecord (size_t pointer, vector<size_t> records)
+            : record_offset(pointer), records(records){
+
             record_t type = get_record_type();
             assert(type == ROOT || type == NODE || type == DISTANCED_NODE || type == SNARL || 
                     type == DISTANCED_SNARL || type == OVERSIZED_SNARL || type == CHAIN || 
                     type == DISTANCED_CHAIN );
         }
-        SnarlTreeRecord (const net_handle_t& net) {
+        SnarlTreeRecord (const net_handle_t& net, vector<size_t> records)
+            : records(records){
             record_offset = (as_integer(net) >> 4);
             record_t type = get_record_type();
             assert(type == ROOT || type == NODE || type == DISTANCED_NODE || type == SNARL || 
@@ -372,7 +375,7 @@ private:
         //What type of snarl tree node is this?
         //This will be the first value of any record
         record_t get_record_type() const {
-            return static_cast<record_t>(snarl_tree_records[record_offset] >> 6);
+            return static_cast<record_t>(records.at(record_offset) >> 6);
         }
 
         //This is a bit misleading, it is the handle type that the record thinks it is, 
@@ -391,18 +394,30 @@ private:
                 throw runtime_error("error: trying to get the handle type of a list of children");
             }
         }
-        bool is_start_start_connected() const {return snarl_tree_records[record_offset] & 32;}
-        bool is_start_end_connected() const {return snarl_tree_records[record_offset] & 16;}
-        bool is_start_tip_connected() const {return snarl_tree_records[record_offset] & 8;}
-        bool is_end_end_connected() const {return snarl_tree_records[record_offset] & 4;}
-        bool is_end_tip_connected() const {return snarl_tree_records[record_offset] & 2;}
-        bool is_tip_tip_connected() const {return snarl_tree_records[record_offset] & 1;}
-        void set_start_start_connected() {snarl_tree_records[record_offset] = snarl_tree_records[record_offset] | 32;}
-        void set_start_end_connected() {snarl_tree_records[record_offset] = snarl_tree_records[record_offset] | 16;}
-        void set_start_tip_connected() {snarl_tree_records[record_offset] = snarl_tree_records[record_offset] | 8;}
-        void set_end_end_connected() {snarl_tree_records[record_offset] = snarl_tree_records[record_offset] | 4;}
-        void set_end_tip_connected() {snarl_tree_records[record_offset] = snarl_tree_records[record_offset] | 2;}
-        void set_tip_tip_connected() {snarl_tree_records[record_offset] = snarl_tree_records[record_offset] | 1;}
+        bool is_start_start_connected() const {return records.at(record_offset) & 32;}
+        bool is_start_end_connected() const {return records.at(record_offset) & 16;}
+        bool is_start_tip_connected() const {return records.at(record_offset) & 8;}
+        bool is_end_end_connected() const {return records.at(record_offset) & 4;}
+        bool is_end_tip_connected() const {return records.at(record_offset) & 2;}
+        bool is_tip_tip_connected() const {return records.at(record_offset) & 1;}
+        void set_start_start_connected() {
+            records.at(record_offset) = records.at(record_offset) | 32;
+        }
+        void set_start_end_connected() {
+            records.at(record_offset) = records.at(record_offset) | 16;
+        }
+        void set_start_tip_connected() {
+            records.at(record_offset) = records.at(record_offset) | 8;
+        }
+        void set_end_end_connected() {
+            records.at(record_offset) = records.at(record_offset) | 4;
+        }
+        void set_end_tip_connected() {
+            records.at(record_offset) = records.at(record_offset) | 2;
+        }
+        void set_tip_tip_connected() {
+            records.at(record_offset) = records.at(record_offset) | 1;
+        }
 
         bool has_connectivity(connectivity_t connectivity) const {
             if (connectivity == START_START) {
@@ -432,11 +447,11 @@ private:
             if (type == ROOT ) {
                 return 0;
             } else if (type == NODE || type == DISTANCED_NODE) {
-                return (snarl_tree_records[record_offset + NODE_PARENT_OFFSET]);
+                return (records.at(record_offset + NODE_PARENT_OFFSET));
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                return (snarl_tree_records[record_offset + SNARL_PARENT_OFFSET]);
+                return (records.at(record_offset + SNARL_PARENT_OFFSET));
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
-                return (snarl_tree_records[record_offset + CHAIN_PARENT_OFFSET]);
+                return (records.at(record_offset + CHAIN_PARENT_OFFSET));
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
@@ -444,11 +459,11 @@ private:
         void set_parent_record_pointer(size_t pointer){
             record_t type = get_record_type();
             if (type == NODE || type == DISTANCED_NODE) {
-                snarl_tree_records[record_offset + NODE_PARENT_OFFSET] = pointer;
+                records.at(record_offset + NODE_PARENT_OFFSET) = pointer;
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                snarl_tree_records[record_offset + SNARL_PARENT_OFFSET] = pointer;
+                records.at(record_offset + SNARL_PARENT_OFFSET) = pointer;
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
-                snarl_tree_records[record_offset + CHAIN_PARENT_OFFSET] = pointer;
+                records.at(record_offset + CHAIN_PARENT_OFFSET) = pointer;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
@@ -459,11 +474,11 @@ private:
         size_t get_min_length() const {
             record_t type = get_record_type();
             if (type == DISTANCED_NODE) {
-                return snarl_tree_records[record_offset + NODE_LENGTH_OFFSET];
+                return records.at(record_offset + NODE_LENGTH_OFFSET);
             } else if (type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                return snarl_tree_records[record_offset + SNARL_MIN_LENGTH_OFFSET];
+                return records.at(record_offset + SNARL_MIN_LENGTH_OFFSET);
             } else if (type == DISTANCED_CHAIN)  {
-                return snarl_tree_records[record_offset + CHAIN_MIN_LENGTH_OFFSET];
+                return records.at(record_offset + CHAIN_MIN_LENGTH_OFFSET);
             } else if (type == NODE || type == SNARL || type == CHAIN) {
                 throw runtime_error("error: trying to access get distance in a distanceless index");
             } else {
@@ -473,11 +488,11 @@ private:
         void set_min_length(size_t length) {
             record_t type = get_record_type();
             if (type == DISTANCED_NODE) {
-                snarl_tree_records[record_offset + NODE_LENGTH_OFFSET] = length;
+                records.at(record_offset + NODE_LENGTH_OFFSET) = length;
             } else if (type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                snarl_tree_records[record_offset + SNARL_MIN_LENGTH_OFFSET] = length;
+                records.at(record_offset + SNARL_MIN_LENGTH_OFFSET) = length;
             } else if (type == DISTANCED_CHAIN)  {
-                snarl_tree_records[record_offset + CHAIN_MIN_LENGTH_OFFSET] = length;
+                records.at(record_offset + CHAIN_MIN_LENGTH_OFFSET) = length;
             } else if (type == NODE || type == SNARL || type == CHAIN) {
                 throw runtime_error("error: trying to access get distance in a distanceless index");
             } else {
@@ -491,11 +506,11 @@ private:
         size_t get_max_length() const {
             record_t type = get_record_type();
             if (type == DISTANCED_NODE) {
-                return snarl_tree_records[record_offset + NODE_LENGTH_OFFSET];
+                return records.at(record_offset + NODE_LENGTH_OFFSET);
             } else if (type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                return snarl_tree_records[record_offset + SNARL_MAX_LENGTH_OFFSET];
+                return records.at(record_offset + SNARL_MAX_LENGTH_OFFSET);
             } else if (type == DISTANCED_CHAIN)  {
-                return snarl_tree_records[record_offset + CHAIN_MAX_LENGTH_OFFSET];
+                return records.at(record_offset + CHAIN_MAX_LENGTH_OFFSET);
             } else if (type == NODE || type == SNARL || type == CHAIN) {
                 throw runtime_error("error: trying to access get distance in a distanceless index");
             } else {
@@ -505,11 +520,11 @@ private:
         void set_max_length(size_t length) {
             record_t type = get_record_type();
             if (type == DISTANCED_NODE) {
-                snarl_tree_records[record_offset + NODE_LENGTH_OFFSET] = length;
+                records.at(record_offset + NODE_LENGTH_OFFSET) = length;
             } else if (type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                snarl_tree_records[record_offset + SNARL_MAX_LENGTH_OFFSET] = length;
+                records.at(record_offset + SNARL_MAX_LENGTH_OFFSET) = length;
             } else if (type == DISTANCED_CHAIN)  {
-                snarl_tree_records[record_offset + CHAIN_MAX_LENGTH_OFFSET] = length;
+                records.at(record_offset + CHAIN_MAX_LENGTH_OFFSET) = length;
             } else if (type == DISTANCED_NODE || type == SNARL || type == CHAIN) {
                 throw runtime_error("error: trying to access get distance in a distanceless index");
             } else {
@@ -523,11 +538,11 @@ private:
         size_t get_rank_in_parent() const {
             record_t type = get_record_type();
             if (type == NODE || type == DISTANCED_NODE) {
-                return snarl_tree_records[record_offset + NODE_RANK_OFFSET] >> 1;
+                return records.at(record_offset + NODE_RANK_OFFSET) >> 1;
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                return snarl_tree_records[record_offset + SNARL_RANK_OFFSET] >> 1;
+                return records.at(record_offset + SNARL_RANK_OFFSET) >> 1;
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
-                return snarl_tree_records[record_offset + CHAIN_RANK_OFFSET] >> 1;
+                return records.at(record_offset + CHAIN_RANK_OFFSET) >> 1;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
@@ -544,19 +559,19 @@ private:
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
-            bool rev = snarl_tree_records[offset] & 1;
-            snarl_tree_records[offset] = (rank << 1) | rev; 
+            bool rev = records.at(offset) & 1;
+            records.at(offset) = (rank << 1) | rev; 
         };
 
         //Is this node reversed in its parent
         bool get_is_rev_in_parent() const {
             record_t type = get_record_type();
             if (type == NODE || type == DISTANCED_NODE) {
-                return snarl_tree_records[record_offset + NODE_RANK_OFFSET] & 1;
+                return records.at(record_offset + NODE_RANK_OFFSET) & 1;
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                return snarl_tree_records[record_offset + SNARL_RANK_OFFSET] & 1;
+                return records.at(record_offset + SNARL_RANK_OFFSET) & 1;
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
-                return snarl_tree_records[record_offset + CHAIN_RANK_OFFSET] & 1;
+                return records.at(record_offset + CHAIN_RANK_OFFSET) & 1;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
@@ -573,7 +588,7 @@ private:
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
-            snarl_tree_records[offset] =  ((snarl_tree_records[offset]>>1)<<1) | rev; 
+            records.at(offset) =  ((records.at(offset)>>1)<<1) | rev; 
         };
 
         //Get the node id of the start/end of this structure (start node of a snarl/chain)
@@ -588,9 +603,9 @@ private:
                 cerr << "warning: Looking for the start of a node" << endl;
                 return get_node_id_from_offset(record_offset);
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                return (snarl_tree_records[record_offset + SNARL_START_NODE_OFFSET]) >> 1;
+                return (records.at(record_offset + SNARL_START_NODE_OFFSET)) >> 1;
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
-                return (snarl_tree_records[record_offset + CHAIN_START_NODE_OFFSET]) >> 1;
+                return (records.at(record_offset + CHAIN_START_NODE_OFFSET)) >> 1;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
@@ -606,9 +621,9 @@ private:
                 cerr << "warning: Looking for the start of a node" << endl;
                 return false;
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                return (snarl_tree_records[record_offset + SNARL_START_NODE_OFFSET] & 1);
+                return (records.at(record_offset + SNARL_START_NODE_OFFSET) & 1);
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
-                return (snarl_tree_records[record_offset + CHAIN_START_NODE_OFFSET]) & 1;
+                return (records.at(record_offset + CHAIN_START_NODE_OFFSET)) & 1;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
@@ -625,9 +640,9 @@ private:
                 //Offset of the start of the node vector
                 return get_node_id_from_offset(record_offset);
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                return (snarl_tree_records[record_offset + SNARL_END_NODE_OFFSET]) >> 1;
+                return (records.at(record_offset + SNARL_END_NODE_OFFSET)) >> 1;
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
-                return (snarl_tree_records[record_offset + CHAIN_END_NODE_OFFSET]) >> 1;
+                return (records.at(record_offset + CHAIN_END_NODE_OFFSET)) >> 1;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
@@ -645,9 +660,9 @@ private:
                 //Offset of the start of the node vector
                 return get_node_id_from_offset(record_offset);
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                return (snarl_tree_records[record_offset + SNARL_END_NODE_OFFSET]) & 1;
+                return (records.at(record_offset + SNARL_END_NODE_OFFSET)) & 1;
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
-                return (snarl_tree_records[record_offset + CHAIN_END_NODE_OFFSET]) & 1;
+                return (records.at(record_offset + CHAIN_END_NODE_OFFSET)) & 1;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
@@ -658,9 +673,9 @@ private:
             if (type == ROOT || type == NODE || type == DISTANCED_NODE) {
                 throw runtime_error("error: trying to set the node id of a node or root");
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                snarl_tree_records[record_offset + SNARL_START_NODE_OFFSET] = (id << 1) & rev;
+                records.at(record_offset + SNARL_START_NODE_OFFSET) = (id << 1) & rev;
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
-                snarl_tree_records[record_offset + CHAIN_START_NODE_OFFSET] = (id << 1) & rev;
+                records.at(record_offset + CHAIN_START_NODE_OFFSET) = (id << 1) & rev;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
@@ -671,47 +686,67 @@ private:
             if (type == ROOT || type == NODE || type == DISTANCED_NODE) {
                 throw runtime_error("error: trying to set the node id of a node or root");
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-                snarl_tree_records[record_offset + SNARL_END_NODE_OFFSET] = (id << 1) & rev;
+                records.at(record_offset + SNARL_END_NODE_OFFSET) = (id << 1) & rev;
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
-                snarl_tree_records[record_offset + CHAIN_END_NODE_OFFSET] = (id << 1) & rev;
+                records.at(record_offset + CHAIN_END_NODE_OFFSET) = (id << 1) & rev;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
+        }
+
+        //TODO: These are redeclared so that I don't need to pass the SnarlTreeRecord the actual distance index
+        //Get the offset into snarl_tree_records for a node record
+        size_t get_offset_from_node_id (id_t id) const {
+            size_t node_records_offset = records.at(1) + 2; 
+            size_t record_offset = (id-records.at(node_records_offset+1)) * NODE_RECORD_SIZE;
+            return node_records_offset + 2 + record_offset; 
+        }
+        //And its inverse, get the id from the offset of the node record
+        //TODO: Do I want to add the min_node_id?
+        id_t get_node_id_from_offset(size_t offset) const {
+            size_t node_records_offset = records.at(1) + 2; 
+            size_t min_node_id = records.at(node_records_offset + 1);
+            return ((offset-node_records_offset-2) / NODE_RECORD_SIZE) + min_node_id;
         }
     };
 
     struct RootRecord : SnarlTreeRecord {
 
+        size_t record_offset;
+        vector<size_t>& records;
 
-        RootRecord (size_t pointer) {
-            record_offset = pointer;
+        RootRecord (size_t pointer, vector<size_t> records)
+            : record_offset(pointer), records(records){
             assert(get_record_type() == ROOT);
         }
-        RootRecord (net_handle_t net) {
+        RootRecord (net_handle_t net, vector<size_t> records)
+            : records(records){
             record_offset = get_record_offset(net);
             assert(get_record_type() == ROOT);
         }
         //Constructor meant for creating a new record, at the end of snarl_tree_records
-        RootRecord (size_t pointer, record_t type, size_t connected_component_count) {
-            record_offset = pointer;
-            snarl_tree_records.resize(snarl_tree_records.size() + 2 + connected_component_count, 0);
-            snarl_tree_records[record_offset] = type << 6;
+        RootRecord (size_t pointer, record_t type, size_t connected_component_count, vector<size_t> records)
+            : record_offset(pointer), records(records){
+            records.resize(records.size() + 2 + connected_component_count, 0);
+            records.at(record_offset) = type << 6;
             set_connected_component_count(connected_component_count);
         }
         size_t get_connected_component_count() const {
-            return snarl_tree_records[record_offset+1];
+            return records.at(record_offset+1);
         }
         void set_connected_component_count(size_t connected_component_count) {
-            snarl_tree_records[record_offset+1]=connected_component_count;
+            records.at(record_offset+1)=connected_component_count;
         }
         SnarlTreeRecord get_component_record(size_t component_number) const {
             //TODO: Maybe should be +1 if the component numbers start at 1?
-            return SnarlTreeRecord(snarl_tree_records[record_offset+2+component_number]);
+            return SnarlTreeRecord(records.at(record_offset+2+component_number), records);
         }
         bool for_each_child(const std::function<bool(const handlegraph::net_handle_t&)>& iteratee) const {
             size_t connected_component_count = get_connected_component_count();
             for (size_t i = 0 ; i < connected_component_count ; i++) {
-                net_handle_t child_handle =  get_net_handle (snarl_tree_records[record_offset + 2 + i], START_END);
+                size_t child_offset = records.at(record_offset + 2 + i);
+                net_handle_record_t type = SnarlTreeRecord(child_offset, records).get_record_handle_type(); 
+                net_handle_t child_handle =  get_net_handle(child_offset, START_END, type);
                 bool result = iteratee(child_handle); 
                 if (result == false) {
                     return false;
@@ -724,24 +759,30 @@ private:
     struct NodeRecord : SnarlTreeRecord {
 
 
-        NodeRecord (size_t pointer) {
-            record_offset = pointer;
+        size_t record_offset;
+        vector<size_t>& records;
+        NodeRecord (size_t pointer, vector<size_t> records)
+            : record_offset(pointer), records(records){
+
             assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
         }
-        NodeRecord (id_t node_id) {
+        NodeRecord (id_t node_id, vector<size_t> records)
+            : records(records){
+
             record_offset = get_offset_from_node_id(node_id);
             assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
         }
-        NodeRecord (net_handle_t net) {
+        NodeRecord (net_handle_t net, vector<size_t> records)
+            : records(records){
             record_offset = get_record_offset(net);
             assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
             assert(get_connectivity(net) == START_END || get_connectivity(net) == END_START);
         }
         //Constructor meant for creating a new record, at the end of snarl_tree_records
-        NodeRecord (size_t pointer, record_t type) {
-            record_offset = pointer;
-            snarl_tree_records.resize(snarl_tree_records.size() + NODE_RECORD_SIZE, 0);
-            snarl_tree_records[record_offset] = type << 6;
+        NodeRecord (size_t pointer, vector<size_t> records, record_t type)
+            : record_offset(pointer), records(records){
+            records.resize(records.size() + NODE_RECORD_SIZE, 0);
+            records.at(record_offset) = type << 6;
         }
 
         id_t get_node_id() const {
@@ -750,21 +791,21 @@ private:
 
         //TODO: This one is a bit redundant but fine I think
         size_t get_node_length() const {
-            return snarl_tree_records[record_offset + NODE_LENGTH_OFFSET];
+            return records.at(record_offset + NODE_LENGTH_OFFSET);
         }
         void set_node_length(size_t length) {
-            snarl_tree_records[record_offset + NODE_LENGTH_OFFSET] = length;
+            records.at(record_offset + NODE_LENGTH_OFFSET) = length;
         }
 
         size_t get_root_component() const {
-            return snarl_tree_records[record_offset + NODE_COMPONENT_OFFSET];
+            return records.at(record_offset + NODE_COMPONENT_OFFSET);
         }
         void set_root_component(size_t component) {
-            snarl_tree_records[record_offset + NODE_COMPONENT_OFFSET] = component;
+            records.at(record_offset + NODE_COMPONENT_OFFSET) = component;
         }
 
         bool in_chain() const {
-            return SnarlTreeRecord(get_parent_record_offset()).get_record_handle_type() == CHAIN_HANDLE;
+            return SnarlTreeRecord(get_parent_record_offset(), records).get_record_handle_type() == CHAIN_HANDLE;
         }
 
     };
@@ -772,28 +813,31 @@ private:
     struct SnarlRecord : SnarlTreeRecord {
 
 
-        SnarlRecord (size_t pointer){
-            record_offset = pointer;
+        size_t record_offset;
+        vector<size_t>& records;
+        SnarlRecord (size_t pointer, vector<size_t> records)
+            : record_offset(pointer), records(records){
             record_t type = get_record_type();
             assert(type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL);
         }
 
-        SnarlRecord (net_handle_t net){
+        SnarlRecord (net_handle_t net, vector<size_t> records)
+            : records(records){
             record_offset = get_record_offset(net);
             record_t type = get_record_type();
             assert(type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL);
         }
 
-        SnarlRecord (size_t pointer, record_t type, size_t node_count){
+        SnarlRecord (size_t pointer, record_t type, size_t node_count, vector<size_t> records)
+            : record_offset(pointer), records(records){
             //Constructor for making a new record, including allocating memory.
             //Assumes that this is the latest record being made, so pointer will be the end of
             //the array and we need to allocate extra memory past it
             //TODO:I'm not sure yet how memory will actually be allocated
-            record_offset = pointer;
             size_t extra_size = record_size(type, node_count);
-            snarl_tree_records.resize(snarl_tree_records.size() + extra_size, 0);
+            records.resize(records.size() + extra_size, 0);
             set_node_count(node_count);
-            snarl_tree_records[record_offset] = type << 6;
+            records.at(record_offset) = type << 6;
         }
 
         //How big is the entire snarl record?
@@ -882,7 +926,7 @@ private:
             //Offset of this particular distance in the distance vector
             size_t distance_vector_offset = get_distance_vector_offset(rank1, right_side1, rank2, right_side2);
 
-            return snarl_tree_records[distance_vector_start + distance_vector_offset] + 1;
+            return records.at(distance_vector_start + distance_vector_offset) + 1;
 
         }
         void set_distance(size_t rank1, bool right_side1, size_t rank2, bool right_side2, int64_t distance) {
@@ -891,28 +935,30 @@ private:
             //Offset of this particular distance in the distance vector
             size_t distance_vector_offset = get_distance_vector_offset(rank1, right_side1, rank2, right_side2);
 
-            snarl_tree_records[distance_vector_start + distance_vector_offset] = distance - 1;
+            records.at(distance_vector_start + distance_vector_offset) = distance - 1;
         }
 
         size_t get_node_count() const {
-            return snarl_tree_records[record_offset + SNARL_NODE_COUNT_OFFSET];
+            return records.at(record_offset + SNARL_NODE_COUNT_OFFSET);
         }
         void set_node_count(size_t parent_pointer) {
-            snarl_tree_records[record_offset + SNARL_NODE_COUNT_OFFSET] = parent_pointer;
+            records.at(record_offset + SNARL_NODE_COUNT_OFFSET) = parent_pointer;
         }
 
         size_t get_child_record_pointer() const {
-            return snarl_tree_records[record_offset+SNARL_CHILD_RECORD_OFFSET] ;
+            return records.at(record_offset+SNARL_CHILD_RECORD_OFFSET) ;
         }
         void set_child_record_pointer(size_t pointer) {
-            snarl_tree_records[record_offset+SNARL_CHILD_RECORD_OFFSET] = pointer;
+            records.at(record_offset+SNARL_CHILD_RECORD_OFFSET) = pointer;
         }
 
         bool for_each_child(const std::function<bool(const net_handle_t&)>& iteratee) const {
             size_t child_count = get_node_count();
             size_t child_record_offset = get_child_record_pointer();
             for (size_t i = 0 ; i < child_count ; i++) {
-                net_handle_t child_handle =  get_net_handle ( snarl_tree_records[child_record_offset + i], START_END);
+                size_t child_offset =  records.at(child_record_offset + i);
+                net_handle_record_t type = SnarlTreeRecord(child_offset, records).get_record_handle_type(); 
+                net_handle_t child_handle =  get_net_handle (child_offset, START_END, type);
                 bool result = iteratee(child_handle); 
                 if (result == false) {
                     return false;
@@ -926,46 +972,49 @@ private:
     struct ChainRecord : SnarlTreeRecord {
 
 
-        ChainRecord (size_t pointer){
-            record_offset = pointer;
-            record_t type = static_cast<record_t>(snarl_tree_records[record_offset]>>6);
+        size_t record_offset;
+        vector<size_t>& records;
+        ChainRecord (size_t pointer, vector<size_t> records)
+            : record_offset(pointer), records(records){
+            record_t type = static_cast<record_t>(records.at(record_offset)>>6);
             assert(type == CHAIN || 
                    type == DISTANCED_CHAIN);
         }
-        ChainRecord (net_handle_t net){
+        ChainRecord (net_handle_t net, vector<size_t> records)
+            : records(records){
             record_offset = get_record_offset(net);
-            record_t type = static_cast<record_t>(snarl_tree_records[record_offset]>>6);
+            record_t type = static_cast<record_t>(records.at(record_offset)>>6);
             assert(type == CHAIN || 
                    type == DISTANCED_CHAIN);
         }
 
         size_t get_node_count() const {
-            return snarl_tree_records[record_offset + CHAIN_NODE_COUNT_OFFSET];
+            return records.at(record_offset + CHAIN_NODE_COUNT_OFFSET);
         }
         void set_node_count(size_t parent_pointer) {
-            snarl_tree_records[record_offset + CHAIN_NODE_COUNT_OFFSET] = parent_pointer;
+            records.at(record_offset + CHAIN_NODE_COUNT_OFFSET) = parent_pointer;
         }
 
         //Get the prefix sum value for this node (boundary node of a snarl in the chain)
         //pointer is a pointer into snarl_tree_records, to the beginning of the record for this node
         //So it'll point to the node id of the node we're looking at
         int64_t get_prefix_sum_value(size_t pointer) const {
-            return snarl_tree_records[pointer+CHAIN_NODE_PREFIX_SUM_OFFSET]-1; 
+            return records.at(pointer+CHAIN_NODE_PREFIX_SUM_OFFSET)-1; 
         }
         void set_prefix_sum_value(size_t pointer, int64_t value) {
-            snarl_tree_records[pointer+CHAIN_NODE_PREFIX_SUM_OFFSET] = value + 1; 
+            records.at(pointer+CHAIN_NODE_PREFIX_SUM_OFFSET) = value + 1; 
         }
         int64_t get_forward_loop_value(size_t pointer) const {
-            return snarl_tree_records[pointer+CHAIN_NODE_FORWARD_LOOP_OFFSET]-1; 
+            return records.at(pointer+CHAIN_NODE_FORWARD_LOOP_OFFSET)-1; 
         }
         void set_forward_loop_value(size_t pointer, int64_t value) {
-            snarl_tree_records[pointer+CHAIN_NODE_FORWARD_LOOP_OFFSET] = value + 1; 
+            records.at(pointer+CHAIN_NODE_FORWARD_LOOP_OFFSET) = value + 1; 
         }
         int64_t get_reverse_loop_value(size_t pointer) const {
-            return snarl_tree_records[pointer+CHAIN_NODE_REVERSE_LOOP_OFFSET]-1; 
+            return records.at(pointer+CHAIN_NODE_REVERSE_LOOP_OFFSET)-1; 
         }
         void set_reverse_loop_value(size_t pointer, int64_t value) {
-            snarl_tree_records[pointer+CHAIN_NODE_REVERSE_LOOP_OFFSET] = value + 1; 
+            records.at(pointer+CHAIN_NODE_REVERSE_LOOP_OFFSET) = value + 1; 
         }
 
         //Get the distance between the given node sides (relative to the orientation of the chain)
@@ -1027,7 +1076,7 @@ private:
                 if (go_left) {
                     return make_pair(pointer.first - CHAIN_NODE_RECORD_SIZE, false);
                 } else {
-                    size_t snarl_record_length = SnarlRecord(pointer.first).record_size();
+                    size_t snarl_record_length = SnarlRecord(pointer.first, records).record_size();
                     return make_pair(pointer.first + snarl_record_length + 1, false);
                 }
             } else {
@@ -1038,7 +1087,7 @@ private:
                         //If this is the first node in the chain
                         return make_pair(0, false);
                     }
-                    size_t snarl_record_size = snarl_tree_records[pointer.first-1];
+                    size_t snarl_record_size = records.at(pointer.first-1);
                     if (snarl_record_size == 0) {
                         //Just another node to the left
                         return make_pair(pointer.first-CHAIN_NODE_RECORD_SIZE, false);
@@ -1048,12 +1097,12 @@ private:
                     }
                 } else {
                     //Looking right in the chain
-                    if (snarl_tree_records[pointer.first+CHAIN_NODE_RECORD_SIZE] == 0 &&
-                        snarl_tree_records[pointer.first+CHAIN_NODE_RECORD_SIZE+1] == 0) {
+                    if (records.at(pointer.first+CHAIN_NODE_RECORD_SIZE) == 0 &&
+                        records.at(pointer.first+CHAIN_NODE_RECORD_SIZE+1) == 0) {
                         //If this is the last node in the chain
                         return make_pair(0, false);
                     }
-                    size_t snarl_record_size = snarl_tree_records[pointer.first+CHAIN_NODE_SNARL_SIZE_OFFSET];
+                    size_t snarl_record_size = records.at(pointer.first+CHAIN_NODE_SNARL_SIZE_OFFSET);
                     return make_pair(pointer.first+CHAIN_NODE_RECORD_SIZE, snarl_record_size != 0);
                 }
             }
@@ -1067,7 +1116,7 @@ private:
             if (next_pointer.first == 0 ){
                 return net_handle;
             }
-            bool next_is_reversed_in_parent = SnarlTreeRecord(next_pointer.first).get_is_rev_in_parent();
+            bool next_is_reversed_in_parent = SnarlTreeRecord(next_pointer.first, records).get_is_rev_in_parent();
             return get_net_handle(next_pointer.first,
                                   go_left == next_is_reversed_in_parent ? START_END : END_START,
                                   next_pointer.first ? SNARL_HANDLE : NODE_HANDLE);
@@ -1077,7 +1126,8 @@ private:
         bool for_each_child(const std::function<bool(const net_handle_t&)>& iteratee) const {
             pair<size_t, bool> current_child (get_first_node_offset(), START_END);
             while (current_child.first != 0) {
-                net_handle_t child_handle =  get_net_handle (current_child.first, START_END);
+                net_handle_record_t type = SnarlTreeRecord(current_child.first, records).get_record_handle_type(); 
+                net_handle_t child_handle =  get_net_handle (current_child.first, START_END, type);
                 bool result = iteratee(child_handle); 
                 if (result == false) {
                     return false;
@@ -1115,17 +1165,17 @@ private:
 
 private:
     ////////////////////// More methods for dealing with net_handle_ts
-    const static SnarlTreeRecord get_snarl_tree_record(const handlegraph::net_handle_t& net_handle) {
-        return SnarlTreeRecord(as_integer(net_handle) >> 6);
+    SnarlTreeRecord get_snarl_tree_record(const handlegraph::net_handle_t& net_handle) const {
+        return SnarlTreeRecord(as_integer(net_handle) >> 6, snarl_tree_records);
     }
-    const static SnarlTreeRecord get_node_record(const handlegraph::net_handle_t& net_handle) {
-        return NodeRecord(as_integer(net_handle) >> 6); 
+    SnarlTreeRecord get_node_record(const handlegraph::net_handle_t& net_handle) const {
+        return NodeRecord(as_integer(net_handle) >> 6, snarl_tree_records); 
     }
-    const static SnarlTreeRecord get_snarl_record(const handlegraph::net_handle_t& net_handle) {
-        return SnarlRecord(as_integer(net_handle) >> 6); 
+    SnarlTreeRecord get_snarl_record(const handlegraph::net_handle_t& net_handle) const {
+        return SnarlRecord(as_integer(net_handle) >> 6, snarl_tree_records); 
     }
-    const static SnarlTreeRecord get_chain_record(const handlegraph::net_handle_t& net_handle) {
-        return ChainRecord(as_integer(net_handle) >> 6); 
+    SnarlTreeRecord get_chain_record(const handlegraph::net_handle_t& net_handle) const {
+        return ChainRecord(as_integer(net_handle) >> 6, snarl_tree_records); 
     }
 //    const static SnarlTreeRecord get_trivial_chain_record(const handlegraph::net_handle_t& net_handle) {
 //        return trivial_ChainRecord(as_integer(net_handle) >> 6); 
