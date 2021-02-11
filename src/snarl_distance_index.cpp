@@ -12,7 +12,11 @@ namespace vg {
 //Constructor
 SnarlDistanceIndex::SnarlDistanceIndex(const HandleGraphSnarlFinder* snarl_finder){
     TemporaryDistanceIndex temp_index(snarl_finder);
+    vector<const TemporaryDistanceIndex*> indexes;
+    indexes.emplace_back(&temp_index);
+    snarl_tree_records = get_snarl_tree_records(indexes);
 }
+
 SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(const HandleGraphSnarlFinder* snarl_finder) {
     //Construct the distance index using the snarl decomposition
     //traverse_decomposition will visit all structures (including trivial snarls), calling
@@ -30,6 +34,24 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(const HandleG
     [&](handle_t snarl_end_handle){
     });
 }
+
+//vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDistanceIndex*>& temporary_indexes) {
+//    vector<size_t> result;
+//    size_t total_node_count = 0;
+//    size_t total_component_count = 0;
+//    id_t min_node_id = 0;
+//    //TODO: SHould really also count the size of the index here
+//    //Go through each of the indexes to count how many nodes, components, etc
+//    for (const TemporaryDistanceIndex* temp_index : temporary_indexes) {
+//        total_node_count += temp_index->node_count;
+//        total_comonent_count += temp_index->root_structure_count;
+//        min_node_id = min_node_id == 0 ? temp_index->min_node_id 
+//                                       : std::min(min_node_id, temp_index->min_node_id);
+//    }
+//    for (const TemporaryDistanceIndex* temp_index : temporary_indexes) {
+//    }
+//    return result;
+//}
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //Implement the SnarlDecomposition's functions for moving around the snarl tree
 //

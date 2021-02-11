@@ -67,7 +67,7 @@ private:
      */
 
     //TODO: I'm not sure this should be static, at least for construction?
-    static vector<size_t> snarl_tree_records;
+     vector<size_t> snarl_tree_records;
 
     /*
      *
@@ -1203,26 +1203,59 @@ protected:
     
     protected:
         id_t min_node_id;
+        size_t node_count;
+        size_t root_structure_count=0; //How many things are in the root
+        size_t index_size;//TODO: This will change depending on how the actual index is represented
 
-        //This will actually store each individual record separately
+        //This will actually store each individual record separately, and each 
+        //will have real pointers to their parents/children (as opposed to offsets)
         struct TemporaryRecord {
-        };
-        struct TemporaryRootRecord : TemporaryRecord{
         };
         struct TemporaryChainRecord : TemporaryRecord {
             id_t start_node_id;
             id_t end_node_id;
-            vector<TemporaryRecord*> children; //All children, both nodes and snarls
+            TemporaryRecord* parent_pointer;
+            size_t node_count;
+            int64_t min_length;
+            int64_t max_length;
+            vector<TemporaryRecord*> children; //All children, both nodes and snarls, in order
+            //Distances for the chain, one entry per node
+            vector<int64_t> prefix_sum;
+            vector<int64_t> forward_loops;
+            vector<int64_t> backward_loops;
+            size_t rank_in_parent;
+            bool reversed_in_parent;
         };
         struct TemporarySnarlRecord : TemporaryRecord{
             id_t start_node_id;
             id_t end_node_id;
+            size_t node_count;
+            int64_t min_length;
+            int64_t max_length;
+            TemporaryRecord* parent_pointer;
+            vector<TemporaryRecord*> children; //All children, nodes and chains, in arbitrary order
+            vector<int64_t> distances;
+            size_t rank_in_parent;
+            bool reversed_in_parent;
         };
         struct TemporaryNodeRecord : TemporaryRecord{
             id_t node_id;
+            TemporaryRecord* parent_pointer;
             size_t node_length;
+            size_t rank_in_parent;
+            bool reversed_in_parent;
         };
+
+        vector<TemporaryRecord*> components;
+        vector<ChainRecord> temp_chain_records;
+        vector<SnarlRecord> temp_snarl_records;
+        vector<NodeRecord> temp_node_records;
     };
+
+    //Given an arbitrary number of temporary indexes, produce the final one
+    //Each temporary index must be a separate connected component
+    vector<size_t> get_snarl_tree_records(const vector<const TemporaryDistanceIndex*>& temporary_indexes);
+
 };
 
 }
