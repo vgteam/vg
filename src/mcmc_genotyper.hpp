@@ -71,11 +71,11 @@ public:
       * Uses snarls read API, reads and the optimal_score_on pahsed genome as a 
       * scoring scheme for the edge weight overlapping the snarl pair.
       */
-     unordered_map<pair<const Snarl*, const Snarl*>, size_t> make_snarl_map(SnarlManager& snarls, const vector<multipath_alignment_t>& reads, unique_ptr<PhasedGenome>& phased_genome) const;
+     unordered_map<pair<const Snarl*, const Snarl*>, int32_t> make_snarl_map(SnarlManager& snarls, const vector<multipath_alignment_t>& reads, unique_ptr<PhasedGenome>& phased_genome) const;
      /**
       * Generate a graph using the snarl map
       */
-     algorithms::Graph make_snarl_graph(unordered_map<pair<const Snarl*, const Snarl*>, size_t> map) const;
+     algorithms::Graph make_snarl_graph(unordered_map<pair<const Snarl*, const Snarl*>, int32_t> map) const;
 
 
 };

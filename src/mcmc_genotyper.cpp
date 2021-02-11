@@ -317,11 +317,12 @@ namespace vg {
 
         return genome;
     }
-    unordered_map<pair<const Snarl*, const Snarl*>, size_t> MCMCGenotyper::make_snarl_map(SnarlManager& snarls, const vector<multipath_alignment_t>& reads, unique_ptr<PhasedGenome>& phased_genome) const{
+    unordered_map<pair<const Snarl*, const Snarl*>, int32_t> MCMCGenotyper::make_snarl_map(SnarlManager& snarls, const vector<multipath_alignment_t>& reads, unique_ptr<PhasedGenome>& phased_genome) const{
         
         unordered_set<const Snarl*> snarl_set;
-        unordered_map<pair<const Snarl*, const Snarl*>, size_t> map;
+        unordered_map<pair<const Snarl*, const Snarl*>, int32_t> map;
         vector<pair<const Snarl*, const Snarl*>> pairs;
+        int32_t score_after_swap,score_before_swap,diff_score;
         //loop over reads
         for(const multipath_alignment_t& multipath_aln : reads){
             //for each pair of snarls that touches that read
@@ -346,7 +347,7 @@ namespace vg {
             }
 
             //get_optimal_score_on_genome(genome_before_swap, read)
-            int32_t score = phased_genome->optimal_score_on_genome(multipath_aln, graph);
+            score_before_swap = phased_genome->optimal_score_on_genome(multipath_aln, graph);
             
             //for each pair of snarls - check if both haplotypes visited these snarls, 
             vector<const Snarl*> v(snarl_set.begin(), snarl_set.end());
@@ -364,35 +365,78 @@ namespace vg {
                 vector<id_t> haplo_ids2 = phased_genome->get_haplotypes_with_snarl(snarl_ptr.second);
                 //if so:
                 if(haplo_ids1.size()==2 && haplo_ids2.size()==2){
-                    int lower_bound =0;
-                    int upper_bound =1;
-                    int random_num = generate_discrete_uniform(random_engine, lower_bound, upper_bound);
+                    int haplotype_1 =0;
+                    int haplotype_2 =1;
+                    //generate a random uniform number between [0,1]
+                    int random_num = generate_discrete_uniform(random_engine, haplotype_1, haplotype_2);
                     //exchange their alleles with each other at one of the snarls (chosen randomly)
                     //TODO: for < 2 or > 2 haplotypes that overlap snarl pair , skip snarl pair for that read 
                     if(random_num == 1){
+                        //dereference the ptr
+                        const Snarl& snarl_to_swap = *snarl_ptr.first;
                         //exhange alleles at first snarl in pair
+                        phased_genome->swap_alleles(snarl_to_swap, haplotype_1, haplotype_2);
+                        // get score after swap
+                        score_after_swap = phased_genome->optimal_score_on_genome(multipath_aln, graph);
+                        //swap back 
+                        phased_genome->swap_alleles(snarl_to_swap, haplotype_1, haplotype_2);
+                        
                     }else{
+                        //dereference the ptr
+                        const Snarl& snarl_to_swap = *snarl_ptr.second;
                         //exchange alleles at second snarl in pair
+                        phased_genome->swap_alleles(snarl_to_swap, haplotype_1, haplotype_2);
+                        // get score after swap
+                        score_after_swap = phased_genome->optimal_score_on_genome(multipath_aln, graph);
+                        //swap back 
+                        phased_genome->swap_alleles(snarl_to_swap, haplotype_1, haplotype_2);
                     }
                     
+                    //getcalculate difference of scores between swaps
+                    diff_score = score_before_swap - score_after_swap;
+                    // if score decreases contribute (+) diff_score ?? unsigned nature of size_t - should it be int_32 
+                    // lower scores are better for min cut
+                    // create some hash function so we can 
+                    // pairs[snarl_ptr.first,  snarl_ptr.second] += diff_score;
                     
-                    //get_optimal_score_on_genome(genome_with_swap, read)
-                    //swap back to genome_before_swap
-                    //get_difference_of_scores(genome_before_swap,genome_with_swap)
-                    //push pair<first_snarl*, second_snarl*> , sum_weight> //multiple reads overlapping snarl pair, sum score/weight of those reads
-
                 }
                     
-                //if not skip them 
-                }
+               
+            }
             
         } 
         return  map;
     }
 
-    algorithms::Graph MCMCGenotyper::make_snarl_graph(unordered_map<pair<const Snarl*, const Snarl*>, size_t> map) const{
+    algorithms::Graph MCMCGenotyper::make_snarl_graph(unordered_map<pair<const Snarl*, const Snarl*>, int32_t> map) const{
         //TODO: find where the SnarlRecord* are being added to deque and store the index in snarls.cpp
+        
         algorithms::Graph snarl_graph;
+
+        for(auto snarl_pair_to_weight: map){
+            size_t edge_weight = snarl_pair_to_weight.second;
+            // skip edge weights that are <1
+            if(edge_weight < 1){
+                continue;
+            }else{
+                algorithms::Node snarl_node_1, snarl_node_2;
+                algorithms::Edge edge_fwd, edge_back;
+                edge_fwd.weight = edge_weight;
+                edge_back.weight = edge_weight;
+                snarl_node_1.edges.push_back(edge_fwd);
+                snarl_node_2.edges.push_back(edge_back);
+                snarl_node_1.weight += edge_weight;
+                snarl_node_2.weight += edge_weight;
+
+                //snarl ids -> node ids, get the ids from SnarlRecord index member - look in add_snarl
+                // edge_fwd.other = snarl_id_2;
+                // edge_back.other = snarl_id_1;
+                // graph.add_node(snarl_id_1, snarl_node_1);
+                // graph.add_node(snarl_id_2, snarl_node_2);
+
+            }
+
+        }
         
         return snarl_graph; 
 
