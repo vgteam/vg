@@ -141,12 +141,14 @@ int main_autoindex(int argc, char** argv) {
     }
     
 #define OPT_KEEP_INTERMEDIATE 1000
+#define OPT_FORCE_UNPHASED 1001
     
     // load the registry
     IndexRegistry registry = VGIndexes::get_vg_index_registry();
     bool print_dot = false;
     vector<IndexName> targets;
     vector<string> vcf_names;
+    bool force_unphased = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -165,6 +167,7 @@ int main_autoindex(int argc, char** argv) {
             {"dot", no_argument, 0, 'd'},
             {"help", no_argument, 0, 'h'},
             {"keep-intermediate", no_argument, 0, OPT_KEEP_INTERMEDIATE},
+            {"force-unphased", no_argument, 0, OPT_FORCE_UNPHASED},
             {0, 0, 0, 0}
         };
 
@@ -232,6 +235,9 @@ int main_autoindex(int argc, char** argv) {
             case OPT_KEEP_INTERMEDIATE:
                 registry.set_intermediate_file_keeping(true);
                 break;
+            case OPT_FORCE_UNPHASED:
+                force_unphased = true;
+                break;
             case 'h':
                 help_autoindex(argv);
                 return 0;
@@ -245,8 +251,10 @@ int main_autoindex(int argc, char** argv) {
     if (!vcf_names.empty()) {
         // we interpret it as a phased VCF if any of the VCFs have phasing
         bool phased = false;
-        for (size_t i = 0; i < vcf_names.size() && !phased; ++i) {
-            phased = vcf_is_phased(vcf_names[i]);
+        if (!force_unphased) {
+            for (size_t i = 0; i < vcf_names.size() && !phased; ++i) {
+                phased = vcf_is_phased(vcf_names[i]);
+            }
         }
         
         for (auto& vcf_name : vcf_names) {
