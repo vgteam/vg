@@ -33,9 +33,9 @@
 #include "algorithms/gfa_to_handle.hpp"
 #include "algorithms/prune.hpp"
 
-//#define debug_index_registry
-//#define debug_index_registry_setup
-//#define debug_index_registry_recipes
+#define debug_index_registry
+#define debug_index_registry_setup
+#define debug_index_registry_recipes
 //#define debug_index_registry_path_state
 
 namespace std {
@@ -746,8 +746,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // test streams for I/O
         ifstream infile_gbwt, infile_max_id;
         init_in(infile_max_id, inputs.at(1)->get_filenames().front());
+        unique_ptr<gbwt::GBWT> gbwt_index;
         if (using_haplotypes) {
             init_in(infile_gbwt, inputs.at(2)->get_filenames().front());
+            gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(infile_gbwt);
         }
         
         // read the max node ID (across all chunks)
@@ -772,6 +774,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         vector<string> output_names;
         for (size_t i = 0; i < inputs.at(0)->get_filenames().size(); ++i) {
             
+            cerr << "pruning VG files " << inputs.at(0)->get_filenames()[i] << endl;
             ifstream infile_vg;
             init_in(infile_vg, inputs.at(0)->get_filenames()[i]);
             
@@ -832,7 +835,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     
                     // copy the node mapping so that we have a copy that we can alter without
                     // potentially messing up the input for other recipes
-                    unique_ptr<gbwt::GBWT> gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(infile_gbwt);
                     PhaseUnfolder unfolder(*unpruned_graph, *gbwt_index, max_node_id + 1);
                     unfolder.read_mapping(mapping_output_name);
                     unfolder.unfold(*graph, IndexingParameters::verbose);
