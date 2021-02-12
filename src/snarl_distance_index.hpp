@@ -218,7 +218,6 @@ public:
      */
     bool for_each_traversal_impl(const net_handle_t& item, const std::function<bool(const net_handle_t&)>& iteratee) const;
 
-    //TODO: Not sure about this one
     /**
      * Internal implementation for follow_net_edges.
      */
@@ -517,7 +516,7 @@ private:
             } else if (type == NODE || type == DISTANCED_NODE) {
                 //TODO: I'm not sure if I want to allow this
                 cerr << "warning: Looking for the start of a node" << endl;
-                return get_node_id_from_offset(record_offset);
+                return get_id_from_offset(record_offset);
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
                 return (records.at(record_offset + SNARL_START_NODE_OFFSET)) >> 1;
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
@@ -554,7 +553,7 @@ private:
                 cerr << "warning: Looking for the end of a node" << endl;
                 //TODO: Put this in its own function? Also double check for off by ones
                 //Offset of the start of the node vector
-                return get_node_id_from_offset(record_offset);
+                return get_id_from_offset(record_offset);
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
                 return (records.at(record_offset + SNARL_END_NODE_OFFSET)) >> 1;
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
@@ -574,7 +573,7 @@ private:
                 cerr << "warning: Looking for the end of a node" << endl;
                 //TODO: Put this in its own function? Also double check for off by ones
                 //Offset of the start of the node vector
-                return get_node_id_from_offset(record_offset);
+                return get_id_from_offset(record_offset);
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
                 return (records.at(record_offset + SNARL_END_NODE_OFFSET)) & 1;
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
@@ -586,14 +585,14 @@ private:
 
         //TODO: These are redeclared so that I don't need to pass the SnarlTreeRecord the actual distance index
         //Get the offset into snarl_tree_records for a node record
-        size_t get_offset_from_node_id (id_t id) const {
+        size_t get_offset_from_id (id_t id) const {
             size_t node_records_offset = records.at(1) + 2; 
             size_t record_offset = (id-records.at(node_records_offset+1)) * NODE_RECORD_SIZE;
             return node_records_offset + 2 + record_offset; 
         }
         //And its inverse, get the id from the offset of the node record
         //TODO: Do I want to add the min_node_id?
-        id_t get_node_id_from_offset(size_t offset) const {
+        id_t get_id_from_offset(size_t offset) const {
             size_t node_records_offset = records.at(1) + 2; 
             size_t min_node_id = records.at(MIN_NODE_ID_OFFSET);
             return ((offset-node_records_offset-2) / NODE_RECORD_SIZE) + min_node_id;
@@ -795,7 +794,8 @@ private:
         RootRecordConstructor (size_t pointer, size_t connected_component_count, size_t node_count, 
                     id_t min_node_id, vector<size_t>& records)
             : record_offset(pointer), records(records){
-            records.resize(records.size() + 4 + connected_component_count, 0);
+            //Allocate memory for the rood vector and for all of the nodes
+            records.resize(records.size() + 4 + connected_component_count + (NODE_RECORD_SIZE * node_count) , 0);
             records.at(record_offset) = ROOT << 6;
             set_min_node_id(min_node_id);
             set_node_count(node_count);
@@ -823,9 +823,8 @@ private:
             assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
         }
         NodeRecord (id_t node_id, const vector<size_t>& records)
-            : records(records){
+            : records(records), record_offset(get_offset_from_id(node_id)){
 
-            record_offset = get_offset_from_node_id(node_id);
             assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
         }
         NodeRecord (net_handle_t net, const vector<size_t>& records)
@@ -836,7 +835,7 @@ private:
         }
 
         id_t get_node_id() const {
-            return get_node_id_from_offset(record_offset);
+            return get_id_from_offset(record_offset);
         }
 
         //TODO: This one is a bit redundant but fine I think
@@ -854,15 +853,15 @@ private:
 
     };
 
-    struct NodeRecordConstructor :NodeRecord , SnarlTreeRecordConstructor {
+    struct NodeRecordConstructor : NodeRecord , SnarlTreeRecordConstructor {
 
 
         size_t record_offset;
         vector<size_t>& records;
         //Constructor meant for creating a new record, at the end of snarl_tree_records
-        NodeRecordConstructor (size_t pointer, vector<size_t> &records, record_t type)
-            : record_offset(pointer), records(records){
-            records.resize(records.size() + NODE_RECORD_SIZE, 0);
+        NodeRecordConstructor (id_t id, record_t type, vector<size_t> &records)
+            :  records(records){
+            record_offset =  NodeRecord::get_offset_from_id(id);
             records.at(record_offset) = type << 6;
         }
         void set_node_length(size_t length) {
@@ -1386,9 +1385,9 @@ protected:
         };
 
         vector<TemporaryRecord*> components;
-        vector<ChainRecord> temp_chain_records;
-        vector<SnarlRecord> temp_snarl_records;
-        vector<NodeRecord> temp_node_records;
+        vector<TemporaryChainRecord> temp_chain_records;
+        vector<TemporarySnarlRecord> temp_snarl_records;
+        vector<TemporaryNodeRecord> temp_node_records;
         friend class SnarlDistanceIndex;
     };
 

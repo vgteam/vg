@@ -41,7 +41,6 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
     size_t total_node_count = 0;
     size_t total_component_count = 0;
     id_t min_node_id = 0;
-    //TODO: SHould really also count the size of the index here
     //Go through each of the indexes to count how many nodes, components, etc
     for (const TemporaryDistanceIndex* temp_index : temporary_indexes) {
         total_index_size += temp_index->index_size;
@@ -57,14 +56,21 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
     root_record.set_connected_component_count(total_component_count);
     root_record.set_node_count(total_node_count);
     root_record.set_min_node_id(min_node_id);
-    //TODO: For now I'm assuming that I'm including distances
-    for (const TemporaryDistanceIndex* temp_index : temporary_indexes) {
-        NodeRecordConstructor node_record(result.size(), result, DISTANCED_NODE);
-    }
     //Now go through each of the indexes and copy them into result
+    //TODO: For now I'm assuming that I'm including distances
     //TODO: Everything is going to be in the order given, which should hopefully be reasonable
     for (const TemporaryDistanceIndex* temp_index : temporary_indexes) {
         
+    }
+    //Fill in the nodes
+    for (const TemporaryDistanceIndex* temp_index : temporary_indexes) {
+        for (const TemporaryDistanceIndex::TemporaryNodeRecord& temp_node_record : temp_index->temp_node_records) {
+            NodeRecordConstructor node_record(temp_node_record.node_id, DISTANCED_NODE, result);
+            node_record.set_node_length(temp_node_record.node_length);
+            node_record.set_rank_in_parent(temp_node_record.rank_in_parent);
+            node_record.set_is_rev_in_parent(temp_node_record.reversed_in_parent);
+            //TODO: Missing parent and component
+        }
     }
     return result;
 }
