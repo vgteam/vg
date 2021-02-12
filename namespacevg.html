@@ -1283,6 +1283,20 @@ Functions</h2></td></tr>
 <tr class="separator:a40a4773c4ca6593f42fec5817a1614fa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad1b663b221eced857906396af096b5ae"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad1b663b221eced857906396af096b5ae">get_sequence_dictionary</a> (const string &amp;filename, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph)</td></tr>
 <tr class="separator:ad1b663b221eced857906396af096b5ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a53098c7c826c3d8d2aab804ba5500fd5"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a53098c7c826c3d8d2aab804ba5500fd5">get_file_size</a> (const string &amp;filename)</td></tr>
+<tr class="separator:a53098c7c826c3d8d2aab804ba5500fd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a665fe802cdb44d2dba6052fc9063513d"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a665fe802cdb44d2dba6052fc9063513d">approx_num_vars</a> (const string &amp;vcf_filename)</td></tr>
+<tr class="separator:a665fe802cdb44d2dba6052fc9063513d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3ae70effc22331b3e4667ed48808602c"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3ae70effc22331b3e4667ed48808602c">format_multiplier</a> ()</td></tr>
+<tr class="separator:a3ae70effc22331b3e4667ed48808602c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3d3cceb7b721a218a1be1c948138526a"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3d3cceb7b721a218a1be1c948138526a">approx_graph_memory</a> (const vector&lt; string &gt; &amp;fasta_filenames, const vector&lt; string &gt; &amp;vcf_filenames)</td></tr>
+<tr class="separator:a3d3cceb7b721a218a1be1c948138526a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4a16cd88bceed4db044decd94211833d"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4a16cd88bceed4db044decd94211833d">approx_graph_memory</a> (const string &amp;fasta_filename, const string &amp;vcf_filename)</td></tr>
+<tr class="separator:a4a16cd88bceed4db044decd94211833d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a636047a8292ef4b9f7bfe188d2bf47dc"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a636047a8292ef4b9f7bfe188d2bf47dc">approx_graph_memory</a> (const vector&lt; string &gt; &amp;gfa_filenames)</td></tr>
+<tr class="separator:a636047a8292ef4b9f7bfe188d2bf47dc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa588389795ea8613480df1c7eeeafaf8"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa588389795ea8613480df1c7eeeafaf8">approx_graph_memory</a> (const string &amp;gfa_filename)</td></tr>
+<tr class="separator:aa588389795ea8613480df1c7eeeafaf8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad2dc76ed1d84a8e2043955ba3c8a9bb7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad2dc76ed1d84a8e2043955ba3c8a9bb7">for_each_kmer</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t k, const function&lt; void(const <a class="el" href="structvg_1_1kmer__t.html">kmer_t</a> &amp;)&gt; &amp;lambda, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> head_id=0, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> tail_id=0)</td></tr>
 <tr class="memdesc:ad2dc76ed1d84a8e2043955ba3c8a9bb7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over all the kmers in the graph, running lambda on each.  <a href="namespacevg.html#ad2dc76ed1d84a8e2043955ba3c8a9bb7">More...</a><br /></td></tr>
 <tr class="separator:ad2dc76ed1d84a8e2043955ba3c8a9bb7"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -4073,6 +4087,116 @@ template&lt;typename Iter &gt; </div>
           <td></td>
           <td>)</td>
           <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a4a16cd88bceed4db044decd94211833d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4a16cd88bceed4db044decd94211833d">&#9670;&nbsp;</a></span>approx_graph_memory() <span class="overload">[1/4]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::approx_graph_memory </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>fasta_filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>vcf_filename</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="aa588389795ea8613480df1c7eeeafaf8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa588389795ea8613480df1c7eeeafaf8">&#9670;&nbsp;</a></span>approx_graph_memory() <span class="overload">[2/4]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::approx_graph_memory </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>gfa_filename</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a3d3cceb7b721a218a1be1c948138526a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3d3cceb7b721a218a1be1c948138526a">&#9670;&nbsp;</a></span>approx_graph_memory() <span class="overload">[3/4]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::approx_graph_memory </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>fasta_filenames</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>vcf_filenames</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a636047a8292ef4b9f7bfe188d2bf47dc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a636047a8292ef4b9f7bfe188d2bf47dc">&#9670;&nbsp;</a></span>approx_graph_memory() <span class="overload">[4/4]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::approx_graph_memory </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>gfa_filenames</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a665fe802cdb44d2dba6052fc9063513d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a665fe802cdb44d2dba6052fc9063513d">&#9670;&nbsp;</a></span>approx_num_vars()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::approx_num_vars </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>vcf_filename</em></td><td>)</td>
+          <td></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -8003,6 +8127,23 @@ template&lt;typename Annotated &gt; </div>
 
 </div>
 </div>
+<a id="a3ae70effc22331b3e4667ed48808602c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3ae70effc22331b3e4667ed48808602c">&#9670;&nbsp;</a></span>format_multiplier()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::format_multiplier </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a9e9c975d7bec4a22a46b72736915ceb1"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a9e9c975d7bec4a22a46b72736915ceb1">&#9670;&nbsp;</a></span>forwardize_breakpoints()</h2>
 
@@ -8874,6 +9015,24 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Get the outward-facing end <a class="el" href="structvg_1_1Visit.html" title="Describes a step of a walk through a Snarl either on a node or through a child Snarl.">Visit</a> for a chain. </p>
+
+</div>
+</div>
+<a id="a53098c7c826c3d8d2aab804ba5500fd5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a53098c7c826c3d8d2aab804ba5500fd5">&#9670;&nbsp;</a></span>get_file_size()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::get_file_size </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>

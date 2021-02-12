@@ -67,6 +67,7 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
+<a href="#define-members">Macros</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">autoindex_main.cpp File Reference</div>  </div>
@@ -74,12 +75,22 @@ $(function() {
 <div class="contents">
 <div class="textblock"><code>#include &lt;getopt.h&gt;</code><br />
 <code>#include &lt;iostream&gt;</code><br />
+<code>#include &lt;sstream&gt;</code><br />
+<code>#include &lt;algorithm&gt;</code><br />
 <code>#include &lt;htslib/hts.h&gt;</code><br />
 <code>#include &lt;htslib/vcf.h&gt;</code><br />
+<code>#include &lt;omp.h&gt;</code><br />
 <code>#include &quot;<a class="el" href="subcommand_8hpp.html">subcommand.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="index__registry_8hpp.html">index_registry.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="utility_8hpp.html">utility.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="define-members"></a>
+Macros</h2></td></tr>
+<tr class="memitem:a6ca4cd9afa3306994612c96f8b66fb88"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="autoindex__main_8cpp.html#a6ca4cd9afa3306994612c96f8b66fb88">OPT_KEEP_INTERMEDIATE</a>&#160;&#160;&#160;1000</td></tr>
+<tr class="separator:a6ca4cd9afa3306994612c96f8b66fb88"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5d658d26d8f3dd160cc0ccff5badfed7"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="autoindex__main_8cpp.html#a5d658d26d8f3dd160cc0ccff5badfed7">OPT_FORCE_UNPHASED</a>&#160;&#160;&#160;1001</td></tr>
+<tr class="separator:a5d658d26d8f3dd160cc0ccff5badfed7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
 <tr class="memitem:a0fb3b6f3a1ad8bc5ce311d7a82b1759c"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="autoindex__main_8cpp.html#a0fb3b6f3a1ad8bc5ce311d7a82b1759c">vcf_is_phased</a> (const string &amp;filepath)</td></tr>
@@ -91,7 +102,36 @@ Functions</h2></td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines the "vg autoindex" subcommand, which produces indexes needed for other subcommands </p>
-</div><h2 class="groupheader">Function Documentation</h2>
+</div><h2 class="groupheader">Macro Definition Documentation</h2>
+<a id="a5d658d26d8f3dd160cc0ccff5badfed7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5d658d26d8f3dd160cc0ccff5badfed7">&#9670;&nbsp;</a></span>OPT_FORCE_UNPHASED</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define OPT_FORCE_UNPHASED&#160;&#160;&#160;1001</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a6ca4cd9afa3306994612c96f8b66fb88"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6ca4cd9afa3306994612c96f8b66fb88">&#9670;&nbsp;</a></span>OPT_KEEP_INTERMEDIATE</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define OPT_KEEP_INTERMEDIATE&#160;&#160;&#160;1000</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<h2 class="groupheader">Function Documentation</h2>
 <a id="a4a3c7ba0d785194a42444bdedac4db50"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a4a3c7ba0d785194a42444bdedac4db50">&#9670;&nbsp;</a></span>help_autoindex()</h2>
 
