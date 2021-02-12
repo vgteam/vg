@@ -35,23 +35,40 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(const HandleG
     });
 }
 
-//vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDistanceIndex*>& temporary_indexes) {
-//    vector<size_t> result;
-//    size_t total_node_count = 0;
-//    size_t total_component_count = 0;
-//    id_t min_node_id = 0;
-//    //TODO: SHould really also count the size of the index here
-//    //Go through each of the indexes to count how many nodes, components, etc
-//    for (const TemporaryDistanceIndex* temp_index : temporary_indexes) {
-//        total_node_count += temp_index->node_count;
-//        total_comonent_count += temp_index->root_structure_count;
-//        min_node_id = min_node_id == 0 ? temp_index->min_node_id 
-//                                       : std::min(min_node_id, temp_index->min_node_id);
-//    }
-//    for (const TemporaryDistanceIndex* temp_index : temporary_indexes) {
-//    }
-//    return result;
-//}
+vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDistanceIndex*>& temporary_indexes) {
+    vector<size_t> result;
+    size_t total_index_size = 0;
+    size_t total_node_count = 0;
+    size_t total_component_count = 0;
+    id_t min_node_id = 0;
+    //TODO: SHould really also count the size of the index here
+    //Go through each of the indexes to count how many nodes, components, etc
+    for (const TemporaryDistanceIndex* temp_index : temporary_indexes) {
+        total_index_size += temp_index->index_size;
+        total_node_count += temp_index->node_count;
+        total_component_count += temp_index->root_structure_count;
+        min_node_id = min_node_id == 0 ? temp_index->min_node_id 
+                                       : std::min(min_node_id, temp_index->min_node_id);
+    }
+    result.reserve(total_index_size);
+    //Get the root and the nodes
+    //TODO: Could also write directly into snarl_tree_records
+    RootRecordConstructor root_record(0, total_component_count, total_node_count, min_node_id, result);
+    root_record.set_connected_component_count(total_component_count);
+    root_record.set_node_count(total_node_count);
+    root_record.set_min_node_id(min_node_id);
+    //TODO: For now I'm assuming that I'm including distances
+    for (const TemporaryDistanceIndex* temp_index : temporary_indexes) {
+        NodeRecordConstructor node_record(result.size(), result, DISTANCED_NODE);
+    }
+    //Now go through each of the indexes and copy them into result
+    //TODO: Everything is going to be in the order given, which should hopefully be reasonable
+    for (const TemporaryDistanceIndex* temp_index : temporary_indexes) {
+        
+    }
+    return result;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //Implement the SnarlDecomposition's functions for moving around the snarl tree
 //
