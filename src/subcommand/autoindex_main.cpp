@@ -4,9 +4,12 @@
  */
 #include <getopt.h>
 #include <iostream>
+#include <sstream>
+#include <algorithm>
 
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
+#include <omp.h>
 
 #include "subcommand.hpp"
 #include "index_registry.hpp"
@@ -26,59 +29,86 @@ bool vcf_is_phased(const string& filepath) {
     // TODO: will there be contig ordering biases that make this a bad assumption?
     constexpr int vars_to_check = 1 << 15;
     
-    htsFile* file = hts_open(filepath.c_str(),"rb");
-    bcf_hdr_t* header = bcf_hdr_read(file);
-    int phase_set_id = bcf_hdr_id2int(header, BCF_DT_ID, "PS");
-    if (phase_set_id < 0) {
-        // no PS tag means no phasing
-        bcf_hdr_destroy(header);
-        hts_close(file);
-        return false;
-    }
+    
+    htsFile* file = hts_open(filepath.c_str(), "rb");
+    bcf_hdr_t* hdr = bcf_hdr_read(file);
+    int phase_set_id = bcf_hdr_id2int(hdr, BCF_DT_ID, "PS");
+    // note: it seems that this is not necessary for expressing phasing after all
+//    if (phase_set_id < 0) {
+//        // no PS tag means no phasing
+//        bcf_hdr_destroy(hdr);
+//        hts_close(file);
+//        return false;
+//    }
     
     // iterate over records
-    bcf1_t* bcf_rec = bcf_init();
+    bcf1_t* line = bcf_init();
     int iter = 0;
     bool found_phased = false;
-    while (bcf_read(file, header, bcf_rec) >= 0 && iter < vars_to_check && !found_phased)
+    while (bcf_read(file, hdr, line) >= 0 && iter < vars_to_check && !found_phased)
     {
-        bcf_unpack(bcf_rec, BCF_UN_ALL);
-        if (phase_set_id == BCF_HT_INT) {
-            // phase sets are integers
-            int num_phase_set_arr = 0;
-            int32_t* phase_sets = NULL;
-            int num_phase_sets = bcf_get_format_int32(header, bcf_rec, "PS", &phase_sets, &num_phase_set_arr);
-            for (int i = 0; i < num_phase_sets && !found_phased; ++i) {
-                found_phased = phase_sets[i] != 0;
+        //cerr << "line record at " << line << endl;
+        if (phase_set_id >= 0) {
+            if (phase_set_id == BCF_HT_INT) {
+                // phase sets are integers
+                int num_phase_set_arr = 0;
+                int32_t* phase_sets = NULL;
+                int num_phase_sets = bcf_get_format_int32(hdr, line, "PS", &phase_sets, &num_phase_set_arr);
+                for (int i = 0; i < num_phase_sets && !found_phased; ++i) {
+                    found_phased = phase_sets[i] != 0;
+                }
+                free(phase_sets);
             }
-            free(phase_sets);
-        }
-        else if (phase_set_id == BCF_HT_STR) {
-            // phase sets are strings
-            int num_phase_set_arr = 0;
-            char** phase_sets = NULL;
-            int num_phase_sets = bcf_get_format_string(header, bcf_rec, "PS", &phase_sets, &num_phase_set_arr);
-            for (int i = 0; i < num_phase_sets && !found_phased; ++i) {
-                found_phased = strcmp(phase_sets[i], ".") != 0;
+            else if (phase_set_id == BCF_HT_STR) {
+                // phase sets are strings
+                int num_phase_set_arr = 0;
+                char** phase_sets = NULL;
+                int num_phase_sets = bcf_get_format_string(hdr, line, "PS", &phase_sets, &num_phase_set_arr);
+                for (int i = 0; i < num_phase_sets && !found_phased; ++i) {
+                    found_phased = strcmp(phase_sets[i], ".") != 0;
+                }
+                if (phase_sets) {
+                    // all phase sets are concatenated in one malloc's char*, pointed to by the first pointer
+                    free(phase_sets[0]);
+                }
+                // free the array of pointers
+                free(phase_sets);
             }
-            if (phase_sets) {
-                // all phase sets are concatenated in one malloc's char*, pointed to by the first pointer
-                free(phase_sets[0]);
+        }
+        
+        // init a genotype array
+        int32_t* genotypes = nullptr;
+        int arr_size = 0;
+        // and query it
+        int num_genotypes = bcf_get_genotypes(hdr, line, &genotypes, &arr_size);
+        if (num_genotypes >= 0) {
+            // we got genotypes, check to see if they're phased
+            int num_samples = bcf_hdr_nsamples(hdr);
+            int ploidy = num_genotypes / num_samples;
+            for (int i = 0; i < num_genotypes && !found_phased; i += ploidy) {
+                for (int j = 0; j < ploidy && !found_phased; ++j) {
+                    if (genotypes[i + j] == bcf_int32_vector_end) {
+                        // sample has lower ploidy
+                        break;
+                    }
+                    if (bcf_gt_is_missing(genotypes[i + j])) {
+                        continue;
+                    }
+                    if (bcf_gt_is_phased(genotypes[i + j])) {
+                        // the VCF expresses phasing, we can
+                        found_phased = true;;
+                    }
+                }
             }
-            // free the array of pointers
-            free(phase_sets);
         }
-        else {
-            cerr << "warning: unrecognized PS type in VCF file " << filepath << ", interpreting as unphased." << endl;
-            break;
-        }
+        
+        free(genotypes);
         ++iter;
     }
     // clean up
-    bcf_destroy(bcf_rec);
-    bcf_hdr_destroy(header);
+    bcf_destroy(line);
+    bcf_hdr_destroy(hdr);
     hts_close(file);
-    
     return found_phased;
 }
 
@@ -88,14 +118,16 @@ void help_autoindex(char** argv) {
     << "options:" << endl
     << "  output:" << endl
     << "    -p, --prefix PREFIX   prefix to use for all output (default: index)" << endl
-    << "    -w, --workflow NAME   workflow to produce indexes for: map, mpmap, giraffe (default: map)" << endl
+    << "    -w, --workflow NAME   workflow to produce indexes for, can be provided multiple" << endl
+    << "                          times. options: map, mpmap, giraffe (default: map)" << endl
     << "  input data:" << endl
-    << "    -r, --ref-fasta FILE  FASTA file containing the reference sequence" << endl
-    << "    -v, --vcf FILE        VCF file with sequence names matching -r" << endl
+    << "    -r, --ref-fasta FILE  FASTA file containing the reference sequence (may repeat)" << endl
+    << "    -v, --vcf FILE        VCF file with sequence names matching -r (may repeat)" << endl
     << "    -i, --ins-fasta FILE  FASTA file with sequences of INS variants from -v" << endl
     << "    -g, --gfa FILE        GFA file to make a graph from" << endl
     << "  logging and computation:" << endl
     << "    -T, --tmp-dir DIR     temporary directory to use for intermediate files" << endl
+    << "    -t, --threads NUM     number of threads (default: all available)" << endl
     << "    -V, --verbose         log progress to stderr" << endl
     << "    -d, --dot             print the dot-formatted graph of index recipes and exit" << endl
     << "    -h, --help            print this help message to stderr and exit" << endl;
@@ -108,10 +140,15 @@ int main_autoindex(int argc, char** argv) {
         return 1;
     }
     
+#define OPT_KEEP_INTERMEDIATE 1000
+#define OPT_FORCE_UNPHASED 1001
+    
     // load the registry
     IndexRegistry registry = VGIndexes::get_vg_index_registry();
     bool print_dot = false;
     vector<IndexName> targets;
+    vector<string> vcf_names;
+    bool force_unphased = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -125,15 +162,18 @@ int main_autoindex(int argc, char** argv) {
             {"ins-fasta", required_argument, 0, 'i'},
             {"gfa", required_argument, 0, 'g'},
             {"tmp-dir", required_argument, 0, 'T'},
+            {"threads", required_argument, 0, 't'},
             {"verbose", no_argument, 0, 'V'},
             {"dot", no_argument, 0, 'd'},
             {"help", no_argument, 0, 'h'},
+            {"keep-intermediate", no_argument, 0, OPT_KEEP_INTERMEDIATE},
+            {"force-unphased", no_argument, 0, OPT_FORCE_UNPHASED},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "p:w:r:v:i:g:T:dVh",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "p:w:r:v:i:g:T:t:dVh",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -146,16 +186,21 @@ int main_autoindex(int argc, char** argv) {
                 break;
             case 'w':
                 if (optarg == string("map")) {
-                    targets = VGIndexes::get_default_map_indexes();
+                    for (auto& target : VGIndexes::get_default_map_indexes()) {
+                        targets.emplace_back(move(target));
+                    }
                 }
                 else if (optarg == string("mpmap")) {
-                    targets = VGIndexes::get_default_mpmap_indexes();
+                    for (auto& target : VGIndexes::get_default_mpmap_indexes()) {
+                        targets.emplace_back(move(target));
+                    }
                     cerr << "mpmap indexing not yet implemented" << endl;
                     return 1;
                 }
                 else if (optarg == string("giraffe")) {
-                    targets = VGIndexes::get_default_giraffe_indexes();
-                    cerr << "giraffe indexing not yet implemented" << endl;
+                    for (auto& target : VGIndexes::get_default_giraffe_indexes()) {
+                        targets.emplace_back(move(target));
+                    }                    cerr << "giraffe indexing not yet implemented" << endl;
                     return 1;
                 }
                 else {
@@ -167,12 +212,7 @@ int main_autoindex(int argc, char** argv) {
                 registry.provide({"Reference FASTA"}, optarg);
                 break;
             case 'v':
-                if (vcf_is_phased(optarg)) {
-                    registry.provide({"Phased VCF"}, optarg);
-                }
-                else {
-                    registry.provide({"VCF"}, optarg);
-                }
+                vcf_names.push_back(optarg);
                 break;
             case 'i':
                 registry.provide({"Insertion Sequence FASTA"}, optarg);
@@ -183,17 +223,47 @@ int main_autoindex(int argc, char** argv) {
             case 'T':
                 temp_file::set_dir(optarg);
                 break;
+            case 't':
+                omp_set_num_threads(parse<int>(optarg));
+                break;
             case 'V':
                 IndexingParameters::verbose = true;
                 break;
             case 'd':
                 print_dot = true;
                 break;
+            case OPT_KEEP_INTERMEDIATE:
+                registry.set_intermediate_file_keeping(true);
+                break;
+            case OPT_FORCE_UNPHASED:
+                force_unphased = true;
+                break;
             case 'h':
                 help_autoindex(argv);
                 return 0;
             default:
                 abort ();
+        }
+    }
+    
+    // we have special logic for VCFs to make it friendly to both phased
+    // and unphased VCF files
+    if (!vcf_names.empty()) {
+        // we interpret it as a phased VCF if any of the VCFs have phasing
+        bool phased = false;
+        if (!force_unphased) {
+            for (size_t i = 0; i < vcf_names.size() && !phased; ++i) {
+                phased = vcf_is_phased(vcf_names[i]);
+            }
+        }
+        
+        for (auto& vcf_name : vcf_names) {
+            if (phased) {
+                registry.provide({"Phased VCF"}, vcf_name);
+            }
+            else {
+                registry.provide({"VCF"}, vcf_name);
+            }
         }
     }
 
@@ -207,6 +277,9 @@ int main_autoindex(int argc, char** argv) {
         // default to vg map indexes
         targets = VGIndexes::get_default_map_indexes();
     }
+    // deduplicate
+    sort(targets.begin(), targets.end());
+    targets.resize(unique(targets.begin(), targets.end()) - targets.begin());
     
     registry.make_indexes(targets);
     
