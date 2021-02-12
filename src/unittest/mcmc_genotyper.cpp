@@ -18,10 +18,13 @@
 #include "../snarls.hpp"
 #include "../cactus_snarl_finder.hpp"
 #include "../genotypekit.hpp"
+#include "algorithms/min_cut_graph.hpp"
 
 #include "catch.hpp"
 
 // #define debug
+
+#define debug_snarl_graph
 
 namespace vg {
     namespace unittest {
@@ -1038,6 +1041,121 @@ namespace vg {
                 
             }
             
+        }
+        TEST_CASE("snarl_map and snarl_graph work on 7 node graph") {
+
+                VG graph;
+
+                Node* n1 = graph.create_node("GCA"); 
+                Node* n2 = graph.create_node("T");
+                Node* n3 = graph.create_node("G");
+                Node* n4 = graph.create_node("CTGA"); 
+                Node* n5 = graph.create_node("A");
+                Node* n6 = graph.create_node("G");
+                Node* n7 = graph.create_node("CCC");
+
+                path_handle_t path_handle = graph.create_path_handle("x");
+                graph.append_step(path_handle, graph.get_handle(n1->id()));
+                graph.append_step(path_handle, graph.get_handle(n3->id()));
+                graph.append_step(path_handle, graph.get_handle(n4->id()));
+                graph.append_step(path_handle, graph.get_handle(n5->id()));
+                graph.append_step(path_handle, graph.get_handle(n7->id()));
+                
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n4);
+                graph.create_edge(n3, n4);
+                graph.create_edge(n4, n5);
+                graph.create_edge(n4, n6);
+                graph.create_edge(n5, n7);
+                graph.create_edge(n6, n7);
+				
+				CactusSnarlFinder bubble_finder(graph);
+                SnarlManager snarl_manager = bubble_finder.find_snarls();
+
+                // Configure GCSA temp directory to the system temp directory
+                gcsa::TempFile::setDirectory(temp_file::get_dir());
+                // And make it quiet
+                gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+                
+                // Make pointers to fill in
+                gcsa::GCSA* gcsaidx = nullptr;
+                gcsa::LCPArray* lcpidx = nullptr;
+                
+                // Build the GCSA index
+                build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3); 
+            
+                
+                // Build the xg index
+                //defining an XG and a variable called xg_index and calling the constructor
+                xg::XG xg_index; //VG uses a Graph as internal structure 
+                xg_index.from_path_handle_graph(graph);               //xg::XG xg_index();
+                
+                // Make a multipath mapper to map against the graph.
+                MultipathMapper multipath_mapper(&xg_index, gcsaidx, lcpidx); 
+
+                
+                vector<string> reads = {"GCATCTGAGCCC", "GCATCTGAGCCC", "GCAGCTGAACCC", "GCAGCTGAACCC","GCAGCTGAACCC", "GCAGCTGAACCC", "GCAGCTGAGCCC", "GCAGCTGAGCCC"};
+                vector<Alignment> alns = {reads.size(), Alignment()};
+                
+                // set alignment sequence
+                for(int i = 0; i< reads.size(); i++){
+                    alns[i].set_sequence(reads[i]);
+                }
+                
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
+
+                vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>();
+
+                vector<vector<multipath_alignment_t>> vect = {reads.size(),vector<multipath_alignment_t>() };
+                
+                
+                // map read in alignment to graph and make multipath alignments 
+                for(int i = 0; i< reads.size(); i++){
+                    multipath_mapper.multipath_map(alns[i], vect[i]);
+                }
+                
+                // accumulate the mapped reads in one vector
+                for(int i = 0; i< reads.size(); i++){
+                    move(vect[i].begin(), vect[i].end(), back_inserter(multipath_aln_vector)); 
+                }
+                
+
+                double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
+                
+                // generate initial value
+                unique_ptr<PhasedGenome> phased_genome = mcmc_genotyper.generate_initial_guess();
+
+                unordered_map<pair<const Snarl*, const Snarl*>, int32_t> snarl_map = mcmc_genotyper.make_snarl_map(multipath_aln_vector ,  phased_genome);
+#ifdef debug_snarl_graph
+                unordered_map<pair<const Snarl*, const Snarl*>, int32_t>::iterator it = snarl_map.begin();
+                while(it != snarl_map.end())
+                {
+                    std::cout<<"weight: " << it->second<<std::endl;
+                    it++;
+                }
+#endif
+                algorithms::Graph snarl_graph = mcmc_genotyper.make_snarl_graph(snarl_map);
+
+#ifdef debug_snarl_graph
+                cout << "graph" <<endl;        
+                // check if any edges connect to other nodes in the disjoint set
+                for(size_t i =0; i < snarl_graph.get_node_ids().size(); i++){
+                    vector<size_t> node_ids = snarl_graph.get_node_ids();
+                    for(size_t j =0; j < snarl_graph.get_node_by_id(node_ids[i]).edges.size(); j++){
+                        algorithms::Node node =  snarl_graph.get_node_by_id(node_ids[i]);
+                        cout << "node "<<node_ids[i] <<"->" << node.edges[j].other <<endl;
+                        cout << "edge weight: " << node.edges[j].weight <<endl;
+
+                    }
+                    
+                }
+#endif
+
+
+
+
         }
 
     }

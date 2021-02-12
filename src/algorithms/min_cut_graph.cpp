@@ -360,17 +360,6 @@ namespace vg {
 //                 cout << "============================================================================= " << endl;
 //                 cout << "MIN-CUT-DECOMPOSITION"  <<endl;
 //                 cout << "============================================================================= " << endl;
-//                 cout << "============================================================================= " << endl;
-//                 cout << "original graph" <<endl;        
-//                 for (auto& id_and_node : graph.nodes){
-                
-//                     cout << "Node: "<<id_and_node.first  << ",weight: "<< id_and_node.second.weight <<endl; 
-//                     for (size_t j = 0; j < id_and_node.second.edges.size(); j++){
-//                         cout << "edge "<< id_and_node.first  << "->" << id_and_node.second.edges[j].other <<", weight: " << id_and_node.second.edges[j].weight << endl;
-//                     }                       
-//                 } 
-                
-//                 cout << "============================================================================= " << endl;
 // #endif               
                 size_t V = graph.get_size();
 

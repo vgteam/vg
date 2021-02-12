@@ -908,20 +908,7 @@ namespace vg {
                 }
                 
             }
-
-//  #ifdef debug
-//             cout << "============================================================================= " << endl;
-//             cout << "original graph" <<endl;        
-//             for (auto& id_and_node : graph.nodes){
-            
-//                 cout << "Node: "<<id_and_node.first  << ",weight: "<< id_and_node.second.weight <<endl; 
-//                 for (size_t j = 0; j < id_and_node.second.edges.size(); j++){
-//                     cout << "edge "<< id_and_node.first  << "->" << id_and_node.second.edges[j].other <<", weight: " << id_and_node.second.edges[j].weight << endl;
-//                 }                       
-//             } 
-            
-//             cout << "============================================================================= " << endl;
-// #endif             
+           
             // Get starting timepoint 
             auto start = high_resolution_clock::now(); 
             //call min-cut-decomposition

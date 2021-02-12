@@ -317,7 +317,7 @@ namespace vg {
 
         return genome;
     }
-    unordered_map<pair<const Snarl*, const Snarl*>, int32_t> MCMCGenotyper::make_snarl_map(SnarlManager& snarls, const vector<multipath_alignment_t>& reads, unique_ptr<PhasedGenome>& phased_genome) const{
+    unordered_map<pair<const Snarl*, const Snarl*>, int32_t> MCMCGenotyper::make_snarl_map(const vector<multipath_alignment_t>& reads, unique_ptr<PhasedGenome>& phased_genome) const{
         
         unordered_set<const Snarl*> snarl_set;
         unordered_map<pair<const Snarl*, const Snarl*>, int32_t> map;
@@ -412,7 +412,7 @@ namespace vg {
         return  map;
     }
 
-    algorithms::Graph MCMCGenotyper::make_snarl_graph(unordered_map<pair<const Snarl*, const Snarl*>, int32_t> map, SnarlManager& snarls) const{
+    algorithms::Graph MCMCGenotyper::make_snarl_graph(unordered_map<pair<const Snarl*, const Snarl*>, int32_t> map) const{
         //TODO: find where the SnarlRecord* are being added to deque and store the index in snarls.cpp
         
         algorithms::Graph snarl_graph;
@@ -451,6 +451,7 @@ namespace vg {
         return snarl_graph; 
 
     }
+
 
 }
 
