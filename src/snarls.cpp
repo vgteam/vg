@@ -871,6 +871,9 @@ const Snarl* SnarlManager::add_snarl(const Snarl& new_snarl) {
     
     // Hackily copy the snarl in
     *new_record = new_snarl;
+
+    // Initialized snarl number for each record as deque is being filled
+    new_record->snarl_number = (size_t)snarls.size();
     
     // TODO: Should this be a non-default SnarlRecord constructor?
 

@@ -75,7 +75,7 @@ public:
      /**
       * Generate a graph using the snarl map
       */
-     algorithms::Graph make_snarl_graph(unordered_map<pair<const Snarl*, const Snarl*>, int32_t> map) const;
+     algorithms::Graph make_snarl_graph(unordered_map<pair<const Snarl*, const Snarl*>, int32_t> map, SnarlManager& snarls) const;
 
 
 };

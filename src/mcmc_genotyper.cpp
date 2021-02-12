@@ -323,6 +323,7 @@ namespace vg {
         unordered_map<pair<const Snarl*, const Snarl*>, int32_t> map;
         vector<pair<const Snarl*, const Snarl*>> pairs;
         int32_t score_after_swap,score_before_swap,diff_score;
+
         //loop over reads
         for(const multipath_alignment_t& multipath_aln : reads){
             //for each pair of snarls that touches that read
@@ -394,10 +395,13 @@ namespace vg {
                     
                     //getcalculate difference of scores between swaps
                     diff_score = score_before_swap - score_after_swap;
-                    // if score decreases contribute (+) diff_score ?? unsigned nature of size_t - should it be int_32 
-                    // lower scores are better for min cut
-                    // create some hash function so we can 
-                    // pairs[snarl_ptr.first,  snarl_ptr.second] += diff_score;
+
+                    if(score_before_swap > score_after_swap){
+                        map[make_pair(snarl_ptr.first, snarl_ptr.second)] += diff_score;
+                    }else{
+                        map[make_pair(snarl_ptr.first, snarl_ptr.second)] -= diff_score;
+                    }
+                    
                     
                 }
                     
@@ -408,13 +412,16 @@ namespace vg {
         return  map;
     }
 
-    algorithms::Graph MCMCGenotyper::make_snarl_graph(unordered_map<pair<const Snarl*, const Snarl*>, int32_t> map) const{
+    algorithms::Graph MCMCGenotyper::make_snarl_graph(unordered_map<pair<const Snarl*, const Snarl*>, int32_t> map, SnarlManager& snarls) const{
         //TODO: find where the SnarlRecord* are being added to deque and store the index in snarls.cpp
         
         algorithms::Graph snarl_graph;
 
         for(auto snarl_pair_to_weight: map){
-            size_t edge_weight = snarl_pair_to_weight.second;
+            size_t edge_weight = (size_t)snarl_pair_to_weight.second;
+            pair<const Snarl*, const Snarl*> snarl_pair = snarl_pair_to_weight.first;
+            const Snarl* snarl_1 = snarl_pair.first;
+            const Snarl* snarl_2 = snarl_pair.second;
             // skip edge weights that are <1
             if(edge_weight < 1){
                 continue;
@@ -428,11 +435,14 @@ namespace vg {
                 snarl_node_1.weight += edge_weight;
                 snarl_node_2.weight += edge_weight;
 
-                //snarl ids -> node ids, get the ids from SnarlRecord index member - look in add_snarl
-                // edge_fwd.other = snarl_id_2;
-                // edge_back.other = snarl_id_1;
-                // graph.add_node(snarl_id_1, snarl_node_1);
-                // graph.add_node(snarl_id_2, snarl_node_2);
+                //node ids, get the ids from SnarlRecord index member 
+                size_t snarl_id_1 = snarls.snarl_number(snarl_1);
+                size_t snarl_id_2 = snarls.snarl_number(snarl_2);
+
+                edge_fwd.other = snarl_id_2;
+                edge_back.other = snarl_id_1;
+                snarl_graph.add_node(snarl_id_1, snarl_node_1);
+                snarl_graph.add_node(snarl_id_2, snarl_node_2);
 
             }
 
