@@ -125,6 +125,7 @@ void help_autoindex(char** argv) {
     << "    -v, --vcf FILE        VCF file with sequence names matching -r (may repeat)" << endl
     << "    -i, --ins-fasta FILE  FASTA file with sequences of INS variants from -v" << endl
     << "    -g, --gfa FILE        GFA file to make a graph from" << endl
+    << "    -a, --tx-gff FILE     GTF/GFF file with transcript annotations (may repeat)" << endl
     << "  logging and computation:" << endl
     << "    -T, --tmp-dir DIR     temporary directory to use for intermediate files" << endl
     << "    -t, --threads NUM     number of threads (default: all available)" << endl
@@ -142,6 +143,7 @@ int main_autoindex(int argc, char** argv) {
     
 #define OPT_KEEP_INTERMEDIATE 1000
 #define OPT_FORCE_UNPHASED 1001
+#define OPT_FORCE_PHASED 1002
     
     // load the registry
     IndexRegistry registry = VGIndexes::get_vg_index_registry();
@@ -149,6 +151,7 @@ int main_autoindex(int argc, char** argv) {
     vector<IndexName> targets;
     vector<string> vcf_names;
     bool force_unphased = false;
+    bool force_phased = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -161,6 +164,7 @@ int main_autoindex(int argc, char** argv) {
             {"vcf", required_argument, 0, 'v'},
             {"ins-fasta", required_argument, 0, 'i'},
             {"gfa", required_argument, 0, 'g'},
+            {"tx-annotations", required_argument, 0, 'a'},
             {"tmp-dir", required_argument, 0, 'T'},
             {"threads", required_argument, 0, 't'},
             {"verbose", no_argument, 0, 'V'},
@@ -168,11 +172,12 @@ int main_autoindex(int argc, char** argv) {
             {"help", no_argument, 0, 'h'},
             {"keep-intermediate", no_argument, 0, OPT_KEEP_INTERMEDIATE},
             {"force-unphased", no_argument, 0, OPT_FORCE_UNPHASED},
+            {"force-phased", no_argument, 0, OPT_FORCE_PHASED},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "p:w:r:v:i:g:T:t:dVh",
+        c = getopt_long (argc, argv, "p:w:r:v:i:g:a:T:t:dVh",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -194,8 +199,6 @@ int main_autoindex(int argc, char** argv) {
                     for (auto& target : VGIndexes::get_default_mpmap_indexes()) {
                         targets.emplace_back(move(target));
                     }
-                    cerr << "mpmap indexing not yet implemented" << endl;
-                    return 1;
                 }
                 else if (optarg == string("giraffe")) {
                     for (auto& target : VGIndexes::get_default_giraffe_indexes()) {
@@ -220,6 +223,9 @@ int main_autoindex(int argc, char** argv) {
             case 'g':
                 registry.provide({"Reference GFA"}, optarg);
                 break;
+            case 'a':
+                registry.provide({"GTF/GFF"}, optarg);
+                break;
             case 'T':
                 temp_file::set_dir(optarg);
                 break;
@@ -238,6 +244,9 @@ int main_autoindex(int argc, char** argv) {
             case OPT_FORCE_UNPHASED:
                 force_unphased = true;
                 break;
+            case OPT_FORCE_PHASED:
+                force_phased = true;
+                break;
             case 'h':
                 help_autoindex(argv);
                 return 0;
@@ -246,11 +255,13 @@ int main_autoindex(int argc, char** argv) {
         }
     }
     
+    assert(!(force_phased && force_unphased));
+    
     // we have special logic for VCFs to make it friendly to both phased
     // and unphased VCF files
     if (!vcf_names.empty()) {
         // we interpret it as a phased VCF if any of the VCFs have phasing
-        bool phased = false;
+        bool phased = force_phased;
         if (!force_unphased) {
             for (size_t i = 0; i < vcf_names.size() && !phased; ++i) {
                 phased = vcf_is_phased(vcf_names[i]);

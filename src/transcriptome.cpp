@@ -16,6 +16,15 @@ using namespace std;
 
 //#define transcriptome_debug
 
+Transcriptome::Transcriptome(unique_ptr<MutablePathDeletableHandleGraph>&& graph, const bool show_progress) :
+    _splice_graph(move(graph))
+{
+    _splice_graph_node_updated = false;
+    if (!_splice_graph) {
+        cerr << "[transcriptome] ERROR: Could not load graph." << endl;
+        exit(1);
+    }
+}
 
 Transcriptome::Transcriptome(const string & graph_filename, const bool show_progress) {
 
@@ -201,10 +210,16 @@ vector<Transcript> Transcriptome::parse_introns(istream & intron_stream, const b
         }
 
         if (!_splice_graph->has_path(chrom)) {
-        
-            cerr << "[transcriptome] ERROR: Chromomsome path \"" << chrom << "\" not found in graph (line " << line_number << ")." << endl;
-            exit(1);
-        } 
+            if (error_on_missing_path) {
+                cerr << "[transcriptome] ERROR: Chromomsome path \"" << chrom << "\" not found in graph (line " << line_number << ")." << endl;
+                exit(1);
+            }
+            else {
+                // seek to the end of the line
+                intron_stream.ignore(numeric_limits<streamsize>::max(), '\n');
+                continue;
+            }
+        }
 
         // Parse start and end intron position and convert end to inclusive.
         assert(getline(intron_stream, pos, '\t'));
@@ -278,10 +293,16 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream,
         }
 
         if (!_splice_graph->has_path(chrom)) {
-        
-            cerr << "[transcriptome] ERROR: Chromomsome path \"" << chrom << "\" not found in graph (line " << line_number << ")." << endl;
-            exit(1);
-        } 
+            if (error_on_missing_path) {
+                cerr << "[transcriptome] ERROR: Chromomsome path \"" << chrom << "\" not found in graph (line " << line_number << ")." << endl;
+                exit(1);
+            }
+            else {
+                // seek to the end of the line
+                transcript_stream.ignore(numeric_limits<streamsize>::max(), '\n');
+                continue;
+            }
+        }
 
         transcript_stream.ignore(numeric_limits<streamsize>::max(), '\t');         
         assert(getline(transcript_stream, feature, '\t'));

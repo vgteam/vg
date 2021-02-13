@@ -30,6 +30,7 @@ is $(echo $?) 0 "autoindexing successfully completes indexing for vg map with ph
 vg sim -x auto.xg -n 20 -a -l 10 | vg map -d auto -t 1 -G - > /dev/null
 is $(echo $?) 0 "phased autoindexing results can be used by vg map"
 
-
 rm auto.xg auto.gcsa auto.gcsa.lcp
+
+# to add: GFA construction
 

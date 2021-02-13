@@ -127,6 +127,8 @@ struct CompletedTranscriptPath : public TranscriptPath {
 class Transcriptome {
 
     public:
+    
+        Transcriptome(unique_ptr<MutablePathDeletableHandleGraph>&&, const bool);
 
         Transcriptome(const string &, const bool);   
 
@@ -147,6 +149,9 @@ class Transcriptome {
 
         /// Collapse identical transcript paths.
         bool collapse_transcript_paths = true;
+    
+        /// Treat a missing path in the transcripts/introns as a data error
+        bool error_on_missing_path = true;
 
         /// Add splice-junstions from a intron BED file. 
         /// Returns number of parsed introns. 
@@ -200,7 +205,7 @@ class Transcriptome {
 
         /// Writes spliced variation graph to vg file
         void write_splice_graph(ostream * graph_ostream) const;
-
+    
     private:
 
         /// Transcriptome represented by a set of transcript paths. 

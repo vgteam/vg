@@ -72,6 +72,12 @@ struct IndexingParameters {
     static int gcsa_initial_kmer_length;
     // number of k-mer length doubling steps in GCSA2 [4]
     static int gcsa_doubling_steps;
+    // number of gbwt nodes inserted at a time in dynamic gbwt [100M]
+    static int gbwt_insert_batch_size;
+    // the sampling interval in the GBWT suffix array [1024]
+    static int gbwt_sampling_interval;
+    // should the haplotype-transcript GBWT be made bidirectional [false]
+    static bool bidirectional_haplo_tx_gbwt;
     // whether indexing algorithms will log progress (if available) [false]
     static bool verbose;
 };
