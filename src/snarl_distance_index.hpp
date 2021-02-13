@@ -727,7 +727,7 @@ private:
             }
         }
         //Rev is true if the node is traversed backwards to leave the snarl
-        void set_end_id(id_t id, bool rev) const {
+        void set_end_node(id_t id, bool rev) const {
             record_t type = get_record_type();
             if (type == ROOT || type == NODE || type == DISTANCED_NODE) {
                 throw runtime_error("error: trying to set the node id of a node or root");
@@ -1012,12 +1012,13 @@ private:
         size_t record_offset;
         vector<size_t>& records;
 
-        SnarlRecordConstructor (size_t pointer, record_t type, size_t node_count, vector<size_t> &records)
-            : record_offset(pointer), records(records){
+        SnarlRecordConstructor (record_t type, size_t node_count, vector<size_t> &records)
+            : records(records){
             //Constructor for making a new record, including allocating memory.
             //Assumes that this is the latest record being made, so pointer will be the end of
             //the array and we need to allocate extra memory past it
             //TODO:I'm not sure yet how memory will actually be allocated
+            record_offset = records.size();
             size_t extra_size = record_size(type, node_count);
             records.resize(records.size() + extra_size, 0);
             set_node_count(node_count);
@@ -1031,8 +1032,8 @@ private:
 
             records.at(distance_vector_start + distance_vector_offset) = distance - 1;
         }
-        void set_node_count(size_t parent_pointer) {
-            records.at(record_offset + SNARL_NODE_COUNT_OFFSET) = parent_pointer;
+        void set_node_count(size_t node_count) {
+            records.at(record_offset + SNARL_NODE_COUNT_OFFSET) = node_count;
         }
         void set_child_record_pointer(size_t pointer) {
             records.at(record_offset+SNARL_CHILD_RECORD_OFFSET) = pointer;
@@ -1200,7 +1201,8 @@ private:
     struct ChainRecordConstructor : ChainRecord , SnarlTreeRecordConstructor {
         //Constructor for a chain record
         //Since the size of the vector will be unknown (since we don't know how big the snarls are),
-        //Add nodes and snarls as they come up
+        //Add nodes and snarls as they come up. Assumes that the memory has already been reserved but
+        //not allocated yet
 
         size_t record_offset;
         vector<size_t>& records;
@@ -1214,15 +1216,28 @@ private:
             records.at(record_offset) = type << 6;
         }
 
-        void add_node(int64_t prefix_sum, int64_t forward_loop, int64_t reverse_loop) {
-            records.resize(records.size() + CHAIN_NODE_RECORD_SIZE);
+        void add_node(id_t id, int64_t prefix_sum, int64_t forward_loop, int64_t reverse_loop) {
+            records.emplace_back(prefix_sum);
+            records.emplace_back(forward_loop);
+            records.emplace_back(reverse_loop);
         }
-        //TODO: Actually add this
-        void add_snarl() {
+        void set_node_count(size_t node_count) {
+            records.at(record_offset + CHAIN_NODE_COUNT_OFFSET) = node_count;
+        }
+        void add_trivial_snarl() {
+            records.emplace_back(0);
+        }
+        //Add a snarl to the end of the chain and return a SnarlRecordConstructor pointing to it
+        SnarlRecordConstructor add_snarl(size_t snarl_size, record_t type) {
+            records.emplace_back(snarl_size);
+            SnarlRecordConstructor snarl_record(type, snarl_size, records);
+            records.emplace_back(snarl_size);
+            return snarl_record;
         }
 
-        void set_node_count(size_t parent_pointer) {
-            records.at(record_offset + CHAIN_NODE_COUNT_OFFSET) = parent_pointer;
+        void finish_chain(){
+            records.emplace_back(0);
+            records.emplace_back(0);
         }
     };
 
@@ -1335,6 +1350,7 @@ protected:
      * A structure to store everything in the distance index, but not in just one vector to make it easier to construct
      * This can also be used to combine distance indexes
      */
+    enum temp_record_t {TEMP_CHAIN=0, TEMP_SNARL, TEMP_NODE};
     class TemporaryDistanceIndex{
     public:
         TemporaryDistanceIndex(const HandleGraphSnarlFinder* snarl_finder);
@@ -1351,12 +1367,15 @@ protected:
         };
         struct TemporaryChainRecord : TemporaryRecord {
             id_t start_node_id;
+            bool start_node_rev;
             id_t end_node_id;
-            TemporaryRecord* parent_pointer;
+            bool end_node_rev;
+            //Type of the parent and offset into the appropriate vector
+            pair<temp_record_t, size_t> parent;
             size_t node_count;
             int64_t min_length;
             int64_t max_length;
-            vector<TemporaryRecord*> children; //All children, both nodes and snarls, in order
+            vector<pair<temp_record_t, size_t>> children; //All children, both nodes and snarls, in order
             //Distances for the chain, one entry per node
             vector<int64_t> prefix_sum;
             vector<int64_t> forward_loops;
@@ -1366,25 +1385,28 @@ protected:
         };
         struct TemporarySnarlRecord : TemporaryRecord{
             id_t start_node_id;
+            bool start_node_rev;
             id_t end_node_id;
+            bool end_node_rev;
             size_t node_count;
             int64_t min_length;
             int64_t max_length;
-            TemporaryRecord* parent_pointer;
-            vector<TemporaryRecord*> children; //All children, nodes and chains, in arbitrary order
+            pair<temp_record_t, size_t> parent;
+            vector<pair<temp_record_t, size_t>> children; //All children, nodes and chains, in arbitrary order
             vector<int64_t> distances;
             size_t rank_in_parent;
             bool reversed_in_parent;
         };
         struct TemporaryNodeRecord : TemporaryRecord{
             id_t node_id;
-            TemporaryRecord* parent_pointer;
+            pair<temp_record_t, size_t> parent;
             size_t node_length;
             size_t rank_in_parent;
             bool reversed_in_parent;
         };
 
-        vector<TemporaryRecord*> components;
+
+        vector<pair<temp_record_t, size_t>> components;
         vector<TemporaryChainRecord> temp_chain_records;
         vector<TemporarySnarlRecord> temp_snarl_records;
         vector<TemporaryNodeRecord> temp_node_records;

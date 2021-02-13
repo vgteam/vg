@@ -36,7 +36,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(const HandleG
 }
 
 vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDistanceIndex*>& temporary_indexes) {
-    vector<size_t> result;
+    vector<size_t> new_records;
     size_t total_index_size = 0;
     size_t total_node_count = 0;
     size_t total_component_count = 0;
@@ -49,30 +49,105 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
         min_node_id = min_node_id == 0 ? temp_index->min_node_id 
                                        : std::min(min_node_id, temp_index->min_node_id);
     }
-    result.reserve(total_index_size);
-    //Get the root and the nodes
+    new_records.reserve(total_index_size);
+    //Allocate memory for the root and the nodes
     //TODO: Could also write directly into snarl_tree_records
-    RootRecordConstructor root_record(0, total_component_count, total_node_count, min_node_id, result);
+    RootRecordConstructor root_record(0, total_component_count, total_node_count, min_node_id, new_records);
     root_record.set_connected_component_count(total_component_count);
     root_record.set_node_count(total_node_count);
     root_record.set_min_node_id(min_node_id);
-    //Now go through each of the indexes and copy them into result
+
+    //Now go through each of the chain/snarl indexes and copy them into new_records
+    //Walk down the snarl tree
     //TODO: For now I'm assuming that I'm including distances
-    //TODO: Everything is going to be in the order given, which should hopefully be reasonable
+    //TODO: What about connectivity?
+    std::unordered_map<pair<temp_record_t, size_t>, size_t> record_to_offset;
     for (const TemporaryDistanceIndex* temp_index : temporary_indexes) {
-        
+        //Get a stack of temporary snarl tree records to be added to the index
+        //Initially, it contains only the root components
+        //This reverses the order of the connected components but I don't think that matters
+        //TODO: this is copying the components but it shouldn't be too big so I think it's fine
+        vector<pair<temp_record_t, size_t>> temp_record_stack = temp_index->components;
+
+        while (!temp_record_stack.empty()) {
+            pair<temp_record_t, size_t> current_record_offset = temp_record_stack.back();
+            temp_record_stack.pop_back();
+            record_to_offset.emplace(current_record_offset, new_records.size());
+
+            if (current_record_offset.first == TEMP_CHAIN) {
+                //Add a new chain to the index. Each of the chain's child snarls and nodes will also 
+                //be added here
+                const TemporaryDistanceIndex::TemporaryChainRecord& temp_chain_record = 
+                        temp_index->temp_chain_records[current_record_offset.second];
+                ChainRecordConstructor chain_record_constructor(new_records.size(), DISTANCED_CHAIN, 
+                                                                temp_chain_record.node_count, new_records);
+                size_t chain_node_i = 0;
+                bool prev_node = false;//Was the previous thing in the chain a node?
+                for (const pair<temp_record_t, size_t>& child_record_offset : temp_chain_record.children) {
+                    //Go through each node and snarl in the chain and add them to the index
+                    if (child_record_offset.first == TEMP_NODE) {
+                        //Add a node to the chain
+                        if (prev_node) {
+                            //If the last thing we saw was a node, then this is the end of a trivial snarl 
+                            chain_record_constructor.add_trivial_snarl();
+                        }
+                        id_t node_id = temp_index->temp_node_records[child_record_offset.second].node_id;
+                        //Fill in this node in the index 
+                        NodeRecordConstructor node_record_constructor(node_id, DISTANCED_NODE, new_records);
+                        //Add the node to the chain
+                        chain_record_constructor.add_node(node_id, temp_chain_record.prefix_sum[chain_node_i],
+                                                          temp_chain_record.forward_loops[chain_node_i],
+                                                          temp_chain_record.backward_loops[chain_node_i]);
+
+                        chain_node_i++;
+                        prev_node = true;
+                    } else {
+                        //Add a snarl to the chain
+                        assert(child_record_offset.first == TEMP_SNARL);
+                        //Get the temporary snarl record
+                        const TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = 
+                             temp_index->temp_snarl_records[child_record_offset.second];
+                        record_to_offset.emplace(child_record_offset, new_records.size()+1);
+                        //Add the snarl to the chain, and get back the record to fill it in
+                        SnarlRecordConstructor snarl_record_constructor = 
+                            chain_record_constructor.add_snarl(temp_snarl_record.node_count, DISTANCED_SNARL);
+                        snarl_record_constructor.set_parent_record_pointer(chain_record_constructor.record_offset);
+                        snarl_record_constructor.set_start_node(temp_snarl_record.start_node_id,
+                                                                 temp_snarl_record.start_node_rev);
+                        snarl_record_constructor.set_end_node(temp_snarl_record.end_node_id,
+                                                                 temp_snarl_record.end_node_rev);
+                        snarl_record_constructor.set_min_length(temp_snarl_record.min_length);
+                        snarl_record_constructor.set_max_length(temp_snarl_record.max_length);
+
+
+                        prev_node = false;
+                    }
+                }
+            } else if (current_record_offset.first == TEMP_SNARL) {
+                //Add a new snarl to the index
+                const TemporaryDistanceIndex::TemporarySnarlRecord& current_snarl_record = 
+                        temp_index->temp_snarl_records[current_record_offset.second];
+            } else if (current_record_offset.first == TEMP_NODE) {
+                //Add a new snarl to the index
+                const TemporaryDistanceIndex::TemporaryNodeRecord& current_node_record = 
+                        temp_index->temp_node_records[current_record_offset.second];
+            }
+        }
     }
     //Fill in the nodes
     for (const TemporaryDistanceIndex* temp_index : temporary_indexes) {
         for (const TemporaryDistanceIndex::TemporaryNodeRecord& temp_node_record : temp_index->temp_node_records) {
-            NodeRecordConstructor node_record(temp_node_record.node_id, DISTANCED_NODE, result);
+            NodeRecordConstructor node_record(temp_node_record.node_id, DISTANCED_NODE, new_records);
             node_record.set_node_length(temp_node_record.node_length);
             node_record.set_rank_in_parent(temp_node_record.rank_in_parent);
             node_record.set_is_rev_in_parent(temp_node_record.reversed_in_parent);
-            //TODO: Missing parent and component
+            node_record.set_parent_record_pointer(record_to_offset[temp_node_record.parent]);
         }
     }
-    return result;
+    //Fill in the children
+    for (const TemporaryDistanceIndex* temp_index : temporary_indexes) {
+    }
+    return new_records;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
