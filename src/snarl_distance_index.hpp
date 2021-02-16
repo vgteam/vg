@@ -1011,8 +1011,9 @@ private:
 
         size_t record_offset;
         vector<size_t>& records;
+        SnarlRecordConstructor();
 
-        SnarlRecordConstructor (record_t type, size_t node_count, vector<size_t> &records)
+        SnarlRecordConstructor (size_t node_count, vector<size_t> &records, record_t type)
             : records(records){
             //Constructor for making a new record, including allocating memory.
             //Assumes that this is the latest record being made, so pointer will be the end of
@@ -1023,6 +1024,11 @@ private:
             records.resize(records.size() + extra_size, 0);
             set_node_count(node_count);
             records.at(record_offset) = type << 6;
+        }
+        SnarlRecordConstructor(vector<size_t>& records, size_t record_offset) :
+            record_offset(record_offset), records(records){
+            //Make a constructor for a snarl record that has already been allocated.
+            //For adding children to an existing snarl record
         }
         void set_distance(size_t rank1, bool right_side1, size_t rank2, bool right_side2, int64_t distance) {
             //offset of the start of the distance vectors in snarl_tree_records
@@ -1035,8 +1041,15 @@ private:
         void set_node_count(size_t node_count) {
             records.at(record_offset + SNARL_NODE_COUNT_OFFSET) = node_count;
         }
+
+
         void set_child_record_pointer(size_t pointer) {
             records.at(record_offset+SNARL_CHILD_RECORD_OFFSET) = pointer;
+        }
+        //Add a reference to a child of this snarl. Assumes that the index is completed up
+        //to here
+        void add_child(size_t pointer){
+            records.emplace_back(pointer);
         }
     };
 
@@ -1230,7 +1243,7 @@ private:
         //Add a snarl to the end of the chain and return a SnarlRecordConstructor pointing to it
         SnarlRecordConstructor add_snarl(size_t snarl_size, record_t type) {
             records.emplace_back(snarl_size);
-            SnarlRecordConstructor snarl_record(type, snarl_size, records);
+            SnarlRecordConstructor snarl_record(snarl_size, records, type);
             records.emplace_back(snarl_size);
             return snarl_record;
         }
@@ -1240,30 +1253,6 @@ private:
             records.emplace_back(0);
         }
     };
-
-
-//TODO: Maybe get rid of this
-//    struct trivial_ChainRecord : SnarlTreeRecord {
-//        //Struct for a chain record of a trivial chain, that's actually just a node
-//        trivial_ChainRecord (size_t pointer) {
-//            record_offset = pointer;
-//            assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
-//        }
-//        trivial_ChainRecord (net_handle_t net) {
-//            record_offset = get_record_offset(net);
-//            assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
-//        }
-//        trivial_ChainRecord (id_t node_id) {
-//            record_offset = get_offset_from_node_id(node_id);
-//            assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
-//        }
-//
-//        //The only child of a trivial chain is the node it contains
-//        bool for_each_child(const std::function<bool(const net_handle_t&)>& iteratee) const {
-//            return iteratee(get_net_handle(record_offset, START_END));
-//        }
-//
-//    };
 
 
 private:
@@ -1280,9 +1269,6 @@ private:
     SnarlTreeRecord get_chain_record(const handlegraph::net_handle_t& net_handle) const {
         return ChainRecord(as_integer(net_handle) >> 6, snarl_tree_records); 
     }
-//    const static SnarlTreeRecord get_trivial_chain_record(const handlegraph::net_handle_t& net_handle) {
-//        return trivial_ChainRecord(as_integer(net_handle) >> 6); 
-//    }
 
     const static connectivity_t endpoints_to_connectivity(endpoint_t start, endpoint_t end) {
         if (start == START && end == START) {
@@ -1350,7 +1336,7 @@ protected:
      * A structure to store everything in the distance index, but not in just one vector to make it easier to construct
      * This can also be used to combine distance indexes
      */
-    enum temp_record_t {TEMP_CHAIN=0, TEMP_SNARL, TEMP_NODE};
+    enum temp_record_t {TEMP_CHAIN=0, TEMP_SNARL, TEMP_NODE, TEMP_ROOT};
     class TemporaryDistanceIndex{
     public:
         TemporaryDistanceIndex(const HandleGraphSnarlFinder* snarl_finder);
@@ -1371,6 +1357,7 @@ protected:
             id_t end_node_id;
             bool end_node_rev;
             //Type of the parent and offset into the appropriate vector
+            //(TEMP_ROOT, 0) if this is a root level chain
             pair<temp_record_t, size_t> parent;
             size_t node_count;
             int64_t min_length;
