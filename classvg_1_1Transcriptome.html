@@ -81,8 +81,8 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:adf99e1739f5c150ad4c96b5b947a920d"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#adf99e1739f5c150ad4c96b5b947a920d">Transcriptome</a> (const string &amp;, const bool)</td></tr>
-<tr class="separator:adf99e1739f5c150ad4c96b5b947a920d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae9b8b379838c4b6b3997a331567c8d42"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#ae9b8b379838c4b6b3997a331567c8d42">Transcriptome</a> (unique_ptr&lt; <a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">MutablePathDeletableHandleGraph</a> &gt; splice_graph_in)</td></tr>
+<tr class="separator:ae9b8b379838c4b6b3997a331567c8d42"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a521e612106e179396a7f2e70907b252c"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a521e612106e179396a7f2e70907b252c">add_intron_splice_junctions</a> (istream &amp;intron_stream, unique_ptr&lt; gbwt::GBWT &gt; &amp;haplotype_index)</td></tr>
 <tr class="separator:a521e612106e179396a7f2e70907b252c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa58b269405ff07d180b53358222792b9"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#aa58b269405ff07d180b53358222792b9">add_transcript_splice_junctions</a> (istream &amp;transcript_stream, unique_ptr&lt; gbwt::GBWT &gt; &amp;haplotype_index)</td></tr>
@@ -209,8 +209,8 @@ Private Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Class that defines a transcriptome represented by a set of transcript paths. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="adf99e1739f5c150ad4c96b5b947a920d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#adf99e1739f5c150ad4c96b5b947a920d">&#9670;&nbsp;</a></span>Transcriptome()</h2>
+<a id="ae9b8b379838c4b6b3997a331567c8d42"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae9b8b379838c4b6b3997a331567c8d42">&#9670;&nbsp;</a></span>Transcriptome()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -218,19 +218,9 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="memname">vg::Transcriptome::Transcriptome </td>
           <td>(</td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>graph_filename</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
+          <td class="paramtype">unique_ptr&lt; <a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">MutablePathDeletableHandleGraph</a> &gt;&#160;</td>
+          <td class="paramname"><em>splice_graph_in</em></td><td>)</td>
           <td></td>
-          <td class="paramtype">const bool&#160;</td>
-          <td class="paramname"><em>show_progress</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">

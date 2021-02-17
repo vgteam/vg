@@ -75,7 +75,7 @@ var searchData=
   ['traceback_5fover_5fedge_8828',['traceback_over_edge',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a0210e1c9a9da04e28e253e2963dd96ad',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['transcript_8829',['Transcript',['../structvg_1_1Transcript.html#a151337b8595bb8b0041ed64a325a7650',1,'vg::Transcript']]],
   ['transcript_5fpaths_8830',['transcript_paths',['../classvg_1_1Transcriptome.html#a52ca431b737b92befedebee4e71b0f0c',1,'vg::Transcriptome']]],
-  ['transcriptome_8831',['Transcriptome',['../classvg_1_1Transcriptome.html#adf99e1739f5c150ad4c96b5b947a920d',1,'vg::Transcriptome']]],
+  ['transcriptome_8831',['Transcriptome',['../classvg_1_1Transcriptome.html#ae9b8b379838c4b6b3997a331567c8d42',1,'vg::Transcriptome']]],
   ['transcriptpath_8832',['TranscriptPath',['../structvg_1_1TranscriptPath.html#a94a5ceb6d352a94e6401b3ed0342a834',1,'vg::TranscriptPath']]],
   ['transfer_5fboundary_5finfo_8833',['transfer_boundary_info',['../namespacevg.html#a82a83d7c54d733abee06d328f91ef5ee',1,'vg']]],
   ['transfer_5ffrom_5fproto_5fannotation_8834',['transfer_from_proto_annotation',['../namespacevg.html#a57c3f88ce9f85ceae2d77c32fd9de04d',1,'vg']]],
