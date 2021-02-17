@@ -49,15 +49,18 @@ namespace vg {
                 return nodes.size();
             }
 
-            inline Node get_node_by_id(size_t node_id){
-                return nodes.at(node_id); 
+            inline Node& get_node_by_id(size_t node_id){
+                Node& node = nodes.at(node_id);
+                return node; 
             }
 
             inline void add_node(size_t id, Node node){
                 nodes.emplace(id, node);
             }
 
-            
+            // only use this method for unittesting a linear graph with nodes that each contain biderectional edges between nodes
+            // since the prev node points to current node, and current node points back to it
+            // we can get the randomly generated edge weight for prev<-current from prev -> other (current)
             inline size_t get_weight_using_other(Node prev_node, size_t other){
                 size_t to_return;
                 for(size_t i = 0; i < prev_node.edges.size(); i++){
