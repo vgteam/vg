@@ -16,7 +16,7 @@
 #include "../utility.hpp"
 #include "../mcmc_genotyper.hpp"
 #include "../snarls.hpp"
-#include "../cactus_snarl_finder.hpp"
+#include "../integrated_snarl_finder.hpp"
 #include "../genotypekit.hpp"
 #include "algorithms/min_cut_graph.hpp"
 
@@ -126,8 +126,8 @@ namespace vg {
                 graph.create_edge(n2, n4);
                 graph.create_edge(n3, n4);
 				
-				CactusSnarlFinder bubble_finder(graph);
-                SnarlManager snarl_manager = bubble_finder.find_snarls();
+				IntegratedSnarlFinder bubble_finder(graph);
+                SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
                 
                 string read = string("GCATCTGA");
                 multipath_alignment_t multipath_aln;
@@ -250,8 +250,8 @@ namespace vg {
                 graph.create_edge(n5, n7);
                 graph.create_edge(n6, n7);
 				
-                CactusSnarlFinder bubble_finder(graph);
-                SnarlManager snarl_manager = bubble_finder.find_snarls();
+                IntegratedSnarlFinder bubble_finder(graph);
+                SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
 
                 // Configure GCSA temp directory to the system temp directory
                 gcsa::TempFile::setDirectory(temp_file::get_dir());
@@ -360,8 +360,8 @@ namespace vg {
                 graph.create_edge(n7, n8);
                 graph.create_edge(n8, n6);
 				
-                CactusSnarlFinder bubble_finder(graph);
-                SnarlManager snarl_manager = bubble_finder.find_snarls();
+                IntegratedSnarlFinder bubble_finder(graph);
+                SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
                 
                 string read = string("GGGCCCAGCTGG");
                 multipath_alignment_t multipath_aln;
@@ -540,8 +540,8 @@ namespace vg {
                 graph.create_edge(n7, n8);
                 graph.create_edge(n8, n6);
 				
-                CactusSnarlFinder bubble_finder(graph);
-                SnarlManager snarl_manager = bubble_finder.find_snarls();
+                IntegratedSnarlFinder bubble_finder(graph);
+                SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
 
                 // Configure GCSA temp directory to the system temp directory
                 gcsa::TempFile::setDirectory(temp_file::get_dir());
@@ -647,8 +647,8 @@ namespace vg {
                 graph.create_edge(n5, n7);
                 graph.create_edge(n6, n7);
 				
-				CactusSnarlFinder bubble_finder(graph);
-                SnarlManager snarl_manager = bubble_finder.find_snarls();
+				IntegratedSnarlFinder bubble_finder(graph);
+                SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
 
                 // Configure GCSA temp directory to the system temp directory
                 gcsa::TempFile::setDirectory(temp_file::get_dir());
@@ -789,8 +789,8 @@ namespace vg {
                     graph.create_edge(n5, n7);
                     graph.create_edge(n6, n7);
                     
-                    CactusSnarlFinder bubble_finder(graph);
-                    SnarlManager snarl_manager = bubble_finder.find_snarls();
+                    IntegratedSnarlFinder bubble_finder(graph);
+                    SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
 
                     // Configure GCSA temp directory to the system temp directory
                     gcsa::TempFile::setDirectory(temp_file::get_dir());
@@ -949,8 +949,8 @@ namespace vg {
                 graph.create_edge(n5, n7);
                 graph.create_edge(n6, n7);
                 
-                CactusSnarlFinder bubble_finder(graph);
-                SnarlManager snarl_manager = bubble_finder.find_snarls();
+                IntegratedSnarlFinder bubble_finder(graph);
+                SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
 
                 // Configure GCSA temp directory to the system temp directory
                 gcsa::TempFile::setDirectory(temp_file::get_dir());
@@ -1071,8 +1071,8 @@ namespace vg {
                 graph.create_edge(n5, n7);
                 graph.create_edge(n6, n7);
 				
-				CactusSnarlFinder bubble_finder(graph);
-                SnarlManager snarl_manager = bubble_finder.find_snarls();
+				IntegratedSnarlFinder bubble_finder(graph);
+                SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
 
                 // Configure GCSA temp directory to the system temp directory
                 gcsa::TempFile::setDirectory(temp_file::get_dir());
@@ -1126,6 +1126,10 @@ namespace vg {
                 
                 // generate initial value
                 unique_ptr<PhasedGenome> phased_genome = mcmc_genotyper.generate_initial_guess();
+#ifdef debug_snarl_graph
+                cout << "initial guess phased genome "  <<endl;
+                phased_genome->print_phased_genome();
+#endif
 
                 unordered_map<pair<const Snarl*, const Snarl*>, int32_t> snarl_map = mcmc_genotyper.make_snarl_map(multipath_aln_vector ,  phased_genome);
 #ifdef debug_snarl_graph
