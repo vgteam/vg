@@ -119,8 +119,6 @@ struct CompletedTranscriptPath : public TranscriptPath {
     CompletedTranscriptPath(const string & transcript_origin_in) : TranscriptPath(transcript_origin_in) {}
 };
 
-
-
 /**
  * Class that defines a transcriptome represented by a set of transcript paths.
  */
@@ -128,7 +126,7 @@ class Transcriptome {
 
     public:
 
-        Transcriptome(const string &, const bool);   
+        Transcriptome(unique_ptr<MutablePathDeletableHandleGraph> splice_graph_in);   
 
         /// Number of threads used for transcript path construction. 
         int32_t num_threads = 1;
