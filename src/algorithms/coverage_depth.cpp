@@ -292,6 +292,98 @@ pair<double, double> sample_gam_depth(const HandleGraph& graph, const vector<Ali
     return combine_and_average_node_coverages(graph, node_coverages, min_coverage);
 }
 
+void path_depths(const PathHandleGraph& graph, const string& path_name, size_t min_coverage, ostream& out_stream) {
+    assert(graph.has_path(path_name));
+
+    path_handle_t path_handle = graph.get_path_handle(path_name);
+    size_t offset = 0;
+    graph.for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
+            unordered_set<path_handle_t> path_set;
+            handle_t handle = graph.get_handle_of_step(step_handle);
+            graph.for_each_step_on_handle(handle, [&](step_handle_t step_handle_2) {
+                    path_set.insert(graph.get_path_handle_of_step(step_handle_2));
+                });
+            size_t coverage = path_set.size() - 1;
+            size_t node_len = graph.get_length(handle);
+            if (coverage >= min_coverage) {
+                for (size_t i = 0; i < node_len; ++i) {
+                    if (coverage >= min_coverage) {
+                        out_stream << path_name << "\t" << (offset + i) << "\t" << coverage << "\n";
+                    }
+                }
+            }
+            offset += node_len;            
+        });
+}
+
+pair<double, double> path_depth_of_bin(const PathHandleGraph& graph,
+                                       step_handle_t start_step, step_handle_t end_plus_one_step,
+                                       size_t min_coverage) {
+
+    // compute the mean and variance of our base coverage across the bin
+    size_t bin_length = 0;
+    double mean = 0.0;
+    double M2 = 0.0;
+
+    for (step_handle_t cur_step = start_step; cur_step != end_plus_one_step; cur_step = graph.get_next_step(cur_step)) {
+        handle_t cur_handle = graph.get_handle_of_step(cur_step);
+        nid_t cur_id = graph.get_id(cur_handle);
+        size_t cur_len = graph.get_length(cur_handle);
+
+        unordered_set<path_handle_t> path_set;
+        graph.for_each_step_on_handle(cur_handle, [&](step_handle_t step_handle) {
+                path_set.insert(graph.get_path_handle_of_step(step_handle));
+            });
+        size_t coverage = path_set.size() - 1;
+
+        if (coverage >= min_coverage) {
+            // todo: iteration here copied from packer implementation, not necessary
+            for (size_t i = 0; i < cur_len; ++i) {
+                wellford_update(bin_length, mean, M2, coverage);
+            }
+        }
+    }
+    return wellford_mean_var(bin_length, mean, M2);
+}
+
+vector<tuple<size_t, size_t, double, double>> binned_path_depth(const PathHandleGraph& graph,
+                                                                const string& path_name,
+                                                                size_t bin_size,
+                                                                size_t min_coverage) {
+
+    path_handle_t path_handle = graph.get_path_handle(path_name);
+    
+    // one scan of our path to collect the bins
+    step_handle_t start_step = graph.path_begin(path_handle);
+    step_handle_t end_step = graph.path_end(path_handle);
+    vector<pair<size_t, step_handle_t>> bins; // start offset / start step of each bin
+    size_t offset = 0;
+    size_t cur_bin_size = bin_size;
+    for (step_handle_t cur_step = start_step; cur_step != end_step; cur_step = graph.get_next_step(cur_step)) {
+        if (cur_bin_size >= bin_size) {
+            bins.push_back(make_pair(offset, cur_step));
+            cur_bin_size = 0;
+        }
+        size_t node_len = graph.get_length(graph.get_handle_of_step(cur_step));
+        offset += node_len;
+        cur_bin_size += node_len;
+    }
+
+    // parallel scan to compute the coverages
+    vector<tuple<size_t, size_t, double, double>> binned_depths(bins.size());
+#pragma omp parallel for
+    for (size_t i = 0; i < bins.size(); ++i) {
+        step_handle_t bin_start_step = bins[i].second;
+        step_handle_t bin_end_step = i < bins.size() - 1 ? bins[i+1].second : end_step;
+        size_t bin_start = bins[i].first;
+        size_t bin_end = i < bins.size() - 1 ? bins[i+1].first : offset;
+        pair<double, double> coverage = path_depth_of_bin(graph, bin_start_step, bin_end_step, min_coverage);
+        binned_depths[i] = make_tuple(bin_start, bin_end, coverage.first, coverage.second);
+    }
+
+    return binned_depths;
+}
+
 
 
 }

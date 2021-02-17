@@ -30,8 +30,6 @@ void help_depth(char** argv) {
          << "options:" << endl
          << "  packed coverage depth (print positional depths along path):" << endl
          << "    -k, --pack FILE        supports created from vg pack for given input graph" << endl
-         << "    -p, --ref-path NAME    reference path to call on (multipile allowed.  defaults to all paths)" << endl
-         << "    -b, --bin-size N       bin size (in bases) [1] (2 extra columns printed when N>1: bin-end-pos and stddev)" << endl
          << "    -d, --count-dels       count deletion edges within the bin as covering reference positions" << endl
          << "  GAM/GAF coverage depth (print <mean> <stddev> for depth):" << endl
          << "    -g, --gam FILE         read alignments from this GAM file (could be '-' for stdin)" << endl
@@ -39,7 +37,11 @@ void help_depth(char** argv) {
          << "    -n, --max-nodes N      maximum nodes to consider [1000000]" << endl
          << "    -s, --random-seed N    random seed for sampling nodes to consider" << endl
          << "    -Q, --min-mapq N       ignore alignments with mapping quality < N [0]" << endl
+         << "  path coverage depth (print positional depths along path):" << endl
+         << "     activate by specifiying -p without -k" << endl
          << "  common options:" << endl
+         << "    -p, --ref-path NAME    reference path to call on (multipile allowed.  defaults to all paths)" << endl
+         << "    -b, --bin-size N       bin size (in bases) [1] (2 extra columns printed when N>1: bin-end-pos and stddev)" << endl
          << "    -m, --min-coverage N   ignore nodes with less than N coverage [1]" << endl
          << "    -t, --threads N        number of threads to use [all available]" << endl;
 }
@@ -153,8 +155,8 @@ int main_depth(int argc, char** argv) {
     size_t input_count = pack_filename.empty() ? 0 : 1;
     if (!gam_filename.empty()) ++input_count;
     if (!gaf_filename.empty()) ++input_count;
-    if (input_count != 1) {                                          
-        cerr << "error:[vg depth] Exactly one of a pack file (-k), a GAM file (-g), or a GAF file (-a) must be given" << endl;
+    if (input_count > 1) {                                          
+        cerr << "error:[vg depth] At most one of a pack file (-k), a GAM file (-g), or a GAF file (-a) must be given" << endl;
         exit(1);
     }
 
@@ -172,12 +174,14 @@ int main_depth(int argc, char** argv) {
         assert(graph != nullptr);
     }
 
-    // Process the pack
+    // Process the pack (or paths)
     unique_ptr<Packer> packer;
-    if (!pack_filename.empty()) {        
-        // Load our packed supports (they must have come from vg pack on graph)
-        packer = unique_ptr<Packer>(new Packer(graph));
-        packer->load_from_file(pack_filename);
+    if (!pack_filename.empty() || input_count == 0) {
+        if (!pack_filename.empty()) {
+            // Load our packed supports (they must have come from vg pack on graph)
+            packer = unique_ptr<Packer>(new Packer(graph));
+            packer->load_from_file(pack_filename);
+        }
 
         // All paths if none given
         if (ref_paths.empty()) {
@@ -195,11 +199,14 @@ int main_depth(int argc, char** argv) {
             }
         }
         
-
         for (const string& ref_path : ref_paths) {
             if (bin_size > 1) {
-                vector<tuple<size_t, size_t, double, double>> binned_depth =
-                    algorithms::binned_packed_depth(*packer, ref_path, bin_size, min_coverage, count_dels);
+                vector<tuple<size_t, size_t, double, double>> binned_depth;
+                if (!pack_filename.empty()) {
+                    binned_depth = algorithms::binned_packed_depth(*packer, ref_path, bin_size, min_coverage, count_dels);
+                } else {
+                    binned_depth = algorithms::binned_path_depth(*graph, ref_path, bin_size, min_coverage);
+                }
                 for (auto& bin_cov : binned_depth) {
                     // bins can ben nan if min_coverage filters everything out.  just skip
                     if (!isnan(get<3>(bin_cov))) {
@@ -208,7 +215,11 @@ int main_depth(int argc, char** argv) {
                     }
                 }
             } else {
-                algorithms::packed_depths(*packer, ref_path, min_coverage, cout);
+                if (!pack_filename.empty()) {
+                    algorithms::packed_depths(*packer, ref_path, min_coverage, cout);
+                } else {
+                    algorithms::path_depths(*graph, ref_path, min_coverage, cout);
+                }
             }
         }
     }
