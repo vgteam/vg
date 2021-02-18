@@ -397,7 +397,7 @@ void help_convert(char** argv) {
          << "    -T, --gfa-trans FILE   write gfa id conversions to FILE (use with -g)" << endl
          << "    -w, --wline-sep SEP    write paths with names that can be parsed as <sample><SEP><hap><SEP><contig> as GFA W-lines. (use with -f)" << endl
          << "                           suffixes of the form [start] or [start-end] will be converted into start and end coordinates if found." << endl
-         << "                           ex: using \"-w .\" will convert path HG00735.1.chr1[10000-20000] to \"W HG00735 1 chr1 10000 20000\n" << endl
+         << "                           ex: using \"-w .\" will convert path HG00735.1.chr1[10000-20000] to \"W HG00735 1 chr1 10000 20000\"" << endl
          << "                           multiple characters allowed (they will all be treated as separators)" << endl
          << "alignment options:" << endl
          << "    -G, --gam-to-gaf FILE  convert GAM FILE to GAF" << endl

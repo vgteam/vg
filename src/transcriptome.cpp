@@ -16,25 +16,10 @@ using namespace std;
 
 //#define transcriptome_debug
 
-Transcriptome::Transcriptome(unique_ptr<MutablePathDeletableHandleGraph>&& graph, const bool show_progress) :
+Transcriptome::Transcriptome(unique_ptr<MutablePathDeletableHandleGraph>&& graph) :
     _splice_graph(move(graph))
 {
     _splice_graph_node_updated = false;
-    if (!_splice_graph) {
-        cerr << "[transcriptome] ERROR: Could not load graph." << endl;
-        exit(1);
-    }
-}
-
-Transcriptome::Transcriptome(const string & graph_filename, const bool show_progress) {
-
-    // Load variation graph.
-    get_input_file(graph_filename, [&](istream& in) {
-        _splice_graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
-    });
-
-    _splice_graph_node_updated = false;
-
     if (!_splice_graph) {
         cerr << "[transcriptome] ERROR: Could not load graph." << endl;
         exit(1);
@@ -491,9 +476,7 @@ void Transcriptome::construct_edited_transcript_paths_callback(list<EditedTransc
 
             assert(!new_edited_transcript_paths.front().reference_origin.empty());
 
-            Path & transcript_path = new_edited_transcript_paths.front().path;
-            
-            thread_edited_transcript_paths.splice(thread_edited_transcript_paths.end(), new_edited_transcript_paths);
+            const Path & transcript_path = new_edited_transcript_paths.front().path;
 
             // Add adjecent same node exons as single paths to ensure boundary breaking
             for (size_t i = 1; i < transcript_path.mapping_size(); ++i) {
@@ -510,6 +493,8 @@ void Transcriptome::construct_edited_transcript_paths_callback(list<EditedTransc
                     thread_edited_transcript_paths.emplace_back(exon_path_right);
                 }
             }
+
+            thread_edited_transcript_paths.splice(thread_edited_transcript_paths.end(), new_edited_transcript_paths);
         }
 
         transcripts_idx += num_threads;
@@ -1791,10 +1776,7 @@ void Transcriptome::write_splice_graph(ostream * graph_ostream) const {
 
     vg::io::save_handle_graph(_splice_graph.get(), *graph_ostream);
 }
-    
+
 }
-
-
-
 
 

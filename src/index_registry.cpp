@@ -535,7 +535,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 }
                 
                 // give away ownership of the graph to the Transcriptome
-                Transcriptome transcriptome(move(graph), IndexingParameters::verbose);
+                Transcriptome transcriptome(move(graph));
                 transcriptome.error_on_missing_path = !broadcasting_txs;
                 transcriptome.use_reference_paths = true;
                 transcriptome.feature_type = IndexingParameters::gff_feature_name;
@@ -1065,7 +1065,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 });
             }
             
-            Transcriptome transcriptome(move(graph), IndexingParameters::verbose);
+            Transcriptome transcriptome(move(graph));
             transcriptome.error_on_missing_path = !broadcasting_txs;
             transcriptome.feature_type = IndexingParameters::gff_feature_name;
             transcriptome.transcript_tag = IndexingParameters::gff_transcript_tag;
@@ -1170,14 +1170,18 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // join the tables into one
         for (size_t i = 0; i < inputs[0]->get_filenames().size(); ++i) {
             ifstream infile(inputs[0]->get_filenames()[i]);
+            string line;
             if (i != 0) {
                 // skip the header
                 infile.ignore(numeric_limits<streamsize>::max(), '\n');
             }
-            string line;
+            else {
+                getline(infile, line);
+                outfile << line;
+            }
             while (infile.good()) {
                 getline(infile, line);
-                outfile << line << endl;
+                outfile << endl << line;
             }
         }
         return vector<string>(1, output_name);
