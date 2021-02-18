@@ -78,6 +78,10 @@ struct IndexingParameters {
     static int gbwt_sampling_interval;
     // should the haplotype-transcript GBWT be made bidirectional [false]
     static bool bidirectional_haplo_tx_gbwt;
+    // the feature from column 3 of the GTF/GFF that should be added ["gene"]
+    static string gff_feature_name;
+    // transcript tag in GTF/GFF ["transcript_id"]
+    static string gff_transcript_tag;
     // whether indexing algorithms will log progress (if available) [false]
     static bool verbose;
 };

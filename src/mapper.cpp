@@ -3876,7 +3876,6 @@ Alignment Mapper::align_maybe_flip(const Alignment& base, HandleGraph& graph, co
     }
     bool pinned_alignment = false;
     bool pinned_reverse = false;
-    //algorithms::to_gfa(*dynamic_cast<PathHandleGraph*>(&graph), cerr);
     aln = align_to_graph(aln,
                          graph,
                          mems,

@@ -486,14 +486,14 @@ void Transcriptome::construct_edited_transcript_paths_callback(list<EditedTransc
 
         // Construct edited transcript paths.
         auto new_edited_transcript_paths = project_transcript_embedded(transcript, graph_path_pos_overlay, true);
-        
+
         if (!new_edited_transcript_paths.empty()) {
 
             assert(!new_edited_transcript_paths.front().reference_origin.empty());
 
-            thread_edited_transcript_paths.splice(thread_edited_transcript_paths.end(), new_edited_transcript_paths);
-
             Path & transcript_path = new_edited_transcript_paths.front().path;
+            
+            thread_edited_transcript_paths.splice(thread_edited_transcript_paths.end(), new_edited_transcript_paths);
 
             // Add adjecent same node exons as single paths to ensure boundary breaking
             for (size_t i = 1; i < transcript_path.mapping_size(); ++i) {

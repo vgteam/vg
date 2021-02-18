@@ -29,6 +29,7 @@
 #include "transcriptome.hpp"
 #include "integrated_snarl_finder.hpp"
 #include "min_distance.hpp"
+#include "gfa.hpp"
 
 #include "io/save_handle_graph.hpp"
 
@@ -71,6 +72,8 @@ int IndexingParameters::gcsa_doubling_steps = gcsa::ConstructionParameters::DOUB
 int IndexingParameters::gbwt_insert_batch_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE;
 int IndexingParameters::gbwt_sampling_interval = gbwt::DynamicGBWT::SAMPLE_INTERVAL;
 bool IndexingParameters::bidirectional_haplo_tx_gbwt = false;
+string IndexingParameters::gff_feature_name = "exon";
+string IndexingParameters::gff_transcript_tag = "transcript_id";
 bool IndexingParameters::verbose = false;
 
 // return file size in bytes
@@ -513,7 +516,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             constructor.construct_graph(fasta, vcf,
                                         insertions,
                                         graph.get());
-            
+                        
             if (!transcripts.empty()) {
                 
                 ifstream infile_tx;
@@ -535,13 +538,13 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 Transcriptome transcriptome(move(graph), IndexingParameters::verbose);
                 transcriptome.error_on_missing_path = !broadcasting_txs;
                 transcriptome.use_reference_paths = true;
-                // matching Jonas' script here, not sure what it does though
-                transcriptome.use_all_paths = true;
+                transcriptome.feature_type = IndexingParameters::gff_feature_name;
+                transcriptome.transcript_tag = IndexingParameters::gff_transcript_tag;
                 
                 // add the splice edges
                 auto dummy = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
                 size_t transcripts_added = transcriptome.add_transcript_splice_junctions(infile_tx, dummy);
-                
+                                
                 if (broadcasting_txs && !path_names.empty() && transcripts_added == 0
                     && transcript_file_nonempty(transcripts[k])) {
                     cerr << "warning:[IndexRegistry] no matching paths from transcript file " << transcripts[k] << " were found in graph chunk containing the following paths:" << endl;
@@ -868,7 +871,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
             gbwt::GBWT merged(gbwt_indexes);
             merged.serialize(outfile);
-            
             return merged_gbwt_name;
         }
         else {
@@ -881,9 +883,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     auto make_gbwt = [&](const vector<const IndexFile*>& inputs,
                          const IndexingPlan* plan,
                          const IndexName& constructing) {
-        if (IndexingParameters::verbose) {
-            cerr << "[IndexRegistry]: Constructing GBWT from VG graph and phased VCF input." << endl;
-        }
+        
         if ((inputs[0]->get_filenames().size() != 1 && inputs[0]->get_filenames().size() != inputs[1]->get_filenames().size()) ||
             (inputs[1]->get_filenames().size() != 1 && inputs[0]->get_filenames().size() != inputs[1]->get_filenames().size())) {
             cerr << "[IndexRegistry]: When constructing GBWT from multiple graphs and multiple VCFs, the graphs and VCFs must be matched 1-to-1, but input contains " <<  inputs[0]->get_filenames().size() << " graphs and " << inputs[1]->get_filenames().size() << " VCF files." << endl;
@@ -911,25 +911,34 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 gbwt_name = plan->prefix(constructing) + "." + plan->suffix(constructing);
             }
             
-            // i could set haplotype_indexer.show_progress, but it won't play well with multithreading
-            HaplotypeIndexer haplotype_indexer;
-            haplotype_indexer.show_progress = IndexingParameters::verbose;
+            // make this critical so we don't end up with a race on the verbosity
+            unique_ptr<HaplotypeIndexer> haplotype_indexer;
+#pragma omp critical
+            {
+                haplotype_indexer = unique_ptr<HaplotypeIndexer>(new HaplotypeIndexer());
+                // HaplotypeIndexer resets this in its constructor
+                if (IndexingParameters::verbose) {
+                    gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
+                }
+                else {
+                    gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
+                }
+            }
+            haplotype_indexer->show_progress = IndexingParameters::verbose;
             
-            vector<string> parse_files = haplotype_indexer.parse_vcf(inputs[1]->get_filenames()[i],
-                                                                     graph);
-            // we don't want to do this here, since we're reusing the graph
-            //graph.reset(); // Save memory by deleting the graph.
-            unique_ptr<gbwt::DynamicGBWT> gbwt_index = haplotype_indexer.build_gbwt(parse_files);
+            vector<string> parse_files = haplotype_indexer->parse_vcf(inputs[1]->get_filenames()[i],
+                                                                      graph);
+            
+            unique_ptr<gbwt::DynamicGBWT> gbwt_index = haplotype_indexer->build_gbwt(parse_files);
             
             vg::io::VPKG::save(*gbwt_index, gbwt_name);
             
             gbwt_names.push_back(gbwt_name);
+            
         };
         
         if (inputs[0]->get_filenames().size() == 1) {
-            
             // we only have one graph, so we can save time by loading it only one time
-            
             // test streams for I/O
             ifstream infile;
             init_in(infile, inputs.at(0)->get_filenames().front());
@@ -959,6 +968,13 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  const IndexName& constructing) {
+        if (IndexingParameters::verbose) {
+            cerr << "[IndexRegistry]: Constructing GBWT from VG graph and phased VCF input." << endl;
+            gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
+        }
+        else {
+            gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
+        }
         return make_gbwt(inputs, plan, constructing);
     });
     
@@ -966,6 +982,13 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  const IndexName& constructing) {
+        if (IndexingParameters::verbose) {
+            cerr << "[IndexRegistry]: Constructing GBWT from spliced VG graph and phased VCF input." << endl;
+            gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
+        }
+        else {
+            gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
+        }
         return make_gbwt(inputs, plan, constructing);
     });
     
@@ -976,6 +999,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexName& constructing) {
         
         if (IndexingParameters::verbose) {
+            cerr << "[IndexRegistry]: Constructing haplotype-transcript GBWT and finishing spliced VG." << endl;
             gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
         }
         else {
@@ -986,7 +1010,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         unique_ptr<gbwt::GBWT> haplotype_index =
             vg::io::VPKG::load_one<gbwt::GBWT>(inputs[1]->get_filenames().front());
         
-        // TODO: i can't find here in the building code you actually ensure this...
+        // TODO: i can't find where in the building code you actually ensure this...
         assert(haplotype_index->bidirectional());
         
         // TODO: repetitive with original spliced VG construction...
@@ -1029,6 +1053,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             bool broadcasting_txs = (inputs[2]->get_filenames().size()
                                      != inputs[0]->get_filenames().size());
             
+                        
             unique_ptr<MutablePathDeletableHandleGraph> graph
                 = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(infile_graph);
             
@@ -1042,8 +1067,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             Transcriptome transcriptome(move(graph), IndexingParameters::verbose);
             transcriptome.error_on_missing_path = !broadcasting_txs;
+            transcriptome.feature_type = IndexingParameters::gff_feature_name;
+            transcriptome.transcript_tag = IndexingParameters::gff_transcript_tag;
             
-            // load up the transcripts
+            // load up the transcripts and add edges on the reference path
             size_t transcripts_added = transcriptome.add_transcript_splice_junctions(infile_tx, haplotype_index);
             
             if (broadcasting_txs && !path_names.empty() && transcripts_added == 0
@@ -1053,6 +1080,13 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     cerr << "\t" << path_name << endl;
                 }
             }
+            
+            // go back to the beginning of the transcripts
+            infile_tx.clear();
+            infile_tx.seekg(0);
+            
+            // add egdes on other haplotypes
+            size_t num_transcripts_projected = transcriptome.add_transcripts(infile_tx, *haplotype_index);
             
             // init the haplotype transcript GBWT
             size_t node_width = gbwt::bit_length(gbwt::Node::encode(transcriptome.splice_graph().max_node_id(), true));
@@ -1076,6 +1110,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             output_names.push_back(output_name);
             info_table_names.push_back(info_table_name);
+            gbwt_names.push_back(gbwt_name);
             
             if (inputs[2]->get_filenames().size() > 1) {
                 ++j;

@@ -47,7 +47,6 @@ bool vcf_is_phased(const string& filepath) {
     bool found_phased = false;
     while (bcf_read(file, hdr, line) >= 0 && iter < vars_to_check && !found_phased)
     {
-        //cerr << "line record at " << line << endl;
         if (phase_set_id >= 0) {
             if (phase_set_id == BCF_HT_INT) {
                 // phase sets are integers
@@ -117,21 +116,23 @@ void help_autoindex(char** argv) {
     << "usage: " << argv[0] << " autoindex [options]" << endl
     << "options:" << endl
     << "  output:" << endl
-    << "    -p, --prefix PREFIX   prefix to use for all output (default: index)" << endl
-    << "    -w, --workflow NAME   workflow to produce indexes for, can be provided multiple" << endl
-    << "                          times. options: map, mpmap, giraffe (default: map)" << endl
+    << "    -p, --prefix PREFIX    prefix to use for all output (default: index)" << endl
+    << "    -w, --workflow NAME    workflow to produce indexes for, can be provided multiple" << endl
+    << "                           times. options: map, mpmap, giraffe (default: map)" << endl
     << "  input data:" << endl
-    << "    -r, --ref-fasta FILE  FASTA file containing the reference sequence (may repeat)" << endl
-    << "    -v, --vcf FILE        VCF file with sequence names matching -r (may repeat)" << endl
-    << "    -i, --ins-fasta FILE  FASTA file with sequences of INS variants from -v" << endl
-    << "    -g, --gfa FILE        GFA file to make a graph from" << endl
-    << "    -a, --tx-gff FILE     GTF/GFF file with transcript annotations (may repeat)" << endl
+    << "    -r, --ref-fasta FILE   FASTA file containing the reference sequence (may repeat)" << endl
+    << "    -v, --vcf FILE         VCF file with sequence names matching -r (may repeat)" << endl
+    << "    -i, --ins-fasta FILE   FASTA file with sequences of INS variants from -v" << endl
+    << "    -g, --gfa FILE         GFA file to make a graph from" << endl
+    << "    -x, --tx-gff FILE      GTF/GFF file with transcript annotations (may repeat)" << endl
+    << "    -f, --gff-feature STR  GTF/GFF feature type (col. 3) to add to graph (default: " << IndexingParameters::gff_feature_name << ")" << endl
+    << "    -a, --gff-tx-tag STR   GTF/GFF tag (in col. 9) for transcript ID (default: " << IndexingParameters::gff_transcript_tag << ")" << endl
     << "  logging and computation:" << endl
-    << "    -T, --tmp-dir DIR     temporary directory to use for intermediate files" << endl
-    << "    -t, --threads NUM     number of threads (default: all available)" << endl
-    << "    -V, --verbose         log progress to stderr" << endl
-    << "    -d, --dot             print the dot-formatted graph of index recipes and exit" << endl
-    << "    -h, --help            print this help message to stderr and exit" << endl;
+    << "    -T, --tmp-dir DIR      temporary directory to use for intermediate files" << endl
+    << "    -t, --threads NUM      number of threads (default: all available)" << endl
+    << "    -V, --verbose          log progress to stderr" << endl
+    << "    -d, --dot              print the dot-formatted graph of index recipes and exit" << endl
+    << "    -h, --help             print this help message to stderr and exit" << endl;
 }
 
 int main_autoindex(int argc, char** argv) {
@@ -164,7 +165,9 @@ int main_autoindex(int argc, char** argv) {
             {"vcf", required_argument, 0, 'v'},
             {"ins-fasta", required_argument, 0, 'i'},
             {"gfa", required_argument, 0, 'g'},
-            {"tx-annotations", required_argument, 0, 'a'},
+            {"tx-gff", required_argument, 0, 'x'},
+            {"gff-feature", required_argument, 0, 'f'},
+            {"gff-tx-tag", required_argument, 0, 'a'},
             {"tmp-dir", required_argument, 0, 'T'},
             {"threads", required_argument, 0, 't'},
             {"verbose", no_argument, 0, 'V'},
@@ -177,7 +180,7 @@ int main_autoindex(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "p:w:r:v:i:g:a:T:t:dVh",
+        c = getopt_long (argc, argv, "p:w:r:v:i:g:x:a:f:T:t:dVh",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -223,8 +226,14 @@ int main_autoindex(int argc, char** argv) {
             case 'g':
                 registry.provide({"Reference GFA"}, optarg);
                 break;
-            case 'a':
+            case 'x':
                 registry.provide({"GTF/GFF"}, optarg);
+                break;
+            case 'f':
+                IndexingParameters::gff_feature_name = optarg;
+                break;
+            case 'a':
+                IndexingParameters::gff_transcript_tag = optarg;
                 break;
             case 'T':
                 temp_file::set_dir(optarg);

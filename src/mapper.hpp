@@ -31,7 +31,6 @@
 #include "algorithms/approx_path_distance.hpp"
 #include "algorithms/path_string.hpp"
 #include "algorithms/alignment_path_offsets.hpp"
-#include "algorithms/to_gfa.hpp"
 #include "algorithms/extract_containing_graph.hpp"
 
 // #define BENCH
