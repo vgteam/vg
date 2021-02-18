@@ -343,10 +343,15 @@ namespace vg {
 #endif 
                         const Snarl* back_snarl = snarls.into_which_snarl(node_id, true); 
                         const Snarl* fwd_snarl = snarls.into_which_snarl(node_id, false);
-                        
-                        // insert snarls into unordered set with only unique entries 
-                        snarl_set.insert(back_snarl);
-                        snarl_set.insert(fwd_snarl);
+               
+                        // insert snarls into unordered set with only unique entries
+                        // only insert if snarl obj exists in the orientation given 
+                        if(back_snarl != NULL){
+                            snarl_set.insert(back_snarl);
+                        }
+                        if(fwd_snarl != NULL){
+                            snarl_set.insert(fwd_snarl);
+                        }
                     }
                     
                 }
@@ -360,6 +365,8 @@ namespace vg {
         cerr << endl;   
         cerr << "snarl_set size " << snarl_set.size() <<endl;             
 #endif 
+        phased_genome->print_phased_genome();
+        
         vector<const Snarl*> v(snarl_set.begin(), snarl_set.end());
         for(int i =0; i < v.size(); i++){
             for(int j =i+1; j < v.size(); j++){
@@ -367,26 +374,29 @@ namespace vg {
                 vector<id_t> haplo_ids1 = phased_genome->get_haplotypes_with_snarl(v[i]);
                 vector<id_t> haplo_ids2 = phased_genome->get_haplotypes_with_snarl(v[j]);
 #ifdef debug_make_snarl_graph
-                if(!haplo_ids1.empty()){
-                    cerr << "haplo_ids1 " << haplo_ids1[0]<<" , " << haplo_ids1[1]<<endl; 
+                if(haplo_ids1.empty()){
+                    cerr << "haplo_ids1 empty" <<endl; 
+                }else{
+                    cerr << "haplo_ids1 " << haplo_ids1[0]<<" , " << haplo_ids1[1]<<endl;
                 }
-                if(!haplo_ids2.empty()){
-                    cerr << "haplo_ids2 " << haplo_ids2[0]<< " , " << haplo_ids2[1]<<endl;   
-                    
-                }
-                if(haplo_ids1.size() < 2){
-                    cerr << "haplo_ids1 size < 2 " <<endl;   
-                    
+                if(haplo_ids2.empty()){
+                    cerr << "haplo_ids2 empty" <<endl;       
+                }else{ 
+                    cerr << "haplo_ids2 " << haplo_ids2[0]<< " , " << haplo_ids2[1]<<endl;    
                 }  
-                if(haplo_ids2.size() < 2){
-                    cerr << "haplo_ids2 size < 2" <<endl;   
-                    
-                }                 
+                                
 #endif
                 if(!haplo_ids1.empty() && !haplo_ids2.empty() ){
                     if(haplo_ids1.size()==2 && haplo_ids2.size()==2){
                         //make pairs of those snarls that are overlapped by both haplotypes
-                        pairs.push_back(make_pair(v[i], v[j]));
+                        // pair should be ordered with smaller snarl num first
+                        if(snarls.snarl_number(v[i]) < snarls.snarl_number(v[j])){
+                            pairs.push_back(make_pair(v[i], v[j]));
+                        }else{
+                            pairs.push_back(make_pair(v[j], v[i]));
+                        }
+                        
+                        
                     }
                 }
             }
@@ -463,11 +473,8 @@ namespace vg {
 #ifdef debug_make_snarl_graph
                 cerr << "diff score " << diff_score <<endl;                   
 #endif
-                if(score_before_swap >= score_after_swap){
-                    map[make_pair(snarl_ptr.first, snarl_ptr.second)] += diff_score;
-                }else if (score_before_swap < score_after_swap){
-                    map[make_pair(snarl_ptr.first, snarl_ptr.second)] -= diff_score;
-                }
+                map[make_pair(snarl_ptr.first, snarl_ptr.second)] += diff_score;
+                
 
             }        
                
