@@ -894,23 +894,26 @@ private:
         }
 
         //How big is the entire snarl record?
-        size_t record_size (record_t type, size_t node_count) {
+        static size_t distance_vector_size(record_t type, size_t node_count) {
             if (type == SNARL){
                 //For a normal snarl, its just the record size and the pointers to children
-                return SNARL_RECORD_SIZE + node_count; 
+                return 0; 
             } else if (type == DISTANCED_SNARL) {
                 //For a normal min distance snarl, record size and the pointers to children, and
                 //matrix of distances
                 size_t node_side_count = node_count * 2 + 2;
-                return SNARL_RECORD_SIZE + node_count + (((node_side_count+1)*node_side_count) / 2);
+                return  (((node_side_count+1)*node_side_count) / 2);
             } else if (type ==  OVERSIZED_SNARL){
                 //For a large min_distance snarl, record the side, pointers to children, and just 
                 //the min distances from each node side to the two boundary nodes
                 size_t node_side_count = node_count * 2 + 2;
-                return SNARL_RECORD_SIZE + node_count + (node_side_count * 2);
+                return  (node_side_count * 2);
             } else {
                 throw runtime_error ("error: this is not a snarl");
             }
+        }
+        static size_t record_size (record_t type, size_t node_count) {
+            return SNARL_RECORD_SIZE + distance_vector_size(type, node_count) + node_count;
         }
         size_t record_size() { 
             record_t type = get_record_type();
@@ -919,13 +922,14 @@ private:
 
 
         //Get the index into the distance vector for the calculating distance between the given node sides
-        int64_t get_distance_vector_offset(size_t rank1, bool right_side1, size_t rank2, bool right_side2) const {
+        static int64_t get_distance_vector_offset(size_t rank1, bool right_side1, size_t rank2, 
+                bool right_side2, size_t node_count, record_t type) {
 
             //how many node sides in this snarl
-            size_t node_side_count = (get_node_count()-1) * 2; 
+            size_t node_side_count = (node_count-1) * 2; 
 
             //make sure we're looking at the correct node side
-            if (rank1 == get_node_count()) {
+            if (rank1 == node_count+2) {
                 rank1 = node_side_count-1;
             } else if (rank1 != 0) {
                 rank1 = rank1 * 2 - 1;
@@ -933,7 +937,7 @@ private:
                     rank1 += 1;
                 }
             }
-            if (rank2 == get_node_count()) {
+            if (rank2 == node_count+2) {
                 rank2 = node_side_count-1;
             } else if (rank2 != 0) {
                 rank2 = rank2 * 2 - 1;
@@ -949,7 +953,6 @@ private:
                 rank2 = tmp;
             }
             
-            record_t type = get_record_type();
             if (type == SNARL) {
                 throw runtime_error("error: trying to access distance in a distanceless snarl tree");
             } else if (type == DISTANCED_SNARL) {
@@ -962,11 +965,18 @@ private:
                 if (rank1 == 0) {
                     return rank2;
                 } else if (rank2 == node_side_count-1) {
-                    return get_node_count() + rank1;
+                    return node_count + 2 + rank1;
                 } else {
                     throw runtime_error("error: trying to access distance in an oversized snarl");
                 }
+            } else {
+                throw runtime_error("error: trying to distance from something that isn't a snarl");
             }
+        } 
+        int64_t get_distance_vector_offset(size_t rank1, bool right_side1, 
+                size_t rank2, bool right_side2) const {
+            return get_distance_vector_offset(rank1, right_side1, rank2, right_side2, 
+                get_node_count(), get_record_type()); 
         }
 
         //TODO: I want to also add a function to do this given a node id or net_handle_t instead of rank
