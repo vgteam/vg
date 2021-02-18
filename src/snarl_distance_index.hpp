@@ -17,7 +17,7 @@ namespace vg {
 
 class SnarlDistanceIndex : public SnarlDecomposition {
 public:
-    SnarlDistanceIndex(const HandleGraphSnarlFinder* snarl_finder);
+    SnarlDistanceIndex(const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder);
 
 private:
     
@@ -56,6 +56,7 @@ private:
      *   For the first and last nodes, we only care about the node sides pointing in
      *   Each node side in the actual distance matrix will be 2*rank-1 for the left side, and 
      *   2*rank for the right side, and 0 for the start, 2*(num_nodes-1)-1 for the end
+     *   Node count is the number of nodes, not including boundary nodes
      * 
      * - The (single) child vector, listing children in snarls
      *   [child vector tag, (pointer to records) x N
@@ -84,7 +85,7 @@ private:
      * OVERSIZED_SNARL only stores distances to the boundaries
      */
     //TODO: Make simple snarls work
-    //TODO: Maybe also add a tag for trivial snarls/chains, or for defining connectivity
+    //TODO: Maybe also add a tag for trivial snarls/chains
     //TODO: Unary snarls? Looping chains?
     enum record_t {ROOT=1, 
                      NODE, DISTANCED_NODE, 
@@ -442,7 +443,7 @@ private:
         };
 
         //Get and set the minimum length (distance from start to end, including boundaries for 
-        //snarls and chains, just node length for nodes)
+        // chains but not snarls, just node length for nodes)
         size_t get_min_length() const {
             record_t type = get_record_type();
             if (type == DISTANCED_NODE) {
@@ -493,6 +494,7 @@ private:
         };
 
         //Is this node reversed in its parent
+        //TODO: I think a node is the only thing that can be reversed in its parent, and only if it is in a chain
         bool get_is_rev_in_parent() const {
             record_t type = get_record_type();
             if (type == NODE || type == DISTANCED_NODE) {
@@ -899,12 +901,12 @@ private:
             } else if (type == DISTANCED_SNARL) {
                 //For a normal min distance snarl, record size and the pointers to children, and
                 //matrix of distances
-                size_t node_side_count = node_count * 2 - 2;
+                size_t node_side_count = node_count * 2 + 2;
                 return SNARL_RECORD_SIZE + node_count + (((node_side_count+1)*node_side_count) / 2);
             } else if (type ==  OVERSIZED_SNARL){
                 //For a large min_distance snarl, record the side, pointers to children, and just 
                 //the min distances from each node side to the two boundary nodes
-                size_t node_side_count = node_count * 2 - 2;
+                size_t node_side_count = node_count * 2 + 2;
                 return SNARL_RECORD_SIZE + node_count + (node_side_count * 2);
             } else {
                 throw runtime_error ("error: this is not a snarl");
@@ -977,7 +979,8 @@ private:
             //Offset of this particular distance in the distance vector
             size_t distance_vector_offset = get_distance_vector_offset(rank1, right_side1, rank2, right_side2);
 
-            return records.at(distance_vector_start + distance_vector_offset) + 1;
+            size_t val = records.at(distance_vector_start + distance_vector_offset)
+            return  val == 0 ? std::numeric_limits<int64_t>::max() : val-1;
 
         }
 
@@ -1036,9 +1039,15 @@ private:
             //Offset of this particular distance in the distance vector
             size_t distance_vector_offset = get_distance_vector_offset(rank1, right_side1, rank2, right_side2);
 
-            records.at(distance_vector_start + distance_vector_offset) = distance - 1;
+            size_t val = distance == std::numeric_limits<int64_t>::max() ? 0 : distance+1;
+            assert(records.at(distance_vector_start + distance_vector_offset) == 0 || 
+
+            records.at(distance_vector_start + distance_vector_offset) = val;
         }
+
+        //Node count is the number of nodes in the snarl, not including boundary nodes
         void set_node_count(size_t node_count) {
+            assert(node_count > 0);//TODO: Don't bother making a record for trivial snarls
             records.at(record_offset + SNARL_NODE_COUNT_OFFSET) = node_count;
         }
 
@@ -1081,13 +1090,16 @@ private:
         //pointer is a pointer into snarl_tree_records, to the beginning of the record for this node
         //So it'll point to the node id of the node we're looking at
         int64_t get_prefix_sum_value(size_t pointer) const {
-            return records.at(pointer+CHAIN_NODE_PREFIX_SUM_OFFSET)-1; 
+            size_t val = records.at(pointer+CHAIN_NODE_PREFIX_SUM_OFFSET);
+            return val == 0 ? std::numeric_limits<int64_t>::max() : val-1; 
         }
         int64_t get_forward_loop_value(size_t pointer) const {
-            return records.at(pointer+CHAIN_NODE_FORWARD_LOOP_OFFSET)-1; 
+            size_t val = records.at(pointer+CHAIN_NODE_FORWARD_LOOP_OFFSET);
+            return val == 0 ? std::numeric_limits<int64_t>::max() : val-1; 
         }
         int64_t get_reverse_loop_value(size_t pointer) const {
-            return records.at(pointer+CHAIN_NODE_REVERSE_LOOP_OFFSET)-1; 
+            size_t val =  records.at(pointer+CHAIN_NODE_REVERSE_LOOP_OFFSET); 
+            return val == 0 ? std::numeric_limits<int64_t>::max() : val-1; 
         }
 
         //Get the distance between the given node sides (relative to the orientation of the chain)
@@ -1230,9 +1242,9 @@ private:
         }
 
         void add_node(id_t id, int64_t prefix_sum, int64_t forward_loop, int64_t reverse_loop) {
-            records.emplace_back(prefix_sum);
-            records.emplace_back(forward_loop);
-            records.emplace_back(reverse_loop);
+            records.emplace_back(prefix_sum==std::numeric_limits<int64_t>::max() ? 0 : prefix_sum+1);
+            records.emplace_back(forward_loop==std::numeric_limits<int64_t>::max() ? 0 : forward_loop+1);
+            records.emplace_back(reverse_loop==std::numeric_limits<int64_t>::max() ? 0 : reverse_loop+1);
         }
         void set_node_count(size_t node_count) {
             records.at(record_offset + CHAIN_NODE_COUNT_OFFSET) = node_count;
@@ -1339,11 +1351,11 @@ protected:
     enum temp_record_t {TEMP_CHAIN=0, TEMP_SNARL, TEMP_NODE, TEMP_ROOT};
     class TemporaryDistanceIndex{
     public:
-        TemporaryDistanceIndex(const HandleGraphSnarlFinder* snarl_finder);
+        TemporaryDistanceIndex(const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder);
     
     protected:
         id_t min_node_id;
-        size_t node_count;
+        id_t max_node_id;
         size_t root_structure_count=0; //How many things are in the root
         size_t index_size;//TODO: This will change depending on how the actual index is represented
 
@@ -1359,7 +1371,6 @@ protected:
             //Type of the parent and offset into the appropriate vector
             //(TEMP_ROOT, 0) if this is a root level chain
             pair<temp_record_t, size_t> parent;
-            size_t node_count;
             int64_t min_length;
             int64_t max_length;
             vector<pair<temp_record_t, size_t>> children; //All children, both nodes and snarls, in order
@@ -1373,8 +1384,10 @@ protected:
         struct TemporarySnarlRecord : TemporaryRecord{
             id_t start_node_id;
             bool start_node_rev;
+            int64_t start_node_length;
             id_t end_node_id;
             bool end_node_rev;
+            int64_t end_node_length;
             size_t node_count;
             int64_t min_length;
             int64_t max_length;
@@ -1383,8 +1396,16 @@ protected:
             vector<int64_t> distances;
             size_t rank_in_parent;
             bool reversed_in_parent;
+            //The minimum distances to go into and out of the snarl from the start or end nodes
+            int64_t loop_start;
+            int64_t loop_end;
+            bool is_trivial_snarl;
         };
         struct TemporaryNodeRecord : TemporaryRecord{
+            TemporaryNodeRecord() :
+            node_id(0), parent(make_pair(TEMP_ROOT, 0)), node_length(0), 
+            rank_in_parent(0), reversed_in_parent(false){
+            }
             id_t node_id;
             pair<temp_record_t, size_t> parent;
             size_t node_length;
