@@ -979,7 +979,7 @@ private:
             //Offset of this particular distance in the distance vector
             size_t distance_vector_offset = get_distance_vector_offset(rank1, right_side1, rank2, right_side2);
 
-            size_t val = records.at(distance_vector_start + distance_vector_offset)
+            size_t val = records.at(distance_vector_start + distance_vector_offset);
             return  val == 0 ? std::numeric_limits<int64_t>::max() : val-1;
 
         }
@@ -1041,6 +1041,7 @@ private:
 
             size_t val = distance == std::numeric_limits<int64_t>::max() ? 0 : distance+1;
             assert(records.at(distance_vector_start + distance_vector_offset) == 0 || 
+                    records.at(distance_vector_start + distance_vector_offset) == val);
 
             records.at(distance_vector_start + distance_vector_offset) = val;
         }
@@ -1231,6 +1232,7 @@ private:
 
         size_t record_offset;
         vector<size_t>& records;
+        //TODO: I don't think I even need node count
         ChainRecordConstructor (size_t pointer, record_t type, size_t node_count, vector<size_t> &records)
             : record_offset(pointer), records(records){
             assert(type == CHAIN || 
@@ -1351,6 +1353,7 @@ protected:
     enum temp_record_t {TEMP_CHAIN=0, TEMP_SNARL, TEMP_NODE, TEMP_ROOT};
     class TemporaryDistanceIndex{
     public:
+        TemporaryDistanceIndex();
         TemporaryDistanceIndex(const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder);
     
     protected:
@@ -1419,6 +1422,10 @@ protected:
         vector<TemporarySnarlRecord> temp_snarl_records;
         vector<TemporaryNodeRecord> temp_node_records;
         friend class SnarlDistanceIndex;
+
+        //Fill in the temporary snarl record with distances
+        void populate_snarl_index(TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, 
+            pair<temp_record_t, size_t> snarl_index, const HandleGraph* graph) ;
     };
 
     //Given an arbitrary number of temporary indexes, produce the final one
@@ -1427,6 +1434,7 @@ protected:
     friend class TemporaryDistanceIndex;
 
 };
+
 
 }
 
