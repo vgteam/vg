@@ -1587,6 +1587,16 @@ using namespace std;
 #ifdef debug_anchored_surject
             cerr << "made split, linearized path graph with " << split_path_graph.get_node_count() << " nodes" << endl;
 #endif
+
+            size_t subgraph_bases = split_path_graph.get_total_length();
+            if (split_path_graph > max_subgraph_bases) {
+                if (!warned_about_subgraph_size.test_and_set()) {
+                    cerr << "warning[vg::Surjector]: Refusing to perform very large alignment against "
+                        << subgraph_bases << " bp strand split subgraph for read " << source.name()
+                        << "; suppressing further warnings." << endl;
+                }
+                return move(make_null_alignment(source)); 
+            }
             
             // compute the connectivity between the path chunks
             MultipathAlignmentGraph mp_aln_graph(split_path_graph, path_chunks, source, node_trans, !preserve_N_alignments,

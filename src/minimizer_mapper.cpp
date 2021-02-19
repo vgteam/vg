@@ -2536,12 +2536,12 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         this->extender.unfold_haplotypes(rescue_nodes, haplotype_paths, align_graph);
         
         size_t rescue_subgraph_bases = align_graph->get_total_length();
-        if (rescue_subgraph_bases > max_rescue_subgraph_bases &&
-            !warned_about_rescue_subgraph_size.test_and_set()) {
-            
-            cerr << "warning[vg::giraffe]: Refusing to perform very large rescue alignment against "
-                << rescue_subgraph_bases << " bp haplotype subgraph for read " << rescued_alignment.name()
-                << "; suppressing further warnings." << endl;
+        if (rescue_subgraph_bases > max_rescue_subgraph_bases) {
+            if (!warned_about_rescue_subgraph_size.test_and_set()) {
+                cerr << "warning[vg::giraffe]: Refusing to perform very large rescue alignment against "
+                    << rescue_subgraph_bases << " bp haplotype subgraph for read " << rescued_alignment.name()
+                    << "; suppressing further warnings." << endl;
+            }
             return; 
         }
 
@@ -2589,12 +2589,12 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         for (auto& h : topological_order) {
             rescue_subgraph_bases += cached_graph.get_length(h);
         }
-        if (rescue_subgraph_bases > max_rescue_subgraph_bases &&
-            !warned_about_rescue_subgraph_size.test_and_set()) {
-            
-            cerr << "warning[vg::giraffe]: Refusing to perform very large rescue alignment against "
-                << rescue_subgraph_bases << " bp ordered subgraph for read " << rescued_alignment.name()
-                << "; suppressing further warnings." << endl;
+        if (rescue_subgraph_bases > max_rescue_subgraph_bases) {
+            if (!warned_about_rescue_subgraph_size.test_and_set()) {
+                cerr << "warning[vg::giraffe]: Refusing to perform very large rescue alignment against "
+                    << rescue_subgraph_bases << " bp ordered subgraph for read " << rescued_alignment.name()
+                    << "; suppressing further warnings." << endl;
+            }
             return; 
         }
     
@@ -2624,12 +2624,12 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         handlealgs::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
 
     size_t rescue_subgraph_bases = dagified.get_total_length();
-    if (rescue_subgraph_bases > max_rescue_subgraph_bases &&
-        !warned_about_rescue_subgraph_size.test_and_set()) {
-        
-        cerr << "warning[vg::giraffe]: Refusing to perform very large rescue alignment against "
-            << rescue_subgraph_bases << " bp dagified subgraph for read " << rescued_alignment.name()
-            << "; suppressing further warnings." << endl;
+    if (rescue_subgraph_bases > max_rescue_subgraph_bases) {
+        if (!warned_about_rescue_subgraph_size.test_and_set()) {
+            cerr << "warning[vg::giraffe]: Refusing to perform very large rescue alignment against "
+                << rescue_subgraph_bases << " bp dagified subgraph for read " << rescued_alignment.name()
+                << "; suppressing further warnings." << endl;
+        }
         return; 
     }
 
