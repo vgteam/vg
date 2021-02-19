@@ -346,10 +346,10 @@ namespace vg {
                
                         // insert snarls into unordered set with only unique entries
                         // only insert if snarl obj exists in the orientation given 
-                        if(back_snarl != NULL){
+                        if(back_snarl){
                             snarl_set.insert(back_snarl);
                         }
-                        if(fwd_snarl != NULL){
+                        if(fwd_snarl){
                             snarl_set.insert(fwd_snarl);
                         }
                     }
@@ -371,6 +371,7 @@ namespace vg {
         for(int i =0; i < v.size(); i++){
             for(int j =i+1; j < v.size(); j++){
                 //check if both haplotypes visited these snarls
+ 
                 vector<id_t> haplo_ids1 = phased_genome->get_haplotypes_with_snarl(v[i]);
                 vector<id_t> haplo_ids2 = phased_genome->get_haplotypes_with_snarl(v[j]);
 #ifdef debug_make_snarl_graph
@@ -495,6 +496,10 @@ namespace vg {
             pair<const Snarl*, const Snarl*> snarl_pair = snarl_pair_to_weight.first;
             const Snarl* snarl_1 = snarl_pair.first;
             const Snarl* snarl_2 = snarl_pair.second;
+#ifdef debug_make_snarl_graph
+                cerr <<"snarl1 start->end" <<snarl_1->start().node_id() <<" -> " <<snarl_1->end().node_id() <<endl;
+                cerr <<"snarl2 start->end" <<snarl_2->start().node_id() <<" -> " <<snarl_2->end().node_id() <<endl;
+#endif
             // skip edge weights that are <1
             if(edge_weight < 1){
 #ifdef debug_make_snarl_graph
@@ -503,14 +508,14 @@ namespace vg {
                 continue;
             }else{
 #ifdef debug_make_snarl_graph
-                cerr << "weight > 1  " << edge_weight <<endl;                   
+                cerr << "weight > 1 : " << edge_weight <<endl;                   
 #endif 
                 algorithms::Node snarl_node_1, snarl_node_2;
                 algorithms::Edge edge_fwd, edge_back;
                 edge_fwd.weight = edge_weight;
                 edge_back.weight = edge_weight;
-                snarl_node_1.edges.push_back(edge_fwd);
-                snarl_node_2.edges.push_back(edge_back);
+                
+                //add incident edge weights to nodes
                 snarl_node_1.weight += edge_weight;
                 snarl_node_2.weight += edge_weight;
 
@@ -518,10 +523,24 @@ namespace vg {
                 size_t snarl_id_1 = snarls.snarl_number(snarl_1);
                 size_t snarl_id_2 = snarls.snarl_number(snarl_2);
 
-                edge_fwd.other = snarl_id_2;
-                edge_back.other = snarl_id_1;
+#ifdef debug_make_snarl_graph
+                cerr << "snarl 1 : " << snarl_id_1 <<endl;  
+                cerr << "snarl 2 : " << snarl_id_2 <<endl;                   
+#endif 
+                //add other node that touches edge coming from base node
+                edge_fwd.other = snarl_id_2; //snarl_1 -> snarl_2
+                edge_back.other = snarl_id_1; //snarl_2 -> snarl_1
+
+                snarl_node_1.edges.push_back(edge_fwd);
+                snarl_node_2.edges.push_back(edge_back);
+
+#ifdef debug_make_snarl_graph
+                cerr << "edge_fwd.other: " << edge_fwd.other <<endl;  
+                cerr << "edge_back.other " << edge_back.other <<endl;                   
+#endif 
                 snarl_graph.add_node(snarl_id_1, snarl_node_1);
                 snarl_graph.add_node(snarl_id_2, snarl_node_2);
+
 
             }
 

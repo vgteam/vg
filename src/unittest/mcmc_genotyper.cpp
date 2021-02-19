@@ -2,6 +2,7 @@
 ///  
 /// unit tests for mcmc genotyper construction and utility functions
 ///
+#include <list>
 #include <xg.hpp>
 #include <stdio.h>
 #include <iostream>
@@ -33,8 +34,8 @@ namespace vg {
         const int n_iterations = 100;
 
         
-        TEST_CASE("Test1") {
-            //Returns optimal phased genome on a 1-node graph with 1 short read 
+        TEST_CASE("Returns optimal phased genome on a 1-node graph with 1 short read ") {
+            
             SECTION("Test1: Requires haplotype pair to match truth set") {
                 VG graph;
 				
@@ -104,8 +105,7 @@ namespace vg {
             }
  
         }
-        TEST_CASE("Test2"){
-            //Returns optimal phased genome on a 4-node graph, snarl with 1 short read
+        TEST_CASE("Returns optimal phased genome on a 4-node graph, snarl with 1 short read"){
             SECTION("Test2: Requires haplotype pair to match truth set") {   
                 VG graph;
 				
@@ -221,8 +221,7 @@ namespace vg {
                 
             } 
         }                  
-        TEST_CASE("Test3"){
-            //Returns optimal phased genome on a 7-node graph two connected snarls with 1 short read
+        TEST_CASE("Returns optimal phased genome on a 7-node graph two connected snarls with 1 short read"){
             SECTION("Test3: Requires haplotype pair to match truth set") {   
                 VG graph;
 
@@ -328,8 +327,7 @@ namespace vg {
 
             }
         }
-        TEST_CASE("Test4"){
-            //Returns optimal phased genome on a 8-node graph 2 nested snarls with 1 short read
+        TEST_CASE("Returns optimal phased genome on a 8-node graph 2 nested snarls with 1 short read"){
             SECTION("Test4: Requires haplotype pair to match truth set") {   
                 VG graph;
 				
@@ -508,8 +506,7 @@ namespace vg {
             }    
 
         }
-        TEST_CASE("Test5"){
-            //Returns optimal phased genome on a 8-node graph 2 nested snarls with 1 short read
+        TEST_CASE("Returns optimal phased genome on a 8-node graph 2 nested snarls with 1 read"){
             SECTION("Test5:Requires haplotype pair to match truth set") {   
                 VG graph;
 				
@@ -617,8 +614,7 @@ namespace vg {
             
             }
         }    
-        TEST_CASE("Test6"){
-            //Returns optimal phased genome on a 7-node graph containing 2 connected snarls, and 4 mapped reads
+        TEST_CASE("Returns optimal phased genome on a 7-node graph containing 2 connected snarls, and 4 mapped reads"){
             SECTION("Test6: Requires haplotype pair to match truth set"){
                 VG graph;
 
@@ -747,8 +743,7 @@ namespace vg {
                 delete lcpidx;
             }
         }
-        TEST_CASE("Test7"){
-            //Returns optimal phased genome on a 7-node graph, two connected snarls with 8 short read
+        TEST_CASE("Returns optimal phased genome on a 7-node graph, two connected snarls with 8 short read"){
             SECTION("Test7: Requires haplotype pair to match truth set"){
                 
                 vector<int> failed_seeds;
@@ -908,8 +903,7 @@ namespace vg {
             }
             
         }
-        TEST_CASE("Test8"){
-            //Returns optimal phased genome on a 7-node graph, two connected snarls with 9 short read
+        TEST_CASE("Returns optimal phased genome on a 7-node graph, two connected snarls with 9 short read"){
             SECTION("Test8: Requires haplotype pair to match truth set"){
                 
                 vector<int> failed_seeds;
@@ -1061,7 +1055,6 @@ namespace vg {
                 graph.append_step(path_handle, graph.get_handle(n5->id()));
                 graph.append_step(path_handle, graph.get_handle(n7->id()));
                 
-                
                 graph.create_edge(n1, n2);
                 graph.create_edge(n1, n3);
                 graph.create_edge(n2, n4);
@@ -1121,16 +1114,33 @@ namespace vg {
                     move(vect[i].begin(), vect[i].end(), back_inserter(multipath_aln_vector)); 
                 }
                 
-
-                double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
                 
-                // generate initial value
-                unique_ptr<PhasedGenome> phased_genome = mcmc_genotyper.generate_initial_guess();
-#ifdef debug_snarl_graph
-                cout << "initial guess phased genome "  <<endl;
-                phased_genome->print_phased_genome();
-#endif
+                // generate phased genome with haplotypes that have diff allele variants at snarl sites
+                // unique_ptr<PhasedGenome> phased_genome = mcmc_genotyper.generate_initial_guess();
+                unique_ptr<PhasedGenome> phased_genome(new PhasedGenome(snarl_manager));
 
+                vector<NodeTraversal> haplotype_1;
+                vector<NodeTraversal> haplotype_2;
+                
+                haplotype_1.push_back(NodeTraversal(n1));
+                haplotype_1.push_back(NodeTraversal(n3));
+                haplotype_1.push_back(NodeTraversal(n4));
+                haplotype_1.push_back(NodeTraversal(n5));
+                haplotype_1.push_back(NodeTraversal(n7));
+                
+                haplotype_2.push_back(NodeTraversal(n1));
+                haplotype_2.push_back(NodeTraversal(n2));
+                haplotype_2.push_back(NodeTraversal(n4));
+                haplotype_2.push_back(NodeTraversal(n6));
+                haplotype_2.push_back(NodeTraversal(n7));
+
+                // construct haplotypes
+                phased_genome->add_haplotype(haplotype_1.begin(), haplotype_1.end());
+                phased_genome->add_haplotype(haplotype_2.begin(), haplotype_2.end());
+
+                // index sites
+                phased_genome->build_indices();
+                
                 unordered_map<pair<const Snarl*, const Snarl*>, int32_t> snarl_map = mcmc_genotyper.make_snarl_map(multipath_aln_vector ,  phased_genome);
 #ifdef debug_snarl_graph
                 unordered_map<pair<const Snarl*, const Snarl*>, int32_t>::iterator it = snarl_map.begin();
@@ -1144,11 +1154,17 @@ namespace vg {
 
 #ifdef debug_snarl_graph
                 cout << "graph" <<endl;        
-                // check if any edges connect to other nodes in the disjoint set
+                
                 for(size_t i =0; i < snarl_graph.get_node_ids().size(); i++){
+                    cout << "node size " <<snarl_graph.get_node_ids().size() << endl; 
                     vector<size_t> node_ids = snarl_graph.get_node_ids();
+                    
+                    for (size_t k =0; k < node_ids.size(); k++){
+                        cout << "node id : " <<node_ids[k] << endl; 
+                    }
                     for(size_t j =0; j < snarl_graph.get_node_by_id(node_ids[i]).edges.size(); j++){
-                        algorithms::Node node =  snarl_graph.get_node_by_id(node_ids[i]);
+                        cout << "node "<< node_ids[i] <<" size of edges " <<snarl_graph.get_node_ids().size() << endl; 
+                        algorithms::Node& node =  snarl_graph.get_node_by_id(node_ids[i]);
                         cout << "node "<<node_ids[i] <<"->" << node.edges[j].other <<endl;
                         cout << "edge weight: " << node.edges[j].weight <<endl;
 
@@ -1159,6 +1175,166 @@ namespace vg {
 
 
 
+
+        }
+        TEST_CASE("snarl_map and snarl_graph work on 14 node graph") {
+            VG graph;
+				
+            Node* n1 = graph.create_node("GGG");  
+            Node* n2 = graph.create_node("CCC");
+            Node* n3 = graph.create_node("A");
+            Node* n4 = graph.create_node("T");
+            Node* n5 = graph.create_node("G");
+            Node* n6 = graph.create_node("CTGG");
+            Node* n7 = graph.create_node("TAC");
+            Node* n8 = graph.create_node("C");
+            Node* n9 = graph.create_node("T");
+            Node* n10 = graph.create_node("G");
+            Node* n11 = graph.create_node("CTGA");
+            Node* n12 = graph.create_node("A");
+            Node* n13 = graph.create_node("G");
+            Node* n14 = graph.create_node("CCC");
+
+            path_handle_t path_handle = graph.create_path_handle("x");
+            graph.append_step(path_handle, graph.get_handle(n1->id()));
+            graph.append_step(path_handle, graph.get_handle(n7->id()));
+            graph.append_step(path_handle, graph.get_handle(n8->id()));
+            graph.append_step(path_handle, graph.get_handle(n6->id()));
+            graph.append_step(path_handle, graph.get_handle(n9->id()));
+            graph.append_step(path_handle, graph.get_handle(n11->id()));
+            graph.append_step(path_handle, graph.get_handle(n12->id()));
+            graph.append_step(path_handle, graph.get_handle(n14->id()));
+
+            
+            graph.create_edge(n1, n2);
+            graph.create_edge(n1, n7);
+            graph.create_edge(n2, n3);
+            graph.create_edge(n2, n4);
+            graph.create_edge(n3, n5);
+            graph.create_edge(n4, n5);
+            graph.create_edge(n5, n6);
+            graph.create_edge(n7, n8);
+            graph.create_edge(n8, n6);
+            graph.create_edge(n6, n9);
+            graph.create_edge(n6, n10);
+            graph.create_edge(n9, n11);
+            graph.create_edge(n10, n11);
+            graph.create_edge(n11, n12);
+            graph.create_edge(n11, n13);
+            graph.create_edge(n12, n14);
+            graph.create_edge(n13, n14);
+            
+            IntegratedSnarlFinder bubble_finder(graph);
+            SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
+
+            // Configure GCSA temp directory to the system temp directory
+            gcsa::TempFile::setDirectory(temp_file::get_dir());
+            // And make it quiet
+            gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+            
+            // Make pointers to fill in
+            gcsa::GCSA* gcsaidx = nullptr;
+            gcsa::LCPArray* lcpidx = nullptr;
+            
+            // Build the GCSA index
+            build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3); 
+            
+            // Build the xg index
+            xg::XG xg_index; 
+            xg_index.from_path_handle_graph(graph);              
+
+            // Make a multipath mapper to map against the graph.
+            MultipathMapper multipath_mapper(&xg_index, gcsaidx, lcpidx); 
+            
+            vector<string> reads = {"GGGCCCAGCTGG", "GGGCCCAGCTGGTCTGAGCCC", "GGGCCCAGCTGGTCTGAGCCC", "GGGTACCCTGGTCTGAGCCC", "CTGGTCTGAGCCC" };
+            vector<Alignment> alns = {reads.size(), Alignment()};
+
+            // set alignment sequence
+            for(int i = 0; i< reads.size(); i++){
+                alns[i].set_sequence(reads[i]);
+            }
+
+            MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
+            vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>(); 
+
+            vector<vector<multipath_alignment_t>> vect = {reads.size(),vector<multipath_alignment_t>() };
+                
+                
+            // map read in alignment to graph and make multipath alignments 
+            for(int i = 0; i< reads.size(); i++){
+                multipath_mapper.multipath_map(alns[i], vect[i]);
+            }
+
+
+            // accumulate the mapped reads in one vector
+            for(int i = 0; i< reads.size(); i++){
+                move(vect[i].begin(), vect[i].end(), back_inserter(multipath_aln_vector)); 
+            }
+
+            // generate phased genome with haplotypes that have diff allele variants at snarl sites
+            // unique_ptr<PhasedGenome> phased_genome = mcmc_genotyper.generate_initial_guess();
+            unique_ptr<PhasedGenome> phased_genome(new PhasedGenome(snarl_manager));
+
+            vector<NodeTraversal> haplotype_1;
+            vector<NodeTraversal> haplotype_2;
+            
+            haplotype_1.push_back(NodeTraversal(n1));
+            haplotype_1.push_back(NodeTraversal(n7));
+            haplotype_1.push_back(NodeTraversal(n8));
+            haplotype_1.push_back(NodeTraversal(n6));
+            haplotype_1.push_back(NodeTraversal(n10));
+            haplotype_1.push_back(NodeTraversal(n11));
+            haplotype_1.push_back(NodeTraversal(n13));
+            haplotype_1.push_back(NodeTraversal(n14));
+
+            haplotype_2.push_back(NodeTraversal(n1));
+            haplotype_2.push_back(NodeTraversal(n2));
+            haplotype_2.push_back(NodeTraversal(n3));
+            haplotype_2.push_back(NodeTraversal(n5));
+            haplotype_2.push_back(NodeTraversal(n6));
+            haplotype_2.push_back(NodeTraversal(n9));
+            haplotype_2.push_back(NodeTraversal(n11));
+            haplotype_2.push_back(NodeTraversal(n12));
+            haplotype_2.push_back(NodeTraversal(n14));
+
+            // construct haplotypes
+            phased_genome->add_haplotype(haplotype_1.begin(), haplotype_1.end());
+            phased_genome->add_haplotype(haplotype_2.begin(), haplotype_2.end());
+
+            // index sites
+            phased_genome->build_indices();
+
+            unordered_map<pair<const Snarl*, const Snarl*>, int32_t> snarl_map = mcmc_genotyper.make_snarl_map(multipath_aln_vector ,  phased_genome);
+#ifdef debug_snarl_graph
+            unordered_map<pair<const Snarl*, const Snarl*>, int32_t>::iterator it = snarl_map.begin();
+            while(it != snarl_map.end())
+            {
+                std::cout<<"weight: " << it->second<<std::endl;
+                it++;
+            }
+#endif
+            algorithms::Graph snarl_graph = mcmc_genotyper.make_snarl_graph(snarl_map);
+
+#ifdef debug_snarl_graph
+            cout << "graph" <<endl;        
+            
+            for(size_t i =0; i < snarl_graph.get_node_ids().size(); i++){
+                cout << "node size " <<snarl_graph.get_node_ids().size() << endl; 
+                vector<size_t> node_ids = snarl_graph.get_node_ids();
+                
+                for (size_t k =0; k < node_ids.size(); k++){
+                    cout << "node id : " <<node_ids[k] << endl; 
+                }
+                for(size_t j =0; j < snarl_graph.get_node_by_id(node_ids[i]).edges.size(); j++){
+                    cout << "node "<< node_ids[i] <<" size of edges " <<snarl_graph.get_node_ids().size() << endl; 
+                    algorithms::Node& node =  snarl_graph.get_node_by_id(node_ids[i]);
+                    cout << "node "<<node_ids[i] <<"->" << node.edges[j].other <<endl;
+                    cout << "edge weight: " << node.edges[j].weight <<endl;
+
+                }
+                
+            }
+#endif
 
         }
 
