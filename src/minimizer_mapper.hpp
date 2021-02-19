@@ -157,6 +157,12 @@ public:
 
     /// For paired end mapping, how many times should we attempt rescue (per read)?
     size_t max_rescue_attempts = 15;
+    
+    /// How big of a graph in bp should we ever try to align against for rescue?
+    size_t max_rescue_subgraph_bases = 100 * 1024;
+    
+    /// And have we complained about hitting it?
+    atomic_flag warned_about_rescue_subgraph_size = ATOMIC_FLAG_INIT;
 
     ///What is the maximum fragment length that we accept as valid for paired-end reads?
     size_t max_fragment_length = 2000;
