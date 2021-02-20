@@ -363,7 +363,7 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream,
 
     if (transcripts.empty()) {
 
-        cerr << "[transcriptome] ERROR: No transcripts parsed (remember to set feature type \"-y\")" << endl;
+        cerr << "[transcriptome] ERROR: No transcripts parsed (remember to set feature type \"-y\" in vg rna or \"-f\" in vg autoindex)" << endl;
         exit(1);        
     }
 

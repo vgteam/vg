@@ -125,6 +125,7 @@ void help_autoindex(char** argv) {
     << "    -i, --ins-fasta FILE   FASTA file with sequences of INS variants from -v" << endl
     << "    -g, --gfa FILE         GFA file to make a graph from" << endl
     << "    -x, --tx-gff FILE      GTF/GFF file with transcript annotations (may repeat)" << endl
+    << "  configuration:" << endl
     << "    -f, --gff-feature STR  GTF/GFF feature type (col. 3) to add to graph (default: " << IndexingParameters::gff_feature_name << ")" << endl
     << "    -a, --gff-tx-tag STR   GTF/GFF tag (in col. 9) for transcript ID (default: " << IndexingParameters::gff_transcript_tag << ")" << endl
     << "  logging and computation:" << endl
@@ -279,7 +280,7 @@ int main_autoindex(int argc, char** argv) {
         
         for (auto& vcf_name : vcf_names) {
             if (phased) {
-                registry.provide({"Phased VCF"}, vcf_name);
+                registry.provide({"VCF w/ Phasing"}, vcf_name);
             }
             else {
                 registry.provide({"VCF"}, vcf_name);
