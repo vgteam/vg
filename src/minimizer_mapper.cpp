@@ -2535,7 +2535,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         bdsg::HashGraph align_graph;
         this->extender.unfold_haplotypes(rescue_nodes, haplotype_paths, align_graph);
         
-        size_t rescue_subgraph_bases = align_graph->get_total_length();
+        size_t rescue_subgraph_bases = align_graph.get_total_length();
         if (rescue_subgraph_bases > max_rescue_subgraph_bases) {
             if (!warned_about_rescue_subgraph_size.test_and_set()) {
                 cerr << "warning[vg::giraffe]: Refusing to perform very large rescue alignment against "

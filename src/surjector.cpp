@@ -1589,7 +1589,7 @@ using namespace std;
 #endif
 
             size_t subgraph_bases = split_path_graph.get_total_length();
-            if (split_path_graph > max_subgraph_bases) {
+            if (subgraph_bases > max_subgraph_bases) {
                 if (!warned_about_subgraph_size.test_and_set()) {
                     cerr << "warning[vg::Surjector]: Refusing to perform very large alignment against "
                         << subgraph_bases << " bp strand split subgraph for read " << source.name()

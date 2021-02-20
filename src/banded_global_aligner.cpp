@@ -13,7 +13,7 @@
 //#define debug_banded_aligner_fill_matrix
 //#define debug_banded_aligner_traceback
 //#define debug_banded_aligner_print_matrices
-#define debug_jemalloc
+//#define debug_jemalloc
 
 #ifdef debug_jemalloc
 #include <jemalloc/jemalloc.h>

@@ -91,7 +91,7 @@ using namespace std;
         size_t max_subgraph_bases = 100 * 1024;
         
         /// And have we complained about hitting it?
-        atomic_flag warned_about_subgraph_size = ATOMIC_FLAG_INIT;
+        mutable atomic_flag warned_about_subgraph_size = ATOMIC_FLAG_INIT;
         
     protected:
         
