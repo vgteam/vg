@@ -1990,7 +1990,6 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
                 if (!aliasor) {
                     cerr << "error:[IndexRegistry] Couldn't open " << copy_filename << endl;
                 }
-                
                 aliasor << aliasee.rdbuf();
             }
         }
@@ -2010,6 +2009,7 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
                     if (!aliasor) {
                         cerr << "error:[IndexRegistry] Couldn't open " << move_filename << endl;
                     }
+                    aliasor << aliasee.rdbuf();
                 }
             }
         }
