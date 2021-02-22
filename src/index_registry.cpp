@@ -8,6 +8,7 @@
 #include <map>
 #include <cctype>
 #include <cstdio>
+#include <cerrno>
 
 #include <bdsg/hash_graph.hpp>
 #include <bdsg/packed_graph.hpp>
@@ -1983,6 +1984,12 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
                 auto copy_filename = plan.output_filepath(aliasors[i], j, aliasee_filenames.size());
                 ifstream aliasee(aliasee_filenames[j], std::ios::binary);
                 ofstream aliasor(copy_filename, std::ios::binary);
+                if (!aliasee) {
+                    cerr << "error:[IndexRegistry] Couldn't open " << aliasee_filenames[j] << endl;
+                }
+                if (!aliasor) {
+                    cerr << "error:[IndexRegistry] Couldn't open " << copy_filename << endl;
+                }
                 
                 aliasor << aliasee.rdbuf();
             }
@@ -1992,7 +1999,18 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
         if (can_move) {
             for (size_t j = 0; j < aliasee_filenames.size(); ++j) {
                 auto move_filename = plan.output_filepath(aliasors[0], j, aliasee_filenames.size());
-                rename(aliasee_filenames[j].c_str(), move_filename.c_str());
+                int code = rename(aliasee_filenames[j].c_str(), move_filename.c_str());
+                if (code) {
+                    // moving failed (maybe because the files on separate drives?) fall back on copying
+                    ifstream aliasee(aliasee_filenames[j], std::ios::binary);
+                    ofstream aliasor(move_filename, std::ios::binary);
+                    if (!aliasee) {
+                        cerr << "error:[IndexRegistry] Couldn't open " << aliasee_filenames[j] << endl;
+                    }
+                    if (!aliasor) {
+                        cerr << "error:[IndexRegistry] Couldn't open " << move_filename << endl;
+                    }
+                }
             }
         }
     }
