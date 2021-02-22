@@ -99,6 +99,12 @@ struct IndexingParameters {
     static int minimizer_w;
     // length of internal s-mer if using bounded syncmers [18]
     static int minimizer_s;
+    // the number of paths that will make up the path cover GBWT [16]
+    static int path_cover_depth;
+    // the number of haplotypes to downsample to in giraffe's GBWT [64]
+    static int giraffe_gbwt_downsample;
+    // Jordan actually doesn't know what this one does [4]
+    static int downsample_context_length;
     // whether indexing algorithms will log progress (if available) [false]
     static bool verbose;
 };
