@@ -47,7 +47,6 @@ bool vcf_is_phased(const string& filepath) {
     bool found_phased = false;
     while (bcf_read(file, hdr, line) >= 0 && iter < vars_to_check && !found_phased)
     {
-        //cerr << "line record at " << line << endl;
         if (phase_set_id >= 0) {
             if (phase_set_id == BCF_HT_INT) {
                 // phase sets are integers
@@ -117,20 +116,24 @@ void help_autoindex(char** argv) {
     << "usage: " << argv[0] << " autoindex [options]" << endl
     << "options:" << endl
     << "  output:" << endl
-    << "    -p, --prefix PREFIX   prefix to use for all output (default: index)" << endl
-    << "    -w, --workflow NAME   workflow to produce indexes for, can be provided multiple" << endl
-    << "                          times. options: map, mpmap, giraffe (default: map)" << endl
+    << "    -p, --prefix PREFIX    prefix to use for all output (default: index)" << endl
+    << "    -w, --workflow NAME    workflow to produce indexes for, can be provided multiple" << endl
+    << "                           times. options: map, mpmap, giraffe (default: map)" << endl
     << "  input data:" << endl
-    << "    -r, --ref-fasta FILE  FASTA file containing the reference sequence (may repeat)" << endl
-    << "    -v, --vcf FILE        VCF file with sequence names matching -r (may repeat)" << endl
-    << "    -i, --ins-fasta FILE  FASTA file with sequences of INS variants from -v" << endl
-    << "    -g, --gfa FILE        GFA file to make a graph from" << endl
+    << "    -r, --ref-fasta FILE   FASTA file containing the reference sequence (may repeat)" << endl
+    << "    -v, --vcf FILE         VCF file with sequence names matching -r (may repeat)" << endl
+    << "    -i, --ins-fasta FILE   FASTA file with sequences of INS variants from -v" << endl
+    << "    -g, --gfa FILE         GFA file to make a graph from" << endl
+    << "    -x, --tx-gff FILE      GTF/GFF file with transcript annotations (may repeat)" << endl
+    << "  configuration:" << endl
+    << "    -f, --gff-feature STR  GTF/GFF feature type (col. 3) to add to graph (default: " << IndexingParameters::gff_feature_name << ")" << endl
+    << "    -a, --gff-tx-tag STR   GTF/GFF tag (in col. 9) for transcript ID (default: " << IndexingParameters::gff_transcript_tag << ")" << endl
     << "  logging and computation:" << endl
-    << "    -T, --tmp-dir DIR     temporary directory to use for intermediate files" << endl
-    << "    -t, --threads NUM     number of threads (default: all available)" << endl
-    << "    -V, --verbose         log progress to stderr" << endl
-    << "    -d, --dot             print the dot-formatted graph of index recipes and exit" << endl
-    << "    -h, --help            print this help message to stderr and exit" << endl;
+    << "    -T, --tmp-dir DIR      temporary directory to use for intermediate files" << endl
+    << "    -t, --threads NUM      number of threads (default: all available)" << endl
+    << "    -V, --verbose          log progress to stderr" << endl
+    << "    -d, --dot              print the dot-formatted graph of index recipes and exit" << endl
+    << "    -h, --help             print this help message to stderr and exit" << endl;
 }
 
 int main_autoindex(int argc, char** argv) {
@@ -142,6 +145,7 @@ int main_autoindex(int argc, char** argv) {
     
 #define OPT_KEEP_INTERMEDIATE 1000
 #define OPT_FORCE_UNPHASED 1001
+#define OPT_FORCE_PHASED 1002
     
     // load the registry
     IndexRegistry registry = VGIndexes::get_vg_index_registry();
@@ -149,6 +153,7 @@ int main_autoindex(int argc, char** argv) {
     vector<IndexName> targets;
     vector<string> vcf_names;
     bool force_unphased = false;
+    bool force_phased = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -161,6 +166,9 @@ int main_autoindex(int argc, char** argv) {
             {"vcf", required_argument, 0, 'v'},
             {"ins-fasta", required_argument, 0, 'i'},
             {"gfa", required_argument, 0, 'g'},
+            {"tx-gff", required_argument, 0, 'x'},
+            {"gff-feature", required_argument, 0, 'f'},
+            {"gff-tx-tag", required_argument, 0, 'a'},
             {"tmp-dir", required_argument, 0, 'T'},
             {"threads", required_argument, 0, 't'},
             {"verbose", no_argument, 0, 'V'},
@@ -168,11 +176,12 @@ int main_autoindex(int argc, char** argv) {
             {"help", no_argument, 0, 'h'},
             {"keep-intermediate", no_argument, 0, OPT_KEEP_INTERMEDIATE},
             {"force-unphased", no_argument, 0, OPT_FORCE_UNPHASED},
+            {"force-phased", no_argument, 0, OPT_FORCE_PHASED},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "p:w:r:v:i:g:T:t:dVh",
+        c = getopt_long (argc, argv, "p:w:r:v:i:g:x:a:f:T:t:dVh",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -194,8 +203,6 @@ int main_autoindex(int argc, char** argv) {
                     for (auto& target : VGIndexes::get_default_mpmap_indexes()) {
                         targets.emplace_back(move(target));
                     }
-                    cerr << "mpmap indexing not yet implemented" << endl;
-                    return 1;
                 }
                 else if (optarg == string("giraffe")) {
                     for (auto& target : VGIndexes::get_default_giraffe_indexes()) {
@@ -220,6 +227,15 @@ int main_autoindex(int argc, char** argv) {
             case 'g':
                 registry.provide({"Reference GFA"}, optarg);
                 break;
+            case 'x':
+                registry.provide({"GTF/GFF"}, optarg);
+                break;
+            case 'f':
+                IndexingParameters::gff_feature_name = optarg;
+                break;
+            case 'a':
+                IndexingParameters::gff_transcript_tag = optarg;
+                break;
             case 'T':
                 temp_file::set_dir(optarg);
                 break;
@@ -238,6 +254,9 @@ int main_autoindex(int argc, char** argv) {
             case OPT_FORCE_UNPHASED:
                 force_unphased = true;
                 break;
+            case OPT_FORCE_PHASED:
+                force_phased = true;
+                break;
             case 'h':
                 help_autoindex(argv);
                 return 0;
@@ -246,11 +265,13 @@ int main_autoindex(int argc, char** argv) {
         }
     }
     
+    assert(!(force_phased && force_unphased));
+    
     // we have special logic for VCFs to make it friendly to both phased
     // and unphased VCF files
     if (!vcf_names.empty()) {
         // we interpret it as a phased VCF if any of the VCFs have phasing
-        bool phased = false;
+        bool phased = force_phased;
         if (!force_unphased) {
             for (size_t i = 0; i < vcf_names.size() && !phased; ++i) {
                 phased = vcf_is_phased(vcf_names[i]);
@@ -259,7 +280,7 @@ int main_autoindex(int argc, char** argv) {
         
         for (auto& vcf_name : vcf_names) {
             if (phased) {
-                registry.provide({"Phased VCF"}, vcf_name);
+                registry.provide({"VCF w/ Phasing"}, vcf_name);
             }
             else {
                 registry.provide({"VCF"}, vcf_name);
@@ -281,7 +302,14 @@ int main_autoindex(int argc, char** argv) {
     sort(targets.begin(), targets.end());
     targets.resize(unique(targets.begin(), targets.end()) - targets.begin());
     
-    registry.make_indexes(targets);
+    try {
+        registry.make_indexes(targets);
+    }
+    catch (InsufficientInputException ex) {
+        cerr << "error:[vg autoindex] Input is not sufficient to create indexes" << endl;
+        cerr << ex.what();
+        return 1;
+    }
     
     return 0;
 

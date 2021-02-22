@@ -5,6 +5,7 @@
 #include <map>
 #include <set>
 #include <unordered_set>
+#include <unordered_map>
 #include <functional>
 #include <string>
 #include <memory>
@@ -20,31 +21,39 @@ class IndexRecipe;
 class InsufficientInputException;
 class IndexRegistry;
 class IndexingPlan;
+class AliasGraph;
 
 /**
- * Names an index. Each index may have multiple components.
+ * A unique identifier for an Index
  */
-using IndexName = set<string>;
-// We use a sorted set so that we can know which item in the name corresponds to which file
+using IndexName = string;
+
+/**
+ * A group of indexes that can be made simultaneously
+ */
+using IndexGroup = set<IndexName>;
 
 /**
  * Names a recipe in the collection of registered recipes.
  */
-using RecipeName = pair<IndexName, size_t>;
+using RecipeName = pair<IndexGroup, size_t>;
 
 /**
  * Is a recipe to create the files (returned by name) associated with some
  * index, from a series of input indexes, given the plan it is being
  * generated for and the index being generated.
  */
-using RecipeFunc = function<vector<string>(const vector<const IndexFile*>&,const IndexingPlan*,const IndexName&)>;
+using RecipeFunc = function<vector<vector<string>>(const vector<const IndexFile*>&,
+                                                   const IndexingPlan*,
+                                                   AliasGraph&,
+                                                   const IndexGroup&)>;
 
 /**
  * Is a recipe to create the files (returned by name) associated with some
  * indexes, from a series of input indexes, given the plan they are being
  * generated for.
  */
-using JointRecipeFunc = function<vector<vector<string>>(const vector<const IndexFile*>&,const IndexingPlan*)>;
+using JointRecipeFunc = function<vector<vector<vector<string>>>(const vector<const IndexFile*>&,const IndexingPlan*)>;
 
 /**
  * A struct namespace for global handling of parameters used by
@@ -72,6 +81,16 @@ struct IndexingParameters {
     static int gcsa_initial_kmer_length;
     // number of k-mer length doubling steps in GCSA2 [4]
     static int gcsa_doubling_steps;
+    // number of gbwt nodes inserted at a time in dynamic gbwt [100M]
+    static int gbwt_insert_batch_size;
+    // the sampling interval in the GBWT suffix array [1024]
+    static int gbwt_sampling_interval;
+    // should the haplotype-transcript GBWT be made bidirectional [false]
+    static bool bidirectional_haplo_tx_gbwt;
+    // the feature from column 3 of the GTF/GFF that should be added ["gene"]
+    static string gff_feature_name;
+    // transcript tag in GTF/GFF ["transcript_id"]
+    static string gff_transcript_tag;
     // whether indexing algorithms will log progress (if available) [false]
     static bool verbose;
 };
@@ -99,23 +118,28 @@ class IndexingPlan {
 public:
     // The IndexRegistry is responsible for setting us up.
     friend class IndexRegistry;
-
+    
+    IndexingPlan() = default;
+    ~IndexingPlan() = default;
+    
+    /// Get the suffix with which to save the given index's files.
+    string output_filepath(const IndexName& identifier) const;
+    
+    /// Get the suffix with which to save the given index's files.
+    string output_filepath(const IndexName& identifier, size_t chunk, size_t num_chunks) const;
+    
+    /// Ge the steps of the plan
+    const vector<RecipeName>& get_steps() const;
+    
     /// Returns true if the given index is to be intermediate under the given
     /// plan, and false if it is to be preserved.
     bool is_intermediate(const IndexName& identifier) const;
     
-    /// Get the prefix with which to save the given index's files, accounting
-    /// for whether it is intermediate or not.
-    string prefix(const IndexName& identifier) const;
-    
-    /// Get the suffix with which to save the given index's files.
-    string suffix(const IndexName& identifier) const;
+protected:
     
     /// The steps to be invoked in the plan. May be empty before the plan is
     /// actually planned.
     vector<RecipeName> steps;
-    
-private:
     /// The indexes to create as outputs.
     set<IndexName> targets;
     
@@ -128,7 +152,7 @@ private:
 
 /**
  * An object that can record methods to produce indexes and design
- * workflows to create a set of desired indexes
+ * workflows to create a set of desired indexes.
  */
 class IndexRegistry {
 public:
@@ -164,24 +188,24 @@ public:
     
     /// Register a recipe to produce an index using other indexes
     /// or input files. Also takes a for output as input
-    RecipeName register_recipe(const IndexName& identifier,
+    RecipeName register_recipe(const vector<IndexName>& identifiers,
                                const vector<IndexName>& input_identifiers,
                                const RecipeFunc& exec);
                         
-    /// Register a recipe to produce multiple indexes.
-    /// Individual index recipes must still be registered; this recipe will be
-    /// used to simplify the plan when the individual recipes with the same
-    /// input set are all called.
-    ///
-    /// Joint recipes may also be used to generate single indexes if they have
-    /// higher priority than other recipes.
-    ///
-    /// All output identifiers must be distinct, and there must be at least
-    /// one. Only one multi-index recipe can be applied to simplify the
-    /// production of any given index in a plan.
-    void register_joint_recipe(const vector<IndexName>& identifiers,
-                               const vector<IndexName>& input_identifiers,
-                               const JointRecipeFunc& exec);
+//    /// Register a recipe to produce multiple indexes.
+//    /// Individual index recipes must still be registered; this recipe will be
+//    /// used to simplify the plan when the individual recipes with the same
+//    /// input set are all called.
+//    ///
+//    /// Joint recipes may also be used to generate single indexes if they have
+//    /// higher priority than other recipes.
+//    ///
+//    /// All output identifiers must be distinct, and there must be at least
+//    /// one. Only one multi-index recipe can be applied to simplify the
+//    /// production of any given index in a plan.
+//    void register_joint_recipe(const vector<IndexName>& identifiers,
+//                               const vector<IndexName>& input_identifiers,
+//                               const JointRecipeFunc& exec);
     
     /// Indicate a serialized file that contains some identified index
     void provide(const IndexName& identifier, const string& filename);
@@ -206,10 +230,15 @@ public:
 protected:
     
     /// get a topological ordering of all registered indexes in the dependency DAG
-    vector<IndexName> dependency_order() const;
+    vector<IndexGroup> dependency_order() const;
     
     /// generate a plan to create the indexes
-    IndexingPlan make_plan(const vector<IndexName>& end_products) const;
+    IndexingPlan make_plan(const IndexGroup& end_products) const;
+    
+    /// Build the index using the recipe with the provided priority.
+    /// Expose the plan so that the recipe knows where it is supposed to go.
+    vector<vector<string>> execute_recipe(const RecipeName& recipe_name, const IndexingPlan* plan,
+                                          AliasGraph& alias_graph);
     
     /// access index file
     IndexFile* get_index(const IndexName& identifier);
@@ -217,13 +246,24 @@ protected:
     /// access const index file
     const IndexFile* get_index(const IndexName& identifier) const;
     
+    bool all_finished(const vector<const IndexFile*>& inputs) const;
+    
+    bool all_finished(const IndexGroup& inputs) const;
+    
+    /// Discard any provided or constructed indexes
+    void reset();
+    
     /// Function to get and/or initialize the temporary directory in which indexes will live
     string get_work_dir();
     
     /// The storage struct for named indexes. Ordered so it is easier to key on index names.
-    map<IndexName, unique_ptr<IndexFile>> registry;
+    map<IndexName, unique_ptr<IndexFile>> index_registry;
     
+    /// All of the suffixes that have been registered by indexes
     unordered_set<string> registered_suffixes;
+    
+    /// The storage struct for recipes, which may make index
+    map<IndexGroup, vector<IndexRecipe>> recipe_registry;
     
     /// Record that, when the given input indexes are available, this
     /// collection of recipes is efficient to run together.
@@ -257,29 +297,20 @@ public:
     /// Get the filename(s) that contain this index
     const vector<string>& get_filenames() const;
     
-    /// Get the list of recipes that this index can be built with
-    const vector<IndexRecipe>& get_recipes() const;
-    
     /// Identify a serialized file that already contains this index
     void provide(const vector<string>& filenames);
     
-    /// Describe a recipe with a lower preference order than all existing recipes
-    /// for creating this index, if there are any (i.e., recipes must be added in
-    /// preference order). Recipes should return the filepath(s) to their output.
-    ///
-    /// Returns the name assigned to the recipe.
-    RecipeName add_recipe(const vector<const IndexFile*>& inputs,
-                          const RecipeFunc& exec);
+    /// Assign constructed filenames to this index
+    void assign_constructed(const vector<string>& filenames);
     
     /// Returns true if the index has already been built or provided
     bool is_finished() const;
     
-    /// Build the index using the recipe with the provided priority.
-    /// Expose the plan so that the recipe knows where it is supposed to go.
-    void execute_recipe(size_t recipe_priority, const IndexingPlan* plan);
-    
     /// Returns true if the index was provided through provide method
     bool was_provided_directly() const;
+    
+    /// Discard any constructed or provided indexes
+    void reset();
     
 private:
     
@@ -287,13 +318,10 @@ private:
     IndexName identifier;
     
     // the suffix it adds to output files
-    string suffix;
+    const string suffix;
     
     // the filename(s) associated with the index
     vector<string> filenames;
-    
-    // the priority-ordered recipes to make this index file
-    vector<IndexRecipe> recipes;
     
     // keep track of whether the index was provided directly
     bool provided_directly = false;
@@ -306,9 +334,35 @@ struct IndexRecipe {
     IndexRecipe(const vector<const IndexFile*>& inputs,
                 const RecipeFunc& exec);
     // execute the recipe and return the filename(s) of the indexes created
-    vector<string> execute(const IndexingPlan* plan, const IndexName& constructing);
+    vector<vector<string>> execute(const IndexingPlan* plan, AliasGraph& alias_graph,
+                                   const IndexGroup& constructing) const;
+    IndexGroup input_group() const;
     vector<const IndexFile*> inputs;
     RecipeFunc exec;
+};
+
+/**
+ * Class to keep track of which indexes are aliasing other indexes
+ */
+class AliasGraph {
+public:
+    AliasGraph() = default;
+    ~AliasGraph() = default;
+    
+    /// Record that one index is aliasing another
+    void register_alias(const IndexName& aliasor, const IndexFile* aliasee);
+    
+    /// Return a list of all indexes that are being aliased by non-intermediate
+    /// indexes. If the aliasee is non-intermediate itself, it ill be listed among the
+    /// aliases too.
+    vector<pair<IndexName, vector<IndexName>>> non_intermediate_aliases(const IndexingPlan* plan,
+                                                                        bool keep_all) const;
+    
+private:
+    
+    // graph aliasees to their aliasors
+    unordered_map<IndexName, vector<IndexName>> graph;
+    
 };
 
 
