@@ -302,7 +302,14 @@ int main_autoindex(int argc, char** argv) {
     sort(targets.begin(), targets.end());
     targets.resize(unique(targets.begin(), targets.end()) - targets.begin());
     
-    registry.make_indexes(targets);
+    try {
+        registry.make_indexes(targets);
+    }
+    catch (InsufficientInputException ex) {
+        cerr << "error:[vg autoindex] Input is not sufficient to create indexes" << endl;
+        cerr << ex.what();
+        return 1;
+    }
     
     return 0;
 

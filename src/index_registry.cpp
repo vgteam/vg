@@ -190,6 +190,33 @@ bool transcript_file_nonempty(const string& transcripts) {
     return false;
 }
 
+vector<string> vcf_contigs(const string& filename) {
+    
+    unordered_set<string> contigs;
+    
+    htsFile* vcf = hts_open(filename.c_str(),"rb");
+    if (vcf == nullptr) {
+        cerr << "error:[IndexRegistry] Could not open VCF" << filename << endl;
+    }
+    
+    bcf_hdr_t* header = bcf_hdr_read(vcf);
+    
+    bcf1_t* bcf_record = bcf_init();
+    while (bcf_read(vcf, header, bcf_record) >= 0) {
+        
+        const char* chrom = bcf_hdr_id2name(header, bcf_record->rid);
+        
+        contigs.emplace(chrom);
+    }
+    bcf_destroy(bcf_record);
+    bcf_hdr_destroy(header);
+    hts_close(vcf);
+    
+    vector<string> return_val(contigs.begin(), contigs.end());
+    sort(return_val.begin(), return_val.end());
+    return return_val;
+}
+
 IndexRegistry VGIndexes::get_vg_index_registry() {
     
     IndexRegistry registry;
@@ -521,6 +548,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         size_t i = 0, j = 0, k = 0;
         while (i < ref_filenames.size() && j < vcf_filenames.size()) {
             
+#ifdef debug_index_registry_recipes
+            cerr << "constructing graph with Constructor for ref " << ref_filenames[i] << " and variants " << vcf_filenames[j] << endl;
+#endif
+            
             // init and configure the constructor
             Constructor constructor;
             constructor.do_svs = true;
@@ -536,6 +567,14 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     constructor.allowed_vcf_names.insert(seqname);
                 }
             }
+            else if (vcf_filenames.size() != 1 && ref_filenames.size() == 1) {
+                
+                // unfortunately there doesn't seem to be a good way to do this without
+                // iterating over the entire file:
+                for (const auto& contig : vcf_contigs(vcf_filenames[j])) {
+                    constructor.allowed_vcf_names.insert(contig);
+                }
+            }
             
             string output_name = plan->output_filepath(output_graph, max(i, j),
                                                        max(ref_filenames.size(), vcf_filenames.size()));
@@ -549,8 +588,17 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             // do the construction
             constructor.construct_graph(fasta, vcf, insertions, graph.get());
-                        
+            
+#ifdef debug_index_registry_recipes
+            cerr << "resulting graph has " << graph->get_node_count() << " nodes" << endl;
+#endif
+
+            
             if (!transcripts.empty()) {
+                
+#ifdef debug_index_registry_recipes
+                cerr << "adding transcripts from " << transcripts[k] << endl;
+#endif
                 
                 ifstream infile_tx;
                 init_in(infile_tx, transcripts[k]);
@@ -577,7 +625,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 // add the splice edges
                 auto dummy = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
                 size_t transcripts_added = transcriptome.add_transcript_splice_junctions(infile_tx, dummy);
-                                
+                
+#ifdef debug_index_registry_recipes
+                cerr << "spliced graph has " << transcriptome.splice_graph().get_node_count() << " nodes" << endl;
+#endif
+                
                 if (broadcasting_txs && !path_names.empty() && transcripts_added == 0
                     && transcript_file_nonempty(transcripts[k])) {
                     cerr << "warning:[IndexRegistry] no matching paths from transcript file " << transcripts[k] << " were found in graph chunk containing the following paths:" << endl;
@@ -1272,15 +1324,13 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             string line;
             if (i != 0) {
                 // skip the header
-                infile.ignore(numeric_limits<streamsize>::max(), '\n');
-            }
-            else {
                 getline(infile, line);
-                outfile << line;
             }
             while (infile.good()) {
                 getline(infile, line);
-                outfile << endl << line;
+                if (!line.empty()) {
+                    outfile << line << endl;
+                }
             }
         }
         all_outputs[0].push_back(output_name);
@@ -2062,13 +2112,17 @@ RecipeName IndexRegistry::register_recipe(const vector<IndexName>& identifiers,
     }
 #endif
     
+    bool first_group_entry = !recipe_registry.count(output_group);
     recipe_registry[output_group].emplace_back(inputs, exec);
     RecipeName name(output_group, recipe_registry[output_group].size() - 1);
-    
-    if (output_group.size() > 1) {
+        
+    if (output_group.size() > 1 && first_group_entry) {
         // add unboxing recipes at the same priority level as the full recipe
         auto it = output_group.begin();
         for (size_t i = 0; i < identifiers.size(); ++i) {
+#ifdef debug_index_registry_setup
+            cerr << "registering unboxing recipe from " << to_string(output_group) << " to " << *it << endl;
+#endif
             register_recipe({*it}, identifiers,
                             [=](const vector<const IndexFile*>& inputs,
                                 const IndexingPlan* plan,
