@@ -207,8 +207,7 @@ int main_autoindex(int argc, char** argv) {
                 else if (optarg == string("giraffe")) {
                     for (auto& target : VGIndexes::get_default_giraffe_indexes()) {
                         targets.emplace_back(move(target));
-                    }                    cerr << "giraffe indexing not yet implemented" << endl;
-                    return 1;
+                    }
                 }
                 else {
                     cerr << "error: Unrecognized workflow (-w): " << optarg << endl;
