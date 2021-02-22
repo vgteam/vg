@@ -2536,11 +2536,13 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         this->extender.unfold_haplotypes(rescue_nodes, haplotype_paths, align_graph);
         
         size_t rescue_subgraph_bases = align_graph.get_total_length();
-        if (rescue_subgraph_bases > max_rescue_subgraph_bases) {
-            if (!warned_about_rescue_subgraph_size.test_and_set()) {
-                cerr << "warning[vg::giraffe]: Refusing to perform very large rescue alignment against "
+        if (rescue_subgraph_bases * rescued_alignment.sequence().size() > max_dozeu_cells) {
+            if (!warned_about_rescue_size.test_and_set()) {
+                cerr << "warning[vg::giraffe]: Refusing to perform too-large rescue alignment of "
+                    << rescued_alignment.sequence().size() << " bp against "
                     << rescue_subgraph_bases << " bp haplotype subgraph for read " << rescued_alignment.name()
-                    << "; suppressing further warnings." << endl;
+                    << " which would use more than " << max_dozeu_cells
+                    << " cells and might exhaust Dozeu's allocator; suppressing further warnings." << endl;
             }
             return; 
         }
@@ -2589,11 +2591,13 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         for (auto& h : topological_order) {
             rescue_subgraph_bases += cached_graph.get_length(h);
         }
-        if (rescue_subgraph_bases > max_rescue_subgraph_bases) {
-            if (!warned_about_rescue_subgraph_size.test_and_set()) {
-                cerr << "warning[vg::giraffe]: Refusing to perform very large rescue alignment against "
+        if (rescue_subgraph_bases * rescued_alignment.sequence().size() > max_dozeu_cells) {
+            if (!warned_about_rescue_size.test_and_set()) {
+                cerr << "warning[vg::giraffe]: Refusing to perform too-large rescue alignment of "
+                    << rescued_alignment.sequence().size() << " bp against "
                     << rescue_subgraph_bases << " bp ordered subgraph for read " << rescued_alignment.name()
-                    << "; suppressing further warnings." << endl;
+                    << " which would use more than " << max_dozeu_cells
+                    << " cells and might exhaust Dozeu's allocator; suppressing further warnings." << endl;
             }
             return; 
         }
@@ -2624,15 +2628,17 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         handlealgs::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
 
     size_t rescue_subgraph_bases = dagified.get_total_length();
-    if (rescue_subgraph_bases > max_rescue_subgraph_bases) {
-        if (!warned_about_rescue_subgraph_size.test_and_set()) {
-            cerr << "warning[vg::giraffe]: Refusing to perform very large rescue alignment against "
+    if (rescue_subgraph_bases * rescued_alignment.sequence().size() > max_dozeu_cells) {
+        if (!warned_about_rescue_size.test_and_set()) {
+            cerr << "warning[vg::giraffe]: Refusing to perform too-large rescue alignment of "
+                << rescued_alignment.sequence().size() << " bp against "
                 << rescue_subgraph_bases << " bp dagified subgraph for read " << rescued_alignment.name()
-                << "; suppressing further warnings." << endl;
+                << " which would use more than " << max_dozeu_cells
+                << " cells and might exhaust Dozeu's allocator; suppressing further warnings." << endl;
         }
         return; 
     }
-
+    
     // Align to the subgraph.
     // TODO: Map the seed to the dagified subgraph.
     if (this->rescue_algorithm == rescue_dozeu) {
@@ -3649,10 +3655,12 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
             }
             
             size_t tail_subgraph_bases = subgraph.get_total_length();
-            if (tail_subgraph_bases > max_tail_subgraph_bases) {
-                if (!warned_about_tail_subgraph_size.test_and_set()) {
-                    cerr << "warning[vg::giraffe]: Refusing to perform very large tail alignment against "
-                        << tail_subgraph_bases << " bp tree; suppressing further warnings." << endl;
+            if (tail_subgraph_bases * sequence.size() > max_dozeu_cells) {
+                if (!warned_about_tail_size.test_and_set()) {
+                    cerr << "warning[vg::giraffe]: Refusing to perform too-large tail alignment of "
+                        << sequence.size() << " bp against "
+                        << tail_subgraph_bases << " bp tree which would use more than " << max_dozeu_cells
+                        << " cells and might exhaust Dozeu's allocator; suppressing further warnings." << endl;
                 }
             } else {
                 // X-drop align, accounting for full length bonus.
