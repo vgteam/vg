@@ -78,6 +78,9 @@ $(function() {
 <code>#include &lt;sstream&gt;</code><br />
 <code>#include &lt;vector&gt;</code><br />
 <code>#include &lt;map&gt;</code><br />
+<code>#include &lt;cctype&gt;</code><br />
+<code>#include &lt;cstdio&gt;</code><br />
+<code>#include &lt;cerrno&gt;</code><br />
 <code>#include &lt;bdsg/hash_graph.hpp&gt;</code><br />
 <code>#include &lt;bdsg/packed_graph.hpp&gt;</code><br />
 <code>#include &lt;bdsg/odgi.hpp&gt;</code><br />
@@ -96,7 +99,10 @@ $(function() {
 <code>#include &quot;<a class="el" href="phase__unfolder_8hpp.html">phase_unfolder.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="gbwt__helper_8hpp.html">gbwt_helper.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="kmer_8hpp.html">kmer.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="source__sink__overlay_8hpp.html">source_sink_overlay.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="transcriptome_8hpp.html">transcriptome.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="integrated__snarl__finder_8hpp.html">integrated_snarl_finder.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="min__distance_8hpp.html">min_distance.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="gfa_8hpp.html">gfa.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="save__handle__graph_8hpp.html">io/save_handle_graph.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="gfa__to__handle_8hpp.html">algorithms/gfa_to_handle.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="prune_8hpp.html">algorithms/prune.hpp</a>&quot;</code><br />
@@ -125,6 +131,10 @@ Functions</h2></td></tr>
 <tr class="separator:a636047a8292ef4b9f7bfe188d2bf47dc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa588389795ea8613480df1c7eeeafaf8"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa588389795ea8613480df1c7eeeafaf8">vg::approx_graph_memory</a> (const string &amp;gfa_filename)</td></tr>
 <tr class="separator:aa588389795ea8613480df1c7eeeafaf8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa44c63a293d251b1bffbbeee59d2b7fe"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa44c63a293d251b1bffbbeee59d2b7fe">vg::transcript_file_nonempty</a> (const string &amp;transcripts)</td></tr>
+<tr class="separator:aa44c63a293d251b1bffbbeee59d2b7fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a691144860bc63559aaf088d2e052af62"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a691144860bc63559aaf088d2e052af62">vg::vcf_contigs</a> (const string &amp;filename)</td></tr>
+<tr class="separator:a691144860bc63559aaf088d2e052af62"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

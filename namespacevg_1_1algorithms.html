@@ -276,8 +276,6 @@ Functions</h2></td></tr>
 <tr class="memitem:a7215192f2cc6536b6b3aadef4e95c64a"><td class="memTemplParams" colspan="2">template&lt;typename TECCNode &gt; </td></tr>
 <tr class="memitem:a7215192f2cc6536b6b3aadef4e95c64a"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a7215192f2cc6536b6b3aadef4e95c64a">three_edge_connected_component_merges</a> (const function&lt; void(const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;for_each_node, const function&lt; void(TECCNode, const function&lt; void(TECCNode)&gt; &amp;)&gt; &amp;for_each_connected_node, const function&lt; void(TECCNode, TECCNode)&gt; &amp;same_component)</td></tr>
 <tr class="separator:a7215192f2cc6536b6b3aadef4e95c64a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1a00f34b2cd9cec3dde22cc5d361694e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a1a00f34b2cd9cec3dde22cc5d361694e">to_gfa</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph, ostream &amp;out)</td></tr>
-<tr class="separator:a1a00f34b2cd9cec3dde22cc5d361694e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ace1ad4f4eccc7041eb1e700463492540"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ace1ad4f4eccc7041eb1e700463492540">for_each_walk</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t k, size_t edge_max, const std::function&lt; void(const <a class="el" href="structvg_1_1algorithms_1_1walk__t.html">walk_t</a> &amp;)&gt; &amp;lambda)</td></tr>
 <tr class="memdesc:ace1ad4f4eccc7041eb1e700463492540"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over all the walks in the graph, running lambda on each.  <a href="namespacevg_1_1algorithms.html#ace1ad4f4eccc7041eb1e700463492540">More...</a><br /></td></tr>
 <tr class="separator:ace1ad4f4eccc7041eb1e700463492540"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -3517,34 +3515,6 @@ template&lt;typename TECCNode &gt; </div>
 <p>Wraps the known good the 3 edge connected components algorithm from the pinchesAndCacti library.</p>
 <p>Takes a total node count, and a function that, given a node, loops an iteratee over all nodes connected to it.</p>
 <p>For each component identified, calls the given callback with a function that iterates over all nodes in the component. </p>
-
-</div>
-</div>
-<a id="a1a00f34b2cd9cec3dde22cc5d361694e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1a00f34b2cd9cec3dde22cc5d361694e">&#9670;&nbsp;</a></span>to_gfa()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::algorithms::to_gfa </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;&#160;</td>
-          <td class="paramname"><em>graph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">ostream &amp;&#160;</td>
-          <td class="paramname"><em>out</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
 
 </div>
 </div>

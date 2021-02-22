@@ -89,6 +89,8 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AliasGraph.html">AliasGraph</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Aligner.html">Aligner</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html">AlignerClient</a></td></tr>
@@ -706,14 +708,16 @@ Typedefs</h2></td></tr>
 <tr class="separator:a449aa64ac606119e59f71cecb8a3b218"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a31b8b476fb46de6667b26514b7b24fd2"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2">thread_t</a> = vector&lt; gbwt::node_type &gt;</td></tr>
 <tr class="separator:a31b8b476fb46de6667b26514b7b24fd2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4ece264426b920e6307c6710329b6adf"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4ece264426b920e6307c6710329b6adf">IndexName</a> = set&lt; string &gt;</td></tr>
-<tr class="separator:a4ece264426b920e6307c6710329b6adf"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aec72dc5f8350db9dd0e091fa5a0224e9"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aec72dc5f8350db9dd0e091fa5a0224e9">RecipeName</a> = pair&lt; <a class="el" href="namespacevg.html#a4ece264426b920e6307c6710329b6adf">IndexName</a>, size_t &gt;</td></tr>
-<tr class="separator:aec72dc5f8350db9dd0e091fa5a0224e9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a797a171b5225e3207cb4902703a0067b"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a797a171b5225e3207cb4902703a0067b">RecipeFunc</a> = function&lt; vector&lt; string &gt;(const vector&lt; const <a class="el" href="classvg_1_1IndexFile.html">IndexFile</a> * &gt; &amp;, const <a class="el" href="classvg_1_1IndexingPlan.html">IndexingPlan</a> *, const <a class="el" href="namespacevg.html#a4ece264426b920e6307c6710329b6adf">IndexName</a> &amp;)&gt;</td></tr>
-<tr class="separator:a797a171b5225e3207cb4902703a0067b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae22eddd5f73bc495eafae880ccfed48a"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae22eddd5f73bc495eafae880ccfed48a">JointRecipeFunc</a> = function&lt; vector&lt; vector&lt; string &gt; &gt;(const vector&lt; const <a class="el" href="classvg_1_1IndexFile.html">IndexFile</a> * &gt; &amp;, const <a class="el" href="classvg_1_1IndexingPlan.html">IndexingPlan</a> *)&gt;</td></tr>
-<tr class="separator:ae22eddd5f73bc495eafae880ccfed48a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7027e98a84fa4b0fa42f72bf4a1d862f"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> = string</td></tr>
+<tr class="separator:a7027e98a84fa4b0fa42f72bf4a1d862f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a96bc10f0ba77bc672e88a9f7d6e126b6"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a96bc10f0ba77bc672e88a9f7d6e126b6">IndexGroup</a> = set&lt; <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &gt;</td></tr>
+<tr class="separator:a96bc10f0ba77bc672e88a9f7d6e126b6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6119d0b9707c042b0c2cde5d77b670cb"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6119d0b9707c042b0c2cde5d77b670cb">RecipeName</a> = pair&lt; <a class="el" href="namespacevg.html#a96bc10f0ba77bc672e88a9f7d6e126b6">IndexGroup</a>, size_t &gt;</td></tr>
+<tr class="separator:a6119d0b9707c042b0c2cde5d77b670cb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1ff09b399af11722aeee121ae6f4fd9b"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1ff09b399af11722aeee121ae6f4fd9b">RecipeFunc</a> = function&lt; vector&lt; vector&lt; string &gt; &gt;(const vector&lt; const <a class="el" href="classvg_1_1IndexFile.html">IndexFile</a> * &gt; &amp;, const <a class="el" href="classvg_1_1IndexingPlan.html">IndexingPlan</a> *, <a class="el" href="classvg_1_1AliasGraph.html">AliasGraph</a> &amp;, const <a class="el" href="namespacevg.html#a96bc10f0ba77bc672e88a9f7d6e126b6">IndexGroup</a> &amp;)&gt;</td></tr>
+<tr class="separator:a1ff09b399af11722aeee121ae6f4fd9b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2e8213eb4ee29eaabeea43f27356f073"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2e8213eb4ee29eaabeea43f27356f073">JointRecipeFunc</a> = function&lt; vector&lt; vector&lt; vector&lt; string &gt; &gt;&gt;(const vector&lt; const <a class="el" href="classvg_1_1IndexFile.html">IndexFile</a> * &gt; &amp;, const <a class="el" href="classvg_1_1IndexingPlan.html">IndexingPlan</a> *)&gt;</td></tr>
+<tr class="separator:a2e8213eb4ee29eaabeea43f27356f073"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1aa2d026eb3edc0c692e19e5a493feef"><td class="memItemLeft" align="right" valign="top">typedef std::pair&lt; uint32_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1aa2d026eb3edc0c692e19e5a493feef">pareto_point</a></td></tr>
 <tr class="separator:a1aa2d026eb3edc0c692e19e5a493feef"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aceea01d66677e39af71921f1bb1911f0"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aceea01d66677e39af71921f1bb1911f0">Chain</a> = vector&lt; pair&lt; const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *, bool &gt; &gt;</td></tr>
@@ -1297,6 +1301,10 @@ Functions</h2></td></tr>
 <tr class="separator:a636047a8292ef4b9f7bfe188d2bf47dc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa588389795ea8613480df1c7eeeafaf8"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa588389795ea8613480df1c7eeeafaf8">approx_graph_memory</a> (const string &amp;gfa_filename)</td></tr>
 <tr class="separator:aa588389795ea8613480df1c7eeeafaf8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa44c63a293d251b1bffbbeee59d2b7fe"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa44c63a293d251b1bffbbeee59d2b7fe">transcript_file_nonempty</a> (const string &amp;transcripts)</td></tr>
+<tr class="separator:aa44c63a293d251b1bffbbeee59d2b7fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a691144860bc63559aaf088d2e052af62"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a691144860bc63559aaf088d2e052af62">vcf_contigs</a> (const string &amp;filename)</td></tr>
+<tr class="separator:a691144860bc63559aaf088d2e052af62"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad2dc76ed1d84a8e2043955ba3c8a9bb7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad2dc76ed1d84a8e2043955ba3c8a9bb7">for_each_kmer</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t k, const function&lt; void(const <a class="el" href="structvg_1_1kmer__t.html">kmer_t</a> &amp;)&gt; &amp;lambda, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> head_id=0, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> tail_id=0)</td></tr>
 <tr class="memdesc:ad2dc76ed1d84a8e2043955ba3c8a9bb7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over all the kmers in the graph, running lambda on each.  <a href="namespacevg.html#ad2dc76ed1d84a8e2043955ba3c8a9bb7">More...</a><br /></td></tr>
 <tr class="separator:ad2dc76ed1d84a8e2043955ba3c8a9bb7"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2404,29 +2412,44 @@ Variables</h2></td></tr>
 
 </div>
 </div>
-<a id="a4ece264426b920e6307c6710329b6adf"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4ece264426b920e6307c6710329b6adf">&#9670;&nbsp;</a></span>IndexName</h2>
+<a id="a96bc10f0ba77bc672e88a9f7d6e126b6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a96bc10f0ba77bc672e88a9f7d6e126b6">&#9670;&nbsp;</a></span>IndexGroup</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">using <a class="el" href="namespacevg.html#a4ece264426b920e6307c6710329b6adf">vg::IndexName</a> = typedef set&lt;string&gt;</td>
+          <td class="memname">using <a class="el" href="namespacevg.html#a96bc10f0ba77bc672e88a9f7d6e126b6">vg::IndexGroup</a> = typedef set&lt;<a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a>&gt;</td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Names an index. Each index may have multiple components. </p>
+<p>A group of indexes that can be made simultaneously </p>
 
 </div>
 </div>
-<a id="ae22eddd5f73bc495eafae880ccfed48a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae22eddd5f73bc495eafae880ccfed48a">&#9670;&nbsp;</a></span>JointRecipeFunc</h2>
+<a id="a7027e98a84fa4b0fa42f72bf4a1d862f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7027e98a84fa4b0fa42f72bf4a1d862f">&#9670;&nbsp;</a></span>IndexName</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">using <a class="el" href="namespacevg.html#ae22eddd5f73bc495eafae880ccfed48a">vg::JointRecipeFunc</a> = typedef function&lt;vector&lt;vector&lt;string&gt; &gt;(const vector&lt;const <a class="el" href="classvg_1_1IndexFile.html">IndexFile</a>*&gt;&amp;,const <a class="el" href="classvg_1_1IndexingPlan.html">IndexingPlan</a>*)&gt;</td>
+          <td class="memname">using <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">vg::IndexName</a> = typedef string</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>A unique identifier for an Index </p>
+
+</div>
+</div>
+<a id="a2e8213eb4ee29eaabeea43f27356f073"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2e8213eb4ee29eaabeea43f27356f073">&#9670;&nbsp;</a></span>JointRecipeFunc</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="namespacevg.html#a2e8213eb4ee29eaabeea43f27356f073">vg::JointRecipeFunc</a> = typedef function&lt;vector&lt;vector&lt;vector&lt;string&gt; &gt;&gt;(const vector&lt;const <a class="el" href="classvg_1_1IndexFile.html">IndexFile</a>*&gt;&amp;,const <a class="el" href="classvg_1_1IndexingPlan.html">IndexingPlan</a>*)&gt;</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -2618,14 +2641,14 @@ Variables</h2></td></tr>
 
 </div>
 </div>
-<a id="a797a171b5225e3207cb4902703a0067b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a797a171b5225e3207cb4902703a0067b">&#9670;&nbsp;</a></span>RecipeFunc</h2>
+<a id="a1ff09b399af11722aeee121ae6f4fd9b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1ff09b399af11722aeee121ae6f4fd9b">&#9670;&nbsp;</a></span>RecipeFunc</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">using <a class="el" href="namespacevg.html#a797a171b5225e3207cb4902703a0067b">vg::RecipeFunc</a> = typedef function&lt;vector&lt;string&gt;(const vector&lt;const <a class="el" href="classvg_1_1IndexFile.html">IndexFile</a>*&gt;&amp;,const <a class="el" href="classvg_1_1IndexingPlan.html">IndexingPlan</a>*,const <a class="el" href="namespacevg.html#a4ece264426b920e6307c6710329b6adf">IndexName</a>&amp;)&gt;</td>
+          <td class="memname">using <a class="el" href="namespacevg.html#a1ff09b399af11722aeee121ae6f4fd9b">vg::RecipeFunc</a> = typedef function&lt;vector&lt;vector&lt;string&gt; &gt;(const vector&lt;const <a class="el" href="classvg_1_1IndexFile.html">IndexFile</a>*&gt;&amp;, const <a class="el" href="classvg_1_1IndexingPlan.html">IndexingPlan</a>*, <a class="el" href="classvg_1_1AliasGraph.html">AliasGraph</a>&amp;, const <a class="el" href="namespacevg.html#a96bc10f0ba77bc672e88a9f7d6e126b6">IndexGroup</a>&amp;)&gt;</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -2633,14 +2656,14 @@ Variables</h2></td></tr>
 
 </div>
 </div>
-<a id="aec72dc5f8350db9dd0e091fa5a0224e9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aec72dc5f8350db9dd0e091fa5a0224e9">&#9670;&nbsp;</a></span>RecipeName</h2>
+<a id="a6119d0b9707c042b0c2cde5d77b670cb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6119d0b9707c042b0c2cde5d77b670cb">&#9670;&nbsp;</a></span>RecipeName</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">using <a class="el" href="namespacevg.html#aec72dc5f8350db9dd0e091fa5a0224e9">vg::RecipeName</a> = typedef pair&lt;<a class="el" href="namespacevg.html#a4ece264426b920e6307c6710329b6adf">IndexName</a>, size_t&gt;</td>
+          <td class="memname">using <a class="el" href="namespacevg.html#a6119d0b9707c042b0c2cde5d77b670cb">vg::RecipeName</a> = typedef pair&lt;<a class="el" href="namespacevg.html#a96bc10f0ba77bc672e88a9f7d6e126b6">IndexGroup</a>, size_t&gt;</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -19655,6 +19678,24 @@ template&lt;typename Collection &gt; </div>
 
 </div>
 </div>
+<a id="aa44c63a293d251b1bffbbeee59d2b7fe"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa44c63a293d251b1bffbbeee59d2b7fe">&#9670;&nbsp;</a></span>transcript_file_nonempty()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::transcript_file_nonempty </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>transcripts</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a82a83d7c54d733abee06d328f91ef5ee"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a82a83d7c54d733abee06d328f91ef5ee">&#9670;&nbsp;</a></span>transfer_boundary_info()</h2>
 
@@ -20929,6 +20970,24 @@ template&lt;&gt; </div>
       </table>
 </div><div class="memdoc">
 <p>run with : vg genotype -L -V v.vcf -I i.fa -R ref.fa </p>
+
+</div>
+</div>
+<a id="a691144860bc63559aaf088d2e052af62"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a691144860bc63559aaf088d2e052af62">&#9670;&nbsp;</a></span>vcf_contigs()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt;string&gt; vg::vcf_contigs </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>

@@ -227,8 +227,8 @@ $(function() {
 <li>rebuild_node_mapping()
 : <a class="el" href="classvg_1_1Paths.html#a7e9d9388475dcd8f23af072430e7383c">vg::Paths</a>
 </li>
-<li>recipes
-: <a class="el" href="classvg_1_1IndexFile.html#ac9402e90d2c53b630f07b0505661fcca">vg::IndexFile</a>
+<li>recipe_registry
+: <a class="el" href="classvg_1_1IndexRegistry.html#a963c33ba471ce5e0c4e5403d4a86e753">vg::IndexRegistry</a>
 </li>
 <li>recombination_penalty
 : <a class="el" href="classvg_1_1BaseMapper.html#af0e6c250a81dc74df57136242174aa54">vg::BaseMapper</a>
@@ -349,6 +349,9 @@ $(function() {
 <li>regions
 : <a class="el" href="classvg_1_1HaplotypeIndexer.html#a85285e19121d708649f61b5420ab0777">vg::HaplotypeIndexer</a>
 </li>
+<li>register_alias()
+: <a class="el" href="classvg_1_1AliasGraph.html#a4f21c7d2e0aa761fd5ff4ccd43bd72af">vg::AliasGraph</a>
+</li>
 <li>register_bare_loader()
 : <a class="el" href="classvg_1_1io_1_1Registry.html#aaf8339640cdf9162563246a1e136b57f">vg::io::Registry</a>
 </li>
@@ -379,9 +382,6 @@ $(function() {
 <li>register_index()
 : <a class="el" href="classvg_1_1IndexRegistry.html#ad8f48075fe06df92c65bc5fd0207f9bc">vg::IndexRegistry</a>
 </li>
-<li>register_joint_recipe()
-: <a class="el" href="classvg_1_1IndexRegistry.html#a864956654d0d4a502aa89e94b7994269">vg::IndexRegistry</a>
-</li>
 <li>register_loader()
 : <a class="el" href="classvg_1_1io_1_1Registry.html#a82c329d405f2dc83880623561a10962f">vg::io::Registry</a>
 </li>
@@ -395,7 +395,7 @@ $(function() {
 : <a class="el" href="classvg_1_1io_1_1Registry.html#ae4880fe254039bfe44b73b9050ce0abc">vg::io::Registry</a>
 </li>
 <li>register_recipe()
-: <a class="el" href="classvg_1_1IndexRegistry.html#a19743a2d6d73ccd45d9b0bbaa6866510">vg::IndexRegistry</a>
+: <a class="el" href="classvg_1_1IndexRegistry.html#afdda05f4e7f1dfd93ecb33ad3b582aad">vg::IndexRegistry</a>
 </li>
 <li>register_sampled_position()
 : <a class="el" href="classvg_1_1NGSSimulator.html#ab9adc2b15f1d2c31301e5801e773dcbd">vg::NGSSimulator</a>
@@ -408,7 +408,6 @@ $(function() {
 </li>
 <li>registry
 : <a class="el" href="classvg_1_1IndexingPlan.html#a7a8e639fb6e8225162a5ff532c4b963d">vg::IndexingPlan</a>
-, <a class="el" href="classvg_1_1IndexRegistry.html#ac8ec302dfab6ae25b83dc4398ef70e53">vg::IndexRegistry</a>
 </li>
 <li>regular_aligner
 : <a class="el" href="classvg_1_1AlignerClient.html#af164f37a5efb0c05b10fea3841b78e83">vg::AlignerClient</a>
@@ -420,7 +419,7 @@ $(function() {
 : <a class="el" href="structjson__autoptr.html#ad3ee76d343667fd42bdbe504f32e7042">json_autoptr</a>
 </li>
 <li>remap()
-: <a class="el" href="classvg_1_1Filter.html#a66768cd6584270f71d190d525c99a9c4">vg::Filter</a>
+: <a class="el" href="classvg_1_1Filter.html#aea9d6813e578a5957131fa6c4c8eff52">vg::Filter</a>
 , <a class="el" href="classvg_1_1Homogenizer.html#a0ad18f7ec95dbeb681a147f3ae7c621f">vg::Homogenizer</a>
 </li>
 <li>remove()
@@ -589,6 +588,8 @@ $(function() {
 <li>reset()
 : <a class="el" href="structvg_1_1Counts.html#a90e02c9fc99656e6325f5c8fbfccda86">vg::Counts</a>
 , <a class="el" href="classvg_1_1discrete__distribution.html#a5a3ca0751a139bef583b819118188780">vg::discrete_distribution&lt; T &gt;</a>
+, <a class="el" href="classvg_1_1IndexFile.html#aa16d18589ef1a9944b8e2af8c8ea1232">vg::IndexFile</a>
+, <a class="el" href="classvg_1_1IndexRegistry.html#abcba0a09cee5a43096a09d05556353c1">vg::IndexRegistry</a>
 , <a class="el" href="classvg_1_1normal__distribution.html#a7bae578d38533043f42f09413c7c1e32">vg::normal_distribution&lt; T &gt;</a>
 , <a class="el" href="structvg_1_1Range.html#a3bf0b390a74ca7ea5f806f6cd98aac2c">vg::Range&lt; Number &gt;</a>
 , <a class="el" href="classvg_1_1uniform__int__distribution.html#a38594c45008dfc36cfbb4f9b9e4193dd">vg::uniform_int_distribution&lt; T &gt;</a>

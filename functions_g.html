@@ -155,6 +155,9 @@ $(function() {
 <li>gbwt_index
 : <a class="el" href="classvg_1_1PhaseUnfolder.html#abe0ad79b8b65bea2a4f871913c83ee65">vg::PhaseUnfolder</a>
 </li>
+<li>gbwt_insert_batch_size
+: <a class="el" href="structvg_1_1IndexingParameters.html#a703bd0eeee457e95bbb3fdb1f08fa737">vg::IndexingParameters</a>
+</li>
 <li>gbwt_name
 : <a class="el" href="structGBWTConfig.html#a5fe3f0a41311811ddf16bcd7dbab4f91">GBWTConfig</a>
 </li>
@@ -163,6 +166,9 @@ $(function() {
 </li>
 <li>gbwt_override
 : <a class="el" href="classvg_1_1IndexManager.html#a714748578e663ccb942ea069125d30d5">vg::IndexManager</a>
+</li>
+<li>gbwt_sampling_interval
+: <a class="el" href="structvg_1_1IndexingParameters.html#abd33e81c954cb14ed31455a3950abe64">vg::IndexingParameters</a>
 </li>
 <li>gbwt_thread_t()
 : <a class="el" href="structhaplo_1_1gbwt__thread__t.html#a5b148ae0a27b81b4b4af07f200a1255b">haplo::gbwt_thread_t</a>
@@ -749,7 +755,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Mapper.html#a99717b5d61b6db599c177b8bafcb6dd8">vg::Mapper</a>
 </li>
 <li>get_node_mapping()
-: <a class="el" href="classvg_1_1Paths.html#a6314d7f8036a65b31d4dfac643bc3598">vg::Paths</a>
+: <a class="el" href="classvg_1_1Paths.html#a7fa795ccee1427d6cac6e44fafe41e1e">vg::Paths</a>
 </li>
 <li>get_node_mapping_by_path_name()
 : <a class="el" href="classvg_1_1Paths.html#a9c9cf2b7f26c788195812e2b8170a6ce">vg::Paths</a>
@@ -782,7 +788,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Configurable.html#a553f14c4f4a19bb51d40ffb211945b3a">vg::Configurable</a>
 </li>
 <li>get_overhang()
-: <a class="el" href="classvg_1_1ReadFilter.html#a50797c8911ec77ac3a392370a1c91cbe">vg::ReadFilter&lt; Read &gt;</a>
+: <a class="el" href="classvg_1_1ReadFilter.html#a71bb794016b2f59d6495a98b9716e0b5">vg::ReadFilter&lt; Read &gt;</a>
 </li>
 <li>get_parent()
 : <a class="el" href="classhandlegraph_1_1SnarlDecomposition.html#afb665da6af9e2ccfc10e6e667254b91d">handlegraph::SnarlDecomposition</a>
@@ -903,9 +909,6 @@ $(function() {
 <li>get_read_offset()
 : <a class="el" href="classvg_1_1GaplessExtender.html#a5c568cad31cb0cc1007ef05183c197ab">vg::GaplessExtender</a>
 </li>
-<li>get_recipes()
-: <a class="el" href="classvg_1_1IndexFile.html#a33cdf743595a9af511681ef8b1caace7">vg::IndexFile</a>
-</li>
 <li>get_ref_following()
 : <a class="el" href="structhaplo_1_1linear__haplo__structure.html#a2e9ec5540a31571c3daba83abf03d18d">haplo::linear_haplo_structure</a>
 </li>
@@ -948,7 +951,7 @@ $(function() {
 : <a class="el" href="classvg_1_1MultipathMapper.html#a42169ca0715c4c784584ba3d2a5d34bb">vg::MultipathMapper</a>
 </li>
 <li>get_score()
-: <a class="el" href="classvg_1_1ReadFilter.html#a3e168659158cf4372fc11b8cda05883d">vg::ReadFilter&lt; Read &gt;</a>
+: <a class="el" href="classvg_1_1ReadFilter.html#a2144e5b768ebd71768d37265c07deda2">vg::ReadFilter&lt; Read &gt;</a>
 </li>
 <li>get_scores()
 : <a class="el" href="structhaplo_1_1haplo__DP__column.html#a784a7e41856ad01f9bdd88ca59dfb146">haplo::haplo_DP_column</a>
@@ -1040,6 +1043,9 @@ $(function() {
 , <a class="el" href="classvg_1_1PathSubgraphOverlay.html#ae2df84b76bcec7b4899838a99d3799f5">vg::PathSubgraphOverlay</a>
 , <a class="el" href="classvg_1_1VG.html#a3efe30807d096a6175373bc3f4863dd7">vg::VG</a>
 , <a class="el" href="classxg_1_1XG.html#a0609241ee4795d7c9dd2a2b5cc8ce3a4">xg::XG</a>
+</li>
+<li>get_steps()
+: <a class="el" href="classvg_1_1IndexingPlan.html#a52c631c507d1cd0f0451ce7de71f2091">vg::IndexingPlan</a>
 </li>
 <li>get_subgraph()
 : <a class="el" href="classvg_1_1GraphSynchronizer_1_1Lock.html#a8754c28fbea6df69e6204a9128912a20">vg::GraphSynchronizer::Lock</a>
@@ -1141,6 +1147,12 @@ $(function() {
 <li>gfa_parameters
 : <a class="el" href="structGBWTConfig.html#a07b86c3ec44037b22504eb86d9ebd78d">GBWTConfig</a>
 </li>
+<li>gff_feature_name
+: <a class="el" href="structvg_1_1IndexingParameters.html#aaeec45d17c4d60468c14debb7fb46709">vg::IndexingParameters</a>
+</li>
+<li>gff_transcript_tag
+: <a class="el" href="structvg_1_1IndexingParameters.html#aa795ef116d75fdbf71092b831fce2c21">vg::IndexingParameters</a>
+</li>
 <li>GFFReader()
 : <a class="el" href="classvg_1_1GFFReader.html#a886d9cf2d287f8d0f6c87b206c26d893">vg::GFFReader</a>
 </li>
@@ -1158,6 +1170,7 @@ $(function() {
 , <a class="el" href="classhandlegraph_1_1PathForEachSocket_1_1iterator.html#a0a6667c750efa2c5264c6ffe1c5727aa">handlegraph::PathForEachSocket::iterator</a>
 , <a class="el" href="classhaplo_1_1hDP__gbwt__graph__accessor.html#a99d071619c6462165528d8428d4bb7fa">haplo::hDP_gbwt_graph_accessor&lt; GBWTType &gt;</a>
 , <a class="el" href="structhaplo_1_1linear__haplo__structure.html#acb5692ebbb1a6f91db791d01bb2ab294">haplo::linear_haplo_structure</a>
+, <a class="el" href="classvg_1_1AliasGraph.html#a85dd8f136025b7325d9fa19058d2bb4f">vg::AliasGraph</a>
 , <a class="el" href="structvg_1_1AugmentedGraph.html#afb05832f68a8db43e7a8c510397b8ce3">vg::AugmentedGraph</a>
 , <a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a9d4f47628b410f5639f985dae1b1b5e0">vg::BandedGlobalAligner&lt; IntType &gt;::AltTracebackStack</a>
 , <a class="el" href="classvg_1_1BandedGlobalAligner.html#af5168385acfc1ca71f0757269452e5a7">vg::BandedGlobalAligner&lt; IntType &gt;</a>
@@ -1233,7 +1246,7 @@ $(function() {
 : <a class="el" href="structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50af316f5a8669d38d1c1801caf9d5671d7">GraphHandler</a>
 </li>
 <li>graph_pos_at_path_position()
-: <a class="el" href="classxg_1_1XG.html#a31c733ed1c2045b1e2a7e9f343dc9296">xg::XG</a>
+: <a class="el" href="classxg_1_1XG.html#a85c47feeb19e96486140c5e1b8184bc7">xg::XG</a>
 </li>
 <li>graph_source
 : <a class="el" href="structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50a66269d0a2331df8645dfca4cdbc4a2ea">GraphHandler</a>

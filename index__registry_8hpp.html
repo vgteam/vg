@@ -78,6 +78,7 @@ $(function() {
 <code>#include &lt;map&gt;</code><br />
 <code>#include &lt;set&gt;</code><br />
 <code>#include &lt;unordered_set&gt;</code><br />
+<code>#include &lt;unordered_map&gt;</code><br />
 <code>#include &lt;functional&gt;</code><br />
 <code>#include &lt;string&gt;</code><br />
 <code>#include &lt;memory&gt;</code><br />
@@ -97,6 +98,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexRecipe.html">vg::IndexRecipe</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AliasGraph.html">vg::AliasGraph</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1InsufficientInputException.html">vg::InsufficientInputException</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -107,14 +110,16 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="typedef-members"></a>
 Typedefs</h2></td></tr>
-<tr class="memitem:a4ece264426b920e6307c6710329b6adf"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4ece264426b920e6307c6710329b6adf">vg::IndexName</a> = set&lt; string &gt;</td></tr>
-<tr class="separator:a4ece264426b920e6307c6710329b6adf"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aec72dc5f8350db9dd0e091fa5a0224e9"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aec72dc5f8350db9dd0e091fa5a0224e9">vg::RecipeName</a> = pair&lt; IndexName, size_t &gt;</td></tr>
-<tr class="separator:aec72dc5f8350db9dd0e091fa5a0224e9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a797a171b5225e3207cb4902703a0067b"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a797a171b5225e3207cb4902703a0067b">vg::RecipeFunc</a> = function&lt; vector&lt; string &gt;(const vector&lt; const IndexFile * &gt; &amp;, const IndexingPlan *, const IndexName &amp;)&gt;</td></tr>
-<tr class="separator:a797a171b5225e3207cb4902703a0067b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae22eddd5f73bc495eafae880ccfed48a"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae22eddd5f73bc495eafae880ccfed48a">vg::JointRecipeFunc</a> = function&lt; vector&lt; vector&lt; string &gt; &gt;(const vector&lt; const IndexFile * &gt; &amp;, const IndexingPlan *)&gt;</td></tr>
-<tr class="separator:ae22eddd5f73bc495eafae880ccfed48a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7027e98a84fa4b0fa42f72bf4a1d862f"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">vg::IndexName</a> = string</td></tr>
+<tr class="separator:a7027e98a84fa4b0fa42f72bf4a1d862f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a96bc10f0ba77bc672e88a9f7d6e126b6"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a96bc10f0ba77bc672e88a9f7d6e126b6">vg::IndexGroup</a> = set&lt; IndexName &gt;</td></tr>
+<tr class="separator:a96bc10f0ba77bc672e88a9f7d6e126b6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6119d0b9707c042b0c2cde5d77b670cb"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6119d0b9707c042b0c2cde5d77b670cb">vg::RecipeName</a> = pair&lt; IndexGroup, size_t &gt;</td></tr>
+<tr class="separator:a6119d0b9707c042b0c2cde5d77b670cb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1ff09b399af11722aeee121ae6f4fd9b"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1ff09b399af11722aeee121ae6f4fd9b">vg::RecipeFunc</a> = function&lt; vector&lt; vector&lt; string &gt; &gt;(const vector&lt; const IndexFile * &gt; &amp;, const IndexingPlan *, AliasGraph &amp;, const IndexGroup &amp;)&gt;</td></tr>
+<tr class="separator:a1ff09b399af11722aeee121ae6f4fd9b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2e8213eb4ee29eaabeea43f27356f073"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2e8213eb4ee29eaabeea43f27356f073">vg::JointRecipeFunc</a> = function&lt; vector&lt; vector&lt; vector&lt; string &gt; &gt;&gt;(const vector&lt; const IndexFile * &gt; &amp;, const IndexingPlan *)&gt;</td></tr>
+<tr class="separator:a2e8213eb4ee29eaabeea43f27356f073"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
