@@ -1,5 +1,5 @@
-#ifndef VG_MIN_DISTANCE_HPP_INCLUDED
-#define VG_MIN_DISTANCE_HPP_INCLUDED
+#ifndef VG_SNARL_DISTANCE_HPP_INCLUDED
+#define VG_SNARL_DISTANCE_HPP_INCLUDED
 
 #include <handlegraph/snarl_decomposition.hpp>
 #include "snarls.hpp"
@@ -11,13 +11,17 @@ namespace vg {
 /**
  * The distance index. Stores minimum distances among nodes in each 
  * netgraph and chain.
+ * Also used to store the snarl tree
  */
 
-//TODO: Check about looping chains and unary snarls
 
 class SnarlDistanceIndex : public SnarlDecomposition {
+
 public:
-    SnarlDistanceIndex(){};
+    ~SnarlDistanceIndex();
+    SnarlDistanceIndex();
+
+    //Fill in the index
     SnarlDistanceIndex(const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder);
 
 private:
@@ -100,6 +104,18 @@ private:
     //Type of a net_handle_t. This is to allow a node record to be seen as a chain from the 
     //perspective of a handle
     enum net_handle_record_t {ROOT_HANDLE=0, NODE_HANDLE, SNARL_HANDLE, CHAIN_HANDLE, SENTINEL_HANDLE};
+
+private:
+    /*Give each of the enum types a name for debugging */
+    vector<string> record_t_as_string = {"ROOT", "NODE", "DISTANCED_NODE", 
+                     "SNARL", "DISTANCED_SNARL", "SIMPLE_SNARL", "OVERSIZED_SNARL", 
+                     "CHAIN", "DISTANCED_CHAIN", 
+                     "CHILDREN"};
+    vector<string> connectivity_t_as_string = { "START_START", "START_END", "START_TIP", 
+                            "END_START", "END_END", "END_TIP", 
+                            "TIP_START", "TIP_END", "TIP_TIP"};
+    vector<string> net_handle_record_t_string = {"ROOT_HANDLE", "NODE_HANDLE", "SNARL_HANDLE", 
+                                                "CHAIN_HANDLE", "SENTINEL_HANDLE"};
 
 public:
 
@@ -210,6 +226,7 @@ public:
      */
     endpoint_t ends_at(const net_handle_t& traversal) const;
 
+protected:
     /**
      * Internal implementation for for_each_child.
      */
@@ -224,6 +241,10 @@ public:
      * Internal implementation for follow_net_edges.
      */
     bool follow_net_edges_impl(const net_handle_t& here, const handlegraph::HandleGraph* graph, bool go_left, const std::function<bool(const net_handle_t&)>& iteratee) const;
+
+public:
+
+
         /**
      * Get a net handle for traversals of a snarl or chain that contains
      * the given oriented bounding node traversals or sentinels. Given two
@@ -244,6 +265,7 @@ public:
     net_handle_t get_parent_traversal(const net_handle_t& traversal_start, const net_handle_t& traversal_end) const;
 
 
+
 ////////////////////////////// How to interpret net_handle_ts
 //TODO: Does this depend on endianness???
 //TODO: Should this also know what kind of node it's pointing to?
@@ -253,7 +275,7 @@ public:
 //The record points to the snarl containing them, and the connectivity indicates which bound 
 //we're looking at (START_END for start in, START_START for start out, etc)
 
-    private:
+private:
 
     const static size_t get_record_offset (const handlegraph::net_handle_t& net_handle) {
         return as_integer(net_handle) >> 7;
@@ -1366,10 +1388,15 @@ protected:
      * This can also be used to combine distance indexes
      */
     enum temp_record_t {TEMP_CHAIN=0, TEMP_SNARL, TEMP_NODE, TEMP_ROOT};
+
     class TemporaryDistanceIndex{
     public:
         TemporaryDistanceIndex();
+        ~TemporaryDistanceIndex();
         TemporaryDistanceIndex(const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder);
+
+        //Get a string of the start and end of a structure
+        string structure_start_end_as_string(pair<temp_record_t, size_t> index) const;
     
     protected:
         id_t min_node_id;
