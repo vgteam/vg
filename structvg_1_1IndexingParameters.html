@@ -114,6 +114,20 @@ Static Public Attributes</h2></td></tr>
 <tr class="separator:aaeec45d17c4d60468c14debb7fb46709"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa795ef116d75fdbf71092b831fce2c21"><td class="memItemLeft" align="right" valign="top">static string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#aa795ef116d75fdbf71092b831fce2c21">gff_transcript_tag</a> = &quot;transcript_id&quot;</td></tr>
 <tr class="separator:aa795ef116d75fdbf71092b831fce2c21"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae034b19e5a2e71bccc1bf35addbe0b45"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#ae034b19e5a2e71bccc1bf35addbe0b45">use_bounded_syncmers</a> = false</td></tr>
+<tr class="separator:ae034b19e5a2e71bccc1bf35addbe0b45"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4ae95cc02ab517e8517713ab5bf00733"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a4ae95cc02ab517e8517713ab5bf00733">minimizer_k</a> = 29</td></tr>
+<tr class="separator:a4ae95cc02ab517e8517713ab5bf00733"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a354c1c28e65279dd67a1f5d6e09ae28d"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a354c1c28e65279dd67a1f5d6e09ae28d">minimizer_w</a> = 11</td></tr>
+<tr class="separator:a354c1c28e65279dd67a1f5d6e09ae28d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a85e4148452f9a2b23d0cdb75afe0fd3d"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a85e4148452f9a2b23d0cdb75afe0fd3d">minimizer_s</a> = 18</td></tr>
+<tr class="separator:a85e4148452f9a2b23d0cdb75afe0fd3d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1075d3f3c10502dc02deb564d85ff897"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a1075d3f3c10502dc02deb564d85ff897">path_cover_depth</a> = gbwtgraph::PATH_COVER_DEFAULT_N</td></tr>
+<tr class="separator:a1075d3f3c10502dc02deb564d85ff897"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a915eada866d050e347f4b3c00ef5dab9"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#a915eada866d050e347f4b3c00ef5dab9">giraffe_gbwt_downsample</a> = gbwtgraph::LOCAL_HAPLOTYPES_DEFAULT_N</td></tr>
+<tr class="separator:a915eada866d050e347f4b3c00ef5dab9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac805da027e770df83d21c5c86f922165"><td class="memItemLeft" align="right" valign="top">static int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#ac805da027e770df83d21c5c86f922165">downsample_context_length</a> = gbwtgraph::PATH_COVER_DEFAULT_K</td></tr>
+<tr class="separator:ac805da027e770df83d21c5c86f922165"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac5f6e67887cb5dca12ebc415bd1b3a1c"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IndexingParameters.html#ac5f6e67887cb5dca12ebc415bd1b3a1c">verbose</a> = false</td></tr>
 <tr class="separator:ac5f6e67887cb5dca12ebc415bd1b3a1c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
@@ -152,6 +166,28 @@ Static Public Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">bool vg::IndexingParameters::bidirectional_haplo_tx_gbwt = false</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ac805da027e770df83d21c5c86f922165"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac805da027e770df83d21c5c86f922165">&#9670;&nbsp;</a></span>downsample_context_length</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::IndexingParameters::downsample_context_length = gbwtgraph::PATH_COVER_DEFAULT_K</td>
         </tr>
       </table>
   </td>
@@ -295,6 +331,28 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a915eada866d050e347f4b3c00ef5dab9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a915eada866d050e347f4b3c00ef5dab9">&#9670;&nbsp;</a></span>giraffe_gbwt_downsample</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::IndexingParameters::giraffe_gbwt_downsample = gbwtgraph::LOCAL_HAPLOTYPES_DEFAULT_N</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a6b392a212907d34c6f586cb7cefeac1f"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a6b392a212907d34c6f586cb7cefeac1f">&#9670;&nbsp;</a></span>max_node_size</h2>
 
@@ -317,6 +375,72 @@ Static Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a4ae95cc02ab517e8517713ab5bf00733"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4ae95cc02ab517e8517713ab5bf00733">&#9670;&nbsp;</a></span>minimizer_k</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::IndexingParameters::minimizer_k = 29</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a85e4148452f9a2b23d0cdb75afe0fd3d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a85e4148452f9a2b23d0cdb75afe0fd3d">&#9670;&nbsp;</a></span>minimizer_s</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::IndexingParameters::minimizer_s = 18</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a354c1c28e65279dd67a1f5d6e09ae28d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a354c1c28e65279dd67a1f5d6e09ae28d">&#9670;&nbsp;</a></span>minimizer_w</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::IndexingParameters::minimizer_w = 11</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a9db2b318dee6f693544c8fc5a04c0a53"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a9db2b318dee6f693544c8fc5a04c0a53">&#9670;&nbsp;</a></span>mut_graph_impl</h2>
 
@@ -328,6 +452,28 @@ Static Public Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname"><a class="el" href="structvg_1_1IndexingParameters.html#af607873fad40d1de55b8f4f6e04fdf10">IndexingParameters::MutableGraphImplementation</a> vg::IndexingParameters::mut_graph_impl = <a class="el" href="structvg_1_1IndexingParameters.html#af607873fad40d1de55b8f4f6e04fdf10a88fe737c0668785017687666e0aa74a8">HashGraph</a></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1075d3f3c10502dc02deb564d85ff897"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1075d3f3c10502dc02deb564d85ff897">&#9670;&nbsp;</a></span>path_cover_depth</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::IndexingParameters::path_cover_depth = gbwtgraph::PATH_COVER_DEFAULT_N</td>
         </tr>
       </table>
   </td>
@@ -416,6 +562,28 @@ Static Public Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">int vg::IndexingParameters::pruning_walk_length = 24</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ae034b19e5a2e71bccc1bf35addbe0b45"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae034b19e5a2e71bccc1bf35addbe0b45">&#9670;&nbsp;</a></span>use_bounded_syncmers</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::IndexingParameters::use_bounded_syncmers = false</td>
         </tr>
       </table>
   </td>
