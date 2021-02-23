@@ -297,11 +297,22 @@ void path_depths(const PathHandleGraph& graph, const string& path_name, size_t m
 
     path_handle_t path_handle = graph.get_path_handle(path_name);
     size_t offset = 0;
+    // big speedup
+    unordered_map<path_handle_t, string> path_to_name;
     graph.for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
-            unordered_set<path_handle_t> path_set;
+            unordered_set<string> path_set;
             handle_t handle = graph.get_handle_of_step(step_handle);
             graph.for_each_step_on_handle(handle, [&](step_handle_t step_handle_2) {
-                    path_set.insert(graph.get_path_handle_of_step(step_handle_2));
+                    path_handle_t step_path_handle = graph.get_path_handle_of_step(step_handle_2);
+                    auto it = path_to_name.find(step_path_handle);
+                    if (it == path_to_name.end()) {
+                        string step_path_name = graph.get_path_name(step_path_handle);
+                        // disregard subpath tags when counting
+                        auto subpath = Paths::parse_subpath_name(step_path_name);
+                        string& parsed_name = get<0>(subpath) ? get<1>(subpath) : step_path_name;
+                        it = path_to_name.insert(make_pair(step_path_handle, parsed_name)).first;
+                    }
+                    path_set.insert(it->second);
                 });
             size_t coverage = path_set.size() - 1;
             size_t node_len = graph.get_length(handle);

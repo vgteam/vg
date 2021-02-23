@@ -43,7 +43,7 @@ void help_paths(char** argv) {
          << "    -E, --lengths            print a list of path names (as with -L) but paired with their lengths" << endl
          << "    -C, --cyclicity          print a list of path names (as with -L) but paired with flag denoting the cyclicity" << endl
          << "    -F, --extract-fasta      print the paths in FASTA format" << endl
-         << "    -c, --coverage           print the coverage stats for selected paths" << endl
+         << "    -c, --coverage           print the coverage stats for selected paths (not including cylces)" << endl
          << "  path selection:" << endl
          << "    -p, --paths-file FILE    select the paths named in a file (one per line)" << endl
          << "    -Q, --paths-by STR       select the paths with the given name prefix" << endl
@@ -470,20 +470,33 @@ int main_paths(int argc, char** argv) {
             // (we're doing the whole graph here, which could be inefficient in the case the user is selecting
             //  a small path)
             unordered_map<path_handle_t, vector<int64_t>> coverage_map;
+            // big speedup
+            unordered_map<path_handle_t, string> path_to_name;
             size_t max_coverage = 0;
             graph->for_each_handle([&](handle_t handle) {
                     vector<step_handle_t> steps = graph->steps_of_handle(handle);
+                    unordered_set<string> unique_names;
                     unordered_set<path_handle_t> unique_paths;
                     for (auto step_handle : steps) {
-                        unique_paths.insert(graph->get_path_handle_of_step(step_handle));
+                        path_handle_t step_path_handle = graph->get_path_handle_of_step(step_handle);
+                        auto it = path_to_name.find(step_path_handle);
+                        if (it == path_to_name.end()) {
+                            string step_path_name = graph->get_path_name(step_path_handle);
+                            // disregard subpath tags when counting (but not displaying)
+                            auto subpath = Paths::parse_subpath_name(step_path_name);
+                            string& parsed_name = get<0>(subpath) ? get<1>(subpath) : step_path_name;
+                            it = path_to_name.insert(make_pair(step_path_handle, parsed_name)).first;
+                        }
+                        unique_names.insert(it->second);
+                        unique_paths.insert(step_path_handle);
                     }
-                    for (auto path_handle : unique_paths) {
-                        vector<int64_t>& cov = coverage_map[path_handle];
+                    for (auto path : unique_paths) {
+                        vector<int64_t>& cov = coverage_map[path];
                         if (cov.size() < unique_paths.size()) {
                             cov.resize(unique_paths.size(), 0);
                         }
                         cov[unique_paths.size() - 1] += graph->get_length(graph->get_handle_of_step(steps[0]));
-                        max_coverage = std::max(max_coverage, unique_paths.size() - 1);                            
+                        max_coverage = std::max(max_coverage, unique_names.size() - 1);
                     }
                 });
             // figure out the bin size
@@ -508,8 +521,8 @@ int main_paths(int argc, char** argv) {
                     binned_cov[1] = cov[1];
                     // remaining bins
                     for (size_t bin = 0; bin < coverage_bins - 2; ++bin) {
-                        for (size_t i = 0; i < bin_size && (bin * bin_size + i < cov.size()); ++i) {
-                            binned_cov[2 + bin] += cov[bin * bin_size + i];
+                        for (size_t i = 0; i < bin_size && (2 + bin * bin_size + i < cov.size()); ++i) {
+                            binned_cov[2 + bin] += cov[2 + bin * bin_size + i];
                         }
                     }
                     swap(cov, binned_cov);
@@ -524,9 +537,9 @@ int main_paths(int argc, char** argv) {
             for (size_t cov = 0; cov <= min(max_coverage, coverage_bins); ++cov) {
                 cout << "\t";
                 if (cov < 2 || bin_size == 1) {
-                    cout << cov;
+                    cout << cov << "-" << cov;
                 } else {
-                    cout << (cov * bin_size) << "-" << (cov * bin_size + bin_size - 1);
+                    cout << (2 + (cov - 2) * bin_size) << "-" << (2 + (cov - 2) * bin_size + bin_size - 1);
                 } 
             }
             cout << endl;

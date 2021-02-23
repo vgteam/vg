@@ -41,6 +41,7 @@ void help_depth(char** argv) {
          << "     activate by specifiying -p without -k" << endl
          << "  common options:" << endl
          << "    -p, --ref-path NAME    reference path to call on (multipile allowed.  defaults to all paths)" << endl
+         << "    -P, --paths-by STR     select the paths with the given name prefix" << endl        
          << "    -b, --bin-size N       bin size (in bases) [1] (2 extra columns printed when N>1: bin-end-pos and stddev)" << endl
          << "    -m, --min-coverage N   ignore nodes with less than N coverage [1]" << endl
          << "    -t, --threads N        number of threads to use [all available]" << endl;
@@ -55,6 +56,7 @@ int main_depth(int argc, char** argv) {
 
     string pack_filename;
     vector<string> ref_paths;
+    vector<string> path_prefixes;
     size_t bin_size = 1;
     bool count_dels = false;
     
@@ -73,6 +75,7 @@ int main_depth(int argc, char** argv) {
         static const struct option long_options[] = {
             {"pack", required_argument, 0, 'k'},            
             {"ref-path", required_argument, 0, 'p'},
+            {"paths-by", required_argument, 0, 'P'}, 
             {"bin-size", required_argument, 0, 'b'},
             {"count-dels", no_argument, 0, 'd'},
             {"gam", required_argument, 0, 'g'},
@@ -87,7 +90,7 @@ int main_depth(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:p:c:b:dg:a:n:s:m:t:",
+        c = getopt_long (argc, argv, "hk:p:P:c:b:dg:a:n:s:m:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -101,7 +104,10 @@ int main_depth(int argc, char** argv) {
             break;
         case 'p':
             ref_paths.push_back(optarg);
-            break;            
+            break;
+        case 'P':
+            path_prefixes.push_back(optarg);
+            break;
         case 'b':
             bin_size = parse<size_t>(optarg);
             break;
@@ -184,18 +190,26 @@ int main_depth(int argc, char** argv) {
         }
 
         // All paths if none given
-        if (ref_paths.empty()) {
+        if (ref_paths.empty() || !path_prefixes.empty()) {
             graph->for_each_path_handle([&](path_handle_t path_handle) {
                     string path_name = graph->get_path_name(path_handle);
-                    if (!Paths::is_alt(path_name)) {
+                    // just take anything if no selection
+                    bool use_it = !Paths::is_alt(path_name) && path_prefixes.empty();
+                    // otherwise look for a prefix match
+                    for (size_t i = 0; i < path_prefixes.size() && !use_it; ++i) {
+                        if (path_name.substr(0, path_prefixes[i].length()) == path_prefixes[i] &&
+                            std::find(ref_paths.begin(), ref_paths.end(), path_name) == ref_paths.end()) {
+                            use_it = true;
+                        }
+                    }
+                    if (use_it) {
                         ref_paths.push_back(path_name);
                     }
                 });
-        } else {
-            for (const string& ref_name : ref_paths) {
-                if (!graph->has_path(ref_name)) {
-                    cerr << "error:[vg depth] Path \"" << ref_name << "\" not found in graph" << endl;
-                }
+        } 
+        for (const string& ref_name : ref_paths) {
+            if (!graph->has_path(ref_name)) {
+                cerr << "error:[vg depth] Path \"" << ref_name << "\" not found in graph" << endl;
             }
         }
         
