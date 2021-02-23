@@ -359,8 +359,8 @@ private:
     //Get the offset into snarl_tree_records for a node record
     size_t get_offset_from_node_id (id_t id) const {
         size_t node_records_offset = snarl_tree_records.at(COMPONENT_COUNT_OFFSET) + 4; 
-        size_t record_offset = (id-snarl_tree_records.at(node_records_offset+1)) * NODE_RECORD_SIZE;
-        return node_records_offset + 2 + record_offset; 
+        size_t offset = (id-snarl_tree_records.at(node_records_offset+1)) * NODE_RECORD_SIZE;
+        return node_records_offset + 2 + offset; 
     }
     //And its inverse, get the id from the offset of the node record
     //TODO: Do I want to add the min_node_id?
@@ -385,33 +385,37 @@ private:
 
         //Constructors assuming that this record already exists
         SnarlTreeRecord() : records(NULL) {};
-        SnarlTreeRecord (size_t pointer, const vector<size_t>* records)
-            : record_offset(pointer), records(records){
+        SnarlTreeRecord (size_t pointer, const vector<size_t>* records){
+            record_offset = pointer;
+            records = records;
 
             record_t type = get_record_type();
             assert(type == ROOT || type == NODE || type == DISTANCED_NODE || type == SNARL || 
                     type == DISTANCED_SNARL || type == OVERSIZED_SNARL || type == CHAIN || 
                     type == DISTANCED_CHAIN );
         }
-        SnarlTreeRecord (const net_handle_t& net, const vector<size_t>* records)
-            : records(records){
-            record_offset = (as_integer(net) >> 4);
+        SnarlTreeRecord (const net_handle_t& net, const vector<size_t>* records){
+            record_offset = get_record_offset(net);
+            records = records;
             record_t type = get_record_type();
             assert(type == ROOT || type == NODE || type == DISTANCED_NODE || type == SNARL || 
                     type == DISTANCED_SNARL || type == OVERSIZED_SNARL || type == CHAIN || 
                     type == DISTANCED_CHAIN );
         }
 
+        virtual size_t get_offset() {
+            return record_offset;
+        }
 
         //What type of snarl tree node is this?
         //This will be the first value of any record
-        record_t get_record_type() const {
+        virtual record_t get_record_type() const {
             return static_cast<record_t>(records->at(record_offset) >> 6);
         }
 
         //This is a bit misleading, it is the handle type that the record thinks it is, 
         //not necessarily the record type of the net_handle_t that was used to produce it
-        net_handle_record_t get_record_handle_type() const {
+        virtual net_handle_record_t get_record_handle_type() const {
             record_t type= get_record_type();
             if (type == ROOT) {
                 return ROOT_HANDLE;
@@ -425,14 +429,14 @@ private:
                 throw runtime_error("error: trying to get the handle type of a list of children");
             }
         }
-        bool is_start_start_connected() const {return records->at(record_offset) & 32;}
-        bool is_start_end_connected() const {return records->at(record_offset) & 16;}
-        bool is_start_tip_connected() const {return records->at(record_offset) & 8;}
-        bool is_end_end_connected() const {return records->at(record_offset) & 4;}
-        bool is_end_tip_connected() const {return records->at(record_offset) & 2;}
-        bool is_tip_tip_connected() const {return records->at(record_offset) & 1;}
+        virtual bool is_start_start_connected() const {return records->at(record_offset) & 32;}
+        virtual bool is_start_end_connected() const {return records->at(record_offset) & 16;}
+        virtual bool is_start_tip_connected() const {return records->at(record_offset) & 8;}
+        virtual bool is_end_end_connected() const {return records->at(record_offset) & 4;}
+        virtual bool is_end_tip_connected() const {return records->at(record_offset) & 2;}
+        virtual bool is_tip_tip_connected() const {return records->at(record_offset) & 1;}
 
-        bool has_connectivity(connectivity_t connectivity) const {
+        virtual bool has_connectivity(connectivity_t connectivity) const {
             if (connectivity == START_START) {
                 return is_start_start_connected();
             } else if (connectivity == START_END || connectivity == END_START) {
@@ -449,13 +453,14 @@ private:
                 throw runtime_error("error: Invalid connectivity");
             }
         }
-        bool has_connectivity(endpoint_t start, endpoint_t end){
+
+        virtual bool has_connectivity(endpoint_t start, endpoint_t end){
             return has_connectivity(endpoints_to_connectivity(start, end));
         }
 
         //Get and set a pointer to this node's parent, including its orientation
         //TODO: I don't think it matters if a chain is reversed or not, also it might not matter if a snarl is
-        size_t get_parent_record_offset() const {
+        virtual size_t get_parent_record_offset() const {
             record_t type = get_record_type();
             if (type == ROOT ) {
                 return 0;
@@ -472,7 +477,7 @@ private:
 
         //Get and set the minimum length (distance from start to end, including boundaries for 
         // chains but not snarls, just node length for nodes)
-        size_t get_min_length() const {
+        virtual size_t get_min_length() const {
             record_t type = get_record_type();
             if (type == DISTANCED_NODE) {
                 return records->at(record_offset + NODE_LENGTH_OFFSET);
@@ -490,7 +495,7 @@ private:
         //Get and set this node's maximum length
         //This isn't actually a maximum, it's the maximum among minimum distance paths 
         //through each node in the snarl/chain
-        size_t get_max_length() const {
+        virtual size_t get_max_length() const {
             record_t type = get_record_type();
             if (type == DISTANCED_NODE) {
                 return records->at(record_offset + NODE_LENGTH_OFFSET);
@@ -508,7 +513,7 @@ private:
         //Get and set this structure's rank in its parent
         //For children of snarls, this means the actual rank
         //For children of chains, it points to the node in the chain
-        size_t get_rank_in_parent() const {
+        virtual size_t get_rank_in_parent() const {
             record_t type = get_record_type();
             if (type == NODE || type == DISTANCED_NODE) {
                 return records->at(record_offset + NODE_RANK_OFFSET) >> 1;
@@ -523,7 +528,7 @@ private:
 
         //Is this node reversed in its parent
         //TODO: I think a node is the only thing that can be reversed in its parent, and only if it is in a chain
-        bool get_is_rev_in_parent() const {
+        virtual bool get_is_rev_in_parent() const {
             record_t type = get_record_type();
             if (type == NODE || type == DISTANCED_NODE) {
                 return records->at(record_offset + NODE_RANK_OFFSET) & 1;
@@ -538,7 +543,7 @@ private:
 
         //Get the node id of the start/end of this structure (start node of a snarl/chain)
         //TODO: Also need to add min node id
-        id_t get_start_id() const {
+        virtual id_t get_start_id() const {
             record_t type = get_record_type();
             if (type == ROOT) {
                 //TODO: Also not totally sure what this should do
@@ -556,7 +561,7 @@ private:
             }
         }
         //True if the node is traversed backwards to enter the structure
-        bool get_start_orientation() const {
+        virtual bool get_start_orientation() const {
             record_t type = get_record_type();
             if (type == ROOT) {
                 //TODO: Also not totally sure what this should do
@@ -573,7 +578,7 @@ private:
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
         }
-        id_t get_end_id() const {
+        virtual id_t get_end_id() const {
             record_t type = get_record_type();
             if (type == ROOT) {
                 //TODO: Also not totally sure what this should do
@@ -593,7 +598,7 @@ private:
             }
         }
         //Return true if the end node is traversed backwards to leave the snarl
-        id_t get_end_orientation() const {
+        virtual id_t get_end_orientation() const {
             record_t type = get_record_type();
             if (type == ROOT) {
                 //TODO: Also not totally sure what this should do
@@ -615,14 +620,14 @@ private:
 
         //TODO: These are redeclared so that I don't need to pass the SnarlTreeRecord the actual distance index
         //Get the offset into snarl_tree_records for a node record
-        size_t get_offset_from_id (id_t id) const {
+        virtual size_t get_offset_from_id (id_t id) const {
             size_t node_records_offset = records->at(1) + 2; 
-            size_t record_offset = (id-records->at(node_records_offset+1)) * NODE_RECORD_SIZE;
-            return node_records_offset + 2 + record_offset; 
+            size_t offset = (id-records->at(node_records_offset+1)) * NODE_RECORD_SIZE;
+            return node_records_offset + 2 + offset; 
         }
         //And its inverse, get the id from the offset of the node record
         //TODO: Do I want to add the min_node_id?
-        id_t get_id_from_offset(size_t offset) const {
+        virtual id_t get_id_from_offset(size_t offset) const {
             size_t node_records_offset = records->at(1) + 2; 
             size_t min_node_id = records->at(MIN_NODE_ID_OFFSET);
             return ((offset-node_records_offset-2) / NODE_RECORD_SIZE) + min_node_id;
@@ -631,50 +636,63 @@ private:
 
     //Record interpreter that has a non-const reference to snarl_tree_records, so it can
     //also add things
-    struct SnarlTreeRecordConstructor : SnarlTreeRecord {
+    struct SnarlTreeRecordConstructor {
 
-        //The offset of the start of this record in snarl_tree_records
+        //TODO: This might be bad but this has the same members as SnarlTreeRecord
+        //and does basically the same thing but doesn't inherit from it
         size_t record_offset;
         vector<size_t>* records;
 
         //Constructors assuming that this record already exists
-        SnarlTreeRecordConstructor() : records(NULL) {};
-        SnarlTreeRecordConstructor (size_t pointer,vector<size_t>* records)
-            : record_offset(pointer), records(records){
+        SnarlTreeRecordConstructor() {};
+        SnarlTreeRecordConstructor (size_t pointer, vector<size_t>* records){
+            record_offset = pointer;
+            records = records;
 
             record_t type = get_record_type();
             assert(type == ROOT || type == NODE || type == DISTANCED_NODE || type == SNARL || 
                     type == DISTANCED_SNARL || type == OVERSIZED_SNARL || type == CHAIN || 
                     type == DISTANCED_CHAIN );
         }
-        SnarlTreeRecordConstructor (const net_handle_t& net, vector<size_t>* records)
-            : records(records){
-            record_offset = (as_integer(net) >> 4);
+        SnarlTreeRecordConstructor (const net_handle_t& net, vector<size_t>* records){
+            record_offset = get_record_offset(net);
+            records = records;
             record_t type = get_record_type();
             assert(type == ROOT || type == NODE || type == DISTANCED_NODE || type == SNARL || 
                     type == DISTANCED_SNARL || type == OVERSIZED_SNARL || type == CHAIN || 
                     type == DISTANCED_CHAIN );
         }
-        void set_start_start_connected() {
+        //What type of snarl tree node is this?
+        //This will be the first value of any record
+        //TODO: This copies from SnarlTreeRecord
+        virtual record_t get_record_type() const {
+            return static_cast<record_t>(records->at(record_offset) >> 6);
+        }
+        virtual void set_start_start_connected() {
             records->at(record_offset) = records->at(record_offset) | 32;
         }
-        void set_start_end_connected() {
+        virtual void set_start_end_connected() {
             records->at(record_offset) = records->at(record_offset) | 16;
         }
-        void set_start_tip_connected() {
+        virtual void set_start_tip_connected() {
             records->at(record_offset) = records->at(record_offset) | 8;
         }
-        void set_end_end_connected() {
+        virtual void set_end_end_connected() {
             records->at(record_offset) = records->at(record_offset) | 4;
         }
-        void set_end_tip_connected() {
+        virtual void set_end_tip_connected() {
             records->at(record_offset) = records->at(record_offset) | 2;
         }
-        void set_tip_tip_connected() {
+        virtual void set_tip_tip_connected() {
             records->at(record_offset) = records->at(record_offset) | 1;
         }
+        virtual void set_record_type(record_t type) {
+            cerr << records->at(record_offset);
+            cerr << " " << ((static_cast<size_t>(type) << 6) | (records->at(record_offset) & 63));
+            records->at(record_offset) = ((static_cast<size_t>(type) << 6) | (records->at(record_offset) & 63));
+        }
 
-        void set_min_length(size_t length) {
+        virtual void set_min_length(size_t length) {
             record_t type = get_record_type();
             if (type == DISTANCED_NODE) {
                 records->at(record_offset + NODE_LENGTH_OFFSET) = length;
@@ -688,7 +706,7 @@ private:
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
         };
-        void set_max_length(size_t length) {
+        virtual void set_max_length(size_t length) {
             record_t type = get_record_type();
             if (type == DISTANCED_NODE) {
                 records->at(record_offset + NODE_LENGTH_OFFSET) = length;
@@ -702,7 +720,7 @@ private:
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
         };
-        void set_rank_in_parent(size_t rank) {
+        virtual void set_rank_in_parent(size_t rank) {
             record_t type = get_record_type();
             size_t offset;
             if (type == NODE || type == DISTANCED_NODE) {
@@ -717,7 +735,7 @@ private:
             bool rev = records->at(offset) & 1;
             records->at(offset) = (rank << 1) | rev; 
         };
-        void set_is_rev_in_parent(bool rev) {
+        virtual void set_is_rev_in_parent(bool rev) {
             record_t type = get_record_type();
             size_t offset;
             if (type == NODE || type == DISTANCED_NODE) {
@@ -731,20 +749,22 @@ private:
             }
             records->at(offset) =  ((records->at(offset)>>1)<<1) | rev; 
         };
-        void set_parent_record_pointer(size_t pointer){
+        virtual void set_parent_record_pointer(size_t pointer){
+            cerr << record_offset <<" "  << " " << records->size() << endl;
             record_t type = get_record_type();
             if (type == NODE || type == DISTANCED_NODE) {
                 records->at(record_offset + NODE_PARENT_OFFSET) = pointer;
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
                 records->at(record_offset + SNARL_PARENT_OFFSET) = pointer;
             } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
+            cerr << record_offset <<" " <<  CHAIN_PARENT_OFFSET << " " << records->size() << endl;
                 records->at(record_offset + CHAIN_PARENT_OFFSET) = pointer;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
         };
         //Rev is true if the node is traversed backwards to enter the snarl
-        void set_start_node(id_t id, bool rev) {
+        virtual void set_start_node(id_t id, bool rev) {
             record_t type = get_record_type();
             if (type == ROOT || type == NODE || type == DISTANCED_NODE) {
                 throw runtime_error("error: trying to set the node id of a node or root");
@@ -757,7 +777,7 @@ private:
             }
         }
         //Rev is true if the node is traversed backwards to leave the snarl
-        void set_end_node(id_t id, bool rev) const {
+        virtual void set_end_node(id_t id, bool rev) const {
             record_t type = get_record_type();
             if (type == ROOT || type == NODE || type == DISTANCED_NODE) {
                 throw runtime_error("error: trying to set the node id of a node or root");
@@ -773,33 +793,32 @@ private:
 
     struct RootRecord : SnarlTreeRecord {
 
-        size_t record_offset;
-        const vector<size_t>* records;
-        RootRecord () : records(NULL) {};
-        RootRecord (size_t pointer, const vector<size_t>* records)
-            : record_offset(pointer), records(records){
+        RootRecord (){};
+        RootRecord (size_t pointer, const vector<size_t>* records){
+            record_offset = pointer;
+            records = records;
             assert(get_record_type() == ROOT);
         }
-        RootRecord (net_handle_t net, const vector<size_t>* records)
-            : records(records){
+        RootRecord (net_handle_t net, const vector<size_t>* records){
             record_offset = get_record_offset(net);
+            records = records;
             assert(get_record_type() == ROOT);
         }
-        size_t get_connected_component_count() const {
+        virtual size_t get_connected_component_count() const {
             return records->at(record_offset+COMPONENT_COUNT_OFFSET);
         }
-        size_t get_node_count() const {
+        virtual size_t get_node_count() const {
             return records->at(record_offset+NODE_COUNT_OFFSET);
         }
-        size_t get_min_node_id() const {
+        virtual size_t get_min_node_id() const {
             return records->at(record_offset+MIN_NODE_ID_OFFSET);
         }
 
-        SnarlTreeRecord get_component_record(size_t component_number) const {
+        virtual SnarlTreeRecord get_component_record(size_t component_number) const {
             //TODO: Maybe should be +1 if the component numbers start at 1?
             return SnarlTreeRecord(records->at(record_offset+2+component_number), records);
         }
-        bool for_each_child(const std::function<bool(const handlegraph::net_handle_t&)>& iteratee) const {
+        virtual bool for_each_child(const std::function<bool(const handlegraph::net_handle_t&)>& iteratee) const {
             size_t connected_component_count = get_connected_component_count();
             for (size_t i = 0 ; i < connected_component_count ; i++) {
                 size_t child_offset = records->at(record_offset + 2 + i);
@@ -817,66 +836,71 @@ private:
 
     struct RootRecordConstructor : RootRecord, SnarlTreeRecordConstructor {
 
-        size_t record_offset;
-        vector<size_t>* records;
         //Constructor meant for creating a new record, at the end of snarl_tree_records
         //TODO: The way I wrote this pointer should be 0
         RootRecordConstructor (size_t pointer, size_t connected_component_count, size_t node_count, 
-                    id_t min_node_id, vector<size_t>* records)
-            : record_offset(pointer), records(records){
+                    id_t min_node_id, vector<size_t>* records){
+            RootRecord::record_offset = pointer;
+            SnarlTreeRecordConstructor::record_offset = pointer;
+            SnarlTreeRecordConstructor::records = records;
+            RootRecord::records = records;
             //Allocate memory for the rood vector and for all of the nodes
-            records->resize(records->size() + 4 + connected_component_count + (NODE_RECORD_SIZE * node_count) , 0);
-            records->at(record_offset) = ROOT << 6;
+            cerr << " Make new root record constructor " << endl;
+            SnarlTreeRecordConstructor::records->resize(SnarlTreeRecordConstructor::records->size() + 4 + connected_component_count + (NODE_RECORD_SIZE * node_count) , 0);
+            cerr << SnarlTreeRecordConstructor::records->size() << "set record type" << endl;
+            set_record_type(ROOT);
+            cerr << "got root type" << endl;
             set_min_node_id(min_node_id);
             set_node_count(node_count);
             set_connected_component_count(connected_component_count);
         }
-        void set_connected_component_count(size_t connected_component_count) {
-            records->at(record_offset+COMPONENT_COUNT_OFFSET)=connected_component_count;
+        virtual void set_connected_component_count(size_t connected_component_count) {
+            SnarlTreeRecordConstructor::records->at(RootRecord::record_offset+COMPONENT_COUNT_OFFSET)=connected_component_count;
         }
-        void set_node_count(size_t node_count) {
-            records->at(record_offset+NODE_COUNT_OFFSET)=node_count;
+        virtual void set_node_count(size_t node_count) {
+            SnarlTreeRecordConstructor::records->at(RootRecord::record_offset+NODE_COUNT_OFFSET)=node_count;
         }
-        void set_min_node_id(id_t node_id) {
-            records->at(record_offset+MIN_NODE_ID_OFFSET)=node_id;
+        virtual void set_min_node_id(id_t node_id) {
+            SnarlTreeRecordConstructor::records->at(RootRecord::record_offset+MIN_NODE_ID_OFFSET)=node_id;
         }
     };
     struct NodeRecord : SnarlTreeRecord {
 
 
-        size_t record_offset;
-        const vector<size_t>* records;
-        NodeRecord() : records(NULL) {};
-        NodeRecord (size_t pointer, const vector<size_t>* records)
-            : record_offset(pointer), records(records){
+        NodeRecord() {};
+        NodeRecord (size_t pointer, const vector<size_t>* records){
+            record_offset = pointer;
+            records = records;
 
             assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
         }
-        NodeRecord (id_t node_id, const vector<size_t>* records)
-            : records(records), record_offset(get_offset_from_id(node_id)){
+        NodeRecord (id_t node_id, const vector<size_t>* records){
+            records = records;
+            record_offset = get_offset_from_id(node_id);
 
             assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
         }
-        NodeRecord (net_handle_t net, const vector<size_t>* records)
-            : records(records), record_offset(get_record_offset(net)){
+        NodeRecord (net_handle_t net, const vector<size_t>* records){
+            records = records;
+            record_offset = get_record_offset(net);
             assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
             assert(get_connectivity(net) == START_END || get_connectivity(net) == END_START);
         }
 
-        id_t get_node_id() const {
+        virtual id_t get_node_id() const {
             return get_id_from_offset(record_offset);
         }
 
         //TODO: This one is a bit redundant but fine I think
-        size_t get_node_length() const {
+        virtual size_t get_node_length() const {
             return records->at(record_offset + NODE_LENGTH_OFFSET);
         }
 
-        size_t get_root_component() const {
+        virtual size_t get_root_component() const {
             return records->at(record_offset + NODE_COMPONENT_OFFSET);
         }
 
-        bool in_chain() const {
+        virtual bool in_chain() const {
             return SnarlTreeRecord(get_parent_record_offset(), records).get_record_handle_type() == CHAIN_HANDLE;
         }
 
@@ -885,37 +909,36 @@ private:
     struct NodeRecordConstructor : NodeRecord , SnarlTreeRecordConstructor {
 
 
-        size_t record_offset;
-        vector<size_t>* records;
         //Constructor meant for creating a new record, at the end of snarl_tree_records
-        NodeRecordConstructor (id_t id, record_t type, vector<size_t>* records)
-            :  records(records){
-            record_offset =  NodeRecord::get_offset_from_id(id);
-            records->at(record_offset) = type << 6;
+        NodeRecordConstructor (id_t id, record_t type, vector<size_t>* records){
+            NodeRecord::record_offset =  NodeRecord::get_offset_from_id(id);
+            SnarlTreeRecordConstructor::record_offset =  NodeRecord::get_offset_from_id(id);
+            SnarlTreeRecordConstructor::records = records;
+            NodeRecord::records = records;
+            set_record_type(type);
         }
-        void set_node_length(size_t length) {
-            records->at(record_offset + NODE_LENGTH_OFFSET) = length;
+        virtual void set_node_length(size_t length) {
+            SnarlTreeRecordConstructor::records->at(NodeRecord::record_offset + NODE_LENGTH_OFFSET) = length;
         }
-        void set_root_component(size_t component) {
-            records->at(record_offset + NODE_COMPONENT_OFFSET) = component;
+        virtual void set_root_component(size_t component) {
+            SnarlTreeRecordConstructor::records->at(NodeRecord::record_offset + NODE_COMPONENT_OFFSET) = component;
         }
     };
 
     struct SnarlRecord : SnarlTreeRecord {
 
 
-        size_t record_offset;
-        const vector<size_t>* records;
-        SnarlRecord() : records(NULL) {};
-        SnarlRecord (size_t pointer, const vector<size_t>* records)
-            : record_offset(pointer), records(records){
+        SnarlRecord() {};
+        SnarlRecord (size_t pointer, const vector<size_t>* records){
+            record_offset = pointer;
+            records = records;
             record_t type = get_record_type();
             assert(type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL);
         }
 
-        SnarlRecord (net_handle_t net, const vector<size_t>* records)
-            : records(records){
+        SnarlRecord (net_handle_t net, const vector<size_t>* records){
             record_offset = get_record_offset(net);
+            records = records;
             record_t type = get_record_type();
             assert(type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL);
         }
@@ -942,7 +965,7 @@ private:
         static size_t record_size (record_t type, size_t node_count) {
             return SNARL_RECORD_SIZE + distance_vector_size(type, node_count) + node_count;
         }
-        size_t record_size() { 
+        virtual size_t record_size() { 
             record_t type = get_record_type();
             return record_size(type, get_node_count()); 
         }
@@ -953,10 +976,10 @@ private:
                 bool right_side2, size_t node_count, record_t type) {
 
             //how many node sides in this snarl
-            size_t node_side_count = (node_count-1) * 2; 
+            size_t node_side_count = node_count * 2 + 2; 
 
             //make sure we're looking at the correct node side
-            if (rank1 == node_count+2) {
+            if (rank1 == node_count+1) {
                 rank1 = node_side_count-1;
             } else if (rank1 != 0) {
                 rank1 = rank1 * 2 - 1;
@@ -964,7 +987,7 @@ private:
                     rank1 += 1;
                 }
             }
-            if (rank2 == node_count+2) {
+            if (rank2 == node_count+1) {
                 rank2 = node_side_count-1;
             } else if (rank2 != 0) {
                 rank2 = rank2 * 2 - 1;
@@ -1000,7 +1023,7 @@ private:
                 throw runtime_error("error: trying to distance from something that isn't a snarl");
             }
         } 
-        int64_t get_distance_vector_offset(size_t rank1, bool right_side1, 
+        virtual int64_t get_distance_vector_offset(size_t rank1, bool right_side1, 
                 size_t rank2, bool right_side2) const {
             return get_distance_vector_offset(rank1, right_side1, rank2, right_side2, 
                 get_node_count(), get_record_type()); 
@@ -1009,7 +1032,7 @@ private:
         //TODO: I want to also add a function to do this given a node id or net_handle_t instead of rank
         //Get and set the distances between two node sides in the graph
         //Ranks identify which node, sides indicate node side: false for left, true for right
-        int64_t get_distance(size_t rank1, bool right_side1, size_t rank2, bool right_side2) const {
+        virtual int64_t get_distance(size_t rank1, bool right_side1, size_t rank2, bool right_side2) const {
 
             //offset of the start of the distance vectors in snarl_tree_records
             size_t distance_vector_start = record_offset + get_node_count();
@@ -1021,15 +1044,15 @@ private:
 
         }
 
-        size_t get_node_count() const {
+        virtual size_t get_node_count() const {
             return records->at(record_offset + SNARL_NODE_COUNT_OFFSET);
         }
 
-        size_t get_child_record_pointer() const {
+        virtual size_t get_child_record_pointer() const {
             return records->at(record_offset+SNARL_CHILD_RECORD_OFFSET) ;
         }
 
-        bool for_each_child(const std::function<bool(const net_handle_t&)>& iteratee) const {
+        virtual bool for_each_child(const std::function<bool(const net_handle_t&)>& iteratee) const {
             size_t child_count = get_node_count();
             size_t child_record_offset = get_child_record_pointer();
             for (size_t i = 0 ; i < child_count ; i++) {
@@ -1049,93 +1072,96 @@ private:
     struct SnarlRecordConstructor : SnarlRecord , SnarlTreeRecordConstructor {
 
 
-        size_t record_offset;
-        vector<size_t>* records;
         SnarlRecordConstructor();
 
-        SnarlRecordConstructor (size_t node_count, vector<size_t>* records, record_t type)
-            : records(records){
+        SnarlRecordConstructor (size_t node_count, vector<size_t>* records, record_t type){
             //Constructor for making a new record, including allocating memory.
             //Assumes that this is the latest record being made, so pointer will be the end of
             //the array and we need to allocate extra memory past it
             //TODO:I'm not sure yet how memory will actually be allocated
-            record_offset = records->size();
+            SnarlRecord::record_offset = records->size();
+            SnarlTreeRecordConstructor::record_offset = records->size();
+            SnarlTreeRecordConstructor::records = records;
+            SnarlRecord::records = records;
             size_t extra_size = record_size(type, node_count);
-            records->resize(records->size() + extra_size, 0);
+            cerr << SnarlTreeRecordConstructor::records->size() << " + " << extra_size;
+            SnarlTreeRecordConstructor::records->resize(SnarlTreeRecordConstructor::records->size() + extra_size, 0);
+            cerr << " " << SnarlTreeRecordConstructor::records->size() << endl;
             set_node_count(node_count);
-            records->at(record_offset) = type << 6;
+            set_record_type(type);
         }
-        SnarlRecordConstructor(vector<size_t>* records, size_t record_offset) :
-            record_offset(record_offset), records(records){
+        SnarlRecordConstructor(vector<size_t>* records, size_t pointer) {
             //Make a constructor for a snarl record that has already been allocated.
             //For adding children to an existing snarl record
+            SnarlRecord::record_offset = pointer;
+            SnarlTreeRecordConstructor::record_offset = pointer;
+            SnarlTreeRecordConstructor::records = records;
+            SnarlRecord::records = records;
         }
         void set_distance(size_t rank1, bool right_side1, size_t rank2, bool right_side2, int64_t distance) {
             //offset of the start of the distance vectors in snarl_tree_records
-            size_t distance_vector_start = record_offset + get_node_count();
+            size_t distance_vector_start = SnarlRecord::record_offset + get_node_count();
             //Offset of this particular distance in the distance vector
             size_t distance_vector_offset = get_distance_vector_offset(rank1, right_side1, rank2, right_side2);
 
             size_t val = distance == std::numeric_limits<int64_t>::max() ? 0 : distance+1;
-            assert(records->at(distance_vector_start + distance_vector_offset) == 0 || 
-                    records->at(distance_vector_start + distance_vector_offset) == val);
+            assert(SnarlTreeRecordConstructor::records->at(distance_vector_start + distance_vector_offset) == 0 || 
+                    SnarlTreeRecordConstructor::records->at(distance_vector_start + distance_vector_offset) == val);
 
-            records->at(distance_vector_start + distance_vector_offset) = val;
+            SnarlTreeRecordConstructor::records->at(distance_vector_start + distance_vector_offset) = val;
         }
 
         //Node count is the number of nodes in the snarl, not including boundary nodes
         void set_node_count(size_t node_count) {
             assert(node_count > 0);//TODO: Don't bother making a record for trivial snarls
-            records->at(record_offset + SNARL_NODE_COUNT_OFFSET) = node_count;
+            SnarlTreeRecordConstructor::records->at(SnarlRecord::record_offset + SNARL_NODE_COUNT_OFFSET) = node_count;
         }
 
 
         void set_child_record_pointer(size_t pointer) {
-            records->at(record_offset+SNARL_CHILD_RECORD_OFFSET) = pointer;
+            SnarlTreeRecordConstructor::records->at(SnarlRecord::record_offset+SNARL_CHILD_RECORD_OFFSET) = pointer;
         }
         //Add a reference to a child of this snarl. Assumes that the index is completed up
         //to here
         void add_child(size_t pointer){
-            records->emplace_back(pointer);
+            SnarlTreeRecordConstructor::records->emplace_back(pointer);
         }
     };
 
     struct ChainRecord : SnarlTreeRecord {
 
-
-        size_t record_offset;
-        const vector<size_t>* records;
-        ChainRecord() : records(NULL) {};
-        ChainRecord (size_t pointer, const vector<size_t>* records)
-            : record_offset(pointer), records(records){
-            record_t type = static_cast<record_t>(records->at(record_offset)>>6);
+        ChainRecord() {};
+        ChainRecord (size_t pointer, const vector<size_t>* records){
+            record_offset = pointer;
+            records = records;
+            record_t type = get_record_type();
             assert(type == CHAIN || 
                    type == DISTANCED_CHAIN);
         }
-        ChainRecord (net_handle_t net, const vector<size_t>* records)
-            : records(records){
+        ChainRecord (net_handle_t net, const vector<size_t>* records){
             record_offset = get_record_offset(net);
+            records = records;
             record_t type = static_cast<record_t>(records->at(record_offset)>>6);
             assert(type == CHAIN || 
                    type == DISTANCED_CHAIN);
         }
 
-        size_t get_node_count() const {
+        virtual size_t get_node_count() const {
             return records->at(record_offset + CHAIN_NODE_COUNT_OFFSET);
         }
 
         //Get the prefix sum value for this node (boundary node of a snarl in the chain)
         //pointer is a pointer into snarl_tree_records, to the beginning of the record for this node
         //So it'll point to the node id of the node we're looking at
-        int64_t get_prefix_sum_value(size_t pointer) const {
+        virtual int64_t get_prefix_sum_value(size_t pointer) const {
             size_t val = records->at(pointer+CHAIN_NODE_PREFIX_SUM_OFFSET);
             return val == 0 ? std::numeric_limits<int64_t>::max() : val-1; 
         }
-        int64_t get_forward_loop_value(size_t pointer) const {
+        virtual int64_t get_forward_loop_value(size_t pointer) const {
             size_t val = records->at(pointer+CHAIN_NODE_FORWARD_LOOP_OFFSET);
             return val == 0 ? std::numeric_limits<int64_t>::max() : val-1; 
         }
-        int64_t get_reverse_loop_value(size_t pointer) const {
+        virtual int64_t get_reverse_loop_value(size_t pointer) const {
             size_t val =  records->at(pointer+CHAIN_NODE_REVERSE_LOOP_OFFSET); 
             return val == 0 ? std::numeric_limits<int64_t>::max() : val-1; 
         }
@@ -1145,7 +1171,7 @@ private:
         //This is the distance between the node sides, leaving the first and entering the second,
         //not including node lengths
         //TODO: I don't think we're allowing looping chains so I'm going to ignore them for now
-        int64_t get_distance(tuple<size_t, size_t, bool, size_t> node1, 
+        virtual int64_t get_distance(tuple<size_t, size_t, bool, size_t> node1, 
                              tuple<size_t, size_t, bool, size_t> node2) const {
 
             if (std::get<1>(node1) > std::get<1>(node2)) {
@@ -1171,7 +1197,8 @@ private:
                 return get_prefix_sum_value(std::get<0>(node2)) 
                      - get_prefix_sum_value(std::get<0>(node1))  
                      + get_reverse_loop_value(std::get<0>(node1));
-            } else if (!std::get<2>(node1) && std::get<2>(node2)) {
+            } else {
+                assert(!std::get<2>(node1) && std::get<2>(node2));
                 //Left side of 1 and right side of 2
                 return get_prefix_sum_value(std::get<0>(node2)) 
                      - get_prefix_sum_value(std::get<0>(node1))  
@@ -1184,7 +1211,7 @@ private:
         ////////////////////////// methods for navigating the snarl tree from this chain
 
         //Get the offset into snarl_tree_records of the first node in the chain
-        size_t get_first_node_offset() const {
+        virtual size_t get_first_node_offset() const {
             return record_offset + CHAIN_RECORD_SIZE;
         }
 
@@ -1193,7 +1220,7 @@ private:
         //bool is true if it is a snarl, false if it is a node
         //go_left is true if we are traversing the chain right to left
         //returns 0 if this was the last (/first) node in the chain
-        pair<size_t, bool> get_next_child(const pair<size_t, bool> pointer, bool go_left) const {
+        virtual pair<size_t, bool> get_next_child(const pair<size_t, bool> pointer, bool go_left) const {
             if (pointer.second) {
                 //This is a snarl
                 if (go_left) {
@@ -1232,7 +1259,7 @@ private:
         }
         //The same thing but take and return a net_handle_t
         //return the same net_handle_t if this is the end of the chain
-        net_handle_t get_next_child(const net_handle_t& net_handle, bool go_left) const {
+        virtual net_handle_t get_next_child(const net_handle_t& net_handle, bool go_left) const {
             //get the next child in the chain. net_handle must point to a snarl or node in the chain 
             bool is_snarl = get_handle_type(net_handle) == SNARL_HANDLE ? true : false;
             pair<size_t, bool> next_pointer = get_next_child(make_pair(get_record_offset(net_handle), is_snarl), go_left);
@@ -1246,7 +1273,7 @@ private:
 
         }
 
-        bool for_each_child(const std::function<bool(const net_handle_t&)>& iteratee) const {
+        virtual bool for_each_child(const std::function<bool(const net_handle_t&)>& iteratee) const {
             pair<size_t, bool> current_child (get_first_node_offset(), START_END);
             while (current_child.first != 0) {
                 net_handle_record_t type = SnarlTreeRecord(current_child.first, records).get_record_handle_type(); 
@@ -1267,41 +1294,41 @@ private:
         //Add nodes and snarls as they come up. Assumes that the memory has already been reserved but
         //not allocated yet
 
-        size_t record_offset;
-        vector<size_t>* records;
         //TODO: I don't think I even need node count
-        ChainRecordConstructor (size_t pointer, record_t type, size_t node_count, vector<size_t>* records)
-            : record_offset(pointer), records(records){
+        ChainRecordConstructor (size_t pointer, record_t type, size_t node_count, vector<size_t>* records){
             assert(type == CHAIN || 
                    type == DISTANCED_CHAIN);
-
-            records->resize(records->size() + CHAIN_RECORD_SIZE, 0);
+            ChainRecord::record_offset = pointer;
+            SnarlTreeRecordConstructor::record_offset = pointer;
+            SnarlTreeRecordConstructor::records = records;
+            ChainRecord::records = records;
+            SnarlTreeRecordConstructor::records->resize(SnarlTreeRecordConstructor::records->size() + CHAIN_RECORD_SIZE, 0);
             set_node_count(node_count);
-            records->at(record_offset) = type << 6;
+            set_record_type(type);
         }
 
         void add_node(id_t id, int64_t prefix_sum, int64_t forward_loop, int64_t reverse_loop) {
-            records->emplace_back(prefix_sum==std::numeric_limits<int64_t>::max() ? 0 : prefix_sum+1);
-            records->emplace_back(forward_loop==std::numeric_limits<int64_t>::max() ? 0 : forward_loop+1);
-            records->emplace_back(reverse_loop==std::numeric_limits<int64_t>::max() ? 0 : reverse_loop+1);
+            SnarlTreeRecordConstructor::records->emplace_back(prefix_sum==std::numeric_limits<int64_t>::max() ? 0 : prefix_sum+1);
+            SnarlTreeRecordConstructor::records->emplace_back(forward_loop==std::numeric_limits<int64_t>::max() ? 0 : forward_loop+1);
+            SnarlTreeRecordConstructor::records->emplace_back(reverse_loop==std::numeric_limits<int64_t>::max() ? 0 : reverse_loop+1);
         }
         void set_node_count(size_t node_count) {
-            records->at(record_offset + CHAIN_NODE_COUNT_OFFSET) = node_count;
+            SnarlTreeRecordConstructor::records->at(ChainRecord::record_offset + CHAIN_NODE_COUNT_OFFSET) = node_count;
         }
         void add_trivial_snarl() {
-            records->emplace_back(0);
+            SnarlTreeRecordConstructor::records->emplace_back(0);
         }
         //Add a snarl to the end of the chain and return a SnarlRecordConstructor pointing to it
         SnarlRecordConstructor add_snarl(size_t snarl_size, record_t type) {
-            records->emplace_back(snarl_size);
-            SnarlRecordConstructor snarl_record(snarl_size, records, type);
-            records->emplace_back(snarl_size);
+            SnarlTreeRecordConstructor::records->emplace_back(snarl_size);
+            SnarlRecordConstructor snarl_record(snarl_size, SnarlTreeRecordConstructor::records, type);
+            SnarlTreeRecordConstructor::records->emplace_back(snarl_size);
             return snarl_record;
         }
 
         void finish_chain(){
-            records->emplace_back(0);
-            records->emplace_back(0);
+            SnarlTreeRecordConstructor::records->emplace_back(0);
+            SnarlTreeRecordConstructor::records->emplace_back(0);
         }
     };
 
@@ -1425,6 +1452,7 @@ protected:
             vector<int64_t> backward_loops;
             size_t rank_in_parent;
             bool reversed_in_parent;
+            bool is_trivial;
         };
         struct TemporarySnarlRecord : TemporaryRecord{
             id_t start_node_id;
@@ -1444,7 +1472,7 @@ protected:
             //The minimum distances to go into and out of the snarl from the start or end nodes
             int64_t loop_start;
             int64_t loop_end;
-            bool is_trivial_snarl;
+            bool is_trivial;
         };
         struct TemporaryNodeRecord : TemporaryRecord{
             TemporaryNodeRecord() :
