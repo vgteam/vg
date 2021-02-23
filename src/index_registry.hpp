@@ -91,6 +91,20 @@ struct IndexingParameters {
     static string gff_feature_name;
     // transcript tag in GTF/GFF ["transcript_id"]
     static string gff_transcript_tag;
+    // if true, minimizer index uses bounded syncmers, otherwise uses minimizers [false]
+    static bool use_bounded_syncmers;
+    // length of k-mer used in minimizer index [29]
+    static int minimizer_k;
+    // length of window if using minimizers [11]
+    static int minimizer_w;
+    // length of internal s-mer if using bounded syncmers [18]
+    static int minimizer_s;
+    // the number of paths that will make up the path cover GBWT [16]
+    static int path_cover_depth;
+    // the number of haplotypes to downsample to in giraffe's GBWT [64]
+    static int giraffe_gbwt_downsample;
+    // Jordan actually doesn't know what this one does [4]
+    static int downsample_context_length;
     // whether indexing algorithms will log progress (if available) [false]
     static bool verbose;
 };
