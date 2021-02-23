@@ -321,16 +321,23 @@ namespace vg {
     }
     unordered_map<pair<const Snarl*, const Snarl*>, int32_t> MCMCGenotyper::make_snarl_map(const vector<multipath_alignment_t>& reads, unique_ptr<PhasedGenome>& phased_genome) const{
         
-        unordered_set<const Snarl*> snarl_set;
+        
         unordered_map<pair<const Snarl*, const Snarl*>, int32_t> map;
-        vector<pair<const Snarl*, const Snarl*>> pairs;
         int32_t score_after_swap,score_before_swap,diff_score;
+
 #ifdef debug_make_snarl_graph
-                cerr << "******************************************************"<<endl;  
-                cerr << "READS:  " << endl;          
+        cerr << "******************************************************"<<endl;
+        phased_genome->print_phased_genome();
+        cerr << "******************************************************"<<endl;
+        cerr << "number of reads " << reads.size()<<endl;     
+        int count= 0;           
 #endif 
         //loop over reads
         for(const multipath_alignment_t& multipath_aln : reads){
+            unordered_set<const Snarl*> snarl_set;
+#ifdef debug_make_snarl_graph
+            vector<size_t> read_nodes; 
+#endif
             //for each pair of snarls that touches that read
             for (const auto& subpath : multipath_aln.subpath()) {
                 if(subpath.has_path()){
@@ -339,22 +346,23 @@ namespace vg {
                     for(size_t i = 0; i < path.mapping_size(); i++){
                         auto& mapping = path.mapping(i);
                         int64_t node_id = mapping.position().node_id();
+
 #ifdef debug_make_snarl_graph
-                        cerr << node_id<< "->";              
+                        read_nodes.push_back(node_id);              
 #endif 
                         const Snarl* back_snarl = snarls.into_which_snarl(node_id, true); 
                         const Snarl* fwd_snarl = snarls.into_which_snarl(node_id, false);
                
                         // insert snarls into unordered set with only unique entries
                         // only insert if snarl obj exists in the orientation given 
-                        if(back_snarl){
-                            snarl_set.insert(back_snarl);
+                        // skip first nodes with reverse orientation, and last node with fwd orientation
+                        if(back_snarl && i != 0){
 // #ifdef debug_make_snarl_graph
 //                             cerr <<"adding back_snarl " <<back_snarl->start().node_id() <<" -> " <<back_snarl->end().node_id() <<endl;
-                            
 // #endif
+                            snarl_set.insert(back_snarl);
                         }
-                        if(fwd_snarl){
+                        if(fwd_snarl && i != path.mapping_size()-1){
 // #ifdef debug_make_snarl_graph
 //                             cerr <<"adding fwd_snarl " <<fwd_snarl->start().node_id() <<" -> " <<fwd_snarl->end().node_id() <<endl;
 // #endif
@@ -365,70 +373,64 @@ namespace vg {
                 }
                 
             }
-            
-#ifdef debug_make_snarl_graph
-            cerr << endl;              
-#endif 
-        }
-#ifdef debug_make_snarl_graph
-        cerr << endl;   
-        cerr << "******************************************************"<<endl;
-        cerr << "snarl_set size " << snarl_set.size() <<endl; 
-                    
-#endif 
-        
-        vector<const Snarl*> v(snarl_set.begin(), snarl_set.end());
-        for(int i =0; i < v.size(); i++){
-            for(int j =i+1; j < v.size(); j++){
-                //check if both haplotypes visited these snarls
-#ifdef debug_make_snarl_graph
-            cerr <<"Searching Pair: " <<v[i]->start().node_id() <<" -> " <<v[i]->end().node_id();
-            cerr <<" , " <<v[j]->start().node_id() <<" -> " <<v[j]->end().node_id() <<endl;
-#endif 
-                vector<id_t> haplo_ids1 = phased_genome->get_haplotypes_with_snarl(v[i]);
-                vector<id_t> haplo_ids2 = phased_genome->get_haplotypes_with_snarl(v[j]);
 
 #ifdef debug_make_snarl_graph
-                if(!haplo_ids1.empty() && !haplo_ids2.empty()){
-                    if((haplo_ids1[0] == 0 && haplo_ids2[0] == 0) && (haplo_ids1[1] == 1 && haplo_ids2[1] == 1)){
-                        cerr << "both haplotypes overlap snarl pair" <<endl; 
-                    }
-                }else{
-                    cerr << "1 haplotypes or no haplotypes overlap this snarl pair " <<endl;
-                } 
-                                
-#endif
-                if(!haplo_ids1.empty() && !haplo_ids2.empty() ){
-                    if(haplo_ids1.size()==2 && haplo_ids2.size()==2){
-                        //make pairs of those snarls that are overlapped by both haplotypes
-                        // pair should be ordered with smaller snarl num first
-                        if(snarls.snarl_number(v[i]) < snarls.snarl_number(v[j])){
-                            pairs.push_back(make_pair(v[i], v[j]));
-                        }else{
-                            pairs.push_back(make_pair(v[j], v[i]));
+            cerr << "read " << count+1 << ": ";          
+            for(size_t nodes: read_nodes){
+                cerr << nodes << "->";
+            }
+            cerr << endl;   
+            cerr << "snarl_set size " << snarl_set.size() <<endl; 
+                    
+#endif 
+            vector<pair<const Snarl*, const Snarl*>> pairs;
+            vector<const Snarl*> v(snarl_set.begin(), snarl_set.end());
+            for(int i =0; i < v.size(); i++){
+                for(int j =i+1; j < v.size(); j++){
+                    //check if both haplotypes visited these snarls
+// #ifdef debug_make_snarl_graph
+//                 cerr <<"Searching Pair: " <<v[i]->start().node_id() <<" -> " <<v[i]->end().node_id();
+//                 cerr <<" , " <<v[j]->start().node_id() <<" -> " <<v[j]->end().node_id() <<endl;
+// #endif 
+                    vector<id_t> haplo_ids1 = phased_genome->get_haplotypes_with_snarl(v[i]);
+                    vector<id_t> haplo_ids2 = phased_genome->get_haplotypes_with_snarl(v[j]);
+
+// #ifdef debug_make_snarl_graph
+//                     if(!haplo_ids1.empty() && !haplo_ids2.empty()){
+//                         if((haplo_ids1[0] == 0 && haplo_ids2[0] == 0) && (haplo_ids1[1] == 1 && haplo_ids2[1] == 1)){
+//                             cerr << "both haplotypes overlap snarl pair" <<endl; 
+//                         }
+//                     }else{
+//                         cerr << "1 haplotypes or no haplotypes overlap this snarl pair " <<endl;
+//                     } 
+                                    
+// #endif
+                    if(!haplo_ids1.empty() && !haplo_ids2.empty() ){
+                        if(haplo_ids1.size()==2 && haplo_ids2.size()==2){
+                            //make pairs of those snarls that are overlapped by both haplotypes
+                            // pair should be ordered with smaller snarl num first
+                            if(snarls.snarl_number(v[i]) < snarls.snarl_number(v[j])){
+                                pairs.push_back(make_pair(v[i], v[j]));
+                            }else{
+                                pairs.push_back(make_pair(v[j], v[i]));
+                            }
+                            
+                            
                         }
-                        
-                        
                     }
                 }
             }
-        }
 #ifdef debug_make_snarl_graph 
-        cerr << "******************************************************"<<endl;
-        cerr << "pairs size " << pairs.size()<<endl;
-        cerr << "number of reads " << reads.size()<<endl;
-        int count = 0;
+            
+            cerr << "pairs size " << pairs.size()<<endl;
 #endif
 
-        for(const multipath_alignment_t& multipath_aln : reads){
+            
             //get_optimal_score_on_genome(genome_before_swap, read)
             score_before_swap = phased_genome->optimal_score_on_genome(multipath_aln, graph);
 #ifdef debug_make_snarl_graph
             cerr << endl;
-            cerr << "score_before_swap " << score_before_swap <<endl; 
-            count++;
-            cerr << "read " << count <<endl; 
-                             
+            cerr << "score_before_swap " << score_before_swap <<endl;                
 #endif           
             for(auto snarl_ptr:pairs){ 
                 int haplotype_0 =0;
@@ -437,7 +439,7 @@ namespace vg {
                 int random_num = generate_discrete_uniform(random_engine, haplotype_0, haplotype_1);
 // #ifdef debug_make_snarl_graph
 //                 cerr << "random_haplo_num " << random_num <<endl; 
-                             
+                            
 // #endif
                 //exchange their alleles with each other at one of the snarls (chosen randomly)
                 //TODO: for < 2 or > 2 haplotypes that overlap snarl pair , skip snarl pair for that read 
@@ -448,20 +450,20 @@ namespace vg {
                     phased_genome->swap_alleles(snarl_to_swap, haplotype_0, haplotype_1);
                     // get score after swap
                     score_after_swap = phased_genome->optimal_score_on_genome(multipath_aln, graph);
-// #ifdef debug_make_snarl_graph
-                    // cerr << "genome after swap " << endl;
-                    // phased_genome->print_phased_genome();
-                    // cerr << "score_after_swap  " << score_after_swap  <<endl;
-// #endif
-                                            
- 
-                    //swap back 
+#ifdef debug_make_snarl_graph
+                cerr << "genome after swap " << endl;
+                phased_genome->print_phased_genome();
+                cerr << "score_after_swap  " << score_after_swap  <<endl;
+#endif
+                                        
+
+                //swap back 
                     phased_genome->swap_alleles(snarl_to_swap, haplotype_0, haplotype_1);
 // #ifdef debug_make_snarl_graph
 //                     cerr << "genome after swap back" << endl;
 //                     phased_genome->print_phased_genome();                   
 // #endif
-                    
+                
                 }else{
                     //else random num == 1
                     //dereference the ptr
@@ -470,30 +472,41 @@ namespace vg {
                     phased_genome->swap_alleles(snarl_to_swap, haplotype_0, haplotype_1);
                     // get score after swap
                     score_after_swap = phased_genome->optimal_score_on_genome(multipath_aln, graph);
-// #ifdef debug_make_snarl_graph
-//                     cerr << "genome after swap " << endl;
-//                     phased_genome->print_phased_genome();
-//                     cerr << "score_after_swap  " << score_after_swap  <<endl;                              
-// #endif
+#ifdef debug_make_snarl_graph
+                    cerr << "genome after swap " << endl;
+                    phased_genome->print_phased_genome();
+                    cerr << "score_after_swap  " << score_after_swap  <<endl;                              
+#endif
                     //swap back 
                     phased_genome->swap_alleles(snarl_to_swap, haplotype_0, haplotype_1);
-// #ifdef debug_make_snarl_graph
-//                     cerr << "genome after swap back" << endl;
-//                     phased_genome->print_phased_genome();                   
-// #endif
+#ifdef debug_make_snarl_graph
+                    cerr << "genome after swap back" << endl;
+                    phased_genome->print_phased_genome();                   
+#endif
                 }
-                
+            
                 //getcalculate difference of scores between swaps
                 diff_score = score_before_swap - score_after_swap;
 #ifdef debug_make_snarl_graph
-                cerr << "diff score " << diff_score <<endl;                   
+                cerr << "diff score " << diff_score <<endl;                
 #endif
                 map[make_pair(snarl_ptr.first, snarl_ptr.second)] += diff_score;
-                
+            }
 
-            }        
-               
+
+
+            
+#ifdef debug_make_snarl_graph
+        cerr << "******************************************************"<<endl;
+        cerr << endl;
+        count++;             
+#endif 
+
         }
+
+        
+        
+
 #ifdef debug_make_snarl_graph
         cerr << "map size " << map.size() <<endl;                   
 #endif            
@@ -506,7 +519,6 @@ namespace vg {
         algorithms::Graph snarl_graph;
 
         for(auto snarl_pair_to_weight: map){
-            size_t edge_weight = (size_t)snarl_pair_to_weight.second;
             pair<const Snarl*, const Snarl*> snarl_pair = snarl_pair_to_weight.first;
             const Snarl* snarl_1 = snarl_pair.first;
             const Snarl* snarl_2 = snarl_pair.second;
@@ -515,12 +527,14 @@ namespace vg {
 //             cerr <<"snarl2 start->end" <<snarl_2->start().node_id() <<" -> " <<snarl_2->end().node_id() <<endl;
 // #endif
             // skip edge weights that are <1
-            if(edge_weight < 1){
+            if(snarl_pair_to_weight.second < 1){
 #ifdef debug_make_snarl_graph
-                cerr << "removing edge with weight  " << edge_weight <<endl;                   
+                cerr << "removing edge with weight  " << snarl_pair_to_weight.second <<endl;                   
 #endif 
                 continue;
             }else{
+
+                size_t edge_weight = (size_t)snarl_pair_to_weight.second;
 #ifdef debug_make_snarl_graph
                 cerr << "weight > 1 : " << edge_weight <<endl;                   
 #endif 

@@ -1278,9 +1278,18 @@ namespace vg {
             vector<NodeTraversal> haplotype_1;
             vector<NodeTraversal> haplotype_2;
             
+            // haplotype_1.push_back(NodeTraversal(n1));
+            // haplotype_1.push_back(NodeTraversal(n7));
+            // haplotype_1.push_back(NodeTraversal(n8));
+            // haplotype_1.push_back(NodeTraversal(n6));
+            // haplotype_1.push_back(NodeTraversal(n10));
+            // haplotype_1.push_back(NodeTraversal(n11));
+            // haplotype_1.push_back(NodeTraversal(n13));
+            // haplotype_1.push_back(NodeTraversal(n14));
             haplotype_1.push_back(NodeTraversal(n1));
-            haplotype_1.push_back(NodeTraversal(n7));
-            haplotype_1.push_back(NodeTraversal(n8));
+            haplotype_1.push_back(NodeTraversal(n2));
+            haplotype_1.push_back(NodeTraversal(n4));
+            haplotype_1.push_back(NodeTraversal(n5));
             haplotype_1.push_back(NodeTraversal(n6));
             haplotype_1.push_back(NodeTraversal(n10));
             haplotype_1.push_back(NodeTraversal(n11));
@@ -1306,18 +1315,21 @@ namespace vg {
 
             unordered_map<pair<const Snarl*, const Snarl*>, int32_t> snarl_map = mcmc_genotyper.make_snarl_map(multipath_aln_vector ,  phased_genome);
 #ifdef debug_snarl_graph
+            cout << "map" <<endl;        
+            cout << "******************************************************"<<endl;
             unordered_map<pair<const Snarl*, const Snarl*>, int32_t>::iterator it = snarl_map.begin();
             while(it != snarl_map.end())
             {
                 std::cout<<"weight: " << it->second<<std::endl;
                 it++;
             }
+            cout << "******************************************************"<<endl;
 #endif
             algorithms::Graph snarl_graph = mcmc_genotyper.make_snarl_graph(snarl_map);
 
 #ifdef debug_snarl_graph
             cout << "graph" <<endl;        
-            
+            cout << "******************************************************"<<endl;
             for(size_t i =0; i < snarl_graph.get_node_ids().size(); i++){
                 cout << "node size " <<snarl_graph.get_node_ids().size() << endl; 
                 vector<size_t> node_ids = snarl_graph.get_node_ids();
@@ -1334,6 +1346,7 @@ namespace vg {
                 }
                 
             }
+            cout << "******************************************************"<<endl;
 #endif
 
         }
