@@ -293,7 +293,7 @@ int main_augment(int argc, char** argv) {
         vectorizable_graph = dynamic_cast<HandleGraph*>(overlay_helper.apply(graph.get()));
         size_t data_width = Packer::estimate_data_width(expected_coverage);
         size_t bin_count = Packer::estimate_bin_count(get_thread_count());
-        packer = make_unique<Packer>(vectorizable_graph, 0, bin_count, data_width, true, false, false);
+        packer = make_unique<Packer>(vectorizable_graph, true, false, false, false, 0, bin_count, data_width);
         // makes sure filters are activated. 
         min_coverage = max(size_t(min_coverage), size_t(1));
     }
