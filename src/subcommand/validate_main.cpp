@@ -137,6 +137,13 @@ int main_validate(int argc, char** argv) {
                                      << ") of path " << graph->get_path_name(path_handle) << endl;
                                 valid_graph = false;
                             }
+                            if (!graph->has_edge(graph->flip(handle), graph->flip(prev))) {
+                                cerr << "graph invalid: missing edge between " << (i) << "th step ("
+                                     << graph->get_id(handle) << ":" << !graph->get_is_reverse(handle) << ") and "
+                                     << (i-1) << "th step (" << graph->get_id(prev) << ":" << graph->get_is_reverse(prev)
+                                     << ") of path " << graph->get_path_name(path_handle) << endl;
+                                valid_graph = false;
+                            }
                         }
                         ++i;
                         prev = handle;
