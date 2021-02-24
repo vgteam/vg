@@ -43,6 +43,7 @@ void help_paths(char** argv) {
          << "    -E, --lengths            print a list of path names (as with -L) but paired with their lengths" << endl
          << "    -C, --cyclicity          print a list of path names (as with -L) but paired with flag denoting the cyclicity" << endl
          << "    -F, --extract-fasta      print the paths in FASTA format" << endl
+         << "    -c, --coverage           print the coverage stats for selected paths (not including cylces)" << endl
          << "  path selection:" << endl
          << "    -p, --paths-file FILE    select the paths named in a file (one per line)" << endl
          << "    -Q, --paths-by STR       select the paths with the given name prefix" << endl
@@ -99,6 +100,8 @@ int main_paths(int argc, char** argv) {
     size_t output_formats = 0, selection_criteria = 0;
     size_t input_formats = 0;
     bool list_cyclicity = false;
+    bool coverage = false;
+    const size_t coverage_bins = 10;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -122,6 +125,7 @@ int main_paths(int argc, char** argv) {
             {"sample", required_argument, 0, 'S'},
             {"variant-paths", no_argument, 0, 'a'},
             {"cyclicity", no_argument, 0, 'C'},
+            {"coverage", no_argument, 0, 'c'},            
 
             // Hidden options for backward compatibility.
             {"threads", no_argument, 0, 'T'},
@@ -131,7 +135,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEFAS:Tq:drap:C",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEFAS:Tq:drap:Cc",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -223,6 +227,11 @@ int main_paths(int argc, char** argv) {
             output_formats++;
             break;
 
+        case 'c':
+            coverage = true;
+            output_formats++;
+            break;
+
         case 'T':
             std::cerr << "warning: [vg paths] option --threads is obsolete and unnecessary" << std::endl;
             break;
@@ -266,7 +275,7 @@ int main_paths(int argc, char** argv) {
         }
     } 
     if (output_formats != 1) {
-        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -L, -F, -E or -C) must be specified" << std::endl;
+        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -L, -F, -E, -C or -c) must be specified" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (selection_criteria > 1) {
@@ -283,6 +292,10 @@ int main_paths(int argc, char** argv) {
     }
     if ((drop_paths || retain_paths) && !gbwt_file.empty()) {
         std::cerr << "error: [vg paths] dropping or retaining paths only works on embedded VG/XG paths, not GBWT threads" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    if (coverage && !gbwt_file.empty()) {
+        std::cerr << "error: [vg paths] coverage option -c only works on embedded VG/XG paths, not GBWT threads" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     
@@ -452,7 +465,96 @@ int main_paths(int argc, char** argv) {
             // output the graph
             dynamic_cast<SerializableHandleGraph*>(graph.get())->serialize(cout);
         }
-        else {
+        else if (coverage) {
+            // for every node, count the number of unique paths.  then add the coverage count to each one
+            // (we're doing the whole graph here, which could be inefficient in the case the user is selecting
+            //  a small path)
+            unordered_map<path_handle_t, vector<int64_t>> coverage_map;
+            // big speedup
+            unordered_map<path_handle_t, string> path_to_name;
+            size_t max_coverage = 0;
+            graph->for_each_handle([&](handle_t handle) {
+                    vector<step_handle_t> steps = graph->steps_of_handle(handle);
+                    unordered_set<string> unique_names;
+                    unordered_set<path_handle_t> unique_paths;
+                    for (auto step_handle : steps) {
+                        path_handle_t step_path_handle = graph->get_path_handle_of_step(step_handle);
+                        auto it = path_to_name.find(step_path_handle);
+                        if (it == path_to_name.end()) {
+                            string step_path_name = graph->get_path_name(step_path_handle);
+                            // disregard subpath tags when counting (but not displaying)
+                            auto subpath = Paths::parse_subpath_name(step_path_name);
+                            string& parsed_name = get<0>(subpath) ? get<1>(subpath) : step_path_name;
+                            it = path_to_name.insert(make_pair(step_path_handle, parsed_name)).first;
+                        }
+                        unique_names.insert(it->second);
+                        unique_paths.insert(step_path_handle);
+                    }
+                    for (auto path : unique_paths) {
+                        vector<int64_t>& cov = coverage_map[path];
+                        if (cov.size() < unique_paths.size()) {
+                            cov.resize(unique_paths.size(), 0);
+                        }
+                        cov[unique_paths.size() - 1] += graph->get_length(graph->get_handle_of_step(steps[0]));
+                        max_coverage = std::max(max_coverage, unique_names.size() - 1);
+                    }
+                });
+            // figure out the bin size
+            int64_t bin_size = 1;
+            if (max_coverage > coverage_bins) {
+                // reserve the first 2 bins for coverage = 0 and 1 no matter 1
+                bin_size = (max_coverage - 2) / (coverage_bins - 2);
+                if ((max_coverage - 2) % (coverage_bins - 2)) {
+                    ++bin_size;
+                }
+            }
+            // compute cumulative coverage
+            for (auto& path_cov : coverage_map) {
+                int64_t cum_cov = 0;
+                vector<int64_t>& cov = path_cov.second;
+                cov.resize(max_coverage + 1, 0);
+                // bin it up if necessary
+                if (cov.size() > coverage_bins) {
+                    vector<int64_t> binned_cov(coverage_bins, 0);
+                    // reserve the first 2 bins for coverage = 0 and 1 no matter 1
+                    binned_cov[0] = cov[0];
+                    binned_cov[1] = cov[1];
+                    // remaining bins
+                    for (size_t bin = 0; bin < coverage_bins - 2; ++bin) {
+                        for (size_t i = 0; i < bin_size && (2 + bin * bin_size + i < cov.size()); ++i) {
+                            binned_cov[2 + bin] += cov[2 + bin * bin_size + i];
+                        }
+                    }
+                    swap(cov, binned_cov);
+                }
+                // accumulate
+                for (auto cov_it = path_cov.second.rbegin(); cov_it != path_cov.second.rend(); ++cov_it) {
+                    cum_cov += *cov_it;
+                    *cov_it = cum_cov;
+                }
+            }
+            cout << "PathName";
+            for (size_t cov = 0; cov <= min(max_coverage, coverage_bins); ++cov) {
+                cout << "\t";
+                if (cov < 2 || bin_size == 1) {
+                    cout << cov << "-" << cov;
+                } else {
+                    cout << (2 + (cov - 2) * bin_size) << "-" << (2 + (cov - 2) * bin_size + bin_size - 1);
+                } 
+            }
+            cout << endl;
+            graph->for_each_path_handle([&](path_handle_t path_handle) {
+                    string path_name = graph->get_path_name(path_handle);
+                    if (check_path_name(path_name)) {
+                        cout << path_name;
+                        auto& path_cov = coverage_map[path_handle];
+                        for (size_t cov = 0; cov < path_cov.size(); ++cov) {
+                            cout << "\t" << path_cov[cov];
+                        }
+                        cout << endl;
+                    }
+                });
+        } else {            
             graph->for_each_path_handle([&](path_handle_t path_handle) {
                 string path_name = graph->get_path_name(path_handle);
                 if (check_path_name(path_name)) {

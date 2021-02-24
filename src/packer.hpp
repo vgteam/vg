@@ -35,19 +35,22 @@ public:
     static size_t estimate_data_width(size_t expected_coverage);
     static size_t estimate_batch_size(size_t num_threads);
     static size_t estimate_bin_count(size_t num_threads);
+
+    /// Create a Packer (to read from a file)
+    Packer(const HandleGraph* graph = nullptr);
     
-    Packer(void);
-    /// Create a Packer
+    /// Create a Packer (to write to)
     /// graph : Must implement the VectorizableHandleGraph interface
+    /// record_bases : Store the base coverage
+    /// record_edges : Store the edge coverage
+    /// record_edits : Store the edits
+    /// record_qualities : Store the average MAPQ for each node rank    
     /// bin_size : Bin coverage into bins
     /// coverage_bins : Use this many coverage objects.  Using one / thread allows faster merge
     /// coverage_locks : Number of mutexes to use for each of node and edge coverage.
     /// data_width : Number of bits per entry in the dynamic coverage vector.  Higher values get stored in a map
-    /// record_bases : Store the base coverage
-    /// record_edges : Store the edge coverage
-    /// record_edits : Store the edits
-    /// record_qualities : Store the average MAPQ for each node rank
-    Packer(const HandleGraph* graph, size_t bin_size = 0, size_t coverage_bins = 1, size_t data_width = 8, bool record_bases = true, bool record_edges = true, bool record_edits = true, bool record_qualities = true);
+    Packer(const HandleGraph* graph, bool record_bases, bool record_edges, bool record_edits, bool record_qualities,
+           size_t bin_size = 0, size_t coverage_bins = 1, size_t data_width = 8);
     ~Packer();
     void clear();
 
