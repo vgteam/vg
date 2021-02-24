@@ -82,10 +82,11 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a23ca736ab7fa0690ae575aa1d7a4de73"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a23ca736ab7fa0690ae575aa1d7a4de73">Packer</a> (void)</td></tr>
-<tr class="separator:a23ca736ab7fa0690ae575aa1d7a4de73"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aca894cde0a8f12de52fe13e2adb9b82d"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#aca894cde0a8f12de52fe13e2adb9b82d">Packer</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *<a class="el" href="classvg_1_1Packer.html#a52ac5f2ff5549fe1b296efc53204e94f">graph</a>, size_t <a class="el" href="classvg_1_1Packer.html#a528fbf835285899061cd6947e163976d">bin_size</a>=0, size_t coverage_bins=1, size_t <a class="el" href="classvg_1_1Packer.html#a2ebdd5cb535ee0264886e084dbdd00f4">data_width</a>=8, bool <a class="el" href="classvg_1_1Packer.html#a7a3debd842c660a3fc4755fc887c74ec">record_bases</a>=true, bool <a class="el" href="classvg_1_1Packer.html#ab6fa0636229479a7368286e43f20ffa2">record_edges</a>=true, bool <a class="el" href="classvg_1_1Packer.html#a8200ea3c39e408f3394c4a65fe2e3786">record_edits</a>=true, bool <a class="el" href="classvg_1_1Packer.html#ab29c0bdd5ae1db4a89db3476ba70ef68">record_qualities</a>=true)</td></tr>
-<tr class="separator:aca894cde0a8f12de52fe13e2adb9b82d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a965acab0b6c7d973a67e449785955739"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a965acab0b6c7d973a67e449785955739">Packer</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *<a class="el" href="classvg_1_1Packer.html#a52ac5f2ff5549fe1b296efc53204e94f">graph</a>=nullptr)</td></tr>
+<tr class="memdesc:a965acab0b6c7d973a67e449785955739"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a <a class="el" href="classvg_1_1Packer.html">Packer</a> (to read from a file)  <a href="classvg_1_1Packer.html#a965acab0b6c7d973a67e449785955739">More...</a><br /></td></tr>
+<tr class="separator:a965acab0b6c7d973a67e449785955739"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad52836b610249ada7cf0ad13c329b52c"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#ad52836b610249ada7cf0ad13c329b52c">Packer</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *<a class="el" href="classvg_1_1Packer.html#a52ac5f2ff5549fe1b296efc53204e94f">graph</a>, bool <a class="el" href="classvg_1_1Packer.html#a7a3debd842c660a3fc4755fc887c74ec">record_bases</a>, bool <a class="el" href="classvg_1_1Packer.html#ab6fa0636229479a7368286e43f20ffa2">record_edges</a>, bool <a class="el" href="classvg_1_1Packer.html#a8200ea3c39e408f3394c4a65fe2e3786">record_edits</a>, bool <a class="el" href="classvg_1_1Packer.html#ab29c0bdd5ae1db4a89db3476ba70ef68">record_qualities</a>, size_t <a class="el" href="classvg_1_1Packer.html#a528fbf835285899061cd6947e163976d">bin_size</a>=0, size_t coverage_bins=1, size_t <a class="el" href="classvg_1_1Packer.html#a2ebdd5cb535ee0264886e084dbdd00f4">data_width</a>=8)</td></tr>
+<tr class="separator:ad52836b610249ada7cf0ad13c329b52c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a771083c86ded80dc5076bc9112a463d7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a771083c86ded80dc5076bc9112a463d7">~Packer</a> ()</td></tr>
 <tr class="separator:a771083c86ded80dc5076bc9112a463d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0680bd0b5bbe74029e94b33e2f1ea666"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a0680bd0b5bbe74029e94b33e2f1ea666">clear</a> ()</td></tr>
@@ -315,8 +316,8 @@ Static Private Attributes</h2></td></tr>
 <li>edits : a list of edits at a given base in the graph In memory, the coverages are stored in SDSL int vectors (dynamic) and on disk they are compressed int vectors </li>
 </ul>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a23ca736ab7fa0690ae575aa1d7a4de73"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a23ca736ab7fa0690ae575aa1d7a4de73">&#9670;&nbsp;</a></span>Packer() <span class="overload">[1/2]</span></h2>
+<a id="a965acab0b6c7d973a67e449785955739"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a965acab0b6c7d973a67e449785955739">&#9670;&nbsp;</a></span>Packer() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -324,17 +325,19 @@ Static Private Attributes</h2></td></tr>
         <tr>
           <td class="memname">vg::Packer::Packer </td>
           <td>(</td>
-          <td class="paramtype">void&#160;</td>
-          <td class="paramname"></td><td>)</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em> = <code>nullptr</code></td><td>)</td>
           <td></td>
         </tr>
       </table>
 </div><div class="memdoc">
 
+<p>Create a <a class="el" href="classvg_1_1Packer.html">Packer</a> (to read from a file) </p>
+
 </div>
 </div>
-<a id="aca894cde0a8f12de52fe13e2adb9b82d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aca894cde0a8f12de52fe13e2adb9b82d">&#9670;&nbsp;</a></span>Packer() <span class="overload">[2/2]</span></h2>
+<a id="ad52836b610249ada7cf0ad13c329b52c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad52836b610249ada7cf0ad13c329b52c">&#9670;&nbsp;</a></span>Packer() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -344,6 +347,30 @@ Static Private Attributes</h2></td></tr>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>record_bases</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>record_edges</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>record_edits</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>record_qualities</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -361,31 +388,7 @@ Static Private Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>data_width</em> = <code>8</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>record_bases</em> = <code>true</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>record_edges</em> = <code>true</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>record_edits</em> = <code>true</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>record_qualities</em> = <code>true</code>&#160;</td>
+          <td class="paramname"><em>data_width</em> = <code>8</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -394,7 +397,8 @@ Static Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Create a <a class="el" href="classvg_1_1Packer.html">Packer</a> graph : Must implement the VectorizableHandleGraph interface bin_size : Bin coverage into bins coverage_bins : Use this many coverage objects. Using one / thread allows faster merge coverage_locks : Number of mutexes to use for each of node and edge coverage. data_width : Number of bits per entry in the dynamic coverage vector. Higher values get stored in a map record_bases : Store the base coverage record_edges : Store the edge coverage record_edits : Store the edits record_qualities : Store the average MAPQ for each node rank </p>
+<p>Create a <a class="el" href="classvg_1_1Packer.html">Packer</a> (to write to) graph : Must implement the VectorizableHandleGraph interface record_bases : Store the base coverage record_edges : Store the edge coverage record_edits : Store the edits record_qualities : Store the average MAPQ for each node rank <br  />
+ bin_size : Bin coverage into bins coverage_bins : Use this many coverage objects. Using one / thread allows faster merge coverage_locks : Number of mutexes to use for each of node and edge coverage. data_width : Number of bits per entry in the dynamic coverage vector. Higher values get stored in a map </p>
 
 </div>
 </div>
