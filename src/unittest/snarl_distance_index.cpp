@@ -59,6 +59,10 @@ namespace vg {
 
             //Handle for first node facing in
             net_handle_t n1_fd = distance_index.get_net(graph.get_handle(1, false), &graph); 
+
+            //Make sure that we really got the right handle
+            REQUIRE(distance_index.get_handle(n1_fd, &graph) == graph.get_handle(1, false));
+
             //Handle for top level chain of just one node
             net_handle_t chain1 = distance_index.get_parent(n1_fd);
             REQUIRE(distance_index.is_chain(chain1));
@@ -80,6 +84,7 @@ namespace vg {
                     //The chain should only contain two nodes and a snarl
                     REQUIRE(false);
                 }
+                child_i++;
             });
 
             SECTION( "The top-level NetGraph has 3 nodes" ) {
