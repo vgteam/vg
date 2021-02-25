@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /**
  * \file register_loader_saver_hash_graph.cpp
  * Defines IO for a HashGraph from stream files.

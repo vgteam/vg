@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file paths_main.cpp
  *
  * Defines the "vg paths" subcommand, which reads paths in the graph.

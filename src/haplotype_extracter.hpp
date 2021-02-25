@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #ifndef VG_HAPLOTYPE_EXTRACTER_HPP_INCLUDED
 #define VG_HAPLOTYPE_EXTRACTER_HPP_INCLUDED
 

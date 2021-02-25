@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /**
  * \file register_loader_saver_gbwtgraph.cpp
  * Defines IO for a minimizer index from stream files.

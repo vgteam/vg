@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file k_widest_paths.cpp
 ///  
 /// Unit tests for the Yen's K Widest Paths algorithm

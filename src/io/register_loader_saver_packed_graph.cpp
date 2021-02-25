@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /**
  * \file register_loader_saver_packed_graph.cpp
  * Defines IO for a PackedGraph from stream files.

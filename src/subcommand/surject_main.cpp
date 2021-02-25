@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 // surject_main.cpp: define the "vg surject" subcommand, which forces alignments into linear space
 
 #include <omp.h>

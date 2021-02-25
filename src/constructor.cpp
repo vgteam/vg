@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /**
  * \file
  * constructor.cpp: contains implementations for vg construction functions.

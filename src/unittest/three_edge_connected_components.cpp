@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file three_edge_connected_components.cpp
 ///  
 /// Unit tests for the three edge connected components algorithms

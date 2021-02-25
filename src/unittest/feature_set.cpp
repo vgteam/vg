@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file
  *
  * Unit tests for the FeatureSet, which keeps some BED-like regions in sync with

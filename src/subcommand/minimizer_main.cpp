@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file minimizer_main.cpp
  *
  * Defines the "vg minimizer" subcommand, which builds the minimizer index.

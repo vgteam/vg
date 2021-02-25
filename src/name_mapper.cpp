@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /**
  * \file name_mapper.cpp: contains implementations for the NameMapper to convert
  * between VCF and graph/FASTA contig names.

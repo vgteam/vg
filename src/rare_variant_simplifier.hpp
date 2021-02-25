@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #ifndef VG_RARE_VARIANT_SIMPLIFIER_HPP_INCLUDED
 #define VG_RARE_VARIANT_SIMPLIFIER_HPP_INCLUDED
 

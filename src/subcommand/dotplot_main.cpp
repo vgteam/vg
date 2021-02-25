@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file dotplot_main.cpp
  *
  * Defines the "vg dotplot" subcommand, which renders dotplots from an xg index relating the embedded paths

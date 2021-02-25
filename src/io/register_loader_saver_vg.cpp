@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /**
  * \file register_loader_saver_vg.cpp
  * Defines IO for a VG graph from stream files of Graph objects.

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /**
  * \file 
  * unittest/variant_adder.cpp: test cases for the add-variants-to-existing-graph tool

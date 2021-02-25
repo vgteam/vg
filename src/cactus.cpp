@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #include <unordered_set>
 #include "cactus.hpp"
 #include "vg.hpp"

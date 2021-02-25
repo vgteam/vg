@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /**
  * unittest/readfilter.cpp: test cases for the read filtering/transforming logic
  */

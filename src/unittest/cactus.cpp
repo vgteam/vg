@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file cactus.cpp
 ///  
 /// Unit tests for Cactus graphs and conversions.

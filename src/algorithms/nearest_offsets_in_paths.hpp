@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #ifndef VG_ALGORITHMS_FIND_CLOSEST_WITH_PATHS_HPP_INCLUDED
 #define VG_ALGORITHMS_FIND_CLOSEST_WITH_PATHS_HPP_INCLUDED
 

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file unittest/aligner.cpp
 ///  
 /// Unit tests for the basic methods of the Aligner class. See also:

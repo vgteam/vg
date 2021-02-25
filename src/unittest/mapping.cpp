@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file mapping.cpp
 ///  
 /// unit tests for Mappings and their utility functions

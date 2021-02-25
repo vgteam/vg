@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 // snarl_main.cpp: define the "vg snarls" subcommand, which outputs snarls and bubbles
 
 #include <omp.h>

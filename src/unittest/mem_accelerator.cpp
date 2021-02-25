@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file path_index.cpp
 ///  
 /// Unit tests for the PathIndex class, which indexes paths for random access.

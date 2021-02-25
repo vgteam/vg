@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file
  * Measures the distance between two graph positions along the reference path
  * (approximated by the longest connecting path)

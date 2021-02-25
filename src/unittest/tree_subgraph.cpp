@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file tree_subgraph.cpp
 ///  
 /// Unit tests for the TreeSubgraph, which defines a subgraph with a tree topology.

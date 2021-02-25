@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 // recalibrate_main.cpp: mapping quality recalibration for GAM files
 
 #include <omp.h>

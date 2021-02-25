@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file
  *
  * Unit tests for the PhaseUnfolder, which replaces pruned regions of the

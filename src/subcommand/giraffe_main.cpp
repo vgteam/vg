@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /**
  * \file giraffe_main.cpp: G(ir)AF (Graph Alignment Format) Fast Emitter: a new mapper that will be *extremely* fast once we actually write it
  */

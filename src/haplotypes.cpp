@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #include "haplotypes.hpp"
 #include "path.hpp"
 #include "position.hpp"

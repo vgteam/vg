@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 // index_registry.cpp: index registry system implementation
 
 #include "index_registry.hpp"

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #ifndef VG_GENOTYPER_HPP_INCLUDED
 #define VG_GENOTYPER_HPP_INCLUDED
 // genotyper.hpp: defines the Genotyper, which is used to genotype from a graph

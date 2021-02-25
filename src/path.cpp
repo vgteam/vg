@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #include "path.hpp"
 #include <vg/io/stream.hpp>
 #include "region.hpp"

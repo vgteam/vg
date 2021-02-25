@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #ifndef VG_KMER_HPP_INCLUDED
 #define VG_KMER_HPP_INCLUDED
 

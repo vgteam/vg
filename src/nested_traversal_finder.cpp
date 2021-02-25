@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file nested_traversal_finder.cpp: Contains implementation for a
 /// TraversalFinder that works on non-leaf Snarls and produces covering paths.
 

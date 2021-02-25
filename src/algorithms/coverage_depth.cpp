@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #include "coverage_depth.hpp"
 #include <bdsg/hash_graph.hpp>
 #include "algorithms/subgraph.hpp"

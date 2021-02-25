@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #ifndef VG_SUBCOMMAND_SUBCOMMAND_HPP_INCLUDED
 #define VG_SUBCOMMAND_SUBCOMMAND_HPP_INCLUDED
 

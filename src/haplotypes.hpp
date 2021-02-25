@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #ifndef HAPLOTYPE_FWD_ALG_H
 #define HAPLOTYPE_FWD_ALG_H
 

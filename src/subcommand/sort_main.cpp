@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file sort_main.cpp
  *
  * Defines the "vg sort" subcommand, which sorts graph nodes.

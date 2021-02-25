@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #include "algorithms/prune.hpp"
 #include "hash_map.hpp"
 #include "position.hpp"

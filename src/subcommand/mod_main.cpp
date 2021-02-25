@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 // mod.cpp: define the "vg mod" subcommand, which modifies vg graphs
 
 #include <omp.h>

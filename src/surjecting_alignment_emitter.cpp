@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /**
  * \file surjecting_alignment_emitter.cpp
  * Implementation for SurjectingAlignmentEmitter

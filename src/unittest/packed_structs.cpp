@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file packed_structs.cpp
 ///  
 /// Unit tests for bit-packed data structures

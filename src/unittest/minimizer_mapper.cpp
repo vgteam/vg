@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file minimizer_mapper.cpp
 ///  
 /// unit tests for the minimizer mapper

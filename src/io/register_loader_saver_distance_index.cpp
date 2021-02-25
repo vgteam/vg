@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /**
  * \file register_loader_saver_distance_index.cpp
  * Defines IO for an XG index from stream files.

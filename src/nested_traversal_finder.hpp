@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #ifndef VG_NESTED_TRAVERSAL_FINDER_HPP_INCLUDED
 #define VG_NESTED_TRAVERSAL_FINDER_HPP_INCLUDED
 

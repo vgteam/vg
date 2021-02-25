@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file vectorize_main.cpp
  *
  * Defines the "vg vectorize" subcommand, which turns graphs into ML vectors.

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #include "vg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/alignment_emitter.hpp>

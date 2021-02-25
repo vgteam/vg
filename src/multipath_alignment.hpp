@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file multipath_alignment.hpp
 ///
 /// utility functions for the multipath_alignment_t object

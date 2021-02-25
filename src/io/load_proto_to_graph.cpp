@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /**
  * \file load_proto_to_graph.cpp
  * Implementation for backend-agnostic Protobuf loading.

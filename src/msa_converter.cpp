@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /**
  * \file
  * msa_converter.cpp: contains a class that can construct VGs from clustal MSAs

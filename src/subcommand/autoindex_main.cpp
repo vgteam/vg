@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file autoindex_main.cpp
  *
  * Defines the "vg autoindex" subcommand, which produces indexes needed for other subcommands

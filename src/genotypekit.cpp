@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #include "genotypekit.hpp"
 #include "cactus.hpp"
 #include "traversal_finder.hpp"

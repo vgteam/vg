@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file incremental_subgraph.cpp
 ///  
 /// Unit tests for the IncrementalSubgraph

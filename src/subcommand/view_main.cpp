@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file view_main.cpp
  *
  * Defines the "vg view" subcommand, which converts formats.

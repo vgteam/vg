@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 // simplify_main.cpp: define the "vg simplify" subcommand, which removes small variation
 
 #include <omp.h>

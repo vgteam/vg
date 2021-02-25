@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #include "traversal_finder.hpp"
 #include "genotypekit.hpp"
 #include "algorithms/k_widest_paths.hpp"

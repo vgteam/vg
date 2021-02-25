@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file
  *
  * Unit tests for gapless_extender.cpp, which implements haplotype-aware gapless seed extension.

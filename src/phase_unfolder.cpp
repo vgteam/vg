@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #include "phase_unfolder.hpp"
 #include "progress_bar.hpp"
 #include "algorithms/disjoint_components.hpp"

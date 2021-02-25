@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file join_main.cpp
  *
  * Defines the "vg join" subcommand, which attaches graphs together.

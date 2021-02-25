@@ -1,13 +1,6 @@
-/*
- *  Catch v1.8.2
- *  Generated: 2017-03-13 21:18:33.619572
- *  ----------------------------------------------------------
- *  This file has been merged from multiple headers. Please don't edit it directly
- *  Copyright (c) 2012 Two Blue Cubes Ltd. All rights reserved.
- *
- *  Distributed under the Boost Software License, Version 1.0. (See accompanying
- *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
- */
+// SPDX-FileCopyrightText: 2012 Two Blue Cubes Ltd. All rights reserved.
+// SPDX-License-Identifier: BSL-1.0
+
 #ifndef TWOBLUECUBES_SINGLE_INCLUDE_CATCH_HPP_INCLUDED
 #define TWOBLUECUBES_SINGLE_INCLUDE_CATCH_HPP_INCLUDED
 

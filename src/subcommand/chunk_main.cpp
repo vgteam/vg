@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 // chunk_main.cpp: define the "vg chunk" subcommand, which chunks up vg graphs
 // some similar logic to vg find, but focussed on generating multiple chunks
 // at once. 

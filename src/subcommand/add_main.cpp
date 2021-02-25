@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file add_main.cpp
  *
  * Defines the "vg add" subcommand, which adds in variation from a VCF to an

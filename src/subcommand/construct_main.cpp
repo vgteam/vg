@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 // construct.cpp: define the "vg construct" subcommand.
 
 #include <omp.h>

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file hash_graph.cpp
 ///  
 /// Unit tests for the HashGraph class.

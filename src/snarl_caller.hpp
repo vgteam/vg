@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #ifndef VG_SNARL_CALLER_HPP_INCLUDED
 #define VG_SNARL_CALLER_HPP_INCLUDED
 

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file alignment.cpp
 ///  
 /// unit tests for Alignments and their utility functions

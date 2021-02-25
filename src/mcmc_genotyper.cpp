@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #include "mcmc_genotyper.hpp"
 #include "subgraph.hpp"
 #include <algorithm> 

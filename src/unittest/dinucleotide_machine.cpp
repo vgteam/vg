@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file dinucleotide_machine.cpp
 ///  
 /// Unit tests for the DinucleotideMachine

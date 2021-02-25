@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /**
  * \file 
  * unittest/source_sink_overlay.cpp: test cases for the source and sink node adding overlay.

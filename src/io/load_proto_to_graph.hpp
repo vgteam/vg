@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #ifndef VG_IO_LOAD_PROTO_TO_GRAPH_HPP_INCLUDED
 #define VG_IO_LOAD_PROTO_TO_GRAPH_HPP_INCLUDED
 

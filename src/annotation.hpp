@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file annotation.hpp
 /// utilities for working with Struct-formatted annotations on Protobuf objects
 

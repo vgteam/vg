@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 // index.cpp: define the "vg index" subcommand, which makes xg, GCSA2, and GBWT indexes
 
 #include <omp.h>

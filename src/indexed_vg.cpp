@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /**
  * \file indexed_vg.cpp
  * Implementation for the IndexedVG class, which provides a HandleGraph interface to an on-disk VG file.

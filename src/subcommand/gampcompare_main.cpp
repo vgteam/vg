@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 // gampcompare_main.cpp: defines a GAMP to GAM annotation function
 
 #include <omp.h>

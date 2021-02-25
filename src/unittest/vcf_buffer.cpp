@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /**
  * \file 
  * unittest/vcf_buffer.cpp: test cases for the VcfBuffer and WindowedVcfBuffer

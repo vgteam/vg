@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #ifndef VG_CACTUS_HPP_INCLUDED
 
 #define VG_CACTUS_HPP_INCLUDED

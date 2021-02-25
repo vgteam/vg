@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /**
  * \file minimizer_mapper.cpp
  * Defines the code for the minimizer-and-GBWT-based mapper.

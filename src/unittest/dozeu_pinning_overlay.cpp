@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file dozeru_pinning_overlay.cpp
 ///  
 /// unit tests for the overlay that sockets handle graphs that may have

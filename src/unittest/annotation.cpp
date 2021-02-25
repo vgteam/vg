@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file annotation.cpp
 ///  
 /// Unit tests for the annotations system on Alignments and MultipathAlignments

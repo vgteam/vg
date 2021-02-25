@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #include "vg_set.hpp"
 #include <vg/io/stream.hpp>
 #include "source_sink_overlay.hpp"

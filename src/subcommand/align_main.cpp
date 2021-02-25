@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file align_main.cpp
  *
  * Defines the "vg align" subcommand, which aligns a read against an entire

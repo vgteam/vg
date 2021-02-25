@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file deconstruct_main.cpp
  *
  * Defines the "vg deconstruct" subcommand, which turns graphs back into VCFs.

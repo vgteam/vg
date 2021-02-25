@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file gbwt_main.cpp
  *
  * Defines the "vg gbwt" subcommand for building, merging, and manipulating GBWT indexes

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 // subcommand.cpp: subcommand registry system implementation
 
 #include "subcommand.hpp"

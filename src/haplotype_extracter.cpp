@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #include <iostream>
 #include "vg.hpp"
 #include "haplotype_extracter.hpp"

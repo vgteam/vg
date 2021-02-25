@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #include "source_sink_overlay.hpp"
 
 #include <handlegraph/util.hpp>

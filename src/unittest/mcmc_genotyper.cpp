@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file multipath_alignment.cpp
 ///  
 /// unit tests for mcmc genotyper construction and utility functions

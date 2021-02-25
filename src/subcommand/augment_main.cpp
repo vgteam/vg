@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file augment_main.cpp
  *
  * Defines the "vg augment" subcommand, which augments a graph using a GAM as a first

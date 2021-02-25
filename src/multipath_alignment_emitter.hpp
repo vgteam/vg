@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #ifndef VG_MULTIPATH_ALIGNMENT_EMITTER_HPP_INCLUDED
 #define VG_MULTIPATH_ALIGNMENT_EMITTER_HPP_INCLUDED
 

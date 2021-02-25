@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file
  * incremental_subgraph.hpp: defines a subgraph that is extracted from the parent
  * graph on an as-needed basis

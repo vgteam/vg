@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file blocked_gzip_input_stream.cpp
 ///  
 /// Unit tests for BlockedGzipInputStream

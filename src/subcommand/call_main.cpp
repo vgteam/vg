@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file call_main.cpp
  *
  * Defines the "vg call" subcommand, which calls variation from an augmented graph

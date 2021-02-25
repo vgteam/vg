@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file kmers_main.cpp
  *
  * Defines the "vg kmers" subcommand, which generates the kmers in a graph.

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /**
  * \file 
  * unittest/handle.cpp: test cases for the implementations of the HandleGraph class.

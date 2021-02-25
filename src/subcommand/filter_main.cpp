@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file filter_main.cpp
  *
  * Defines the "vg filter" subcommand, which filters alignments.

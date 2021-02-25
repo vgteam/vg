@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 // Needed for crash.hpp to work because it uses newer types
 #define _POSIX_C_SOURCE 200809L
 

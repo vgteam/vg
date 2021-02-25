@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #include "mcmc_caller.hpp"  
 #include "graph_caller.hpp"
 #include "algorithms/expand_context.hpp"

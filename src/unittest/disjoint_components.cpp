@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #include "catch.hpp"
 #include "algorithms/disjoint_components.hpp"
 #include "handle.hpp"

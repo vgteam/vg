@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file version_main.cpp
  *
  * Defines the "vg version" subcommand, which evaluates graphs and alignments.

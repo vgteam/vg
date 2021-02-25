@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file ids_main.cpp
  *
  * Defines the "vg ids" subcommand, which modifies node IDs.

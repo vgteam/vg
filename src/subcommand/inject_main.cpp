@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 // inject_main.cpp: define the "vg inject" subcommand, which lifts over alignments from the linear space
 
 #include <omp.h>

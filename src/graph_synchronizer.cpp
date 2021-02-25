@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 #include "graph_synchronizer.hpp"
 #include "algorithms/extract_connecting_graph.hpp"
 

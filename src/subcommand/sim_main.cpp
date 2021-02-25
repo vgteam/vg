@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /** \file sim_main.cpp
  *
  * Defines the "vg sim" subcommand, which generates potential reads from a graph.

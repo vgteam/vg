@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2014 Erik Garrison
+//
+// SPDX-License-Identifier: MIT
+
 /// \file mem.cpp
 ///  
 /// unit tests for MEMs and their clustering algorithms
