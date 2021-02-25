@@ -358,5 +358,5 @@ A variety of commands are available:
 
 ## License
 
-MIT
+This project is available as open source under the terms of the MIT license. However, some elements are being licensed under Boost Software License 1.0. For accurate information, please check the NOTICE file as well as individual files. 
 
