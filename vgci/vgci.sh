@@ -30,7 +30,7 @@ KEEP_INTERMEDIATE_FILES=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
 SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@1206fd5215defbef46ef3ede5ba51895aa5abfd1"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@0edfa8f1d59cc309264fc725e6ddd0f1aadae188"
 # What toil should we install?
 # Could be something like "toil[aws,mesos]==3.20.0"
 # or "git+https://github.com/adamnovak/toil.git@2b696bec34fa1381afdcf187456571d2b41f3842#egg=toil[aws,mesos]"
@@ -300,15 +300,14 @@ if [ ! "${REUSE_VENV}" == "1" ]; then
     rm -rf .env
 fi
 if [ ! -e .env ]; then
-    virtualenv --python=python3.6  .env
+    virtualenv --python=python3  .env
 fi
 . .env/bin/activate
 
 # Upgrade pip so that it can use the wheels for numpy & scipy, so that they
 # don't try to build from source
-pip install --upgrade pip setuptools==45.0.0
-pip install awscli
-pip install s3am
+pip3 install --upgrade pip setuptools==45.0.0
+pip3 install awscli
 
 if [ "${DO_TEST}" != "0" ]
 then
@@ -331,20 +330,20 @@ then
 
     # Dependencies for running tests.  Need numpy, scipy and sklearn
     # for running toil-vg mapeval, and dateutils and reqests for ./mins_since_last_build.py
-    pip install numpy==1.17.1
-    pip install scipy==1.0.0rc2 --only-binary :all:
-    pip install scikit-learn==0.22.1
-    pip install dateutils
-    pip install requests
-    pip install timeout_decorator
-    pip install pytest
+    pip3 install numpy==1.17.1
+    pip3 install scipy==1.0.0rc2 --only-binary :all:
+    pip3 install scikit-learn==0.22.1
+    pip3 install dateutils
+    pip3 install requests
+    pip3 install timeout_decorator
+    pip3 install pytest
 
     # Install Toil
     echo "Installing toil from ${TOIL_PACKAGE}"
-    pip install --upgrade "${TOIL_PACKAGE}"
+    pip3 install --upgrade "${TOIL_PACKAGE}"
     if [ "$?" -ne 0 ]
     then
-        echo "pip install toil fail"
+        echo "pip3 install toil fail"
         exit 1
     fi
 
@@ -352,10 +351,10 @@ then
 
     # Install toil-vg itself
     echo "Installing toil-vg from ${TOIL_VG_PACKAGE}"
-    pip install --upgrade "${TOIL_VG_PACKAGE}"
+    pip3 install --upgrade "${TOIL_VG_PACKAGE}"
     if [ "$?" -ne 0 ]
     then
-        echo "pip install toil-vg fail"
+        echo "pip3 install toil-vg fail"
         exit 1
     fi
     
@@ -443,7 +442,7 @@ then
     # REPORT PREP PHASE
     #########
 
-    pip install pygithub
+    pip3 install pygithub
     
     #########
     # REPORT PHASE

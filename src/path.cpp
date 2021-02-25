@@ -1,6 +1,7 @@
 #include "path.hpp"
 #include <vg/io/stream.hpp>
 #include "region.hpp"
+#include <sstream>
 
 using namespace vg::io;
 
@@ -36,25 +37,43 @@ const std::function<bool(const string&)> Paths::is_alt = [](const string& path_n
 
 // Check if using subpath naming scheme.  If it is return true,
 // the root path name, and the offset (false otherwise)
-tuple<bool, string, size_t> Paths::parse_subpath_name(const string& path_name) {
+// formats accepted:
+// name[start]  (0-based)
+// name[start-end] (0-based, open-ended like BED, end defaults to 0 in above case)
+tuple<bool, string, size_t, size_t> Paths::parse_subpath_name(const string& path_name) {
     size_t tag_offset = path_name.rfind("[");
     if (tag_offset == string::npos || tag_offset + 2 >= path_name.length() || path_name.back() != ']') {
-        return make_tuple(false, "", 0);
+        return make_tuple(false, "", 0, 0);
     } else {
         string offset_str = path_name.substr(tag_offset + 1, path_name.length() - tag_offset - 2);
+        size_t sep_offset = offset_str.find("-");
+        string end_offset_str;
+        if (sep_offset != string::npos && !offset_str.empty() && sep_offset < offset_str.length() - 1) {
+            end_offset_str = offset_str.substr(sep_offset + 1, offset_str.length() - sep_offset - 1);
+            offset_str = offset_str.substr(0, sep_offset);
+        }
         size_t offset_val;
+        size_t end_offset_val = 0;
         try {
            offset_val = std::stol(offset_str);
+           if (!end_offset_str.empty()) {
+               end_offset_val = std::stol(end_offset_str);
+           }
         } catch(...) {
-          return make_tuple(false, "", 0);
+            return make_tuple(false, "", 0, 0);
         }
-        return make_tuple(true, path_name.substr(0, tag_offset), offset_val);
+        return make_tuple(true, path_name.substr(0, tag_offset), offset_val, end_offset_val);
     }
 }
 
 // Create a subpath name
-string Paths::make_subpath_name(const string& path_name, size_t offset) {
-    return path_name + "[" + std::to_string(offset) + "]";
+string Paths::make_subpath_name(const string& path_name, size_t offset, size_t end_offset) {
+    string out_name = path_name + "[" + std::to_string(offset);
+    if (end_offset > 0) {
+        out_name += "-" + std::to_string(end_offset);
+    }
+    out_name += "]";
+    return out_name;
 }
 
 
@@ -1692,8 +1711,16 @@ const string mapping_sequence(const Mapping& mp, const string& node_seq) {
 
 const string mapping_sequence(const Mapping& mp, const Node& n) {
     if (!mp.has_position() || !mp.position().node_id()) {
-        assert(mp.edit_size()==1);
-        return mp.edit(0).sequence();
+        // With no grap position we must be a pure insert.
+        // n is undefined.
+        // But we might have multiple edits.
+        std::stringstream s;
+        for (auto& e : mp.edit()) {
+            // We can't have any from bases if we have no graph position.
+            assert(e.from_length() == 0);
+            s << e.sequence();
+        }
+        return s.str();
     }
     assert(mp.position().node_id() == n.id());
     auto& node_seq = n.sequence();
@@ -2707,5 +2734,54 @@ string debug_string(const edit_t& edit) {
     return to_return;
 }
 
+int corresponding_length_internal(const path_t& path, int given_length, bool is_from_length, bool from_end) {
+    int from_length = 0;
+    if (path.mapping().empty()) {
+        return from_length;
+    }
+    int incr, i_begin;
+    if (from_end) {
+        i_begin = path.mapping_size() - 1;
+        incr = -1;
+    }
+    else {
+        incr = 1;
+        i_begin = 0;
+    }
+    int remaining = given_length;
+    int other_length_total = 0;
+    for (int i = i_begin; i >= 0 && i < path.mapping_size() && remaining != 0; i += incr) {
+        const auto& mapping = path.mapping(i);
+        int j_begin = from_end ? mapping.edit_size() - 1 : 0;
+        for (int j = j_begin; j >= 0 && j < mapping.edit_size() && remaining != 0; j += incr) {
+            const edit_t& edit = mapping.edit(j);
+            int walking_length, other_length;
+            if (is_from_length) {
+                walking_length = edit.from_length();
+                other_length = edit.to_length();
+            }
+            else {
+                walking_length = edit.to_length();
+                other_length = edit.from_length();
+            }
+            if (remaining >= walking_length) {
+                remaining -= walking_length;
+                other_length_total += other_length;
+            }
+            else {
+                other_length_total += (remaining * other_length) / walking_length;
+                remaining = 0;
+            }
+        }
+    }
+    return other_length_total;
+}
+int corresponding_to_length(const path_t& path, int from_length, bool from_end) {
+    return corresponding_length_internal(path, from_length, true, from_end);
+}
+
+int corresponding_from_length(const path_t& path, int to_length, bool from_end) {
+    return corresponding_length_internal(path, to_length, false, from_end);
+}
 
 }

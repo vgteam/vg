@@ -14,7 +14,6 @@
 #include "../option.hpp"
 #include "../xg.hpp"
 #include "../vg.hpp"
-#include "algorithms/append_graph.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include "../io/save_handle_graph.hpp"
@@ -97,7 +96,7 @@ int main_concat(int argc, char** argv) {
         }
         max_node_id = graph->max_node_id();
 
-        algorithms::append_path_handle_graph(graph.get(), first_graph.get(), only_join_paths);
+        handlealgs::append_path_handle_graph(graph.get(), first_graph.get(), only_join_paths);
     }
 
     // Serialize the graph using VPKG.
@@ -107,5 +106,5 @@ int main_concat(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_concat("concat", "concatenate graphs tail-to-head", main_concat);
+static Subcommand vg_concat("concat", "concatenate graphs tail-to-head", DEPRECATED, main_concat);
 

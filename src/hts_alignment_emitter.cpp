@@ -5,6 +5,7 @@
  */
 
 #include "hts_alignment_emitter.hpp"
+#include "surjecting_alignment_emitter.hpp"
 #include "alignment.hpp"
 #include "vg/io/json2pb.h"
 #include <vg/io/hfile_cppstream.hpp>
@@ -17,38 +18,179 @@
 namespace vg {
 using namespace std;
 
-unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format,
-    const map<string, int64_t>& path_length, size_t max_threads, const HandleGraph* graph) {
+unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, 
+                                                   const vector<path_handle_t>& paths, size_t max_threads,
+                                                   const HandleGraph* graph, bool hts_raw,
+                                                   bool hts_spliced) {
 
+    
+    unique_ptr<AlignmentEmitter> emitter;
+    
     if (format == "SAM" || format == "BAM" || format == "CRAM") {
-        // Make the backing, non-buffered emitter
-        AlignmentEmitter* backing = nullptr;
+        // We are doing linear HTSLib output
         
-        // Make an emitter that supports HTSlib formats
-        if (graph) {
-            const PathPositionHandleGraph* splicing_graph = dynamic_cast<const PathPositionHandleGraph*>(graph);
-            assert(splicing_graph != nullptr);
-            // Use the graph to look for spliced alignments
-            backing = new SplicedHTSAlignmentEmitter(filename, format, path_length, *splicing_graph, max_threads);
+        // Make sure we actually have a PathPositionalHandleGraph
+        const PathPositionHandleGraph* path_graph = dynamic_cast<const PathPositionHandleGraph*>(graph);
+        if (path_graph == nullptr) {
+            cerr << "error[vg::get_alignment_emitter]: No graph available supporting path length queries needed for " << format << " output." << endl;
+            exit(1);
         }
-        else {
-            // Assume alignments are contiguous
-            backing = new HTSAlignmentEmitter(filename, format, path_length, max_threads);
+        
+        // Build a path name and length list from the handles
+        vector<pair<string, int64_t>> path_names_and_lengths = extract_path_metadata(paths, *path_graph);
+    
+        if (hts_spliced) {
+            // Use a splicing emitter as the final emitter
+            emitter = make_unique<SplicedHTSAlignmentEmitter>(filename, format, path_names_and_lengths, *path_graph, max_threads);
+        } else {
+            // Use a normal emitter
+            emitter = make_unique<HTSAlignmentEmitter>(filename, format, path_names_and_lengths, max_threads);
         }
-        return unique_ptr<AlignmentEmitter>(backing);
+        
+        if (!hts_raw) {
+            // Need to surject
+            
+            // Make a set of the path handles to surject into
+            unordered_set<path_handle_t> target_paths(paths.begin(), paths.end());
+            // Interpose a surjecting AlignmentEmitter
+            emitter = make_unique<SurjectingAlignmentEmitter>(path_graph, target_paths, std::move(emitter));
+        }
+    
     } else {
-        return get_non_hts_alignment_emitter(filename, format, path_length, max_threads, graph);
+        // The non-HTSlib formats don't actually use the path name and length info.
+        // See https://github.com/vgteam/libvgio/issues/34
+        emitter = get_non_hts_alignment_emitter(filename, format, {}, max_threads, graph);
     }
+    
+    return emitter;
+}
+
+vector<pair<string, int64_t>> extract_path_metadata(const vector<path_handle_t>& paths, const PathPositionHandleGraph& graph) {
+    
+    vector<pair<string, int64_t>> extracted;
+    
+    for (auto path_handle : paths) {
+        // Get the name and length of each path.
+        extracted.emplace_back(graph.get_path_name(path_handle), graph.get_path_length(path_handle));
+    }
+    
+    return extracted;
+}
+
+vector<path_handle_t> get_sequence_dictionary(const string& filename, const PathPositionHandleGraph& graph) {
+    
+    // We fill in the "dictionary" (which is what SAM calls it; it's not a mapping for us)
+    vector<path_handle_t> dictionary;
+    
+    if (!filename.empty()) {
+        // TODO: As of right now HTSLib doesn't really let you iterate the sequence dictionary when you use its parser. So we use our own parser.
+        get_input_file(filename, [&](istream& in) {
+            for (string line; getline(in, line);) {
+                // Each line will produce a sequence name and a handle
+                string sequence_name = "";
+                path_handle_t path;
+            
+                // Trim leading and trailing whitespace
+                line.erase(line.begin(), find_if(line.begin(), line.end(), [](char ch) {return !isspace(ch);}));
+                line.erase(find_if(line.rbegin(), line.rend(), [](char ch) {return !isspace(ch);}).base(), line.end());
+            
+                if (line.empty()) {
+                    // Unless it is empty
+                    continue;
+                }
+            
+                // See if each line starts with @SQ and we have to parse it, or @HD and we have to drop it, or if we have to handle it as a name.
+                if (starts_with(line, "@SQ")) {
+                    // If it is SAM, split on tabs
+                    auto parts = split_delims(line, "\t");
+                    
+                    // We want to find the length in addition to the name
+                    int64_t length = -1;
+                    
+                    for (size_t i = 1; i < parts.size(); i++) {
+                        if (starts_with(parts[i], "SN:")) {
+                            // The rest of this field is the name
+                            sequence_name = parts[i].substr(3);
+                        } else if (starts_with(parts[i], "LN:")) {
+                            // The rest of this field is a length number
+                            length = stoll(parts[i].substr(3));
+                        }
+                    }
+                    
+                    if (sequence_name == "") {
+                        cerr << "error:[vg::get_sequence_dictionary] No sequence name for @SQ line " << line << endl;
+                        exit(1);
+                    }
+                    if (length < 0) {
+                        cerr << "error:[vg::get_sequence_dictionary] Unacceptable sequence length " << length << " for sequence " << sequence_name << endl;
+                        exit(1);
+                    }
+                    
+                    // Check the sequence against the graph
+                    if (!graph.has_path(sequence_name)) {
+                        // Name doesn't exist
+                        cerr << "error:[vg mpmap] Graph does not have a path named " << line << ", which was indicated in " << filename << endl;
+                        exit(1);
+                    }
+                    path = graph.get_path_handle(sequence_name);
+                    size_t graph_path_length = graph.get_path_length(path);
+                    if (graph_path_length != length) {
+                        // Length doesn't match
+                        cerr << "error:[vg mpmap] Graph contains a path " << sequence_name << " of length " << graph_path_length
+                            << " but sequence dictionary in " << filename << " indicates a length of " << length << endl;
+                        exit(1);
+                    }
+                    
+                } else if (starts_with(line, "@HD")) {
+                    // SAM header line also found in dict files. Drop it.
+                    // TODO: Hope nobody named a sequence "@HD"-something
+                    continue;
+                } else {
+                    // Get the name from the line and the sequence from the graph
+                    sequence_name = line;
+                    if (!graph.has_path(sequence_name)) {
+                        cerr << "error:[vg mpmap] Graph does not have a path named " << line << ", which was indicated in " << filename << endl;
+                        exit(1);
+                    }
+                    path = graph.get_path_handle(sequence_name);
+                }
+                
+                // Save the path handle
+                dictionary.push_back(path);
+            }
+        });
+        
+        if (dictionary.empty()) {
+            // There were no entries in the file
+            cerr << "error:[vg::get_sequence_dictionary] No sequence dictionary available in file: " << filename << endl;
+            exit(1);
+        }
+    } else {
+        graph.for_each_path_handle([&](const path_handle_t& path_handle) {
+            string sequence_name = graph.get_path_name(path_handle);
+            if (!Paths::is_alt(sequence_name)) {
+                // This isn't an alt allele path, so we want it.
+                dictionary.push_back(path_handle);
+            }
+        });
+        
+        if (dictionary.empty()) {
+            cerr << "error:[vg::get_sequence_dictionary] No non-alt-allele paths available in the graph!" << endl;
+            exit(1);
+        }
+    }
+    
+    return dictionary;
 }
 
 // Give the footer length for rewriting BGZF EOF markers.
-const size_t HTSAlignmentEmitter::BGZF_FOOTER_LENGTH = 28;
+const size_t HTSWriter::BGZF_FOOTER_LENGTH = 28;
 
-HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& format,
-    const map<string, int64_t>& path_length, size_t max_threads) :
+HTSWriter::HTSWriter(const string& filename, const string& format,
+    const vector<pair<string, int64_t>>& path_order_and_length, size_t max_threads) :
     out_file(filename == "-" ? nullptr : new ofstream(filename)),
     multiplexer(out_file.get() != nullptr ? *out_file : cout, max_threads),
-    format(format), path_length(path_length),
+    format(format), path_order_and_length(path_order_and_length), path_index(),
     backing_files(max_threads, nullptr), sam_files(max_threads, nullptr),
     atomic_header(nullptr), sam_header(), header_mutex(), output_is_bgzf(format != "SAM"),
     hts_mode() {
@@ -59,7 +201,7 @@ HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& f
     
     if (out_file.get() != nullptr && !*out_file) {
         // Make sure we opened a file if we aren't writing to standard output
-        cerr << "[vg::HTSAlignmentEmitter] failed to open " << filename << " for writing" << endl;
+        cerr << "[vg::HTSWriter] failed to open " << filename << " for writing" << endl;
         exit(1);
     }
     
@@ -87,11 +229,16 @@ HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& f
     }
     // Save to a C++ string that we will use later.
     hts_mode = out_mode;
-   
+    
+    for (auto it = this->path_order_and_length.begin(); it != this->path_order_and_length.end(); ++it) {
+        // Compute the index to look up path lengths in the ordered path list.
+        path_index.emplace(it->first, it);
+    }
+    
     // Each thread will lazily open its samFile*, once it has a header ready
 }
 
-HTSAlignmentEmitter::~HTSAlignmentEmitter() {
+HTSWriter::~HTSWriter() {
     // Note that the destructor runs in only one thread, and only when
     // destruction is safe. No need to lock the header.
     if (atomic_header.load() != nullptr) {
@@ -126,7 +273,9 @@ HTSAlignmentEmitter::~HTSAlignmentEmitter() {
     
 }
 
-bam_hdr_t* HTSAlignmentEmitter::ensure_header(const Alignment& sniff, size_t thread_number) {
+bam_hdr_t* HTSWriter::ensure_header(const string& read_group,
+                                    const string& sample_name,
+                                    size_t thread_number) {
     bam_hdr_t* header = atomic_header.load();
     if (header == nullptr) {
         // The header does not exist.
@@ -142,13 +291,13 @@ bam_hdr_t* HTSAlignmentEmitter::ensure_header(const Alignment& sniff, size_t thr
         
             // Sniff out the read group and sample, and map from RG to sample
             map<string, string> rg_sample;
-            if (!sniff.sample_name().empty() && !sniff.read_group().empty()) {
+            if (!read_group.empty() && !sample_name.empty()) {
                 // We have a sample and a read group
-                rg_sample[sniff.read_group()] = sniff.sample_name();
+                rg_sample[read_group] = sample_name;
             }
             
             // Make the header
-            header = hts_string_header(sam_header, path_length, rg_sample);
+            header = hts_string_header(sam_header, path_order_and_length, rg_sample);
             
             // Initialize the SAM file for this thread and actually keep the header
             // we write, since we are the first thread.
@@ -174,6 +323,93 @@ bam_hdr_t* HTSAlignmentEmitter::ensure_header(const Alignment& sniff, size_t thr
     return header;
 }
 
+
+void HTSWriter::save_records(bam_hdr_t* header, vector<bam1_t*>& records, size_t thread_number) {
+    // We need a header and an extant samFile*
+    assert(header != nullptr);
+    assert(sam_files[thread_number] != nullptr);
+    
+    for (auto& b : records) {
+        // Emit each record
+        
+        if (sam_write1(sam_files[thread_number], header, b) == 0) {
+            cerr << "[vg::HTSWriter] error: writing to output file failed" << endl;
+            exit(1);
+        }
+    }
+    
+    for (auto& b : records) {
+        // Deallocate all the records
+        bam_destroy1(b);
+    }
+    
+    if (multiplexer.want_breakpoint(thread_number)) {
+        // We have written enough that we ought to give the multiplexer a chance to multiplex soon.
+        // There's no way to do this without closing and re-opening the HTS file.
+        // So just tear down and reamke the samFile* for this thread.
+        initialize_sam_file(header, thread_number);
+    }
+}
+
+void HTSWriter::initialize_sam_file(bam_hdr_t* header, size_t thread_number, bool keep_header) {
+    if (sam_files[thread_number] != nullptr) {
+        // A samFile* has been created already. Clear it out.
+        // Closing the samFile* flushes and destroys the BGZF and hFILE* backing it.
+        sam_close(sam_files[thread_number]);
+        
+        // Now we know there's a closing empty BGZF block that htslib puts to
+        // mark EOF. We don't want that in the middle of our stream because it
+        // is weird and we aren't actually at EOF.
+        // We know how long it is, so we will trim it off.
+        multiplexer.discard_bytes(thread_number, BGZF_FOOTER_LENGTH);
+        
+        // Now place a breakpoint right where we were before that empty block.
+        multiplexer.register_breakpoint(thread_number);
+    }
+    
+    // Create a new samFile* for this thread
+    // hts_mode was filled in when the header was.
+    // hts_hopen demands a filename, but appears to just store it, and
+    // doesn't document how required it it.
+    backing_files[thread_number] = vg::io::hfile_wrap(multiplexer.get_thread_stream(thread_number));
+    sam_files[thread_number] = hts_hopen(backing_files[thread_number], "-", hts_mode.c_str());
+    
+    if (sam_files[thread_number] == nullptr) {
+        // We couldn't open the output samFile*
+        cerr << "[vg::HTSWriter] failed to open internal stream for writing " << format << " output" << endl;
+        exit(1);
+    }
+    
+    // Write the header again, which is the only way to re-initialize htslib's internals.
+    // Remember that sam_hdr_write flushes the BGZF to the hFILE*, but does not flush the hFILE*.
+    if (sam_hdr_write(sam_files[thread_number], header) != 0) {
+        cerr << "[vg::HTSWriter] error: failed to write the SAM header" << endl;
+        exit(1);
+    }
+    
+    // Now flush it out of the hFILE* buffer into the backing C++ stream
+    if (hflush(backing_files[thread_number]) != 0) {
+        cerr << "[vg::HTSWriter] error: failed to flush the SAM header" << endl;
+        exit(1);
+    }
+    
+    if (keep_header) {
+        // We are the first thread to write a header, so we actually want it.
+        // Place a barrier which is also a breakpoint, so all subsequent writes come later.
+        multiplexer.register_barrier(thread_number);
+    } else {
+        // Discard the header so it won't be in the resulting file again
+        multiplexer.discard_to_breakpoint(thread_number);
+    }
+}
+
+HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& format,
+                                         const vector<pair<string, int64_t>>& path_order_and_length, size_t max_threads)
+    : HTSWriter(filename, format, path_order_and_length, max_threads)
+{
+    // nothing else to do
+}
+
 void HTSAlignmentEmitter::convert_alignment(const Alignment& aln, vector<pair<int, char>>& cigar, bool& pos_rev, int64_t& pos, string& path_name) const {
     
     // We assume the position is available in refpos(0)
@@ -181,7 +417,7 @@ void HTSAlignmentEmitter::convert_alignment(const Alignment& aln, vector<pair<in
     path_name = aln.refpos(0).name();
     size_t path_len = 0;
     if (path_name != "") {
-        path_len = path_length.at(path_name);
+        path_len = path_index.at(path_name)->second;
     }
     // Extract the position so that it could be adjusted by cigar_against_path if we decided to supperss softclips. Which we don't.
     // TODO: Separate out softclip suppression.
@@ -198,9 +434,6 @@ void HTSAlignmentEmitter::convert_unpaired(Alignment& aln, bam_hdr_t* header, ve
     string path_name;
     convert_alignment(aln, cigar, pos_rev, pos, path_name);
     
-    // TODO: We're passing along a text header so we can make a SAM file so
-    // we can make a BAM record by re-reading it, which we can then
-    // possibly output as SAM again. Make this less complicated.
     dest.emplace_back(alignment_to_bam(header,
                                        aln,
                                        path_name,
@@ -224,9 +457,6 @@ void HTSAlignmentEmitter::convert_paired(Alignment& aln1, Alignment& aln2, bam_h
     // Determine the TLEN for each read.
     auto tlens = compute_template_lengths(pos1, cigar1, pos2, cigar2);
         
-    // TODO: We're passing along a text header so we can make a SAM file so
-    // we can make a BAM record by re-reading it, which we can then
-    // possibly output as SAM again. Make this less complicated.
     dest.emplace_back(alignment_to_bam(header,
                                        aln1,
                                        path_name1,
@@ -252,85 +482,6 @@ void HTSAlignmentEmitter::convert_paired(Alignment& aln1, Alignment& aln2, bam_h
     
 }
 
-void HTSAlignmentEmitter::save_records(bam_hdr_t* header, vector<bam1_t*>& records, size_t thread_number) {
-    // We need a header and an extant samFile*
-    assert(header != nullptr);
-    assert(sam_files[thread_number] != nullptr);
-    
-    for (auto& b : records) {
-        // Emit each record
-        
-        if (sam_write1(sam_files[thread_number], header, b) == 0) {
-            cerr << "[vg::HTSAlignmentEmitter] error: writing to output file failed" << endl;
-            exit(1);
-        }
-    }
-    
-    for (auto& b : records) {
-        // Deallocate all the records
-        bam_destroy1(b);
-    }
-    
-    if (multiplexer.want_breakpoint(thread_number)) {
-        // We have written enough that we ought to give the multiplexer a chance to multiplex soon.
-        // There's no way to do this without closing and re-opening the HTS file.
-        // So just tear down and reamke the samFile* for this thread.
-        initialize_sam_file(header, thread_number);
-    }
-}
-
-void HTSAlignmentEmitter::initialize_sam_file(bam_hdr_t* header, size_t thread_number, bool keep_header) {
-    if (sam_files[thread_number] != nullptr) {
-        // A samFile* has been created already. Clear it out.
-        // Closing the samFile* flushes and destroys the BGZF and hFILE* backing it.
-        sam_close(sam_files[thread_number]);
-        
-        // Now we know there's a closing empty BGZF block that htslib puts to
-        // mark EOF. We don't want that in the middle of our stream because it
-        // is weird and we aren't actually at EOF.
-        // We know how long it is, so we will trim it off.
-        multiplexer.discard_bytes(thread_number, BGZF_FOOTER_LENGTH);
-        
-        // Now place a breakpoint right where we were before that empty block.
-        multiplexer.register_breakpoint(thread_number);
-    }
-    
-    // Create a new samFile* for this thread
-    // hts_mode was filled in when the header was.
-    // hts_hopen demands a filename, but appears to just store it, and
-    // doesn't document how required it it.
-    backing_files[thread_number] = vg::io::hfile_wrap(multiplexer.get_thread_stream(thread_number));
-    sam_files[thread_number] = hts_hopen(backing_files[thread_number], "-", hts_mode.c_str());
-    
-    if (sam_files[thread_number] == nullptr) {
-        // We couldn't open the output samFile*
-        cerr << "[vg::HTSAlignmentEmitter] failed to open internal stream for writing " << format << " output" << endl;
-        exit(1);
-    }
-    
-    // Write the header again, which is the only way to re-initialize htslib's internals.
-    // Remember that sam_hdr_write flushes the BGZF to the hFILE*, but does not flush the hFILE*.
-    if (sam_hdr_write(sam_files[thread_number], header) != 0) {
-        cerr << "[vg::HTSAlignmentEmitter] error: failed to write the SAM header" << endl;
-        exit(1);
-    }
-    
-    // Now flush it out of the hFILE* buffer into the backing C++ stream
-    if (hflush(backing_files[thread_number]) != 0) {
-        cerr << "[vg::HTSAlignmentEmitter] error: failed to flush the SAM header" << endl;
-        exit(1);
-    }
-    
-    if (keep_header) {
-        // We are the first thread to write a header, so we actually want it.
-        // Place a barrier which is also a breakpoint, so all subsequent writes come later.
-        multiplexer.register_barrier(thread_number);
-    } else {
-        // Discard the header so it won't be in the resulting file again
-        multiplexer.discard_to_breakpoint(thread_number);
-    }
-}
-
 void HTSAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
     if (aln_batch.empty()) {
         // Nothing to do
@@ -341,7 +492,8 @@ void HTSAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
     size_t thread_number = omp_get_thread_num();
     
     // Make sure header exists
-    bam_hdr_t* header = ensure_header(aln_batch.front(), thread_number);
+    bam_hdr_t* header = ensure_header(aln_batch.front().read_group(),
+                                      aln_batch.front().sample_name(), thread_number);
     assert(header != nullptr);
     assert(sam_files[thread_number] != nullptr);
     
@@ -379,7 +531,8 @@ void HTSAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_b
     
     // Make sure header exists
     assert(sniff != nullptr);
-    bam_hdr_t* header = ensure_header(*sniff, thread_number);
+    bam_hdr_t* header = ensure_header(sniff->read_group(), sniff->sample_name(),
+                                      thread_number);
     assert(header != nullptr);
     assert(sam_files[thread_number] != nullptr);
     
@@ -415,7 +568,8 @@ void HTSAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
     size_t thread_number = omp_get_thread_num();
     
     // Make sure header exists
-    bam_hdr_t* header = ensure_header(aln1_batch.front(), thread_number);
+    bam_hdr_t* header = ensure_header(aln1_batch.front().read_group(),
+                                      aln1_batch.front().sample_name(), thread_number);
     assert(header != nullptr);
     assert(sam_files[thread_number] != nullptr);
     
@@ -465,7 +619,8 @@ void HTSAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_ba
     
     // Make sure header exists
     assert(sniff != nullptr);
-    bam_hdr_t* header = ensure_header(*sniff, thread_number);
+    bam_hdr_t* header = ensure_header(sniff->read_group(), sniff->sample_name(),
+                                      thread_number);
     assert(header != nullptr);
     assert(sam_files[thread_number] != nullptr);
     
@@ -484,10 +639,10 @@ void HTSAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_ba
 }
 
 SplicedHTSAlignmentEmitter::SplicedHTSAlignmentEmitter(const string& filename, const string& format,
-                                                       const map<string, int64_t>& path_length,
+                                                       const vector<pair<string, int64_t>>& path_order_and_length,
                                                        const PathPositionHandleGraph& graph,
                                                        size_t max_threads) :
-    HTSAlignmentEmitter(filename, format, path_length, max_threads), graph(graph) {
+    HTSAlignmentEmitter(filename, format, path_order_and_length, max_threads), graph(graph) {
     
     // nothing else to do
 }
@@ -535,12 +690,7 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
                     // we may still be searching through an initial softclip to find
                     // the edit that corresponds to the BAM position
                     if (edit.to_length() > 0 && edit.from_length() == 0) {
-                        if (cigar.empty()) {
-                            cigar.emplace_back(edit.to_length(), 'S');
-                        }
-                        else {
-                            cigar.back().first += edit.to_length();
-                        }
+                        append_cigar_operation(edit.to_length(), 'S', cigar);
                         // skip the main block where we assign cigar operations
                         continue;
                     }
@@ -568,14 +718,7 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
                     throw std::runtime_error("Spliced CIGAR construction can only convert simple edits");
                 }
                 
-                if (!cigar.empty() && cigar.back().second == cigar_code) {
-                    // extend the previous cigar operation
-                    cigar.back().first += length;
-                }
-                else {
-                    // create a new cigar operation
-                    cigar.emplace_back(length, cigar_code);
-                }
+                append_cigar_operation(length, cigar_code, cigar);
             } // close loop over edits
             
             if (found_pos && i + 1 < path.mapping_size()) {
@@ -619,15 +762,11 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
                     // add to the cigar
                     if (deletion_length >= min_splice_length) {
                         // long enough to be a splice
-                        cigar.emplace_back(deletion_length, 'N');
-                    }
-                    else if (cigar.back().second == 'D') {
-                        // extend a deletion
-                        cigar.back().first += deletion_length;
+                        append_cigar_operation(deletion_length, 'N', cigar);
                     }
                     else if (deletion_length) {
-                        // create a new deletion
-                        cigar.emplace_back(deletion_length, 'D');
+                        // create or extend a deletion
+                        append_cigar_operation(deletion_length, 'D', cigar);
                     }
                 }
                 
@@ -641,6 +780,9 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
             cigar.back().second = 'S';
         }
     }
+    
+    consolidate_ID_runs(cigar);
+    
     return cigar;
 }
 

@@ -1,4 +1,4 @@
-#ifndef VG_PATH_HPP_INCLUDED
+    #ifndef VG_PATH_HPP_INCLUDED
 #define VG_PATH_HPP_INCLUDED
 
 #include <iostream>
@@ -46,12 +46,15 @@ public:
     // We used to use a regex but that's a very slow way to check a prefix.
     const static function<bool(const string&)> is_alt;
 
-    // Check if using subpath naming scheme.  If it is return true,
-    // the root path name, and the offset (false otherwise)
-    tuple<bool, string, size_t> static parse_subpath_name(const string& path_name);
+    // look for suffix of form [offset] or [offset-end_offset] and parse it. ex:
+    // chr1 would return <false, "", 0, 0>
+    // chr1[10] would return <true, chr1, 10, 0>
+    // chr1[10-20] would return <true, chr1, 10, 20>
+    // note: the start/end are as in BED : 0-based open-ended
+    tuple<bool, string, size_t, size_t> static parse_subpath_name(const string& path_name);
 
     // Create a subpath name
-    string static make_subpath_name(const string& path_name, size_t offset);
+    string static make_subpath_name(const string& path_name, size_t offset, size_t end_offset = 0);
 
     Paths(void);
 
@@ -352,7 +355,7 @@ void translate_oriented_node_ids(Path& path, const function<pair<id_t, bool>(id_
 pos_t initial_position(const Path& path);
 // the last position on the path
 pos_t final_position(const Path& path);
-    
+
 // Turn a list of node traversals into a path
 Path path_from_node_traversals(const list<NodeTraversal>& traversals);
 
@@ -385,6 +388,8 @@ public:
     inline const string& sequence() const;
     inline void set_sequence(const string& s);
     inline string* mutable_sequence();
+    inline bool operator==(const edit_t& other) const;
+    inline bool operator!=(const edit_t& other) const;
 private:
     int32_t _from_length;
     int32_t _to_length;
@@ -408,6 +413,8 @@ public:
     inline edit_t* mutable_edit(size_t i);
     inline edit_t* add_edit();
     inline size_t edit_size() const;
+    inline bool operator==(const path_mapping_t& other) const;
+    inline bool operator!=(const path_mapping_t& other) const;
 private:
     position_t _position;
     vector<edit_t> _edit;
@@ -428,6 +435,8 @@ public:
     inline path_mapping_t* add_mapping();
     inline void clear_mapping();
     inline size_t mapping_size() const;
+    inline bool operator==(const path_t& other) const;
+    inline bool operator!=(const path_t& other) const;
 private:
     vector<path_mapping_t> _mapping;
 };
@@ -464,6 +473,9 @@ pos_t initial_position(const path_t& path);
 // the last position on the path
 pos_t final_position(const path_t& path);
 
+int corresponding_to_length(const path_t& path, int from_length, bool from_end);
+int corresponding_from_length(const path_t& path, int to_length, bool from_end);
+
 string debug_string(const path_t& path);
 string debug_string(const path_mapping_t& mapping);
 string debug_string(const edit_t& edit);
@@ -496,6 +508,14 @@ inline void edit_t::set_sequence(const string& s) {
 inline string* edit_t::mutable_sequence() {
     return &_sequence;
 }
+inline bool edit_t::operator==(const edit_t& other) const {
+    return (_to_length == other._to_length
+            && _from_length == other._from_length
+            && _sequence == other._sequence);
+}
+inline bool edit_t::operator!=(const edit_t& other) const {
+    return !(*this == other);
+}
 
 /*
  * path_mapping_t
@@ -525,6 +545,12 @@ inline edit_t* path_mapping_t::mutable_edit(size_t i) {
 inline size_t path_mapping_t::edit_size() const {
     return _edit.size();
 }
+inline bool path_mapping_t::operator==(const path_mapping_t& other) const {
+    return (_position == other._position && _edit == other._edit);
+}
+inline bool path_mapping_t::operator!=(const path_mapping_t& other) const {
+    return !(*this == other);
+}
 
 /*
  * path_t
@@ -550,6 +576,12 @@ inline void path_t::clear_mapping() {
 }
 inline size_t path_t::mapping_size() const {
     return _mapping.size();
+}
+inline bool path_t::operator==(const path_t& other) const {
+    return _mapping == other._mapping;
+}
+inline bool path_t::operator!=(const path_t& other) const {
+    return !(*this == other);
 }
 }
 

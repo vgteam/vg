@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <Variant.h>
 #include "filter.hpp"
-#include "index.hpp"
 #include "path_index.hpp"
 #include "IntervalTree.h"
 #include <vg/vg.pb.h>

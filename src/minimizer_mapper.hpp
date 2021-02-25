@@ -20,6 +20,8 @@
 #include <gbwtgraph/minimizer.h>
 #include <structures/immutable_list.hpp>
 
+#include <atomic>
+
 namespace vg {
 
 using namespace std;
@@ -34,7 +36,7 @@ public:
      */
 
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-         const std::vector<gbwtgraph::DefaultMinimizerIndex*>& minimizer_indexes,
+         const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
          MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph = nullptr);
 
     /**
@@ -75,6 +77,8 @@ public:
      * fragment length distribution.
      */
     pair<vector<Alignment>, vector<Alignment>> map_paired(Alignment& aln1, Alignment& aln2);
+
+
 
 
     // Mapping settings.
@@ -138,6 +142,9 @@ public:
     /// and track if/when their descendants make it through stages of the
     /// algorithm. Only works if track_provenance is true.
     bool track_correctness = false;
+    
+    /// If set, log what the mapper is thinking in its mapping of each read.
+    bool show_work = false;
 
     ////How many stdevs from fragment length distr mean do we cluster together?
     double paired_distance_stdevs = 2.0; 
@@ -150,6 +157,9 @@ public:
 
     /// For paired end mapping, how many times should we attempt rescue (per read)?
     size_t max_rescue_attempts = 15;
+
+    ///What is the maximum fragment length that we accept as valid for paired-end reads?
+    size_t max_fragment_length = 2000;
 
     /// Implemented rescue algorithms: no rescue, dozeu, GSSW, dozeu on local haplotypes.
     enum RescueAlgorithm { rescue_none, rescue_dozeu, rescue_gssw, rescue_haplotypes };
@@ -180,6 +190,7 @@ protected:
 
     /**
      * We define our own type for minimizers, to use during mapping and to pass around between our internal functions.
+     * Also used to represent syncmers, in which case the only window, the "minimizer", and the agglomeration are all the same region.
      */
     struct Minimizer {
         typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
@@ -188,7 +199,7 @@ protected:
         size_t hits; // How many hits does the minimizer have?
         const gbwtgraph::hit_type* occs;
         int32_t length; // How long is the minimizer (index's k)
-        int32_t candidates_per_window; // How many minimizers compete to be the best (index's w)  
+        int32_t candidates_per_window; // How many minimizers compete to be the best (index's w), or 1 for syncmers.  
         double score; // Scores as 1 + ln(hard_hit_cap) - ln(hits).
 
         // Sort the minimizers in descending order by score.
@@ -228,7 +239,7 @@ protected:
 
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
-    const std::vector<gbwtgraph::DefaultMinimizerIndex*>& minimizer_indexes;
+    const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
     MinimumDistanceIndex& distance_index;
     /// This is our primary graph.
     const gbwtgraph::GBWTGraph& gbwt_graph;
@@ -240,6 +251,7 @@ protected:
     SnarlSeedClusterer clusterer;
 
     FragmentLengthDistribution fragment_length_distr;
+    atomic_flag warned_about_bad_distribution = ATOMIC_FLAG_INIT;
 
 //-----------------------------------------------------------------------------
 
@@ -322,6 +334,12 @@ protected:
      * alignment has been set.
      */
     void extension_to_alignment(const GaplessExtension& extension, Alignment& alignment) const;
+    
+    /**
+     * Set pair partner references for paired mapping results.
+     */
+    void pair_all(pair<vector<Alignment>, vector<Alignment>>& mappings) const;
+    
 
 
 //-----------------------------------------------------------------------------
@@ -405,7 +423,7 @@ protected:
      * minimizers itself. Only contiguous ranges in minimizer_indices actually
      * make sense.
      */
-    static void for_each_aglomeration_interval(const vector<Minimizer>& minimizers,
+    static void for_each_agglomeration_interval(const vector<Minimizer>& minimizers,
         const string& sequence, const string& quality_bytes,
         const vector<size_t>& minimizer_indices,
         const function<void(size_t, size_t, size_t, size_t)>& iteratee);      
@@ -576,7 +594,11 @@ protected:
      */ 
     void dfs_gbwt(const gbwt::SearchState& start_state, size_t from_offset, size_t walk_distance,
         const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const;
-        
+ 
+    /**
+     * Score a pair of alignments given the distance between them
+     */
+    double score_alignment_pair(Alignment& aln1, Alignment& aln2, int64_t fragment_distance);
     
     /**
      * Given a vector of items, a function to get the score of each, a
@@ -634,6 +656,11 @@ protected:
     
     /// Print a sequence with base numbering
     static void dump_debug_sequence(ostream& out, const string& sequence);
+    
+    /// Get the thread identifier prefix for logging
+    static string log_name();
+
+    friend class TestMinimizerMapper;
 };
 
 template<typename Item, typename Score>

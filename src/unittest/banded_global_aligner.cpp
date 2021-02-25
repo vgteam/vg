@@ -3542,6 +3542,26 @@ namespace vg {
             REQUIRE(aln.path().mapping(0).position().node_id() == graph.get_id(h0));
             REQUIRE(aln.path().mapping(1).position().node_id() == graph.get_id(h7));
         }
+    
+        TEST_CASE("Try to recreate a memory access bug", "[alignment][banded][mapping][memory]") {
+            
+            // note: this never crashed, but the bug shows up on valgrind
+            
+            bdsg::HashGraph graph;
+            
+            handle_t h0 = graph.create_handle("T");
+            
+            string sequence = "CTCATTCCCGGAACCTTGAAATGGAGCT";
+            string qual = "DCDD=2DECBEC=F@E?BEFEEFECED<";
+            Alignment aln;
+            aln.set_sequence(sequence);
+            aln.set_quality(string_quality_short_to_char(qual));
+            
+            TestAligner aligner_source;
+            const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
+            
+            aligner.align_global_banded(aln, graph, 1, true);
+        }
     }
 }
 

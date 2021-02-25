@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <vector>
 #include <unordered_map>
+#include <algorithm>
 
 #include "structures/rank_pairing_heap.hpp"
 
@@ -62,22 +63,26 @@ namespace vg {
         /// Produces a graph with reachability edges. Assumes that the cluster
         /// is sorted by primarily length and secondarily lexicographically by
         /// read interval.
-        MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
+        /// If a hit fails to be walked ouut in the graph, it is removed from hits.
+        MultipathAlignmentGraph(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
                                 const function<pair<id_t, bool>(id_t)>& project,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                vector<size_t>& path_node_provenance,
                                 size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr,
                                 const MultipathMapper::match_fanouts_t* fanout_breaks = nullptr);
                                 
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily.
-        MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
+        MultipathAlignmentGraph(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
                                 const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                vector<size_t>& path_node_provenance,
                                 size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr,
                                 const MultipathMapper::match_fanouts_t* fanout_breaks = nullptr);
         
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
         /// using a lambda for a projector
-        MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
+        MultipathAlignmentGraph(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
                                 const function<pair<id_t, bool>(id_t)>& project,
+                                vector<size_t>& path_node_provenance,
                                 size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr,
                                 const MultipathMapper::match_fanouts_t* fanout_breaks = nullptr);
         
@@ -129,7 +134,10 @@ namespace vg {
         /// end of the alignment sequence.
         void trim_hanging_indels(const Alignment& alignment, bool trim_Ns = true, bool preserve_tail_anchors = false);
         
-        /// Removes all transitive edges from graph (reduces to minimum equivalent graph).
+        /// Removes all transitive edges from graph (reduces to minimum equivalent graph),
+        /// except for edges between path nodes that abut either on the graph or read. These
+        /// edges often correspond to overlap breaks in low complexity sequence, so retaining
+        /// them improves alignment in low-complexity regions like STR expansions.
         /// Note: reorders internal representation of adjacency lists.
         /// Reachability edges must be in the graph.
         void remove_transitive_edges(const vector<size_t>& topological_order);
@@ -137,7 +145,9 @@ namespace vg {
         /// Removes nodes and edges that are not part of any path that has an estimated score
         /// within some amount of the highest scoring path. Reachability edges must be present.
         void prune_to_high_scoring_paths(const Alignment& alignment, const GSSWAligner* aligner,
-                                         double max_suboptimal_score_ratio, const vector<size_t>& topological_order);
+                                         double max_suboptimal_score_ratio, const vector<size_t>& topological_order,
+                                         function<pair<id_t, bool>(id_t)>& translator,
+                                         vector<size_t>& path_node_provenance);
         
         /// Clear reachability edges, so that add_reachability_edges can be run
         /// (possibly after modifying the graph).
@@ -171,7 +181,8 @@ namespace vg {
         /// Add edges between reachable nodes and split nodes at overlaps
         void add_reachability_edges(const HandleGraph& vg,
                                     const function<pair<id_t, bool>(id_t)>& project,
-                                    const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
+                                    const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                    vector<size_t>* path_node_provenance = nullptr);
                                     
         /// Do intervening and tail alignments between the anchoring paths and
         /// store the result in a multipath_alignment_t. Reachability edges must
@@ -212,7 +223,9 @@ namespace vg {
         vector<vector<id_t>> get_connected_components() const;
         
         /// Does the multipath alignment graph have any nodes?
-        bool empty();
+        bool empty() const;
+        
+        size_t size() const;
         
     private:
         
@@ -244,17 +257,27 @@ namespace vg {
                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
         
         /// Walk out MEMs into match nodes and filter out redundant sub-MEMs
-        void create_match_nodes(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
+        void create_match_nodes(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
                                 const function<pair<id_t, bool>(id_t)>& project,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                vector<size_t>& path_node_provenance,
+                                int64_t max_branch_trim_length,
                                 const MultipathMapper::match_fanouts_t* fanout_breaks);
         
+        /// If path nodes partially overlap, merge the sections that overlap into a single path node
+        void merge_partially_redundant_match_nodes(const unordered_map<int64_t, vector<int64_t>>& node_matches,
+                                                   vector<size_t>& path_node_provenance);
         
+        void jitter_homopolymer_ends(const HandleGraph& graph,
+                                     vector<size_t>& path_node_provenance,
+                                     const MultipathMapper::memcluster_t& hits,
+                                     int64_t max_branch_trim_length);
         
         /// Identifies runs of exact matches that are sub-maximal because they hit the order of the GCSA
         /// index and merges them into a single node, assumes that match nodes are sorted by length and
         /// then lexicographically by read interval, does not update edges
-        void collapse_order_length_runs(const HandleGraph& graph, gcsa::GCSA* gcsa);
+        void collapse_order_length_runs(const HandleGraph& graph, gcsa::GCSA* gcsa,
+                                        vector<size_t>& path_node_provenance);
         
         /// Reorders adjacency list representation of edges so that they follow the indicated
         /// ordering of their target nodes

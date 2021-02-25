@@ -7,7 +7,6 @@
 #include <ctime>
 #include "omp.h"
 #include "vg.hpp"
-#include "index.hpp"
 #include "bdsg/hash_graph.hpp"
 #include <gcsa/gcsa.h>
 #include <gcsa/lcp.h>
@@ -23,16 +22,15 @@
 #include "cluster.hpp"
 #include "graph.hpp"
 #include "translator.hpp"
+#include "mem_accelerator.hpp"
 // TODO: pull out ScoreProvider into its own file
 #include "haplotypes.hpp"
-#include "algorithms/reverse_complement.hpp"
 #include "algorithms/subgraph.hpp"
 #include "algorithms/nearest_offsets_in_paths.hpp"
 #include "algorithms/jump_along_path.hpp"
 #include "algorithms/approx_path_distance.hpp"
 #include "algorithms/path_string.hpp"
 #include "algorithms/alignment_path_offsets.hpp"
-#include "algorithms/to_gfa.hpp"
 #include "algorithms/extract_containing_graph.hpp"
 
 // #define BENCH
@@ -213,9 +211,7 @@ public:
     /// Same, but loading a 4x4 substitution score matrix from a stream
     void set_alignment_scores(istream& matrix_stream, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
                               double haplotype_consistency_exponent = 1);
-    
-    void set_cache_size(int new_cache_size);
-    
+        
     // MEM-based mapping
     // find maximal exact matches
     // These are SMEMs by definition when shorter than the max_mem_length or GCSA2 order.
@@ -352,6 +348,11 @@ public:
                             int min_sub_mem_length,
                             vector<pair<MaximalExactMatch, vector<size_t>>>& sub_mems_out);
     
+    /// If possible, use the MEMAcclerator to get the initial range for a MEM and update the cursor
+    /// accordingly. If this is not possible, return the full GCSA2 range and leave the cursor unaltered.
+    gcsa::range_type accelerate_mem_query(string::const_iterator begin,
+                                          string::const_iterator& cursor) const;
+    
     // Use the GCSA index to look up the sequence
     set<pos_t> sequence_positions(const string& seq);
     
@@ -374,6 +375,7 @@ public:
     // GCSA index and its LCP array
     gcsa::GCSA* gcsa = nullptr;
     gcsa::LCPArray* lcp = nullptr;
+    MEMAccelerator* accelerator = nullptr;
     
     // Haplotype score provider, if any, for determining haplotype concordance
     haplo::ScoreProvider* haplo_score_provider = nullptr;

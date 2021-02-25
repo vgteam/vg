@@ -603,7 +603,7 @@ class VGCITest(TestCase):
             # toil-vg map options
             # don't waste time sharding reads since we only run on one node
             single_reads_chunk = True,
-            mpmap_opts = ['-B', '-S'],
+            mpmap_opts = ['-B', '-F GAM'],
             more_mpmap_opts = more_mpmap_opts,
             force_outstore = self.force_outstore
         )
@@ -1335,19 +1335,19 @@ class VGCITest(TestCase):
                            acc_threshold=0.02, auc_threshold=0.02,
                            sim_opts='-p 500 -v 50 -S 4 -i 0.002')
     
-    @timeout_decorator.timeout(200)
+    @timeout_decorator.timeout(400)
     def test_map_brca1_primary(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 primary graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('BRCA1', 'primary', True)
 
-    @timeout_decorator.timeout(200)        
+    @timeout_decorator.timeout(400)        
     def test_map_brca1_snp1kg(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 snp1kg graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('BRCA1', 'snp1kg', True)
         
-    @timeout_decorator.timeout(600)
+    @timeout_decorator.timeout(900)
     def test_map_brca1_snp1kg_mpmap(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 snp1kg graph on mpmap.  
         The filter_opts are the defaults minus the identity filter because mpmap doesn't 
@@ -1356,26 +1356,26 @@ class VGCITest(TestCase):
         self._test_bakeoff('BRCA1', 'snp1kg', True, mapper='mpmap', tag_ext='-mpmap',
                            misc_opts='--filter_opts \"-q 15 -m 1 -D 999 -s 1000\"')
 
-    @timeout_decorator.timeout(200)        
+    @timeout_decorator.timeout(400)        
     def test_map_brca1_cactus(self):
         """ Mapping and calling bakeoff F1 test for BRCA1 cactus graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('BRCA1', 'cactus', True)
 
-    @timeout_decorator.timeout(600)        
+    @timeout_decorator.timeout(900)        
     def test_full_brca2_primary(self):
         """ Indexing, mapping and calling bakeoff F1 test for BRCA2 primary graph """
         log.info("Test start at {}".format(datetime.now()))
         self.f1_threshold = 0.01
         self._test_bakeoff('BRCA2', 'primary', False)
 
-    @timeout_decorator.timeout(600)        
+    @timeout_decorator.timeout(900)        
     def test_full_brca2_snp1kg(self):
         """ Indexing, mapping and calling bakeoff F1 test for BRCA2 snp1kg graph """
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('BRCA2', 'snp1kg', False)
 
-    @timeout_decorator.timeout(600)        
+    @timeout_decorator.timeout(900)        
     def test_full_brca2_cactus(self):
         """ Indexing, mapping and calling bakeoff F1 test for BRCA2 cactus graph """
         log.info("Test start at {}".format(datetime.now()))
@@ -1422,7 +1422,7 @@ class VGCITest(TestCase):
         log.info("Test start at {}".format(datetime.now()))
         self._test_bakeoff('LRC-KIR', 'cactus', True)
 
-    @timeout_decorator.timeout(900)        
+    @timeout_decorator.timeout(1200)        
     def test_map_mhc_primary(self):
         """ Indexing, mapping and calling bakeoff F1 test for MHC primary graph """
         log.info("Test start at {}".format(datetime.now()))

@@ -3,9 +3,11 @@
  * Defines IO for a HashGraph from stream files.
  */
 
+#include <arpa/inet.h>
 #include <vg/io/registry.hpp>
 #include "register_loader_saver_hash_graph.hpp"
 #include "load_proto_to_graph.hpp"
+#include "converted_hash_graph.hpp"
 
 #include "../handle.hpp"
 #include <bdsg/hash_graph.hpp>
@@ -48,8 +50,9 @@ void register_loader_saver_hash_graph() {
         vector<string>{"VG", ""},
         [](const message_sender_function_t& for_each_message) -> void* {
     
-        // Allocate a HashGraph
-        bdsg::HashGraph* hash_graph = new bdsg::HashGraph();
+        // Allocate a HashGraph that's really a ConvertedHashGraph, to mark
+        // that we converted form Protobuf.
+        bdsg::HashGraph* hash_graph = new vg::io::ConvertedHashGraph();
         
         // Load into it
         load_proto_to_graph(hash_graph, for_each_message);

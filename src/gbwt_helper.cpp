@@ -1,6 +1,8 @@
 #include "gbwt_helper.hpp"
 #include "utility.hpp"
 
+#include <vg/io/vpkg.hpp>
+
 #include <sstream>
 
 namespace vg {
@@ -86,22 +88,141 @@ gbwt::size_type gbwt_node_width(const HandleGraph& graph) {
 void finish_gbwt_constuction(gbwt::GBWTBuilder& builder,
     const std::vector<std::string>& sample_names,
     const std::vector<std::string>& contig_names,
-    size_t haplotype_count, bool print_metadata) {
+    size_t haplotype_count, bool print_metadata,
+    const std::string& header) {
 
     builder.finish();
     builder.index.metadata.setSamples(sample_names);
     builder.index.metadata.setHaplotypes(haplotype_count);
     builder.index.metadata.setContigs(contig_names);
     if (print_metadata) {
-        std::cerr << "GBWT metadata: ";
-        gbwt::operator<<(std::cerr, builder.index.metadata);
-        std::cerr << std::endl;
+        #pragma omp critical
+        {
+            std::cerr << header << ": ";
+            gbwt::operator<<(std::cerr, builder.index.metadata);
+            std::cerr << std::endl;
+        }
     }
 }
 
 //------------------------------------------------------------------------------
 
-std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
+void load_gbwt(const std::string& filename, gbwt::GBWT& index, bool show_progress) {
+    if (show_progress) {
+        std::cerr << "Loading compressed GBWT from " << filename << std::endl;
+    }
+    std::unique_ptr<gbwt::GBWT> loaded = vg::io::VPKG::load_one<gbwt::GBWT>(filename);
+    if (loaded.get() == nullptr) {
+        std::cerr << "error: [load_gbwt()] could not load compressed GBWT " << filename << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    index = std::move(*loaded);
+}
+
+void load_gbwt(const std::string& filename, gbwt::DynamicGBWT& index, bool show_progress) {
+    if (show_progress) {
+        std::cerr << "Loading dynamic GBWT from " << filename << std::endl;
+    }
+    std::unique_ptr<gbwt::DynamicGBWT> loaded = vg::io::VPKG::load_one<gbwt::DynamicGBWT>(filename);
+    if (loaded.get() == nullptr) {
+        std::cerr << "error: [load_gbwt()] could not load dynamic GBWT " << filename << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    index = std::move(*loaded);
+}
+
+void GBWTHandler::use_compressed() {
+    if (this->in_use == index_compressed) {
+        return;
+    } else if (this->in_use == index_dynamic) {
+        if (this->show_progress) {
+            std::cerr << "Converting dynamic GBWT into compressed GBWT" << std::endl;
+        }
+        this->compressed = gbwt::GBWT(this->dynamic);
+        this->dynamic = gbwt::DynamicGBWT();
+        this->in_use = index_compressed;
+    } else {
+        load_gbwt(this->filename, this->compressed, this->show_progress);
+        this->in_use = index_compressed;
+    }
+}
+
+void GBWTHandler::use_dynamic() {
+    if (this->in_use == index_dynamic) {
+        return;
+    } else if (this->in_use == index_compressed) {
+        if (this->show_progress) {
+            std::cerr << "Converting compressed GBWT into dynamic GBWT" << std::endl;
+        }
+        this->dynamic = gbwt::DynamicGBWT(this->compressed);
+        this->compressed = gbwt::GBWT();
+        this->in_use = index_dynamic;
+    } else {
+        load_gbwt(this->filename, this->dynamic, this->show_progress);
+        this->in_use = index_dynamic;
+    }
+}
+
+void GBWTHandler::use(gbwt::GBWT& new_index) {
+    this->clear();
+    this->compressed.swap(new_index);
+    this->in_use = index_compressed;
+}
+
+void GBWTHandler::use(gbwt::DynamicGBWT& new_index) {
+    this->clear();
+    this->dynamic.swap(new_index);
+    this->in_use = index_dynamic;
+}
+
+void GBWTHandler::unbacked() {
+    this->filename = std::string();
+}
+
+void GBWTHandler::serialize(const std::string& new_filename) {
+    if (this->show_progress) {
+        std::cerr << "Serializing the GBWT to " << new_filename << std::endl;
+    }
+    if (this->in_use == index_none) {
+        std::cerr << "warning: [GBWTHandler] no GBWT to serialize" << std::endl;
+        return;
+    } else if (this->in_use == index_compressed) {
+        vg::io::VPKG::save(this->compressed, new_filename);
+    } else {
+        vg::io::VPKG::save(this->dynamic, new_filename);
+    }
+    this->filename = new_filename;
+}
+
+void GBWTHandler::clear() {
+    this->compressed = gbwt::GBWT();
+    this->dynamic = gbwt::DynamicGBWT();
+    this->in_use = index_none;
+}
+
+//------------------------------------------------------------------------------
+
+std::vector<gbwt::size_type> threads_for_sample(const gbwt::GBWT& gbwt_index, const std::string& sample_name) {
+    if (gbwt_index.hasMetadata() && gbwt_index.metadata.hasSampleNames() && gbwt_index.metadata.hasPathNames()) {
+        gbwt::size_type sample_id = gbwt_index.metadata.sample(sample_name);
+        if (sample_id < gbwt_index.metadata.samples()) {
+            return gbwt_index.metadata.pathsForSample(sample_id);
+        }
+    }
+    return std::vector<gbwt::size_type>();
+}
+
+std::vector<gbwt::size_type> threads_for_contig(const gbwt::GBWT& gbwt_index, const std::string& contig_name) {
+    if (gbwt_index.hasMetadata() && gbwt_index.metadata.hasContigNames() && gbwt_index.metadata.hasPathNames()) {
+        gbwt::size_type contig_id = gbwt_index.metadata.contig(contig_name);
+        if (contig_id < gbwt_index.metadata.contigs()) {
+            return gbwt_index.metadata.pathsForContig(contig_id);
+        }
+    }
+    return std::vector<gbwt::size_type>();
+}
+
+std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id, std::string path_name) {
 
     gbwt::size_type sequence_id = gbwt::Path::encode(id, false);
     if (sequence_id >= gbwt_index.sequences()) {
@@ -109,10 +230,10 @@ std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gb
         return "";
     }
 
-    std::string path_name = thread_name(gbwt_index, id);
-    if (path_name.empty()) {
-        path_name = std::to_string(id);
-    }
+    // If the path name was not specified, try first using the default name generated from GBWT metadata.
+    // If that fails, simply use the id.
+    if (path_name.empty()) { path_name = thread_name(gbwt_index, id); }
+    if (path_name.empty()) { path_name = std::to_string(id); }
     if (graph.has_path(path_name)) {
         std::cerr << "error: [insert_gbwt_path()] path name already exists: " << path_name << std::endl;
         return "";

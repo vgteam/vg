@@ -6,8 +6,6 @@
  */
 
 #include "handle.hpp"
-#include "algorithms/eades_algorithm.hpp"
-#include "algorithms/strongly_connected_components.hpp"
 
 namespace vg {
 

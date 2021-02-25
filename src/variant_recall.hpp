@@ -24,7 +24,6 @@
 #include "genotypekit.hpp"
 #include "srpe.hpp"
 #include "path_index.hpp"
-#include "index.hpp"
 #include "statistics.hpp"
 
 namespace vg {
@@ -37,7 +36,7 @@ void variant_recall(VG* graph,
                     vcflib::VariantCallFile* vars,
                     FastaReference* ref_genome,
                     vector<FastaReference*> insertions,
-                    string gamfile, bool isIndex = false);
+                    string gamfile);
 // Genotype new SVs from a GAM
 void genotype_svs(VG* graph, 
                   string gamfile, string refpath);

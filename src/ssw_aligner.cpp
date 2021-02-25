@@ -23,7 +23,13 @@ Alignment SSWAligner::align(const string& query, const string& ref) {
                                           gap_extension);
     StripedSmithWaterman::Filter filter;
     StripedSmithWaterman::Alignment alignment;
-    aligner.Align(query.c_str(), ref.c_str(), ref.size(), filter, &alignment);
+    
+    // We need to send out own mask length, recommended to be half the sequence length and at least 15.
+    int32_t mask_len = min(max((size_t) 15, query.size()), (size_t) numeric_limits<int32_t>::max());
+    
+    assert(ref.size() <= numeric_limits<int>::max());
+    
+    aligner.Align(query.c_str(), ref.c_str(), (int) ref.size(), filter, &alignment, mask_len);
     return ssw_to_vg(alignment, query, ref);
 }
 

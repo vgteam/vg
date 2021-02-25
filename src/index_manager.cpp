@@ -388,7 +388,8 @@ void IndexManager::ensure_gbwt() {
         indexer.show_progress = show_progress;
 
         // Make it, making sure to convert to non-dynamic GBWT
-        auto built = indexer.build_gbwt(graph.get(), vcf_filename, false);
+        std::vector<std::string> parse_files = indexer.parse_vcf(vcf_filename, *graph);
+        auto built = indexer.build_gbwt(parse_files);
         gbwt = make_shared<gbwt::GBWT>(*built);
         built.reset();
 

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 26
+plan tests 41
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -34,6 +34,14 @@ is "$?" 0 "vg convert maintains same nodes throughout packed-graph conversion"
 
 rm -f c.pg c1.vg c1.info
 
+vg convert c.vg -f > c.gfa
+vg convert -g c.gfa -v > c1.vg
+cat <(vg view c1.vg | grep ^S | sort) <(vg view c1.vg | grep L | uniq | wc -l) <(vg paths -v c1.vg -E) > c1.info
+diff c.info c1.info
+is "$?" 0 "vg convert maintains same nodes throughout gfa conversion"
+
+rm -f c.gfa c1.vg c1.info
+
 vg convert c.vg -o > c.odgi
 vg convert c.odgi -v > c1.vg
 cat <(vg view c1.vg | grep ^S | sort) <(vg view c1.vg | grep L | uniq | wc -l) <(vg paths -v c1.vg -E) > c1.info
@@ -50,11 +58,13 @@ is "$(vg convert -a x.vg | vg view - | wc -l)" "$(wc -l < x.gfa)" "hash graph co
 is "$(vg convert -p x.vg | vg view - | wc -l)" "$(wc -l < x.gfa)" "packed graph conversion looks good"
 is "$(vg convert -v x.vg | vg view - | wc -l)" "$(wc -l < x.gfa)" "vg conversion looks good"
 is "$(vg convert -o x.vg | vg view - | wc -l)" "$(wc -l < x.gfa)" "odgi conversion looks good"
+is "$(vg convert -f x.vg | vg convert -g - | vg view - | wc -l)" "$(wc -l < x.gfa)" "gfa conversion looks good"
 is "$(vg convert -x x.vg | vg find -n 1 -c 300 -x - | vg view - | wc -l)" "$(wc -l < x.gfa)" "xg conversion looks good"
 
 is "$(vg convert -g -a x.gfa | vg view - | wc -l)" "$(wc -l < x.gfa)" "on disk gfa conversion looks good"
 is "$(cat x.gfa | vg convert -g -a - | vg view - | wc -l)" "$(wc -l < x.gfa)" "streaming gfa conversion looks good"
 is "$(vg convert -g -x x.gfa | vg find -n 1 -c 300 -x - | vg view - | wc -l)" "$(wc -l < x.gfa)" "gfa to xg conversion looks good"
+is "$(vg convert -g -f x.gfa | vg convert -g - | vg find -n 1 -c 300 -x - | vg view - | wc -l)" "$(wc -l < x.gfa)" "gfa to gfa conversion looks good"
 
 rm x.vg x.gfa
 rm -f c.vg c.pg c1.vg c.info c1.info
@@ -166,3 +176,72 @@ diff floating-ins.gaf floating-ins2.gaf
 is "$?" 0 "convert gam->gaf->gam->gaf makes same gaf each time of floating insertion alignment" 
 
 rm -f floating-ins.pg floating-ins.gam floating-ins.gaf gam.sequence gam2.sequence floating-ins2.gaf
+
+vg convert -g tiny/tiny.gfa | vg view - | sort > tiny.gfa.gfa
+vg convert -g tiny/tiny.rgfa | vg view - | sort > tiny.rgfa.gfa
+diff tiny.gfa.gfa tiny.rgfa.gfa
+is "$?" 0 "converting gfa and equivalent rgfa produces same output"
+
+rm -f tiny.gfa.gfa tiny.rgfa.gfa
+
+is "$(vg convert -g tiny/tiny.rgfa -r 1 | vg view - | grep y | awk '{print $1","$2","$3}')" "P,y[35],2+" "rank-1 rgfa subpath found"
+
+vg convert -g tiny/tiny.rgfa -T gfa-id-mapping.tsv > /dev/null
+grep ^S tiny/tiny.rgfa  | awk '{print $2}' | sort > rgfa_nodes
+grep ^S tiny/tiny.gfa  | awk '{print $2}' | sort > gfa_nodes
+awk '{print $2}' gfa-id-mapping.tsv | sort > rgfa_translated_nodes
+awk '{print $3}' gfa-id-mapping.tsv | sort > gfa_translated_nodes
+diff rgfa_nodes rgfa_translated_nodes
+is "$?" 0 "2nd column of gfa id translation file contains all rgfa nodes"
+diff gfa_nodes gfa_translated_nodes
+is "$?" 0 "3rd column of gfa id translation file contains all gfa nodes"
+
+rm -f  gfa-id-mapping.tsv rgfa_nodes gfa_nodes rgfa_translated_nodes gfa_translated_nodes
+
+vg convert -g tiny/tiny.gfa -v | vg convert - -f -P x > tiny.gfa.rgfa
+is "$(grep ^P tiny.gfa.rgfa | wc -l)" 0 "rgfa output wrote no P-lines"
+vg convert -g tiny/tiny.gfa -v | vg convert - -f | sort > tiny.gfa.gfa
+vg convert -g tiny.gfa.rgfa -f | sort > tiny.gfa.rgfa.gfa
+diff tiny.gfa.gfa tiny.gfa.rgfa.gfa
+is "$?" 0 "rgfa export roundtrips back to normal P-lines"
+
+rm -f tiny.gfa.rgfa tiny.gfa.gfa tiny.gfa.rgfa.gfa
+
+
+# GFA to GBWTGraph to HashGraph to GFA
+vg gbwt -o components.gbwt -g components.gg -G graphs/components_walks.gfa
+vg convert -b components.gbwt -a components.gg > components.hg 2> /dev/null
+is $? 0 "GBWTGraph to HashGraph conversion"
+grep "^S" graphs/components_walks.gfa | sort > sorted.gfa
+vg view components.hg | grep "^S" | sort > converted.gfa
+cmp sorted.gfa converted.gfa
+is $? 0 "GFA -> GBWTGraph -> HashGraph -> GFA conversion maintains segments"
+
+rm -f components.gbwt components.gg
+rm -f components.hg
+rm -f sorted.gfa converted.gfa
+
+
+# GFA to GBWTGraph with paths and walks
+vg gbwt -o components.gbwt -g components.gg -G graphs/components_paths_walks.gfa
+vg convert -g -a graphs/components_paths_walks.gfa > direct.hg
+vg paths -v direct.hg -A > correct_paths.gaf
+
+# GBWTGraph to HashGraph with paths and walks
+vg convert -b components.gbwt -a components.gg > components.hg
+is $? 0 "GBWTGraph to HashGraph conversion with reference paths"
+vg paths -A -v components.hg > hg_paths.gaf
+cmp hg_paths.gaf correct_paths.gaf
+is $? 0 "GBWTGraph to HashGraph conversion creates the correct reference paths"
+
+# GBWTGraph to XG with paths and walks
+vg convert -b components.gbwt -x components.gg > components.xg
+is $? 0 "GBWTGraph to XG conversion with reference paths"
+vg paths -A -v components.xg > xg_paths.gaf
+cmp xg_paths.gaf correct_paths.gaf
+is $? 0 "GBWTGraph to XG conversion creates the correct reference paths"
+
+rm -f components.gbwt components.gg
+rm -f direct.hg correct_paths.gaf
+rm -f components.hg hg_paths.gaf
+rm -f components.xg xg_paths.gaf

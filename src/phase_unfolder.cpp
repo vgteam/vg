@@ -1,5 +1,6 @@
 #include "phase_unfolder.hpp"
 #include "progress_bar.hpp"
+#include "algorithms/disjoint_components.hpp"
 
 #include <cassert>
 #include <iostream>
@@ -8,26 +9,27 @@
 
 namespace vg {
 
-PhaseUnfolder::PhaseUnfolder(const PathPositionHandleGraph& path_graph, const gbwt::GBWT& gbwt_index, vg::id_t next_node) :
+PhaseUnfolder::PhaseUnfolder(const PathHandleGraph& path_graph, const gbwt::GBWT& gbwt_index, vg::id_t next_node) :
     path_graph(path_graph), gbwt_index(gbwt_index), mapping(next_node) {
     assert(this->mapping.begin() > this->path_graph.max_node_id());
 }
 
 void PhaseUnfolder::unfold(MutableHandleGraph& graph, bool show_progress) {
-    std::list<VG> components = this->complement_components(graph, show_progress);
+    
+    std::list<bdsg::HashGraph> components = this->complement_components(graph, show_progress);
     
     size_t haplotype_paths = 0;
-    VG unfolded;
+    bdsg::HashGraph unfolded;
     for (MutableHandleGraph& component : components) {
         haplotype_paths += this->unfold_component(component, graph, unfolded);
     }
     if (show_progress) {
         std::cerr << "Unfolded graph: "
-                  << unfolded.node_count() << " nodes, " << unfolded.edge_count() << " edges on "
+                  << unfolded.get_node_count() << " nodes, " << unfolded.get_edge_count() << " edges on "
                   << haplotype_paths << " paths" << std::endl;
     }
     
-    algorithms::extend(&unfolded, &graph);
+    handlealgs::extend(&unfolded, &graph);
 }
 
 void PhaseUnfolder::restore_paths(MutableHandleGraph& graph, bool show_progress) const {
@@ -279,9 +281,9 @@ vg::id_t PhaseUnfolder::get_mapping(vg::id_t node) const {
     return this->mapping(node);
 }
 
-std::list<VG> PhaseUnfolder::complement_components(MutableHandleGraph& graph, bool show_progress) {
+std::list<bdsg::HashGraph> PhaseUnfolder::complement_components(MutableHandleGraph& graph, bool show_progress) {
     
-    VG complement;
+    bdsg::HashGraph complement;
 
     // checks whether the graph contains an edge
     auto graph_has_edge = [&](const vg::id_t from_id, const vg::id_t to_id,
@@ -292,7 +294,7 @@ std::list<VG> PhaseUnfolder::complement_components(MutableHandleGraph& graph, bo
         return false;
     };
     
-    // checks whether an edge from the PathPositionHandleGraph is in the graph
+    // checks whether an edge from the PathHandleGraph is in the graph
     auto graph_has_path_graph_edge = [&](const handle_t& from, const handle_t& to) {
         return graph_has_edge(path_graph.get_id(from), path_graph.get_id(to),
                               path_graph.get_is_reverse(from), path_graph.get_is_reverse(to));
@@ -304,7 +306,7 @@ std::list<VG> PhaseUnfolder::complement_components(MutableHandleGraph& graph, bo
                               gbwt::Node::is_reverse(from), gbwt::Node::is_reverse(to));
     };
     
-    // takes a handle to the PathPositionHandleGraph and returns the equivalent handle in
+    // takes a handle to the PathHandleGraph and returns the equivalent handle in
     // the complement, making the node if necessary
     auto get_or_make_complement_handle = [&](const handle_t& counterpart) {
         vg::id_t id = path_graph.get_id(counterpart);
@@ -341,13 +343,17 @@ std::list<VG> PhaseUnfolder::complement_components(MutableHandleGraph& graph, bo
         });
     });
 
-    // Add missing edges supported by GBWT threads.
+    // Add missing edges supported by GBWT threads, but only if the nodes exist
+    // in the original graph.
     for (gbwt::comp_type comp = 1; comp < this->gbwt_index.effective(); comp++) {
         gbwt::node_type gbwt_node = this->gbwt_index.toNode(comp);
+        if (!this->path_graph.has_node(gbwt::Node::id(gbwt_node))) {
+            continue;
+        }
         
         std::vector<gbwt::edge_type> outgoing = this->gbwt_index.edges(gbwt_node);
         for (gbwt::edge_type outedge : outgoing) {
-            if (outedge.first == gbwt::ENDMARKER) {
+            if (outedge.first == gbwt::ENDMARKER || !this->path_graph.has_node(gbwt::Node::id(outedge.first))) {
                 continue;
             }
             if (!graph_has_gbwt_edge(gbwt_node, outedge.first)) {
@@ -359,11 +365,10 @@ std::list<VG> PhaseUnfolder::complement_components(MutableHandleGraph& graph, bo
         }
     }
 
-    std::list<VG> components;
-    complement.disjoint_subgraphs(components);
+    std::list<bdsg::HashGraph> components = algorithms::disjoint_components(complement);
     if (show_progress) {
         std::cerr << "Complement graph: "
-                  << complement.node_count() << " nodes, " << complement.edge_count() << " edges in "
+                  << complement.get_node_count() << " nodes, " << complement.get_edge_count() << " edges in "
                   << components.size() << " components" << std::endl;
     }
     return components;

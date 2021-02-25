@@ -18,8 +18,6 @@
 #include "xg.hpp"
 #include "../indexed_vg.hpp"
 #include "../algorithms/extract_connecting_graph.hpp"
-#include "../algorithms/topological_sort.hpp"
-#include "../algorithms/weakly_connected_components.hpp"
 
 
 
@@ -128,7 +126,7 @@ int main_benchmark(int argc, char** argv) {
     if (sort_and_order_experiment) {
     
         results.push_back(run_benchmark("vg::algorithms topological_order", 1000, [&]() {
-            vector<handle_t> order = algorithms::topological_order(&vg);
+            vector<handle_t> order = handlealgs::topological_order(&vg);
             assert(order.size() == vg.get_node_count());
         }));
         
@@ -138,14 +136,8 @@ int main_benchmark(int argc, char** argv) {
             vg_mut.sort();
         }));
         
-        results.push_back(run_benchmark("vg::algorithms orient_nodes_forward", 1000, [&]() {
-            vg_mut = vg;
-        }, [&]() {
-            algorithms::orient_nodes_forward(&vg_mut);
-        }));
-        
         results.push_back(run_benchmark("vg::algorithms weakly_connected_components", 1000, [&]() {
-            auto components = algorithms::weakly_connected_components(&vg);
+            auto components = handlealgs::weakly_connected_components(&vg);
             assert(components.size() == 1);
             assert(components.front().size() == vg.get_node_count());
         }));

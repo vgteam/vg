@@ -8,8 +8,6 @@
 #include <utility>
  
 #include "dozeu_interface.hpp"
-
-#include "algorithms/topological_sort.hpp"
  
 // Configure dozeu:
 // We want the full length bonus included
@@ -144,7 +142,7 @@ DozeuInterface::graph_pos_s DozeuInterface::calculate_max_position(const Ordered
 
 pair<DozeuInterface::graph_pos_s, bool> DozeuInterface::scan_seed_position(const OrderedGraph& graph, const Alignment& alignment,
                                                                            bool direction, vector<const dz_forefront_s*>& forefronts,
-                                                                           uint16_t max_gap_length)
+                                                                           int8_t full_length_bonus, uint16_t max_gap_length)
 {
     const string& query_seq = alignment.sequence();
     const string& query_qual = alignment.quality();
@@ -158,8 +156,8 @@ pair<DozeuInterface::graph_pos_s, bool> DozeuInterface::scan_seed_position(const
     }
     
 	const dz_query_s* packed_query = (direction
-		? pack_query_reverse(pack_seq, pack_qual, scan_len)
-		: pack_query_forward(pack_seq, pack_qual, scan_len)
+		? pack_query_reverse(pack_seq, pack_qual, full_length_bonus, scan_len)
+		: pack_query_forward(pack_seq, pack_qual, full_length_bonus, scan_len)
 	);
     
     // make a root forefront
@@ -604,14 +602,15 @@ void DozeuInterface::debug_print(const Alignment& alignment, const OrderedGraph&
  * Then we extend the head seed backing-downstream, and trace that back to find the optimal alignment.
  */
 void DozeuInterface::align(Alignment& alignment, const HandleGraph& graph, const vector<MaximalExactMatch>& mems,
-                           bool reverse_complemented, uint16_t max_gap_length)
+                           bool reverse_complemented, int8_t full_length_bonus, uint16_t max_gap_length)
 {
-    vector<handle_t> topological_order = algorithms::lazy_topological_order(&graph);
+    vector<handle_t> topological_order = handlealgs::lazy_topological_order(&graph);
     return align(alignment, graph, topological_order, mems, reverse_complemented, max_gap_length);
 }
   
 void DozeuInterface::align(Alignment& alignment, const HandleGraph& graph, const vector<handle_t>& order,
-                           const vector<MaximalExactMatch>& mems, bool reverse_complemented, uint16_t max_gap_length)
+                           const vector<MaximalExactMatch>& mems, bool reverse_complemented,
+                           int8_t full_length_bonus, uint16_t max_gap_length)
 {
 
     const OrderedGraph ordered_graph(graph, order);
@@ -635,7 +634,8 @@ void DozeuInterface::align(Alignment& alignment, const HandleGraph& graph, const
         
         // scan seed position mems is empty
         bool scan_success;
-		tie(head_pos, scan_success) = scan_seed_position(ordered_graph, alignment, direction, forefronts, max_gap_length);
+		tie(head_pos, scan_success) = scan_seed_position(ordered_graph, alignment, direction, forefronts,
+                                                         full_length_bonus, max_gap_length);
         if (!scan_success) {
             // we failed to find a seed, so we will not attempt an alignment
             // clear the path just in case we're realigning a GAM
@@ -657,8 +657,8 @@ void DozeuInterface::align(Alignment& alignment, const HandleGraph& graph, const
         
         // pack query (upward)
 		const dz_query_s* packed_query_seq_up = (direction
-			? pack_query_reverse(pack_seq, pack_qual, seed_pos.query_offset)
-			: pack_query_forward(pack_seq, pack_qual, query_seq.size() - seed_pos.query_offset)
+			? pack_query_reverse(pack_seq, pack_qual, full_length_bonus, seed_pos.query_offset)
+			: pack_query_forward(pack_seq, pack_qual, full_length_bonus, query_seq.size() - seed_pos.query_offset)
 		);
 		// upward extension
 		head_pos = calculate_max_position(ordered_graph, seed_pos,
@@ -669,7 +669,7 @@ void DozeuInterface::align(Alignment& alignment, const HandleGraph& graph, const
 	// fprintf(stderr, "head_node_index(%lu), rpos(%lu, %u), qpos(%u), direction(%d)\n", head_pos.node_index, head_pos.node_index, head_pos.ref_offset, head_pos.query_offset, direction);
     
     // Now that we have determined head_pos, do the downward alignment from there, and the traceback.
-    align_downward(alignment, ordered_graph, {head_pos}, reverse_complemented, forefronts, max_gap_length);
+    align_downward(alignment, ordered_graph, {head_pos}, reverse_complemented, forefronts, full_length_bonus, max_gap_length);
     
     #ifdef DEBUG
 		if (mems.empty()) {
@@ -680,8 +680,9 @@ void DozeuInterface::align(Alignment& alignment, const HandleGraph& graph, const
     // bench_end(bench);
 }
     
-void DozeuInterface::align_downward(Alignment &alignment, const OrderedGraph& graph, const vector<graph_pos_s>& head_positions,
-                                    bool left_to_right, vector<const dz_forefront_s*>& forefronts, uint16_t max_gap_length)
+void DozeuInterface::align_downward(Alignment& alignment, const OrderedGraph& graph, const vector<graph_pos_s>& head_positions,
+                                    bool left_to_right, vector<const dz_forefront_s*>& forefronts,
+                                    int8_t full_length_bonus, uint16_t max_gap_length)
 { 
 
     // we're now allowing multiple graph start positions, but not multiple read start positions
@@ -702,8 +703,8 @@ void DozeuInterface::align_downward(Alignment &alignment, const OrderedGraph& gr
     
 	// pack query (downward)
 	const dz_query_s* packed_query_seq_dn = (left_to_right
-		? pack_query_forward(pack_seq, pack_qual, qlen - head_positions.front().query_offset)
-		: pack_query_reverse(pack_seq, pack_qual, head_positions.front().query_offset)
+		? pack_query_forward(pack_seq, pack_qual, full_length_bonus, qlen - head_positions.front().query_offset)
+		: pack_query_reverse(pack_seq, pack_qual, full_length_bonus, head_positions.front().query_offset)
 	);
 
 	// downward extension
@@ -716,10 +717,11 @@ void DozeuInterface::align_downward(Alignment &alignment, const OrderedGraph& gr
 	flush();
 }
 
-void DozeuInterface::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left, uint16_t max_gap_length)
+void DozeuInterface::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left,
+                                  int8_t full_length_bonus, uint16_t max_gap_length)
 {
     // Compute our own topological order
-    vector<handle_t> order = algorithms::lazy_topological_order(&g);
+    vector<handle_t> order = handlealgs::lazy_topological_order(&g);
     
     if (order.empty()) {
         // Can't do anything with no nodes in the graph.
@@ -756,7 +758,7 @@ void DozeuInterface::align_pinned(Alignment& alignment, const HandleGraph& g, bo
     vector<const dz_forefront_s*> forefronts(ordered.order.size(), nullptr);
     
     // Do the left-to-right alignment from the fixed head_pos seed, and then do the traceback.
-    align_downward(alignment, ordered, head_positions, pin_left, forefronts, max_gap_length);
+    align_downward(alignment, ordered, head_positions, pin_left, forefronts, full_length_bonus, max_gap_length);
 }
 
 /**

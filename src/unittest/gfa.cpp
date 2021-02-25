@@ -331,7 +331,7 @@ L	1	+	2	+	5M)";
         REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph_in_memory(in, &graph), algorithms::GFAFormatError);
     }
     
-    SECTION("A graph that uses a non-numerical identifier is rejected with GFAFormatError") {
+    SECTION("A graph that uses a non-numerical identifier is OK") {
 
         const string graph_gfa = R"(H	VN:Z:0.1
 S	1	GATT
@@ -340,10 +340,15 @@ L	1	+	Chana	+	0M)";
         
         bdsg::HashGraph graph;
         stringstream in(graph_gfa);
-        REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph_in_memory(in, &graph), algorithms::GFAFormatError);
+        algorithms::gfa_to_path_handle_graph_in_memory(in, &graph);
+        REQUIRE(graph.get_node_count() == 2);
+        // Note: gfakluge will visit the nodes in lex. order when loading from memory
+        REQUIRE(graph.get_sequence(graph.get_handle(1)) == "GATT");
+        REQUIRE(graph.get_sequence(graph.get_handle(2)) == "ACA");
+        REQUIRE(graph.has_edge(graph.get_handle(1), graph.get_handle(2)));
     }
     
-    SECTION("A graph that uses a negative identifier is rejected with GFAFormatError") {
+    SECTION("A graph that uses a negative identifier is OK") {
 
         const string graph_gfa = R"(H	VN:Z:0.1
 S	1	GATT
@@ -352,10 +357,15 @@ L	1	+	-2	+	0M)";
         
         bdsg::HashGraph graph;
         stringstream in(graph_gfa);
-        REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph_in_memory(in, &graph), algorithms::GFAFormatError);
+        algorithms::gfa_to_path_handle_graph_in_memory(in, &graph);
+        REQUIRE(graph.get_node_count() == 2);
+        // Note: gfakluge will visit the nodes in lex. order when loading from memory
+        REQUIRE(graph.get_sequence(graph.get_handle(2)) == "GATT");
+        REQUIRE(graph.get_sequence(graph.get_handle(1)) == "ACA");
+        REQUIRE(graph.has_edge(graph.get_handle(2), graph.get_handle(1)));
     }
     
-    SECTION("A graph that uses a zero identifier is rejected with GFAFormatError") {
+    SECTION("A graph that uses a zero identifier is OK") {
 
         const string graph_gfa = R"(H	VN:Z:0.1
 S	1	GATT
@@ -364,7 +374,12 @@ L	1	+	0	+	0M)";
         
         bdsg::HashGraph graph;
         stringstream in(graph_gfa);
-        REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph_in_memory(in, &graph), algorithms::GFAFormatError);
+        algorithms::gfa_to_path_handle_graph_in_memory(in, &graph);
+        REQUIRE(graph.get_node_count() == 2);
+        // Note: gfakluge will visit the nodes in lex. order when loading from memory
+        REQUIRE(graph.get_sequence(graph.get_handle(2)) == "GATT");
+        REQUIRE(graph.get_sequence(graph.get_handle(1)) == "ACA");
+        REQUIRE(graph.has_edge(graph.get_handle(2), graph.get_handle(1)));
     }
 
 }

@@ -291,7 +291,7 @@ private:
     
 class MEMClusterer::HitNode {
 public:
-    HitNode(const MaximalExactMatch& mem, pos_t start_pos, int32_t score) : mem(&mem), start_pos(start_pos), score(score) {}
+    HitNode(const MaximalExactMatch& mem, pos_t start_pos, int32_t score) : mem(&mem), start_pos(start_pos), score(score) { }
     HitNode() = default;
     ~HitNode() = default;
     

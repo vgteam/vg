@@ -4,8 +4,6 @@
 //#include "../subgraph.hpp"
 #include "../types.hpp"
 #include "shortest_cycle.hpp"
-#include "eades_algorithm.hpp"
-#include "is_single_stranded.hpp"
 #include <unordered_map>
 
 namespace vg {

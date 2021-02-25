@@ -48,6 +48,9 @@ bool is_number(const string& s);
 std::vector<std::string>& split_delims(const std::string &s, const std::string& delims, std::vector<std::string> &elems);
 std::vector<std::string> split_delims(const std::string &s, const std::string& delims);
 
+/// Check if a string starts with another string
+bool starts_with(const std::string& value, const std::string& prefix);
+
 const std::string sha1sum(const std::string& data);
 const std::string sha1head(const std::string& data, size_t head);
 
@@ -122,10 +125,11 @@ typename Collection::value_type sum(const Collection& collection) {
 
 
 /**
- * Temporary files. Create with create() and remove with remove(). All
- * temporary files will be deleted when the program exits normally or with
- * std::exit(). The files will be created in a directory determined from
- * environment variables, though this can be overridden with set_dir().
+ * Temporary files and directories. Create with create() or create_directory()
+ * and remove with remove(). All temporary files and directories will be
+ * deleted when the program exits normally or with std::exit(). The files will
+ * be created in a directory determined from environment variables, though this
+ * can be overridden with set_dir().
  * The interface is thread-safe.
  */
 namespace temp_file {
@@ -135,14 +139,19 @@ namespace temp_file {
 
     /// Create a temporary file
     string create();
+    
+    /// Create a temporary directory
+    string create_directory();
 
-    /// Remove a temporary file
+    /// Remove a temporary file or directory. File or directory must have been
+    /// created by create() or create_directory() and not any other means.
     void remove(const string& filename);
 
-    /// Set a temp dir, overriding system defaults and environment variables.
+    /// Set a directory for placing temporary files and directories in,
+    /// overriding system defaults and environment variables.
     void set_dir(const string& new_temp_dir);
 
-    /// Get the current temp dir
+    /// Get the current location for temporary files and directories.
     string get_dir();
 
 } // namespace temp_file

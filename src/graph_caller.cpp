@@ -1413,13 +1413,13 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
             break;
         } else if (get<2>(ref_interval) == true) {
             if (!graph.has_previous_step(cur_step)) {
-                cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(snarl) << endl;
+                cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(managed_snarl) << endl;
                 return false;
             }
             cur_step = graph.get_previous_step(cur_step);
         } else {
             if (!graph.has_next_step(cur_step)) {
-                cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(snarl) << endl;
+                cerr << "Warning [vg call]: Unable, due to bug or corrupt path information, to trace reference path through snarl " << pb2json(managed_snarl) << endl;
                 return false;
             }
             cur_step = graph.get_next_step(cur_step);
@@ -1437,6 +1437,11 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
     } else {
         // find the traversals using the generic interface
         travs = traversal_finder.find_traversals(snarl);
+    }
+
+    if (travs.empty()) {
+        cerr << "Warning [vg call]: Unable, due to bug or corrupt graph, to search for any traversals through snarl " << pb2json(managed_snarl) << endl;
+        return false;
     }
 
     // find the reference traversal in the list of results from the traversal finder

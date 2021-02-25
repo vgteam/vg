@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 28
+plan tests 27
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -58,20 +58,15 @@ rm -f giab.vg giab.xg giab.gcsa{,.lcp}
 #is $(vg find -M ACGTGCCGTTAGCCAGTGGGTTAG -R 10 -Z 10 -f -x s.xg -g s.gcsa) '[["ACGTGCCGTTAGCCAGTGGGTTAG",["3:11"]],["AGCCAGTGGGTTA",["1:0","2:0"]]]' "we can find the same (sufficiently long) sub-MEMs the hard de-duplication case with the fast sub-MEM option"
 #rm -rf s.vg s.xg s.gcsa*
 
-rm -Rf x.db
-
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
 vg map -x x.xg -g x.gcsa -T small/x-s1337-n100.reads >x.gam
-vg index -d x.db -N x.gam
-is $(vg find -o 127 -d x.db | vg view -a - | wc -l) 6 "the index can return the set of alignments mapping to a particular node"
-is $(vg find -A <(vg find -N <(seq 37 52 ) -x x.xg ) -d x.db | vg view -a - | wc -l) 15 "a subgraph query may be used to obtain a particular subset of alignments"
 
 vg gamsort -i x.sorted.gam.gai x.gam > x.sorted.gam
 is $(vg find -o 127 --sorted-gam x.sorted.gam | vg view -a - | wc -l) 6 "the GAM index can return the set of alignments mapping to a node"
 is $(vg find -A <(vg find -N <(seq 37 52 ) -x x.xg ) --sorted-gam x.sorted.gam | vg view -a - | wc -l) 15 "a subgraph query may be used to obtain a particular subset of alignments from a sorted GAM"
 
-rm -rf x.db x.gam x.sorted.gam x.sorted.gam.gai
+rm -rf x.gam x.sorted.gam x.sorted.gam.gai
 
 is $(vg find -G small/x-s1337-n1.gam -x x.xg | vg view - | grep ATTAGCCATGTGACTTTGAACAAGTTAGTTAATCTCTCTGAACTTCAGTT | wc -l) 1 "the index can be queried using GAM alignments"
 
@@ -96,7 +91,7 @@ vg construct -m 1000 -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a 2> /dev/null 
 vg index -x w.xg w.vg
 cat w.vg | vg paths -d -v - > part1.tmp
 vg find -x w.xg -Q alt > part2.tmp
-is $(vg combine part1.tmp part2.tmp | vg paths -L -v - | wc -l) 38 "pattern based path extraction works"
+is $(vg combine -c part1.tmp part2.tmp | vg paths -L -v - | wc -l) 38 "pattern based path extraction works"
 rm -f w.xg w.vg part1.tmp part2.tmp
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >t.vg
@@ -114,3 +109,9 @@ is $((vg view q.x:10:20.vg; vg view q.x:30:35.vg) | md5sum | cut -f 1 -d\ ) $((v
 is $(vg find -x t.xg -E -p x:30-35 -p x:10-20 -K 5 | wc -l) 36 "we see the expected number of kmers in the given targets"
 
 rm -f t.xg t.vg t.x:30:35.vg t.x:10:20.vg q.x:30:35.vg q.x:10:20.vg t.bed
+
+vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
+vg index -x x.xg x.vg
+vg index -G x.gbwt -v small/xy2.vcf.gz x.vg
+is $(vg find -p x -x x.xg -K 16 -H x.gbwt | cut -f 5 | sort | uniq -c  | tail -n 1 | awk '{ print $1 }') 1510 "we find the expected number of kmers with haplotype frequency equal to 2"
+rm -f x.vg x.xg x.gbwt

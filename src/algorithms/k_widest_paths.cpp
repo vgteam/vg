@@ -171,6 +171,12 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
                                          edge_weight_callback, [](handle_t) {return false;},
                                          [](edge_t) {return false;}, greedy_avg));
 
+    // unable to get any kind of path.  this is either a bug in the search or the graph
+    if (best_paths.back().second.empty()) {
+        best_paths.clear();
+        return best_paths;
+    }
+
     best_spurs.push_back(0);
     
     // working path set, mapped to spur index (plus 1 -- ie next spot we want to look when finding new spurs)

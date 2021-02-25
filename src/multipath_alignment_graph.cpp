@@ -3,6 +3,7 @@
 //
 
 #include "multipath_alignment_graph.hpp"
+#include "sequence_complexity.hpp"
 
 //#define debug_multipath_alignment
 
@@ -15,7 +16,7 @@ namespace vg {
         unordered_multimap<id_t, pair<id_t, bool> > injection_trans;
         for (const auto& trans_record : projection_trans) {
 #ifdef debug_multipath_alignment
-            cerr << trans_record.second.first << "->" << trans_record.first << (trans_record.second.second ? "-" : "+") << endl;
+            cerr << trans_record.second.first << " -> " << trans_record.first << (trans_record.second.second ? "-" : "+") << endl;
 #endif
             injection_trans.emplace(trans_record.second.first, make_pair(trans_record.first, trans_record.second.second));
         }
@@ -86,18 +87,20 @@ namespace vg {
         
     }
     
-    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
                                                      const function<pair<id_t, bool>(id_t)>& project,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                                     vector<size_t>& path_node_provenance,
                                                      size_t max_branch_trim_length, gcsa::GCSA* gcsa,
                                                      const MultipathMapper::match_fanouts_t* fanout_breaks) {
         
         // initialize the match nodes
-        create_match_nodes(graph, hits, project, injection_trans, fanout_breaks);
+        create_match_nodes(graph, hits, project, injection_trans, path_node_provenance, max_branch_trim_length, fanout_breaks);
         
         if (gcsa) {
             // we indicated that these MEMs came from a GCSA, so there might be order-length MEMs that we can combine
-            collapse_order_length_runs(graph, gcsa);
+            // TODO: this can lose some provenance information
+            collapse_order_length_runs(graph, gcsa, path_node_provenance);
         }
         
         if (max_branch_trim_length) {
@@ -107,10 +110,10 @@ namespace vg {
         }
         
 #ifdef debug_multipath_alignment
-        cerr << "nodes after adding, trimming, and collapsing:" << endl;
+        cerr << "nodes after adding, jittering, trimming, and collapsing:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
             PathNode& path_node = path_nodes.at(i);
-            cerr << i << " " << debug_string(path_node.path) << " ";
+            cerr << i << " (hit " << path_node_provenance[i] << ") " << debug_string(path_node.path) << " ";
             for (auto iter = path_node.begin; iter != path_node.end; iter++) {
                 cerr << *iter;
             }
@@ -119,27 +122,31 @@ namespace vg {
 #endif
         
         // compute reachability and add edges
-        add_reachability_edges(graph, project, injection_trans);
+        add_reachability_edges(graph, project, injection_trans, &path_node_provenance);
     }
     
-    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
                                                      const function<pair<id_t, bool>(id_t)>& project,
+                                                     vector<size_t>& path_node_provenance,
                                                      size_t max_branch_trim_length, gcsa::GCSA* gcsa,
                                                      const MultipathMapper::match_fanouts_t* fanout_breaks) :
                                                      MultipathAlignmentGraph(graph, hits, project,
                                                                              create_injection_trans(graph, project),
-                                                                             max_branch_trim_length, gcsa, fanout_breaks) {
+                                                                             path_node_provenance, max_branch_trim_length,
+                                                                             gcsa, fanout_breaks) {
         // Nothing to do
         
     }
 
-    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                                     vector<size_t>& path_node_provenance,
                                                      size_t max_branch_trim_length, gcsa::GCSA* gcsa,
                                                      const MultipathMapper::match_fanouts_t* fanout_breaks) :
                                                      MultipathAlignmentGraph(graph, hits, create_projector(projection_trans),
                                                                              create_injection_trans(projection_trans),
-                                                                             max_branch_trim_length, gcsa, fanout_breaks) {
+                                                                             path_node_provenance, max_branch_trim_length,
+                                                                             gcsa, fanout_breaks) {
         // Nothing to do
         
     }
@@ -150,7 +157,8 @@ namespace vg {
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
         
         // this can only be done on aligned sequences
-        if (!alignment.has_path()) {
+        if (!alignment.has_path() || alignment.path().mapping_size() == 0) {
+            has_reachability_edges = true;
             return;
         }
         
@@ -171,8 +179,8 @@ namespace vg {
         trim_hanging_indels(alignment, true);
     }
 
-MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
-                                                 MinimumDistanceIndex* dist_index, size_t max_snarl_cut_size,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
+                                                     MinimumDistanceIndex* dist_index, size_t max_snarl_cut_size,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans) :
                                                      MultipathAlignmentGraph(graph, alignment, snarl_manager, dist_index, max_snarl_cut_size,
                                                                              create_projector(projection_trans),
@@ -180,8 +188,8 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         // Nothing to do
     }
 
-MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
-                                                 MinimumDistanceIndex* dist_index, size_t max_snarl_cut_size,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager* snarl_manager,
+                                                     MinimumDistanceIndex* dist_index, size_t max_snarl_cut_size,
                                                      const function<pair<id_t, bool>(id_t)>& project) :
                                                      MultipathAlignmentGraph(graph, alignment, snarl_manager, dist_index, max_snarl_cut_size,
                                                                              project, create_injection_trans(graph, project)) {
@@ -237,7 +245,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                         // position matched the path
                         
 #ifdef debug_multipath_alignment
-                        cerr << "chunk position " << pb2json(pos) << " matches traversal " << projected_trav.first << (projected_trav.second ? "-" : "+") << endl;
+                        cerr << "chunk position " << pb2json(pos) << " matches traversal " << projected_trav.first << (projected_trav.second ? "-" : "+") << ", walked " << stack.size() << " of " << path.mapping_size() << " mappings" << endl;
 #endif
                         
                         if (stack.size() == path.mapping_size()) {
@@ -292,9 +300,16 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 
 #ifdef debug_multipath_alignment
                 cerr << "walked path: " << debug_string(path_node.path) << endl;
+                cerr << "sequence: " << string(path_node.begin, path_node.end) << endl;
 #endif
             }
         }
+#ifdef debug_multipath_alignment
+        cerr << "final path chunks:" << endl;
+        for (size_t i = 0; i < path_nodes.size(); ++i) {
+            cerr << i << ": " << string(path_nodes[i].begin, path_nodes[i].end) << " " << debug_string(path_nodes[i].path) << endl;
+        }
+#endif
     }
    
     
@@ -590,9 +605,11 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
 #endif
     }
     
-    void MultipathAlignmentGraph::create_match_nodes(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
+    void MultipathAlignmentGraph::create_match_nodes(const HandleGraph& graph, MultipathMapper::memcluster_t& hits,
                                                      const function<pair<id_t, bool>(id_t)>& project,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                                     vector<size_t>& path_node_provenance,
+                                                     int64_t max_branch_trim_length,
                                                      const MultipathMapper::match_fanouts_t* fanout_breaks) {
         
 #ifdef debug_multipath_alignment
@@ -620,24 +637,24 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
             // check all MEMs that traversed this node to see if this is a redundant sub-MEM
             if (node_matches.count(injected_id)) {
 #ifdef debug_multipath_alignment
-                cerr << "we need to check if this is a redundant sub MEM, there are previous that visited this hit" << endl;
+                cerr << "we need to check if this is a redundant sub MEM, there are previous paths that visited this hit" << endl;
 #endif
                 
                 for (int64_t j : node_matches[injected_id]) {
-                    PathNode& match_node = path_nodes.at(j);
+                    PathNode& match_node = path_nodes[j];
                     
                     if (begin < match_node.begin || end > match_node.end) {
 #ifdef debug_multipath_alignment
                         if (begin < match_node.begin) {
-                            cerr << "this MEM is earlier in the read than the other, so this is not redundant" << endl;
+                            cerr << "this MEM is earlier in the read than path node " << j << " by " << (match_node.begin - begin) << ", so this is not redundant" << endl;
                         }
                         else if (end > match_node.end) {
-                            cerr << "this MEM is later in the read than the other, so this is not redundant" << endl;
+                            cerr << "this MEM is later in the read than path node " << j << " by " << (end - match_node.end) << ", so this is not redundant" << endl;
                         }
 #endif
                         // the hit does not fall on the same section of the read as the other match, so
                         // it cannot be contained in it
-                        return false;
+                        continue;
                     }
                     
                     int64_t relative_offset = begin - match_node.begin;
@@ -664,7 +681,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                         }
                         const path_mapping_t& mapping = path.mapping(k);
                         // the length through this mapping
-                        int64_t prefix_through_length = prefix_length + mapping_from_length(mapping);
+                        int64_t prefix_through_length = prefix_length + mapping_to_length(mapping);
 #ifdef debug_multipath_alignment
                         cerr << "after traversing the " << k << "-th step, we have covered a distance of " << prefix_through_length << endl;
 #endif
@@ -720,10 +737,12 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
             filter_sub_mems_on_fly = true;
         }
         
+        size_t num_failed_walks = 0;
+        
         // walk the matches and filter out redundant sub-MEMs
         for (int64_t i = 0; i < hits.first.size(); i++) {
             
-            const pair<const MaximalExactMatch*, pos_t>& hit = hits.first[i];
+            pair<const MaximalExactMatch*, pos_t>& hit = hits.first[i];
             
             // the part of the read we're going to match
             string::const_iterator begin = hit.first->begin;
@@ -733,7 +752,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
             const pos_t& hit_pos = hit.second;
             
 #ifdef debug_multipath_alignment
-            cerr << "walking MEM hit " << hit_pos << " " << hit.first->sequence() << endl;
+            cerr << "walking MEM hit " << i << ": " << hit_pos << " " << hit.first->sequence() << endl;
             if (fanout_breaks && fanout_breaks->count(hit.first)) {
                 cerr << "fan-out breaks:" << endl;
                 for (auto fanout : fanout_breaks->at(hit.first)) {
@@ -741,7 +760,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 }
             }
 #endif
-            
+            bool walked_out_hit = false;
             auto hit_range = injection_trans.equal_range(id(hit_pos));
             for (auto iter = hit_range.first; iter != hit_range.second; iter++) {
                 // this graph is unrolled/dagified, so all orientations should match
@@ -843,6 +862,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
 #endif
                         assert(fanout_idx == fanout_size);
                         ++matches_found;
+                        walked_out_hit = true;
                         
                         path_t path;
                         int64_t path_length = end - begin;
@@ -888,6 +908,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
 #ifdef debug_multipath_alignment
                                     cerr << "adding path node for walked match of sequence " << string(curr_node_begin, node_end) << endl;
                                     cerr << debug_string(path) << endl;
+                                    cerr << "provenance of path traces to hit " << i << endl;
 #endif
                                     
                                     // create a path node
@@ -896,6 +917,8 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                                     match_node.path = move(path);
                                     match_node.begin = curr_node_begin;
                                     match_node.end = node_end;
+                                    
+                                    path_node_provenance.emplace_back(i - num_failed_walks);
                                     
                                     if (filter_sub_mems_on_fly) {
                                         record_node_matches(path_nodes.size() - 1);
@@ -959,15 +982,42 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                     }
                 }
             }
+            
+            // filter out failed walks so they are marked as unclustered
+            if (!walked_out_hit) {
+                ++num_failed_walks;
+            }
+            else if (num_failed_walks) {
+                hits.first[i - num_failed_walks] = hit;
+            }
         }
+        
+        // clear out the space that we allocated for walks that failed (if any)
+        hits.first.resize(hits.first.size() - num_failed_walks);
         
         if (!filter_sub_mems_on_fly) {
             // we weren't removing redundant sub-MEMs as we made them, but now we can do it
             // by sorting the path nodes descending by length
             
-            stable_sort(path_nodes.begin(), path_nodes.end(), [](const PathNode& a, const PathNode& b) {
+            vector<size_t> order(path_nodes.size(), 0);
+            for (size_t i = 1; i < path_nodes.size(); ++i) {
+                order[i] = i;
+            }
+            
+            stable_sort(order.begin(), order.end(), [&](size_t i, size_t j) {
+                const PathNode& a = path_nodes[i];
+                const PathNode& b = path_nodes[j];
                 return a.end - a.begin > b.end - b.begin;
             });
+            vector<size_t> index(order.size());
+            for (size_t i = 0; i < order.size(); ++i) {
+                index[order[i]] = i;
+            }
+            for (size_t i = 0; i < index.size(); ++i) {
+                std::swap(path_nodes[index[i]], path_nodes[i]);
+                std::swap(path_node_provenance[index[i]], path_node_provenance[i]);
+                std::swap(index[index[i]], index[i]);
+            }
             
             size_t removed_so_far = 0;
             for (size_t i = 0; i < path_nodes.size(); ++i) {
@@ -982,17 +1032,574 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 else {
                     if (removed_so_far > 0) {
                         path_nodes[i - removed_so_far] = move(path_nodes[i]);
+                        path_node_provenance[i - removed_so_far] = path_node_provenance[i];
                     }
                     record_node_matches(i - removed_so_far);
                 }
             }
             if (removed_so_far) {
                 path_nodes.resize(path_nodes.size() - removed_so_far);
+                path_node_provenance.resize(path_nodes.size());
+            }
+        }
+        
+        // merge the identical portion of any nodes that overlap exactly
+        merge_partially_redundant_match_nodes(node_matches, path_node_provenance);
+        
+        // if the end of a node is a homopolymer, see if it can be jittered at all
+        // and still make a reasonable alignment
+        jitter_homopolymer_ends(graph, path_node_provenance, hits, max_branch_trim_length);
+    }
+
+    void MultipathAlignmentGraph::merge_partially_redundant_match_nodes(const unordered_map<int64_t, vector<int64_t>>& node_matches,
+                                                                        vector<size_t>& path_node_provenance) {
+        
+#ifdef debug_multipath_alignment
+        cerr << "looking for MEMs with partial redundancies to merge" << endl;
+#endif
+        
+        if (path_nodes.size() <= 1) {
+            return;
+        }
+        
+        // find the groups that share at least one node
+        structures::UnionFind union_find(path_nodes.size(), false);
+        for (const auto& match_record : node_matches) {
+            for (int64_t i = 1; i < match_record.second.size(); ++i) {
+                union_find.union_groups(match_record.second.front(), match_record.second[i]);
+            }
+        }
+        
+        // records of (vector of (path node idx, mapping start idx), length)
+        vector<pair<vector<pair<size_t, size_t>>, size_t>> identical_segments;
+        
+        // big loop to identify the identical segments
+        for (const auto& overlapping_group : union_find.all_groups()) {
+            
+            if (overlapping_group.size() == 1) {
+                // doesn't overlap with anything
+                continue;
+            }
+            
+#ifdef debug_multipath_alignment
+            cerr << "looking for merges in overlapping group:" << endl;
+            for (auto i : overlapping_group) {
+                cerr << "\t" << i << endl;
+            }
+#endif
+            
+            // the amount of sequence we've walked for each node in the overlap group
+            vector<int64_t> to_length(overlapping_group.size(), 0);
+            
+            // some helper functions that keep things a bit more succinct later
+            
+            // go from index within overlapping group to current sequence position
+            auto seq_pos = [&](size_t i) {
+                return path_nodes[overlapping_group[i]].begin + to_length[i];
+            };
+            // go from heap record to mapping
+            auto next_mapping = [&](const pair<size_t, size_t>& a) {
+                return path_nodes[overlapping_group[a.first]].path.mapping(a.second);
+            };
+            // go from index within overlapping group to path length in mappings
+            auto path_length = [&](size_t i) {
+                return path_nodes[overlapping_group[i]].path.mapping_size();
+            };
+            // reverse ordering
+            auto heap_cmp = [&](const pair<size_t, size_t>& a, const pair<size_t, size_t>& b) {
+                return seq_pos(a.first) > seq_pos(b.first);
+            };
+            
+            // heap of (idx in group, mapping idx)
+            vector<pair<size_t, size_t>> heap(overlapping_group.size(), pair<size_t, size_t>(0, 0));
+            for (size_t i = 1; i < heap.size(); ++i) {
+                heap[i].first = i;
+            }
+            make_heap(heap.begin(), heap.end(), heap_cmp);
+            
+            while (heap.size() > 1) {
+                // move all of the path nodes whose next mapping occurs
+                // at the next sequence position into the unheaped back
+                auto heaped_end = heap.end();
+                pop_heap(heap.begin(), heaped_end--, heap_cmp);
+                while (heap.begin() != heaped_end &&
+                       seq_pos(heap.front().first) == seq_pos(heap.back().first)) {
+                    pop_heap(heap.begin(), heaped_end--, heap_cmp);
+                }
+                
+#ifdef debug_multipath_alignment
+                cerr << "next mappings are at uncentered sequence index " << seq_pos(heap.back().first) - path_nodes.front().begin << ":" << endl;
+                for (auto it = heaped_end; it != heap.end(); ++it) {
+                    cerr << "\t" << overlapping_group[it->first] << ": " << it->second << " " << debug_string(next_mapping(*it)) << endl;
+                }
+                cerr << "the other heaped mappings:" << endl;
+                for (auto it = heap.begin(); it != heaped_end; ++it) {
+                    cerr << "\t" << overlapping_group[it->first] << " (seq index " << seq_pos(it->first) - path_nodes.front().begin << "): " << it->second << " " << debug_string(next_mapping(*it)) << endl;
+                }
+#endif
+                
+                // split into groups that have identical next mappings
+                vector<vector<size_t>> groups;
+                for (size_t i = 0, n = (heap.end() - heaped_end); i < n; ++i) {
+                    bool found_match = false;
+                    for (auto& group : groups) {
+                        if (next_mapping(*(heaped_end + i)) == next_mapping(*(heaped_end + group.front()))) {
+                            group.push_back(i);
+                            found_match = true;
+                            break;
+                        }
+                    }
+                    if (!found_match) {
+                        // no matches, becomes its own group
+                        groups.emplace_back(1, i);
+                    }
+                }
+                
+#ifdef debug_multipath_alignment
+                cerr << "partitioned into match groups (by index within unheaped records):" << endl;
+                for (auto& group : groups) {
+                    cerr << "\t";
+                    for (auto i : group) {
+                        cerr << " " << i;
+                    }
+                    cerr << endl;
+                }
+#endif
+                
+                for (auto& group : groups) {
+                    if (group.size() == 1) {
+#ifdef debug_multipath_alignment
+                        cerr << "skipping group of size 1 containing " << group.front() << endl;
+#endif
+                        
+                        // no identical mapping to this one
+                        auto& heap_rec = *(heaped_end + group.front());
+                        to_length[heap_rec.first] += mapping_to_length(next_mapping(heap_rec));
+                        ++heap_rec.second;
+                    }
+                    else {
+#ifdef debug_multipath_alignment
+                        cerr << "walking match for group with";
+                        for (auto i : group) {
+                            cerr << " " << i;
+                        }
+                        cerr << endl;
+#endif
+                        
+                        // at least two mappings are identical
+                        identical_segments.emplace_back();
+                        auto& segment_rec = identical_segments.back();
+                        segment_rec.second = 1;
+                        for (auto i : group) {
+                            auto& heap_rec = *(heaped_end + i);
+                            to_length[heap_rec.first] += mapping_to_length(next_mapping(heap_rec));
+                            segment_rec.first.emplace_back(overlapping_group[heap_rec.first], heap_rec.second++);
+                        }
+                        while (true) {
+                            // only continue if all of the segments of this group match
+                            bool all_match = true;
+                            for (auto i : group) {
+                                auto& heap_rec = *(heaped_end + i);
+                                if (heap_rec.second == path_length(heap_rec.first)
+                                    || next_mapping(heap_rec) != next_mapping(*(heaped_end + group.front()))) {
+                                    // we hit the end of a path or found one that doesn't match
+                                    all_match = false;
+                                    break;
+                                }
+                            }
+                            if (!all_match) {
+                                break;
+                            }
+                            // extend the identical group by 1
+                            ++identical_segments.back().second;
+                            for (auto i : group) {
+                                auto& heap_rec = *(heaped_end + i);
+                                to_length[heap_rec.first] += mapping_to_length(next_mapping(heap_rec));
+                                ++heap_rec.second;
+                            }
+                        }
+#ifdef debug_multipath_alignment
+                        cerr << "walked match of length " << identical_segments.back().second << endl;
+#endif
+                    }
+                }
+                
+                // now remove any heap records that have reached the end of their path
+                for (auto it = heaped_end; it != heap.end();) {
+                    if (it->second == path_length(it->first)) {
+#ifdef debug_multipath_alignment
+                        cerr << "reached end of path node " << overlapping_group[it->first] << endl;
+#endif
+                        *it = heap.back();
+                        heap.pop_back();
+                    }
+                    else {
+#ifdef debug_multipath_alignment
+                        cerr << "have not yet exhausted (path node index) " << overlapping_group[it->first] << ", keeping on heap with a new uncentered seq index of " << seq_pos(it->first) - path_nodes.front().begin << endl;
+#endif
+                        ++it;
+                    }
+                }
+#ifdef debug_multipath_alignment
+                cerr << "restoring heap" << endl;
+#endif
+                
+                // and restore the heap
+                while (heaped_end != heap.end()) {
+                    push_heap(heap.begin(), ++heaped_end, heap_cmp);
+                }
+            }
+        }
+        
+        if (!identical_segments.empty()) {
+            
+#ifdef debug_multipath_alignment
+            cerr << "found identical segments:" << endl;
+            for (auto& segment : identical_segments) {
+                for (auto& rec : segment.first) {
+                    cerr << "(" << rec.first << ", " << rec.second << ") ";
+                }
+                cerr << segment.second << endl;
+            }
+#endif
+            
+            
+            vector<PathNode> merged_path_nodes;
+            vector<size_t> merged_provenances;
+            merged_path_nodes.reserve(path_nodes.size() + identical_segments.size());
+            merged_provenances.reserve(path_nodes.size() + identical_segments.size());
+            
+            // the index of the last mapping copied over for each path node
+            vector<size_t> last_copied(path_nodes.size(), 0);
+            
+            vector<size_t> copied_to_length(path_nodes.size(), 0);
+            
+            // function to add a path node for a segment, updating the tracking variables as necessary
+            auto add_segment_path_node = [&](size_t orig_idx, size_t seg_begin, size_t length) {
+                
+                PathNode& orig_path_node = path_nodes[orig_idx];
+                int64_t to_length_added = 0;
+                if (seg_begin == 0 && length == orig_path_node.path.mapping_size()) {
+                    to_length_added = orig_path_node.end - orig_path_node.begin;
+                    merged_path_nodes.emplace_back(move(orig_path_node));
+                }
+                else {
+                    merged_path_nodes.emplace_back();
+                    PathNode& new_path_node = merged_path_nodes.back();
+                    new_path_node.begin = orig_path_node.begin + copied_to_length[orig_idx];
+                    new_path_node.path.mutable_mapping()->reserve(length);
+                    for (size_t i = seg_begin, n = seg_begin + length; i < n; ++i) {
+                        auto& mapping = *orig_path_node.path.mutable_mapping(i);
+                        to_length_added += mapping_to_length(mapping);
+                        *new_path_node.path.add_mapping() = move(mapping);
+                    }
+                    new_path_node.end = new_path_node.begin + to_length_added;
+                }
+                merged_provenances.push_back(path_node_provenance[orig_idx]);
+#ifdef debug_multipath_alignment
+                cerr << "made merged node from original node " << orig_idx << ", start " << seg_begin << ", len " << length << endl;
+                cerr << string(merged_path_nodes.back().begin, merged_path_nodes.back().end) << endl;
+                cerr << debug_string(merged_path_nodes.back().path) << endl;
+#endif
+                return to_length_added;
+            };
+            
+            // by construction, the identical segments are ordered by the read position
+            // of their start, so we can iterate in order safely
+            for (auto& segment : identical_segments) {
+                // copy over any intervening segments
+                for (auto& path_node_start : segment.first) {
+                    if (last_copied[path_node_start.first] != path_node_start.second) {
+                        auto to_length_added = add_segment_path_node(path_node_start.first,
+                                                                     last_copied[path_node_start.first],
+                                                                     path_node_start.second - last_copied[path_node_start.first]);
+                        last_copied[path_node_start.first] = path_node_start.second;
+                        copied_to_length[path_node_start.first] += to_length_added;
+                    }
+                }
+                // copy over the merge segments
+                auto to_length_added = add_segment_path_node(segment.first.front().first,
+                                                             last_copied[segment.first.front().first],
+                                                             segment.second);
+                for (auto& path_node_start : segment.first) {
+                    last_copied[path_node_start.first] = path_node_start.second + segment.second;
+                    copied_to_length[path_node_start.first] += to_length_added;
+                }
+            }
+            
+            // copy any remaining segments
+            for (size_t i = 0; i < path_nodes.size(); ++i) {
+                size_t path_length = path_nodes[i].path.mapping_size();
+                if (last_copied[i] != path_length) {
+                    add_segment_path_node(i, last_copied[i], path_length - last_copied[i]);
+                }
+            }
+            
+            path_nodes = move(merged_path_nodes);
+            path_node_provenance = move(merged_provenances);
+        }
+        
+#ifdef debug_multipath_alignment
+        cerr << "nodes after merging partially redundant segments:" << endl;
+        for (size_t i = 0; i < path_nodes.size(); ++i) {
+            cerr << i << " (hit " << path_node_provenance[i] << "): " << debug_string(path_nodes[i].path) << " " << string(path_nodes[i].begin, path_nodes[i].end) << endl;
+        }
+#endif
+    }
+
+    void MultipathAlignmentGraph::jitter_homopolymer_ends(const HandleGraph& graph,
+                                                          vector<size_t>& path_node_provenance,
+                                                          const MultipathMapper::memcluster_t& hits,
+                                                          int64_t max_branch_trim_length) {
+        
+#ifdef debug_multipath_alignment
+        cerr << "checking for opportunities to jitter homopolymer anchors" << endl;
+#endif
+        
+        // TODO: magic constants
+        static const int64_t min_homopolymer_length = 6;
+        // a homopolymer jitter will be accepted if it meets either of these criteria:
+        static const int64_t max_jitter_diff = 2;
+        static const int64_t min_jitter_length = 5;
+        
+        size_t num_original_path_nodes = path_nodes.size();
+        for (size_t i = 0; i < num_original_path_nodes; ++i) {
+            if (path_nodes[i].end - path_nodes[i].begin != hits.first[path_node_provenance[i]].first->length()
+                || path_nodes[i].end - path_nodes[i].begin <= min_homopolymer_length) {
+                // this node has already been merged with some other node, which gives an indication
+                // that alternate exact matches have already handled the local alignment uncertainty
+                // or alternatively this node is too short to jitter
+                continue;
+            }
+            
+            // TODO: put bookkeeping in place to remove this restriction
+            // only try to jitter of one side of a path node at most (both is complicated because
+            // we have to sever the source node)
+            bool did_jitter = false;
+            for (bool left_side : {true, false}) {
+                if (did_jitter) {
+                    break;
+                }
+                
+                int64_t j_begin, incr;
+                if (left_side) {
+                    j_begin = 0;
+                    incr = 1;
+                }
+                else {
+                    j_begin = path_nodes[i].end - path_nodes[i].begin - 1;
+                    incr = -1;
+                }
+                
+                // find the length of homopolymer there is at the end of this match
+                // TODO: technically these are homodimers now, but whatever
+                int64_t homopolymer_length = 0;
+                for (int64_t j = j_begin, n = path_nodes[i].end - path_nodes[i].begin; j >= 0 && j < n; j += incr) {
+                    if (*(path_nodes[i].begin + j) == *(path_nodes[i].begin + j_begin + (abs(j - j_begin) % 2) * incr)) {
+                        ++homopolymer_length;
+                    }
+                    else {
+                        break;
+                    }
+                }
+                
+                if (homopolymer_length >= min_homopolymer_length) {
+                    // this is a long enough homopolymer that we'll consider some jitter
+                    
+#ifdef debug_multipath_alignment
+                    cerr << "found homopolymer of length " << homopolymer_length << " on path node " << i << " on left side? " << left_side << endl;
+#endif
+                                        
+                    // walk until the furthest mapping that can be reached by peeling off
+                    // the homopolymer
+                    int64_t k = left_side ? 0 : path_nodes[i].path.mapping_size() - 1;
+                    int64_t length_before = 0;
+                    for (; k + incr >= 0 && k + incr < path_nodes[i].path.mapping_size(); k += incr) {
+                        int64_t length_thru = length_before + mapping_to_length(path_nodes[i].path.mapping(k));
+                        if (length_thru > homopolymer_length) {
+                            break;
+                        }
+                        length_before = length_thru;
+                    }
+                                        
+                    // walk backwards looking for jittered matches
+                    handle_t adj_handle = graph.get_handle(path_nodes[i].path.mapping(k).position().node_id(),
+                                                           path_nodes[i].path.mapping(k).position().is_reverse());
+                    for (; k - incr >= 0 && k - incr < path_nodes[i].path.mapping_size() && !did_jitter; k -= incr) {
+                        if (length_before <= max_branch_trim_length) {
+                            // we won't bother trying to jitter over regions that will
+                            // be caught branch point trimming
+                            break;
+                        }
+#ifdef debug_multipath_alignment
+                        cerr << "at mapping " << k << " (" << debug_string(path_nodes[i].path.mapping(k).position()) << ") having already walked " << length_before << endl;
+#endif
+                        
+                        // TODO: contains some redundant code with create_match_nodes
+                        
+                        handle_t handle = adj_handle;
+                        adj_handle = graph.get_handle(path_nodes[i].path.mapping(k - incr).position().node_id(),
+                                                      path_nodes[i].path.mapping(k - incr).position().is_reverse());
+                        graph.follow_edges(handle, left_side, [&](const handle_t& next) {
+                            if (next != adj_handle){
+                                // this is an adjacency that the current path doesn't take, so we can
+                                // try to jitter down it
+                                
+#ifdef debug_multipath_alignment
+                                cerr << "homopolymer can branch from " << graph.get_id(handle) << " " << graph.get_is_reverse(handle) << " to " << graph.get_id(next) << " " << graph.get_is_reverse(next) << " with " << length_before << " bases to jitter" << endl;
+#endif
+                                
+                                // stack for DFS, each record contains tuples of
+                                // (read begin, next node index, next node handles,
+                                vector<tuple<string::const_iterator, size_t, vector<handle_t>>> stack;
+                                auto riter = left_side ? path_nodes[i].begin + length_before - 1 : path_nodes[i].end - length_before;
+                                stack.emplace_back(riter, 0, vector<handle_t>(1, next));
+                                while (!stack.empty() && !did_jitter) {
+                                    auto& back = stack.back();
+                                    if (get<1>(back) == get<2>(back).size()) {
+                                        stack.pop_back();
+                                        continue;
+                                    }
+                                    
+                                    handle_t trav = get<2>(back)[get<1>(back)];
+                                    get<1>(back)++;
+                                    
+#ifdef debug_multipath_alignment
+                                    cerr << "checking for matches node " << graph.get_id(trav) << endl;
+#endif
+                                    string node_seq = graph.get_sequence(trav);
+                                    int64_t node_idx = left_side ? node_seq.size() - 1 : 0;
+                                    string::const_iterator read_iter = get<0>(back);
+                                    
+                                    
+                                    // look for a match along the entire node sequence
+                                    for (; node_idx >= 0 && node_idx < node_seq.size()
+                                         && read_iter >= path_nodes[i].begin && read_iter < path_nodes[i].end; node_idx -= incr, read_iter -= incr) {
+#ifdef debug_multipath_alignment
+                                        cerr << "comparing MEM index " << (read_iter - path_nodes[i].begin) << " " << *read_iter << " and node index " << node_idx << " " << node_seq[node_idx] << endl;
+#endif
+                                        if (node_seq[node_idx] != *read_iter) {
+#ifdef debug_multipath_alignment
+                                            cerr << "found mismatch" << endl;
+#endif
+                                            
+                                            break;
+                                        }
+                                    }
+                                    
+                                    if ((node_idx < 0 || node_idx == node_seq.size())
+                                        && read_iter >= path_nodes[i].begin && read_iter < path_nodes[i].end) {
+                                        // we went off the end of the node without exhausting the MEM
+                                        stack.emplace_back(read_iter, 0, vector<handle_t>());
+                                        graph.follow_edges(trav, left_side, [&](const handle_t& next) {
+                                            get<2>(stack.back()).emplace_back(next);
+                                        });
+                                    }
+                                    else {
+                                        int64_t length_diff = left_side ? read_iter - path_nodes[i].begin + 1 : path_nodes[i].end - read_iter;
+                                        int64_t jitter_length = length_before - length_diff;
+                                        if (length_diff <= max_jitter_diff || jitter_length >= min_jitter_length) {
+                                            // we found a jittered anchor with nearly the same length, let's add
+                                            // the jittered portion as an alternate anchor
+                                            did_jitter = true;
+                                            path_nodes.emplace_back();
+                                            path_nodes.emplace_back();
+                                            auto& split_node = path_nodes[path_nodes.size() - 2];
+                                            auto& jitter_node = path_nodes.back();
+                                            path_node_provenance.emplace_back(path_node_provenance[i]);
+                                            path_node_provenance.emplace_back(path_node_provenance[i]);
+                                            if (left_side) {
+                                                jitter_node.begin = read_iter + 1;
+                                                jitter_node.end = path_nodes[i].begin + length_before;
+                                                if (node_idx < (int64_t) node_seq.size() - 1) {
+                                                    auto mapping = jitter_node.path.add_mapping();
+                                                    auto pos = mapping->mutable_position();
+                                                    pos->set_node_id(graph.get_id(trav));
+                                                    pos->set_is_reverse(graph.get_is_reverse(trav));
+                                                    pos->set_offset(node_idx + 1);
+                                                    auto edit = mapping->add_edit();
+                                                    edit->set_from_length(node_seq.size() - node_idx - 1);
+                                                    edit->set_to_length(edit->from_length());
+                                                }
+                                                for (int64_t l = stack.size() - 2; l >= 0; --l) {
+                                                    handle_t h = get<2>(stack[l])[get<1>(stack[l]) - 1];
+                                                    auto mapping = jitter_node.path.add_mapping();
+                                                    auto pos = mapping->mutable_position();
+                                                    pos->set_node_id(graph.get_id(h));
+                                                    pos->set_is_reverse(graph.get_is_reverse(h));
+                                                    pos->set_offset(0);
+                                                    auto edit = mapping->add_edit();
+                                                    edit->set_from_length(graph.get_length(h));
+                                                    edit->set_to_length(edit->from_length());
+                                                }
+                                                // split up the node that we jittered so that it finds the edge to the jitter
+                                                split_node.begin = path_nodes[i].begin + length_before;
+                                                split_node.end = path_nodes[i].end;
+                                                for (int64_t l = k; l < path_nodes[i].path.mapping_size(); ++l) {
+                                                    *split_node.path.add_mapping() = move(*path_nodes[i].path.mutable_mapping(l));
+                                                }
+                                                path_nodes[i].end = split_node.begin;
+                                                path_nodes[i].path.mutable_mapping()->resize(k);
+                                            }
+                                            else {
+                                                jitter_node.begin = path_nodes[i].end - length_before;
+                                                jitter_node.end = read_iter;
+                                                for (int64_t l = 0; l + 1 < stack.size(); ++l) {
+                                                    handle_t h = get<2>(stack[l])[get<1>(stack[l]) - 1];
+                                                    auto mapping = jitter_node.path.add_mapping();
+                                                    auto pos = mapping->mutable_position();
+                                                    pos->set_node_id(graph.get_id(h));
+                                                    pos->set_is_reverse(graph.get_is_reverse(h));
+                                                    pos->set_offset(0);
+                                                    auto edit = mapping->add_edit();
+                                                    edit->set_from_length(graph.get_length(h));
+                                                    edit->set_to_length(edit->from_length());
+                                                }
+                                                if (node_idx > 0) {
+                                                    auto mapping = jitter_node.path.add_mapping();
+                                                    auto pos = mapping->mutable_position();
+                                                    pos->set_node_id(graph.get_id(trav));
+                                                    pos->set_is_reverse(graph.get_is_reverse(trav));
+                                                    pos->set_offset(0);
+                                                    auto edit = mapping->add_edit();
+                                                    edit->set_from_length(node_idx);
+                                                    edit->set_to_length(edit->from_length());
+                                                }
+                                                // split up the node that we jittered so that it finds the edge to the jitter
+                                                split_node.begin = path_nodes[i].end - length_before;
+                                                split_node.end = path_nodes[i].end;
+                                                for (int64_t l = k + 1; l < path_nodes[i].path.mapping_size(); ++l) {
+                                                    *split_node.path.add_mapping() = move(*path_nodes[i].path.mutable_mapping(l));
+                                                }
+                                                path_nodes[i].end = split_node.begin;
+                                                path_nodes[i].path.mutable_mapping()->resize(k + 1);
+                                            }
+                                            
+#ifdef debug_multipath_alignment
+                                            cerr << "jitter difference of " << length_diff << " was small enough or length of " << jitter_length << " was large enough to make a new jitter anchor: " << endl;
+                                            cerr << string(jitter_node.begin, jitter_node.end) << " (" << (jitter_node.begin - path_nodes[i].begin) << ":" << (jitter_node.end - path_nodes[i].begin) << ") " << debug_string(jitter_node.path) << endl;
+                                            cerr << "new split nodes in path node " << i << endl;
+                                            cerr << string(path_nodes[i].begin, path_nodes[i].end) << " (" << (path_nodes[i].begin - path_nodes[i].begin) << ":" << (path_nodes[i].end - path_nodes[i].begin) << ") " << debug_string(path_nodes[i].path) << endl;
+                                            cerr << string(split_node.begin, split_node.end) << " (" << (split_node.begin - path_nodes[i].begin) << ":" << (split_node.end - path_nodes[i].begin) << ") " << debug_string(split_node.path) << endl;
+#endif
+                                        }
+                                    }
+                                }
+                            }
+                            return !did_jitter;
+                        });
+                        
+                        if (!did_jitter) {
+                            length_before -= mapping_to_length(path_nodes[i].path.mapping(k - incr));
+                        }
+                    }
+                }
             }
         }
     }
     
-    void MultipathAlignmentGraph::collapse_order_length_runs(const HandleGraph& graph, gcsa::GCSA* gcsa) {
+    void MultipathAlignmentGraph::collapse_order_length_runs(const HandleGraph& graph, gcsa::GCSA* gcsa,
+                                                             vector<size_t>& path_node_provenance) {
         
 #ifdef debug_multipath_alignment
         cerr << "looking for runs of order length MEMs to collapse with gcsa order "  << gcsa->order() << endl;
@@ -1028,16 +1635,11 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         
         for (size_t i : order) {
             
-            PathNode& match_node = path_nodes.at(i);
+            PathNode& match_node = path_nodes[i];
             
 #ifdef debug_multipath_alignment
             cerr << "checking if MEM " << i << " can be an extension: " << endl;
-            cerr << "\t";
-            for (auto iter = match_node.begin; iter != match_node.end; iter++) {
-                cerr << *iter;
-            }
-            cerr << endl;
-            cerr << "\t" << debug_string(match_node.path) << endl;
+            cerr << "\t" << string(match_node.begin, match_node.end) << "\t" << debug_string(match_node.path) << endl;
 #endif
             
             // try to find any run of MEMs that could be merged with this MEM
@@ -1048,7 +1650,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 
                 // because of the sort order, the last node in this run should overlap the current MEM
                 // if any of them can
-                PathNode& last_run_node = path_nodes.at(merge_group[merge_group.size() - 1]);
+                PathNode& last_run_node = path_nodes[merge_group[merge_group.size() - 1]];
                 
 #ifdef debug_multipath_alignment
                 cerr << "checking against extending MEM " << merge_group[merge_group.size() - 1] << " in merge group " << j << ":" << endl;
@@ -1185,7 +1787,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
             for (const vector<size_t>& merge_group : merge_groups) {
                 
                 // merge the paths into the first node in the group (arbitrarily)
-                PathNode& merge_into_node = path_nodes.at(merge_group[0]);
+                PathNode& merge_into_node = path_nodes[merge_group[0]];
                 
                 for (size_t i = 1; i < merge_group.size(); i++) {
                     
@@ -1273,7 +1875,8 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                     removed_so_far++;
                 }
                 else if (removed_so_far > 0) {
-                    path_nodes.at(i - removed_so_far) = move(path_nodes.at(i));
+                    path_nodes[i - removed_so_far] = move(path_nodes[i]);
+                    path_node_provenance[i - removed_so_far] = path_node_provenance[i];
 #ifdef debug_multipath_alignment
                     cerr << "moving path node " << i << " into index " << i - removed_so_far << endl;
 #endif
@@ -1286,6 +1889,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
             }
             
             path_nodes.resize(path_nodes.size() - to_remove.size());
+            path_node_provenance.resize(path_nodes.size());
         }
 #ifdef debug_multipath_alignment
         cerr << "done merging MEMs" << endl;
@@ -1834,7 +2438,8 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
 
     void MultipathAlignmentGraph::add_reachability_edges(const HandleGraph& graph,
                                                          const function<pair<id_t, bool>(id_t)>& project,
-                                                         const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
+                                                         const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
+                                                         vector<size_t>* path_node_provenance) {
                                                          
         
         // We're going to make "reachability" edges, which connect MEMs (which
@@ -1881,13 +2486,13 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         /// Get the offset in the first visited graph node at which the given MEM starts.
         /// Does not account for orientation.
         auto start_offset = [&](size_t idx) {
-            return path_nodes.at(idx).path.mapping(0).position().offset();
+            return path_nodes[idx].path.mapping(0).position().offset();
         };
         
         /// Get the offset in the first visited graph node at which the given MEM ends (i.e. the past-the-end offset).
         /// Does not account for orientation.
         auto end_offset = [&](size_t idx) {
-            path_t& path = path_nodes.at(idx).path;
+            path_t& path = path_nodes[idx].path;
             const path_mapping_t& mapping = path.mapping(path.mapping_size() - 1);
             return mapping.position().offset() + mapping_from_length(mapping);
         };
@@ -1895,13 +2500,13 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         /// Get the ID of the first node visited in the graph along the path for a MEM.
         /// Does not account for orientation.
         auto start_node_id = [&](size_t idx) {
-            return path_nodes.at(idx).path.mapping(0).position().node_id();
+            return path_nodes[idx].path.mapping(0).position().node_id();
         };
         
         /// Get the ID of the last node visited in the graph along the path for a MEM.
         /// Does not account for orientation.
         auto end_node_id = [&](size_t idx) {
-            path_t& path = path_nodes.at(idx).path;
+            path_t& path = path_nodes[idx].path;
             return path.mapping(path.mapping_size() - 1).position().node_id();
         };
         
@@ -1921,7 +2526,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         // Maps from node ID to the list of MEM numbers that end on that node.
         unordered_map<id_t, vector<size_t>> path_ends;
         for (size_t i = 0; i < path_nodes.size(); i++) {
-            path_t& path = path_nodes.at(i).path;
+            path_t& path = path_nodes[i].path;
             path_starts[path.mapping(0).position().node_id()].push_back(i);
             path_ends[path.mapping(path.mapping_size() - 1).position().node_id()].push_back(i);
         }
@@ -1952,14 +2557,14 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         for (pair<const id_t, vector<size_t>>& node_starts : path_starts) {
             std::sort(node_starts.second.begin(), node_starts.second.end(),
                       [&](const size_t idx_1, const size_t idx_2) {
-                          return start_offset(idx_1) < start_offset(idx_2);
-                      });
+                return start_offset(idx_1) < start_offset(idx_2);
+            });
         }
         for (pair<const id_t, vector<size_t>>& node_ends : path_ends) {
             std::sort(node_ends.second.begin(), node_ends.second.end(),
                       [&](const size_t idx_1, const size_t idx_2) {
-                          return end_offset(idx_1) < end_offset(idx_2);
-                      });
+                return end_offset(idx_1) < end_offset(idx_2);
+            });
         }
         
         // The "ranges" that are used below (range_start, range_end, etc.)
@@ -1997,7 +2602,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         unordered_map<size_t, vector<pair<size_t, size_t>>> reachable_starts_from_end;
         
         // get a topological order over the nodes in the graph to iterate over
-        vector<handle_t> topological_order = algorithms::lazier_topological_order(&graph);
+        vector<handle_t> topological_order = handlealgs::lazier_topological_order(&graph);
         for (int64_t i = 0; i < topological_order.size(); i++) {
             id_t node_id = graph.get_id(topological_order[i]);
             
@@ -2347,7 +2952,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 size_t curr_offset = endpoint_offset(endpoints->at(range_begin), contains_ends);
                 size_t prev_offset = curr_offset;
                 // find the range of endpoints that are at the first offset
-                while (range_end == endpoints->size() ? false : endpoint_offset(endpoints->at(range_end), contains_ends) == curr_offset) {
+                while (range_end < endpoints->size() && endpoint_offset(endpoints->at(range_end), contains_ends) == curr_offset) {
                     range_end++;
                 }
                 
@@ -2378,7 +2983,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                     // find the range of endpoints at this offset
                     prev_offset = curr_offset;
                     curr_offset = endpoint_offset(endpoints->at(range_begin), contains_ends);
-                    while (range_end == endpoints->size() ? false : endpoint_offset(endpoints->at(range_end), contains_ends) == curr_offset) {
+                    while (range_end < endpoints->size() && endpoint_offset(endpoints->at(range_end), contains_ends) == curr_offset) {
                         range_end++;
                     }
                     
@@ -2508,8 +3113,8 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         
         vector<unordered_map<size_t, size_t>> noncolinear_shells(path_nodes.size());
         
-        // map from index_from to maps of index_onto to (overlap size, dist)
-        unordered_map<size_t, map<size_t, pair<size_t, size_t>>> confirmed_overlaps;
+        // map from index_from to maps of index_onto to (overlap to length, overlap from length, dist)
+        unordered_map<size_t, map<size_t, tuple<size_t, size_t, size_t>>> confirmed_overlaps;
         // map from path index to set of indexes whose start occurs on the path
         unordered_map<size_t, set<size_t>> path_starts_on_path;
         
@@ -2559,7 +3164,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
 #ifdef debug_multipath_alignment
                     cerr << "searching backward from end " << end << endl;
 #endif
-                    PathNode& end_node = path_nodes.at(end);
+                    PathNode& end_node = path_nodes[end];
                     unordered_map<size_t, size_t>& noncolinear_shell = noncolinear_shells[end];
                     
                     for (const pair<size_t, size_t>& next_end : reachable_ends_from_end[end]) {
@@ -2670,15 +3275,18 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                     cerr << "searching backward from start " << start << " at index " << start_idx << endl;
 #endif
                     
-                    PathNode& start_node = path_nodes.at(start);
+                    PathNode& start_node = path_nodes[start];
                     unordered_map<size_t, size_t>& noncolinear_shell = noncolinear_shells[start];
+                    // TODO: kinda ugly
+                    // init this to 0, we'll actually compute it if we need it ever
+                    size_t start_node_from_length = 0;
 
                     // we begin at the start we're searching backward from
                     start_queue.push_or_reprioritize(start, 0);
                     
                     while (!start_queue.empty() || !end_queue.empty()) {
                         // is the next item on the queues a start or an end?
-                        if (start_queue.empty() ? false : (end_queue.empty() ? true : start_queue.top().second < end_queue.top().second)) {
+                        if (!start_queue.empty() && (end_queue.empty() || start_queue.top().second < end_queue.top().second)) {
                             
                             // the next closest endpoint is a start, traverse through it to find ends (which is what we really want)
                             
@@ -2707,8 +3315,8 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                             // the next closest endpoint is an end, so we check if we can make a connection to the start
                             // that we're searching backward from
                             
-                            size_t candidate_end = end_queue.top().first;
-                            size_t candidate_dist = end_queue.top().second;
+                            size_t candidate_end, candidate_dist;
+                            tie(candidate_end, candidate_dist) = end_queue.top();
                             end_queue.pop();
                             
 #ifdef debug_multipath_alignment
@@ -2742,10 +3350,12 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                                     end_queue.push_or_reprioritize(shell_pred.first, candidate_dist + shell_pred.second);
                                 }
                             }
-                            else if (start_node.end > candidate_end_node.end && start_node.begin > candidate_end_node.begin) {
+                            else if (candidate_end_node.begin < start_node.begin && candidate_end_node.end < start_node.end) {
                                 // the MEM can be made colinear by removing an overlap, which will not threaten reachability
-                                size_t overlap = candidate_end_node.end - start_node.begin;
-                                confirmed_overlaps[start][candidate_end] = make_pair(overlap, candidate_dist + overlap);
+                                size_t read_overlap = candidate_end_node.end - start_node.begin;
+                                size_t graph_overlap = corresponding_from_length(start_node.path, read_overlap, false);
+                                confirmed_overlaps[start][candidate_end] = make_tuple(read_overlap, graph_overlap,
+                                                                                      candidate_dist + graph_overlap);
                                 
 #ifdef debug_multipath_alignment
                                 cerr << "connection is overlap colinear, recording to add edge later" << endl;
@@ -2781,16 +3391,19 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                             }
                             else {
                                 // these MEMs are noncolinear, so add this predecessor to the noncolinear shell
+                                if (start_node_from_length == 0) {
+                                    start_node_from_length = path_from_length(start_node.path);
+                                }
                                 if (noncolinear_shell.count(candidate_end)) {
-                                    noncolinear_shell[candidate_end] = std::min(candidate_dist + (start_node.end - start_node.begin),
+                                    noncolinear_shell[candidate_end] = std::min(candidate_dist + start_node_from_length,
                                                                                 noncolinear_shell[candidate_end]);
                                 }
                                 else {
-                                    noncolinear_shell[candidate_end] = candidate_dist + (start_node.end - start_node.begin);
+                                    noncolinear_shell[candidate_end] = candidate_dist + start_node_from_length;
                                 }
                                 
 #ifdef debug_multipath_alignment
-                                cerr << "connection is noncolinear, add to shell at dist " << candidate_dist + (start_node.end - start_node.begin) << " and continue to search backwards" << endl;
+                                cerr << "connection is noncolinear, add to shell at dist " << candidate_dist + start_node_from_length << " and continue to search backwards" << endl;
 #endif
                                 
                                 // there is no connection to block further connections back, so any of this MEMs
@@ -2816,14 +3429,14 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                     cerr << "walking path to look for overlaps" << endl;
 #endif
                     
-                    path_t& path = path_nodes.at(start).path;
+                    path_t& path = start_node.path;
                     
                     // update the path starts index for the paths that start at the same position
                     for (size_t colocated_start : colocated_starts) {
                         path_starts_on_path[colocated_start].insert(start);
                         path_starts_on_path[start].insert(colocated_start);
                     }
-                    // records of (node_idx, overlap length)
+                    // records of (node_idx, graph overlap length)
                     vector<pair<size_t, size_t>> overlap_candidates;
                     
                     if (path.mapping_size() == 1) {
@@ -2836,7 +3449,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                         size_t final_offset = end_offset(start);
                         // record which starts are on the path on this node
                         for (size_t path_start_idx = start_idx + 1;
-                             path_start_idx >= starts.size() ? false : start_offset(starts[path_start_idx]) < final_offset;
+                             path_start_idx < starts.size() && start_offset(starts[path_start_idx]) < final_offset;
                              path_start_idx++) {
                             
                             path_starts_on_path[start].insert(starts[path_start_idx]);
@@ -2889,7 +3502,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                         size_t final_offset = end_offset(start);
                         // record which starts are on the path on the last node
                         for (size_t path_start_idx = 0;
-                             path_start_idx >= final_starts.size() ? false : start_offset(final_starts[path_start_idx]) < final_offset;
+                             path_start_idx < final_starts.size() && start_offset(final_starts[path_start_idx]) < final_offset;
                              path_start_idx++) {
                             
                             path_starts_on_path[start].insert(final_starts[path_start_idx]);
@@ -2922,32 +3535,39 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                             continue;
                         }
                         
-                        PathNode& overlap_node = path_nodes.at(overlap_candidate.first);
+                        PathNode& overlap_node = path_nodes[overlap_candidate.first];
                         
                         // how much do the paths overlap?
-                        size_t overlap = overlap_candidate.second;
+                        size_t graph_overlap = overlap_candidate.second;
+                        size_t read_overlap = corresponding_to_length(path, graph_overlap, false);
                         
                         // are the paths read colinear after removing the overlap?
-                        if (start_node.begin + overlap >= overlap_node.end) {
+                        if (start_node.begin + read_overlap >= overlap_node.end) {
 #ifdef debug_multipath_alignment
-                            cerr << "confirmed overlap colinear with overlap of " << overlap << endl;
+                            cerr << "confirmed overlap colinear with read overlap of " << read_overlap << ", graph overlap " << graph_overlap << endl;
 #endif
-                            confirmed_overlaps[start][overlap_candidate.first] = pair<size_t, size_t>(overlap, 0);
+                            confirmed_overlaps[start][overlap_candidate.first] = tuple<size_t, size_t, size_t>(read_overlap, graph_overlap, 0);
                         }
                         else if (overlap_node.begin < start_node.begin && overlap_node.end < start_node.end) {
 #ifdef debug_multipath_alignment
                             cerr << "confirmed overlap colinear with longer read overlap of " << overlap_node.end - start_node.begin << endl;
 #endif
                             // there is still an even longer read overlap we need to remove
-                            size_t read_overlap = overlap_node.end - start_node.begin;
-                            confirmed_overlaps[start][overlap_candidate.first] = pair<size_t, size_t>(read_overlap, read_overlap - overlap);
+                            size_t extended_read_overlap = overlap_node.end - start_node.begin;
+                            size_t extended_graph_overlap = corresponding_from_length(path, extended_read_overlap, false);
+                            confirmed_overlaps[start][overlap_candidate.first] = tuple<size_t, size_t, size_t>(extended_read_overlap,
+                                                                                                               extended_graph_overlap,
+                                                                                                               extended_graph_overlap - graph_overlap);
                         }
                         else {
 #ifdef debug_multipath_alignment
                             cerr << "not colinear even with overlap, adding to non-colinear shell at distance " << overlap_candidate.second << endl;
 #endif
                             // the overlapping node is still not reachable so it is in the noncolinear shell of this node
-                            noncolinear_shell[overlap_candidate.first] = (start_node.end - start_node.begin) - overlap_candidate.second;
+                            if (start_node_from_length == 0) {
+                                start_node_from_length = path_from_length(start_node.path);
+                            }
+                            noncolinear_shell[overlap_candidate.first] = start_node_from_length - overlap_candidate.second;
                         }
                     }
                     
@@ -2973,18 +3593,21 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         // about overlaps coming in from both directions)
         
         // sort in descending order of overlap length and group by the node that is being cut among overlaps of same length
-        // tuples of (overlap, index from, index onto, distance)
-        vector<tuple<size_t, size_t, size_t, size_t>> ordered_overlaps;
+        // tuples of (read overlap, graph overlap, index onto, index from, distance)
+        vector<tuple<size_t, size_t, size_t, size_t, size_t>> ordered_overlaps;
         for (const auto& path_overlaps : confirmed_overlaps) {
             for (const auto& overlap_record : path_overlaps.second) {
-                ordered_overlaps.emplace_back(overlap_record.second.first,
+                ordered_overlaps.emplace_back(get<0>(overlap_record.second),
+                                              get<1>(overlap_record.second),
                                               path_overlaps.first,
                                               overlap_record.first,
-                                              overlap_record.second.second);
+                                              get<2>(overlap_record.second));
             }
         }
-        std::sort(ordered_overlaps.begin(), ordered_overlaps.end(),
-                  std::greater<tuple<size_t, size_t, size_t, size_t>>());
+        // because both from and to lengths are monotonic, we should never get into a situations where the
+        // pair (read overlap, graph overlap) is incomparable, so this partial order is actually a total order
+        // barring equal pairs
+        sort(ordered_overlaps.begin(), ordered_overlaps.end(), greater<tuple<size_t, size_t, size_t, size_t, size_t>>());
         
         // keep track of whether another node is holding the suffix of one of the original nodes because of a split
         unordered_map<size_t, size_t> node_with_suffix;
@@ -2994,7 +3617,8 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         while (iter != ordered_overlaps.end()) {
             // find the range of overlaps that want to cut this node at the same place
             auto iter_range_end = iter;
-            while (get<0>(*iter_range_end) == get<0>(*iter) && get<1>(*iter_range_end) == get<1>(*iter)) {
+            while (get<0>(*iter_range_end) == get<0>(*iter) && get<1>(*iter_range_end) == get<1>(*iter)
+                   && get<2>(*iter_range_end) == get<2>(*iter)) {
                 iter_range_end++;
                 if (iter_range_end == ordered_overlaps.end()) {
                     break;
@@ -3002,11 +3626,22 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
             }
             
 #ifdef debug_multipath_alignment
-            cerr << "performing an overlap split onto " << get<1>(*iter) << " of length " << get<0>(*iter) << endl;
+            cerr << "performing an overlap split onto " << get<2>(*iter) << " from " << get<3>(*iter);
+            auto it = iter;
+            ++it;
+            for (; it != iter_range_end; ++it) {
+                cerr << ", " << get<3>(*it);
+            }
+            cerr << " of read length " << get<0>(*iter) << " and graph length " << get<1>(*iter);
+            if (path_node_provenance) {
+                cerr << ", provenances " << path_node_provenance->at(get<2>(*iter)) << " and " << path_node_provenance->at(get<3>(*iter));
+            }
+            cerr << endl;
+            
 #endif
             
             
-            PathNode* onto_node = &path_nodes.at(get<1>(*iter));
+            PathNode* onto_node = &path_nodes[get<2>(*iter)];
             
 #ifdef debug_multipath_alignment
             cerr << "before splitting:" << endl;
@@ -3028,31 +3663,33 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
             size_t prefix_to_length = 0;
             
             // add mappings from the path until reaching the overlap point
-            int64_t remaining = get<0>(*iter);
+            int64_t to_remaining = get<0>(*iter);
+            int64_t from_remaining = get<1>(*iter);
             int64_t mapping_idx = 0;
-            int64_t mapping_len = mapping_from_length(full_path.mapping(mapping_idx));
-            while (remaining >= mapping_len) {
+            int64_t mapping_from_len = mapping_from_length(full_path.mapping(mapping_idx));
+            int64_t mapping_to_len = mapping_to_length(full_path.mapping(mapping_idx));
+            while (to_remaining >= mapping_to_len && from_remaining >= mapping_from_len) {
                 *onto_node->path.add_mapping() = full_path.mapping(mapping_idx);
-                prefix_to_length += mapping_to_length(full_path.mapping(mapping_idx));
-                remaining -= mapping_len;
-                
+                prefix_to_length += mapping_to_len;
+                to_remaining -= mapping_to_len;
+                from_remaining -= mapping_from_len;
                 mapping_idx++;
                 if (mapping_idx == full_path.mapping_size()) {
                     break;
                 }
                 
-                mapping_len = mapping_from_length(full_path.mapping(mapping_idx));
+                mapping_from_len = mapping_from_length(full_path.mapping(mapping_idx));
+                mapping_to_len = mapping_to_length(full_path.mapping(mapping_idx));
             }
             
-            if (mapping_idx == full_path.mapping_size() && !remaining) {
+            if (mapping_idx == full_path.mapping_size() && !to_remaining && !from_remaining) {
                 // TODO: isn't this case covered by taking the entire range of splits at the same place?
                 
                 // the overlap covered the path, so connect it to the onto node's successors
                 // rather than splitting it into two nodes
-                
                 while (iter != iter_range_end) {
                     for (const pair<size_t, size_t> edge : onto_node->edges) {
-                        path_nodes.at(get<2>(*iter)).edges.emplace_back(edge.first, edge.second + get<3>(*iter));
+                        path_nodes.at(get<3>(*iter)).edges.emplace_back(edge.first, edge.second + get<4>(*iter));
                     }
                     iter++;
                 }
@@ -3064,10 +3701,13 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 // make a new node to hold the suffix of the path
                 size_t suffix_idx = path_nodes.size();
                 path_nodes.emplace_back();
+                if (path_node_provenance) {
+                    path_node_provenance->emplace_back((*path_node_provenance)[get<2>(*iter)]);
+                }
                 PathNode& suffix_node = path_nodes.back();
                 
                 // get the pointer from the onto node back in case the vector reallocated
-                onto_node = &path_nodes.at(get<1>(*iter));
+                onto_node = &path_nodes.at(get<2>(*iter));
                 
                 // transfer the outgoing edges onto the new node
                 suffix_node.edges = std::move(onto_node->edges);
@@ -3077,13 +3717,13 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 onto_node->edges.emplace_back(suffix_idx, 0);
                 
                 // keep track of the relationship of suffix nodes to original nodes
-                if (!node_with_suffix.count(get<1>(*iter))) {
+                if (!node_with_suffix.count(get<2>(*iter))) {
                     // since we take longest overlaps first, only the first split onto a node will change
                     // which node contains the suffix of the original node
-                    node_with_suffix[get<1>(*iter)] = suffix_idx;
+                    node_with_suffix[get<2>(*iter)] = suffix_idx;
                 }
                 
-                if (remaining) {
+                if (to_remaining || from_remaining) {
                     // the overlap point is in the middle of a node, need to split a mapping
                     
                     const path_mapping_t& split_mapping = full_path.mapping(mapping_idx);
@@ -3096,38 +3736,40 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                     // add the suffix of the mapping to the new node
                     path_mapping_t* suffix_split = suffix_node.path.add_mapping();
                     suffix_split->mutable_position()->set_node_id(split_mapping.position().node_id());
-                    suffix_split->mutable_position()->set_offset(split_mapping.position().offset() + remaining);
-                    
+                    suffix_split->mutable_position()->set_offset(split_mapping.position().offset() + from_remaining);
+                                        
                     // add the edits up to the point where the split occurs
                     size_t edit_idx = 0;
-                    int64_t mapping_remaining = remaining;
-                    for (; mapping_remaining >= split_mapping.edit(edit_idx).from_length() && edit_idx < split_mapping.edit_size(); edit_idx++) {
-                        mapping_remaining -= split_mapping.edit(edit_idx).from_length();
-                        prefix_to_length += split_mapping.edit(edit_idx).to_length();
+                    int64_t mapping_to_remaining = to_remaining;
+                    int64_t mapping_from_remaining = from_remaining;
+                    for (; edit_idx < split_mapping.edit_size()
+                         && mapping_from_remaining >= split_mapping.edit(edit_idx).from_length()
+                         && mapping_to_remaining >= split_mapping.edit(edit_idx).to_length(); edit_idx++) {
+                        const edit_t& split_edit = split_mapping.edit(edit_idx);
+                        mapping_from_remaining -= split_edit.from_length();
+                        mapping_to_remaining -= split_edit.to_length();
+                        prefix_to_length += split_edit.to_length();
+                        *prefix_split->add_edit() = split_edit;
                     }
                     
                     // do we need to split in the middle of an edit?
-                    if (mapping_remaining) {
+                    if (mapping_from_remaining || mapping_to_remaining) {
                         
                         const edit_t& split_edit = split_mapping.edit(edit_idx);
-                        
                         // add an edit for either side of the split
                         edit_t* prefix_split_edit = prefix_split->add_edit();
-                        prefix_split_edit->set_from_length(mapping_remaining);
+                        prefix_split_edit->set_from_length(mapping_from_remaining);
+                        prefix_split_edit->set_to_length(mapping_to_remaining);
+                        
+                        prefix_to_length += prefix_split_edit->to_length();
                         
                         edit_t* suffix_split_edit = suffix_split->add_edit();
-                        suffix_split_edit->set_from_length(split_edit.from_length() - mapping_remaining);
+                        suffix_split_edit->set_from_length(split_edit.from_length() - mapping_from_remaining);
+                        suffix_split_edit->set_to_length(split_edit.to_length() - mapping_to_remaining);
                         
-                        if (split_edit.to_length()) {
-                            prefix_split_edit->set_to_length(mapping_remaining);
-                            suffix_split_edit->set_to_length(split_edit.to_length() - mapping_remaining);
-                            prefix_to_length += prefix_split_edit->to_length();
-                            
-                            if (!split_edit.sequence().empty()) {
-                                suffix_split_edit->set_sequence(split_edit.sequence().substr(0, mapping_remaining));
-                                prefix_split_edit->set_sequence(split_edit.sequence().substr(mapping_remaining,
-                                                                                             split_edit.sequence().size() -mapping_remaining));
-                            }
+                        if (!split_edit.sequence().empty()) {
+                            prefix_split_edit->set_sequence(split_edit.sequence().substr(0, mapping_to_remaining));
+                            suffix_split_edit->set_sequence(split_edit.sequence().substr(mapping_to_remaining, string::npos));
                         }
                         
                         edit_idx++;
@@ -3167,10 +3809,10 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 
                 while (iter != iter_range_end) {
                     // index of the node that contains the end of the original node we recorded the overlap from
-                    size_t splitting_idx = node_with_suffix.count(get<2>(*iter)) ? node_with_suffix[get<2>(*iter)] : get<2>(*iter);
+                    size_t splitting_idx = node_with_suffix.count(get<3>(*iter)) ? node_with_suffix[get<3>(*iter)] : get<3>(*iter);
                     
 #ifdef debug_multipath_alignment
-                    cerr << "adding an overlap edge from node " << splitting_idx << " at distance " << get<3>(*iter) << endl;
+                    cerr << "adding an overlap edge from node " << splitting_idx << " at distance " << get<4>(*iter) << endl;
                     cerr << "\t";
                     for (auto node_iter = path_nodes.at(splitting_idx).begin; node_iter != path_nodes.at(splitting_idx).end; node_iter++) {
                         cerr << *node_iter;
@@ -3179,7 +3821,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
 #endif
                     
                     // get the next node that overlaps onto the other node at this index and add the overlap edge
-                    path_nodes.at(splitting_idx).edges.emplace_back(suffix_idx, get<3>(*iter));
+                    path_nodes.at(splitting_idx).edges.emplace_back(suffix_idx, get<4>(*iter));
                     
                     iter++;
                 }
@@ -3193,11 +3835,11 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         cerr << "final graph after adding reachability edges:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
             PathNode& path_node = path_nodes.at(i);
-            cerr << i << " " << debug_string(path_node.path) << " ";
-            for (auto iter = path_node.begin; iter != path_node.end; iter++) {
-                cerr << *iter;
+            cerr << i;
+            if (path_node_provenance) {
+                cerr << " (hit " << path_node_provenance->at(i) << ")";
             }
-            cerr << endl;
+            cerr << " " << debug_string(path_node.path) << " " << string(path_node.begin, path_node.end) << endl;
             cerr << "\t";
             for (auto edge : path_node.edges) {
                 cerr << "(to:" << edge.first << ", graph dist:" << edge.second << ", read dist: " << (path_nodes.at(edge.first).begin - path_node.end) << ") ";
@@ -3205,6 +3847,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
             cerr << endl;
         }
 #endif
+        
     }
     
     void MultipathAlignmentGraph::clear_reachability_edges() {
@@ -3290,7 +3933,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         reorder_adjacency_lists(topological_order);
         
         for (size_t i : topological_order) {
-            vector<pair<size_t, size_t>>& edges = path_nodes.at(i).edges;
+            vector<pair<size_t, size_t>>& edges = path_nodes[i].edges;
             
             // if there is only one edge out of a node, that edge can never be transitive
             // (this optimization covers most cases)
@@ -3303,8 +3946,10 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
             
             for (size_t j = 0; j < edges.size(); j++) {
                 const pair<size_t, size_t>& edge = edges[j];
-                if (traversed.count(edge.first)) {
+                if (traversed.count(edge.first) && edge.second != 0 &&
+                    path_nodes[i].end != path_nodes[edge.first].begin) {
                     // we can reach the target of this edge by another path, so it is transitive
+                    // and the path nodes don't abut on either the read or graph
                     keep[j] = false;
                     continue;
                 }
@@ -3359,7 +4004,9 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
     }
     
     void MultipathAlignmentGraph::prune_to_high_scoring_paths(const Alignment& alignment, const GSSWAligner* aligner,
-                                                              double max_suboptimal_score_ratio, const vector<size_t>& topological_order) {
+                                                              double max_suboptimal_score_ratio, const vector<size_t>& topological_order,
+                                                              function<pair<id_t, bool>(id_t)>& translator,
+                                                              vector<size_t>& path_node_provenance) {
         
         // Can only prune when edges exist.
         assert(has_reachability_edges);
@@ -3379,8 +4026,8 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
             PathNode& from_node = path_nodes.at(i);
             node_weights[i] = (aligner->score_exact_match(from_node.begin, from_node.end,
                                                           alignment.quality().begin() + (from_node.begin - alignment.sequence().begin()))
-                               + aligner->full_length_bonus * ((from_node.begin == alignment.sequence().begin())
-                                                               + (from_node.end == alignment.sequence().end())));
+                               + (from_node.begin == alignment.sequence().begin() ? aligner->score_full_length_bonus(true, alignment) : 0)
+                               + (from_node.end == alignment.sequence().end() ? aligner->score_full_length_bonus(false, alignment) : 0));
                         
             for (const pair<size_t, size_t>& edge : from_node.edges) {
                 PathNode& to_node = path_nodes.at(edge.first);
@@ -3392,15 +4039,15 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                     // the read length in between the MEMs is longer than the distance, suggesting a read insert
                     // and potentially another mismatch on the other end
                     int64_t gap_length = read_dist - graph_dist;
-                    edge_weights[make_pair(i, edge.first)] = -(gap_length - 1) * aligner->gap_extension - aligner->gap_open
-                    - (graph_dist > 0) * aligner->mismatch;
+                    edge_weights[make_pair(i, edge.first)] = (-(gap_length - 1) * aligner->gap_extension - aligner->gap_open
+                                                              - (graph_dist > 0) * aligner->mismatch);
                 }
                 else if (read_dist < graph_dist) {
                     // the read length in between the MEMs is shorter than the distance, suggesting a read deletion
                     // and potentially another mismatch on the other end
                     int64_t gap_length = graph_dist - read_dist;
-                    edge_weights[make_pair(i, edge.first)] = -(gap_length - 1) * aligner->gap_extension - aligner->gap_open
-                    - (read_dist > 0) * aligner->mismatch;
+                    edge_weights[make_pair(i, edge.first)] = (-(gap_length - 1) * aligner->gap_extension - aligner->gap_open
+                                                              - (read_dist > 0) * aligner->mismatch);
                 }
                 else {
                     // the read length in between the MEMs is the same as the distance, suggesting a pure mismatch
@@ -3435,57 +4082,45 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         // compute the minimum score we will require of a node or edge
         int32_t min_path_score = *std::max_element(forward_scores.begin(), forward_scores.end()) / max_suboptimal_score_ratio;
         
-        // use forward-backward to find nodes/edges on some path with a score above the minimum
-        unordered_set<size_t> keep_nodes;
-        unordered_set<pair<size_t, size_t>> keep_edges;
+        // use forward-backward to find nodes on some path with a score above the minimum
         vector<size_t> removed_in_prefix(path_nodes.size() + 1, 0);
         for (size_t i = 0; i < path_nodes.size(); i++) {
-            if (forward_scores[i] + backward_scores[i] - node_weights[i] >= min_path_score) {
-                keep_nodes.insert(i);
-                for (const pair<size_t, size_t>& edge : path_nodes.at(i).edges) {
-                    if (forward_scores[i] + backward_scores[edge.first] + edge_weights[make_pair(i, edge.first)] >= min_path_score) {
-                        keep_edges.emplace(i, edge.first);
+            removed_in_prefix[i + 1] = (removed_in_prefix[i]
+                                        + int(forward_scores[i] + backward_scores[i] - node_weights[i] < min_path_score));
+        }
+        
+        // remove any nodes that failed to meet the threshold
+        for (size_t i = 0; i < path_nodes.size(); ++i) {
+            if (removed_in_prefix[i] == removed_in_prefix[i + 1]) {
+                // we're keeping this node
+                auto& path_node = path_nodes[i];
+                
+                // remove its edges that aren't on a sufficiently high-scoring path too
+                size_t edges_removed = 0;
+                for (size_t j = 0; j < path_node.edges.size(); ++j) {
+                    auto& edge = path_node.edges[j];
+                    if (forward_scores[i] + backward_scores[edge.first] + edge_weights[make_pair(i, edge.first)] < min_path_score) {
+                        ++edges_removed;
+                    }
+                    else {
+                        path_node.edges[j - edges_removed] = make_pair(edge.first - removed_in_prefix[edge.first], edge.second);
                     }
                 }
-                removed_in_prefix[i + 1] = removed_in_prefix[i];
-            }
-            else {
-                removed_in_prefix[i + 1] = removed_in_prefix[i] + 1;
+                path_node.edges.resize(path_node.edges.size() - edges_removed);
+                if (removed_in_prefix[i]) {
+                    path_nodes[i - removed_in_prefix[i]] = move(path_node);
+                    path_node_provenance[i - removed_in_prefix[i]] = path_node_provenance[i];
+                }
             }
         }
         
-        // prune down to these nodes and edges
-        size_t next = 0;
-        for (size_t i = 0; i < path_nodes.size(); i++) {
-            if (keep_nodes.count(i)) {
-                if (i != next) {
-                    path_nodes.at(next) = std::move(path_nodes.at(i));
-                }
-                vector<pair<size_t, size_t>>& edges = path_nodes.at(next).edges;
-                
-                size_t new_end = edges.size();
-                for (size_t j = 0; j < new_end;) {
-                    pair<size_t, size_t>& edge = edges[j];
-                    if (!keep_edges.count(make_pair(i, edge.first))) {
-                        new_end--;
-                        edge = edges[new_end];
-                    }
-                    else {
-                        edge.first -= removed_in_prefix[edge.first];
-                        j++;
-                    }
-                }
-                edges.resize(new_end);
-                
-                next++;
-            }
-        }
-        path_nodes.resize(next);
+        path_nodes.resize(path_nodes.size() - removed_in_prefix.back());
+        path_node_provenance.resize(path_nodes.size());
         
 #ifdef debug_multipath_alignment
         cerr << "pruned to high scoring paths, topology is:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
-            cerr << "node " << i << ", " << debug_string(path_nodes.at(i).path.mapping(0).position()) << " ";
+            cerr << "node " << i << " (hit " << path_node_provenance[i] << "), " << debug_string(path_nodes.at(i).path.mapping(0).position()) << " ";
             for (auto iter = path_nodes.at(i).begin; iter != path_nodes.at(i).end; iter++) {
                 cerr << *iter;
             }
@@ -3534,9 +4169,9 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 int32_t match_score = aligner->score_exact_match(path_node.begin, path_node.end,
                                                                  alignment.quality().begin() + (path_node.begin - alignment.sequence().begin()));
                 
-                subpath->set_score(match_score + aligner->full_length_bonus *
-                                   ((path_node.begin == alignment.sequence().begin()) +
-                                    (path_node.end == alignment.sequence().end())));
+                subpath->set_score(match_score
+                                   + (path_node.begin == alignment.sequence().begin() ? aligner->score_full_length_bonus(true, alignment) : 0)
+                                   + (path_node.end == alignment.sequence().end() ? aligner->score_full_length_bonus(false, alignment) : 0));
             }
         }
         else {
@@ -3554,43 +4189,81 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         }
         
         // we use this function to remove alignments that follow the same path, keeping only the highest scoring one
-        auto deduplicate_alt_alns = [](vector<Alignment>& alt_alns) {
-            // we use stable sort to keep the original ordering among alignments
+        auto deduplicate_alt_alns = [](vector<Alignment>& alt_alns, bool leftward, bool rightward) -> vector<pair<path_t, int32_t>> {
+            // init the deduplicated vector in STL types with move operators
+            vector<pair<path_t, int32_t>> deduplicated(alt_alns.size());
+            for (size_t i = 0; i < alt_alns.size(); ++i) {
+                const auto& aln = alt_alns[i];
+                deduplicated[i].second = aln.score();
+                from_proto_path(aln.path(), deduplicated[i].first);
+            }
+            
+            // we use stable sort to keep the original score-ordering among alignments
             // that take the same path, which is descending by score
-            stable_sort(alt_alns.begin(), alt_alns.end(), [](const Alignment& aln_1, const Alignment& aln_2) {
+            stable_sort(deduplicated.begin(), deduplicated.end(),
+                        [&](const pair<path_t, int32_t>& aln_1, const pair<path_t, int32_t>& aln_2) {
+                const auto& path_1 = aln_1.first, path_2 = aln_2.first;
+                int64_t i, j, incr;
+                if (leftward) {
+                    i = path_1.mapping_size() - 1;
+                    j = path_2.mapping_size() - 1;
+                    incr = -1;
+                }
+                else {
+                    i = 0;
+                    j = 0;
+                    incr = 1;
+                }
                 bool is_less = false;
-                const Path& path_1 = aln_1.path(), path_2 = aln_2.path();
-                size_t i = 0;
-                for (; i < path_1.mapping_size() && i < path_2.mapping_size(); i++) {
-                    const Position& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(i).position();
-                    if (pos_1.node_id() < pos_2.node_id() || (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() < pos_2.is_reverse())) {
+                for (; i >= 0 && j >= 0 && i < path_1.mapping_size() && j < path_2.mapping_size(); i += incr, j += incr) {
+                    const auto& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(j).position();
+                    if (pos_1.node_id() < pos_2.node_id() ||
+                        (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() < pos_2.is_reverse())) {
                         is_less = true;
                         break;
                     }
-                    else if (pos_1.node_id() > pos_2.node_id() || (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() > pos_2.is_reverse())) {
+                    else if (pos_1.node_id() > pos_2.node_id() ||
+                             (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() > pos_2.is_reverse())) {
                         break;
                     }
                 }
-                return is_less || (i == path_1.mapping_size() && i < path_2.mapping_size());
+                // supersequences earlier in the case of paths of different lengths
+                return (is_less || ((i < path_1.mapping_size() && i >= 0) && (j == path_2.mapping_size() || j < 0)));
             });
+            
             // move alignments that have the same path to the end of the vector, keeping the
             // first one (which has the highest score)
-            auto new_end = unique(alt_alns.begin(), alt_alns.end(), [](const Alignment& aln_1, const Alignment& aln_2) {
-                bool is_equal = true;
-                const Path& path_1 = aln_1.path(), path_2 = aln_2.path();
-                if (path_1.mapping_size() == path_2.mapping_size()) {
-                    for (size_t i = 0; i < path_1.mapping_size() && is_equal; i++) {
-                        const Position& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(i).position();
-                        is_equal = (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() == pos_2.is_reverse());
-                    }
+            auto new_end = unique(deduplicated.begin(), deduplicated.end(),
+                                  [&](const pair<path_t, int32_t>& aln_1, const pair<path_t, int32_t>& aln_2) {
+                const auto& path_1 = aln_1.first, path_2 = aln_2.first;
+                int64_t i, j, incr;
+                if (leftward) {
+                    i = path_1.mapping_size() - 1;
+                    j = path_2.mapping_size() - 1;
+                    incr = -1;
                 }
                 else {
-                    is_equal = false;
+                    i = 0;
+                    j = 0;
+                    incr = 1;
                 }
-                return is_equal;
+                // if this is a tail alignment, we allow paths of different lengths to be "equal"
+                // if one is a prefix of the other and lower-scoring
+                bool is_equal = (path_1.mapping_size() == path_2.mapping_size() || leftward || rightward);
+                for (; i >= 0 && j >= 0 && i < path_1.mapping_size() && j < path_2.mapping_size() && is_equal; i += incr, j += incr) {
+                    const auto& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(j).position();
+                    is_equal = (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() == pos_2.is_reverse());
+                }
+                // TODO: there has to be a more succinct way to check this condition
+                return (is_equal &&
+                        (path_1.mapping_size() == path_2.mapping_size() ||
+                         (path_1.mapping_size() > path_2.mapping_size() && aln_1.second > aln_2.second) ||
+                         (path_1.mapping_size() < path_2.mapping_size() && aln_1.second < aln_2.second)));
             });
+            
             // remove the duplicates at the end
-            alt_alns.erase(new_end, alt_alns.end());
+            deduplicated.erase(new_end, deduplicated.end());
+            return deduplicated;
         };
         
 #ifdef debug_multipath_alignment
@@ -3641,21 +4314,18 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                     intervening_length + min(min(src_max_gap, aligner->longest_detectable_gap(alignment, dest_path_node.begin)), max_gap);
                 
 #ifdef debug_multipath_alignment
-                cerr << "read dist: " << intervening_length << ", source max gap: " << src_max_gap << ", dest max gap " << aligner->longest_detectable_gap(alignment, dest_path_node.begin) << ", max allowed gap " << max_gap << endl;
+                cerr << "read dist: " << intervening_length << ", graph dist " << edge.second << " source max gap: " << src_max_gap << ", dest max gap " << aligner->longest_detectable_gap(alignment, dest_path_node.begin) << ", max allowed gap " << max_gap << endl;
 #endif
                 
                 // extract the graph between the matches
                 bdsg::HashGraph connecting_graph;
-                unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(&align_graph,      // DAG with split strands
-                                                                                               &connecting_graph, // graph to extract into
-                                                                                               max_dist,          // longest distance necessary
-                                                                                               src_pos,           // end of earlier match
-                                                                                               dest_pos,          // beginning of later match
-                                                                                               false,             // do not bother finding all cycles (it's a DAG)
-                                                                                               true,              // only include nodes on connecting paths
-                                                                                               false);            // do not enforce max distance
-                
-                
+                auto connect_trans = algorithms::extract_connecting_graph(&align_graph,      // DAG with split strands
+                                                                          &connecting_graph, // graph to extract into
+                                                                          max_dist,          // longest distance necessary
+                                                                          src_pos,           // end of earlier match
+                                                                          dest_pos,          // beginning of later match
+                                                                          false);            // do not enforce max distance strictly
+                                
                 if (connecting_graph.get_node_count() == 0) {
                     // the MEMs weren't connectable with a positive score after all, mark the edge for removal
 #ifdef debug_multipath_alignment
@@ -3666,61 +4336,77 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                     continue;
                 }
                 
-                size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&connecting_graph)) : 
+                size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, handlealgs::count_walks(&connecting_graph)) :
                                                          max_alt_alns;
                 
-                bool added_direct_connection = false;
-                // TODO a better way of choosing the number of alternate alignments
-                vector<Alignment> alt_alignments;
-                if (num_alt_alns > 0) {
                 
-                    // transfer the substring between the matches to a new alignment
-                    Alignment intervening_sequence;
-                    intervening_sequence.set_sequence(alignment.sequence().substr(src_path_node.end - alignment.sequence().begin(),
-                                                                                  dest_path_node.begin - src_path_node.end));
-                    
-#ifdef debug_multipath_alignment
-                    cerr << "making " << num_alt_alns << " alignments of sequence " << intervening_sequence.sequence() << " to connecting graph" << endl;
-                    connecting_graph.for_each_handle([&](const handle_t& handle) {
-                        cerr << connecting_graph.get_id(handle) << " " << connecting_graph.get_sequence(handle) << endl;
-                        connecting_graph.follow_edges(handle, true, [&](const handle_t& prev) {
-                            cerr << "\t" << connecting_graph.get_id(prev) << " <-" << endl;
-                        });
-                        connecting_graph.follow_edges(handle, false, [&](const handle_t& next) {
-                            cerr << "\t-> " << connecting_graph.get_id(next) << endl;
-                        });
-                    });
-#endif
-                    
-                    if (!alignment.quality().empty()) {
-                        intervening_sequence.set_quality(alignment.quality().substr(src_path_node.end - alignment.sequence().begin(),
-                                                                                    dest_path_node.begin - src_path_node.end));
-                    }
-                
-                    aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph, num_alt_alns,
-                                                       band_padding_function(intervening_sequence, connecting_graph), true);
+                // transfer the substring between the matches to a new alignment
+                Alignment intervening_sequence;
+                intervening_sequence.set_sequence(alignment.sequence().substr(src_path_node.end - alignment.sequence().begin(),
+                                                                              dest_path_node.begin - src_path_node.end));
+                if (!alignment.quality().empty()) {
+                    intervening_sequence.set_quality(alignment.quality().substr(src_path_node.end - alignment.sequence().begin(),
+                                                                                dest_path_node.begin - src_path_node.end));
                 }
                 
-                // remove alignments with the same path
-                deduplicate_alt_alns(alt_alignments);
-                
-                for (Alignment& connecting_alignment : alt_alignments) {
+                // if we're doing dynamic alt alignments, possibly expand the number of tracebacks until we get an
+                // alignment to every path or hit the hard max
+                vector<pair<path_t, int32_t>> deduplicated;
+                if (num_alt_alns > 0) {
+                    
+                    size_t num_alns_iter = num_alt_alns;
+                    while (deduplicated.size() < num_alt_alns) {
+                        
+                        intervening_sequence.clear_path();
+                        
 #ifdef debug_multipath_alignment
-                    cerr << "translating connecting alignment: " << pb2json(connecting_alignment) << endl;
+                        cerr << "making " << num_alns_iter << " alignments of sequence " << intervening_sequence.sequence() << " to connecting graph" << endl;
+                        connecting_graph.for_each_handle([&](const handle_t& handle) {
+                            cerr << connecting_graph.get_id(handle) << " " << connecting_graph.get_sequence(handle) << endl;
+                            connecting_graph.follow_edges(handle, true, [&](const handle_t& prev) {
+                                cerr << "\t" << connecting_graph.get_id(prev) << " <-" << endl;
+                            });
+                            connecting_graph.follow_edges(handle, false, [&](const handle_t& next) {
+                                cerr << "\t-> " << connecting_graph.get_id(next) << endl;
+                            });
+                        });
+#endif
+                        
+                        vector<Alignment> alt_alignments;
+                        aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph, num_alns_iter,
+                                                           band_padding_function(intervening_sequence, connecting_graph), true);
+                        
+                        // remove alignments with the same path
+                        deduplicated = deduplicate_alt_alns(alt_alignments, false, false);
+                        
+                        if (num_alns_iter >= max_alt_alns || !dynamic_alt_alns) {
+                            // we don't want to try again even if we didn't find every path yet
+                            break;
+                        }
+                        else {
+                            // if we didn't find every path, we'll try again with this many tracebacks
+                            num_alns_iter = min(max_alt_alns, num_alns_iter * 2);
+                        }
+                    }
+                }
+                
+                bool added_direct_connection = false;
+                for (auto& connecting_alignment : deduplicated) {
+#ifdef debug_multipath_alignment
+                    cerr << "translating connecting alignment: " << debug_string(connecting_alignment.first) << ", score " << connecting_alignment.second << endl;
 #endif
                     
-                    const Path& aligned_path = connecting_alignment.path();
-                    const Mapping& first_mapping = aligned_path.mapping(0);
-                    const Mapping& last_mapping = aligned_path.mapping(aligned_path.mapping_size() - 1);
+                    auto& aligned_path = connecting_alignment.first;
+                    const auto& first_mapping = aligned_path.mapping(0);
+                    const auto& last_mapping = aligned_path.mapping(aligned_path.mapping_size() - 1);
                     
                     bool add_first_mapping = mapping_from_length(first_mapping) != 0 || mapping_to_length(first_mapping) != 0;
-                    bool add_last_mapping = ((mapping_from_length(last_mapping) != 0 || mapping_to_length(last_mapping) != 0)
-                                             && aligned_path.mapping_size() > 1);
+                    bool add_last_mapping = mapping_from_length(last_mapping) != 0 || mapping_to_length(last_mapping) != 0;
                     
                     if (!(add_first_mapping || add_last_mapping) && aligned_path.mapping_size() <= 2) {
                         if (!added_direct_connection) {
                             // edge case where there is a simple split but other non-simple edges intersect the target
-                            // at the same place (so it passes the previous filter)
+                            // at the same place (so it passes the previous deduplicating filter)
                             // it actually doesn't need an alignment, just a connecting edge
                             src_subpath->add_next(edge.first);
                             added_direct_connection = true;
@@ -3730,33 +4416,20 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                     
                     // create a subpath between the matches for this alignment
                     subpath_t* connecting_subpath = multipath_aln_out.add_subpath();
-                    connecting_subpath->set_score(connecting_alignment.score());
-                    path_t* subpath_path = connecting_subpath->mutable_path();
+                    connecting_subpath->set_score(connecting_alignment.second);
                     
                     // get a pointer to the subpath again in case the vector reallocated
                     src_subpath = multipath_aln_out.mutable_subpath(j);
-                                        
-                    // check to make sure the first is not an empty anchoring mapping
-                    if (add_first_mapping) {
-                        from_proto_mapping(first_mapping, *subpath_path->add_mapping());
-#ifdef debug_multipath_alignment
-                        cerr << "first mapping is not empty, formed mapping: " << pb2json(first_mapping) << endl;
-#endif
+                    
+                    // get rid of the ends if they are empty
+                    if (!add_last_mapping) {
+                        aligned_path.mutable_mapping()->pop_back();
                     }
-                    // add all mapping in between the ends
-                    for (size_t j = 1; j < aligned_path.mapping_size() - 1; j++) {
-                        from_proto_mapping(aligned_path.mapping(j), *subpath_path->add_mapping());
-#ifdef debug_multipath_alignment
-                        cerr << "added middle mapping: " << pb2json(aligned_path.mapping(j)) << endl;
-#endif
+                    if (!add_first_mapping && !aligned_path.mapping().empty()) {
+                        aligned_path.mutable_mapping()->erase(aligned_path.mutable_mapping()->begin());
                     }
-                    // check to make sure the last is not an empty anchoring mapping or the same as the first
-                    if (add_last_mapping) {
-                        from_proto_mapping(last_mapping, *subpath_path->add_mapping());
-#ifdef debug_multipath_alignment
-                        cerr << "final mapping is not empty, formed mapping: " << pb2json(last_mapping) << endl;
-#endif
-                    }
+                    
+                    *connecting_subpath->mutable_path() = move(aligned_path);
                     
                     // add the appropriate connections
                     src_subpath->add_next(multipath_aln_out.subpath_size() - 1);
@@ -3797,6 +4470,8 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         auto tail_alignments = align_tails(alignment, align_graph, aligner, max_alt_alns, dynamic_alt_alns,
                                            max_gap, pessimistic_tail_gap_multiplier, 0, &sources);
                 
+        // TODO: merge and simplify the tail alignments? rescoring would be kind of a pain...
+        
         // Handle the right tails
         for (auto& kv : tail_alignments[true]) {
             // For each sink subpath number
@@ -3805,7 +4480,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
             vector<Alignment>& alt_alignments = kv.second;
             
             // remove alignments with the same path
-            deduplicate_alt_alns(alt_alignments);
+            auto deduplicated = deduplicate_alt_alns(alt_alignments, false, true);
         
             PathNode& path_node = path_nodes.at(j);
             
@@ -3815,13 +4490,13 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
             
             pos_t end_pos = final_position(path_node.path);
             
-            for (const Alignment& tail_alignment : alt_alignments) {
+            for (auto& tail_alignment : deduplicated) {
                 
                 sink_subpath->add_next(multipath_aln_out.subpath_size());
                 
                 subpath_t* tail_subpath = multipath_aln_out.add_subpath();
-                from_proto_path(tail_alignment.path(), *tail_subpath->mutable_path());
-                tail_subpath->set_score(tail_alignment.score());
+                *tail_subpath->mutable_path() = move(tail_alignment.first);
+                tail_subpath->set_score(tail_alignment.second);
                 
                 // get the pointer again in case the vector reallocated
                 sink_subpath = multipath_aln_out.mutable_subpath(j);
@@ -3831,7 +4506,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 if (first_mapping->position().node_id() == final_mapping.position().node_id()) {
                     first_mapping->mutable_position()->set_offset(offset(end_pos));
                 }
-                else if (tail_alignment.path().mapping_size() == 1 && first_mapping->edit_size() == 1
+                else if (tail_subpath->path().mapping_size() == 1 && first_mapping->edit_size() == 1
                          && first_mapping->edit(0).from_length() == 0 && first_mapping->edit(0).to_length() > 0
                          && first_mapping->position().node_id() != final_mapping.position().node_id()) {
                     // this is a pure soft-clip on the beginning of the next node, we'll move it to the end
@@ -3858,13 +4533,13 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                 // There should be some alignments
                 vector<Alignment>& alt_alignments = tail_alignments[false][j];
                 // remove alignments with the same path
-                deduplicate_alt_alns(alt_alignments);
+                auto deduplicated = deduplicate_alt_alns(alt_alignments, true, false);
                                 
                 const path_mapping_t& first_mapping = path_node.path.mapping(0);
-                for (Alignment& tail_alignment : alt_alignments) {
+                for (auto& tail_alignment : deduplicated) {
                     subpath_t* tail_subpath = multipath_aln_out.add_subpath();
-                    from_proto_path(tail_alignment.path(), *tail_subpath->mutable_path());
-                    tail_subpath->set_score(tail_alignment.score());
+                    *tail_subpath->mutable_path() = move(tail_alignment.first);
+                    tail_subpath->set_score(tail_alignment.second);
                     
                     tail_subpath->add_next(j);
                     multipath_aln_out.add_start(multipath_aln_out.subpath_size() - 1);
@@ -3922,6 +4597,23 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         cerr << "doing tail alignments to:" << endl;
         to_dot(cerr);
 #endif
+        
+        // multiplier to account for low complexity sequences
+        auto low_complexity_multiplier = [](const Alignment& aln) {
+            // TODO: magic numbers
+            static const double seq_cmplx_alpha = 0.05;
+            static const double max_multiplier = 32.0;
+            SeqComplexity<2> complexity(aln.sequence());
+            if (complexity.p_value(1) < seq_cmplx_alpha || complexity.p_value(2) < seq_cmplx_alpha) {
+                double repetitiveness = max(complexity.repetitiveness(1), complexity.repetitiveness(2));
+                double low_complexity_len = repetitiveness * aln.sequence().size();
+                // TODO: empirically-derived function, not very principled
+                return max(1.0, min(max_multiplier, 0.05 * low_complexity_len * low_complexity_len));
+            }
+            else {
+                return 1.0;
+            }
+        };
                 
         // Make a structure to populate
         unordered_map<bool, unordered_map<size_t, vector<Alignment>>> to_return;
@@ -3934,112 +4626,122 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
 #ifdef debug_multipath_alignment
             cerr << "Visit PathNode " << j << " with " << path_node.edges.size() << " outbound edges" << endl;
 #endif
-            if (path_node.edges.empty()) {
-                if (path_node.end != alignment.sequence().end()) {
-    
-#ifdef debug_multipath_alignment
-                    cerr << "doing right end alignment from sink node " << j << " with path " << debug_string(path_node.path) << " and sequence ";
-                    for (auto iter = path_node.begin; iter != path_node.end; iter++) {
-                        cerr << *iter;
-                    }
-                    cerr << endl;
-#endif
-                    
-                    // figure out how long we need to try to align out to
-                    int64_t tail_length = alignment.sequence().end() - path_node.end;
-                    int64_t gap =  min(aligner->longest_detectable_gap(alignment, path_node.end), max_gap);
-                    if (pessimistic_tail_gap_multiplier) {
-                        gap = min(gap, pessimistic_tail_gap(tail_length, pessimistic_tail_gap_multiplier));
-                    }
-                    int64_t target_length = tail_length + gap;
-                    
-                    
-                    
-                    pos_t end_pos = final_position(path_node.path);
-                    
-                    bdsg::HashGraph tail_graph;
-                    unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
-                                                                                               &tail_graph,
-                                                                                               target_length,
-                                                                                               end_pos,
-                                                                                               false,         // search forward
-                                                                                               false);        // no need to preserve cycles (in a DAG)
-                    
-                    size_t num_alt_alns;
-                    if (dynamic_alt_alns) {
-                        size_t num_paths = algorithms::count_walks(&tail_graph);
-                        if (num_paths < min_paths) {
-                            continue;
-                        }
-                        num_alt_alns = min(max_alt_alns, num_paths);
-                    }
-                    else {
-                        num_alt_alns = max_alt_alns;
-                    }
-                    
-                    if (num_alt_alns > 0) {
-                        
-                        // get the sequence remaining in the right tail
-                        Alignment right_tail_sequence;
-                        right_tail_sequence.set_sequence(alignment.sequence().substr(path_node.end - alignment.sequence().begin(),
-                                                                                     alignment.sequence().end() - path_node.end));
-                        if (!alignment.quality().empty()) {
-                            right_tail_sequence.set_quality(alignment.quality().substr(path_node.end - alignment.sequence().begin(),
-                                                                                       alignment.sequence().end() - path_node.end));
-                        }
-                        
-#ifdef debug_multipath_alignment
-                        cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph" << endl;
-                        tail_graph.for_each_handle([&](const handle_t& handle) {
-                            cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
-                            tail_graph.follow_edges(handle, true, [&](const handle_t& prev) {
-                                cerr << "\t" << tail_graph.get_id(prev) << " <-" << endl;
-                            });
-                            tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
-                                cerr << "\t-> " << tail_graph.get_id(next) << endl;
-                            });
-                        });
-#endif
-                        
-                        // align against the graph
-                        auto& alt_alignments = right_alignments[j];
-                        if (num_alt_alns == 1) {
-#ifdef debug_multipath_alignment
-                            cerr << "align right with dozeu with gap " << gap << endl;
-#endif
-                            // we can speed things up by using the dozeu pinned alignment
-                            alt_alignments.emplace_back(move(right_tail_sequence));
-                            aligner->align_pinned(alt_alignments.back(), tail_graph, true, true, gap);
-                        }
-                        else {
-#ifdef debug_multipath_alignment
-                            cerr << "align right with gssw" << endl;
-#endif
-                            aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
-                        }
-                        
-                        // Translate back into non-extracted graph.
-                        // Make sure to account for having removed the left end of the cut node relative to end_pos
-                        for (auto& aln : alt_alignments) {
-                            // We always remove end_pos's offset, since we
-                            // search forward from it to extract the subgraph,
-                            // but that may be from the left or right end of
-                            // its node depending on orientation.
-                            translate_node_ids(*aln.mutable_path(), tail_trans, id(end_pos), offset(end_pos), is_rev(end_pos));
-                        }
-#ifdef debug_multipath_alignment
-                        cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
-#endif
-                    }
-                }
-            }
-            else {
+            if (!path_node.edges.empty()) {
                 // We go places from here.
                 for (const pair<size_t, size_t>& edge : path_node.edges) {
                     // Make everywhere we go as not a source
                     is_source_node[edge.first] = false;
 #ifdef debug_multipath_alignment
                     cerr << "Edge " << j << " -> " << edge.first << " makes " << edge.first << " not a source" << endl;
+#endif
+                }
+            }
+            else if (path_node.end != alignment.sequence().end()) {
+
+#ifdef debug_multipath_alignment
+                cerr << "doing right end alignment from sink node " << j << " with path " << debug_string(path_node.path) << " and sequence ";
+                for (auto iter = path_node.begin; iter != path_node.end; iter++) {
+                    cerr << *iter;
+                }
+                cerr << endl;
+#endif
+                
+                // figure out how long we need to try to align out to
+                int64_t tail_length = alignment.sequence().end() - path_node.end;
+                int64_t gap =  min(aligner->longest_detectable_gap(alignment, path_node.end), max_gap);
+                if (pessimistic_tail_gap_multiplier) {
+                    gap = min(gap, pessimistic_tail_gap(tail_length, pessimistic_tail_gap_multiplier));
+                }
+                int64_t target_length = tail_length + gap;
+                
+                
+                
+                pos_t end_pos = final_position(path_node.path);
+                
+                bdsg::HashGraph tail_graph;
+                unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
+                                                                                           &tail_graph,
+                                                                                           target_length,
+                                                                                           end_pos,
+                                                                                           false,         // search forward
+                                                                                           false);        // no need to preserve cycles (in a DAG)
+                
+                size_t num_alt_alns;
+                if (dynamic_alt_alns) {
+                    size_t num_paths = handlealgs::count_walks(&tail_graph);
+                    if (num_paths < min_paths) {
+                        continue;
+                    }
+                    num_alt_alns = min(max_alt_alns, num_paths);
+                }
+                else {
+                    num_alt_alns = max_alt_alns;
+                }
+                
+                if (num_alt_alns > 0) {
+                    
+                    // get the sequence remaining in the right tail
+                    Alignment right_tail_sequence;
+                    right_tail_sequence.set_sequence(alignment.sequence().substr(path_node.end - alignment.sequence().begin(),
+                                                                                 alignment.sequence().end() - path_node.end));
+                    if (!alignment.quality().empty()) {
+                        right_tail_sequence.set_quality(alignment.quality().substr(path_node.end - alignment.sequence().begin(),
+                                                                                   alignment.sequence().end() - path_node.end));
+                    }
+                    
+#ifdef debug_multipath_alignment
+                    cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph" << endl;
+                    tail_graph.for_each_handle([&](const handle_t& handle) {
+                        cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
+                        tail_graph.follow_edges(handle, true, [&](const handle_t& prev) {
+                            cerr << "\t" << tail_graph.get_id(prev) << " <-" << endl;
+                        });
+                        tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
+                            cerr << "\t-> " << tail_graph.get_id(next) << endl;
+                        });
+                    });
+#endif
+                    
+                    // align against the graph
+                    auto& alt_alignments = right_alignments[j];
+                    if (num_alt_alns == 1) {
+#ifdef debug_multipath_alignment
+                        cerr << "align right with dozeu with gap " << gap << endl;
+#endif
+                        // we can speed things up by using the dozeu pinned alignment
+                        alt_alignments.emplace_back(move(right_tail_sequence));
+                        aligner->align_pinned(alt_alignments.back(), tail_graph, true, true, gap);
+                    }
+                    else {
+                        
+#ifdef debug_multipath_alignment
+                        cerr << "align right with gssw" << endl;
+#endif
+                        
+                        double multiplier = low_complexity_multiplier(right_tail_sequence);
+                        if (multiplier != 1.0) {
+                            num_alt_alns = round(multiplier * num_alt_alns);
+#ifdef debug_multipath_alignment
+                            cerr << "increase num alns for low complexity sequence to " << num_alt_alns << endl;
+#endif
+                        }
+                        aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
+                    }
+                    
+                    // Translate back into non-extracted graph.
+                    // Make sure to account for having removed the left end of the cut node relative to end_pos
+                    for (auto& aln : alt_alignments) {
+                        // We always remove end_pos's offset, since we
+                        // search forward from it to extract the subgraph,
+                        // but that may be from the left or right end of
+                        // its node depending on orientation.
+                        translate_node_ids(*aln.mutable_path(), tail_trans, id(end_pos), offset(end_pos), is_rev(end_pos));
+                    }
+#ifdef debug_multipath_alignment
+                    cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
+                    for (size_t i = 0; i < alt_alignments.size(); ++i) {
+                        cerr << i << ": " << pb2json(alt_alignments[i]) << endl;
+                    }
 #endif
                 }
             }
@@ -4059,12 +4761,12 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                     sources->insert(j);
                 }
             
-                PathNode& path_node = path_nodes.at(j);
+                PathNode& path_node = path_nodes[j];
                 if (path_node.begin != alignment.sequence().begin()) {
                     
                     // figure out how far we need to try to align out to
                     int64_t tail_length = path_node.begin - alignment.sequence().begin();
-                    int64_t gap =  min(aligner->longest_detectable_gap(alignment, path_node.end), max_gap);
+                    int64_t gap =  min(aligner->longest_detectable_gap(alignment, path_node.begin), max_gap);
                     if (pessimistic_tail_gap_multiplier) {
                         gap = min(gap, pessimistic_tail_gap(tail_length, pessimistic_tail_gap_multiplier));
                     }
@@ -4083,7 +4785,7 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                     
                     size_t num_alt_alns;
                     if (dynamic_alt_alns) {
-                        size_t num_paths = algorithms::count_walks(&tail_graph);
+                        size_t num_paths = handlealgs::count_walks(&tail_graph);
                         if (num_paths < min_paths) {
                             continue;
                         }
@@ -4128,6 +4830,14 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
 #ifdef debug_multipath_alignment
                             cerr << "align left with gssw" << endl;
 #endif
+                            double multiplier = low_complexity_multiplier(left_tail_sequence);
+                            if (multiplier != 1.0) {
+                                num_alt_alns = round(multiplier * num_alt_alns);
+#ifdef debug_multipath_alignment
+                                cerr << "increase num alns for low complexity sequence to " << num_alt_alns << endl;
+#endif
+                            }
+                            
                             aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
                         }
                         
@@ -4143,6 +4853,9 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
                         }
 #ifdef debug_multipath_alignment
                         cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
+                        for (size_t i = 0; i < alt_alignments.size(); ++i) {
+                            cerr << i << ": " << pb2json(alt_alignments[i]) << endl;
+                        }
 #endif
                     }
                 }
@@ -4171,8 +4884,12 @@ MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const
         return to_return;
     }
     
-    bool MultipathAlignmentGraph::empty() {
+    bool MultipathAlignmentGraph::empty() const {
         return path_nodes.empty();
+    }
+
+    size_t MultipathAlignmentGraph::size() const {
+        return path_nodes.size();
     }
     
     void MultipathAlignmentGraph::to_dot(ostream& out, const Alignment* alignment) const {

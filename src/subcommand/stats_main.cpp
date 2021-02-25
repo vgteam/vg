@@ -17,11 +17,6 @@
 #include "subcommand.hpp"
 #include "../algorithms/distance_to_head.hpp"
 #include "../algorithms/distance_to_tail.hpp"
-#include "../algorithms/find_tips.hpp"
-#include "../algorithms/is_acyclic.hpp"
-#include "../algorithms/strongly_connected_components.hpp"
-#include "../algorithms/weakly_connected_components.hpp"
-#include "../algorithms/copy_graph.hpp"
 #include "../handle.hpp"
 #include "../cactus_snarl_finder.hpp"
 
@@ -33,6 +28,7 @@
 #include "bdsg/packed_graph.hpp"
 #include "bdsg/hash_graph.hpp"
 #include "bdsg/odgi.hpp"
+#include "../io/converted_hash_graph.hpp"
 
 using namespace std;
 using namespace vg;
@@ -275,7 +271,7 @@ int main_stats(int argc, char** argv) {
 
     if (stats_heads) {
         require_graph();
-        vector<handle_t> heads = algorithms::head_nodes(graph.get());
+        vector<handle_t> heads = handlealgs::head_nodes(graph.get());
         cout << "heads" << "\t";
         for (auto& h : heads) {
             cout << graph->get_id(h) << " ";
@@ -285,7 +281,7 @@ int main_stats(int argc, char** argv) {
 
     if (stats_tails) {
         require_graph();
-        vector<handle_t> tails = algorithms::tail_nodes(graph.get());
+        vector<handle_t> tails = handlealgs::tail_nodes(graph.get());
         cout << "tails" << "\t";
         for (auto& t : tails) {
             cout << graph->get_id(t) << " ";
@@ -300,7 +296,7 @@ int main_stats(int argc, char** argv) {
         // but this isn't really explained.
         
         vector<pair<unordered_set<nid_t>, vector<handle_t>>> subgraphs_with_tips =
-            algorithms::weakly_connected_components_with_tips(graph.get());
+            handlealgs::weakly_connected_components_with_tips(graph.get());
         
         for (auto& subgraph_and_tips : subgraphs_with_tips) {
             // For each subgraph set and its inward tip handles
@@ -342,7 +338,7 @@ int main_stats(int argc, char** argv) {
 
     if (show_components) {
         require_graph();
-        for (auto& c : algorithms::strongly_connected_components(graph.get())) {
+        for (auto& c : handlealgs::strongly_connected_components(graph.get())) {
             for (auto& id : c) {
                 cout << id << ", ";
             }
@@ -352,7 +348,7 @@ int main_stats(int argc, char** argv) {
 
     if (is_acyclic) {
         require_graph();
-        if (algorithms::is_acyclic(graph.get())) {
+        if (handlealgs::is_acyclic(graph.get())) {
             cout << "acyclic" << endl;
         } else {
             cout << "cyclic" << endl;
@@ -384,27 +380,15 @@ int main_stats(int argc, char** argv) {
             format_string = "XG";
         } else if (dynamic_cast<bdsg::PackedGraph*>(graph.get()) != nullptr) {
             format_string = "PackedGraph";
+        } else if (dynamic_cast<vg::io::ConvertedHashGraph*>(graph.get()) != nullptr) {
+            // Was Protobuf but we're using a HashGraph internally
+            format_string = "VG-Protobuf";
         } else if (dynamic_cast<bdsg::HashGraph*>(graph.get()) != nullptr) {
             format_string = "HashGraph";
         } else if (dynamic_cast<bdsg::ODGI*>(graph.get()) != nullptr) {
             format_string = "ODGI";
         } else {
             format_string = "Unknown";
-        }
-        if (graph_file_name != "-" && format_string == "HashGraph") {
-            // Maybe vpkg loaded a protobuf graph into a different handle graph format
-            // (it currently uses HashGraph)
-            try {
-                ifstream graph_stream(graph_file_name);
-                vg::io::MessageIterator message_it(graph_stream);
-                if (message_it.has_current()) {
-                    string msg_tag = message_it.take().first;
-                    // older protobufs are untagged, newer ones are tagged "VG"
-                    if (msg_tag.empty() || msg_tag == "VG") {
-                        format_string = "VG-Protobuf";
-                    }
-                }
-            } catch(...) {}
         }
         cout << "format: " << format_string << endl;
     }
@@ -440,7 +424,7 @@ int main_stats(int argc, char** argv) {
         if (vg_graph == nullptr) {
             // TODO: This path overlap code can be handle-ified, and should be.
             vg_graph = new vg::VG();
-            algorithms::copy_path_handle_graph(graph.get(), vg_graph);
+            handlealgs::copy_path_handle_graph(graph.get(), vg_graph);
             // Give the unique_ptr ownership and delete the graph we loaded.
             graph.reset(vg_graph);
             // Make sure the paths are all synced up

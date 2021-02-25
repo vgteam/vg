@@ -13,11 +13,8 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "../xg.hpp"
 #include "../alignment.hpp"
-#include "../algorithms/copy_graph.hpp"
 #include <vg/io/vpkg.hpp>
-#include <bdsg/overlays/overlay_helper.hpp>
 
 using namespace std;
 using namespace vg;
@@ -29,12 +26,8 @@ void help_validate(char** argv) {
          << endl
          << "options:" << endl
          << "    default: check all aspects of the graph, if options are specified do only those" << endl
-         << "    -n, --nodes     verify that we have the expected number of nodes" << endl
-         << "    -e, --edges     verify that the graph contains all nodes that are referred to by edges" << endl
-         << "    -p, --paths     verify that contiguous path segments are connected by edges" << endl
          << "    -o, --orphans   verify that all nodes have edges" << endl
-         << "    -a, --gam FILE  verify that edits in the alignment fit on nodes in the graph" << endl
-         << "    -x, --xg FILE   index to use for -a" << endl;
+         << "    -a, --gam FILE  verify that edits in the alignment fit on nodes in the graph" << endl;
 }
 
 int main_validate(int argc, char** argv) {
@@ -44,11 +37,7 @@ int main_validate(int argc, char** argv) {
         return 1;
     }
 
-    bool check_nodes = false;
-    bool check_edges = false;
     bool check_orphans = false;
-    bool check_paths = false;
-    string xg_path;
     string gam_path;
 
     int c;
@@ -57,17 +46,13 @@ int main_validate(int argc, char** argv) {
         static struct option long_options[] =
         {
             {"help", no_argument, 0, 'h'},
-            {"nodes", no_argument, 0, 'n'},
-            {"edges", no_argument, 0, 'e'},
-            {"paths", no_argument, 0, 'o'},
-            {"orphans", no_argument, 0, 'p'},
+            {"orphans", no_argument, 0, 'o'},
             {"gam", required_argument, 0, 'a'},
-            {"xg", required_argument, 0, 'x'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hneopa:x:",
+        c = getopt_long (argc, argv, "hoa:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -76,29 +61,12 @@ int main_validate(int argc, char** argv) {
 
         switch (c)
         {
-
-            case 'n':
-                check_nodes = true;
-                break;
-
-            case 'e':
-                check_edges = true;
-                break;
-
             case 'o':
                 check_orphans = true;
                 break;
 
-            case 'p':
-                check_paths = true;
-                break;
-
             case 'a':
                 gam_path = optarg;
-                break;
-
-            case 'x':
-                xg_path= optarg;
                 break;
 
             case 'h':
@@ -112,63 +80,93 @@ int main_validate(int argc, char** argv) {
         }
     }
 
-    if (!gam_path.empty() || !xg_path.empty()) {
-        // GAM validation is its entirely own thing
-        if (xg_path.empty()) {
-            cerr << "error:[vg validate] xg index (-x) required with (-a)" << endl;
-            return 1;
-        } else if (gam_path.empty()) {
-            cerr << "error:[vg validate] gam alignment (-a) required with (-x)" << endl;
-            return 1;
-        } else if (check_nodes || check_edges || check_orphans || check_paths) {
-            cerr << "error:[vg validate] -n, -e -o, -p cannot be used with -a and -x" << endl;
-            return 1;
-        }
-        ifstream in(xg_path.c_str());
-        unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
-        bdsg::PathPositionOverlayHelper overlay_helper;
-        PathPositionHandleGraph* xindex = overlay_helper.apply(path_handle_graph.get());    
-        in.close();
+    // load the graph
+    unique_ptr<PathHandleGraph> graph;
+    get_input_file(optind, argc, argv, [&](istream& in) {
+            graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
+        });
+
+    // validate the alignment if given
+    bool valid_aln = true;
+    if (!gam_path.empty()) {
         get_input_file(gam_path, [&](istream& in) {
                 vg::io::for_each<Alignment>(in, [&](Alignment& aln) {
-                        if (!alignment_is_valid(aln, xindex)) {
-                            exit(1);
+                        if (!alignment_is_valid(aln, graph.get())) {
+                            valid_aln = false;
                         }
                     });
             });
-        return 0;
-    } else {
+    }
 
-        VG* graph;
-        get_input_file(optind, argc, argv, [&](istream& in) {
-            unique_ptr<PathHandleGraph> loaded = vg::io::VPKG::load_one<PathHandleGraph>(in);
-            
-            // Make it be in VG format
-            graph = dynamic_cast<vg::VG*>(loaded.get());
-            if (graph == nullptr) {
-                // Copy instead.
-                graph = new vg::VG();
-                // TODO: this conversion may make a valid graph out of an invalid one
-                algorithms::copy_path_handle_graph(loaded.get(), graph);
-                // Make sure the paths are all synced up
-                graph->paths.to_graph(graph->graph);
-            }
-        });
-
-        // if we chose a specific subset, do just them
-        if (check_nodes || check_edges || check_orphans || check_paths) {
-            if (graph->is_valid(check_nodes, check_edges, check_orphans, check_paths)) {
-                return 0;
-            } else {
-                return 1;
-            }
-            // otherwise do everything
-        } else if (graph->is_valid()) {
-            return 0;
-        } else {
-            return 1;
+    // VG's a little less structured, so try its own logic
+    bool valid_graph = true;
+    VG* vg_graph = dynamic_cast<VG*>(graph.get());
+    if (vg_graph != nullptr) {
+        if (!vg_graph->is_valid(true, true, check_orphans, true)) {
+            valid_graph = false;
         }
     }
+
+    if (valid_graph) {
+        // I don't think this is possible with any libbdsg implementations, but check edges just in case
+        graph->for_each_edge([&](const edge_t& edge) {
+                if (!graph->has_node(graph->get_id(edge.first))) {
+                    cerr << "graph invalid: source node missing for edge " 
+                         << graph->get_id(edge.first) << ":" << graph->get_is_reverse(edge.first) << " -> "
+                         << graph->get_id(edge.second) << ":" << graph->get_is_reverse(edge.second) << endl;
+                valid_graph = false;
+                }
+                if (!graph->has_node(graph->get_id(edge.second))) {
+                    cerr << "graph invalid: sink node missing for edge " 
+                         << graph->get_id(edge.first) << ":" << graph->get_is_reverse(edge.first) << " -> "
+                         << graph->get_id(edge.second) << ":" << graph->get_is_reverse(edge.second) << endl;
+                    valid_graph = false;
+                }
+            });
+
+        graph->for_each_path_handle([&](path_handle_t path_handle) {
+                size_t i = 0;
+                handle_t prev;
+                graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
+                        handle_t handle = graph->get_handle_of_step(step_handle);
+                        if (i > 0) {
+                            if (!graph->has_edge(prev, handle)) {
+                                cerr << "graph invalid: missing edge between " << (i-1) << "th step ("
+                                     << graph->get_id(prev) << ":" << graph->get_is_reverse(prev) << ") and "
+                                     << i << "th step (" << graph->get_id(handle) << ":" << graph->get_is_reverse(handle)
+                                     << ") of path " << graph->get_path_name(path_handle) << endl;
+                                valid_graph = false;
+                            }
+                            if (!graph->has_edge(graph->flip(handle), graph->flip(prev))) {
+                                cerr << "graph invalid: missing edge between " << (i) << "th step ("
+                                     << graph->get_id(handle) << ":" << !graph->get_is_reverse(handle) << ") and "
+                                     << (i-1) << "th step (" << graph->get_id(prev) << ":" << graph->get_is_reverse(prev)
+                                     << ") of path " << graph->get_path_name(path_handle) << endl;
+                                valid_graph = false;
+                            }
+                        }
+                        ++i;
+                        prev = handle;
+                    });
+            });
+
+        if (check_orphans) {
+            graph->for_each_handle([&](handle_t handle) {
+                    if (graph->get_degree(handle, true) + graph->get_degree(handle, false) == 0) {
+                        cerr << "graph invalid: orphan node found: " << graph->get_id(handle) << endl;
+                        valid_graph = false;
+                    }
+                });
+            
+        }
+    }
+
+    if (!gam_path.empty()) {
+        cerr << "alignment: " << (valid_aln ? "valid" : "invalid") << endl;
+    }
+    cerr << "graph: " << (valid_graph ? "valid" : "invalid") << endl;
+
+    return valid_aln && valid_graph ? 0 : 1;
 }
 
 // Register subcommand

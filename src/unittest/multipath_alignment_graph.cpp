@@ -180,7 +180,8 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         mem_hits.first.emplace_back(&mems.back(), make_pos_t(4, false, 0));
         
         // Make the MultipathAlignmentGraph to test
-        MultipathAlignmentGraph mpg(vg, mem_hits, identity);
+        vector<size_t> provenance;
+        MultipathAlignmentGraph mpg(vg, mem_hits, identity, provenance);
         
         // Make the output multipath_alignment_t
         multipath_alignment_t out;
@@ -274,7 +275,8 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         mem_hits.first.emplace_back(&mems.back(), make_pos_t(7, false, 0));
         
         // Make the MultipathAlignmentGraph to test
-        MultipathAlignmentGraph mpg(vg, mem_hits, identity);
+        vector<size_t> provenance;
+        MultipathAlignmentGraph mpg(vg, mem_hits, identity, provenance);
         
         // Make the output multipath_alignment_t
         multipath_alignment_t out;
@@ -361,6 +363,53 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         
 }
 
+TEST_CASE("Corresponding path lengths can be computed", "[multipathalignmentgraph]") {
+    
+    path_t path;
+    auto m0 = path.add_mapping();
+    auto e0 = m0->add_edit();
+    e0->set_from_length(5);
+    e0->set_to_length(5);
+    auto e1 = m0->add_edit();
+    e1->set_from_length(0);
+    e1->set_to_length(5);
+    auto m1 = path.add_mapping();
+    auto e2 = m1->add_edit();
+    e2->set_from_length(5);
+    e2->set_to_length(0);
+    auto e3 = m1->add_edit();
+    e3->set_from_length(5);
+    e3->set_to_length(5);
+    e3->set_sequence("AAAAA");
+    
+    
+    REQUIRE(corresponding_to_length(path, 0, false) == 0);
+    REQUIRE(corresponding_from_length(path, 0, false) == 0);
+    REQUIRE(corresponding_to_length(path, 1, false) == 1);
+    REQUIRE(corresponding_from_length(path, 1, false) == 1);
+    REQUIRE(corresponding_to_length(path, 5, false) == 5);
+    REQUIRE(corresponding_from_length(path, 5, false) == 5);
+    REQUIRE(corresponding_to_length(path, 7, false) == 10);
+    REQUIRE(corresponding_from_length(path, 7, false) == 5);
+    REQUIRE(corresponding_to_length(path, 11, false) == 11);
+    REQUIRE(corresponding_from_length(path, 11, false) == 11);
+    REQUIRE(corresponding_to_length(path, 15, false) == 15);
+    REQUIRE(corresponding_from_length(path, 15, false) == 15);
+    
+    REQUIRE(corresponding_to_length(path, 0, true) == 0);
+    REQUIRE(corresponding_from_length(path, 0, true) == 0);
+    REQUIRE(corresponding_to_length(path, 1, true) == 1);
+    REQUIRE(corresponding_from_length(path, 1, true) == 1);
+    REQUIRE(corresponding_to_length(path, 5, true) == 5);
+    REQUIRE(corresponding_from_length(path, 5, true) == 5);
+    REQUIRE(corresponding_from_length(path, 7, true) == 10);
+    REQUIRE(corresponding_to_length(path, 7, true) == 5);
+    REQUIRE(corresponding_to_length(path, 11, true) == 11);
+    REQUIRE(corresponding_from_length(path, 11, true) == 11);
+    REQUIRE(corresponding_to_length(path, 15, true) == 15);
+    REQUIRE(corresponding_from_length(path, 15, true) == 15);
+    
 }
 
+}
 }

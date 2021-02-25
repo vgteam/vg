@@ -19,7 +19,6 @@
 #include "../gfa.hpp"
 #include "../io/json_stream_helper.hpp"
 #include "../handle.hpp"
-#include "../algorithms/copy_graph.hpp"
 #include "../algorithms/gfa_to_handle.hpp"
 
 #include <vg/io/message_iterator.hpp>
@@ -518,7 +517,10 @@ int main_view(int argc, char** argv) {
         try {
             // Use the disk-backed GFA loader that `vg convert` also uses.
             algorithms::gfa_to_path_handle_graph(file_name,
-                dynamic_cast<MutablePathMutableHandleGraph*>(graph.get()));
+                                                 dynamic_cast<MutablePathMutableHandleGraph*>(graph.get()),
+                                                 true,
+                                                 false,
+                                                 0); // set rgfa path rank to 0 to be consistent with vg convert's default logic
         } catch (algorithms::GFAFormatError& e) {
             cerr << "error:[vg view] Input GFA is not acceptable." << endl;
             cerr << e.what() << endl;
@@ -894,6 +896,11 @@ int main_view(int argc, char** argv) {
         return 1;
     }
 
+    if (output_type == "gfa") {
+        graph_to_gfa(graph.get(), std::cout);
+        return 0;
+    } 
+
     // Now we know graph was filled in from the input format. Spit it out in the
     // requested output format.
     
@@ -904,7 +911,7 @@ int main_view(int argc, char** argv) {
     if (vg_graph == nullptr) {
         // Copy instead. Should be fine because we on;y ever want to run this on small graphs anyway.
         vg_graph = new vg::VG();
-        algorithms::copy_path_handle_graph(graph.get(), vg_graph);
+        handlealgs::copy_path_handle_graph(graph.get(), vg_graph);
         
         // Make sure the new VG has its Proto right
         // TODO: if we didn't reach into vg.graph we wouldn't need to do this.
@@ -936,11 +943,7 @@ int main_view(int argc, char** argv) {
         // This is especially useful for JSON import.
         cerr << "[vg view] warning: graph is invalid!" << endl;
     }
-    
-    if (output_type == "gfa") {
-        // TODO: there's no reason this shouldn't work on PathHandleGraphs directly.
-        graph_to_gfa(vg_graph, std::cout);
-    } else if (output_type == "dot") {
+    if (output_type == "dot") {
         vg_graph->to_dot(std::cout,
                         alns,
                         loci,
@@ -962,7 +965,7 @@ int main_view(int argc, char** argv) {
         vg_graph->to_turtle(std::cout, rdf_base_uri, color_variants);
     } else if (output_type == "vg") {
         vg_graph->serialize_to_ostream(cout);
-    } else {
+    } else if (output_type != "gfa") {
         // We somehow got here with a bad output format.
         cerr << "[vg view] error: cannot save a graph in " << output_type << " format" << endl;
         return 1;
