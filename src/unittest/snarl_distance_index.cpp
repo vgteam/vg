@@ -91,7 +91,11 @@ namespace vg {
 
                 //The snarl 2,7 has one child (not counting the boundary nodes)
                 size_t node_count = 0;
+                REQUIRE(distance_index.is_snarl(top_snarl));
+                    cerr << "top snarl handle " << as_integer(top_snarl) << endl;
+                cerr << "Go through children of top snarl: " << distance_index.net_handle_as_string(top_snarl) << endl;
                 distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
+                    cerr << "  " << distance_index.net_handle_as_string(handle) << endl;
                     node_count++;
                 });
                 
@@ -105,10 +109,14 @@ namespace vg {
             }
             
             SECTION( "The top-level NetGraph has 3 edges" ) {
-                child_handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
-                child_handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
+                vector<net_handle_t> handles;
+                distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
+                    handles.emplace_back(handle);
+                });
+                handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
+                handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
                 unordered_set<pair<net_handle_t, net_handle_t>> edges;
-                for (net_handle_t& handle : child_handles) {
+                for (net_handle_t& handle : handles) {
                     // Go through the nodes we should have manually.
                 
                     // Save all the edges off of each node
@@ -184,6 +192,7 @@ namespace vg {
                         //The chain should only contain two nodes and a snarl
                         REQUIRE(false);
                     }
+                    child_i++;
                 });
 
                 //Get a net_handle for the top-level snarl
@@ -201,10 +210,16 @@ namespace vg {
                 }
                 
                 SECTION( "The top-level NetGraph has 3 edges" ) {
+
+                    vector<net_handle_t> handles;
+                    distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
+                        handles.emplace_back(handle);
+                    });
+                    handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
+                    handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
+
                     unordered_set<pair<net_handle_t, net_handle_t>> edges;
-                    child_handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
-                    child_handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
-                    for (net_handle_t& handle : child_handles) {
+                    for (net_handle_t& handle : handles) {
                         // Go through the nodes we should have manually.
                     
                         // Save all the edges off of each node
@@ -341,6 +356,7 @@ namespace vg {
                         //The chain should only contain two nodes and a snarl
                         REQUIRE(false);
                     }
+                    child_i++;
                 });
 
                 //Get a net_handle for the top-level snarl
@@ -358,10 +374,15 @@ namespace vg {
                 }
                 
                 SECTION( "The top-level NetGraph has 3 edges" ) {
-                    child_handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
-                    child_handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
+                    vector<net_handle_t> handles;
+                    distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
+                        handles.emplace_back(handle);
+                    });
+                    handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
+                    handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
+
                     unordered_set<pair<net_handle_t, net_handle_t>> edges;
-                    for (net_handle_t& handle : child_handles) {
+                    for (net_handle_t& handle : handles) {
                         // Go through the nodes we should have manually.
                     
                         // Save all the edges off of each node
@@ -487,6 +508,7 @@ namespace vg {
                         //The chain should only contain two nodes and a snarl
                         REQUIRE(false);
                     }
+                    child_i++;
                 });
                 //Get a net_handle for the top-level snarl
                 net_handle_t& top_snarl = child_handles[0];
@@ -503,10 +525,16 @@ namespace vg {
                 }
                  
                 SECTION( "The top-level NetGraph has 2 edges" ) {
-                    child_handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
-                    child_handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
+                    vector<net_handle_t> handles;
+                    distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
+                        handles.emplace_back(handle);
+                    });
+                    handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
+                    handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
+
+
                     unordered_set<pair<net_handle_t, net_handle_t>> edges;
-                    for (net_handle_t& handle : child_handles) {
+                    for (net_handle_t& handle : handles) {
                         // Go through the nodes we should have manually.
                     
                         // Save all the edges off of each node
@@ -582,6 +610,7 @@ namespace vg {
                         //The chain should only contain two nodes and a snarl
                         REQUIRE(false);
                     }
+                    child_i++;
                 });
 
                 //Get a net_handle for the top-level snarl
@@ -599,10 +628,16 @@ namespace vg {
                 }
                 
                 SECTION( "The top-level NetGraph has 3 edges" ) {
-                    child_handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
-                    child_handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
+                    vector<net_handle_t> handles;
+                    distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
+                        handles.emplace_back(handle);
+                    });
+                    handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
+                    handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
+
+
                     unordered_set<pair<net_handle_t, net_handle_t>> edges;
-                    for (net_handle_t& handle : child_handles) {
+                    for (net_handle_t& handle : handles) {
                         // Go through the nodes we should have manually.
                     
                         // Save all the edges off of each node
