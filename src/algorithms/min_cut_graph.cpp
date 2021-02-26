@@ -25,7 +25,7 @@ namespace vg {
 
         using namespace std;
 
-        pair<vector<unordered_set<size_t>>, size_t> kargers_min_cut(Graph graph, const int n_iterations, const int seed) {
+        pair<vector<unordered_set<size_t>>, size_t> kargers_min_cut(Graph graph, const int seed) {
  
             size_t V = graph.get_size();
             minstd_rand0 random_engine(seed);
@@ -289,7 +289,7 @@ namespace vg {
         return to_return;    
         } 
 
-        pair<vector<unordered_set<size_t>>, size_t> compute_min_cut(Graph graph, const int n_iterations, const int seed){
+        pair<vector<unordered_set<size_t>>, size_t> compute_min_cut(Graph graph, const int seed){
 
             // compute min-cut twice and choose the min-cut with least total graph weights
             //the minimum total edge weight of graph will give us the min-cut
@@ -297,8 +297,8 @@ namespace vg {
 
             //TODO: generate seeds in here or send two seeds
             pair<vector<unordered_set<size_t>>, size_t> to_return;
-            pair<vector<unordered_set<size_t>>, size_t> min_cut1 = kargers_min_cut(graph, n_iterations, seed);          
-            pair<vector<unordered_set<size_t>>, size_t> min_cut2 = kargers_min_cut(graph, n_iterations, seed2);
+            pair<vector<unordered_set<size_t>>, size_t> min_cut1 = kargers_min_cut(graph, seed);          
+            pair<vector<unordered_set<size_t>>, size_t> min_cut2 = kargers_min_cut(graph, seed2);
 
             if (min_cut1.second == 0 || min_cut2.second == 0 ){
                 // if pair is empty pair.first and pair.second will both be initialized to 0 during contruction
@@ -347,12 +347,10 @@ namespace vg {
             return to_return;
 
         }
-        vector<unordered_set<size_t>> min_cut_decomposition(Graph graph, const int n_iterations, const int seed){
+        vector<unordered_set<size_t>> min_cut_decomposition(Graph graph, const int seed){
 
-            //TODO: remove n_iterations from parameters or we might use it later if we want to run kargers min cut for >2 iterations
             vector<unordered_set<size_t>> Gamma;
 
-            const int n_iters = n_iterations;
             const int rand_seed = seed;
 
             function<void(Graph)> recurse = [&](Graph graph){
@@ -373,7 +371,7 @@ namespace vg {
 #endif
                     return;
                 }
-                pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, n_iters, rand_seed);
+                pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, rand_seed);
                 vector<unordered_set<size_t>> disjoint_sets = to_recv.first;
                
                 if(disjoint_sets.empty()==1){

@@ -12,7 +12,7 @@
 #include "phased_genome.hpp"
 #include "multipath_alignment.hpp"
 #include "algorithms/min_cut_graph.hpp"
-#include <structures/union_find.hpp>
+#include "sparse_union_find.hpp"
 
 namespace vg {
 
@@ -76,6 +76,13 @@ public:
       * Generate a graph using the snarl map
       */
      algorithms::Graph make_snarl_graph(unordered_map<pair<const Snarl*, const Snarl*>, int32_t> map) const;
+
+    /**
+      * Make a snarl graph with edge weights scored by how well mapped reads support phasing of snarl
+      * Use an alternative proposal distribution using sets generated from karger-stein min cut algorithm
+      * to escape bottlenecks leading to rapid convergence
+      */
+     void get_out_of_bottlenecks(const vector<multipath_alignment_t>& reads, unique_ptr<PhasedGenome>& phased_genome) const;
 
 
 

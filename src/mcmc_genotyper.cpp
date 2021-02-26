@@ -576,6 +576,27 @@ namespace vg {
 
     }
 
+    void MCMCGenotyper::get_out_of_bottlenecks(const vector<multipath_alignment_t>& reads, unique_ptr<PhasedGenome>& phased_genome)const{
+        // will be called from run_genotype after n iterations using proposal sample 
+
+        //make snarl map
+        unordered_map<pair<const Snarl*, const Snarl*>, int32_t> snarl_map  = make_snarl_map(reads, phased_genome);
+        
+        //make snarl graph
+        algorithms::Graph snarl_graph =  make_snarl_graph(snarl_map);
+
+        //generate set used to make swap in alt proposal dist
+        vector<unordered_set<size_t>> to_recv =  algorithms::min_cut_decomposition(snarl_graph, seed);
+
+        //do not throw away phased_genome state before swap because this is only a proposal - we might want to swap back if we reject sample
+        //return sites we swapped at and swap back - can use the to_recv
+
+        //swap alleles at sites in to_recv
+        // phased_genome->swap_alleles(snarl_to_swap, haplotype_0, haplotype_1);
+
+
+    }
+
 
 }
 
