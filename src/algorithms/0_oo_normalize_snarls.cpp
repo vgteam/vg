@@ -843,6 +843,7 @@ void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl,
     }
 }
 
+
 // /**
 //  * Deletes the given handle's underlying node, and returns a new handle to a new node 
 //  * with the desired node_id
