@@ -54,6 +54,7 @@ class SnarlNormalizer {
                          const vector<pair<step_handle_t, step_handle_t>> embedded_paths,
                          const id_t &source_id, const id_t &sink_id, const bool backwards);
 
+    handle_t overwrite_node_id(const id_t& old_node_id, const id_t& new_node_id);
 
     bool source_and_sink_handles_map_properly(
         const HandleGraph &graph, const id_t &new_source_id, const id_t &new_sink_id,
@@ -61,11 +62,6 @@ class SnarlNormalizer {
         const handle_t &potential_source, const handle_t &potential_sink);
 
     void force_maximum_handle_size(MutableHandleGraph &graph, const size_t &max_size);
-
-    void move_path_to_snarl(const pair<step_handle_t, step_handle_t> &old_embedded_path,
-                            vector<handle_t> &new_snarl_handles, id_t &new_source_id,
-                            id_t &new_sink_id, const id_t &old_source_id,
-                            const id_t &old_sink_id, const bool backwards);
 
     // moving paths to new graph (new draft functions)
     vector<pair<vector<handle_t>, int> > find_possible_path_starts (const handle_t& leftmost_handle, const handle_t& rightmost_handle, const pair<bool, bool>& path_spans_left_right);

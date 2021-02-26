@@ -788,76 +788,52 @@ void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl,
     handle_t new_rightmost_handle;
     if (!backwards) 
     {
-        new_leftmost_handle = _graph.create_handle(
-            _graph.get_sequence(_graph.get_handle(temp_snarl_leftmost_id)), source_id);
-        new_rightmost_handle = _graph.create_handle(
-            _graph.get_sequence(new_snarl_topo_order.back()), sink_id);
+        new_leftmost_handle = overwrite_node_id(temp_snarl_leftmost_id, source_id);
+        new_rightmost_handle = overwrite_node_id(temp_snarl_rightmost_id, sink_id);
     }
     else
     {
-        new_leftmost_handle = _graph.create_handle(
-            _graph.get_sequence(_graph.get_handle(temp_snarl_leftmost_id)), sink_id);
-        new_rightmost_handle = _graph.create_handle(
-            _graph.get_sequence(new_snarl_topo_order.back()), source_id);
-    }
-    // move the source edges:
-    // TODO: note the copy/paste. Fix?
-    _graph.follow_edges(_graph.get_handle(temp_snarl_leftmost_id), true,
-                        [&](const handle_t &prev_handle) {
-                            _graph.create_edge(prev_handle, new_leftmost_handle);
-                        });
-    _graph.follow_edges(_graph.get_handle(temp_snarl_leftmost_id), false,
-                        [&](const handle_t &next_handle) {
-                            _graph.create_edge(new_leftmost_handle, next_handle);
-                        });
-
-    // move the sink edges:
-    _graph.follow_edges(_graph.get_handle(temp_snarl_rightmost_id), true,
-                        [&](const handle_t &prev_handle) {
-                            _graph.create_edge(prev_handle, new_rightmost_handle);
-                        });
-    _graph.follow_edges(_graph.get_handle(temp_snarl_rightmost_id), false,
-                        [&](const handle_t &next_handle) {
-                            _graph.create_edge(new_rightmost_handle, next_handle);
-                        });
-
-    // move the paths:
-    _graph.for_each_step_on_handle(
-        _graph.get_handle(temp_snarl_leftmost_id), [&](step_handle_t step) {
-            _graph.rewrite_segment(step, _graph.get_next_step(step),
-                                   vector<handle_t>{new_leftmost_handle});
-        });
-    _graph.for_each_step_on_handle(
-        _graph.get_handle(temp_snarl_rightmost_id), [&](step_handle_t step) {
-            _graph.rewrite_segment(step, _graph.get_next_step(step),
-                                   vector<handle_t>{new_rightmost_handle});
-        });
-    cerr << "the temp leftmost id: " << temp_snarl_leftmost_id << endl;
-    cerr << "the temp rightmost id: " << temp_snarl_rightmost_id << endl;
-
-    // delete the previously created source and sink:
-    for (handle_t handle : {_graph.get_handle(temp_snarl_leftmost_id),
-                            _graph.get_handle(temp_snarl_rightmost_id)}) {
-        cerr << "id of handle to delete from the old source/sink: " << _graph.get_id(handle) << endl;
-        _graph.destroy_handle(handle);
+        new_leftmost_handle = overwrite_node_id(temp_snarl_leftmost_id, sink_id);
+        new_rightmost_handle = overwrite_node_id(temp_snarl_rightmost_id, source_id);
     }
 }
 
 
-// /**
-//  * Deletes the given handle's underlying node, and returns a new handle to a new node 
-//  * with the desired node_id
-//  * 
-//  * @param  {handle_t} handle : The handle to be replaced with a new handle & new node.
-//  * @param  {id_t} node_id    : The node id for the new node. Cannot be currently in use in
-//  *                              the graph.
-//  * @return {handle_t}        : The new handle, in the same position as the original handle
-//  *                              in the graph, but with the new node_id.
-//  */
-// handle_t SnarlNormalizer::change_node_id(handle_t old_handle, const id_t& new_node_id)
-// {
-    
-// }
+/**
+ * Deletes the given handle's underlying node, and returns a new handle to a new node 
+ * with the desired node_id
+ * 
+ * @param  {id_t} handle     : The old node id, to be replaced with a new node id.
+ * @param  {id_t} node_id    : The node id for the new node. Cannot be currently in use in
+ *                              the graph.
+ * @return {handle_t}        : The new handle, in the same position as the original handle
+ *                              in the graph, but with the new node_id.
+ */
+handle_t SnarlNormalizer::overwrite_node_id(const id_t& old_node_id, const id_t& new_node_id)
+{
+    handle_t old_handle = _graph.get_handle(old_node_id);
+    handle_t new_handle = _graph.create_handle(_graph.get_sequence(old_handle), new_node_id);
+
+    // move the edges:
+    _graph.follow_edges(old_handle, true, [&](const handle_t &prev_handle) 
+    {
+        _graph.create_edge(prev_handle, new_handle);
+    });
+    _graph.follow_edges(old_handle, false, [&](const handle_t &next_handle)
+    {
+        _graph.create_edge(new_handle, next_handle);
+    });
+
+    // move the paths:
+    _graph.for_each_step_on_handle(old_handle, [&](step_handle_t step) 
+    {
+        _graph.rewrite_segment(step, _graph.get_next_step(step), vector<handle_t>{new_handle});
+    });
+
+    // delete the old_handle:
+    _graph.destroy_handle(old_handle);
+    return new_handle;
+}
 
 /** Used to help move_path_to_snarl map paths from an old snarl to its newly
  * normalized counterpart. In particular, ensures that any paths which touch the
