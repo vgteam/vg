@@ -12,7 +12,7 @@ class SnarlSequenceFinder {
 
     SnarlSequenceFinder(const PathHandleGraph & graph, const SubHandleGraph &snarl,
                    const gbwtgraph::GBWTGraph &haploGraph, const id_t &source_id, 
-                   const id_t &sink_id);
+                   const id_t &sink_id, const bool &backwards);
 
     tuple<vector<vector<handle_t>>, vector<vector<handle_t>>, unordered_set<handle_t>>
     find_gbwt_haps();
@@ -32,6 +32,7 @@ class SnarlSequenceFinder {
     const gbwtgraph::GBWTGraph &_haploGraph;
     const id_t &_source_id; 
     const id_t &_sink_id; 
+    const bool &_backwards;
 
     vector<vector<handle_t>> 
     find_haplotypes_not_at_source(unordered_set<handle_t> &touched_handles);

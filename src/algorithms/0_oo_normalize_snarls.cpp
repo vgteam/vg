@@ -49,7 +49,7 @@ SnarlNormalizer::SnarlNormalizer(MutablePathDeletableHandleGraph &graph,
  * @param snarl_stream file stream from .snarl.pb output of vg snarls
 */
 void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
-    cerr << "disambiguate_top_level_snarls" << endl;
+    // cerr << "disambiguate_top_level_snarls" << endl;
     SnarlManager *snarl_manager = new SnarlManager(snarl_stream);
 
     int num_snarls_normalized = 0;
@@ -93,18 +93,13 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
             num_snarls_touched++;
         }
         // if (roots->start().node_id() == 3881494) {
-            cerr << "root backwards?" << roots->start().backward() << endl;
-            cerr << "disambiguating snarl #"
-                    << (num_snarls_normalized + num_snarls_skipped)
-                    << " source: " << roots->start().node_id()
-                    << " sink: " << roots->end().node_id() << endl;
+            // cerr << "root backwards?" << roots->start().backward() << endl;
+            // cerr << "disambiguating snarl #"
+            //         << (num_snarls_normalized + num_snarls_skipped)
+            //         << " source: " << roots->start().node_id()
+            //         << " sink: " << roots->end().node_id() << endl;
 
-            if (!roots->start().backward()){
-                one_snarl_error_record = normalize_snarl(roots->start().node_id(), roots->end().node_id());
-            }
-            else {
-                one_snarl_error_record = normalize_snarl(roots->end().node_id(), roots->start().node_id());
-            }
+            one_snarl_error_record = normalize_snarl(roots->start().node_id(), roots->end().node_id(), roots->start().backward());
             if (!((one_snarl_error_record[0]) || (one_snarl_error_record[1]) ||
                     (one_snarl_error_record[2]) || (one_snarl_error_record[3]))) {
                 // if there are no errors, then we've successfully normalized a snarl.
@@ -123,6 +118,8 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
                 }
                 num_snarls_skipped += 1;
             }
+            //todo! Make unit test for shrinking snarls.
+            
             // //todo: debug_statement for extracting snarl of interest.
             // VG outGraph;
             // pos_t source_pos = make_pos_t(roots->start().node_id(), false, 0);
@@ -171,7 +168,16 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
 // Returns: none.
 // TODO: allow for snarls that have haplotypes that begin or end in the middle of the
 // snarl.
-vector<int> SnarlNormalizer::normalize_snarl(const id_t &source_id, const id_t &sink_id) {
+vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const bool backwards) {
+    // if (backwards){
+    //     // swap the source and sink ids. Essentially, this guarantees I treat the leftmost node in snarl as "source".
+    //     // (although some adjustments for paths need be made)
+    //     id_t swap_source = sink_id; //temp storage of sink_id value. 
+    //     sink_id = source_id;
+    //     source_id = swap_source; 
+    // }
+
+    
     /**
      * We keep an error record to observe when snarls are skipped because they aren't 
      * normalizable under current restraints. Bools:
@@ -186,7 +192,7 @@ vector<int> SnarlNormalizer::normalize_snarl(const id_t &source_id, const id_t &
     vector<int> error_record(6, 0);
     // //todo: debug_statement: determining whether cyclic problem in yeast graph goes away when I swapo source and sink. 
     // SubHandleGraph snarl = extract_subgraph(_graph, sink_id, source_id);
-    SubHandleGraph snarl = extract_subgraph(_graph, source_id, sink_id);
+    SubHandleGraph snarl = extract_subgraph(_graph, source_id, sink_id, backwards);
 
     // //todo: debug_statement: Evaluate connections of all nodes in subgraph.
     // snarl.for_each_handle([&](const handle_t handle){
@@ -206,7 +212,7 @@ vector<int> SnarlNormalizer::normalize_snarl(const id_t &source_id, const id_t &
     tuple<unordered_set<string>, vector<vector<handle_t>>, unordered_set<handle_t>> haplotypes;
     // //todo: debug_statement: determining whether cyclic problem in yeast graph goes away when I swapo source and sink. 
     // SnarlSequenceFinder sequence_finder = SnarlSequenceFinder(_graph, snarl, _haploGraph, sink_id, source_id);
-    SnarlSequenceFinder sequence_finder = SnarlSequenceFinder(_graph, snarl, _haploGraph, source_id, sink_id);
+    SnarlSequenceFinder sequence_finder = SnarlSequenceFinder(_graph, snarl, _haploGraph, source_id, sink_id, backwards);
     
     if (_path_finder == "GBWT") {
         tuple<vector<vector<handle_t>>, vector<vector<handle_t>>, unordered_set<handle_t>>
@@ -221,8 +227,9 @@ vector<int> SnarlNormalizer::normalize_snarl(const id_t &source_id, const id_t &
         get<0>(haplotypes) = exhaustive_haplotypes.first;
         get<2>(haplotypes) = exhaustive_haplotypes.second;
     } else {
-        cerr << "path_finder type must be 'GBWT' or 'exhaustive', not " << _path_finder
-             << endl;
+        cerr << "path_finder type must be 'GBWT' or 'exhaustive', not '" << _path_finder
+             << "'." << endl;
+        exit(1);
     }
 
     // check to make sure that the gbwt _graph has threads connecting all handles:
@@ -248,10 +255,10 @@ vector<int> SnarlNormalizer::normalize_snarl(const id_t &source_id, const id_t &
             sequence_finder.find_embedded_paths();
 
         //todo: debug_statement
-        cerr << "Let's see what sequences I have before adding embedded paths to seq info:" << endl;
-        for (string seq : get<0>(haplotypes)) {
-            cerr << seq << endl;
-        }
+        // cerr << "Let's see what sequences I have before adding embedded paths to seq info:" << endl;
+        // for (string seq : get<0>(haplotypes)) {
+        //     cerr << seq << endl;
+        // }
 
         // TODO: once haplotypes that begin/end in the middle of the snarl have been
         // TODO:    accounted for in the code, remove next chunk of code that finds 
@@ -260,23 +267,32 @@ vector<int> SnarlNormalizer::normalize_snarl(const id_t &source_id, const id_t &
         cerr << "~~~~~~~~~~source: " << source_id << "sink: " << sink_id << endl;
         for (auto path : embedded_paths) {
 
-            cerr << "checking path of name " << _graph.get_path_name(_graph.get_path_handle_of_step(path.first)) << " with start " << _graph.get_id(_graph.get_handle_of_step(path.first)) << " and sink " << _graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) << endl;
+            // cerr << "checking path of name " << _graph.get_path_name(_graph.get_path_handle_of_step(path.first)) << " with source " << _graph.get_id(_graph.get_handle_of_step(path.first)) << " and sink " << _graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) << endl;
+            // cerr << "SOURCE info: prev step: " << _graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) << "prev prev step: " << _graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(_graph.get_previous_step(path.second)))) << " source: " << _graph.get_id(_graph.get_handle_of_step(path.second)) << " next step: " << _graph.get_id(_graph.get_handle_of_step(_graph.get_next_step(path.second))) << endl;
+            // cerr << _graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) << " " << source_id << " source bool: " <<  (_graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) == source_id) << endl;
             if (_graph.get_id(_graph.get_handle_of_step(path.first)) == source_id &&
                 _graph.get_id(_graph.get_handle_of_step(
-                    _graph.get_previous_step(path.second))) == sink_id) {
-                cerr << "*****************************************\nadding path of name " <<
-                _graph.get_path_name(_graph.get_path_handle_of_step(path.first)) <<
-                endl; 
+                    _graph.get_previous_step(path.second))) == sink_id)  {
+
+                // cerr << "******************************************\nadding path of name " <<
+                // _graph.get_path_name(_graph.get_path_handle_of_step(path.first)) <<
+                // endl; 
                 // get the sequence of the source to sink path, and add it to the
                 // paths to be aligned.
                 string path_seq;
                 step_handle_t cur_step = path.first;
                 while (cur_step != path.second) {
-                    cerr << "while adding path, looking at node " << _graph.get_id(_graph.get_handle_of_step(cur_step)) << " with seq " << _graph.get_sequence(_graph.get_handle_of_step(cur_step)) << endl;
+                    // cerr << "while adding path, looking at node " << _graph.get_id(_graph.get_handle_of_step(cur_step)) << " with seq " << _graph.get_sequence(_graph.get_handle_of_step(cur_step)) << endl;
                     path_seq += _graph.get_sequence(_graph.get_handle_of_step(cur_step));
                     cur_step = _graph.get_next_step(cur_step);
                 }
-                get<0>(haplotypes).emplace(path_seq);
+                if (backwards) {
+                    get<0>(haplotypes).emplace(reverse_complement(path_seq));
+                }
+                else {
+                    get<0>(haplotypes).emplace(path_seq);
+
+                }
             }
         }
         // Align the new snarl:
@@ -292,7 +308,7 @@ vector<int> SnarlNormalizer::normalize_snarl(const id_t &source_id, const id_t &
         // integrate the new_snarl into the _graph, removing the old snarl as you go.
         // //todo: debug_statement
         // integrate_snarl(new_snarl, embedded_paths, sink_id, source_id);
-        integrate_snarl(new_snarl, embedded_paths, source_id, sink_id);
+        integrate_snarl(snarl, new_snarl, embedded_paths, source_id, sink_id, backwards);
     } else {
         if (!get<1>(haplotypes).empty()) {
             cerr << "found a snarl starting at " << source_id << " and ending at "
@@ -339,6 +355,7 @@ vector<int> SnarlNormalizer::normalize_snarl(const id_t &source_id, const id_t &
     return error_record;
 
 }
+
 
 // Given a vector of haplotypes of format vector< handle_t >, returns a vector of
 // haplotypes of
@@ -448,7 +465,7 @@ VG SnarlNormalizer::align_source_to_sink_haplotypes(
             row_string += *it;
         }
         // todo: debug_statement
-        cerr << "ROW_STRING: " << row_string << endl;
+        // cerr << "ROW_STRING: " << row_string << endl;
         // edit the row so that the proper source and sink chars are added to the
         // haplotype instead of the special characters added to ensure correct alignment
         // of source and sink.
@@ -460,7 +477,7 @@ VG SnarlNormalizer::align_source_to_sink_haplotypes(
     stringstream ss;
     for (string seq : row_strings) {
         // todo: debug_statement
-        cerr << "seq in alignment:" << seq << endl;
+        // cerr << "seq in alignment:" << seq << endl;
         ss << endl << seq;
     }
     // ss << align;
@@ -531,8 +548,24 @@ void SnarlNormalizer::force_maximum_handle_size(MutableHandleGraph &graph,
 //      a SubHandleGraph containing only the handles in _graph that are between start_id
 //      and sink_id.
 SubHandleGraph SnarlNormalizer::extract_subgraph(const HandleGraph &graph,
-                                                 const id_t &start_id,
-                                                 const id_t &sink_id) {
+                                                 id_t source_id,
+                                                 id_t sink_id,
+                                                 const bool backwards) {
+    // cerr << "extract_subgraph has source and sink: " << source_id << " " << sink_id << endl; 
+    // because algorithm moves left to right, determine leftmost and rightmost nodes.
+    id_t leftmost_id;
+    id_t rightmost_id;
+    // if snarl's "backwards," source is rightmost node, sink is leftmost.
+    if (backwards) 
+    {
+        leftmost_id = sink_id;
+        rightmost_id = source_id;
+    }
+    else 
+    {
+        leftmost_id = source_id;
+        rightmost_id = sink_id;
+    }
     // cerr << "extract_subgraph" << endl;
     /// make a subgraph containing only nodes of interest. (e.g. a snarl)
     // make empty subgraph
@@ -541,14 +574,13 @@ SubHandleGraph SnarlNormalizer::extract_subgraph(const HandleGraph &graph,
     unordered_set<id_t> visited;  // to avoid counting the same node twice.
     unordered_set<id_t> to_visit; // nodes found that belong in the subgraph.
 
-    // TODO: how to ensure that "to the right" of start_handle is the correct direction?
-    // initialize with start_handle (because we move only to the right of start_handle):
-    handle_t start_handle = _graph.get_handle(start_id);
-    subgraph.add_handle(start_handle);
-    visited.insert(graph.get_id(start_handle));
+    // initialize with leftmost_handle (because we move only to the right of leftmost_handle):
+    handle_t leftmost_handle = _graph.get_handle(leftmost_id);
+    subgraph.add_handle(leftmost_handle);
+    visited.insert(graph.get_id(leftmost_handle));
 
-    // look only to the right of start_handle
-    _graph.follow_edges(start_handle, false, [&](const handle_t &handle) {
+    // look only to the right of leftmost_handle
+    _graph.follow_edges(leftmost_handle, false, [&](const handle_t &handle) {
         // mark the nodes to come as to_visit
         if (visited.find(graph.get_id(handle)) == visited.end()) {
             to_visit.insert(graph.get_id(handle));
@@ -568,7 +600,7 @@ SubHandleGraph SnarlNormalizer::extract_subgraph(const HandleGraph &graph,
 
         subgraph.add_handle(cur_handle);
 
-        if (graph.get_id(cur_handle) != sink_id) { // don't iterate past end node!
+        if (graph.get_id(cur_handle) != rightmost_id) { // don't iterate past rightmost node!
             // look for all nodes connected to cur_handle that need to be added
             // looking to the left,
             _graph.follow_edges(cur_handle, true, [&](const handle_t &handle) {
@@ -604,34 +636,26 @@ SubHandleGraph SnarlNormalizer::extract_subgraph(const HandleGraph &graph,
 //      source_id: the source of the old (to be replaced) snarl in _graph
 //      sink_id: the sink of the old (to be replaced) snarl in _graph.
 // Return: None.
-// TODO: Note: How to ensure that step_handle_t's walk along the snarl in the same
-// TODO:     orientation as we expect? i.e. that they don't move backward? I think
-// TODO:     we want match_orientation to be = true, but this may cause problems
-// TODO:     in some cases given the way we currently construct handles (fixed when we
-// TODO:     create snarl-scanning interface).
-// TODO:     It may also be that we *don't want match_orientation to be true,
-// TODO:     if we're tracking a path that loops backward in the snarl. Hmm... Will think
-// about this.
-void SnarlNormalizer::integrate_snarl(
+void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl, 
     const HandleGraph &to_insert_snarl,
     const vector<pair<step_handle_t, step_handle_t>> embedded_paths, 
-    const id_t &source_id, const id_t &sink_id) {
+    const id_t &source_id, const id_t &sink_id, const bool backwards) {
     // cerr << "integrate_snarl" << endl;
 
     //todo: debug_statement
-    cerr << "\nhandles in to_insert_snarl:" << endl;
-    to_insert_snarl.for_each_handle([&](const handle_t &handle) {
-        cerr << to_insert_snarl.get_id(handle) << " "
-             << to_insert_snarl.get_sequence(handle) << " ";
-        cerr << "neighbors: ";
-        to_insert_snarl.follow_edges(handle, false, [&](const handle_t &next) {
-            cerr << "     " << to_insert_snarl.get_id(next) << endl;
-        });
-        cerr << " \n";
-    });
-    cerr << endl;
+    // cerr << "\nhandles in to_insert_snarl:" << endl;
+    // to_insert_snarl.for_each_handle([&](const handle_t &handle) {
+    //     cerr << to_insert_snarl.get_id(handle) << " "
+    //          << to_insert_snarl.get_sequence(handle) << " ";
+    //     cerr << "neighbors: ";
+    //     to_insert_snarl.follow_edges(handle, false, [&](const handle_t &next) {
+    //         cerr << "     " << to_insert_snarl.get_id(next) << endl;
+    //     });
+    //     cerr << " \n";
+    // });
+    // cerr << endl;
     // Get old _graph snarl
-    SubHandleGraph old_snarl = extract_subgraph(_graph, source_id, sink_id);
+    // SubHandleGraph old_snarl = extract_subgraph(_graph, source_id, sink_id, backwards);
 
     // TODO: debug_statement: Check to make sure that newly made snarl has only one start
     // and end.
@@ -672,7 +696,7 @@ void SnarlNormalizer::integrate_snarl(
         handle_t graph_handle =
             _graph.create_handle(to_insert_snarl.get_sequence(to_insert_snarl_handle));
         new_snarl_topo_order.push_back(graph_handle);
-        cerr << "graph handle being inserted into new_snarl_topo_order:" << _graph.get_id(graph_handle) << endl;
+        // cerr << "graph handle being inserted into new_snarl_topo_order:" << _graph.get_id(graph_handle) << endl;
     }
 
     // Connect the newly made handles in the _graph together the way they were connected
@@ -695,38 +719,62 @@ void SnarlNormalizer::integrate_snarl(
     // not necessarily preserved by move_path_to_snarl. Is temporary b/c we need to
     // replace the handles with ones with the right id_t label for source and sink later
     // on.
-    id_t temp_snarl_source_id = _graph.get_id(new_snarl_topo_order.front());
-    id_t temp_snarl_sink_id = _graph.get_id(new_snarl_topo_order.back());
-    cerr << "the temp source id: " << temp_snarl_source_id << endl;
-    cerr << "the temp sink id: " << temp_snarl_sink_id << endl;
+    id_t temp_snarl_leftmost_id = _graph.get_id(new_snarl_topo_order.front());
+    id_t temp_snarl_rightmost_id = _graph.get_id(new_snarl_topo_order.back());
+    // cerr << "the temp source id: " << temp_snarl_leftmost_id << endl;
+    // cerr << "the temp sink id: " << temp_snarl_rightmost_id << endl;
 
     // Add the neighbors of the source and sink of the original snarl to the new_snarl's
     // source and sink.
     // source integration:
+    if (!backwards)
+    {
     _graph.follow_edges(
         _graph.get_handle(source_id), true, [&](const handle_t &prev_handle) {
-            _graph.create_edge(prev_handle, _graph.get_handle(temp_snarl_source_id));
+            _graph.create_edge(prev_handle, _graph.get_handle(temp_snarl_leftmost_id));
         });
     _graph.follow_edges(
         _graph.get_handle(sink_id), false, [&](const handle_t &next_handle) {
-            _graph.create_edge(_graph.get_handle(temp_snarl_sink_id), next_handle);
+            _graph.create_edge(_graph.get_handle(temp_snarl_rightmost_id), next_handle);
         });
-
+    }
+    else 
+    {
+        _graph.follow_edges(
+        _graph.get_handle(source_id), false, [&](const handle_t &next_handle) {
+            _graph.create_edge(_graph.get_handle(temp_snarl_rightmost_id), next_handle);
+        });
+    _graph.follow_edges(
+        _graph.get_handle(sink_id), true, [&](const handle_t &prev_handle) {
+            _graph.create_edge(prev_handle, _graph.get_handle(temp_snarl_leftmost_id));
+        });
+    }
     // For each path of interest, move it onto the new_snarl.
     for (auto path : embedded_paths) {
         // //todo: debug_statement
-        // cerr << "the new sink id: " << temp_snarl_sink_id << endl;
+        // cerr << "the new sink id: " << temp_snarl_rightmost_id << endl;
         // //todo: debug_statement
-        // move_path_to_snarl(path, new_snarl_topo_order, temp_snarl_sink_id,
-        //                    temp_snarl_source_id, sink_id, source_id);
-        move_path_to_snarl(path, new_snarl_topo_order, temp_snarl_source_id,
-                           temp_snarl_sink_id, source_id, sink_id);
+        // move_path_to_snarl(path, new_snarl_topo_order, temp_snarl_rightmost_id,
+        //                    temp_snarl_leftmost_id, sink_id, source_id);
+        // move_path_to_snarl(path, new_snarl_topo_order, temp_snarl_leftmost_id,
+        //                    temp_snarl_rightmost_id, source_id, sink_id, backwards);
+        // cerr << "is path backwards? " << backwards << endl;
+        // cerr << "path first: " << _graph.get_id(_graph.get_handle_of_step(path.first)) << " step after path first: " << _graph.get_id(_graph.get_handle_of_step(_graph.get_next_step(path.first))) << " path second: " << _graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) << endl;
+        // cerr << "source: " << source_id << " sink: " << sink_id << endl;
+        // pair<bool, bool> path_spans_left_right;
+        // path_spans_left_right.first = (!backwards && _graph.get_id(_graph.get_handle_of_step(path.first)) == source_id) || (backwards && _graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) == source_id);
+        // path_spans_left_right.second = (!backwards && _graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) == sink_id) || (backwards && _graph.get_id(_graph.get_handle_of_step(path.first)) == sink_id);
+        // cerr << "first: " << path_spans_left_right.first << "second: " << path_spans_left_right.second << endl;
+        pair<bool, bool> path_spans_left_right;
+        path_spans_left_right.first = (_graph.get_id(_graph.get_handle_of_step(path.first)) == source_id);
+        path_spans_left_right.second = (_graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) == sink_id);
+
+        move_path_to_new_snarl(path, temp_snarl_leftmost_id, temp_snarl_rightmost_id, path_spans_left_right, !backwards);
+
     }
 
     // Destroy the old snarl.
-    old_snarl.for_each_handle(
-
-        [&](const handle_t &handle) {
+    old_snarl.for_each_handle([&](const handle_t &handle) {
             // //todo: debug_statement these are the handles in old_snarl:
             // cerr << old_snarl.get_id(handle) << old_snarl.get_sequence(handle) << endl;
             _graph.destroy_handle(handle);
@@ -736,383 +784,79 @@ void SnarlNormalizer::integrate_snarl(
     // (for compatibility with future iterations on neighboring top-level snarls using the
     // same snarl manager. Couldn't replace it before b/c we needed the old handles to
     // move the paths.
-    handle_t new_source_handle = _graph.create_handle(
-        _graph.get_sequence(_graph.get_handle(temp_snarl_source_id)), source_id);
-    handle_t new_sink_handle = _graph.create_handle(
-        _graph.get_sequence(new_snarl_topo_order.back()), sink_id);
-
+    handle_t new_leftmost_handle;
+    handle_t new_rightmost_handle;
+    if (!backwards) 
+    {
+        new_leftmost_handle = _graph.create_handle(
+            _graph.get_sequence(_graph.get_handle(temp_snarl_leftmost_id)), source_id);
+        new_rightmost_handle = _graph.create_handle(
+            _graph.get_sequence(new_snarl_topo_order.back()), sink_id);
+    }
+    else
+    {
+        new_leftmost_handle = _graph.create_handle(
+            _graph.get_sequence(_graph.get_handle(temp_snarl_leftmost_id)), sink_id);
+        new_rightmost_handle = _graph.create_handle(
+            _graph.get_sequence(new_snarl_topo_order.back()), source_id);
+    }
     // move the source edges:
     // TODO: note the copy/paste. Fix?
-    _graph.follow_edges(_graph.get_handle(temp_snarl_source_id), true,
+    _graph.follow_edges(_graph.get_handle(temp_snarl_leftmost_id), true,
                         [&](const handle_t &prev_handle) {
-                            _graph.create_edge(prev_handle, new_source_handle);
+                            _graph.create_edge(prev_handle, new_leftmost_handle);
                         });
-    _graph.follow_edges(_graph.get_handle(temp_snarl_source_id), false,
+    _graph.follow_edges(_graph.get_handle(temp_snarl_leftmost_id), false,
                         [&](const handle_t &next_handle) {
-                            _graph.create_edge(new_source_handle, next_handle);
+                            _graph.create_edge(new_leftmost_handle, next_handle);
                         });
 
     // move the sink edges:
-    _graph.follow_edges(_graph.get_handle(temp_snarl_sink_id), true,
+    _graph.follow_edges(_graph.get_handle(temp_snarl_rightmost_id), true,
                         [&](const handle_t &prev_handle) {
-                            _graph.create_edge(prev_handle, new_sink_handle);
+                            _graph.create_edge(prev_handle, new_rightmost_handle);
                         });
-    _graph.follow_edges(_graph.get_handle(temp_snarl_sink_id), false,
+    _graph.follow_edges(_graph.get_handle(temp_snarl_rightmost_id), false,
                         [&](const handle_t &next_handle) {
-                            _graph.create_edge(new_sink_handle, next_handle);
+                            _graph.create_edge(new_rightmost_handle, next_handle);
                         });
 
     // move the paths:
     _graph.for_each_step_on_handle(
-        _graph.get_handle(temp_snarl_source_id), [&](step_handle_t step) {
+        _graph.get_handle(temp_snarl_leftmost_id), [&](step_handle_t step) {
             _graph.rewrite_segment(step, _graph.get_next_step(step),
-                                   vector<handle_t>{new_source_handle});
+                                   vector<handle_t>{new_leftmost_handle});
         });
     _graph.for_each_step_on_handle(
-        _graph.get_handle(temp_snarl_sink_id), [&](step_handle_t step) {
+        _graph.get_handle(temp_snarl_rightmost_id), [&](step_handle_t step) {
             _graph.rewrite_segment(step, _graph.get_next_step(step),
-                                   vector<handle_t>{new_sink_handle});
+                                   vector<handle_t>{new_rightmost_handle});
         });
-    cerr << "the temp source id: " << temp_snarl_source_id << endl;
-    cerr << "the temp sink id: " << temp_snarl_sink_id << endl;
+    cerr << "the temp leftmost id: " << temp_snarl_leftmost_id << endl;
+    cerr << "the temp rightmost id: " << temp_snarl_rightmost_id << endl;
 
     // delete the previously created source and sink:
-    for (handle_t handle : {_graph.get_handle(temp_snarl_source_id),
-                            _graph.get_handle(temp_snarl_sink_id)}) {
+    for (handle_t handle : {_graph.get_handle(temp_snarl_leftmost_id),
+                            _graph.get_handle(temp_snarl_rightmost_id)}) {
         cerr << "id of handle to delete from the old source/sink: " << _graph.get_id(handle) << endl;
         _graph.destroy_handle(handle);
     }
 }
 
-// Moves a path from its original location in the _graph to a new snarl,
-//      defined by a vector of interconnected handles.
-//      NOTE: the handles in new_snarl_handles may not preserve topological order after
-//      being passed to this method, if they were ordered before.
-// Arguments: _graph: the _graph containing the old_embedded_path and the handles in
-// new_snarl_topo_order
-//            old_embedded_path: a pair, where
-//                          pair.first is the first step_handle of interest in the
-//                          old_embedded_path, and pair.second is the step_handle *after*
-//                          the last step_handle of interest in the old_embedded_path (can
-//                          be the null step at the end of the path.)
-//            new_snarl_topo_order: all the handles in the new snarl, inside the _graph.
-// Return: None.
-void SnarlNormalizer::move_path_to_snarl(
-    const pair<step_handle_t, step_handle_t> &old_embedded_path,
-    vector<handle_t> &new_snarl_handles, id_t &new_source_id, id_t &new_sink_id,
-    const id_t &old_source_id, const id_t &old_sink_id) {
-    // cerr << "\nmove_path_to_snarl" << endl;
-    // //TODO: debug_statement:
-    // cerr << "path name: "
-    //      <<
-    //      _graph.get_path_name(_graph.get_path_handle_of_step(old_embedded_path.first))
-    //      << endl;
-    // cerr << "source: " << new_source_id << " sink: " << new_sink_id << endl;
-    // if (_graph.get_path_name(_graph.get_path_handle_of_step(old_embedded_path.first))
-    // ==
-    //     "chr10") {
-    //     cerr << "\t\tstart and end of old embedded path: "
-    //          << _graph.get_id(_graph.get_handle_of_step(old_embedded_path.first))
-    //          << "end id"
-    //          << _graph.get_id(_graph.get_handle_of_step(old_embedded_path.second))
-    //          << endl;
-    // }
-    // cerr << "#### handles in snarl (according to move_path_to_snarl): ####" << endl;
-    // for (handle_t handle : new_snarl_handles) {
-    //     cerr << "\t" << _graph.get_id(handle) << " " << _graph.get_sequence(handle);
-    // }
-    // cerr << endl << endl;
-    // cerr << "~~~~~ Handles following each handle:" << endl;
-    // for (handle_t handle : new_snarl_handles) {
-    //     cerr << "neighbors of handle " << _graph.get_id(handle) << " ("
-    //          << _graph.get_sequence(handle) << "):" << endl;
-    //     _graph.follow_edges(handle, false, [&](const handle_t &next_handle) {
-    //         cerr << "\t" << _graph.get_id(next_handle) << " "
-    //              << _graph.get_sequence(next_handle) << endl;
-    //     });
-    // }
-
-    // get the sequence associated with the path
-    string path_seq;
-    step_handle_t cur_step = old_embedded_path.first;
-
-    // if the old path is touching either/both the source/sink, we want to make sure that
-    // the newly moved path also touches those. Otherwise, any paths that extend beyond
-    // the source or sink may be cut into pieces when the portion of the path overlapping
-    // the snarl is moved to a region inside the snarl.
-    bool touching_source =
-        (_graph.get_id(_graph.get_handle_of_step(old_embedded_path.first)) ==
-         old_source_id);
-    bool touching_sink =
-        (_graph.get_id(_graph.get_handle_of_step(
-             _graph.get_previous_step(old_embedded_path.second))) == old_sink_id);
-
-    // extract the path sequence of the embedded path:
-    while (cur_step != old_embedded_path.second) {
-        path_seq += _graph.get_sequence(_graph.get_handle_of_step(cur_step));
-        cur_step = _graph.get_next_step(cur_step);
-    }
-    cerr << "path_seq to move: " << path_seq << endl;
-
-    // TODO: debug_statement:
-    // cerr << "\t\tpath sequence length: " << path_seq.size() << endl;
-    // cerr << "path sequence: " << path_seq << endl;
-
-    // for the given path, find every good possible starting handle in the new_snarl
-    //      format of pair is < possible_path_handle_vec,
-    //      starting_index_in_the_first_handle, current_index_in_path_seq>
-    // //todo: debug_statement
-    // cerr << "checking handles as start of path-seq" << endl;
-    vector<tuple<vector<handle_t>, int, int>> possible_paths;
-    for (handle_t handle : new_snarl_handles) {
-        string handle_seq = _graph.get_sequence(handle);
-
-        // starting index is where the path would begin in the handle,
-        // since it could begin in the middle of the handle.
-        vector<int> starting_indices =
-            check_handle_as_start_of_path_seq(handle_seq, path_seq);
-
-        // if there is a starting index,
-        if (starting_indices.size() != 0) {
-            for (int starting_index : starting_indices) {
-                if ((handle_seq.size() - starting_index) >= path_seq.size() &&
-                    source_and_sink_handles_map_properly(_graph, new_source_id,
-                                                         new_sink_id, touching_source,
-                                                         touching_sink, handle, handle)) {
-                    // if the entire path fits inside the current handle, and if any
-                    // paths that touched source and sink in the old snarl would be
-                    // touching source and sink in the new snarl, then we've already
-                    // found the full mapping location of the path! Move the path, end
-                    // the method.
-                    vector<handle_t> new_path{handle};
-                    _graph.rewrite_segment(old_embedded_path.first,
-                                           old_embedded_path.second, new_path);
-                    // //todo: debug_statement
-                    // cerr << "found a full mapping at " << _graph.get_id(handle)
-                    //      << " w/ seq " << _graph.get_sequence(handle) << endl;
-                    return;
-                } else {
-                    // this is a potential starting handle for the path. Add as a
-                    // possible_path.
-                    vector<handle_t> possible_path_handle_vec{handle};
-                    possible_paths.push_back(
-                        make_tuple(possible_path_handle_vec, starting_index,
-                                   handle_seq.size() - starting_index));
-                }
-            }
-        }
-    }
-
-    // //todo: debug_statement:
-    // cerr << "done checking handles as start of path seq" << endl;
-
-    // //TODO: debug_statement:
-    // cerr << "possible paths so far: " << endl;
-    // for (tuple<vector<handle_t>, int, int> path : possible_paths) {
-    //     cerr << " possible start: ";
-    //     for (handle_t handle : get<0>(path)) {
-    //         cerr << _graph.get_id(handle) << " ";
-    //     }
-    //     cerr << endl;
-    // }
-
-    // for every possible path, extend it to determine if it really is the path we're
-    // looking for:
-    while (!possible_paths.empty()) {
-        // take a path off of possible_paths, which will be copied for every iteration
-        // through _graph.follow_edges, below:
-        tuple<vector<handle_t>, int, int> possible_path_query = possible_paths.back();
-        possible_paths.pop_back();
-
-        // //TODO: debug_statement:
-        // for (tuple<vector<handle_t>, int, int> path : possible_paths) {
-        //     cerr << "*\tpossible path query: ";
-        //     for (handle_t handle : get<0>(possible_path_query)) {
-        //         cerr << _graph.get_id(handle) << " " << _graph.get_sequence(handle)
-        //              << " ";
-        //     }
-        //     cerr << endl;
-        // }
-
-        // extend the path through all right-extending edges to see if any subsequent
-        // paths still satisfy the requirements for being a possible_path:
-        bool no_path = _graph.follow_edges(
-            get<0>(possible_path_query).back(), false, [&](const handle_t &next) {
-                // //todo: debug_statement
-                // cerr << "cur handle id: "
-                //      << _graph.get_id(get<0>(possible_path_query).back()) << endl;
-
-                // cerr << "next handle id and seq: " << _graph.get_id(next) << " "
-                //      << _graph.get_sequence(next) << endl;
-                // make a copy to be extended for through each possible next handle in
-                // follow edges.
-                tuple<vector<handle_t>, int, int> possible_path = possible_path_query;
-
-                // extract relevant information to make code more readable.
-                string next_seq = _graph.get_sequence(next);
-                id_t next_id = _graph.get_id(next);
-                int &cur_index_in_path = get<2>(possible_path);
-                if (cur_index_in_path <= path_seq.size() &&
-                    (find(new_snarl_handles.cbegin(), new_snarl_handles.cend(), next) !=
-                     new_snarl_handles.cend())) {
-                    // if the next handle would be the ending handle for the path,
-                    if (next_seq.size() >= (path_seq.size() - cur_index_in_path)) {
-                        // cerr << "next handle would be the ending handle for the path"
-                        //      << endl;
-                        //     check to see if the sequence in the handle is suitable
-                        // for ending the path:
-                        int compare_length = path_seq.size() - cur_index_in_path;
-
-                        // //todo: debug_statement
-                        // cerr << "about to compare. compare val: "
-                        //      << (next_seq.compare(0, compare_length, path_seq,
-                        //                           cur_index_in_path, compare_length) ==
-                        //                           0)
-                        //      << " source_and_sink_handles_map "
-                        //      << source_and_sink_handles_map_properly(
-                        //             _graph, new_source_id, new_sink_id,
-                        //             touching_source, touching_sink,
-                        //             get<0>(possible_path).front(), next)
-                        //      << endl;
-                        // cerr << "arguments of compare: "
-                        //      << " " << 0 << " " << compare_length << " " << path_seq
-                        //      << " " << cur_index_in_path << " " << compare_length << "
-                        //      "
-                        //      << endl;
-                        if ((next_seq.compare(0, compare_length, path_seq,
-                                              cur_index_in_path, compare_length) == 0) &&
-                            source_and_sink_handles_map_properly(
-                                _graph, new_source_id, new_sink_id, touching_source,
-                                touching_sink, get<0>(possible_path).front(), next)) {
-                            // todo: debug_statement
-                            // cerr << "compared." << endl;
-
-                            // we've found the new path! Move path to the new sequence,
-                            // and end the function.
-
-                            if (compare_length < next_seq.size()) {
-                                // If the path ends before the end of next_seq, then split
-                                // the handle so that the path ends flush with the end of
-                                // the first of the two split handles.
-
-                                // divide the handle where the path ends;
-                                pair<handle_t, handle_t> divided_next =
-                                    _graph.divide_handle(next, compare_length);
-                                get<0>(possible_path).push_back(divided_next.first);
-
-                                // Special case if next is the sink or the source, to
-                                // preserve the reassignment of source and sink ids in
-                                // integrate_snarl.
-                                if (next_id == new_sink_id) {
-                                    new_sink_id = _graph.get_id(divided_next.second);
-                                }
-
-                                // TODO: NOTE: finding the old "next" handle is expensive.
-                                // TODO:   Use different container?
-                                auto it = find(new_snarl_handles.begin(),
-                                               new_snarl_handles.end(), next);
-
-                                // replace the old invalidated handle with one of the new
-                                // ones
-                                *it = divided_next.first;
-                                // stick the other new handle on the end of
-                                // new_snarl_handles.
-                                new_snarl_handles.push_back(divided_next.second);
-
-                            } else {
-                                // otherwise, the end of the path already coincides with
-                                // the end of the handle. In that case, just add it to the
-                                // path.
-                                get<0>(possible_path).push_back(next);
-                            }
-                            _graph.rewrite_segment(old_embedded_path.first,
-                                                   old_embedded_path.second,
-                                                   get<0>(possible_path));
-                            // //todo: debug_statement:
-                            // cerr << "got a full path: ";
-                            // for (handle_t handle : get<0>(possible_path)) {
-                            //     cerr << _graph.get_id(handle) << " ";
-                            // }
-                            // cerr << endl;
-
-                            // we've already found the path. No need to keep looking for
-                            // more paths.
-                            return false;
-                        }
-                    }
-                    // see if the next handle would be the continuation of the path, but
-                    // not the end,
-                    else {
-
-                        // check to see if the sequence in the handle is suitable for
-                        // extending the path:
-                        int compare_length = next_seq.size();
-                        // //todo: debug_statement
-                        // cerr << "compare returned false" << endl;
-                        // cerr << "compare in returned false: "
-                        //      << " next_seq len " << next_seq.size() << " compare_length
-                        //      "
-                        //      << compare_length << " path_seq len " << path_seq.size()
-                        //      << " cur_index_in_path " << cur_index_in_path << endl;
-                        // cerr << "if statement eval: cur_index_in_path <=
-                        // next_seq.size() "
-                        //      << (cur_index_in_path <= next_seq.size())
-                        //      << " next_seq.compare(0, compare_length, path_seq, "
-                        //         "cur_index_in_path, compare_length) == 0) "
-                        //      << (next_seq.compare(0, compare_length, path_seq,
-                        //                           cur_index_in_path, compare_length) ==
-                        //                           0)
-                        //      << endl;
-                        if (next_seq.compare(0, compare_length, path_seq,
-                                             cur_index_in_path, compare_length) == 0) {
-                            // cerr << "compared in return false" << endl;
-                            // extend the path
-                            get<0>(possible_path).push_back(next);
-
-                            // update the current index in path_seq.
-                            get<2>(possible_path) += next_seq.size();
-
-                            // place back into possible_paths
-                            possible_paths.push_back(possible_path);
-                            // cerr << "extending the path!" << endl;
-                        }
-                    }
-                }
-                // continue to iterate through follow_edges.
-                return true;
-            });
-
-        // //todo: debug_statement:
-        // if
-        // (graph.get_path_name(graph.get_path_handle_of_step(old_embedded_path.first))
-        // ==
-        //     "_alt_19f9bc9ad2826f58f113965edf36bb93740df46d_0") {
-        //     cerr << "mystery node 4214930: "
-        //          << _graph.get_sequence(graph.get_handle(4214930)) << endl;
-        // }
-
-        // if we've found a complete path in the above follow_edges, then we've
-        // already moved the path, and we're done.
-        if (!no_path) {
-            return;
-        }
-    }
-    // //todo: figure out how to do some better error message instead of cerr.
-    // if we failed to find a path, show an error message.
-    cerr << "##########################\nWarning! Didn't find a corresponding path of "
-            "name "
-         << _graph.get_path_name(_graph.get_path_handle_of_step(old_embedded_path.first))
-         << " from the old snarl at " << old_source_id
-         << " in the newly aligned snarl. This snarl WILL be "
-            "normalized, resulting in a probably incorrectly-constructed snarl."
-            "\n##########################"
-         << endl
-         << endl;
-    // throw _graph.get_path_name(graph.get_path_handle_of_step(old_embedded_path.first));
-    // assert(true && "Warning! Didn't find a corresponding path of name " +
-    //         _graph.get_path_name(graph.get_path_handle_of_step(old_embedded_path.first))
-    //         + " from the old snarl in the newly aligned snarl.");
-}
+// /**
+//  * Deletes the given handle's underlying node, and returns a new handle to a new node 
+//  * with the desired node_id
+//  * 
+//  * @param  {handle_t} handle : The handle to be replaced with a new handle & new node.
+//  * @param  {id_t} node_id    : The node id for the new node. Cannot be currently in use in
+//  *                              the graph.
+//  * @return {handle_t}        : The new handle, in the same position as the original handle
+//  *                              in the graph, but with the new node_id.
+//  */
+// handle_t SnarlNormalizer::change_node_id(handle_t old_handle, const id_t& new_node_id)
+// {
+    
+// }
 
 /** Used to help move_path_to_snarl map paths from an old snarl to its newly
  * normalized counterpart. In particular, ensures that any paths which touch the

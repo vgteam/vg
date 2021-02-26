@@ -39,8 +39,8 @@ namespace algorithms{
 SnarlSequenceFinder::SnarlSequenceFinder(const PathHandleGraph & graph, 
                                const SubHandleGraph &snarl,
                                const gbwtgraph::GBWTGraph &haploGraph, 
-                               const id_t &source_id, const id_t &sink_id)
-    : _graph(graph), _haploGraph(haploGraph), _snarl(snarl), _source_id(source_id), _sink_id(sink_id) {}
+                               const id_t &source_id, const id_t &sink_id, const bool &backwards)
+    : _graph(graph), _haploGraph(haploGraph), _snarl(snarl), _source_id(source_id), _sink_id(sink_id), _backwards(backwards) {}
 
 // TODO: test that it successfully extracts any haplotypes that start/end in the middle of
 // TODO:    the snarl.
@@ -55,6 +55,15 @@ SnarlSequenceFinder::SnarlSequenceFinder(const PathHandleGraph & graph,
 */
 tuple<vector<vector<handle_t>>, vector<vector<handle_t>>, unordered_set<handle_t>>
 SnarlSequenceFinder::find_gbwt_haps() {
+    // If snarl has been fed to us backwards, run the algorithm with righmost_id as source
+    // and vice-versa. Otherwise, keep source as leftmost_id.
+    id_t leftmost_id = _source_id;
+    id_t rightmost_id = _sink_id;
+    if (_backwards) {
+        leftmost_id = _sink_id;
+        rightmost_id = _source_id;
+    }
+    
     /** 
      * haplotype_queue contains all started exon_haplotypes not completed yet.
      * Every time we encounter a branch in the paths, the next node down the path
@@ -64,8 +73,8 @@ SnarlSequenceFinder::find_gbwt_haps() {
     vector<pair<vector<handle_t>, gbwt::SearchState>> haplotype_queue;
 
     // source and sink handle for _haploGraph:
-    handle_t source_handle = _haploGraph.get_handle(_source_id);
-    handle_t sink_handle = _haploGraph.get_handle(_sink_id);
+    handle_t source_handle = _haploGraph.get_handle(leftmost_id);
+    handle_t sink_handle = _haploGraph.get_handle(rightmost_id);
 
     // place source in haplotype_queue.
     vector<handle_t> source_handle_vec(1, source_handle);
@@ -130,8 +139,8 @@ SnarlSequenceFinder::find_gbwt_haps() {
                     if (incorrect_connections.find(
                             _snarl.edge_handle(cur_haplotype.first.back(), next_handle)) ==
                         incorrect_connections.end()) {
-                        cerr << "_snarl starting at node " << _source_id
-                            << " and ending at " << _sink_id
+                        cerr << "_snarl with source " << _source_id
+                            << " and sink " << _sink_id
                             << " has a thread that incorrectly connects two nodes that "
                                "don't have any edge connecting them. These two nodes are "
                             << _haploGraph.get_id(cur_haplotype.first.back()) << " and "
@@ -159,7 +168,7 @@ SnarlSequenceFinder::find_gbwt_haps() {
                 next_handle_vec.push_back(next_handle);
 
                 // if new_handle is the sink, put in haplotypes_from_source_to_sink
-                if (_haploGraph.get_id(next_handle) == _sink_id) {
+                if (_haploGraph.get_id(next_handle) == rightmost_id) {
                     haplotypes_from_source_to_sink.push_back(next_handle_vec);
                 } else // keep extending the haplotype!
                 {
@@ -178,9 +187,9 @@ SnarlSequenceFinder::find_gbwt_haps() {
             other_haplotypes.push_back(cur_haplotype.first);
 
         }
-        // if next_handle is the sink, put in haplotypes_from_source_to_sink
+        // if next_handle is the "sink"/rightmost_id, put in haplotypes_from_source_to_sink
         else if (_haploGraph.get_id(
-                     _haploGraph.node_to_handle(next_searches.back().node)) == _sink_id) {
+                     _haploGraph.node_to_handle(next_searches.back().node)) == rightmost_id) {
             // Then we need to add cur_haplotype + next_search to
             // haplotypes_from_source_to_sink.
             handle_t next_handle = _haploGraph.node_to_handle(next_searches.back().node);
@@ -246,6 +255,14 @@ SnarlSequenceFinder::find_gbwt_haps() {
 //      snarl.
 vector<vector<handle_t>>
 SnarlSequenceFinder::find_haplotypes_not_at_source(unordered_set<handle_t> &touched_handles) {
+    // If snarl has been fed to us backwards, run the algorithm with righmost_id as source
+    // and vice-versa. Otherwise, keep source as leftmost_id.
+    id_t leftmost_id = _source_id;
+    id_t rightmost_id = _sink_id;
+    if (_backwards) {
+        leftmost_id = _sink_id;
+        rightmost_id = _source_id;
+    }
     //todo: debug_statement
     for (handle_t handle : touched_handles){
         cerr << "touched handles find_gbwt_haps: " << _graph.get_id(handle) << endl;
@@ -266,7 +283,7 @@ SnarlSequenceFinder::find_haplotypes_not_at_source(unordered_set<handle_t> &touc
 
     // We don't need to ever check the sink handle, since paths from the sink handle
     // extend beyond snarl.
-    handle_t sink_handle = _haploGraph.get_handle(_sink_id);
+    handle_t sink_handle = _haploGraph.get_handle(rightmost_id);
     // touched_handles.erase(sink_handle);
 
     // Nested function for making a new_search. Identifies threads starting at a given
@@ -347,7 +364,7 @@ SnarlSequenceFinder::find_haplotypes_not_at_source(unordered_set<handle_t> &touc
 
                 // if next_search is on the sink_handle,
                 // then cur_haplotype.first + next_search goes to finished_haplotypes.
-                else if (_haploGraph.get_id(next_handle) == _sink_id) {
+                else if (_haploGraph.get_id(next_handle) == rightmost_id) {
 
                     // copy over the vector<handle_t> of cur_haplotype:
                     vector<handle_t> next_handle_vec(cur_haplotype.first);
@@ -440,10 +457,11 @@ SnarlSequenceFinder::find_embedded_paths() {
             path_handle_t path = _graph.get_path_handle_of_step(step);
             cerr << "found a path. Is it new?" << endl;
             // If it's a step along a new path, save the first step to that path we find.
-            // In addtion, if there are multiple steps found in the path, (The avoidance
+            // (The avoidance
             // of source and sink here is to ensure that we can properly check to see if
             // we've reached the end of an embedded path walking in any arbitrary
             // direction (i.e. source towards sink or sink towards source).
+            //todo: should the following if statement only contain the first conditional? The other two conditionals don't do what the comment says, and also don't seem to make sense.
             if (paths_found.find(path) == paths_found.end() ||
                 _graph.get_id(_graph.get_handle_of_step(paths_found[path])) == _source_id ||
                 _graph.get_id(_graph.get_handle_of_step(paths_found[path])) == _sink_id) {
@@ -479,7 +497,7 @@ SnarlSequenceFinder::find_embedded_paths() {
         id_t begin_in_snarl_id =
             _graph.get_id(_graph.get_handle_of_step(begin_in_snarl_step));
 
-        while ((begin_in_snarl_id != _source_id) &&
+        while (((begin_in_snarl_id != _source_id)) &&
                _graph.has_previous_step(begin_in_snarl_step)) {
             begin_in_snarl_step = _graph.get_previous_step(begin_in_snarl_step);
             begin_in_snarl_id =
@@ -493,18 +511,46 @@ SnarlSequenceFinder::find_embedded_paths() {
 
         // while (end_in_snarl_id != source_id and end_in_snarl_id != sink_id and
         //        _graph.has_next_step(end_in_snarl_step)) {
-        while (end_in_snarl_id != _sink_id and _graph.has_next_step(end_in_snarl_step)) {
+        while ((end_in_snarl_id != _sink_id) and _graph.has_next_step(end_in_snarl_step)) {
             end_in_snarl_step = _graph.get_next_step(end_in_snarl_step);
             end_in_snarl_id = _graph.get_id(_graph.get_handle_of_step(end_in_snarl_step));
         }
         // Note: when adding the end step, path notation convention requires that we add
         // the null step at the end of the path (or the next arbitrary step, in the case
         // of a path that extends beyond our snarl.)
-        // TODO: do we want the next arbitrary step in that latter case?
         path_in_snarl.second = _graph.get_next_step(end_in_snarl_step);
 
         paths_in_snarl.push_back(path_in_snarl);
     }
+
+    //todo: move the following to unit tests:
+    cerr << "************UNIT_TEST for find_embedded_paths************" << endl;
+    unordered_set<string> path_names;
+    for (auto path : paths_in_snarl) {
+        if (!(_graph.get_id(_graph.get_handle_of_step(path.first)) == _source_id)) {
+            cerr << "path " << _graph.get_path_name(_graph.get_path_handle_of_step(path.first)) << " doesn't start at source of snarl. " << " source: " << _source_id << "; start of path: " << _graph.get_id(_graph.get_handle_of_step(path.first)) << endl;
+        }
+        if (!(_graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) == _sink_id)) {
+            cerr << "path " << _graph.get_path_name(_graph.get_path_handle_of_step(path.second)) << " doesn't end at sink of snarl. " << " source: " << _sink_id << "; end of path: " << _graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) << endl;
+            cerr << "note that the 'true' end of the path is one step further than the sink. Print statement above corrects for that convention." << endl;
+        }
+        if (!(path_names.find(_graph.get_path_name(_graph.get_path_handle_of_step(path.first))) == path_names.end())) {
+            cerr << "path " << _graph.get_path_name(_graph.get_path_handle_of_step(path.second)) << " has been found more than once in find_embedded_paths, when it should only have been extracted once. " << endl;
+        }
+        path_names.emplace(_graph.get_path_name(_graph.get_path_handle_of_step(path.first)));
+    } 
+    if ((path_names.size() == 0)) {
+        cerr << "no embedded paths found in find_embedded_paths." << endl;
+    }
+    // for (auto path : paths_in_snarl) {
+    //     cerr << "path starts at source? " << (_graph.get_id(_graph.get_handle_of_step(path.first)) == _source_id) << endl;
+    //     cerr << "path ends at sink? " << (_graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) == _sink_id) << endl;
+
+    //     cerr << "is a path a duplicate of one we've already extracted? " << (path_names.find(_graph.get_path_name(_graph.get_path_handle_of_step(path.first))) == path_names.end()) << endl;
+    //     path_names.emplace(_graph.get_path_name(_graph.get_path_handle_of_step(path.first)));
+    // } 
+    // cerr << "tested " << path_names.size() << " paths in UNIT_TEST." << endl;
+    cerr << "************END-UNIT_TEST for find_embedded_paths. Tested " << path_names.size() << " paths in UNIT_TEST.************"<< endl;
 
     return paths_in_snarl;
 }

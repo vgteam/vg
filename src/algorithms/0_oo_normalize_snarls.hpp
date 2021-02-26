@@ -20,7 +20,7 @@ class SnarlNormalizer {
 
     virtual void normalize_top_level_snarls(ifstream &snarl_stream);
 
-    virtual vector<int> normalize_snarl(const id_t &source_id, const id_t &sink_id);
+    virtual vector<int> normalize_snarl(id_t source_id, id_t sink_id, const bool backwards);
 
   protected:
     // member variables:
@@ -38,8 +38,8 @@ class SnarlNormalizer {
     // finding information on original graph:
     //////////////////////////////////////////////////////////////////////////////////////
 
-    SubHandleGraph extract_subgraph(const HandleGraph &graph, const id_t &start_id,
-                                    const id_t &end_id);
+    SubHandleGraph extract_subgraph(const HandleGraph &graph, id_t start_id,
+                                    id_t end_id, const bool backwards);
                                     
     vector<int> check_handle_as_start_of_path_seq(const string &handle_seq,
                                                   const string &path_seq);
@@ -50,14 +50,10 @@ class SnarlNormalizer {
 
     VG align_source_to_sink_haplotypes(unordered_set<string> source_to_sink_haplotypes);
 
-    void integrate_snarl(const HandleGraph &new_snarl,
+    void integrate_snarl(SubHandleGraph &old_snarl, const HandleGraph &new_snarl,
                          const vector<pair<step_handle_t, step_handle_t>> embedded_paths,
-                         const id_t &source_id, const id_t &sink_id);
+                         const id_t &source_id, const id_t &sink_id, const bool backwards);
 
-    void move_path_to_snarl(const pair<step_handle_t, step_handle_t> &old_embedded_path,
-                            vector<handle_t> &new_snarl_handles, id_t &new_source_id,
-                            id_t &new_sink_id, const id_t &old_source_id,
-                            const id_t &old_sink_id);
 
     bool source_and_sink_handles_map_properly(
         const HandleGraph &graph, const id_t &new_source_id, const id_t &new_sink_id,
@@ -65,6 +61,18 @@ class SnarlNormalizer {
         const handle_t &potential_source, const handle_t &potential_sink);
 
     void force_maximum_handle_size(MutableHandleGraph &graph, const size_t &max_size);
+
+    void move_path_to_snarl(const pair<step_handle_t, step_handle_t> &old_embedded_path,
+                            vector<handle_t> &new_snarl_handles, id_t &new_source_id,
+                            id_t &new_sink_id, const id_t &old_source_id,
+                            const id_t &old_sink_id, const bool backwards);
+
+    // moving paths to new graph (new draft functions)
+    vector<pair<vector<handle_t>, int> > find_possible_path_starts (const handle_t& leftmost_handle, const handle_t& rightmost_handle, const pair<bool, bool>& path_spans_left_right);
+
+    vector<handle_t> extend_possible_paths(vector<pair<vector<handle_t>, int>> &possible_path_starts, const string &path_str, const handle_t &leftmost_handle, const handle_t &rightmost_handle, const pair<bool, bool> &path_spans_left_right);
+
+    void move_path_to_new_snarl(const pair<step_handle_t, step_handle_t> & old_path, const id_t &source, const id_t &sink, const pair<bool, bool> &path_spans_left_right, const bool &path_directed_left_to_right);
 
     //////////////////////////////////////////////////////////////////////////////////////
     // format-type switching:
