@@ -524,37 +524,49 @@ namespace vg {
 #ifdef debug_make_snarl_graph
                 cerr << "weight > 1 : " << edge_weight <<endl;                   
 #endif 
+                //node ids, get the ids from SnarlRecord index member 
+                size_t snarl_id_1 = snarls.snarl_number(snarl_1);
+                size_t snarl_id_2 = snarls.snarl_number(snarl_2);
+#ifdef debug_make_snarl_graph
+                cerr << "snarl 1 : " << snarl_id_1 <<endl;  
+                cerr << "snarl 2 : " << snarl_id_2 <<endl;                   
+#endif              
                 algorithms::Node snarl_node_1, snarl_node_2;
                 algorithms::Edge edge_fwd, edge_back;
                 edge_fwd.weight = edge_weight;
                 edge_back.weight = edge_weight;
-                
-                //add incident edge weights to nodes
-                snarl_node_1.weight += edge_weight;
-                snarl_node_2.weight += edge_weight;
-
-                //node ids, get the ids from SnarlRecord index member 
-                size_t snarl_id_1 = snarls.snarl_number(snarl_1);
-                size_t snarl_id_2 = snarls.snarl_number(snarl_2);
-
-#ifdef debug_make_snarl_graph
-                cerr << "snarl 1 : " << snarl_id_1 <<endl;  
-                cerr << "snarl 2 : " << snarl_id_2 <<endl;                   
-#endif 
                 //add other node that touches edge coming from base node
                 edge_fwd.other = snarl_id_2; //snarl_1 -> snarl_2
                 edge_back.other = snarl_id_1; //snarl_2 -> snarl_1
-
-                snarl_node_1.edges.push_back(edge_fwd);
-                snarl_node_2.edges.push_back(edge_back);
 
 #ifdef debug_make_snarl_graph
                 cerr << "edge_fwd.other: " << edge_fwd.other <<endl;  
                 cerr << "edge_back.other " << edge_back.other <<endl;                   
 #endif 
-                snarl_graph.add_node(snarl_id_1, snarl_node_1);
-                snarl_graph.add_node(snarl_id_2, snarl_node_2);
+                vector<size_t> node_ids = snarl_graph.get_node_ids();
+                unordered_set<size_t> id_set(node_ids.begin(), node_ids.end());
 
+                //if snarl node already exists in graph, we add to its edges vector
+                if(id_set.count(snarl_id_1)){
+                    snarl_graph.get_node_by_id(snarl_id_1).edges.push_back(edge_fwd);
+                    snarl_graph.get_node_by_id(snarl_id_1).weight += edge_weight;
+                }else{
+                    //else we create a new node and add the node to the graph along with the edge
+                    snarl_node_1.weight += edge_weight;
+                    snarl_node_1.edges.push_back(edge_fwd);
+                    snarl_graph.add_node(snarl_id_1, snarl_node_1);
+                }
+                
+                //similarily for snarl 2, we check if it already exists and if so we add to its edge vector
+                if(id_set.count(snarl_id_2)){
+                    snarl_graph.get_node_by_id(snarl_id_2).edges.push_back(edge_back);
+                    snarl_graph.get_node_by_id(snarl_id_2).weight += edge_weight;
+                }else{
+                    //else we create a new node and add the node to the graph along with the edge
+                    snarl_node_2.edges.push_back(edge_back);
+                    snarl_node_2.weight += edge_weight;
+                    snarl_graph.add_node(snarl_id_2, snarl_node_2);
+                }
 
             }
 

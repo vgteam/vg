@@ -1331,20 +1331,23 @@ namespace vg {
             algorithms::Graph snarl_graph = mcmc_genotyper.make_snarl_graph(snarl_map);
 
 #ifdef debug_snarl_graph
-            cout << "graph" <<endl;        
             cout << "******************************************************"<<endl;
-            for(size_t i =0; i < snarl_graph.get_node_ids().size(); i++){
-                cout << "node size " <<snarl_graph.get_node_ids().size() << endl; 
-                vector<size_t> node_ids = snarl_graph.get_node_ids();
-                
-                for (size_t k =0; k < node_ids.size(); k++){
+            cout << "graph" <<endl; 
+            
+            vector<size_t> node_ids = snarl_graph.get_node_ids();
+            size_t num_nodes = node_ids.size();
+            cout << "node size " <<num_nodes << endl; 
+            for (size_t k =0; k < node_ids.size(); k++){
                     cout << "node id : " <<node_ids[k] << endl; 
-                }
-                for(size_t j =0; j < snarl_graph.get_node_by_id(node_ids[i]).edges.size(); j++){
-                    cout << "node "<< node_ids[i] <<" size of edges " <<snarl_graph.get_node_ids().size() << endl; 
-                    algorithms::Node& node =  snarl_graph.get_node_by_id(node_ids[i]);
-                    cout << "node "<<node_ids[i] <<"->" << node.edges[j].other <<endl;
-                    cout << "edge weight: " << node.edges[j].weight <<endl;
+            }       
+            
+            for(size_t i =0; i < num_nodes; i++){
+                size_t id = node_ids[i];
+                algorithms::Node& node_i = snarl_graph.get_node_by_id(id);
+                for(size_t j =0; j < node_i.edges.size(); j++){
+                    cout << "node "<< id <<" size of edges " <<node_i.edges.size() << endl; 
+                    cout << "node "<< id <<"->" << node_i.edges[j].other <<endl;
+                    cout << "edge weight: " << node_i.edges[j].weight <<endl;
 
                 }
                 
@@ -1354,10 +1357,10 @@ namespace vg {
 
         }
 
-        TEST_CASE("mcmc_genotyper with karger-stein algorithm") {
+        // TEST_CASE("mcmc_genotyper with karger-stein algorithm") {
 
-            
-        }
+
+        // }
 
     }
 
