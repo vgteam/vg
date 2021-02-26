@@ -346,28 +346,22 @@ namespace vg {
                     for(size_t i = 0; i < path.mapping_size(); i++){
                         auto& mapping = path.mapping(i);
                         int64_t node_id = mapping.position().node_id();
+                        bool is_reverse = mapping.position().is_reverse();
 
 #ifdef debug_make_snarl_graph
                         read_nodes.push_back(node_id);              
 #endif 
-                        const Snarl* back_snarl = snarls.into_which_snarl(node_id, true); 
-                        const Snarl* fwd_snarl = snarls.into_which_snarl(node_id, false);
-               
+                        
+                        const Snarl* snarl = snarls.into_which_snarl(node_id, is_reverse);
                         // insert snarls into unordered set with only unique entries
-                        // only insert if snarl obj exists in the orientation given 
-                        // skip first nodes with reverse orientation, and last node with fwd orientation
-                        if(back_snarl && i != 0){
-// #ifdef debug_make_snarl_graph
-//                             cerr <<"adding back_snarl " <<back_snarl->start().node_id() <<" -> " <<back_snarl->end().node_id() <<endl;
-// #endif
-                            snarl_set.insert(back_snarl);
+                        //TODO: to make it faster remove the snarls not supported by read at boundary nodes
+                        if(snarl){
+                            snarl_set.insert(snarl);
                         }
-                        if(fwd_snarl && i != path.mapping_size()-1){
 // #ifdef debug_make_snarl_graph
 //                             cerr <<"adding fwd_snarl " <<fwd_snarl->start().node_id() <<" -> " <<fwd_snarl->end().node_id() <<endl;
-// #endif
-                            snarl_set.insert(fwd_snarl);
-                        }
+// #endif                        
+                             
                     }
                     
                 }
@@ -451,18 +445,14 @@ namespace vg {
                     // get score after swap
                     score_after_swap = phased_genome->optimal_score_on_genome(multipath_aln, graph);
 #ifdef debug_make_snarl_graph
-                cerr << "genome after swap " << endl;
-                phased_genome->print_phased_genome();
-                cerr << "score_after_swap  " << score_after_swap  <<endl;
+                    // cerr << "genome after swap " << endl;
+                    // phased_genome->print_phased_genome();
+                    // cerr << "score_after_swap  " << score_after_swap  <<endl;
 #endif
                                         
 
-                //swap back 
+                    //swap back 
                     phased_genome->swap_alleles(snarl_to_swap, haplotype_0, haplotype_1);
-// #ifdef debug_make_snarl_graph
-//                     cerr << "genome after swap back" << endl;
-//                     phased_genome->print_phased_genome();                   
-// #endif
                 
                 }else{
                     //else random num == 1
@@ -473,16 +463,12 @@ namespace vg {
                     // get score after swap
                     score_after_swap = phased_genome->optimal_score_on_genome(multipath_aln, graph);
 #ifdef debug_make_snarl_graph
-                    cerr << "genome after swap " << endl;
-                    phased_genome->print_phased_genome();
-                    cerr << "score_after_swap  " << score_after_swap  <<endl;                              
+                    // cerr << "genome after swap " << endl;
+                    // phased_genome->print_phased_genome();
+                    // cerr << "score_after_swap  " << score_after_swap  <<endl;                              
 #endif
                     //swap back 
                     phased_genome->swap_alleles(snarl_to_swap, haplotype_0, haplotype_1);
-#ifdef debug_make_snarl_graph
-                    cerr << "genome after swap back" << endl;
-                    phased_genome->print_phased_genome();                   
-#endif
                 }
             
                 //getcalculate difference of scores between swaps

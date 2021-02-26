@@ -1246,7 +1246,10 @@ namespace vg {
             // Make a multipath mapper to map against the graph.
             MultipathMapper multipath_mapper(&xg_index, gcsaidx, lcpidx); 
             
-            vector<string> reads = {"GGGCCCAGCTGG", "GGGCCCAGCTGGTCTGAGCCC", "GGGCCCAGCTGGTCTGAGCCC", "GGGTACCCTGGTCTGAGCCC", "CTGGTCTGAGCCC" };
+            vector<string> reads = {"GGGCCCAGCTGG", "GGGCCCAGCTGGTCTGAGCCC", "GGGCCCAGCTGGTCTGAGCCC", 
+                                    "GGGTACCCTGGTCTGAGCCC", "CTGGTCTGAGCCC", "GGGCCCTGCTGGGCTGAGCCC", 
+                                    "GGGCCCTGCTGGGCTGAGCCC", "GGGCCCTGCTGGGCTGAGCCC", "GGGCCCAGCTGGTCTGAACCC",
+                                     "GGGCCCAGCTGGTCTGAACCC"};
             vector<Alignment> alns = {reads.size(), Alignment()};
 
             // set alignment sequence
@@ -1349,6 +1352,11 @@ namespace vg {
             cout << "******************************************************"<<endl;
 #endif
 
+        }
+
+        TEST_CASE("mcmc_genotyper with karger-stein algorithm") {
+
+            
         }
 
     }
