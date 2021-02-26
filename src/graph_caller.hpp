@@ -359,7 +359,7 @@ protected:
     map<string, int> ref_ploidies;
 
     /// until we support nested snarls, cap snarl size we attempt to process
-    size_t max_snarl_edges = 500000;
+    size_t max_snarl_edges = 10000;
 
     /// alignment emitter. if not null, traversals will be output here and
     /// no genotyping will be done
@@ -454,8 +454,8 @@ protected:
     /// keep traco of the ploidies (todo: just one map for all path stuff!!)
     map<string, int> ref_ploidies;
 
-    /// until we support nested snarls, cap snarl size we attempt to process
-    size_t max_snarl_edges = 500000;
+    /// until we support nested snarls, cap snarl size we attempt to process    
+    size_t max_snarl_shallow_size = 50000;
 
     /// alignment emitter. if not null, traversals will be output here and
     /// no genotyping will be done

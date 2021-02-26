@@ -1538,15 +1538,17 @@ NestedFlowCaller::~NestedFlowCaller() {
 }
 
 bool NestedFlowCaller::call_snarl(const Snarl& managed_snarl) {
-
+    
     // remember the calls for each child snarl in this table
     CallTable call_table;
 
-    call_snarl_recursive(managed_snarl, -1, "", make_pair(0, 0), call_table);
+    bool called = call_snarl_recursive(managed_snarl, -1, "", make_pair(0, 0), call_table);
 
-    emit_snarl_recursive(managed_snarl, -1, call_table);
+    if (called) { 
+        emit_snarl_recursive(managed_snarl, -1, call_table);
+    }
 
-    return true;
+    return called;
 }
 
 bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_ploidy,
@@ -1669,7 +1671,10 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
 
     for (const Snarl* child : children) {
         if (!snarl_manager.is_trivial(child, graph)) {
-            call_snarl_recursive(*child, max_ploidy, gt_ref_path_name, gt_ref_interval, call_table);
+            bool called = call_snarl_recursive(*child, max_ploidy, gt_ref_path_name, gt_ref_interval, call_table);
+            if (!called) {
+                return false;
+            }
         }
     }
 
@@ -1692,9 +1697,8 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
     // todo: maybe use snarl length for everything?
     bool greedy_avg_flow = false;
     {
-        auto snarl_contents = snarl_manager.deep_contents(&snarl, graph, false);
-        if (snarl_contents.second.size() > max_snarl_edges) {
-            // size cap needed as NestedFlowCaller doesn't have nesting support yet
+        auto snarl_contents = snarl_manager.shallow_contents(&snarl, graph, false);
+        if (max(snarl_contents.first.size(), snarl_contents.second.size()) > max_snarl_shallow_size) {
             return false;
         }
         const auto& support_finder = dynamic_cast<SupportBasedSnarlCaller&>(snarl_caller).get_support_finder();
@@ -1798,7 +1802,7 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
             ret_val = trav_genotype.size() == ploidy;
         }
     }
-        
+
     return ret_val;
 }
 
@@ -1863,7 +1867,7 @@ bool NestedFlowCaller::emit_snarl_recursive(const Snarl& managed_snarl, int ploi
             //    emit_gaf_variant(graph, snarl, travs, trav_genotype);
         }
     }
-        
+
     return true;
 }
 
