@@ -3325,12 +3325,16 @@ vector<SnarlTraversal> FlowTraversalFinder::find_traversals(const Snarl& site) {
     return find_weighted_traversals(site).first;
 }
 
-pair<vector<SnarlTraversal>, vector<double>> FlowTraversalFinder::find_weighted_traversals(const Snarl& site, bool greedy_avg) {
+pair<vector<SnarlTraversal>, vector<double>> FlowTraversalFinder::find_weighted_traversals(const Snarl& site, bool greedy_avg,
+                                                                                           const HandleGraph* overlay) {
 
-    handle_t start_handle = graph.get_handle(site.start().node_id(), site.start().backward());
-    handle_t end_handle = graph.get_handle(site.end().node_id(), site.end().backward());
-
-    vector<pair<double, vector<handle_t>>> widest_paths = algorithms::yens_k_widest_paths(&graph, start_handle, end_handle, K,
+    // option to use the overlay graph for the search
+    const HandleGraph* use_graph = overlay != nullptr ? overlay : & graph;
+    
+    handle_t start_handle = use_graph->get_handle(site.start().node_id(), site.start().backward());
+    handle_t end_handle = use_graph->get_handle(site.end().node_id(), site.end().backward());
+    
+    vector<pair<double, vector<handle_t>>> widest_paths = algorithms::yens_k_widest_paths(use_graph, start_handle, end_handle, K,
                                                                                           node_weight_callback,
                                                                                           edge_weight_callback,
                                                                                           greedy_avg);
@@ -3345,8 +3349,8 @@ pair<vector<SnarlTraversal>, vector<double>> FlowTraversalFinder::find_weighted_
         travs.emplace_back();
         for (const auto& h : wp.second) {
             Visit* visit = travs.back().add_visit();
-            visit->set_node_id(graph.get_id(h));
-            visit->set_backward(graph.get_is_reverse(h));
+            visit->set_node_id(use_graph->get_id(h));
+            visit->set_backward(use_graph->get_is_reverse(h));
         }
     }
 
