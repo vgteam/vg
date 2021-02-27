@@ -129,11 +129,15 @@ $(function() {
 : <a class="el" href="classvg_1_1MultipathMapper.html#aa4307bce23fe2a909f96273dbca7b126">vg::MultipathMapper</a>
 </li>
 <li>call_snarl()
-: <a class="el" href="classvg_1_1FlowCaller.html#adeb7a1e4d9d69074ea78906e3f86903f">vg::FlowCaller</a>
-, <a class="el" href="classvg_1_1GraphCaller.html#a3364caf28e027a77baf826e68a34efcd">vg::GraphCaller</a>
-, <a class="el" href="classvg_1_1LegacyCaller.html#aa46468a589a7234b8cfbc4f5c7237fee">vg::LegacyCaller</a>
+: <a class="el" href="classvg_1_1FlowCaller.html#abe755bb8027b80711002dc229fe3399a">vg::FlowCaller</a>
+, <a class="el" href="classvg_1_1GraphCaller.html#a6064d47ccef10174fab1037764a3cf29">vg::GraphCaller</a>
+, <a class="el" href="classvg_1_1LegacyCaller.html#a732a1385c9846d9605db70139d8e275b">vg::LegacyCaller</a>
 , <a class="el" href="classvg_1_1MCMCCaller.html#a82a9f6d69f5168582d19ff1d2484ea70">vg::MCMCCaller</a>
-, <a class="el" href="classvg_1_1VCFGenotyper.html#a7a33f808a60c6c9a28246e6db4a148e2">vg::VCFGenotyper</a>
+, <a class="el" href="classvg_1_1NestedFlowCaller.html#a519712fdd96921a721be77a5f7d12638">vg::NestedFlowCaller</a>
+, <a class="el" href="classvg_1_1VCFGenotyper.html#a1e3a89bae885b463272873e538815151">vg::VCFGenotyper</a>
+</li>
+<li>call_snarl_recursive()
+: <a class="el" href="classvg_1_1NestedFlowCaller.html#ad35a296c010962d699d2e613d8f7bfc9">vg::NestedFlowCaller</a>
 </li>
 <li>call_svs()
 : <a class="el" href="classvg_1_1SRPE.html#a3aa5214b351a318d6588213de0ce883c">vg::SRPE</a>
@@ -145,11 +149,14 @@ $(function() {
 : <a class="el" href="classvg_1_1SRPE.html#a029ea22587199e2954e8fda544871334">vg::SRPE</a>
 </li>
 <li>call_top_level_chains()
-: <a class="el" href="classvg_1_1GraphCaller.html#a9e8aac668b3e103ad08c64f5fa5ce04b">vg::GraphCaller</a>
+: <a class="el" href="classvg_1_1GraphCaller.html#a94c2aa4a9681ea41fbed81b9dce03c26">vg::GraphCaller</a>
 </li>
 <li>call_top_level_snarls()
-: <a class="el" href="classvg_1_1GraphCaller.html#a0448df1237f9c96748c62de67e5d1858">vg::GraphCaller</a>
+: <a class="el" href="classvg_1_1GraphCaller.html#aaeb583d885497c341bc4c2f9c1325fb5">vg::GraphCaller</a>
 , <a class="el" href="classvg_1_1MCMCCaller.html#aa4acabff49b9dee265127563d9424cbd">vg::MCMCCaller</a>
+</li>
+<li>CallTable
+: <a class="el" href="classvg_1_1NestedFlowCaller.html#a91631dee2c59c209559b94ab7d1d171e">vg::NestedFlowCaller</a>
 </li>
 <li>can_get()
 : <a class="el" href="classvg_1_1IndexManager.html#a879079635418ec294a6d1b8b8c863d13">vg::IndexManager</a>
@@ -271,6 +278,9 @@ $(function() {
 </li>
 <li>child_chains
 : <a class="el" href="structvg_1_1SnarlManager_1_1SnarlRecord.html#a4d3d44b4a07fd7598a414eae1f5a2d33">vg::SnarlManager::SnarlRecord</a>
+</li>
+<li>child_support_map
+: <a class="el" href="classvg_1_1NestedCachedPackedTraversalSupportFinder.html#a74cf9ff59f390e4f99f035a88a1955a7">vg::NestedCachedPackedTraversalSupportFinder</a>
 </li>
 <li>ChildNodeType
 : <a class="el" href="classvg_1_1SnarlSeedClusterer.html#a835e4f3125a877f2baebd11886750225">vg::SnarlSeedClusterer</a>
@@ -562,7 +572,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Mapper.html#ad062cafbbb49bc4960e59b3ffd499ca8">vg::Mapper</a>
 </li>
 <li>compute_mapping_quality()
-: <a class="el" href="classvg_1_1GSSWAligner.html#a74ac3cb1ec6093abfbfe92b691167dce">vg::GSSWAligner</a>
+: <a class="el" href="classvg_1_1GSSWAligner.html#a9ab75f941cc5450b8fff9b7f07507272">vg::GSSWAligner</a>
 </li>
 <li>compute_mapq_caps()
 : <a class="el" href="classvg_1_1MinimizerMapper.html#a827c2936a317f2a2dbc1d744aff6c0e1">vg::MinimizerMapper</a>
@@ -604,7 +614,7 @@ $(function() {
 : <a class="el" href="classvg_1_1VG.html#ad68d2bfaa6627686967add4ca7fb5f4c">vg::VG</a>
 </li>
 <li>connect_nodes_to_node()
-: <a class="el" href="classvg_1_1VG.html#acc4db5878a40e8dc7d2d2b25ff62ff1e">vg::VG</a>
+: <a class="el" href="classvg_1_1VG.html#a7ee6066424793dfcda9097419f03b568">vg::VG</a>
 </li>
 <li>connect_to_position_file()
 : <a class="el" href="classvg_1_1NGSSimulator.html#aceec560b267d4a2d4a1c37fb3691dde5">vg::NGSSimulator</a>
@@ -648,7 +658,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Transcriptome.html#abf3a574c5bd21dc2060b5c94f8d65bc2">vg::Transcriptome</a>
 </li>
 <li>construct_graph()
-: <a class="el" href="classvg_1_1Constructor.html#a5c9a9c3adb2ddafc4d4434c689bb42ad">vg::Constructor</a>
+: <a class="el" href="classvg_1_1Constructor.html#a2d69f28be35ff23ef4d0f80e645bdbc2">vg::Constructor</a>
 </li>
 <li>contains()
 : <a class="el" href="structvg_1_1GaplessExtension.html#abfa77e71c6b3b5193a57dd13b42ecf40">vg::GaplessExtension</a>
@@ -721,7 +731,7 @@ $(function() {
 : <a class="el" href="classvg_1_1SmallBitset.html#af834de5870b38cc53768eb8ba9c60025">vg::SmallBitset</a>
 </li>
 <li>count_haplotypes()
-: <a class="el" href="classvg_1_1GenomeState.html#ab400687776bac0a85c3eab173354a48f">vg::GenomeState</a>
+: <a class="el" href="classvg_1_1GenomeState.html#a07dc4168e8469c98227847c4f168cc78">vg::GenomeState</a>
 </li>
 <li>count_Ns()
 : <a class="el" href="classvg_1_1MaximalExactMatch.html#a63fc8de6080c763b6fd0639d1f4f8941">vg::MaximalExactMatch</a>
@@ -729,11 +739,11 @@ $(function() {
 <li>count_threads
 : <a class="el" href="structGBWTConfig.html#a31e7a91a5698d2561b555bcdc1cf59d7">GBWTConfig</a>
 </li>
-<li>Counts()
-: <a class="el" href="structvg_1_1Counts.html#a87773870a3b04302bec59e41e5bdbc2e">vg::Counts</a>
-</li>
 <li>counts
 : <a class="el" href="structvg_1_1Counts.html#ada1e3e24df7c078970806cb6da1fce51">vg::Counts</a>
+</li>
+<li>Counts()
+: <a class="el" href="structvg_1_1Counts.html#a87773870a3b04302bec59e41e5bdbc2e">vg::Counts</a>
 </li>
 <li>cov_bin_size
 : <a class="el" href="classvg_1_1Packer.html#a63fd3c0a6d18bbb64f18e3afbecd552c">vg::Packer</a>
@@ -776,20 +786,20 @@ $(function() {
 </li>
 <li>create_edge()
 : <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a34a5e01f270713ba856a93c55039faf0">handlegraph::MutableHandleGraph</a>
-, <a class="el" href="classvg_1_1VG.html#a8fd0565d5133a239856444049783edcd">vg::VG</a>
+, <a class="el" href="classvg_1_1VG.html#a8922810d5228ab5c4619eb2ddc16e78b">vg::VG</a>
 </li>
 <li>create_gssw_graph()
 : <a class="el" href="classvg_1_1GSSWAligner.html#a56a0a0d3962e573dc9ed372394fbd13a">vg::GSSWAligner</a>
 </li>
 <li>create_handle()
-: <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#ae844fce457858cd2dc54dde786f79e5c">handlegraph::MutableHandleGraph</a>
-, <a class="el" href="classvg_1_1VG.html#a54ad97e46dc1297b1a65a32697e2d37e">vg::VG</a>
+: <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a8c9d8ca8160a9b94a57000eab3e97aaa">handlegraph::MutableHandleGraph</a>
+, <a class="el" href="classvg_1_1VG.html#a292614805cec28a1d863bbdb494d1c04">vg::VG</a>
 </li>
 <li>create_identity_projection_trans()
 : <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#af626a9a7a96800aa13aa257a5781fffe">vg::MultipathAlignmentGraph</a>
 </li>
 <li>create_injection_trans()
-: <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a8cbd1429036d9f365bd361ffbc8aa855">vg::MultipathAlignmentGraph</a>
+: <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a00d9d6f3a0995aabf9d09204dd6a4ac9">vg::MultipathAlignmentGraph</a>
 </li>
 <li>create_item()
 : <a class="el" href="classvg_1_1Funnel.html#a9d28d3fee3f8658d59a63c52338644e2">vg::Funnel</a>
@@ -798,7 +808,7 @@ $(function() {
 : <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#ad8f0e93b7dd5db8e92e7889629784c70">vg::MultipathAlignmentGraph</a>
 </li>
 <li>create_node()
-: <a class="el" href="classvg_1_1VG.html#a8cb95ac1c24c5263a962c13f3d6bc0c3">vg::VG</a>
+: <a class="el" href="classvg_1_1VG.html#aefa25ac8acfa9407e8489b402f6317dc">vg::VG</a>
 </li>
 <li>create_path()
 : <a class="el" href="classvg_1_1Paths.html#a55306d115aee9abbf3166505bacdb35a">vg::Paths</a>
@@ -887,7 +897,7 @@ $(function() {
 : <a class="el" href="classvg_1_1Homogenizer.html#a13fefa241cbae8c0aac05334b2f10eb4">vg::Homogenizer</a>
 </li>
 <li>cut_tips()
-: <a class="el" href="classvg_1_1Homogenizer.html#a1ce07681ff57215bfdfff95c96c433f5">vg::Homogenizer</a>
+: <a class="el" href="classvg_1_1Homogenizer.html#a85942931139bd8f40e2616206580eb8d">vg::Homogenizer</a>
 </li>
 <li>cycles_in_cactus()
 : <a class="el" href="classvg_1_1IntegratedSnarlFinder_1_1MergedAdjacencyGraph.html#a8ef2897eef1a33c4dd97306058f379e6">vg::IntegratedSnarlFinder::MergedAdjacencyGraph</a>
