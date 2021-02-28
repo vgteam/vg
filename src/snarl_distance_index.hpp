@@ -143,6 +143,10 @@ public:
      */
     bool is_chain(const net_handle_t& net) const;
     /**
+     * Returns true if the given net handle refers to (a traversal of) a trivial chain that represents a single node.
+     */
+    bool is_trivial_chain(const net_handle_t& net) const;
+    /**
      * Returns true if the given net handle refers to (a traversal of) a single node, and thus has a corresponding handle_t.
      */
     bool is_node(const net_handle_t& net) const;
@@ -807,8 +811,9 @@ private:
         }
         virtual bool for_each_child(const std::function<bool(const handlegraph::net_handle_t&)>& iteratee) const {
             size_t connected_component_count = get_connected_component_count();
+            cerr << "Get " << connected_component_count << " children from root " << endl;
             for (size_t i = 0 ; i < connected_component_count ; i++) {
-                size_t child_offset = records->at(record_offset + 2 + i);
+                size_t child_offset = records->at(record_offset + ROOT_RECORD_SIZE + i);
                 net_handle_record_t type = SnarlTreeRecord(child_offset, records).get_record_handle_type(); 
                 net_handle_t child_handle =  get_net_handle(child_offset, START_END, type);
                 bool result = iteratee(child_handle); 
@@ -846,6 +851,12 @@ private:
         }
         virtual void set_min_node_id(id_t node_id) {
             SnarlTreeRecordConstructor::records->at(RootRecord::record_offset+MIN_NODE_ID_OFFSET)=node_id;
+        }
+        virtual void add_component(size_t index, size_t offset) {
+            assert(index < get_connected_component_count());
+            SnarlTreeRecordConstructor::records->at(RootRecord::record_offset+ROOT_RECORD_SIZE+index)
+                = offset;
+
         }
     };
     struct NodeRecord : SnarlTreeRecord {
@@ -921,8 +932,8 @@ private:
         SnarlRecord (net_handle_t net, const vector<size_t>* tree_records){
             record_offset = get_record_offset(net);
             records = tree_records;
-            record_t type = get_record_type();
-            assert(type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL);
+            net_handle_record_t type = get_handle_type(net);
+            assert(type == SNARL_HANDLE || type == SENTINEL_HANDLE);
         }
 
         //How big is the entire snarl record?
@@ -1041,8 +1052,10 @@ private:
             cerr << "There are " << child_count << "children starting at offset " << child_record_offset << endl;
             for (size_t i = 0 ; i < child_count ; i++) {
                 size_t child_offset =  records->at(child_record_offset + i);
+                cerr << "  looking for child at offset " << child_offset << endl;
                 net_handle_record_t type = SnarlTreeRecord(child_offset, records).get_record_handle_type(); 
-                net_handle_t child_handle =  get_net_handle (child_offset, START_END, type);
+                assert(type == NODE_HANDLE || type == CHAIN_HANDLE);
+                net_handle_t child_handle =  get_net_handle (child_offset, START_END, CHAIN_HANDLE);
                 bool result = iteratee(child_handle); 
                 if (result == false) {
                     return false;
@@ -1327,7 +1340,6 @@ private:
                 //If this is a node pretending to be a chain, just do it for the node
                 return iteratee(get_net_handle(record_offset, START_END, NODE_HANDLE));
             }
-            cerr << "going throuch children of chain" << endl;
 
 
             //If this is a node, then the offset of the node in the chain, false
@@ -1338,12 +1350,6 @@ private:
                 net_handle_t child_handle = current_child.second 
                     ? get_net_handle (current_child.first, START_END, SNARL_HANDLE) 
                     : get_net_handle (get_offset_from_id(records->at(current_child.first)), START_END, NODE_HANDLE);
-                if (current_child.second ) {
-                    cerr << "  snarl at offset " << current_child.first << " from net handle with offset " << get_record_offset(child_handle) << endl;
-                    cerr << "  Snarl " << SnarlRecord(current_child.first, records).get_start_id() << endl;
-                } else {
-                    cerr << " node " << records->at(current_child.first) << endl;
-                }
 
                 bool result = iteratee(child_handle); 
                 if (result == false) {

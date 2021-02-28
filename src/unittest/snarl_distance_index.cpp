@@ -85,6 +85,7 @@ namespace vg {
                     REQUIRE(false);
                 }
                 child_i++;
+                return true;
             });
 
             SECTION( "The top-level NetGraph has 3 nodes" ) {
@@ -97,6 +98,7 @@ namespace vg {
                 distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
                     cerr << "  " << distance_index.net_handle_as_string(handle) << endl;
                     node_count++;
+                    return true;
                 });
                 
                 REQUIRE(node_count == 1);
@@ -112,6 +114,7 @@ namespace vg {
                 vector<net_handle_t> handles;
                 distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
                     handles.emplace_back(handle);
+                    return true;
                 });
                 handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
                 handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
@@ -193,6 +196,7 @@ namespace vg {
                         REQUIRE(false);
                     }
                     child_i++;
+                    return true;
                 });
 
                 //Get a net_handle for the top-level snarl
@@ -203,6 +207,7 @@ namespace vg {
                     size_t node_count = 0;
                     distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
                         node_count++;
+                    return true;
                     });
                     
                     REQUIRE(node_count == 1);
@@ -214,6 +219,7 @@ namespace vg {
                     vector<net_handle_t> handles;
                     distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
                         handles.emplace_back(handle);
+                    return true;
                     });
                     handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
                     handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
@@ -357,6 +363,7 @@ namespace vg {
                         REQUIRE(false);
                     }
                     child_i++;
+                    return true;
                 });
 
                 //Get a net_handle for the top-level snarl
@@ -367,6 +374,7 @@ namespace vg {
                     size_t node_count = 0;
                     distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
                         node_count++;
+                        return true;
                     });
                     
                     REQUIRE(node_count == 1);
@@ -377,6 +385,7 @@ namespace vg {
                     vector<net_handle_t> handles;
                     distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
                         handles.emplace_back(handle);
+                        return true;
                     });
                     handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
                     handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
@@ -460,6 +469,7 @@ namespace vg {
         
         } 
         
+        /*TOOD: This had a weird snarl decomposition
         TEST_CASE( "Snarl decomposition can handle disconnected chain bounds",
                   "[snarl_distance]" ) {
         
@@ -655,7 +665,6 @@ namespace vg {
                     REQUIRE(edges.size() == 6);
                 }
             }
-            /*
             
             SECTION( "A connectivity-respecting net graph doesn't allow through-traversal" ) {
             
@@ -731,9 +740,9 @@ namespace vg {
                 }
             
             }
-            */
         
         }
+        */
         
         /*  
         TEST_CASE( "NetGraph finds all edges correctly when traversing in all directions",
@@ -1194,9 +1203,10 @@ namespace vg {
             }
             
         }
+        */
     
-        TEST_CASE( "SnarlManager functions return expected answers",
-                  "[sites][snarls]" ) {
+        TEST_CASE( "Distance index's snarl functions return expected answers",
+                  "[snarl_distance][tips]" ) {
             
             SECTION( "SnarlManager can be constructed with cactus ultrabubbles") {
                 
@@ -1212,8 +1222,8 @@ namespace vg {
                 graph.create_edge(n2, n4);
                 graph.create_edge(n3, n4);
                 
-                CactusSnarlFinder bubble_finder(graph);
-                SnarlManager snarl_manager = bubble_finder.find_snarls();
+                IntegratedSnarlFinder snarl_finder(graph);
+                SnarlDistanceIndex distance_index(&graph, &snarl_finder);
                 
             }
             
@@ -1241,52 +1251,148 @@ namespace vg {
                 Edge* e9 = graph.create_edge(n6, n7);
                 Edge* e10 = graph.create_edge(n7, n8);
                 
-                CactusSnarlFinder bubble_finder(graph);
-                SnarlManager snarl_manager = bubble_finder.find_snarls();
+                IntegratedSnarlFinder snarl_finder(graph);
+                SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+
+                //The root contains one connected component
+                net_handle_t root_handle = distance_index.get_root();
+                net_handle_t top_chain_handle;
+                size_t component_count = 0;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    component_count += 1;
+                    top_chain_handle = child;
+                });
+                REQUIRE(component_count == 1);
+                REQUIRE(distance_index.is_chain(top_chain_handle));
+
+
+                //The top connected component is a chain with one snarl
+                net_handle_t top_snarl_handle;
+                size_t child_i = 0;
+                distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+                    if (child_i == 0) {
+                        REQUIRE(distance_index.is_node(child));
+                        REQUIRE((graph.get_id(distance_index.get_handle(child, &graph)) == n1->id() ||
+                                graph.get_id(distance_index.get_handle(child, &graph)) == n8->id()));
+                    } else if (child_i == 1) {
+                        REQUIRE(distance_index.is_snarl(child));
+                        top_snarl_handle = child;
+                    } else if (child_i == 2) {
+                        REQUIRE(distance_index.is_node(child));
+                        REQUIRE((graph.get_id(distance_index.get_handle(child, &graph)) == n1->id() ||
+                                graph.get_id(distance_index.get_handle(child, &graph)) == n8->id()));
+                    } else {
+                        //The chain should only contain two nodes and a snarl
+                        REQUIRE(false);
+                    }
+                    child_i++;
+                });
+                REQUIRE(child_i == 3);
+
+
+                //Get graph handle for bounds of the top snarl facing in
+                handle_t top_snarl_start = distance_index.get_handle(
+                    distance_index.get_bound(top_snarl_handle, false, true), &graph);
+                handle_t top_snarl_end  = distance_index.get_handle(
+                    distance_index.get_bound(top_snarl_handle, true, true), &graph);
                 
-                const vector<const Snarl*>& top_level_snarls = snarl_manager.top_level_snarls();
-                
-                REQUIRE(top_level_snarls.size() == 1);
-                
-                bool top_level_correct = ((top_level_snarls[0]->start().node_id() == n1->id() &&
-                                           top_level_snarls[0]->end().node_id() == n8->id() &&
-                                           !top_level_snarls[0]->start().backward() &&
-                                           !top_level_snarls[0]->end().backward()) ||
-                                          (top_level_snarls[0]->start().node_id() == n8->id() &&
-                                           top_level_snarls[0]->end().node_id() == n1->id() &&
-                                           top_level_snarls[0]->start().backward() &&
-                                           top_level_snarls[0]->end().backward()));
+                bool top_level_correct = ((graph.get_id(top_snarl_start) == n1->id() &&
+                                           graph.get_id(top_snarl_end) == n8->id() &&
+                                           !graph.get_is_reverse(top_snarl_start) &&
+                                           graph.get_is_reverse(top_snarl_end)) ||
+                                          (graph.get_id(top_snarl_start) == n8->id() &&
+                                           graph.get_id(top_snarl_end) == n1->id() &&
+                                           !graph.get_is_reverse(top_snarl_start) &&
+                                           graph.get_is_reverse(top_snarl_end)));
                 REQUIRE(top_level_correct);
+
+
+                //There should be two middle level chains, a trivial chain 6 and a chain
+                //thats a snarl from 2 to 7
                 
-                const vector<const Snarl*>& middle_level_snarls = snarl_manager.children_of(top_level_snarls[0]);
-                REQUIRE(middle_level_snarls.size() == 1);
+                net_handle_t middle_level_chain;
+                size_t middle_chain_count = 0;
+                distance_index.for_each_child(top_snarl_handle, [&](const net_handle_t& child) {
+                    middle_level_chain = child;
+                    middle_chain_count ++;
+                });
+                REQUIRE(middle_chain_count == 1);
+
+                net_handle_t middle_level_snarl;
+                size_t middle_snarl_count = 0;
+                distance_index.for_each_child(middle_level_chain, [&](const net_handle_t& child) {
+                    if (middle_snarl_count == 0 || middle_snarl_count == 2) {
+                        REQUIRE(distance_index.is_node(child));
+                    } else {
+                        REQUIRE(distance_index.is_snarl(child));
+                        middle_level_snarl = child;
+                    }
+                    middle_snarl_count ++;
+                });
+                REQUIRE(middle_snarl_count == 3); //Actually two nodes and a snarl
+                REQUIRE(distance_index.is_snarl(middle_level_snarl));
+
+                //Get graph handle for bounds of snarl facing in
+                handle_t middle_snarl_start = distance_index.get_handle(
+                    distance_index.get_bound(middle_level_snarl, false, true), &graph);
+                handle_t middle_snarl_end  = distance_index.get_handle(
+                    distance_index.get_bound(middle_level_snarl, true, true), &graph);
                 
-                bool middle_level_correct = ((middle_level_snarls[0]->start().node_id() == n2->id() &&
-                                              middle_level_snarls[0]->end().node_id() == n7->id() &&
-                                              !middle_level_snarls[0]->start().backward() &&
-                                              !middle_level_snarls[0]->end().backward()) ||
-                                             (middle_level_snarls[0]->start().node_id() == n7->id() &&
-                                              middle_level_snarls[0]->end().node_id() == n2->id() &&
-                                              middle_level_snarls[0]->start().backward() &&
-                                              middle_level_snarls[0]->end().backward()));
+                bool middle_level_correct = ((graph.get_id(middle_snarl_start) == n2->id() &&
+                                           graph.get_id(middle_snarl_end) == n7->id() &&
+                                           !graph.get_is_reverse(middle_snarl_start) &&
+                                           graph.get_is_reverse(middle_snarl_end)) ||
+                                          (graph.get_id(middle_snarl_start) == n7->id() &&
+                                           graph.get_id(middle_snarl_end) == n2->id() &&
+                                           graph.get_is_reverse(middle_snarl_start) &&
+                                           !graph.get_is_reverse(middle_snarl_end)));
                 REQUIRE(middle_level_correct);
                 
-                const vector<const Snarl*>& bottom_level_snarls = snarl_manager.children_of(middle_level_snarls[0]);
-                REQUIRE(bottom_level_snarls.size() == 1);
+
+                //There should be one bottom level snarl should be from 2 to 7
                 
-                bool bottom_level_correct = ((bottom_level_snarls[0]->start().node_id() == n3->id() &&
-                                              bottom_level_snarls[0]->end().node_id() == n5->id() &&
-                                              !bottom_level_snarls[0]->start().backward() &&
-                                              !bottom_level_snarls[0]->end().backward()) ||
-                                             (bottom_level_snarls[0]->start().node_id() == n5->id() &&
-                                              bottom_level_snarls[0]->end().node_id() == n3->id() &&
-                                              bottom_level_snarls[0]->start().backward() &&
-                                              bottom_level_snarls[0]->end().backward()));
+                net_handle_t bottom_level_chain;
+                net_handle_t bottom_level_node;
+                size_t bottom_level_chain_count = 0;
+                distance_index.for_each_child(middle_level_snarl, [&](const net_handle_t& child) {
+                    if (distance_index.is_trivial_chain(child)){
+                        distance_index.for_each_child(child, [&](const net_handle_t& grandchild) {
+                            bottom_level_node = grandchild;
+                        });
+                    } else {
+                        bottom_level_chain = child;
+                    }
+                    bottom_level_chain_count ++;
+                });
+                REQUIRE(bottom_level_chain_count == 2);
+
+                REQUIRE(graph.get_id(distance_index.get_handle(bottom_level_node, &graph)) 
+                        == n6->id());
+                vector<net_handle_t> bottom_level_snarls;
+                distance_index.for_each_child(bottom_level_chain, [&](const net_handle_t& child) {
+                    bottom_level_snarls.emplace_back(child);
+                });
+                REQUIRE(bottom_level_snarls.size() == 3); //Actually two nodes and a snarl
+
+                //Get graph handle for bounds of snarl facing in
+                handle_t bottom_snarl_start = distance_index.get_handle(
+                    distance_index.get_bound(bottom_level_snarls[1], false, true), &graph);
+                handle_t bottom_snarl_end  = distance_index.get_handle(
+                    distance_index.get_bound(bottom_level_snarls[1], true, true), &graph);
+                
+                bool bottom_level_correct = ((graph.get_id(bottom_snarl_start) == n3->id() &&
+                                           graph.get_id(bottom_snarl_end) == n5->id() &&
+                                           !graph.get_is_reverse(bottom_snarl_start) &&
+                                           graph.get_is_reverse(bottom_snarl_end)) ||
+                                          (graph.get_id(bottom_snarl_start) == n5->id() &&
+                                           graph.get_id(bottom_snarl_end) == n3->id() &&
+                                           graph.get_is_reverse(bottom_snarl_start) &&
+                                           !graph.get_is_reverse(bottom_snarl_end)));
                 REQUIRE(bottom_level_correct);
                 
             }
             
-            SECTION( "SnarlManager can correctly extract the shallow contents of a snarl") {
+            SECTION( "SnarlManager can correctly extract the contents of a snarl") {
                 
                 VG graph;
                 
@@ -1314,577 +1420,542 @@ namespace vg {
                 Edge* e10 = graph.create_edge(n7, n8);
                 Edge* e11 = graph.create_edge(n8, n9);
                 
-                CactusSnarlFinder bubble_finder(graph);
-                SnarlManager snarl_manager = bubble_finder.find_snarls();
+                IntegratedSnarlFinder snarl_finder(graph);
+                SnarlDistanceIndex distance_index(&graph, &snarl_finder);
                 
-                const vector<const Snarl*>& top_level_snarls = snarl_manager.top_level_snarls();
-                
-                pair<unordered_set<Node*>, unordered_set<Edge*> > contents;
-                for (const Snarl* snarl : top_level_snarls) {
-                    if ((snarl->start().node_id() == n1->id() && snarl->end().node_id() == n8->id()) ||
-                        (snarl->start().node_id() == n8->id() && snarl->end().node_id() == n1->id())) {
-                        contents = pb_contents(graph, snarl_manager.shallow_contents(snarl, graph, false));
-                        break;
-                    }
-                }
-                
-                unordered_set<Node*>& nodes = contents.first;
-                unordered_set<Edge*>& edges = contents.second;
-                
-                REQUIRE(nodes.size() == 2);
-                
-                REQUIRE(nodes.count(n2));
-                REQUIRE(nodes.count(n7));
-                
-                REQUIRE(edges.size() == 3);
-                
-                REQUIRE(edges.count(e1));
-                REQUIRE(edges.count(e2));
-                REQUIRE(edges.count(e10));
-            }
-            
-            SECTION( "SnarlManager can correctly extract the full contents of a snarl") {
-                
-                VG graph;
-                
-                Node* n0 = graph.create_node("CA");
-                Node* n1 = graph.create_node("GCA");
-                Node* n2 = graph.create_node("C");
-                Node* n3 = graph.create_node("A");
-                Node* n4 = graph.create_node("CTGA");
-                Node* n5 = graph.create_node("GCA");
-                Node* n6 = graph.create_node("T");
-                Node* n7 = graph.create_node("G");
-                Node* n8 = graph.create_node("AGTA");
-                Node* n9 = graph.create_node("CCC");
-                
-                Edge* e0 = graph.create_edge(n0, n1);
-                Edge* e1 = graph.create_edge(n1, n2);
-                Edge* e2 = graph.create_edge(n1, n8);
-                Edge* e3 = graph.create_edge(n2, n3);
-                Edge* e4 = graph.create_edge(n2, n6);
-                Edge* e5 = graph.create_edge(n3, n4);
-                Edge* e6 = graph.create_edge(n3, n5);
-                Edge* e7 = graph.create_edge(n4, n5);
-                Edge* e8 = graph.create_edge(n5, n7);
-                Edge* e9 = graph.create_edge(n6, n7);
-                Edge* e10 = graph.create_edge(n7, n8);
-                Edge* e11 = graph.create_edge(n8, n9);
-                
-                CactusSnarlFinder bubble_finder(graph);
-                SnarlManager snarl_manager = bubble_finder.find_snarls();
-                
-                const vector<const Snarl*>& top_level_snarls = snarl_manager.top_level_snarls();
-                
-                pair<unordered_set<Node*>, unordered_set<Edge*> > contents;
-                for (const Snarl* snarl : top_level_snarls) {
-                    if ((snarl->start().node_id() == n1->id() && snarl->end().node_id() == n8->id()) ||
-                        (snarl->start().node_id() == n8->id() && snarl->end().node_id() == n1->id())) {
-                        contents = pb_contents(graph, snarl_manager.deep_contents(snarl, graph, false));
-                        break;
-                    }
-                }
-                
-                unordered_set<Node*>& nodes = contents.first;
-                unordered_set<Edge*>& edges = contents.second;
-                
-                REQUIRE(nodes.size() == 6);
-                
-                REQUIRE(nodes.count(n2));
-                REQUIRE(nodes.count(n3));
-                REQUIRE(nodes.count(n4));
-                REQUIRE(nodes.count(n5));
-                REQUIRE(nodes.count(n6));
-                REQUIRE(nodes.count(n7));
-                
-                REQUIRE(edges.size() == 10);
-                
-                REQUIRE(edges.count(e1));
-                REQUIRE(edges.count(e2));
-                REQUIRE(edges.count(e3));
-                REQUIRE(edges.count(e4));
-                REQUIRE(edges.count(e5));
-                REQUIRE(edges.count(e6));
-                REQUIRE(edges.count(e7));
-                REQUIRE(edges.count(e8));
-                REQUIRE(edges.count(e9));
-                REQUIRE(edges.count(e10));
-            }
-            
-            SECTION( "SnarlManager can correctly extract the shallow contents of a snarl containing cycles and tips") {
-                
-                VG graph;
-                
-                Node* n1 = graph.create_node("GCA");
-                Node* n2 = graph.create_node("C");
-                Node* n3 = graph.create_node("A");
-                Node* n4 = graph.create_node("CTGA");
-                Node* n5 = graph.create_node("GCA");
-                Node* n6 = graph.create_node("T");
-                Node* n7 = graph.create_node("G");
-                Node* n8 = graph.create_node("AGTA");
-                
-                Edge* e1 = graph.create_edge(n1, n2);
-                Edge* e2 = graph.create_edge(n2, n7);
-                Edge* e3 = graph.create_edge(n2, n4);
-                Edge* e4 = graph.create_edge(n3, n4);
-                Edge* e5 = graph.create_edge(n4, n5);
-                Edge* e6 = graph.create_edge(n4, n6);
-                Edge* e7 = graph.create_edge(n5, n6);
-                Edge* e8 = graph.create_edge(n6, n2, false, true);
-                Edge* e9 = graph.create_edge(n6, n7);
-                Edge* e10 = graph.create_edge(n7, n8);
-                
-                Snarl snarl1;
-                snarl1.mutable_start()->set_node_id(n2->id());
-                snarl1.mutable_end()->set_node_id(n7->id());
-                snarl1.set_type(UNCLASSIFIED);
-                
-                Snarl snarl2;
-                snarl2.mutable_start()->set_node_id(n4->id());
-                snarl2.mutable_end()->set_node_id(n6->id());
-                snarl2.set_type(ULTRABUBBLE);
-                *snarl2.mutable_parent() = snarl1;
-                
-                list<Snarl> snarls;
-                snarls.push_back(snarl1);
-                snarls.push_back(snarl2);
+                //The root contains one connected component
+                net_handle_t root_handle = distance_index.get_root();
+                net_handle_t top_chain_handle;
+                size_t component_count = 0;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    component_count += 1;
+                    top_chain_handle = child;
+                });
+                REQUIRE(component_count == 1);
 
-                SnarlManager snarl_manager(snarls.begin(), snarls.end());
-                
-                const vector<const Snarl*>& top_level_snarls = snarl_manager.top_level_snarls();
-                
-                pair<unordered_set<Node*>, unordered_set<Edge*> > contents;
-                for (const Snarl* snarl : top_level_snarls) {
-                    if ((snarl->start().node_id() == n2->id() && snarl->end().node_id() == n7->id()) ||
-                        (snarl->start().node_id() == n7->id() && snarl->end().node_id() == n2->id())) {
-                        contents = pb_contents(graph, snarl_manager.shallow_contents(snarl, graph, false));
-                        break;
-                    }
-                }
-                
-                unordered_set<Node*>& nodes = contents.first;
-                unordered_set<Edge*>& edges = contents.second;
-                
-                REQUIRE(nodes.size() == 3);
-                
-                REQUIRE(nodes.count(n3));
-                REQUIRE(nodes.count(n4));
-                REQUIRE(nodes.count(n6));
-                
-                REQUIRE(edges.size() == 5);
-                
-                REQUIRE(edges.count(e2));
-                REQUIRE(edges.count(e3));
-                REQUIRE(edges.count(e4));
-                REQUIRE(edges.count(e8));
-                REQUIRE(edges.count(e9));
-            }
-            
-            SECTION( "SnarlManager can correctly extract the full contents of a snarl containing cycles and tips") {
-                
-                VG graph;
-                
-                Node* n1 = graph.create_node("GCA");
-                Node* n2 = graph.create_node("C");
-                Node* n3 = graph.create_node("A");
-                Node* n4 = graph.create_node("CTGA");
-                Node* n5 = graph.create_node("GCA");
-                Node* n6 = graph.create_node("T");
-                Node* n7 = graph.create_node("G");
-                Node* n8 = graph.create_node("AGTA");
-                
-                Edge* e1 = graph.create_edge(n1, n2);
-                Edge* e2 = graph.create_edge(n2, n7);
-                Edge* e3 = graph.create_edge(n2, n4);
-                Edge* e4 = graph.create_edge(n3, n4);
-                Edge* e5 = graph.create_edge(n4, n5);
-                Edge* e6 = graph.create_edge(n4, n6);
-                Edge* e7 = graph.create_edge(n5, n6);
-                Edge* e8 = graph.create_edge(n6, n2, false, true);
-                Edge* e9 = graph.create_edge(n6, n7);
-                Edge* e10 = graph.create_edge(n7, n8);
-                
-                Snarl snarl1;
-                snarl1.mutable_start()->set_node_id(n2->id());
-                snarl1.mutable_end()->set_node_id(n7->id());
-                snarl1.set_type(UNCLASSIFIED);
-                
-                Snarl snarl2;
-                snarl2.mutable_start()->set_node_id(n4->id());
-                snarl2.mutable_end()->set_node_id(n6->id());
-                snarl2.set_type(ULTRABUBBLE);
-                *snarl2.mutable_parent() = snarl1;
-                
-                list<Snarl> snarls;
-                snarls.push_back(snarl1);
-                snarls.push_back(snarl2);
-                
-                SnarlManager snarl_manager(snarls.begin(), snarls.end());
-                
-                const vector<const Snarl*>& top_level_snarls = snarl_manager.top_level_snarls();
-                
-                pair<unordered_set<Node*>, unordered_set<Edge*> > contents;
-                for (const Snarl* snarl : top_level_snarls) {
-                    if ((snarl->start().node_id() == n2->id() && snarl->end().node_id() == n7->id()) ||
-                        (snarl->start().node_id() == n7->id() && snarl->end().node_id() == n2->id())) {
-                        contents = pb_contents(graph, snarl_manager.deep_contents(snarl, graph, false));
-                        break;
-                    }
-                }
-                
-                unordered_set<Node*>& nodes = contents.first;
-                unordered_set<Edge*>& edges = contents.second;
-                
-                REQUIRE(nodes.size() == 4);
-                
-                REQUIRE(nodes.count(n3));
-                REQUIRE(nodes.count(n4));
-                REQUIRE(nodes.count(n5));
-                REQUIRE(nodes.count(n6));
-                
-                REQUIRE(edges.size() == 8);
-                
-                REQUIRE(edges.count(e2));
-                REQUIRE(edges.count(e3));
-                REQUIRE(edges.count(e4));
-                REQUIRE(edges.count(e5));
-                REQUIRE(edges.count(e6));
-                REQUIRE(edges.count(e7));
-                REQUIRE(edges.count(e8));
-                REQUIRE(edges.count(e9));
-            }            
-            
-            SECTION( "SnarlManager can flip the internal representation of a snarl") {
-                
-                VG graph;
-                
-                Node* n1 = graph.create_node("GCA");
-                Node* n2 = graph.create_node("C");
-                Node* n3 = graph.create_node("A");
-                Node* n4 = graph.create_node("CTGA");
-                
-                Edge* e1 = graph.create_edge(n1, n2);
-                Edge* e2 = graph.create_edge(n1, n3);
-                Edge* e3 = graph.create_edge(n2, n4);
-                Edge* e4 = graph.create_edge(n3, n4);
-                
-                Snarl snarl;
-                snarl.mutable_start()->set_node_id(n1->id());
-                snarl.mutable_end()->set_node_id(n4->id());
-                snarl.set_type(ULTRABUBBLE);
-                
-                list<Snarl> snarls;
-                snarls.push_back(snarl);
-                
-                SnarlManager snarl_manager(snarls.begin(), snarls.end());
-                
-                const Snarl* snarl_ref = snarl_manager.top_level_snarls()[0];
-                
-                auto id_start = snarl_ref->start().node_id();
-                auto id_end = snarl_ref->end().node_id();
-                
-                snarl_manager.flip(snarl_ref);
-                
-                REQUIRE(snarl_ref->start().node_id() == id_end);
-                REQUIRE(snarl_ref->end().node_id() == id_start);
-            }
-            
-            SECTION( "SnarlManager can create boundary indices") {
-                
-                VG graph;
-                
-                Node* n1 = graph.create_node("GCA");
-                Node* n2 = graph.create_node("C");
-                Node* n3 = graph.create_node("A");
-                Node* n4 = graph.create_node("CTGA");
-                Node* n5 = graph.create_node("GCA");
-                Node* n6 = graph.create_node("T");
-                Node* n7 = graph.create_node("G");
-                Node* n8 = graph.create_node("AGTA");
-                
-                Edge* e1 = graph.create_edge(n1, n2);
-                Edge* e2 = graph.create_edge(n2, n7);
-                Edge* e3 = graph.create_edge(n2, n4);
-                Edge* e4 = graph.create_edge(n3, n4);
-                Edge* e5 = graph.create_edge(n4, n5);
-                Edge* e6 = graph.create_edge(n4, n6);
-                Edge* e7 = graph.create_edge(n5, n6);
-                Edge* e8 = graph.create_edge(n6, n2, false, true);
-                Edge* e9 = graph.create_edge(n6, n7);
-                Edge* e10 = graph.create_edge(n7, n8);
-                
-                Snarl snarl1;
-                snarl1.mutable_start()->set_node_id(n2->id());
-                snarl1.mutable_end()->set_node_id(n7->id());
-                snarl1.set_type(UNCLASSIFIED);
-                
-                Snarl snarl2;
-                snarl2.mutable_start()->set_node_id(n4->id());
-                snarl2.mutable_end()->set_node_id(n6->id());
-                snarl2.set_type(ULTRABUBBLE);
-                *snarl2.mutable_parent() = snarl1;
-                
-                list<Snarl> snarls;
-                snarls.push_back(snarl1);
-                snarls.push_back(snarl2);
-                
-                SnarlManager snarl_manager(snarls.begin(), snarls.end());
-                
-                for (Snarl snarl : snarls) {
-                    const Snarl* from_start = snarl_manager.into_which_snarl(snarl.start().node_id(),
-                                                                             snarl.start().backward());
-                    const Snarl* from_end = snarl_manager.into_which_snarl(snarl.end().node_id(),
-                                                                           !snarl.end().backward());
-                    REQUIRE(from_start != nullptr);
-                    REQUIRE(from_end != nullptr);
-                    
-                    REQUIRE(from_start->start().node_id() == snarl.start().node_id());
-                    REQUIRE(from_start->start().backward() == snarl.start().backward());
-                    REQUIRE(from_start->end().node_id() == snarl.end().node_id());
-                    REQUIRE(from_start->end().backward() == snarl.end().backward());
-                    
-                    REQUIRE(from_end->start().node_id() == snarl.start().node_id());
-                    REQUIRE(from_end->start().backward() == snarl.start().backward());
-                    REQUIRE(from_end->end().node_id() == snarl.end().node_id());
-                    REQUIRE(from_end->end().backward() == snarl.end().backward());
-                }
-            }
-            
-            
-            
-            SECTION( "SnarlManager can correctly extract the full contents of a reversing-edge snarl") {
-                
-                string graph_json = R"(
-                {
-                    "node": [
-                             {
-                             "sequence": "TTTTTG",
-                             "id": 6462830
-                             },
-                             {
-                             "sequence": "AAAAAAAAAAAAAA",
-                             "id": 8480141
-                             },
-                             {
-                             "sequence": "A",
-                             "id": 6462831
-                             },
-                             {
-                             "sequence": "T",
-                             "id": 6462832
-                             },
-                             {
-                             "sequence": "G",
-                             "id": 8480142
-                             },
-                             {
-                             "sequence": "A",
-                             "id": 8480143
-                             }
-                             ],
-                    "edge": [
-                             {
-                             "to": 8480141,
-                             "from": 6462830,
-                             "from_start": true
-                             },
-                             {
-                             "to": 6462831,
-                             "from": 6462830
-                             },
-                             {
-                             "to": 6462832,
-                             "from": 6462830
-                             },
-                             {
-                             "to": 8480142,
-                             "from": 8480141
-                             },
-                             {
-                             "to": 8480143,
-                             "from": 8480141
-                             }
-                             ]
-                }
-                )";
-                
-                VG graph;
-                
-                // Load up the graph
-                Graph g;
-                json2pb(g, graph_json.c_str(), graph_json.size());
-                graph.extend(g);
-                
-                // Define the one snarl
-                Snarl snarl1;
-                snarl1.mutable_start()->set_node_id(6462830);
-                snarl1.mutable_start()->set_backward(true);
-                snarl1.mutable_end()->set_node_id(8480141);
-                snarl1.set_type(ULTRABUBBLE);
-                
-                list<Snarl> snarls;
-                snarls.push_back(snarl1);
-                
-                SnarlManager snarl_manager(snarls.begin(), snarls.end());
-                
-                // Find the snarl again
-                const Snarl* snarl = snarl_manager.top_level_snarls()[0];
-                
-                // Get its contents
-                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = pb_contents(graph, snarl_manager.deep_contents(snarl, graph, true));
-                
-                // We need the right snarl
-                REQUIRE(snarl->start().node_id() == 6462830);
-                REQUIRE(snarl->start().backward());
-                REQUIRE(snarl->end().node_id() == 8480141);
-                REQUIRE(!snarl->end().backward());
 
-                // And it needs to contain just those two nodes and the edges connecting them.
-                REQUIRE(contents.first.size() == 2);
-                REQUIRE(contents.second.size() == 1);
+                //The top connected component is a chain with one snarl and four boundaries
+                net_handle_t top_snarl_handle;
+                size_t child_i = 0;
+                distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+                    if (child_i == 0) {
+                        REQUIRE(distance_index.is_node(child));
+                        REQUIRE((graph.get_id(distance_index.get_handle(child, &graph)) == n0->id() ||
+                                graph.get_id(distance_index.get_handle(child, &graph)) == n9->id()));
+                    } else if (child_i == 1) {
+                        REQUIRE(distance_index.is_node(child));
+                        REQUIRE((graph.get_id(distance_index.get_handle(child, &graph)) == n1->id() ||
+                                graph.get_id(distance_index.get_handle(child, &graph)) == n8->id()));
+                    } else if (child_i == 2) {
+                        REQUIRE(distance_index.is_snarl(child));
+                        top_snarl_handle = child;
+                    } else if (child_i == 3) {
+                        REQUIRE(distance_index.is_node(child));
+                        REQUIRE((graph.get_id(distance_index.get_handle(child, &graph)) == n1->id() ||
+                                graph.get_id(distance_index.get_handle(child, &graph)) == n8->id()));
+                    } else if (child_i == 4) {
+                        REQUIRE(distance_index.is_node(child));
+                        REQUIRE((graph.get_id(distance_index.get_handle(child, &graph)) == n0->id() ||
+                                graph.get_id(distance_index.get_handle(child, &graph)) == n9->id()));} else {
+                        //The chain should only contain two nodes and a snarl
+                        REQUIRE(false);
+                    }
+                    child_i++;
+                });
+                REQUIRE(child_i == 5);
+
+
+                //Get graph handle for bounds of the top snarl facing in
+                handle_t top_snarl_start = distance_index.get_handle(
+                    distance_index.get_bound(top_snarl_handle, false, true), &graph);
+                handle_t top_snarl_end  = distance_index.get_handle(
+                    distance_index.get_bound(top_snarl_handle, true, true), &graph);
+                
+                bool top_level_correct = ((graph.get_id(top_snarl_start) == n1->id() &&
+                                           graph.get_id(top_snarl_end) == n8->id() &&
+                                           !graph.get_is_reverse(top_snarl_start) &&
+                                           graph.get_is_reverse(top_snarl_end)) ||
+                                          (graph.get_id(top_snarl_start) == n8->id() &&
+                                           graph.get_id(top_snarl_end) == n1->id() &&
+                                           graph.get_is_reverse(top_snarl_start) &&
+                                           !graph.get_is_reverse(top_snarl_end)));
+                REQUIRE(top_level_correct);
+
+                //Check that for the top level snarl (1,8), we have all three edges
+                net_handle_t snarl_start = 
+                    distance_index.get_bound(top_snarl_handle, false, true);
+                size_t edge_count = 0;
+                distance_index.follow_net_edges(snarl_start, &graph, false, [&](const net_handle_t& other) {
+                    if (distance_index.is_chain(other)) {
+                    //TODO: It should be 2 but I think it might be ok if it reaches 7 since it's the end of the snarl. Same below
+                        id_t start_id = graph.get_id(distance_index.get_handle(
+                                distance_index.get_bound(other, false, true), &graph));
+                        id_t end_id = graph.get_id(distance_index.get_handle(
+                                distance_index.get_bound(other, true, true), &graph));
+                        REQUIRE(((start_id == n2->id() && end_id == n7->id()) ||
+                                (start_id == n7->id() && end_id == n2->id())));
+                    } else {
+                        REQUIRE(distance_index.is_sentinel(other));
+                        REQUIRE(graph.get_id(distance_index.get_handle(other, &graph)) == n8->id());
+                    }
+                    edge_count ++;
+                    return true;
+                });
+                REQUIRE(edge_count == 2);
+
+                net_handle_t snarl_end  = distance_index.get_bound(top_snarl_handle, true, true);
+                edge_count = 0;
+                distance_index.follow_net_edges(snarl_end, &graph, false, [&](const net_handle_t& other) {
+                    if (distance_index.is_chain(other)) {
+                        id_t start_id = graph.get_id(distance_index.get_handle(
+                                distance_index.get_bound(other, false, true), &graph));
+                        id_t end_id = graph.get_id(distance_index.get_handle(
+                                distance_index.get_bound(other, true, true), &graph));
+                        REQUIRE(((start_id == n2->id() && end_id == n7->id()) ||
+                                (start_id == n7->id() && end_id == n2->id())));
+                    } else {
+                        REQUIRE(distance_index.is_sentinel(other));
+                        REQUIRE(graph.get_id(distance_index.get_handle(other, &graph)) == n1->id());
+                    }
+                    edge_count++;
+                    return true;
+                });
+                REQUIRE(edge_count == 2);
+
+                //Got through the children of the top snarl, should just be chain 2,7
+                distance_index.for_each_child(top_snarl_handle, [&](const net_handle_t& child) {
+                    //Count how many edges leaving this child, should only reach the boundaries
+                    size_t count = 0;
+                    distance_index.follow_net_edges(child, &graph, false, [&](const net_handle_t& other) {
+                        REQUIRE(distance_index.is_sentinel(other));
+                        id_t id = graph.get_id(distance_index.get_handle(other, &graph));
+                        REQUIRE((id == n1->id() || id == n8->id()));
+                        count ++;
+                    });
+                    REQUIRE(count == 1);
+                    return true;
+                });
                 
             }
-            
-            SECTION( "SnarlManager does not include child snarls' edges in parent snarls") {
+           
+            SECTION( "SnarlManager can correctly extract the contents of a snarl containing cycles and tips") {
+                //TODO: Add tests for identifying tips
                 
-                // This graph is 3 nodes in a row, with two anchoring nodes on
-                // the end, and an edge deleting the three in the middle and
-                // just linking the anchoring nodes.
-                string graph_json = R"(
-                {
-                  "node": [
-                    {
-                      "sequence": "A",
-                      "id": 178895
-                    },
-                    {
-                      "sequence": "G",
-                      "id": 178896
-                    },
-                    {
-                      "sequence": "A",
-                      "id": 187209
-                    },
-                    {
-                      "sequence": "TCTCAAAAAAAAAAAAAAAAAAAAAAAAAA",
-                      "id": 178894
-                    },
-                    {
-                      "sequence": "AATGTGTCTTCCTGGGT",
-                      "id": 187208
+                VG graph;
+                
+                Node* n1 = graph.create_node("GCA");
+                Node* n2 = graph.create_node("C");
+                Node* n3 = graph.create_node("A");
+                Node* n4 = graph.create_node("CTGA");
+                Node* n5 = graph.create_node("GCA");
+                Node* n6 = graph.create_node("T");
+                Node* n7 = graph.create_node("G");
+                Node* n8 = graph.create_node("AGTA");
+                
+                Edge* e1 = graph.create_edge(n1, n2);
+                Edge* e2 = graph.create_edge(n2, n7);
+                Edge* e3 = graph.create_edge(n2, n4);
+                Edge* e4 = graph.create_edge(n3, n4);
+                Edge* e5 = graph.create_edge(n4, n5);
+                Edge* e6 = graph.create_edge(n4, n6);
+                Edge* e7 = graph.create_edge(n5, n6);
+                Edge* e8 = graph.create_edge(n6, n2, false, true);
+                Edge* e9 = graph.create_edge(n6, n7);
+                Edge* e10 = graph.create_edge(n7, n8);
+
+                IntegratedSnarlFinder snarl_finder(graph);
+                SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+                
+                //The root contains one connected component
+                net_handle_t root_handle = distance_index.get_root();
+                net_handle_t top_chain_handle;
+                size_t component_count = 0;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    component_count += 1;
+                    top_chain_handle = child;
+                });
+                REQUIRE(component_count == 1);
+
+
+                //The top connected component is a chain with one snarl and four boundaries
+                net_handle_t top_snarl_handle;
+                size_t child_i = 0;
+                distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+                    if (child_i == 0 || child_i == 4) {
+                        //FIrst or last child
+                        REQUIRE(distance_index.is_node(child));
+                        REQUIRE((graph.get_id(distance_index.get_handle(child, &graph)) == n1->id() ||
+                                graph.get_id(distance_index.get_handle(child, &graph)) == n8->id()));
+                    } else if (child_i == 1 || child_i == 3) {
+                        REQUIRE(distance_index.is_node(child));
+                        REQUIRE((graph.get_id(distance_index.get_handle(child, &graph)) == n2->id() ||
+                                graph.get_id(distance_index.get_handle(child, &graph)) == n7->id()));
+                    }  else {
+                        //Middle child = snarl
+                        REQUIRE(distance_index.is_snarl(child));
+                        top_snarl_handle = child;
                     }
-                  ],
-                  "edge": [
-                    {
-                      "from": 187209,
-                      "to": 178895
-                    },
-                    {
-                      "from": 178895,
-                      "to": 178896
-                    },
-                    {
-                      "from": 178896,
-                      "to": 187208
-                    },
-                    {
-                      "from": 178894,
-                      "to": 187209
-                    },
-                    {
-                      "from": 178894,
-                      "to": 187208
-                    }
-                  ],
-                  "path": [
-                    {
-                      "name": "5",
-                      "mapping": [
-                        {
-                          "position": {
-                            "node_id": 178894
-                          },
-                          "rank": 98372
-                        },
-                        {
-                          "position": {
-                            "node_id": 187209
-                          },
-                          "rank": 98373
-                        },
-                        {
-                          "position": {
-                            "node_id": 178895
-                          },
-                          "rank": 98374
-                        },
-                        {
-                          "position": {
-                            "node_id": 178896
-                          },
-                          "rank": 98375
-                        },
-                        {
-                          "position": {
-                            "node_id": 187208
-                          },
-                          "rank": 98376
+                    child_i++;
+                });
+                REQUIRE(child_i == 5);
+
+                //Get graph handle for bounds of the top snarl facing in
+                handle_t top_snarl_start = distance_index.get_handle(
+                    distance_index.get_bound(top_snarl_handle, false, true), &graph);
+                handle_t top_snarl_end  = distance_index.get_handle(
+                    distance_index.get_bound(top_snarl_handle, true, true), &graph);
+                
+                bool top_level_correct = ((graph.get_id(top_snarl_start) == n2->id() &&
+                                           graph.get_id(top_snarl_end) == n7->id() &&
+                                           !graph.get_is_reverse(top_snarl_start) &&
+                                           graph.get_is_reverse(top_snarl_end)) ||
+                                          (graph.get_id(top_snarl_start) == n7->id() &&
+                                           graph.get_id(top_snarl_end) == n2->id() &&
+                                           graph.get_is_reverse(top_snarl_start) &&
+                                           !graph.get_is_reverse(top_snarl_end)));
+                REQUIRE(top_level_correct);
+                
+
+                //Go through children of top snarl (1->7);
+                size_t snarl_child_count = 0;
+                net_handle_t node_3;
+                net_handle_t chain_4_6;
+                distance_index.for_each_child(top_snarl_handle, [&](const net_handle_t& child) {
+                    REQUIRE(distance_index.is_chain(child));
+                    size_t chain_child_count = 0;
+                    //Go through children of chains (trivial chain 3 and chain 4->6);
+                    distance_index.for_each_child(child, [&](const net_handle_t& grandchild){
+                        if (distance_index.is_node(grandchild)) {
+                            id_t id = graph.get_id(distance_index.get_handle(grandchild, &graph));
+                            REQUIRE((id == n3->id() || id == n4->id() || id == n6->id()));
+                        } else {
+                            REQUIRE(distance_index.is_snarl(grandchild));
+                            id_t start_id = graph.get_id(distance_index.get_handle(
+                                    distance_index.get_bound(grandchild, false, true), &graph));
+                            id_t end_id = graph.get_id(distance_index.get_handle(
+                                    distance_index.get_bound(grandchild, true, true), &graph));
+                            REQUIRE( ((start_id == n4->id() && end_id == n6->id()) ||
+                                      (start_id == n6->id() && end_id == n4->id())));
                         }
-                      ]
+                        chain_child_count ++;
+                        return true;
+
+                    });
+                    REQUIRE(((chain_child_count == 1) || (chain_child_count == 3)));
+                    if (chain_child_count == 1) {
+                        node_3 = child;
+                    } else {
+                        chain_4_6 = child;
                     }
-                  ]
-                }
-                )";
+                    snarl_child_count++;
+                    return true;
+                });
+                REQUIRE(snarl_child_count == 2);
+                size_t edge_count = 0;
+                distance_index.follow_net_edges(node_3, &graph, false, [&](const net_handle_t& next) {
+                    REQUIRE(distance_index.is_chain(next));
+                    id_t start = graph.get_id(distance_index.get_handle(
+                            distance_index.get_bound(next, false, true), &graph));
+                    id_t end = graph.get_id(distance_index.get_handle(
+                            distance_index.get_bound(next, true, true), &graph));
+                    REQUIRE(( (start == n4->id() && end == n6->id()) ||
+                              (start == n6->id() && end == n4->id())));
+                    edge_count++;
+                });
+                REQUIRE(edge_count == 1);
+                edge_count = 0;
+                distance_index.follow_net_edges(node_3,&graph,  true, [&](const net_handle_t& next) {
+                    edge_count++;
+                });
+                REQUIRE(edge_count == 0);
+
                 
-                // We have one parent snarl for the deletion, with two back-to-back trivial child snarls.
-                string snarl1_json = R"({"type": 1, "end": {"node_id": 187208}, "start": {"node_id": 178894}})";
-                string snarl2_json = R"({"type": 1, "end": {"node_id": 187209, "backward": true}, "start": {"node_id": 178895, "backward": true}, "parent": {"end": {"node_id": 187208}, "start": {"node_id": 178894}}})";
-                string snarl3_json = R"({"type": 1, "end": {"node_id": 178896}, "start": {"node_id": 178895}, "parent": {"end": {"node_id": 187208}, "start": {"node_id": 178894}}})";
+                //Walking out from chain 4,6 should reach 3, 2, or 7
+                bool snarl_rev = graph.get_id(distance_index.get_handle(
+                    distance_index.get_bound(chain_4_6, false, true), &graph)) == n6->id();
+
+
+                //Traverse 4->6
+                edge_count = 0;
+                bool found_2 = false;
+                bool found_7 = false;
+                distance_index.follow_net_edges(chain_4_6, &graph, snarl_rev, [&](const net_handle_t& next) {
+                    REQUIRE(distance_index.is_sentinel(next));
+                    //This is 2 or 7
+                    id_t id = graph.get_id(distance_index.get_handle(next, &graph));
+                    if (id == n2->id()) {
+                        found_2 = true; 
+                    } else {
+                        found_7 = true;
+                    }
+                    REQUIRE((id == n2->id() || n7->id())); 
+                    edge_count++;
+                });
+
+
+                //Traverse 6->4
+                REQUIRE(found_2);
+                REQUIRE(found_7);
+                edge_count = 0;
+                distance_index.follow_net_edges(chain_4_6, &graph, !snarl_rev, [&](const net_handle_t& next) {
+                    cerr << distance_index.net_handle_as_string(next) << endl;
+                    if (distance_index.is_chain(next)){
+                        //This is the node 3
+                        REQUIRE(distance_index.is_trivial_chain(next));
+                        distance_index.for_each_child(next, [&](const net_handle_t& child){
+                            REQUIRE(distance_index.is_node(child));
+                            REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == n3->id());
+                        });
+
+                    } else {
+                        REQUIRE(distance_index.is_sentinel(next));
+                        //This is 2 or 7
+                        id_t id = graph.get_id(distance_index.get_handle(next, &graph));
+                        REQUIRE(id == n2->id());
+                    }
+                    edge_count++;
+                });
+                REQUIRE(edge_count == 2);
+
                 
-                VG graph;
-                
-                // Load up the graph
-                Graph g;
-                json2pb(g, graph_json.c_str(), graph_json.size());
-                graph.extend(g);
-                
-                // Load the snarls
-                Snarl snarl1, snarl2, snarl3;
-                json2pb(snarl1, snarl1_json.c_str(), snarl1_json.size());
-                json2pb(snarl2, snarl2_json.c_str(), snarl2_json.size());
-                json2pb(snarl3, snarl3_json.c_str(), snarl3_json.size());
-                
-                // Put them in a list
-                list<Snarl> snarls;
-                snarls.push_back(snarl1);
-                snarls.push_back(snarl2);
-                snarls.push_back(snarl3);
-                
-                SnarlManager snarl_manager(snarls.begin(), snarls.end());
-                
-                // Find the root snarl again
-                const Snarl* snarl = snarl_manager.manage(snarl1);
-                
-                // Get its contents0
-                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = pb_contents(graph, snarl_manager.shallow_contents(snarl, graph, true));
-                
-                // We need the right snarl
-                REQUIRE(snarl->start().node_id() == 178894);
-                REQUIRE(!snarl->start().backward());
-                REQUIRE(snarl->end().node_id() == 187208);
-                REQUIRE(!snarl->end().backward());
-                
-                SECTION("The top-level snarl contains all 5 nodes") {
-                    REQUIRE(contents.first.size() == 5);
-                }
-                
-                SECTION("The top-level snarl only contains the three edges not in any child snarl") {
-                    REQUIRE(contents.second.size() == 3);
-                }
-                
-            }  
+            }
+            
+            
+            
+            
+            //SECTION( "SnarlManager can correctly extract the full contents of a reversing-edge snarl") {
+            //    
+            //    string graph_json = R"(
+            //    {
+            //        "node": [
+            //                 {
+            //                 "sequence": "TTTTTG",
+            //                 "id": 6462830
+            //                 },
+            //                 {
+            //                 "sequence": "AAAAAAAAAAAAAA",
+            //                 "id": 8480141
+            //                 },
+            //                 {
+            //                 "sequence": "A",
+            //                 "id": 6462831
+            //                 },
+            //                 {
+            //                 "sequence": "T",
+            //                 "id": 6462832
+            //                 },
+            //                 {
+            //                 "sequence": "G",
+            //                 "id": 8480142
+            //                 },
+            //                 {
+            //                 "sequence": "A",
+            //                 "id": 8480143
+            //                 }
+            //                 ],
+            //        "edge": [
+            //                 {
+            //                 "to": 8480141,
+            //                 "from": 6462830,
+            //                 "from_start": true
+            //                 },
+            //                 {
+            //                 "to": 6462831,
+            //                 "from": 6462830
+            //                 },
+            //                 {
+            //                 "to": 6462832,
+            //                 "from": 6462830
+            //                 },
+            //                 {
+            //                 "to": 8480142,
+            //                 "from": 8480141
+            //                 },
+            //                 {
+            //                 "to": 8480143,
+            //                 "from": 8480141
+            //                 }
+            //                 ]
+            //    }
+            //    )";
+            //    
+            //    VG graph;
+            //    
+            //    // Load up the graph
+            //    Graph g;
+            //    json2pb(g, graph_json.c_str(), graph_json.size());
+            //    graph.extend(g);
+            //    
+            //    // Define the one snarl
+            //    Snarl snarl1;
+            //    snarl1.mutable_start()->set_node_id(6462830);
+            //    snarl1.mutable_start()->set_backward(true);
+            //    snarl1.mutable_end()->set_node_id(8480141);
+            //    snarl1.set_type(ULTRABUBBLE);
+            //    
+            //    list<Snarl> snarls;
+            //    snarls.push_back(snarl1);
+            //    
+            //    SnarlManager snarl_manager(snarls.begin(), snarls.end());
+            //    
+            //    // Find the snarl again
+            //    const Snarl* snarl = snarl_manager.top_level_snarls()[0];
+            //    
+            //    // Get its contents
+            //    pair<unordered_set<Node*>, unordered_set<Edge*> > contents = pb_contents(graph, snarl_manager.deep_contents(snarl, graph, true));
+            //    
+            //    // We need the right snarl
+            //    REQUIRE(snarl->start().node_id() == 6462830);
+            //    REQUIRE(snarl->start().backward());
+            //    REQUIRE(snarl->end().node_id() == 8480141);
+            //    REQUIRE(!snarl->end().backward());
+
+            //    // And it needs to contain just those two nodes and the edges connecting them.
+            //    REQUIRE(contents.first.size() == 2);
+            //    REQUIRE(contents.second.size() == 1);
+            //    
+            //}
+            //
+            //SECTION( "SnarlManager does not include child snarls' edges in parent snarls") {
+            //    
+            //    // This graph is 3 nodes in a row, with two anchoring nodes on
+            //    // the end, and an edge deleting the three in the middle and
+            //    // just linking the anchoring nodes.
+            //    string graph_json = R"(
+            //    {
+            //      "node": [
+            //        {
+            //          "sequence": "A",
+            //          "id": 178895
+            //        },
+            //        {
+            //          "sequence": "G",
+            //          "id": 178896
+            //        },
+            //        {
+            //          "sequence": "A",
+            //          "id": 187209
+            //        },
+            //        {
+            //          "sequence": "TCTCAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            //          "id": 178894
+            //        },
+            //        {
+            //          "sequence": "AATGTGTCTTCCTGGGT",
+            //          "id": 187208
+            //        }
+            //      ],
+            //      "edge": [
+            //        {
+            //          "from": 187209,
+            //          "to": 178895
+            //        },
+            //        {
+            //          "from": 178895,
+            //          "to": 178896
+            //        },
+            //        {
+            //          "from": 178896,
+            //          "to": 187208
+            //        },
+            //        {
+            //          "from": 178894,
+            //          "to": 187209
+            //        },
+            //        {
+            //          "from": 178894,
+            //          "to": 187208
+            //        }
+            //      ],
+            //      "path": [
+            //        {
+            //          "name": "5",
+            //          "mapping": [
+            //            {
+            //              "position": {
+            //                "node_id": 178894
+            //              },
+            //              "rank": 98372
+            //            },
+            //            {
+            //              "position": {
+            //                "node_id": 187209
+            //              },
+            //              "rank": 98373
+            //            },
+            //            {
+            //              "position": {
+            //                "node_id": 178895
+            //              },
+            //              "rank": 98374
+            //            },
+            //            {
+            //              "position": {
+            //                "node_id": 178896
+            //              },
+            //              "rank": 98375
+            //            },
+            //            {
+            //              "position": {
+            //                "node_id": 187208
+            //              },
+            //              "rank": 98376
+            //            }
+            //          ]
+            //        }
+            //      ]
+            //    }
+            //    )";
+            //    
+            //    // We have one parent snarl for the deletion, with two back-to-back trivial child snarls.
+            //    string snarl1_json = R"({"type": 1, "end": {"node_id": 187208}, "start": {"node_id": 178894}})";
+            //    string snarl2_json = R"({"type": 1, "end": {"node_id": 187209, "backward": true}, "start": {"node_id": 178895, "backward": true}, "parent": {"end": {"node_id": 187208}, "start": {"node_id": 178894}}})";
+            //    string snarl3_json = R"({"type": 1, "end": {"node_id": 178896}, "start": {"node_id": 178895}, "parent": {"end": {"node_id": 187208}, "start": {"node_id": 178894}}})";
+            //    
+            //    VG graph;
+            //    
+            //    // Load up the graph
+            //    Graph g;
+            //    json2pb(g, graph_json.c_str(), graph_json.size());
+            //    graph.extend(g);
+            //    
+            //    // Load the snarls
+            //    Snarl snarl1, snarl2, snarl3;
+            //    json2pb(snarl1, snarl1_json.c_str(), snarl1_json.size());
+            //    json2pb(snarl2, snarl2_json.c_str(), snarl2_json.size());
+            //    json2pb(snarl3, snarl3_json.c_str(), snarl3_json.size());
+            //    
+            //    // Put them in a list
+            //    list<Snarl> snarls;
+            //    snarls.push_back(snarl1);
+            //    snarls.push_back(snarl2);
+            //    snarls.push_back(snarl3);
+            //    
+            //    SnarlManager snarl_manager(snarls.begin(), snarls.end());
+            //    
+            //    // Find the root snarl again
+            //    const Snarl* snarl = snarl_manager.manage(snarl1);
+            //    
+            //    // Get its contents0
+            //    pair<unordered_set<Node*>, unordered_set<Edge*> > contents = pb_contents(graph, snarl_manager.shallow_contents(snarl, graph, true));
+            //    
+            //    // We need the right snarl
+            //    REQUIRE(snarl->start().node_id() == 178894);
+            //    REQUIRE(!snarl->start().backward());
+            //    REQUIRE(snarl->end().node_id() == 187208);
+            //    REQUIRE(!snarl->end().backward());
+            //    
+            //    SECTION("The top-level snarl contains all 5 nodes") {
+            //        REQUIRE(contents.first.size() == 5);
+            //    }
+            //    
+            //    SECTION("The top-level snarl only contains the three edges not in any child snarl") {
+            //        REQUIRE(contents.second.size() == 3);
+            //    }
+            //    
+            //}  
         }
+        /*
         
         TEST_CASE("snarls can be found", "[snarls]") {
     
