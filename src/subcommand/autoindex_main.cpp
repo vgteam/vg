@@ -132,7 +132,7 @@ void help_autoindex(char** argv) {
     << "    -T, --tmp-dir DIR      temporary directory to use for intermediate files" << endl
     << "    -t, --threads NUM      number of threads (default: all available)" << endl
     << "    -V, --verbose          log progress to stderr" << endl
-    << "    -d, --dot              print the dot-formatted graph of index recipes and exit" << endl
+    //<< "    -d, --dot              print the dot-formatted graph of index recipes and exit" << endl
     << "    -h, --help             print this help message to stderr and exit" << endl;
 }
 
@@ -215,19 +215,19 @@ int main_autoindex(int argc, char** argv) {
                 }
                 break;
             case 'r':
-                registry.provide({"Reference FASTA"}, optarg);
+                registry.provide("Reference FASTA", optarg);
                 break;
             case 'v':
                 vcf_names.push_back(optarg);
                 break;
             case 'i':
-                registry.provide({"Insertion Sequence FASTA"}, optarg);
+                registry.provide("Insertion Sequence FASTA", optarg);
                 break;
             case 'g':
-                registry.provide({"Reference GFA"}, optarg);
+                registry.provide("Reference GFA", optarg);
                 break;
             case 'x':
-                registry.provide({"GTF/GFF"}, optarg);
+                registry.provide("GTF/GFF", optarg);
                 break;
             case 'f':
                 IndexingParameters::gff_feature_name = optarg;
@@ -279,10 +279,10 @@ int main_autoindex(int argc, char** argv) {
         
         for (auto& vcf_name : vcf_names) {
             if (phased) {
-                registry.provide({"VCF w/ Phasing"}, vcf_name);
+                registry.provide("VCF w/ Phasing", vcf_name);
             }
             else {
-                registry.provide({"VCF"}, vcf_name);
+                registry.provide("VCF", vcf_name);
             }
         }
     }
