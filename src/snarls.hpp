@@ -608,6 +608,13 @@ public:
         const SnarlRecord* record = SnarlManager::record(snarl);
         return record->snarl_number;
     }
+    //use the snarl number to access the Snarl*
+    inline const Snarl* snarl_from_number(size_t snarl_num){
+        const SnarlRecord record = snarls.at(snarl_num);
+        const Snarl* to_return = unrecord(&record);
+
+        return to_return;
+    }
 
         
 private:
