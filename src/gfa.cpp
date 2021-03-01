@@ -2,6 +2,7 @@
 #include <gfakluge.hpp>
 #include "utility.hpp"
 #include "path.hpp"
+#include <sstream>
 
 namespace vg {
 
@@ -30,6 +31,12 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
         graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
                 handle_t handle = graph->get_handle_of_step(step_handle);
                 nid_t node_id = graph->get_id(handle);
+                if (graph->get_is_reverse(handle)) {
+                    stringstream ss;
+                    ss << "error [gfa]: unable to write rGFA tags for path " << path_name << " because node "
+                       << node_id << " is traversed on its reverse strand.  rGFA only supports the forward strand." << endl;
+                    throw runtime_error(ss.str());
+                }
                 if (node_offsets.count(node_id)) {
                     cerr << "warning [gfa]: multiple selected rgfa paths found on node " << node_id << ": keeping tags for "
                          << graph->get_path_name(node_offsets[node_id].first) << " and ignoring those for " << path_name << endl;
