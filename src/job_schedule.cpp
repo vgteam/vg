@@ -39,7 +39,7 @@ void JobSchedule::execute(int64_t target_memory_usage) {
         --jobs_ongoing;
     };
     
-#pragma omp parallel default(none) shared(jobs_ongoing, est_memory_usage, do_job)
+#pragma omp parallel default(none) shared(target_memory_usage, jobs_ongoing, est_memory_usage, do_job)
 #pragma omp single
     {
         
