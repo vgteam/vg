@@ -1946,9 +1946,13 @@ namespace vg {
             multipath_aln_pairs_out.resize(max_alt_mappings);
         }
         
-        for (size_t i = 1; i < multipath_aln_pairs_out.size(); ++i) {
-            multipath_aln_pairs_out[i].first.set_annotation("secondary", true);
-            multipath_aln_pairs_out[i].second.set_annotation("secondary", true);
+        for (size_t i = 0; i < multipath_aln_pairs_out.size(); ++i) {
+            multipath_aln_pairs_out[i].first.set_annotation("proper_pair", proper_paired);
+            multipath_aln_pairs_out[i].second.set_annotation("proper_pair", proper_paired);
+            if (i != 0) {
+                multipath_aln_pairs_out[i].first.set_annotation("secondary", true);
+                multipath_aln_pairs_out[i].second.set_annotation("secondary", true);
+            }
         }
         
         if (simplify_topologies) {

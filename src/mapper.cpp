@@ -3445,7 +3445,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // we then set the fragment_size cutoff using the moments of the estimated distribution
     bool imperfect_pair = false;
     for (int i = 0; i < min(results.first.size(), results.second.size()); ++i) {
-        if (retrying) break;
         auto& aln1 = results.first.at(i);
         auto& aln2 = results.second.at(i);
         //double ident1 = (double) aln1.score() / max_possible_score;
@@ -3454,16 +3453,28 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         for (int j = 0; j < aln1.fragment_size(); ++j) {
             length = min(length, abs(aln1.fragment(j).length()));
         }
-        if (results.first.size() == 1
+        bool consistent = ((frag_stats.fragment_size && length < frag_stats.fragment_size && pair_consistent(aln1, aln2, 1e-3))
+                           || (!frag_stats.fragment_size && length < frag_stats.fragment_max));
+        if (!retrying
+            && consistent
+            && results.first.size() == 1
             && results.second.size() == 1
             && results.first.front().identity() > frag_stats.perfect_pair_identity_threshold
-            && results.second.front().identity() > frag_stats.perfect_pair_identity_threshold
-            && ((frag_stats.fragment_size && length < frag_stats.fragment_size && pair_consistent(aln1, aln2, 1e-3))
-                || (!frag_stats.fragment_size && length < frag_stats.fragment_max))) { // hard cutoff
+            && results.second.front().identity() > frag_stats.perfect_pair_identity_threshold) { // hard cutoff
             //cerr << "aln\tperfect alignments" << endl;
             frag_stats.record_fragment_configuration(aln1, aln2, this);
-        } else if (!frag_stats.fragment_size) {
+        } else if (!retrying && !frag_stats.fragment_size) {
+            // mark this pair to be buffered and remapped
             imperfect_pair = true;
+        }
+        
+        if (consistent) {
+            set_annotation(aln1, "proper_pair", true);
+            set_annotation(aln2, "proper_pair", true);
+        }
+        else {
+            set_annotation(aln1, "proper_pair", false);
+            set_annotation(aln2, "proper_pair", false);
         }
     }
 
