@@ -61,6 +61,8 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
          */
 #ifdef debug_distance_indexing
         cerr << "  Starting new chain at " << graph->get_id(chain_start_handle) << (graph->get_is_reverse(chain_start_handle) ? " reverse" : " forward") << endl;
+        //We shouldn't have seen this node before
+        //assert(temp_node_records[graph->get_id(chain_start_handle)-min_node_id].node_id == 0);
 #endif
 
         //Fill in node in chain
@@ -1004,6 +1006,9 @@ bool SnarlDistanceIndex::follow_net_edges_impl(const net_handle_t& here, const h
         cerr << "        traversing graph from actual node " << graph->get_id(graph_handle) << (graph->get_is_reverse(graph_handle) ? "rev" : "fd") << endl;
 #endif
         graph->follow_edges(graph_handle, false, [&](const handle_t& h) {
+#ifdef debug_snarl_traversal
+            cerr << "  reached actual node " << graph->get_id(h) << (graph->get_is_reverse(h) ? "rev" : "fd") << endl;
+#endif
 
             if (graph->get_id(h) == parent_record.get_start_id()) {
                 //If this is the start boundary node of the parent snarl, then do this on the sentinel

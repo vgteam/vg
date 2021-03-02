@@ -1206,7 +1206,7 @@ namespace vg {
         */
     
         TEST_CASE( "Distance index's snarl functions return expected answers",
-                  "[snarl_distance][tips]" ) {
+                  "[snarl_distance][bug]" ) {
             
             SECTION( "SnarlManager can be constructed with cactus ultrabubbles") {
                 
@@ -1505,7 +1505,9 @@ namespace vg {
 
                 net_handle_t snarl_end  = distance_index.get_bound(top_snarl_handle, true, true);
                 edge_count = 0;
+                cerr << "Following edges from end snarl node " << distance_index.net_handle_as_string(snarl_end) << endl;
                 distance_index.follow_net_edges(snarl_end, &graph, false, [&](const net_handle_t& other) {
+                    cerr << "  reached child " << distance_index.net_handle_as_string(other) << endl;
                     if (distance_index.is_chain(other)) {
                         id_t start_id = graph.get_id(distance_index.get_handle(
                                 distance_index.get_bound(other, false, true), &graph));
@@ -1955,9 +1957,8 @@ namespace vg {
             //    
             //}  
         }
-        /*
         
-        TEST_CASE("snarls can be found", "[snarls]") {
+        TEST_CASE("Snarls can be found", "[snarl_distance][bug]") {
     
             // Build a toy graph
             const string graph_json = R"(
@@ -2009,69 +2010,125 @@ namespace vg {
             // We need to see the path.
             REQUIRE(graph.paths.size() == 1);
             
-            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
             
-#ifdef debug
-            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
-                    cerr << node->id() << " ";
-                }
-                cerr << endl;
-            });
-#endif
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
             
                 
             SECTION("There are 2 top level snarls") {
-                REQUIRE(snarl_manager.top_level_snarls().size() == 2);
-                
-                const Snarl* child1 = snarl_manager.top_level_snarls()[0];
-                const Snarl* child2 = snarl_manager.top_level_snarls()[1];
-                
-                if (child1->start().node_id() > child1->end().node_id()) {
-                    snarl_manager.flip(child1);
-                }
-                
-                if (child2->start().node_id() > child2->end().node_id()) {
-                    snarl_manager.flip(child2);
-                }
+
+                net_handle_t root_handle = distance_index.get_root();
+                net_handle_t top_chain_handle;
+                size_t component_count = 0;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    component_count += 1;
+                    top_chain_handle = child;
+                });
+                REQUIRE(component_count == 1);
+
+                //The top-level chain contains two snarls, 1-6 and 6-9
+                REQUIRE(distance_index.is_chain(top_chain_handle));
+                size_t chain_child_i = 0;
+                net_handle_t child1; //snarl 1-6
+                net_handle_t child2; //snarl 6-9
+
+                //should go 1, (1-6), 6, (6-9), 9 in either order
+                distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+                    if (chain_child_i == 0 || chain_child_i == 4) {
+                        REQUIRE(distance_index.is_node(child));
+                        REQUIRE((graph.get_id(distance_index.get_handle(child, &graph)) == 1 ||
+                                graph.get_id(distance_index.get_handle(child, &graph)) == 9));
+                    } else if (chain_child_i == 2) {
+                        REQUIRE(distance_index.is_node(child));
+                        REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == 6);
+                    } else {
+                        //This is the snarl 1-6 or 6-9
+                        REQUIRE(distance_index.is_snarl(child));
+                        id_t start = graph.get_id(distance_index.get_handle(
+                                distance_index.get_bound(child, false, false), &graph));
+                        id_t end = graph.get_id(distance_index.get_handle(
+                                distance_index.get_bound(child, true, false), &graph));
+                        if (start == 1 || end == 1) {
+                            child1 = child;
+                            REQUIRE(((start == 1 && end == 6) ||
+                                     (start == 6 && end == 1) ));
+                        } else {
+                            REQUIRE((start == 9 || end == 9));
+                            child2 = child;
+                            REQUIRE(((start == 9 && end == 6) ||
+                                     (start == 6 && end == 9) ));
+                        }
+
+                    }
+                    chain_child_i ++;
+
+                    return true;
+                });
+                REQUIRE(chain_child_i == 5);
+
                 
                 SECTION("First child is from 1 end to 6 start") {
                     
                     {
-                        bool found_in_forward_orientation = (child1->start().node_id() == 1 &&
-                                                             child1->start().backward() == false &&
-                                                             child1->end().node_id() == 6 &&
-                                                             child1->end().backward() == false);
-                        bool found_in_reverse_orientation = (child1->start().node_id() == 6 &&
-                                                             child1->start().backward() == true &&
-                                                             child1->end().node_id() == 1 &&
-                                                             child1->end().backward() == true);
+                        handle_t start = distance_index.get_handle(distance_index.get_bound(child1, false, true), &graph);
+                        handle_t end = distance_index.get_handle(distance_index.get_bound(child1, true, false), &graph);
+                        
+                        bool found_in_forward_orientation = (graph.get_id(start) == 1 &&
+                                                             graph.get_is_reverse(start) == false &&
+                                                             graph.get_id(end) == 6 &&
+                                                             graph.get_is_reverse(end) == false);
+                        bool found_in_reverse_orientation = (graph.get_id(start) == 6 &&
+                                                             graph.get_is_reverse(start) == true &&
+                                                             graph.get_id(end) == 1 &&
+                                                             graph.get_is_reverse(end) == true);
                         bool found_snarl = found_in_forward_orientation || found_in_reverse_orientation;
                         REQUIRE(found_snarl);
                     }
                     
                     SECTION("First child has a child from 2 end to 5 start") {
-                        REQUIRE(snarl_manager.children_of(child1).size() == 1);
                         
-                        const Snarl* subchild = snarl_manager.children_of(child1)[0];
-                        
+                        size_t child_count = 0;
+                        net_handle_t subchild;//Chain 2-5
+                        distance_index.for_each_child(child1, [&](const net_handle_t& child) {
+                            REQUIRE(distance_index.is_chain(child));
+                            subchild = child;
+                            child_count ++;
+                            return true;
+                        });
+                        REQUIRE(child_count == 1);
+
                         {
-                            bool found_in_forward_orientation = (subchild->start().node_id() == 2 &&
-                                                                 subchild->start().backward() == false &&
-                                                                 subchild->end().node_id() == 5 &&
-                                                                 subchild->end().backward() == false);
-                            bool found_in_reverse_orientation = (subchild->start().node_id() == 5 &&
-                                                                 subchild->start().backward() == true &&
-                                                                 subchild->end().node_id() == 2 &&
-                                                                 subchild->end().backward() == true);
+                            handle_t start = distance_index.get_handle(distance_index.get_bound(subchild, false, true), &graph);
+                            handle_t end = distance_index.get_handle(distance_index.get_bound(subchild, true, false), &graph);
+
+                            bool found_in_forward_orientation = (graph.get_id(start) == 2 &&
+                                                                 graph.get_is_reverse(start) == false &&
+                                                                 graph.get_id(end) == 5 &&
+                                                                 graph.get_is_reverse(end) == false);
+                            bool found_in_reverse_orientation = (graph.get_id(start) == 5 &&
+                                                                 graph.get_is_reverse(start) == true &&
+                                                                 graph.get_id(end)== 2 &&
+                                                                 graph.get_is_reverse(end) == true);
                             bool found_snarl = found_in_forward_orientation || found_in_reverse_orientation;
                             REQUIRE(found_snarl);
                         }
+
                         
                         SECTION("Subchild has no children") {
-                            REQUIRE(snarl_manager.children_of(subchild).size() == 0);
+                            //Subchild is chain 2-5, which only has trivial children
+                            size_t subchild_count = 0;
+                            REQUIRE(distance_index.is_chain(subchild));
+                            distance_index.for_each_child(subchild, [&](const net_handle_t& child) {
+                                REQUIRE((distance_index.is_node(child) || distance_index.is_snarl(child)));
+                                if (distance_index.is_snarl(child)){
+                                    distance_index.for_each_child(child, [&](const net_handle_t& grandchild) {
+                                        REQUIRE(distance_index.is_trivial_chain(grandchild));
+                                    });
+                                }
+                                subchild_count ++;
+                                return true;
+                            });
+                            REQUIRE(subchild_count == 3);
                         }
                             
                     }
@@ -2080,20 +2137,29 @@ namespace vg {
                 
                 SECTION("Second child is from 6 end to 9 start") {
                     {
-                        bool found_in_forward_orientation = (child2->start().node_id() == 6 &&
-                                                             child2->start().backward() == false &&
-                                                             child2->end().node_id() == 9 &&
-                                                             child2->end().backward() == false);
-                        bool found_in_reverse_orientation = (child2->start().node_id() == 9 &&
-                                                             child2->start().backward() == true &&
-                                                             child2->end().node_id() == 6 &&
-                                                             child2->end().backward() == true);
+                        handle_t start = distance_index.get_handle(distance_index.get_bound(child2, false, true), &graph);
+                        handle_t end = distance_index.get_handle(distance_index.get_bound(child2, true, false), &graph);
+                        bool found_in_forward_orientation = (graph.get_id(start)== 6 &&
+                                                             graph.get_is_reverse(start) == false &&
+                                                             graph.get_id(end)== 9 &&
+                                                             graph.get_is_reverse(end) == false);
+                        bool found_in_reverse_orientation = (graph.get_id(start)== 9 &&
+                                                             graph.get_is_reverse(start) == true &&
+                                                             graph.get_id(end)== 6 &&
+                                                             graph.get_is_reverse(end) == true);
                         bool found_snarl = found_in_forward_orientation || found_in_reverse_orientation;
                         REQUIRE(found_snarl);
                     }
                     
                     SECTION("Second child has no children") {
-                        REQUIRE(snarl_manager.children_of(child2).size() == 0);
+                        //Subchild is snarl 2-5, which only has trivial children
+                        size_t child_count = 0;
+                        distance_index.for_each_child(child2, [&](const net_handle_t& subchild) {
+                            REQUIRE(distance_index.is_trivial_chain(subchild));
+                            child_count ++;
+                            return true;
+                        });
+                        REQUIRE(child_count == 2);
                     }
                 }
                 
@@ -2101,7 +2167,7 @@ namespace vg {
                 
         }
 
-        TEST_CASE("bubbles can be found in graphs with only heads", "[bubbles]") {
+        TEST_CASE("Bubbles can be found in graphs with only heads", "[snarl_distance]") {
             
             // Build a toy graph
             const string graph_json = R"(
@@ -2131,45 +2197,50 @@ namespace vg {
             json2pb(chunk, graph_json.c_str(), graph_json.size());
             graph.extend(chunk);
             
-            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
 
-#ifdef debug
-            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
-                    cerr << node->id() << " ";
-                }
-                cerr << endl;
-            });
-#endif
         
             SECTION("Root node has 1 child bubble") {
-                REQUIRE(snarl_manager.top_level_snarls().size() == 1);
-                
-                const Snarl* child1 = snarl_manager.top_level_snarls()[0];
-                
-                if (child1->start().node_id() > child1->end().node_id()) {
-                    snarl_manager.flip(child1);
-                }
-                
-                SECTION("First child is from 1 end to 2 end") {
-                    REQUIRE(child1->start().node_id() == 1);
-                    REQUIRE(!child1->start().backward() == true);
-                    REQUIRE(child1->end().node_id() == 2);
-                    REQUIRE(child1->end().backward() == true);
-                    
-                    SECTION("First child has no children") {
-                        REQUIRE(snarl_manager.children_of(child1).size() == 0);
+                //The root contains one connected component
+                net_handle_t root_handle = distance_index.get_root();
+                net_handle_t top_chain_handle;
+                size_t component_count = 0;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    component_count += 1;
+                    top_chain_handle = child;
+                });
+                REQUIRE(component_count == 1);
+                REQUIRE(distance_index.is_chain(top_chain_handle));
+
+                net_handle_t child1;
+                size_t chain_child_count = 0;
+                distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+                    chain_child_count++;
+                    if (distance_index.is_snarl(child)) {
+                        child1 = child;
+                        handle_t start = distance_index.get_handle(distance_index.get_bound(child, false, true), &graph);
+                        handle_t end = distance_index.get_handle(distance_index.get_bound(child, true, true), &graph);
+                        if (graph.get_id(start) == 1) {
+                            REQUIRE(graph.get_id(end) == 2);
+                            REQUIRE(!graph.get_is_reverse(start));
+                            REQUIRE(graph.get_is_reverse(end));
+                        } else {
+                            REQUIRE(graph.get_id(start) == 2);
+                            REQUIRE(graph.get_id(end) == 1);
+                            REQUIRE(graph.get_is_reverse(start));
+                            REQUIRE(!graph.get_is_reverse(end));
+                        }
+                    } else {
+                        REQUIRE(distance_index.is_sentinel(child));
                     }
-                    
-                }
+                });
+                REQUIRE(chain_child_count == 3);
             }
-            
         }
 
 
-        TEST_CASE("bubbles can be found in bigger graphs with only heads", "[bubbles][broken]") {
+        TEST_CASE("Bubbles can be found in bigger graphs with only heads", "[snarl_distance]") {
             
             // Build a toy graph
             const string graph_json = R"(
@@ -2218,77 +2289,60 @@ namespace vg {
             json2pb(chunk, graph_json.c_str(), graph_json.size());
             graph.extend(chunk);
             
-            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
-            
-#ifdef debug
-            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
-                    cerr << node->id() << " ";
-                }
-                cerr << endl;
-            });
-#endif
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
             
             SECTION("Root node has 2 child bubbles") {
-                REQUIRE(snarl_manager.top_level_snarls().size() == 2);
-                
-                const Snarl* child1 = snarl_manager.top_level_snarls()[0];
-                const Snarl* child2 = snarl_manager.top_level_snarls()[1];
-                
-                if (child1->start().node_id() > child1->end().node_id()) {
-                    snarl_manager.flip(child1);
-                }
-                
-                if (child2->start().node_id() > child2->end().node_id()) {
-                    snarl_manager.flip(child2);
-                }
-                
-                SECTION("First child is from 1 end to 6 start") {
-                    REQUIRE(child1->start().node_id() == 1);
-                    REQUIRE(!child1->start().backward() == true);
-                    REQUIRE(child1->end().node_id() == 6);
-                    REQUIRE(child1->end().backward() == false);
-                    
-                    SECTION("First child has a child from 2 end to 5 start") {
-                        REQUIRE(snarl_manager.children_of(child1).size() == 1);
-                        
-                        const Snarl* subchild = snarl_manager.children_of(child1)[0];
-                        
-                        if (subchild->start().node_id() > subchild->end().node_id()) {
-                            snarl_manager.flip(subchild);
+
+                net_handle_t root_handle = distance_index.get_root();
+                net_handle_t top_chain_handle;
+                size_t component_count = 0;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    component_count += 1;
+                    top_chain_handle = child;
+                });
+                REQUIRE(component_count == 1);
+                REQUIRE(distance_index.is_chain(top_chain_handle));
+
+
+                //The top connected component is a chain with one snarl
+                size_t child_i = 0;
+                distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+                    if (child_i == 0 || child_i == 4) {
+                        //start or end of chain
+                        REQUIRE(distance_index.is_node(child));
+                    } else if (child_i == 1 || child_i == 3) {
+                        REQUIRE(distance_index.is_snarl(child));
+                        handle_t start = distance_index.get_handle(distance_index.get_bound(child, false, true), &graph);
+                        handle_t end = distance_index.get_handle(distance_index.get_bound(child, true, true), &graph);
+                        if (graph.get_id(start) == 1){
+                            REQUIRE(graph.get_id(end) == 6);
+                            REQUIRE(!graph.get_is_reverse(start));
+                            REQUIRE(graph.get_is_reverse(end));
+                        } else if (graph.get_id(end) == 1) {
+                            REQUIRE(graph.get_id(start) == 6);
+                            REQUIRE(graph.get_is_reverse(start));
+                            REQUIRE(!graph.get_is_reverse(end));
+                        } else if (graph.get_id(start) == 9) {
+                            REQUIRE(graph.get_id(end) == 6);
+                            REQUIRE(!graph.get_is_reverse(start));
+                            REQUIRE(!graph.get_is_reverse(end));
+                        } else if (graph.get_id(end) == 9){
+                            REQUIRE(graph.get_id(start) == 6);
+                            REQUIRE(!graph.get_is_reverse(start));
+                            REQUIRE(!graph.get_is_reverse(end));
                         }
-                        
-                        REQUIRE(subchild->start().node_id() == 2);
-                        REQUIRE(subchild->start().backward() == false);
-                        REQUIRE(subchild->end().node_id() == 5);
-                        REQUIRE(subchild->end().backward() == false);
-                        
-                        SECTION("Subchild has no children") {
-                            REQUIRE(snarl_manager.children_of(subchild).size() == 0);
-                        }
-                            
+
+                    } else {
+                        REQUIRE(distance_index.is_node(child));
+                        REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == 6);
                     }
-                    
-                }
-                
-                SECTION("Second child is from 6 end to 9 end") {
-                    REQUIRE(child2->start().node_id() == 6);
-                    REQUIRE(!child2->start().backward() == true);
-                    REQUIRE(child2->end().node_id() == 9);
-                    REQUIRE(child2->end().backward() == true);
-                    
-                    SECTION("Second child has no children") {
-                        REQUIRE(snarl_manager.children_of(child2).size() == 0);
-                    }
-                }
-                
+                });
+                REQUIRE(child_i == 5);
             }
-                
         }
 
-        TEST_CASE("bubbles can be found in graphs with only tails", "[bubbles]") {
+        TEST_CASE("Bubbles can be found in graphs with only tails", "[snarl_distance]") {
             
             // Build a toy graph
             const string graph_json = R"(
@@ -2336,82 +2390,61 @@ namespace vg {
             Graph chunk;
             json2pb(chunk, graph_json.c_str(), graph_json.size());
             graph.extend(chunk);
+         
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
             
-            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
-            
-#ifdef debug
-            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
-                    cerr << node->id() << " ";
-                }
-                cerr << endl;
-            });
-#endif
-            
-                
             SECTION("Root node has 2 child bubbles") {
-                REQUIRE(snarl_manager.top_level_snarls().size() == 2);
-                
-                const Snarl* child1 = snarl_manager.top_level_snarls()[0];
-                const Snarl* child2 = snarl_manager.top_level_snarls()[1];
-                
-                if (child1->start().node_id() > child1->end().node_id()) {
-                    snarl_manager.flip(child1);
-                }
-                
-                if (child2->start().node_id() > child2->end().node_id()) {
-                    snarl_manager.flip(child2);
-                }
-                
-                SECTION("First child is from 1 start to 6 start") {
-                    REQUIRE(child1->start().node_id() == 1);
-                    REQUIRE(!child1->start().backward() == false);
-                    REQUIRE(child1->end().node_id() == 6);
-                    REQUIRE(child1->end().backward() == false);
-                    
-                    SECTION("First child should have all the contained nodes in its contents, including contents of its children") {
-                        REQUIRE(snarl_manager.deep_contents(child1, graph, true).first.size() == 6);
-                    };
-                    
-                    SECTION("First child has a child from 2 end to 5 start") {
-                        REQUIRE(snarl_manager.children_of(child1).size() == 1);
-                        
-                        const Snarl* subchild = snarl_manager.children_of(child1)[0];
-                        
-                        if (subchild->start().node_id() > subchild->end().node_id()) {
-                            snarl_manager.flip(subchild);
+
+                net_handle_t root_handle = distance_index.get_root();
+                net_handle_t top_chain_handle;
+                size_t component_count = 0;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    component_count += 1;
+                    top_chain_handle = child;
+                });
+                REQUIRE(component_count == 1);
+                REQUIRE(distance_index.is_chain(top_chain_handle));
+
+
+                //The top connected component is a chain with one snarl
+                size_t child_i = 0;
+                distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+                    if (child_i == 0 || child_i == 4) {
+                        //start or end of chain
+                        REQUIRE(distance_index.is_node(child));
+                    } else if (child_i == 1 || child_i == 3) {
+                        REQUIRE(distance_index.is_snarl(child));
+                        handle_t start = distance_index.get_handle(distance_index.get_bound(child, false, true), &graph);
+                        handle_t end = distance_index.get_handle(distance_index.get_bound(child, true, true), &graph);
+                        if (graph.get_id(start) == 1){
+                            REQUIRE(graph.get_id(end) == 6);
+                            REQUIRE(graph.get_is_reverse(start));
+                            REQUIRE(graph.get_is_reverse(end));
+                        } else if (graph.get_id(end) == 1) {
+                            REQUIRE(graph.get_id(start) == 6);
+                            REQUIRE(graph.get_is_reverse(start));
+                            REQUIRE(graph.get_is_reverse(end));
+                        } else if (graph.get_id(start) == 9) {
+                            REQUIRE(graph.get_id(end) == 6);
+                            REQUIRE(graph.get_is_reverse(start));
+                            REQUIRE(!graph.get_is_reverse(end));
+                        } else if (graph.get_id(end) == 9){
+                            REQUIRE(graph.get_id(start) == 6);
+                            REQUIRE(!graph.get_is_reverse(start));
+                            REQUIRE(graph.get_is_reverse(end));
                         }
-                        
-                        REQUIRE(subchild->start().node_id() == 2);
-                        REQUIRE(!subchild->start().backward() == true);
-                        REQUIRE(subchild->end().node_id() == 5);
-                        REQUIRE(subchild->end().backward() == false);
-                        
-                        SECTION("Subchild has no children") {
-                            REQUIRE(snarl_manager.children_of(subchild).size() == 0);
-                        }
-                            
+
+                    } else {
+                        REQUIRE(distance_index.is_node(child));
+                        REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == 6);
                     }
-                    
-                }
-                
-                SECTION("Second child is from 6 end to 9 start") {
-                    REQUIRE(child2->start().node_id() == 6);
-                    REQUIRE(!child2->start().backward() == true);
-                    REQUIRE(child2->end().node_id() == 9);
-                    REQUIRE(child2->end().backward() == false);
-                    
-                    SECTION("Second child has no children") {
-                        REQUIRE(snarl_manager.children_of(child2).size() == 0);
-                    }
-                }
-                
+                });
+                REQUIRE(child_i == 5);
             }
         }
 
-        TEST_CASE("bubbles can be found when heads cannot reach tails", "[bubbles]") {
+        TEST_CASE("Bubbles can be found when heads cannot reach tails", "[snarl_distance]") {
             
             // Build a toy graph
             // Looks like:
@@ -2448,32 +2481,41 @@ namespace vg {
             json2pb(chunk, graph_json.c_str(), graph_json.size());
             graph.extend(chunk);
             
-            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
-            
-#ifdef debug
-            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
-                    cerr << node->id() << " ";
-                }
-                cerr << endl;
-            });
-#endif
-            
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+           
             SECTION("Root should have one child actual bubble") {
-                REQUIRE(snarl_manager.top_level_snarls().size() == 1);
-                
-                const Snarl* child1 = snarl_manager.top_level_snarls()[0];
-                
-                SECTION("The child should contain all the nodes as contents") {
-                    REQUIRE(snarl_manager.deep_contents(child1, graph, true).first.size() == 4);
-                }
-                
-                // TODO: When unary snarls are exposed, make sure we have unary children.
+
+                net_handle_t root_handle = distance_index.get_root();
+                net_handle_t top_chain_handle;
+                size_t component_count = 0;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    component_count += 1;
+                    top_chain_handle = child;
+                });
+                REQUIRE(component_count == 1);
+                REQUIRE(distance_index.is_chain(top_chain_handle));
+
+
+                //The top connected component is a chain with one snarl
+                size_t child_i = 0;
+                distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+                    if (distance_index.is_snarl(child)) {
+                        REQUIRE(distance_index.is_snarl(child));
+                        size_t grandchild_count = 0;
+                        distance_index.for_each_child(child, [&](const net_handle_t& grandchild) {
+                            REQUIRE(distance_index.is_trivial_chain(grandchild));
+                            grandchild_count++;
+                        });
+                        REQUIRE(grandchild_count == 2);
+                    }
+                    child_i++;
+                });
+                REQUIRE(child_i == 3);
             }
-            
         }
+        /*
+         * TODO: I think this would be a looping chain and I dont know how to deal with it yet
 
         TEST_CASE("bubbles can be found in a graph with no heads or tails", "[bubbles][snarls]") {
             
@@ -2606,8 +2648,9 @@ namespace vg {
             }
             
         }
+        */
 
-        TEST_CASE("bubbles are created based on most distant connected tips", "[bubbles]") {
+        TEST_CASE("Bubbles are created based on most distant connected tips", "[snarl_distance]") {
             
             // Build a toy graph
             // Looks like:
@@ -2646,171 +2689,50 @@ namespace vg {
             json2pb(chunk, graph_json.c_str(), graph_json.size());
             graph.extend(chunk);
             
-            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
-            
-#ifdef debug
-            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
-                    cerr << node->id() << " ";
-                }
-                cerr << endl;
-            });
-#endif
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+           
             
                 
             SECTION("Root should have three child actual bubbles") {
-                REQUIRE(snarl_manager.top_level_snarls().size() == 3);
-                
-                const Snarl* child1 = snarl_manager.top_level_snarls()[0];
-                const Snarl* child2 = snarl_manager.top_level_snarls()[1];
-                const Snarl* child3 = snarl_manager.top_level_snarls()[2];
-                
-                if (child1->start().node_id() > child1->end().node_id()) {
-                    snarl_manager.flip(child1);
-                }
-                
-                if (child2->start().node_id() > child2->end().node_id()) {
-                    snarl_manager.flip(child2);
-                }
-                
-                if (child3->start().node_id() > child3->end().node_id()) {
-                    snarl_manager.flip(child3);
-                }
-                
-                SECTION("First child is trivial snarl from 2 start to 5 end") {
-                    // Not 5 end to 2 start because we seem to be sorting by node ID.
-                    REQUIRE(child1->start().node_id() == 2);
-                    REQUIRE(!child1->start().backward() == false);
-                    REQUIRE(child1->end().node_id() == 5);
-                    REQUIRE(child1->end().backward() == true);
-                    
-                }
-                
-                SECTION("Second child is tip-containing snarl from 2 end to 3 start") {
-                    REQUIRE(child2->start().node_id() == 2);
-                    REQUIRE(!child2->start().backward() == true);
-                    REQUIRE(child2->end().node_id() == 3);
-                    REQUIRE(child2->end().backward() == false);
-                    
-                }
-                
-                SECTION("Third child is trivial snarl from 3 end to 6 start") {
-                    REQUIRE(child3->start().node_id() == 3);
-                    REQUIRE(!child3->start().backward() == true);
-                    REQUIRE(child3->end().node_id() == 6);
-                    REQUIRE(child3->end().backward() == false);
-                    
-                }
-                
-            }
-            
-        }
-        
-        TEST_CASE("SnarlManager accepts chain input", "[snarls]") {
-            // Make a little graph where snarl1 and snarl2 are a top-level
-            // chain, and snarl3 and snarl4 are trivial chains inside snarl1
-      
-            Snarl snarl1;
-            snarl1.mutable_start()->set_node_id(1);
-            snarl1.mutable_end()->set_node_id(6);
-            snarl1.set_start_end_reachable(true);
-            
-            Snarl snarl2;
-            snarl2.mutable_start()->set_node_id(6);
-            snarl2.mutable_end()->set_node_id(7);
-            snarl2.set_start_end_reachable(true);
-            
-            Snarl snarl3;
-            snarl3.mutable_start()->set_node_id(2);
-            snarl3.mutable_end()->set_node_id(3);
-            snarl3.set_start_end_reachable(true);
-            transfer_boundary_info(snarl1, *snarl3.mutable_parent());
-            
-            Snarl snarl4;
-            snarl4.mutable_start()->set_node_id(4);
-            snarl4.mutable_end()->set_node_id(5);
-            snarl4.set_start_end_reachable(true);
-            transfer_boundary_info(snarl1, *snarl4.mutable_parent());
-            
-            // Load all this into the SnarlManager
-            SnarlManager snarl_manager;
-            
-            auto ptr3 = snarl_manager.add_snarl(snarl3);
-            auto ptr4 = snarl_manager.add_snarl(snarl4);
-            
-            auto ptr1 = snarl_manager.add_snarl(snarl1);
-            
-            auto ptr2 = snarl_manager.add_snarl(snarl2);
-            
-            snarl_manager.finish();
- 
-#ifdef debug
-            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << endl;
-            });
-#endif
 
-            SECTION("There should be two top-level snarls") {
-                REQUIRE(snarl_manager.top_level_snarls().size() == 2);
-                
-                const Snarl* child1 = snarl_manager.top_level_snarls()[0];
-                const Snarl* child2 = snarl_manager.top_level_snarls()[1];
-                
-                if (child1->start().node_id() > child1->end().node_id()) {
-                    snarl_manager.flip(child1);
-                }
-                
-                if (child2->start().node_id() > child2->end().node_id()) {
-                    snarl_manager.flip(child2);
-                }
-                
-                SECTION("First child is from 1 to 6") {
-                    REQUIRE(child1->start().node_id() == 1);
-                    REQUIRE(child1->start().backward() == false);
-                    REQUIRE(child1->end().node_id() == 6);
-                    REQUIRE(child1->end().backward() == false);
-                    
-                    SECTION("First child has two children") {
-                        REQUIRE(snarl_manager.children_of(child1).size() == 2);
-                        
-                        const Snarl* subchild1 = snarl_manager.children_of(child1)[0];
-                        const Snarl* subchild2 = snarl_manager.children_of(child1)[1];
-                        
-                        SECTION("First child is from 2 to 3") {
-                            REQUIRE(subchild1->start().node_id() == 2);
-                            REQUIRE(subchild1->start().backward() == false);
-                            REQUIRE(subchild1->end().node_id() == 3);
-                            REQUIRE(subchild1->end().backward() == false);
-                        }
-                        
-                        SECTION("Second child is from 4 to 5") {
-                            REQUIRE(subchild2->start().node_id() == 4);
-                            REQUIRE(subchild2->start().backward() == false);
-                            REQUIRE(subchild2->end().node_id() == 5);
-                            REQUIRE(subchild2->end().backward() == false);
-                        }
-                        
+
+                net_handle_t root_handle = distance_index.get_root();
+                net_handle_t top_chain_handle;
+                size_t component_count = 0;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    component_count += 1;
+                    top_chain_handle = child;
+                });
+                REQUIRE(component_count == 1);
+                REQUIRE(distance_index.is_chain(top_chain_handle));
+
+
+                //The top connected component is a chain with one snarl
+                size_t child_i = 0;
+                distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+                    if (distance_index.is_snarl(child)) {
+                        REQUIRE(distance_index.is_snarl(child));
+                        size_t grandchild_count = 0;
+                        distance_index.for_each_child(child, [&](const net_handle_t& grandchild) {
+                            REQUIRE(distance_index.is_trivial_chain(grandchild));
+                            grandchild_count++;
+                        });
+                        REQUIRE(grandchild_count == 2);
+                    } else {
+                        REQUIRE(distance_index.is_sentinel(child));
+                        id_t id = graph.get_id(distance_index.get_handle(child, &graph));
+                        REQUIRE((id == 5 || id == 6));
+                    child_i++;
                     }
-                    
-                }
-                
-                SECTION("Second child from 6 to 7") {
-                    REQUIRE(child2->start().node_id() == 6);
-                    REQUIRE(child2->start().backward() == false);
-                    REQUIRE(child2->end().node_id() == 7);
-                    REQUIRE(child2->end().backward() == false);
-                    
-                }
-                
+                });
+                REQUIRE(child_i == 3);
             }
-            
-            
         }
         
-        TEST_CASE("SnarlManager exposes chains correctly", "[snarls]") {
+        
+        /*
+        TEST_CASE("DistanceIndex exposes chains correctly", "[snarl_distance]") {
             
             // We need a graph a chain in it.
             // Looks like:
@@ -2858,20 +2780,33 @@ namespace vg {
             json2pb(chunk, graph_json.c_str(), graph_json.size());
             graph.extend(chunk);
             
-            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
-#ifdef debug
-            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
-                    cerr << node->id() << " ";
-                }
-                cerr << endl;
-            });
-#endif
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
             
                 
             SECTION("There should be three top-level snarls") {
+
+
+                net_handle_t root_handle = distance_index.get_root();
+                net_handle_t top_chain_handle;
+                size_t component_count = 0;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    component_count += 1;
+                    top_chain_handle = child;
+                });
+                REQUIRE(component_count == 1);
+                REQUIRE(distance_index.is_chain(top_chain_handle));
+
+
+                //The top connected component is a chain with one snarl
+                size_t child_i = 0;
+                distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+                    if (distance_index.is_snarl(child)) {
+                        REQUIRE(distance_index.is_snarl(child));
+                    }
+                });
+                REQUIRE(child_i == 7);
+
                 REQUIRE(snarl_manager.top_level_snarls().size() == 3);
                 
                 const Snarl* child1 = snarl_manager.top_level_snarls()[0];
