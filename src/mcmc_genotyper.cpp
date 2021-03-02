@@ -40,58 +40,91 @@ namespace vg {
         // build markov chain using Metropolis-Hastings
         for(int i = 0; i< n_iterations; i++){
 
+
+            int proposal_sampl =0;
+            int karger_stein_proposal =1;
+        
+            int random_num = generate_discrete_uniform(random_engine, proposal_sampl , karger_stein_proposal);
             
             // holds the previous sample allele
             double x_prev = log_target(genome, reads);
 
-            // get contents from proposal_sample
-            tuple<int, const Snarl*, vector<NodeTraversal> > to_receive = proposal_sample(genome);
-            int& modified_haplo = get<0>(to_receive);         
-            
-            // if the to_receive contents are invalid keep the new allele
-            // for graphs that do not contain snarls
-            if (modified_haplo ==-1){
-                invalid_contents = true;
-                continue;
+            tuple<int, const Snarl*, vector<NodeTraversal> > to_receive;
+            int* modified_haplo;
+            const Snarl* modified_site; 
+            vector<NodeTraversal>* old_allele;
+            unordered_set<size_t> to_swap_back;
+            // get contents from either proposal_samples randomly using uniform dist. 
+            if(random_num){
+                //use alt proposal sample, store the sites we swapped in case we reject sample
+                to_swap_back = karger_stein_proposal_sample(reads, genome);
+                if(to_swap_back.empty()){
+                    invalid_contents ==true;
+                    break;
+                }
             }else{
-                const Snarl& modified_site = *get<1>(to_receive); 
-                vector<NodeTraversal>& old_allele = get<2>(to_receive); 
- 
-                // holds new sample allele score 
-                double x_new = log_target(genome, reads);
+                to_receive = proposal_sample(genome);
+                modified_haplo = &get<0>(to_receive); 
+                // if the to_receive contents are invalid keep the new allele
+                // for graphs that do not contain snarls
+                if (*modified_haplo ==-1){
+                    invalid_contents = true;
+                    break;
+                }else{
 
-                double likelihood_ratio = exp(log_base*(x_new - x_prev));
-                
-                current_likelihood = previous_likelihood + log_base*(x_new-x_prev);
-                
-                if (current_likelihood > max_likelihood){
-                    max_likelihood = current_likelihood;
-                    optimal = unique_ptr<PhasedGenome>(new PhasedGenome(*genome));
-                    return_optimal=true;
+                    modified_site = get<1>(to_receive); 
+                    old_allele = &get<2>(to_receive); 
+
+                }
+            }
+
+            // holds new sample allele score 
+            double x_new = log_target(genome, reads);
+
+            double likelihood_ratio = exp(log_base*(x_new - x_prev));
+            
+            current_likelihood = previous_likelihood + log_base*(x_new-x_prev);
+            
+            if (current_likelihood > max_likelihood){
+                max_likelihood = current_likelihood;
+                optimal = unique_ptr<PhasedGenome>(new PhasedGenome(*genome));
+                return_optimal=true;
+            }
+            
+            // calculate acceptance probability 
+            double acceptance_probability = min(1.0, likelihood_ratio);
+
+            // if u~U(0,1) > alpha, discard new allele and keep previous 
+            auto uniform_smpl = generate_continuous_uniform(0.0,1.0);
+            if(uniform_smpl > acceptance_probability){ 
+                if(random_num == proposal_sampl){
+                    //swap back to old allele at random snarl, random haplo
+                    genome->set_allele(*modified_site, old_allele->begin(), old_allele->end(), *modified_haplo); 
+                }else{
+                    int haplotype_0 =0;
+                    int haplotype_1 =1;
+                    //swap alleles at all sites in to_swap_back 
+                    for(auto iter = to_swap_back.begin(); iter != to_swap_back.end(); ++iter){
+                        const Snarl* snarl_to_swap = snarls.translate_snarl_num(*iter); 
+                        genome->swap_alleles(*snarl_to_swap, haplotype_0, haplotype_1);
+                    }
                 }
                 
-                // calculate acceptance probability 
-                double acceptance_probability = min(1.0, likelihood_ratio);
-
-                // if u~U(0,1) > alpha, discard new allele and keep previous 
-                auto uniform_smpl = generate_continuous_uniform(0.0,1.0);
-                if(uniform_smpl > acceptance_probability){ 
-                    genome->set_allele(modified_site, old_allele.begin(), old_allele.end(), modified_haplo); 
 #ifdef debug_mcmc
-                    cerr << "Rejected new allele" <<endl;
-                    cerr << "clikelihood " << previous_likelihood <<endl;
-                    genome->print_phased_genome();
+                cerr << "Rejected new allele" <<endl;
+                cerr << "clikelihood " << previous_likelihood <<endl;
+                genome->print_phased_genome();
 #endif                    
-                }else{     
+            }else{     
 #ifdef debug_mcmc 
-                    cerr << "Accepted new allele" <<endl;
-                    cerr << "clikelihood " << current_likelihood <<endl;
-                    genome->print_phased_genome();
+                cerr << "Accepted new allele" <<endl;
+                cerr << "clikelihood " << current_likelihood <<endl;
+                genome->print_phased_genome();
 #endif
-                    previous_likelihood = current_likelihood;
-                    
-                }         
-            }
+                previous_likelihood = current_likelihood;
+                
+            }         
+            
         } 
         if(invalid_contents || !return_optimal){
             // for graphs without snarls 
@@ -577,9 +610,11 @@ namespace vg {
 
     }
 
-    void MCMCGenotyper::get_out_of_bottlenecks(const vector<multipath_alignment_t>& reads, unique_ptr<PhasedGenome>& genome)const{
-        // will be called from run_genotype after n iterations using proposal sample 
-
+    unordered_set<size_t> MCMCGenotyper::karger_stein_proposal_sample(const vector<multipath_alignment_t>& reads, unique_ptr<PhasedGenome>& genome ) const{
+        
+        int haplotype_0 =0;
+        int haplotype_1 =1;
+        
         //make snarl map
         unordered_map<pair<const Snarl*, const Snarl*>, int32_t> snarl_map  = make_snarl_map(reads, genome);
         
@@ -589,99 +624,21 @@ namespace vg {
         //generate set used to make swap in alt proposal dist
         vector<unordered_set<size_t>> to_recv =  algorithms::min_cut_decomposition(snarl_graph, seed);
 
-        //chose a set randomly using a uniform dist. 
         int lower_bound = 0;
         int upper_bound = to_recv.size();
-        double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
-        int n_iterations = 4;
-        double max_likelihood = 0.0; 
-        double current_likelihood = 0.0; 
-        double previous_likelihood = 0.0;
- 
-        unique_ptr<PhasedGenome> optimal;
 
-        for(int i = 0; i< n_iterations; i++){
-            //generate a random number to choose a set uniformly
-            int random_num = generate_discrete_uniform(random_engine, lower_bound , upper_bound);
-#ifdef debug_bottlenecks
-            cerr << "************************************** "<<endl;
-            cerr << "random_num " << random_num<<endl;
-            cerr << "gamma set size" <<to_recv.size() <<endl;              
-#endif      
-            // holds the previous sample allele
-            double x_prev = log_target(genome, reads);
-#ifdef debug_bottlenecks
-            cerr << "x_prev " << x_prev<<endl;              
-#endif  
-            //swap alleles between haplotypes at given sites
-            alt_proposal_sample(to_recv[random_num], genome );
-            
-            // holds new sample allele score 
-            double x_new = log_target(genome, reads);
+        //generate set used to make swap in alt proposal dist
+        int random_num = generate_discrete_uniform(random_engine, lower_bound , upper_bound);
 
-            double likelihood_ratio = exp(log_base*(x_new - x_prev));
-            
-            current_likelihood = previous_likelihood + log_base*(x_new-x_prev);
-#ifdef debug_bottlenecks
-            cerr << "x_new " << x_new<<endl;
-            cerr << "likelihood_ratio " << likelihood_ratio<<endl;
-            cerr << "current_likelihood " << current_likelihood<<endl;              
-#endif          
-            if (current_likelihood > max_likelihood){
-                max_likelihood = current_likelihood;
-                optimal = unique_ptr<PhasedGenome>(new PhasedGenome(*genome));
-            }
-            
-            // calculate acceptance probability 
-            double acceptance_probability = min(1.0, likelihood_ratio);
-#ifdef debug_bottlenecks
-            cerr << "acceptance_probability " << acceptance_probability<<endl;             
-#endif 
-            // if u~U(0,1) > alpha, discard new allele and keep previous 
-            auto uniform_smpl = generate_continuous_uniform(0.0,1.0);
-#ifdef debug_bottlenecks
-            cerr << "uniform_smpl " << uniform_smpl<<endl;             
-#endif 
-            if(uniform_smpl > acceptance_probability){ 
-                //rejecting sample, so we swap back
-                alt_proposal_sample(to_recv[random_num] , genome );
-                        
-            }else{     
-                previous_likelihood = current_likelihood;
-                
-            }
-        } 
+        unordered_set<size_t> sites_to_swap = to_recv[random_num];
 
-        
-        
-
-
-    }
-
-    void MCMCGenotyper::alt_proposal_sample(unordered_set<size_t> sites_to_swap ,unique_ptr<PhasedGenome>& genome ) const{
-        
-        int haplotype_0 =0;
-        int haplotype_1 =1;
-        // //make snarl map
-        // unordered_map<pair<const Snarl*, const Snarl*>, int32_t> snarl_map  = make_snarl_map(reads, genome);
-        
-        // //make snarl graph
-        // algorithms::Graph snarl_graph =  make_snarl_graph(snarl_map);
-
-        // //generate set used to make swap in alt proposal dist
-        // int random_num = generate_discrete_uniform(random_engine, lower_bound , upper_bound);
-
-        //swap alleles at sites in chosen set using snarl indexes
-        
+        // swap alleles at sites in chosen set using snarl indexes
         for(auto iter = sites_to_swap.begin(); iter != sites_to_swap.end(); ++iter){
-            const Snarl* snarl_to_swap = snarls.translate_snarl_num(*iter);
-#ifdef debug_bottlenecks
-            cerr << "*iter " << *iter <<endl; 
-            cerr << "snarl_to_swap " << snarl_to_swap->start() << " -> " << snarl_to_swap->end() <<endl;
-                        
-#endif 
+            const Snarl* snarl_to_swap = snarls.translate_snarl_num(*iter); 
             genome->swap_alleles(*snarl_to_swap, haplotype_0, haplotype_1);
         }
+
+        return sites_to_swap;
         
     }
 

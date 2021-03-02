@@ -1487,7 +1487,7 @@ namespace vg {
             // index sites
             phased_genome->build_indices();
 
-            mcmc_genotyper.get_out_of_bottlenecks(multipath_aln_vector, phased_genome);
+            // mcmc_genotyper.get_out_of_bottlenecks(multipath_aln_vector, phased_genome);
 
 
         }

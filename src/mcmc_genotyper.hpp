@@ -82,12 +82,7 @@ public:
       * Use an alternative proposal distribution using sets generated from karger-stein min cut algorithm
       * to escape bottlenecks leading to rapid convergence
       */
-     void get_out_of_bottlenecks(const vector<multipath_alignment_t>& reads, unique_ptr<PhasedGenome>& phased_genome) const;
-    /**
-      * Takes an unordered set with snarl numbers used to access Snarl* 
-      * Makes swaps between haplotypes at all sites specified 
-      */
-     void alt_proposal_sample(unordered_set<size_t> sites_to_swap ,unique_ptr<PhasedGenome>& genome ) const;
+     unordered_set<size_t> karger_stein_proposal_sample(const vector<multipath_alignment_t>& reads ,unique_ptr<PhasedGenome>& genome) const;
 
 
 

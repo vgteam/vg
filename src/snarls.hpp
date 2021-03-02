@@ -8,6 +8,7 @@
 #ifndef VG_SNARLS_HPP_INCLUDED
 #define VG_SNARLS_HPP_INCLUDED
 
+#include <iostream>
 #include <cstdint>
 #include <stdio.h>
 #include <unordered_map>
@@ -610,10 +611,7 @@ public:
     }
     //use the snarl number to access the Snarl*
     inline const Snarl* translate_snarl_num(size_t snarl_num){
-        const SnarlRecord record = snarls.at(snarl_num);
-        const Snarl* to_return = unrecord(&record);
-
-        return to_return;
+        return unrecord(&snarls.at(snarl_num));
     }
 
         
