@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 14
+plan tests 18
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz > x2.vg
@@ -40,9 +40,23 @@ is $(vg paths -x x.xg -g x.gbwt -F | wc -l) 28 "Fasta extracted from threads has
 
 is $(vg msga -w 20 -f msgas/s.fa | vg paths -v - -r -Q s1 | vg view - | grep ^P | cut -f 3 | sort | uniq | wc -l) 1 "a single path may be retained"
 
-is $(vg msga -w 20 -f msgas/s.fa | vg paths -v - -r -Q s1 | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) $(vg msga -w 20 -f msgas/s.fa  | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) "path filtering does not modify the graph"
+is $(vg msga -w 20 -f msgas/s.fa  | vg paths -v - -r -Q s1 | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) $(vg msga -w 20 -f msgas/s.fa  | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) "path filtering does not modify the graph"
 
 is $(vg construct -a -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg paths -d -a -v - | vg paths -L -v - | wc -l) 1 "alt allele paths can be dropped"
 
-rm -f x.xg x.gbwt x.vg x2.vg x_from_xg.fa x_from_vg.fa
+rm -f x.xg x.gbwt x.vg x2.vg x_from_xg.fa x_from_vg.fa q.vg
+
+vg msga -w 20 -f msgas/q.fa  > q.vg
+is $(vg paths -cv q.vg | awk '{print NF; exit}') 4 "vg path coverage has correct number of columns"
+is $(vg paths -cv q.vg | wc -l) 4 "vg path coverage has correct number of rows"
+
+# note: coverage doesn't include cycles at moment, so s2 path will not have full length
+vg paths -Q s2 -v q.vg -d | vg paths -cv - | grep -v ^Path | awk '{print $1 "\t" $2}' > q.cov.len
+vg paths -Q s2 -v q.vg -d | vg paths -Ev - > q.len
+is $(cat q.len | wc -l) 2 "vg paths found correct number of lengths"
+diff q.cov.len q.len
+is $? 0 "vg path coverage reports correct lengths in first column"
+
+rm -f q.vg q.cov.len q.len
+
 
