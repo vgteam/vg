@@ -1357,7 +1357,7 @@ namespace vg {
 
         }
 
-        TEST_CASE("mcmc_genotyper with karger-stein algorithm") {
+        TEST_CASE("run mcmc_genotyper with alternative proposal distribution") {
             VG graph;
 				
             Node* n1 = graph.create_node("GGG");  
