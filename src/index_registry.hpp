@@ -105,6 +105,8 @@ struct IndexingParameters {
     static int giraffe_gbwt_downsample;
     // Jordan actually doesn't know what this one does [4]
     static int downsample_context_length;
+    // actually use this fraction of the maximum memory to give slosh for bad estmates [0.75]
+    static double max_memory_proportion;
     // whether indexing algorithms will log progress (if available) [false]
     static bool verbose;
 };
@@ -148,6 +150,9 @@ public:
     /// Returns true if the given index is to be intermediate under the given
     /// plan, and false if it is to be preserved.
     bool is_intermediate(const IndexName& identifier) const;
+    
+    /// TODO: is this where this function wants to live?
+    int64_t target_memory_usage() const;
     
 protected:
     
@@ -227,6 +232,13 @@ public:
     /// Indicate a list of serialized files that contains some identified index
     void provide(const IndexName& identifier, const vector<string>& filenames);
     
+    /// Set the maximum memory that indexing should try to consume (note: this is
+    /// not strictly adhered to due to difficulties in estimating memory use)
+    void set_target_memory_usage(int64_t bytes);
+    
+    /// Get the maximum memory we will try to consume
+    int64_t get_target_memory_usage() const;
+    
     /// Get a list of all indexes that have already been completed or provided
     vector<IndexName> completed_indexes() const;
     
@@ -291,6 +303,9 @@ protected:
     
     /// should intermediate files end up in the scratch or the output directory?
     bool keep_intermediates = false;
+    
+    /// the max memory we will *attempt* to use
+    int64_t target_memory_usage = numeric_limits<int64_t>::max();
 };
 
 /**

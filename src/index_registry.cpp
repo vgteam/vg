@@ -9,6 +9,7 @@
 #include <cctype>
 #include <cstdio>
 #include <cerrno>
+#include <unistd.h>
 
 #include <bdsg/hash_graph.hpp>
 #include <bdsg/packed_graph.hpp>
@@ -36,6 +37,7 @@
 #include "integrated_snarl_finder.hpp"
 #include "min_distance.hpp"
 #include "gfa.hpp"
+#include "job_schedule.hpp"
 
 #include "io/save_handle_graph.hpp"
 
@@ -87,6 +89,7 @@ int IndexingParameters::minimizer_s = 18;
 int IndexingParameters::path_cover_depth = gbwtgraph::PATH_COVER_DEFAULT_N;
 int IndexingParameters::giraffe_gbwt_downsample = gbwtgraph::LOCAL_HAPLOTYPES_DEFAULT_N;
 int IndexingParameters::downsample_context_length = gbwtgraph::PATH_COVER_DEFAULT_K;
+double IndexingParameters::max_memory_proportion = 0.75;
 bool IndexingParameters::verbose = false;
 
 // return file size in bytes
@@ -141,8 +144,7 @@ double format_multiplier() {
     }
 }
 
-// approximate the memory of a graph that would be constructed with all of these
-// inputs
+// approximate the memory of a graph that would be constructed with FASTAs and VCFs
 int64_t approx_graph_memory(const vector<string>& fasta_filenames, const vector<string>& vcf_filenames) {
 
     // compute the size of the reference and the approximate number of
@@ -166,11 +168,59 @@ int64_t approx_graph_memory(const vector<string>& fasta_filenames, const vector<
     return hash_graph_memory_usage * format_multiplier();
 }
 
+vector<int64_t> each_approx_graph_memory(const vector<string>& fasta_filenames,
+                                         const vector<string>& vcf_filenames) {
+    
+    auto n = max(fasta_filenames.size(), vcf_filenames.size());
+    assert(fasta_filenames.size() == 1 || fasta_filenames.size() == n);
+    assert(vcf_filenames.size() == 1 || vcf_filenames.size() == n);
+    
+    double total_ref_size = 0;
+    vector<double> ref_sizes(fasta_filenames.size());
+    for (int64_t i = 0; i < ref_sizes.size(); ++i) {
+        double ref_size = get_file_size(fasta_filenames[i]);
+        ref_sizes[i] = ref_size;
+        total_ref_size += ref_size;
+    }
+    double total_var_count = 0;
+    vector<int64_t> var_counts(vcf_filenames.size());
+    for (int64_t i = 0; i < vcf_filenames.size(); ++i) {
+        int64_t var_count = approx_num_vars(vcf_filenames[i]);
+        var_counts[i] = var_count;
+        total_var_count += var_count;
+    }
+    
+    vector<int64_t> approx_memories(n);
+    for (int64_t i = 0; i < n; ++i) {
+        
+        double ref_size, var_count;
+        if (vcf_filenames.size() == 1) {
+            var_count = total_var_count * (ref_sizes[i] / total_ref_size);
+        }
+        else {
+            var_count = var_counts[i];
+        }
+        if (fasta_filenames.size() == 1) {
+            ref_size = total_ref_size * (var_counts[i] / total_var_count);
+        }
+        else {
+            ref_size = ref_sizes[i];
+        }
+        
+        // TODO: repetitive with previous function, magic constants
+        double linear_memory = 30.4483 * ref_size;
+        double var_memory = 2242.90 * var_count;
+        double hash_graph_memory_usage = linear_memory + var_memory;
+        approx_memories[i] = hash_graph_memory_usage * format_multiplier();
+    }
+    return approx_memories;
+}
+
 int64_t approx_graph_memory(const string& fasta_filename, const string& vcf_filename) {
     return approx_graph_memory(vector<string>(1, fasta_filename), vector<string>(1, vcf_filename));
 }
 
-// estimate the amount of memory of a graph constructed from all of these inputs
+// estimate the amount of memory of a graph constructed GFAs
 int64_t approx_graph_memory(const vector<string>& gfa_filenames) {
     
     int64_t total_size = 0;
@@ -201,6 +251,8 @@ bool transcript_file_nonempty(const string& transcripts) {
     return false;
 }
 
+// return all of the contigs with variants in a VCF by iterating through
+// the whole damn thing (SQ lines are not required, unfortunately)
 vector<string> vcf_contigs(const string& filename) {
     
     unordered_set<string> contigs;
@@ -555,15 +607,46 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
         }
         
-        // TODO: allow contig renaming through Constructor::add_name_mapping
-        // TODO: actually do the chunking based on available memory and in parallel if possible
+        // are we broadcasting the transcripts from one chunk to many?
+        bool broadcasting_txs = transcripts.size() != max(ref_filenames.size(),
+                                                          vcf_filenames.size());
         
+        // TODO: this estimate should include splice edges too
+        vector<pair<int64_t, int64_t>> approx_job_requirements;
+        {
+            size_t i = 0;
+            for (auto approx_mem : each_approx_graph_memory(ref_filenames, vcf_filenames)) {
+                int64_t approx_time;
+                if (vcf_filenames.size() != 1) {
+                    approx_time = get_file_size(vcf_filenames[i]);
+                }
+                else {
+                    approx_time = get_file_size(ref_filenames[i]);
+                }
+                approx_job_requirements.emplace_back(approx_time, approx_mem);
+                ++i;
+            }
+        }
+        
+#ifdef debug_index_registry_recipes
+        cerr << "approximate chunk requirements:" << endl;
+        for (size_t i = 0; i < approx_job_requirements.size(); ++i) {
+            auto requirement = approx_job_requirements[i];
+            cerr << "\tchunk " << i << " -- time: " << requirement.first << ", memory: " << requirement.second << endl;
+        }
+#endif
+        graph_names.resize(max(ref_filenames.size(), vcf_filenames.size()));
         nid_t max_node_id = 0;
-        size_t i = 0, j = 0, k = 0;
-        while (i < ref_filenames.size() && j < vcf_filenames.size()) {
+        auto make_graph = [&](int64_t idx) {
+#ifdef debug_index_registry_recipes
+            cerr << "making graph chunk " << idx << endl;
+#endif
+            
+            auto ref_filename = ref_filenames.size() == 1 ? ref_filenames[0] : ref_filenames[idx];
+            auto vcf_filename = vcf_filenames.size() == 1 ? vcf_filenames[0] : vcf_filenames[idx];
             
 #ifdef debug_index_registry_recipes
-            cerr << "constructing graph with Constructor for ref " << ref_filenames[i] << " and variants " << vcf_filenames[j] << endl;
+            cerr << "constructing graph with Constructor for ref " << ref_filename << " and variants " << vcf_filename << endl;
 #endif
             
             // init and configure the constructor
@@ -576,29 +659,31 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 // we have multiple FASTA but only 1 VCF, so we'll limit the
                 // constructor to the contigs of this FASTA for this run
                 FastaReference ref;
-                ref.open(ref_filenames[i]);
+                ref.open(ref_filename);
                 for (const string& seqname : ref.index->sequenceNames) {
                     constructor.allowed_vcf_names.insert(seqname);
                 }
             }
             else if (vcf_filenames.size() != 1 && ref_filenames.size() == 1) {
+                // we have multiple VCFs but only 1 FASTA, so we'll limit the
+                // constructor to the contigs of this VCF for this run
                 
                 // unfortunately there doesn't seem to be a good way to do this without
                 // iterating over the entire file:
-                for (const auto& contig : vcf_contigs(vcf_filenames[j])) {
+                for (const auto& contig : vcf_contigs(vcf_filename)) {
                     constructor.allowed_vcf_names.insert(contig);
                 }
             }
             
-            string output_name = plan->output_filepath(output_graph, max(i, j),
+            string output_name = plan->output_filepath(output_graph, idx,
                                                        max(ref_filenames.size(), vcf_filenames.size()));
             ofstream outfile;
             init_out(outfile, output_name);
             
             auto graph = init_mutable_graph();
             
-            vector<string> fasta(1, ref_filenames[i]);
-            vector<string> vcf(1, vcf_filenames[j]);
+            vector<string> fasta(1, ref_filename);
+            vector<string> vcf(1, vcf_filename);
             
             // do the construction
             constructor.construct_graph(fasta, vcf, insertions, graph.get());
@@ -606,20 +691,18 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 #ifdef debug_index_registry_recipes
             cerr << "resulting graph has " << graph->get_node_count() << " nodes" << endl;
 #endif
-
+                               
             
             if (!transcripts.empty()) {
                 
+                auto transcript_filename = transcripts[transcripts.size() == 1 ? 0 : idx];
+                
 #ifdef debug_index_registry_recipes
-                cerr << "adding transcripts from " << transcripts[k] << endl;
+                cerr << "adding transcripts from " << transcript_filename << endl;
 #endif
                 
                 ifstream infile_tx;
-                init_in(infile_tx, transcripts[k]);
-                
-                // are we broadcasting the transcripts from one chunk to many?
-                bool broadcasting_txs = transcripts.size() != max(ref_filenames.size(),
-                                                                  vcf_filenames.size());
+                init_in(infile_tx, transcript_filename);
                 
                 vector<string> path_names;
                 if (broadcasting_txs) {
@@ -645,13 +728,15 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 #endif
                 
                 if (broadcasting_txs && !path_names.empty() && transcripts_added == 0
-                    && transcript_file_nonempty(transcripts[k])) {
-                    cerr << "warning:[IndexRegistry] no matching paths from transcript file " << transcripts[k] << " were found in graph chunk containing the following paths:" << endl;
+                    && transcript_file_nonempty(transcripts[idx])) {
+                    cerr << "warning:[IndexRegistry] no matching paths from transcript file " << transcript_filename << " were found in graph chunk containing the following paths:" << endl;
                     for (const string& path_name : path_names) {
                         cerr << "\t" << path_name << endl;
                     }
                 }
                 
+                // we don't need to worry about race conditions on this, because it will
+                // be fixed when the ID spaces are joined anyway
                 max_node_id = max(max_node_id, transcriptome.splice_graph().max_node_id());
                 
                 // save the file
@@ -664,43 +749,36 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 vg::io::save_handle_graph(graph.get(), outfile);
             }
             
-            graph_names.push_back(output_name);
-            
-            // awkward incrementation that allows 1x1, 1xN, Nx1, and NxN matching
-            // of VCFs, FASTAs, and GTF/GFFs
-            if (ref_filenames.size() == 1 && vcf_filenames.size() == 1) {
-                break;
-            }
-            if (ref_filenames.size() > 1) {
-                ++i;
-            }
-            if (vcf_filenames.size() > 1) {
-                ++j;
-            }
-            if (transcripts.size() > 1) {
-                ++k;
-            }
-        }
+            graph_names[idx] = output_name;
+        };
         
-        if (ref_filenames.size() == 1 && vcf_filenames.size() != 1) {
-            
-            // we will have added components for all of the paths that are also
-            // VCF sequences, but we may have FASTA sequences that don't
-            // correspond to any VCF sequence (e.g. unlocalized contigs of
-            // decoys)
-            
-            // TODO: how can we keep track of all of the contigs seen in the Constructor
-            // so that we know which ones to include in this component?
-            
+        // TODO: allow contig renaming through Constructor::add_name_mapping
+        
+        
+//        if (ref_filenames.size() == 1 && vcf_filenames.size() != 1) {
+//
+//            // we will have added components for all of the paths that are also
+//            // VCF sequences, but we may have FASTA sequences that don't
+//            // correspond to any VCF sequence (e.g. unlocalized contigs of
+//            // decoys)
+//
+//            // TODO: how can we keep track of all of the contigs seen in the Constructor
+//            // so that we know which ones to include in this component?
+//
 //            string output_name = (plan->prefix(constructing)
 //                                  + "." + to_string(inputs[1]->get_filenames().size())
 //                                  + "." + plan->suffix(constructing));
-            
-            // FIXME: punting on this for now
-            // FIXME: also need to add a dummy VCF, but how to add it to const index?
-            // FIXME: also need to locate these contigs in the GTF/GFF
-            // maybe i should add it as a second index, along with this graph...
-        }
+//
+//            // FIXME: punting on this for now
+//            // FIXME: also need to add a dummy VCF, but how to add it to const index?
+//            // FIXME: also need to locate these contigs in the GTF/GFF
+//            // maybe i should add it as a second index, along with this graph...
+//        }
+        
+        // construct the jobs in parallel, trying to use multithreading while also
+        // restraining memory usage
+        JobSchedule schedule(approx_job_requirements, make_graph);
+        schedule.execute(plan->target_memory_usage());
         
         if (graph_names.size() > 1) {
             // join the ID spaces
@@ -1247,7 +1325,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     
     registry.register_recipe({"Haplotype-Transcript GBWT", "Spliced VG w/ Transcript Paths", "Unjoined Transcript Origin Table", },
-                             {"GTF/GFF", "Spliced GBWT", "Spliced VG", },
+                             {"GTF/GFF", "Spliced GBWT", "Spliced VG"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -2060,6 +2138,10 @@ bool IndexingPlan::is_intermediate(const IndexName& identifier) const {
     // Or if it is directly requested
     return !targets.count(identifier);
 }
+
+int64_t IndexingPlan::target_memory_usage() const {
+    return IndexingParameters::max_memory_proportion * registry->get_target_memory_usage();
+}
     
 string IndexingPlan::output_filepath(const IndexName& identifier) const {
     return output_filepath(identifier, 0, 1);
@@ -2257,15 +2339,23 @@ void IndexRegistry::register_index(const IndexName& identifier, const string& su
 
 
 void IndexRegistry::provide(const IndexName& identifier, const string& filename) {
-    if (!index_registry.count(identifier)) {
-        cerr << "error:[IndexRegistry] cannot provide unregistered index: " << identifier << endl;
-        exit(1);
-    }
     provide(identifier, vector<string>(1, filename));
 }
 
 void IndexRegistry::provide(const IndexName& identifier, const vector<string>& filenames) {
+    if (!index_registry.count(identifier)) {
+        cerr << "error:[IndexRegistry] cannot provide unregistered index: " << identifier << endl;
+        exit(1);
+    }
     get_index(identifier)->provide(filenames);
+}
+
+void IndexRegistry::set_target_memory_usage(int64_t bytes) {
+    target_memory_usage = bytes;
+}
+
+int64_t IndexRegistry::get_target_memory_usage() const {
+    return target_memory_usage;
 }
 
 vector<IndexName> IndexRegistry::completed_indexes() const {
@@ -3001,6 +3091,9 @@ vector<vector<string>> IndexRegistry::execute_recipe(const RecipeName& recipe_na
             assert(input->is_finished());
         }
     }
+#ifdef debug_index_registry_recipes
+    cerr << "executing recipe " << recipe_name.second << " for " << to_string(recipe_name.first) << endl;
+#endif
     return index_recipe.execute(plan, alias_graph, recipe_name.first);;
 }
 
