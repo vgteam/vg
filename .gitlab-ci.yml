@@ -66,6 +66,11 @@ local-build-test-job:
     - echo Full Testing
     - make test
     - make static -j8
+    # Also test as a backend for the tube map
+    - git clone https://github.com/vgteam/sequenceTubeMap.git
+    - cd sequenceTubeMap
+    - npm install
+    - CI=true npm run test
   variables:
     VG_FULL_TRACEBACK: "1"
     GIT_SUBMODULE_STRATEGY: none
