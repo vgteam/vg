@@ -953,6 +953,10 @@ Functions</h2></td></tr>
 <tr class="separator:a083d5edb5192697a269a3e5b8815bccd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2b93e9e76e3e7739f30adea6c0be4a57"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2b93e9e76e3e7739f30adea6c0be4a57">mapping_against_path</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const bam1_t *b, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, bool on_reverse_strand)</td></tr>
 <tr class="separator:a2b93e9e76e3e7739f30adea6c0be4a57"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a34f4e73b242fa5b34d30ecc4da496835"><td class="memTemplParams" colspan="2">template&lt;typename Annotated &gt; </td></tr>
+<tr class="memitem:a34f4e73b242fa5b34d30ecc4da496835"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a34f4e73b242fa5b34d30ecc4da496835">has_annotation</a> (const Annotated &amp;annotated, const string &amp;name)</td></tr>
+<tr class="memdesc:a34f4e73b242fa5b34d30ecc4da496835"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the Protobuf object has an annotation with this name.  <a href="namespacevg.html#a34f4e73b242fa5b34d30ecc4da496835">More...</a><br /></td></tr>
+<tr class="separator:a34f4e73b242fa5b34d30ecc4da496835"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1fda752e24eaed100f6c30904d2ca3e1"><td class="memTemplParams" colspan="2">template&lt;typename AnnotationType , typename Annotated &gt; </td></tr>
 <tr class="memitem:a1fda752e24eaed100f6c30904d2ca3e1"><td class="memTemplItemLeft" align="right" valign="top">AnnotationType&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1fda752e24eaed100f6c30904d2ca3e1">get_annotation</a> (const Annotated &amp;annotated, const string &amp;name)</td></tr>
 <tr class="separator:a1fda752e24eaed100f6c30904d2ca3e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -10070,6 +10074,46 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
 <p>Output Alignments may not be unique. The input <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> may have exponentially many ways to spell the same <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, and we will look at all of them. We also may have duplicates of the optimal alignment if we are asked to produce it unconsitionally.</p>
 <p>Note: Assumes that each subpath's <a class="el" href="structvg_1_1Path.html">Path</a> object uses one <a class="el" href="structvg_1_1Mapping.html">Mapping</a> per node and that start subpaths have been identified</p>
 <p>Args: multipath_aln multipath alignment to find optimal paths through score_provider a <a class="el" href="classhaplo_1_1ScoreProvider.html">haplo::ScoreProvider</a> that supports incremental search over its haplotype database (such as a GBWTScoreProvider) soft_count maximum number of haplotype-inconsistent alignments to pad to hard_count maximum number of alignments, including haplotype-consistent (0 if no limit) optimal_first always compute and return first the optimal alignment, even if not haplotype-consistent </p>
+
+</div>
+</div>
+<a id="a34f4e73b242fa5b34d30ecc4da496835"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a34f4e73b242fa5b34d30ecc4da496835">&#9670;&nbsp;</a></span>has_annotation()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Annotated &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::has_annotation </td>
+          <td>(</td>
+          <td class="paramtype">const Annotated &amp;&#160;</td>
+          <td class="paramname"><em>annotated</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>name</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Returns true if the Protobuf object has an annotation with this name. </p>
 
 </div>
 </div>
