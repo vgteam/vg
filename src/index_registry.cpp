@@ -628,12 +628,22 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
         }
         
+#ifdef debug_index_registry_recipes
+        cerr << "approximate chunk requirements:" << endl;
+        for (size_t i = 0; i < approx_job_requirements.size(); ++i) {
+            auto requirement = approx_job_requirements[i];
+            cerr << "\tchunk " << i << " -- time: " << requirement.first << ", memory: " << requirement.second << endl;
+        }
+#endif
         graph_names.resize(max(ref_filenames.size(), vcf_filenames.size()));
         nid_t max_node_id = 0;
         auto make_graph = [&](int64_t idx) {
+#ifdef debug_index_registry_recipes
+            cerr << "making graph chunk " << idx << endl;
+#endif
             
-            auto ref_filename = ref_filenames.size() == 1 ? 0 : ref_filenames[idx];
-            auto vcf_filename = vcf_filenames.size() == 1 ? 0 : vcf_filenames[idx];
+            auto ref_filename = ref_filenames.size() == 1 ? ref_filenames[0] : ref_filenames[idx];
+            auto vcf_filename = vcf_filenames.size() == 1 ? vcf_filenames[0] : vcf_filenames[idx];
             
 #ifdef debug_index_registry_recipes
             cerr << "constructing graph with Constructor for ref " << ref_filename << " and variants " << vcf_filename << endl;
@@ -3081,6 +3091,9 @@ vector<vector<string>> IndexRegistry::execute_recipe(const RecipeName& recipe_na
             assert(input->is_finished());
         }
     }
+#ifdef debug_index_registry_recipes
+    cerr << "executing recipe " << recipe_name.second << " for " << to_string(recipe_name.first) << endl;
+#endif
     return index_recipe.execute(plan, alias_graph, recipe_name.first);;
 }
 
