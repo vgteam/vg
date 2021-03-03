@@ -816,8 +816,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
             //TODO: This is "properly paired" if there is a path between the reads. Since we
             //haven't finalized the distribution we can't compare it
-            int64_t distance = distance_between(mapped_pair.first.back(), mapped_pair.second.back());
-            bool properly_paired = distance != std::numeric_limits<int64_t>::max();
+            bool properly_paired = dist != std::numeric_limits<int64_t>::max();
             set_annotation(mapped_pair.first.back(), "proper_pair", properly_paired);
             set_annotation(mapped_pair.second.back(), "proper_pair", properly_paired);
 
