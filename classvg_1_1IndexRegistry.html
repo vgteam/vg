@@ -111,6 +111,11 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a430536c995544af29060b78d04e3f5c1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#a430536c995544af29060b78d04e3f5c1">provide</a> (const <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &amp;identifier, const vector&lt; string &gt; &amp;filenames)</td></tr>
 <tr class="memdesc:a430536c995544af29060b78d04e3f5c1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Indicate a list of serialized files that contains some identified index.  <a href="classvg_1_1IndexRegistry.html#a430536c995544af29060b78d04e3f5c1">More...</a><br /></td></tr>
 <tr class="separator:a430536c995544af29060b78d04e3f5c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aee06106e4888a5a17d12fa10f1e87893"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#aee06106e4888a5a17d12fa10f1e87893">set_target_memory_usage</a> (int64_t bytes)</td></tr>
+<tr class="separator:aee06106e4888a5a17d12fa10f1e87893"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa8aae29f234def70dc6de5f1a291cbc0"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#aa8aae29f234def70dc6de5f1a291cbc0">get_target_memory_usage</a> () const</td></tr>
+<tr class="memdesc:aa8aae29f234def70dc6de5f1a291cbc0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the maximum memory we will try to consume.  <a href="classvg_1_1IndexRegistry.html#aa8aae29f234def70dc6de5f1a291cbc0">More...</a><br /></td></tr>
+<tr class="separator:aa8aae29f234def70dc6de5f1a291cbc0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1a39419b55745505a20ee70bfdc43f48"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#a1a39419b55745505a20ee70bfdc43f48">completed_indexes</a> () const</td></tr>
 <tr class="memdesc:a1a39419b55745505a20ee70bfdc43f48"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a list of all indexes that have already been completed or provided.  <a href="classvg_1_1IndexRegistry.html#a1a39419b55745505a20ee70bfdc43f48">More...</a><br /></td></tr>
 <tr class="separator:a1a39419b55745505a20ee70bfdc43f48"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -172,6 +177,9 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:a1b0ad4bff3fc2a7d514c6e1b46d3ca23"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#a1b0ad4bff3fc2a7d514c6e1b46d3ca23">keep_intermediates</a> = false</td></tr>
 <tr class="memdesc:a1b0ad4bff3fc2a7d514c6e1b46d3ca23"><td class="mdescLeft">&#160;</td><td class="mdescRight">should intermediate files end up in the scratch or the output directory?  <a href="classvg_1_1IndexRegistry.html#a1b0ad4bff3fc2a7d514c6e1b46d3ca23">More...</a><br /></td></tr>
 <tr class="separator:a1b0ad4bff3fc2a7d514c6e1b46d3ca23"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6d6ef1d1e1488c9a32feaddca19cdb1a"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#a6d6ef1d1e1488c9a32feaddca19cdb1a">target_memory_usage</a> = numeric_limits&lt;int64_t&gt;::max()</td></tr>
+<tr class="memdesc:a6d6ef1d1e1488c9a32feaddca19cdb1a"><td class="mdescLeft">&#160;</td><td class="mdescRight">the max memory we will <em>attempt</em> to use  <a href="classvg_1_1IndexRegistry.html#a6d6ef1d1e1488c9a32feaddca19cdb1a">More...</a><br /></td></tr>
+<tr class="separator:a6d6ef1d1e1488c9a32feaddca19cdb1a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="friends"></a>
 Friends</h2></td></tr>
@@ -466,6 +474,25 @@ Friends</h2></td></tr>
 </div><div class="memdoc">
 
 <p>access const index file </p>
+
+</div>
+</div>
+<a id="aa8aae29f234def70dc6de5f1a291cbc0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa8aae29f234def70dc6de5f1a291cbc0">&#9670;&nbsp;</a></span>get_target_memory_usage()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::IndexRegistry::get_target_memory_usage </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the maximum memory we will try to consume. </p>
 
 </div>
 </div>
@@ -778,6 +805,25 @@ Friends</h2></td></tr>
 
 </div>
 </div>
+<a id="aee06106e4888a5a17d12fa10f1e87893"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aee06106e4888a5a17d12fa10f1e87893">&#9670;&nbsp;</a></span>set_target_memory_usage()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::IndexRegistry::set_target_memory_usage </td>
+          <td>(</td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>bytes</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Set the maximum memory that indexing should try to consume (note: this is not strictly adhered to due to difficulties in estimating memory use) </p>
+
+</div>
+</div>
 <a id="ad7ff998ac4404629ef683795a9170116"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ad7ff998ac4404629ef683795a9170116">&#9670;&nbsp;</a></span>to_dot() <span class="overload">[1/2]</span></h2>
 
@@ -981,6 +1027,30 @@ Friends</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Record that, when the given input indexes are available, this collection of recipes is efficient to run together. </p>
+
+</div>
+</div>
+<a id="a6d6ef1d1e1488c9a32feaddca19cdb1a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6d6ef1d1e1488c9a32feaddca19cdb1a">&#9670;&nbsp;</a></span>target_memory_usage</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::IndexRegistry::target_memory_usage = numeric_limits&lt;int64_t&gt;::max()</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>the max memory we will <em>attempt</em> to use </p>
 
 </div>
 </div>

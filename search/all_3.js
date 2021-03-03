@@ -291,7 +291,7 @@ var searchData=
   ['count_5fwalks_754',['count_walks',['../namespacehandlegraph_1_1algorithms.html#a735c13fd9a1fb84b477ac45d6d81f005',1,'handlegraph::algorithms']]],
   ['count_5fwalks_2ecpp_755',['count_walks.cpp',['../count__walks_8cpp.html',1,'']]],
   ['count_5fwalks_5fthrough_5fnodes_756',['count_walks_through_nodes',['../namespacehandlegraph_1_1algorithms.html#a873fe0ce03bbac9de36e28618799031d',1,'handlegraph::algorithms']]],
-  ['counts_757',['Counts',['../structvg_1_1Counts.html',1,'vg::Counts'],['../structvg_1_1Counts.html#a87773870a3b04302bec59e41e5bdbc2e',1,'vg::Counts::Counts()'],['../structvg_1_1Counts.html#ada1e3e24df7c078970806cb6da1fce51',1,'vg::Counts::counts()']]],
+  ['counts_757',['Counts',['../structvg_1_1Counts.html',1,'vg::Counts'],['../structvg_1_1Counts.html#ada1e3e24df7c078970806cb6da1fce51',1,'vg::Counts::counts()'],['../structvg_1_1Counts.html#a87773870a3b04302bec59e41e5bdbc2e',1,'vg::Counts::Counts()']]],
   ['cov_5fbin_5fsize_758',['cov_bin_size',['../classvg_1_1Packer.html#a63fd3c0a6d18bbb64f18e3afbecd552c',1,'vg::Packer']]],
   ['coverage_759',['coverage',['../structvg_1_1SnarlSeedClusterer_1_1Cluster.html#a7eb0eaec26030e1550d99fdcc3c1f7d6',1,'vg::SnarlSeedClusterer::Cluster']]],
   ['coverage_5fat_5fposition_760',['coverage_at_position',['../classvg_1_1Packer.html#a40c607faa60ebbd6bf6723744461dddf',1,'vg::Packer']]],
