@@ -271,29 +271,36 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         return false;
     }
 
-    // add in the exhaustive traversals
+
     if (!path_restricted) {
-        // exhaustive traversal can't do all snarls
-        if (snarl->type() != ULTRABUBBLE) {
-            return false;
-        }
-        if (!check_max_nodes(snarl)) {
+        vector<SnarlTraversal> additional_travs;
+        if (gbwt_trav_finder.get() != nullptr) {
+            // add in the gbwt traversals
+            additional_travs = gbwt_trav_finder->find_traversals(*snarl);
+        } else {
+            // add in the exhaustive traversals
+                        
+            // exhaustive traversal can't do all snarls
+            if (snarl->type() != ULTRABUBBLE) {
+                return false;
+            }
+            if (!check_max_nodes(snarl)) {
 #pragma omp critical (cerr)
-            cerr << "Warning: Skipping site because it is too complex for exhaustive traversal enumeration: " << pb2json(*snarl) << endl << "         Consider using -e to traverse embedded paths" << endl;
-            return false;
-        }
-        vector<SnarlTraversal> exhaustive_travs = explicit_exhaustive_traversals(snarl);
+                cerr << "Warning: Skipping site because it is too complex for exhaustive traversal enumeration: " << pb2json(*snarl) << endl << "         Consider using -e to traverse embedded paths" << endl;
+                return false;
+            }
+            additional_travs = explicit_exhaustive_traversals(snarl);
+        } 
         // happens when there was a nested non-ultrabubble snarl
-        if (exhaustive_travs.empty()) {
+        if (additional_travs.empty()) {
             return false;
         }
-        path_travs.first.insert(path_travs.first.end(), exhaustive_travs.begin(), exhaustive_travs.end());
-        for (int i = 0; i < exhaustive_travs.size(); ++i) {
+        path_travs.first.insert(path_travs.first.end(), additional_travs.begin(), additional_travs.end());
+        for (int i = 0; i < additional_travs.size(); ++i) {
             // dummy names so we can use the same code as the named path traversals above
             path_trav_names.push_back(" >>" + std::to_string(i));
             // dummy handles so we can use the same code as the named path traversals above
             path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
-            
         }
     }
     
@@ -373,7 +380,8 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
  */
 void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
                                 bool path_restricted_traversals, int ploidy, bool include_nested,
-                                const unordered_map<string, string>* path_to_sample) {
+                                const unordered_map<string, string>* path_to_sample,
+                                gbwt::GBWT* gbwt) {
 
     this->graph = graph;
     this->snarl_manager = snarl_manager;
@@ -442,6 +450,10 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                                                                                 *snarl_manager,
                                                                                 true));
 
+    }
+    
+    if (gbwt != nullptr) {
+        gbwt_trav_finder = unique_ptr<GBWTTraversalFinder>(new GBWTTraversalFinder(*graph, *gbwt));
     }
     
     // Do the top-level snarls in parallel
