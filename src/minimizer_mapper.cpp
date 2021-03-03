@@ -818,8 +818,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             //haven't finalized the distribution we can't compare it
             int64_t distance = distance_between(mapped_pair.first.back(), mapped_pair.second.back());
             bool properly_paired = distance != std::numeric_limits<int64_t>::max();
-            mapped_pair.first.back().set_properly_paired(properly_paired);
-            mapped_pair.second.back().set_properly_paired(properly_paired);
+            set_annotation(mapped_pair.first.back(), "proper_pair", properly_paired);
+            set_annotation(mapped_pair.second.back(), "proper_pair", properly_paired);
 
 
 #ifdef debug_fragment_distr
@@ -1742,8 +1742,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     set_annotation(rescued_aln, "fragment_length", (double)fragment_dist);
                     bool properly_paired = fragment_dist == std::numeric_limits<int64_t>::max() ? false :
                         (std::abs(fragment_dist-fragment_length_distr.mean()) <= 6.0*fragment_length_distr.std_dev()) ;
-                    mapped_aln.set_properly_paired(properly_paired);
-                    rescued_aln.set_properly_paired(properly_paired);
+                    set_annotation(mapped_aln, "proper_pair", properly_paired);
+                    set_annotation(rescued_aln, "proper_pair", properly_paired);
 
                     //Since we're still accumulating a list of indexes of pairs of alignments,
                     //add the new alignment to the list of alignments 
@@ -2100,8 +2100,9 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         set_annotation(mappings.second.front(), "fragment_length", (double) distances.front());
         bool properly_paired = distances.front() == std::numeric_limits<int64_t>::max() ? false :
             (std::abs(distances.front()-fragment_length_distr.mean()) <= 6.0*fragment_length_distr.std_dev()) ;
-        mappings.first.front().set_properly_paired(properly_paired);
-        mappings.second.front().set_properly_paired(properly_paired);
+        set_annotation(mappings.first.front(), "proper_pair", properly_paired);
+        set_annotation(mappings.second.front(), "proper_pair", properly_paired);
+
         string distribution = "-I " + to_string(fragment_length_distr.mean()) + " -D " + to_string(fragment_length_distr.std_dev());
         set_annotation(mappings.first.front(),"fragment_length_distribution", distribution);
         set_annotation(mappings.second.front(),"fragment_length_distribution", distribution);
