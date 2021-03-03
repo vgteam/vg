@@ -914,6 +914,8 @@ int main_stats(int argc, char** argv) {
         cout << "Total aligned: " << combined.total_aligned << endl;
         cout << "Total perfect: " << combined.total_perfect << endl;
         cout << "Total gapless (softclips allowed): " << combined.total_gapless << endl;
+        cout << "Total paired: " << combined.total_paired << endl;
+        cout << "Total properly paired: " << combined.total_proper_paired << endl;
 
         cout << "Insertions: " << combined.total_inserted_bases << " bp in " << combined.total_insertions << " read events" << endl;
         if(verbose) {
@@ -944,8 +946,6 @@ int main_stats(int argc, char** argv) {
             }
         }
         
-        cout << "Pairing: " << combined.total_paired << " paired reads with " << combined.total_proper_paired << " with properly paired alignments" << endl;
-
         if (graph.get() != nullptr) {
             cout << "Unvisited nodes: " << unvisited_nodes << "/" << graph->get_node_count()
                 << " (" << unvisited_node_bases << " bp)" << endl;
