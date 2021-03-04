@@ -63,7 +63,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
                 << "\t" << "SO:i:" << it->second.second
                 << "\t" << "SR:i:0"; // todo: support non-zero ranks?
         }
-        out << endl;
+        out << "\n"; // Writing `std::endl` would flush the buffer.
         return true;
     });
     
@@ -114,7 +114,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
             ee.sink_orientation_forward = !ee.sink_orientation_forward;
         }
         
-        out << ee.to_string_1() << endl;;
+        out << ee.to_string_1() << "\n"; // Writing `std::endl` would flush the buffer.
         return true;
         //gg.add_edge(ee.source_name, ee);
         //link_elem l;
