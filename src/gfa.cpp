@@ -63,7 +63,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
                 << "\t" << "SO:i:" << it->second.second
                 << "\t" << "SR:i:0"; // todo: support non-zero ranks?
         }
-        out << endl;
+        out << "\n"; // Writing `std::endl` would flush the buffer.
         return true;
     });
     
@@ -84,7 +84,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
                 });
                 p_elem.overlaps.push_back("*");
                 //gg.add_path(p_elem.name, p_elem);
-                out << p_elem.to_string_1() << endl;
+                out << p_elem.to_string_1() << "\n";
             }
         }
     });
@@ -114,7 +114,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
             ee.sink_orientation_forward = !ee.sink_orientation_forward;
         }
         
-        out << ee.to_string_1() << endl;;
+        out << ee.to_string_1() << "\n"; // Writing `std::endl` would flush the buffer.
         return true;
         //gg.add_edge(ee.source_name, ee);
         //link_elem l;
@@ -173,7 +173,7 @@ bool write_w_line(const PathHandleGraph* graph, ostream& out, const string& wlin
             handle_t handle = graph->get_handle_of_step(step_handle);
             out << (graph->get_is_reverse(handle) ? "<" : ">") << graph->get_id(handle);
         });
-    out << endl;
+    out << "\n";
     return true;
 }
 
