@@ -16,16 +16,10 @@ using namespace std;
 
 //#define transcriptome_debug
 
-
-Transcriptome::Transcriptome(const string & graph_filename, const bool show_progress) {
-
-    // Load variation graph.
-    get_input_file(graph_filename, [&](istream& in) {
-        _splice_graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
-    });
-
+Transcriptome::Transcriptome(unique_ptr<MutablePathDeletableHandleGraph>&& graph) :
+    _splice_graph(move(graph))
+{
     _splice_graph_node_updated = false;
-
     if (!_splice_graph) {
         cerr << "[transcriptome] ERROR: Could not load graph." << endl;
         exit(1);
@@ -201,10 +195,16 @@ vector<Transcript> Transcriptome::parse_introns(istream & intron_stream, const b
         }
 
         if (!_splice_graph->has_path(chrom)) {
-        
-            cerr << "[transcriptome] ERROR: Chromomsome path \"" << chrom << "\" not found in graph (line " << line_number << ")." << endl;
-            exit(1);
-        } 
+            if (error_on_missing_path) {
+                cerr << "[transcriptome] ERROR: Chromomsome path \"" << chrom << "\" not found in graph (line " << line_number << ")." << endl;
+                exit(1);
+            }
+            else {
+                // seek to the end of the line
+                intron_stream.ignore(numeric_limits<streamsize>::max(), '\n');
+                continue;
+            }
+        }
 
         // Parse start and end intron position and convert end to inclusive.
         assert(getline(intron_stream, pos, '\t'));
@@ -278,10 +278,16 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream,
         }
 
         if (!_splice_graph->has_path(chrom)) {
-        
-            cerr << "[transcriptome] ERROR: Chromomsome path \"" << chrom << "\" not found in graph (line " << line_number << ")." << endl;
-            exit(1);
-        } 
+            if (error_on_missing_path) {
+                cerr << "[transcriptome] ERROR: Chromomsome path \"" << chrom << "\" not found in graph (line " << line_number << ")." << endl;
+                exit(1);
+            }
+            else {
+                // seek to the end of the line
+                transcript_stream.ignore(numeric_limits<streamsize>::max(), '\n');
+                continue;
+            }
+        }
 
         transcript_stream.ignore(numeric_limits<streamsize>::max(), '\t');         
         assert(getline(transcript_stream, feature, '\t'));
@@ -357,7 +363,7 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream,
 
     if (transcripts.empty()) {
 
-        cerr << "[transcriptome] ERROR: No transcripts parsed (remember to set feature type \"-y\")" << endl;
+        cerr << "[transcriptome] ERROR: No transcripts parsed (remember to set feature type \"-y\" in vg rna or \"-f\" in vg autoindex)" << endl;
         exit(1);        
     }
 
@@ -465,14 +471,12 @@ void Transcriptome::construct_edited_transcript_paths_callback(list<EditedTransc
 
         // Construct edited transcript paths.
         auto new_edited_transcript_paths = project_transcript_embedded(transcript, graph_path_pos_overlay, true);
-        
+
         if (!new_edited_transcript_paths.empty()) {
 
             assert(!new_edited_transcript_paths.front().reference_origin.empty());
 
-            thread_edited_transcript_paths.splice(thread_edited_transcript_paths.end(), new_edited_transcript_paths);
-
-            Path & transcript_path = new_edited_transcript_paths.front().path;
+            const Path & transcript_path = new_edited_transcript_paths.front().path;
 
             // Add adjecent same node exons as single paths to ensure boundary breaking
             for (size_t i = 1; i < transcript_path.mapping_size(); ++i) {
@@ -489,6 +493,8 @@ void Transcriptome::construct_edited_transcript_paths_callback(list<EditedTransc
                     thread_edited_transcript_paths.emplace_back(exon_path_right);
                 }
             }
+
+            thread_edited_transcript_paths.splice(thread_edited_transcript_paths.end(), new_edited_transcript_paths);
         }
 
         transcripts_idx += num_threads;
@@ -1770,10 +1776,7 @@ void Transcriptome::write_splice_graph(ostream * graph_ostream) const {
 
     vg::io::save_handle_graph(_splice_graph.get(), *graph_ostream);
 }
-    
+
 }
-
-
-
 
 

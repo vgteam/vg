@@ -9,7 +9,7 @@
 
 namespace vg {
 
-PhaseUnfolder::PhaseUnfolder(const PathPositionHandleGraph& path_graph, const gbwt::GBWT& gbwt_index, vg::id_t next_node) :
+PhaseUnfolder::PhaseUnfolder(const PathHandleGraph& path_graph, const gbwt::GBWT& gbwt_index, vg::id_t next_node) :
     path_graph(path_graph), gbwt_index(gbwt_index), mapping(next_node) {
     assert(this->mapping.begin() > this->path_graph.max_node_id());
 }
@@ -294,7 +294,7 @@ std::list<bdsg::HashGraph> PhaseUnfolder::complement_components(MutableHandleGra
         return false;
     };
     
-    // checks whether an edge from the PathPositionHandleGraph is in the graph
+    // checks whether an edge from the PathHandleGraph is in the graph
     auto graph_has_path_graph_edge = [&](const handle_t& from, const handle_t& to) {
         return graph_has_edge(path_graph.get_id(from), path_graph.get_id(to),
                               path_graph.get_is_reverse(from), path_graph.get_is_reverse(to));
@@ -306,7 +306,7 @@ std::list<bdsg::HashGraph> PhaseUnfolder::complement_components(MutableHandleGra
                               gbwt::Node::is_reverse(from), gbwt::Node::is_reverse(to));
     };
     
-    // takes a handle to the PathPositionHandleGraph and returns the equivalent handle in
+    // takes a handle to the PathHandleGraph and returns the equivalent handle in
     // the complement, making the node if necessary
     auto get_or_make_complement_handle = [&](const handle_t& counterpart) {
         vg::id_t id = path_graph.get_id(counterpart);

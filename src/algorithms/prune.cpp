@@ -122,18 +122,18 @@ pair_hash_set<edge_t> find_edges_to_prune(const HandleGraph& graph, size_t k, si
     return result;
 }
 
-void prune_complex(DeletableHandleGraph& graph,
-                   int path_length, int edge_max) {
+size_t prune_complex(DeletableHandleGraph& graph,
+                     int path_length, int edge_max) {
     
-    for (auto& edge : find_edges_to_prune(graph,
-                                          path_length,
-                                          edge_max)) {
+    auto edges_to_destroy = find_edges_to_prune(graph, path_length, edge_max);
+    for (auto& edge : edges_to_destroy) {
         graph.destroy_edge(edge);
     }
+    return edges_to_destroy.size();
 }
 
-void prune_complex_with_head_tail(DeletableHandleGraph& graph,
-                                  int path_length, int edge_max) {
+size_t prune_complex_with_head_tail(DeletableHandleGraph& graph,
+                                    int path_length, int edge_max) {
     
     SourceSinkOverlay source_sink_graph(&graph, path_length);
     
@@ -154,10 +154,10 @@ void prune_complex_with_head_tail(DeletableHandleGraph& graph,
             
         }
     }
-    
+    return edges_to_destroy.size();
 }
 
-void prune_short_subgraphs(DeletableHandleGraph& graph, int min_size) {
+size_t prune_short_subgraphs(DeletableHandleGraph& graph, int min_size) {
     
     unordered_set<handle_t> to_destroy;
     
@@ -203,10 +203,12 @@ void prune_short_subgraphs(DeletableHandleGraph& graph, int min_size) {
     for (auto handle : to_destroy) {
         graph.destroy_handle(handle);
     }
+    
+    return to_destroy.size();
 }
 
 
-void remove_high_degree_nodes(DeletableHandleGraph& g, int max_degree) {
+size_t remove_high_degree_nodes(DeletableHandleGraph& g, int max_degree) {
     vector<handle_t> to_remove;
     g.for_each_handle([&](const handle_t& h) {
         int edge_count = 0;
@@ -224,6 +226,7 @@ void remove_high_degree_nodes(DeletableHandleGraph& g, int max_degree) {
     for (auto& h : to_remove) {
         g.destroy_handle(h);
     }
+    return to_remove.size();
 }
 
 }

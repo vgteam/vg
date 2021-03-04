@@ -246,5 +246,5 @@ int main_add(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_add("add", "add variants from a VCF to a graph", main_add);
+static Subcommand vg_add("add", "add variants from a VCF to a graph", DEPRECATED, main_add);
 

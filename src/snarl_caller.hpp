@@ -85,7 +85,7 @@ public:
     void set_min_supports(double min_mad_for_call, double min_support_for_call, double min_site_support);
     
     /// Get the traversal support finder
-    const TraversalSupportFinder& get_support_finder() const;
+    TraversalSupportFinder& get_support_finder() const;
 
     /// Get the minimum total support for call
     virtual int get_min_total_support_for_call() const;

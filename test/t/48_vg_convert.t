@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 37
+plan tests 41
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -207,9 +207,10 @@ is "$?" 0 "rgfa export roundtrips back to normal P-lines"
 
 rm -f tiny.gfa.rgfa tiny.gfa.gfa tiny.gfa.rgfa.gfa
 
+
 # GFA to GBWTGraph to HashGraph to GFA
 vg gbwt -o components.gbwt -g components.gg -G graphs/components_walks.gfa
-vg convert -b components.gbwt -a components.gg > components.hg
+vg convert -b components.gbwt -a components.gg > components.hg 2> /dev/null
 is $? 0 "GBWTGraph to HashGraph conversion"
 grep "^S" graphs/components_walks.gfa | sort > sorted.gfa
 vg view components.hg | grep "^S" | sort > converted.gfa
@@ -219,3 +220,28 @@ is $? 0 "GFA -> GBWTGraph -> HashGraph -> GFA conversion maintains segments"
 rm -f components.gbwt components.gg
 rm -f components.hg
 rm -f sorted.gfa converted.gfa
+
+
+# GFA to GBWTGraph with paths and walks
+vg gbwt -o components.gbwt -g components.gg -G graphs/components_paths_walks.gfa
+vg convert -g -a graphs/components_paths_walks.gfa > direct.hg
+vg paths -v direct.hg -A > correct_paths.gaf
+
+# GBWTGraph to HashGraph with paths and walks
+vg convert -b components.gbwt -a components.gg > components.hg
+is $? 0 "GBWTGraph to HashGraph conversion with reference paths"
+vg paths -A -v components.hg > hg_paths.gaf
+cmp hg_paths.gaf correct_paths.gaf
+is $? 0 "GBWTGraph to HashGraph conversion creates the correct reference paths"
+
+# GBWTGraph to XG with paths and walks
+vg convert -b components.gbwt -x components.gg > components.xg
+is $? 0 "GBWTGraph to XG conversion with reference paths"
+vg paths -A -v components.xg > xg_paths.gaf
+cmp xg_paths.gaf correct_paths.gaf
+is $? 0 "GBWTGraph to XG conversion creates the correct reference paths"
+
+rm -f components.gbwt components.gg
+rm -f direct.hg correct_paths.gaf
+rm -f components.hg hg_paths.gaf
+rm -f components.xg xg_paths.gaf

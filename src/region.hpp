@@ -14,8 +14,8 @@ using namespace std;
 // Generally regions parsed form user input will be 1-based.
 struct Region {
     string seq;
-    int64_t start;
-    int64_t end;
+    int64_t start = -1;
+    int64_t end = -1;
 };
 
 // Parse a genomic contig[:start-end] region. Outputs -1 for missing start or end.

@@ -229,7 +229,7 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
         if (!mappings.begin()->is_reverse() && vg_subgraph->start_degree(start_node) != 0) {
             for (auto edge : vg_subgraph->edges_to(start_node)) {
 #ifdef debug
-#pragma omp crticial(cerr)
+#pragma omp critical(cerr)
                 {
                     cerr << "clipping out edge " << pb2json(*edge) << " in order to make path start a tip" << endl;
                 }
@@ -239,7 +239,7 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
         } else if (mappings.begin()->is_reverse() && vg_subgraph->end_degree(start_node) != 0) {
             for (auto edge : vg_subgraph->edges_from(start_node)) {
 #ifdef debug
-#pragma omp crticial(cerr)
+#pragma omp critical(cerr)
                 {
                     cerr << "clipping out edge " << pb2json(*edge) << " in order to make path start a tip" << endl;
                 }
@@ -254,7 +254,7 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
         if (!mappings.rbegin()->is_reverse() && vg_subgraph->end_degree(end_node) != 0) {
             for (auto edge : vg_subgraph->edges_from(end_node)) {
 #ifdef debug
-#pragma omp crticial(cerr)
+#pragma omp critical(cerr)
                 {
                     cerr << "clipping out edge " << pb2json(*edge) << " in order to make path end a tip" << endl;
                 }
@@ -264,7 +264,7 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
         } else if (mappings.rbegin()->is_reverse() && vg_subgraph->start_degree(end_node) != 0) {
             for (auto edge : vg_subgraph->edges_to(end_node)) {
 #ifdef debug
-#pragma omp crticial(cerr)
+#pragma omp critical(cerr)
                 {
                     cerr << "clipping out edge " << pb2json(*edge) << " in order to make path end a tip" << endl;
                 }

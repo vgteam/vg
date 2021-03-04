@@ -171,6 +171,12 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
                                          edge_weight_callback, [](handle_t) {return false;},
                                          [](edge_t) {return false;}, greedy_avg));
 
+    // unable to get any kind of path.  this is either a bug in the search or the graph
+    if (best_paths.back().second.empty()) {
+        best_paths.clear();
+        return best_paths;
+    }
+
     best_spurs.push_back(0);
     
     // working path set, mapped to spur index (plus 1 -- ie next spot we want to look when finding new spurs)
@@ -268,7 +274,7 @@ vector<pair<double, vector<handle_t>>> yens_k_widest_paths(const HandleGraph* g,
                     }
                     total_path.first = total_length > 0 ? total_support / total_length : 0;
                 }                    
-                pair<map<vector<handle_t>, size_t>::iterator, bool> ins = B.insert(make_pair(total_path.second, i + 1));
+                pair<map<vector<handle_t>, size_t>::iterator, bool> ins = B.insert(make_pair(total_path.second, i));
                 if (ins.second == true) {
                     score_to_B.insert(make_pair(total_path.first, ins.first));
                 } // todo: is there any reason we'd need to update the score of an existing entry in B?

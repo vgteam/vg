@@ -283,18 +283,6 @@ int main_chunk(int argc, char** argv) {
         cerr << "error:[vg chunk] context cannot be specified (-c) when splitting into components (-C)" << endl;
         return 1;
     }
-    // context steps default to 1 if using id_ranges.  otherwise, force user to specify to avoid
-    // misunderstandings
-    if (context_steps < 0 && gam_split_size == 0) {
-        if (id_range) {
-            if (!context_length) {
-                context_steps = 1;
-            }
-        } else if (!components){
-            cerr << "error:[vg chunk] context expansion steps must be specified with -c/--context when chunking on paths" << endl;
-            return 1;
-        }
-    }
 
     // check the output format
     std::transform(output_format.begin(), output_format.end(), output_format.begin(), ::tolower);
@@ -470,6 +458,24 @@ int main_chunk(int argc, char** argv) {
                     regions.push_back(region);
                 }
             });
+    }
+    
+    if (context_steps >= 0 && regions.empty()) {
+        cerr << "error:[vg chunk] extracting context (-c) requires a region to take context around" << endl;
+        return 1;
+    }
+    
+    // context steps default to 1 if using id_ranges.  otherwise, force user to specify to avoid
+    // misunderstandings
+    if (context_steps < 0 && gam_split_size == 0) {
+        if (id_range) {
+            if (!context_length) {
+                context_steps = 1;
+            }
+        } else if (!components){
+            cerr << "error:[vg chunk] context expansion steps must be specified with -c/--context when chunking on paths" << endl;
+            return 1;
+        }
     }
 
     // validate and fill in sizes for regions that span entire path
