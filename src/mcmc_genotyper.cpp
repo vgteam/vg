@@ -25,7 +25,6 @@ namespace vg {
     unique_ptr<PhasedGenome> MCMCGenotyper::run_genotype(const vector<multipath_alignment_t>& reads, const double log_base) const{
 
         // set a flag for invalid contents so a message is observed 
-        bool invalid_contents = false;
         bool return_optimal = false;
 
         // generate initial value
@@ -53,13 +52,12 @@ namespace vg {
             int* modified_haplo;
             const Snarl* modified_site; 
             vector<NodeTraversal>* old_allele;
-            unordered_set<size_t> to_swap_back;
+            unique_ptr<unordered_set<size_t>> to_swap_back(nullptr);
             // get contents from either proposal_samples randomly using uniform dist. 
             if(random_num){
                 //use alt proposal sample, store the sites we swapped in case we reject sample
-                to_swap_back = karger_stein_proposal_sample(reads, genome);
-                if(to_swap_back.empty()){
-                    invalid_contents ==true;
+                to_swap_back.reset(new unordered_set<size_t> (karger_stein_proposal_sample(reads, *genome)));
+                if(!to_swap_back){
                     break;
                 }
             }else{
@@ -68,13 +66,10 @@ namespace vg {
                 // if the to_receive contents are invalid keep the new allele
                 // for graphs that do not contain snarls
                 if (*modified_haplo ==-1){
-                    invalid_contents = true;
                     break;
                 }else{
-
                     modified_site = get<1>(to_receive); 
                     old_allele = &get<2>(to_receive); 
-
                 }
             }
 
@@ -87,7 +82,7 @@ namespace vg {
             
             if (current_likelihood > max_likelihood){
                 max_likelihood = current_likelihood;
-                optimal = unique_ptr<PhasedGenome>(new PhasedGenome(*genome));
+                optimal.reset(new PhasedGenome(*genome));
                 return_optimal=true;
             }
             
@@ -104,36 +99,36 @@ namespace vg {
                     int haplotype_0 =0;
                     int haplotype_1 =1;
                     //swap alleles at all sites in to_swap_back 
-                    for(auto iter = to_swap_back.begin(); iter != to_swap_back.end(); ++iter){
+                    for(auto iter = to_swap_back->begin(); iter != to_swap_back->end(); ++iter){
                         const Snarl* snarl_to_swap = snarls.translate_snarl_num(*iter); 
                         genome->swap_alleles(*snarl_to_swap, haplotype_0, haplotype_1);
                     }
                 }
                 
-#ifdef debug_mcmc
-                cerr << "Rejected new allele" <<endl;
-                cerr << "clikelihood " << previous_likelihood <<endl;
-                genome->print_phased_genome();
-#endif                    
+// #ifdef debug_mcmc
+//                 cerr << "Rejected new allele" <<endl;
+//                 cerr << "clikelihood " << previous_likelihood <<endl;
+//                 genome->print_phased_genome();
+// #endif                    
             }else{     
-#ifdef debug_mcmc 
-                cerr << "Accepted new allele" <<endl;
-                cerr << "clikelihood " << current_likelihood <<endl;
-                genome->print_phased_genome();
-#endif
+// #ifdef debug_mcmc 
+//                 cerr << "Accepted new allele" <<endl;
+//                 cerr << "clikelihood " << current_likelihood <<endl;
+//                 genome->print_phased_genome();
+// #endif
                 previous_likelihood = current_likelihood;
                 
             }         
             
         } 
-        if(invalid_contents || !return_optimal){
+        if(!return_optimal){
             // for graphs without snarls 
             return genome; 
         }else{
-#ifdef debug_mcmc 
-            cerr <<"klikelihood " << max_likelihood <<endl;
-            optimal->print_phased_genome();
-#endif
+// #ifdef debug_mcmc 
+//             cerr <<"klikelihood " << max_likelihood <<endl;
+//             optimal->print_phased_genome();
+// #endif
             return optimal; 
         }
 
@@ -353,7 +348,7 @@ namespace vg {
 
         return genome;
     }
-    unordered_map<pair<const Snarl*, const Snarl*>, int32_t> MCMCGenotyper::make_snarl_map(const vector<multipath_alignment_t>& reads, unique_ptr<PhasedGenome>& phased_genome) const{
+    unordered_map<pair<const Snarl*, const Snarl*>, int32_t> MCMCGenotyper::make_snarl_map(const vector<multipath_alignment_t>& reads, PhasedGenome& phased_genome) const{
         
         
         unordered_map<pair<const Snarl*, const Snarl*>, int32_t> map;
@@ -361,7 +356,7 @@ namespace vg {
 
 #ifdef debug_make_snarl_graph
         cerr << "******************************************************"<<endl;
-        phased_genome->print_phased_genome();
+        phased_genome.print_phased_genome();
         cerr << "******************************************************"<<endl;
         cerr << "number of reads " << reads.size()<<endl;     
         int count= 0;           
@@ -420,8 +415,8 @@ namespace vg {
 //                 cerr <<"Searching Pair: " <<v[i]->start().node_id() <<" -> " <<v[i]->end().node_id();
 //                 cerr <<" , " <<v[j]->start().node_id() <<" -> " <<v[j]->end().node_id() <<endl;
 // #endif 
-                    vector<id_t> haplo_ids1 = phased_genome->get_haplotypes_with_snarl(v[i]);
-                    vector<id_t> haplo_ids2 = phased_genome->get_haplotypes_with_snarl(v[j]);
+                    vector<id_t> haplo_ids1 = phased_genome.get_haplotypes_with_snarl(v[i]);
+                    vector<id_t> haplo_ids2 = phased_genome.get_haplotypes_with_snarl(v[j]);
 
 // #ifdef debug_make_snarl_graph
 //                     if(!haplo_ids1.empty() && !haplo_ids2.empty()){
@@ -455,7 +450,7 @@ namespace vg {
 
             
             //get_optimal_score_on_genome(genome_before_swap, read)
-            score_before_swap = phased_genome->optimal_score_on_genome(multipath_aln, graph);
+            score_before_swap = phased_genome.optimal_score_on_genome(multipath_aln, graph);
 #ifdef debug_make_snarl_graph
             cerr << endl;
             cerr << "score_before_swap " << score_before_swap <<endl;                
@@ -475,34 +470,34 @@ namespace vg {
                     //dereference the ptr
                     const Snarl& snarl_to_swap = *snarl_ptr.first;
                     //exhange alleles at first snarl in pair
-                    phased_genome->swap_alleles(snarl_to_swap, haplotype_0, haplotype_1);
+                    phased_genome.swap_alleles(snarl_to_swap, haplotype_0, haplotype_1);
                     // get score after swap
-                    score_after_swap = phased_genome->optimal_score_on_genome(multipath_aln, graph);
+                    score_after_swap = phased_genome.optimal_score_on_genome(multipath_aln, graph);
 #ifdef debug_make_snarl_graph
                     // cerr << "genome after swap " << endl;
-                    // phased_genome->print_phased_genome();
+                    // phased_genome.print_phased_genome();
                     // cerr << "score_after_swap  " << score_after_swap  <<endl;
 #endif
                                         
 
                     //swap back 
-                    phased_genome->swap_alleles(snarl_to_swap, haplotype_0, haplotype_1);
+                    phased_genome.swap_alleles(snarl_to_swap, haplotype_0, haplotype_1);
                 
                 }else{
                     //else random num == 1
                     //dereference the ptr
                     const Snarl& snarl_to_swap = *snarl_ptr.second;
                     //exchange alleles at second snarl in pair
-                    phased_genome->swap_alleles(snarl_to_swap, haplotype_0, haplotype_1);
+                    phased_genome.swap_alleles(snarl_to_swap, haplotype_0, haplotype_1);
                     // get score after swap
-                    score_after_swap = phased_genome->optimal_score_on_genome(multipath_aln, graph);
+                    score_after_swap = phased_genome.optimal_score_on_genome(multipath_aln, graph);
 #ifdef debug_make_snarl_graph
                     // cerr << "genome after swap " << endl;
-                    // phased_genome->print_phased_genome();
+                    // phased_genome.print_phased_genome();
                     // cerr << "score_after_swap  " << score_after_swap  <<endl;                              
 #endif
                     //swap back 
-                    phased_genome->swap_alleles(snarl_to_swap, haplotype_0, haplotype_1);
+                    phased_genome.swap_alleles(snarl_to_swap, haplotype_0, haplotype_1);
                 }
             
                 //getcalculate difference of scores between swaps
@@ -610,7 +605,7 @@ namespace vg {
 
     }
 
-    unordered_set<size_t> MCMCGenotyper::karger_stein_proposal_sample(const vector<multipath_alignment_t>& reads, unique_ptr<PhasedGenome>& genome ) const{
+    unordered_set<size_t> MCMCGenotyper::karger_stein_proposal_sample(const vector<multipath_alignment_t>& reads, PhasedGenome& genome ) const{
         
         int haplotype_0 =0;
         int haplotype_1 =1;
@@ -635,7 +630,7 @@ namespace vg {
         // swap alleles at sites in chosen set using snarl indexes
         for(auto iter = sites_to_swap.begin(); iter != sites_to_swap.end(); ++iter){
             const Snarl* snarl_to_swap = snarls.translate_snarl_num(*iter); 
-            genome->swap_alleles(*snarl_to_swap, haplotype_0, haplotype_1);
+            genome.swap_alleles(*snarl_to_swap, haplotype_0, haplotype_1);
         }
 
         return sites_to_swap;

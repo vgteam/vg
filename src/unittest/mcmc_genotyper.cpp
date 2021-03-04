@@ -1141,7 +1141,7 @@ namespace vg {
                 // index sites
                 phased_genome->build_indices();
                 
-                unordered_map<pair<const Snarl*, const Snarl*>, int32_t> snarl_map = mcmc_genotyper.make_snarl_map(multipath_aln_vector ,  phased_genome);
+                unordered_map<pair<const Snarl*, const Snarl*>, int32_t> snarl_map = mcmc_genotyper.make_snarl_map(multipath_aln_vector ,  *phased_genome);
 #ifdef debug_snarl_graph
                 unordered_map<pair<const Snarl*, const Snarl*>, int32_t>::iterator it = snarl_map.begin();
                 while(it != snarl_map.end())
@@ -1316,7 +1316,7 @@ namespace vg {
             // index sites
             phased_genome->build_indices();
 
-            unordered_map<pair<const Snarl*, const Snarl*>, int32_t> snarl_map = mcmc_genotyper.make_snarl_map(multipath_aln_vector ,  phased_genome);
+            unordered_map<pair<const Snarl*, const Snarl*>, int32_t> snarl_map = mcmc_genotyper.make_snarl_map(multipath_aln_vector ,  *phased_genome);
 #ifdef debug_snarl_graph
             cout << "map" <<endl;        
             cout << "******************************************************"<<endl;

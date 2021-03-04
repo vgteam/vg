@@ -71,7 +71,7 @@ public:
       * Uses snarls read API, reads and the optimal_score_on pahsed genome as a 
       * scoring scheme for the edge weight overlapping the snarl pair.
       */
-     unordered_map<pair<const Snarl*, const Snarl*>, int32_t> make_snarl_map(const vector<multipath_alignment_t>& reads, unique_ptr<PhasedGenome>& phased_genome) const;
+     unordered_map<pair<const Snarl*, const Snarl*>, int32_t> make_snarl_map(const vector<multipath_alignment_t>& reads, PhasedGenome& phased_genome) const;
      /**
       * Generate a graph using the snarl map
       */
@@ -82,7 +82,7 @@ public:
       * Use an alternative proposal distribution using sets generated from karger-stein min cut algorithm
       * to escape bottlenecks leading to rapid convergence
       */
-     unordered_set<size_t> karger_stein_proposal_sample(const vector<multipath_alignment_t>& reads ,unique_ptr<PhasedGenome>& genome) const;
+     unordered_set<size_t> karger_stein_proposal_sample(const vector<multipath_alignment_t>& reads, PhasedGenome& genome) const;
 
 
 
