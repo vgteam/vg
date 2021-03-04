@@ -82,9 +82,9 @@ public:
       * Use an alternative proposal distribution using sets generated from karger-stein min cut algorithm
       * to escape bottlenecks leading to rapid convergence
       */
-     unordered_set<size_t> karger_stein_proposal_sample(const vector<multipath_alignment_t>& reads, PhasedGenome& genome) const;
+     vector<unordered_set<size_t>> karger_stein(const vector<multipath_alignment_t>& reads, PhasedGenome& genome) const;
 
-
+     unordered_set<size_t> alt_proposal_sample(vector<unordered_set<size_t>>& gamma, PhasedGenome& genome) const;
 
 };
 

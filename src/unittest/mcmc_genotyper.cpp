@@ -1357,7 +1357,7 @@ namespace vg {
 
         }
 
-        TEST_CASE("run mcmc_genotyper with alternative proposal distribution") {
+        TEST_CASE("run mcmc_genotyper with karger-stein min cut and alt. proposal") {
             VG graph;
 				
             Node* n1 = graph.create_node("GGG");  
