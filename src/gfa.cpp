@@ -84,7 +84,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
                 });
                 p_elem.overlaps.push_back("*");
                 //gg.add_path(p_elem.name, p_elem);
-                out << p_elem.to_string_1() << endl;
+                out << p_elem.to_string_1() << "\n";
             }
         }
     });
@@ -173,7 +173,7 @@ bool write_w_line(const PathHandleGraph* graph, ostream& out, const string& wlin
             handle_t handle = graph->get_handle_of_step(step_handle);
             out << (graph->get_is_reverse(handle) ? "<" : ">") << graph->get_id(handle);
         });
-    out << endl;
+    out << "\n";
     return true;
 }
 
