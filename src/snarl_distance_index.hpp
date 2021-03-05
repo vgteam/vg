@@ -55,12 +55,12 @@ private:
      *      pointer to children (in child vector), start, end, distance vector]
      *   Trivial snarls will still be contained within a chain
      *   Single nodes will technically be contained in a chain, but not stored as a chain
-     *   The first node in a snarl (rank 0 and first in child vector) will always be the start node,
-     *   and the last node will always be the end node
+     *   The rank of the start node will always be 0 and the end node rank will be 1
      *   start/end are the start and end nodes, include the orientations
      *   For the first and last nodes, we only care about the node sides pointing in
-     *   Each node side in the actual distance matrix will be 2*rank-1 for the left side, and 
-     *   2*rank for the right side, and 0 for the start, 2*(num_nodes-1)-1 for the end
+     *   Each node side in the actual distance matrix will be 2*(rank-1) for the left side, and 
+     *   2rank+1 for the right side, and 0 for the start, 1 for the end, where we only keep the 
+     *   inner node side of the start and end
      *   Node count is the number of nodes, not including boundary nodes
      * 
      * - The (single) child vector, listing children in snarls
@@ -74,6 +74,16 @@ private:
 
     //TODO: I'm not sure this should be static, at least for construction?
      vector<size_t> snarl_tree_records;
+     //TODO: Get rid of this
+     public:
+        void print_self() {
+            cerr << "Entire index:" << endl;
+            for (size_t i = 0 ; i < snarl_tree_records.size() ; i++) {
+                cerr << "(" << i << "):" << snarl_tree_records[i] << "   " ;
+            }
+            cerr << endl;
+        }
+        private:
 
     /*
      *
@@ -296,7 +306,7 @@ private:
     }
 
     const static handlegraph::net_handle_t get_net_handle(size_t pointer, connectivity_t connectivity, net_handle_record_t type) {
-        net_handle_t handle =  as_net_handle( (((pointer << 4) | connectivity)<<3) | type); 
+        net_handle_t handle =  as_net_handle(((((pointer << 4) | connectivity)<<3) | type)); 
         return handle;
     
     }
@@ -745,6 +755,7 @@ private:
         virtual void set_parent_record_offset(size_t pointer){
             record_t type = get_record_type();
             if (type == NODE || type == DISTANCED_NODE) {
+                cerr << endl << "set index " << record_offset+NODE_PARENT_OFFSET << " to be " << pointer << endl;
                 records->at(record_offset + NODE_PARENT_OFFSET) = pointer;
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
                 records->at(record_offset + SNARL_PARENT_OFFSET) = pointer;
@@ -972,18 +983,14 @@ private:
             size_t node_side_count = node_count * 2 + 2; 
 
             //make sure we're looking at the correct node side
-            if (rank1 == node_count+1) {
-                rank1 = node_side_count-1;
-            } else if (rank1 != 0) {
-                rank1 = rank1 * 2 - 1;
+             if (rank1 != 0 && rank1 != 1) {
+                rank1 = (rank1-1) * 2;
                 if (right_side1) {
                     rank1 += 1;
                 }
             }
-            if (rank2 == node_count+1) {
-                rank2 = node_side_count-1;
-            } else if (rank2 != 0) {
-                rank2 = rank2 * 2 - 1;
+            if (rank2 != 0 && rank2 != 1) {
+                rank2 = (rank2-1) * 2;
                 if (right_side2) {
                     rank2 += 1;
                 }
@@ -1316,7 +1323,7 @@ private:
                         get_offset_from_id(records->at(next_pointer.first)), records
                     ).get_is_rev_in_parent();
                 
-                return get_net_handle(next_pointer.first,
+                return get_net_handle(get_offset_from_id(records->at(next_pointer.first)),
                                   go_left == next_is_reversed_in_parent ? START_END : END_START,
                                   next_pointer.first ? SNARL_HANDLE : NODE_HANDLE);
             } else {

@@ -84,6 +84,8 @@ namespace vg {
                     //The chain should only contain two nodes and a snarl
                     REQUIRE(false);
                 }
+                REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                            == distance_index.canonical(chain1));
                 child_i++;
                 return true;
             });
@@ -98,6 +100,8 @@ namespace vg {
                 distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
                     cerr << "  " << distance_index.net_handle_as_string(handle) << endl;
                     node_count++;
+                    REQUIRE( distance_index.canonical(distance_index.get_parent(handle))
+                            == distance_index.canonical(top_snarl));
                     return true;
                 });
                 
@@ -114,6 +118,8 @@ namespace vg {
                 vector<net_handle_t> handles;
                 distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
                     handles.emplace_back(handle);
+                    REQUIRE( distance_index.canonical(distance_index.get_parent(handle))
+                            == distance_index.canonical(top_snarl));
                     return true;
                 });
                 handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
@@ -195,6 +201,8 @@ namespace vg {
                         //The chain should only contain two nodes and a snarl
                         REQUIRE(false);
                     }
+                    REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                            == distance_index.canonical(chain1));
                     child_i++;
                     return true;
                 });
@@ -207,7 +215,9 @@ namespace vg {
                     size_t node_count = 0;
                     distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
                         node_count++;
-                    return true;
+                        REQUIRE( distance_index.canonical(distance_index.get_parent(handle))
+                            == distance_index.canonical(top_snarl));
+                        return true;
                     });
                     
                     REQUIRE(node_count == 1);
@@ -219,7 +229,9 @@ namespace vg {
                     vector<net_handle_t> handles;
                     distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
                         handles.emplace_back(handle);
-                    return true;
+                        REQUIRE( distance_index.canonical(distance_index.get_parent(handle))
+                            == distance_index.canonical(top_snarl));
+                        return true;
                     });
                     handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
                     handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
@@ -362,6 +374,8 @@ namespace vg {
                         //The chain should only contain two nodes and a snarl
                         REQUIRE(false);
                     }
+                    REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                            == distance_index.canonical(chain1));
                     child_i++;
                     return true;
                 });
@@ -374,6 +388,8 @@ namespace vg {
                     size_t node_count = 0;
                     distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
                         node_count++;
+                        REQUIRE( distance_index.canonical(distance_index.get_parent(handle))
+                            == distance_index.canonical(top_snarl));
                         return true;
                     });
                     
@@ -385,6 +401,8 @@ namespace vg {
                     vector<net_handle_t> handles;
                     distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
                         handles.emplace_back(handle);
+                        REQUIRE( distance_index.canonical(distance_index.get_parent(handle))
+                            == distance_index.canonical(top_snarl));
                         return true;
                     });
                     handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
@@ -1206,7 +1224,7 @@ namespace vg {
         */
     
         TEST_CASE( "Distance index's snarl functions return expected answers",
-                  "[snarl_distance]" ) {
+                  "[snarl_distance][bug]" ) {
             
             SECTION( "SnarlManager can be constructed with cactus ultrabubbles") {
                 
@@ -1261,6 +1279,8 @@ namespace vg {
                 distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
                     component_count += 1;
                     top_chain_handle = child;
+                    REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                            == distance_index.canonical(root_handle));
                 });
                 REQUIRE(component_count == 1);
                 REQUIRE(distance_index.is_chain(top_chain_handle));
@@ -1285,6 +1305,8 @@ namespace vg {
                         //The chain should only contain two nodes and a snarl
                         REQUIRE(false);
                     }
+                    REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                            == distance_index.canonical(top_chain_handle));
                     child_i++;
                 });
                 REQUIRE(child_i == 3);
@@ -1315,6 +1337,8 @@ namespace vg {
                 distance_index.for_each_child(top_snarl_handle, [&](const net_handle_t& child) {
                     middle_level_chain = child;
                     middle_chain_count ++;
+                    REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                            == distance_index.canonical(top_snarl_handle));
                 });
                 REQUIRE(middle_chain_count == 1);
 
@@ -1327,6 +1351,8 @@ namespace vg {
                         REQUIRE(distance_index.is_snarl(child));
                         middle_level_snarl = child;
                     }
+                    REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                            == distance_index.canonical(middle_level_chain));
                     middle_snarl_count ++;
                 });
                 REQUIRE(middle_snarl_count == 3); //Actually two nodes and a snarl
@@ -1363,6 +1389,8 @@ namespace vg {
                         bottom_level_chain = child;
                     }
                     bottom_level_chain_count ++;
+                    REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                            == distance_index.canonical(middle_level_snarl));
                 });
                 REQUIRE(bottom_level_chain_count == 2);
 
@@ -1371,6 +1399,8 @@ namespace vg {
                 vector<net_handle_t> bottom_level_snarls;
                 distance_index.for_each_child(bottom_level_chain, [&](const net_handle_t& child) {
                     bottom_level_snarls.emplace_back(child);
+                    REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                            == distance_index.canonical(bottom_level_chain));
                 });
                 REQUIRE(bottom_level_snarls.size() == 3); //Actually two nodes and a snarl
 
@@ -1430,6 +1460,8 @@ namespace vg {
                 distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
                     component_count += 1;
                     top_chain_handle = child;
+                    REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                            == distance_index.canonical(root_handle));
                 });
                 REQUIRE(component_count == 1);
 
@@ -1437,7 +1469,11 @@ namespace vg {
                 //The top connected component is a chain with one snarl and four boundaries
                 net_handle_t top_snarl_handle;
                 size_t child_i = 0;
+                distance_index.print_self();
                 distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+
+                    cerr << " child " << distance_index.net_handle_as_string(child) << endl;
+                    cerr << " child's parent: " << distance_index.net_handle_as_string(distance_index.get_parent(child)) << endl;
                     if (child_i == 0) {
                         REQUIRE(distance_index.is_node(child));
                         REQUIRE((graph.get_id(distance_index.get_handle(child, &graph)) == n0->id() ||
@@ -1460,6 +1496,8 @@ namespace vg {
                         //The chain should only contain two nodes and a snarl
                         REQUIRE(false);
                     }
+                    REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                            == distance_index.canonical(top_chain_handle));
                     child_i++;
                 });
                 REQUIRE(child_i == 5);
@@ -1535,6 +1573,8 @@ namespace vg {
                         count ++;
                     });
                     REQUIRE(count == 1);
+                    REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                            == distance_index.canonical(top_snarl_handle));
                     return true;
                 });
                 
@@ -1575,6 +1615,8 @@ namespace vg {
                 distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
                     component_count += 1;
                     top_chain_handle = child;
+                    REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                            == distance_index.canonical(root_handle));
                 });
                 REQUIRE(component_count == 1);
 
@@ -1583,6 +1625,9 @@ namespace vg {
                 net_handle_t top_snarl_handle;
                 size_t child_i = 0;
                 distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+                    cerr << " child " << distance_index.net_handle_as_string(child) << endl;
+                    cerr << " child's parent: " << distance_index.net_handle_as_string(distance_index.get_parent(child)) << endl;
+                    ;
                     if (child_i == 0 || child_i == 4) {
                         //FIrst or last child
                         REQUIRE(distance_index.is_node(child));
@@ -1598,6 +1643,8 @@ namespace vg {
                         top_snarl_handle = child;
                     }
                     child_i++;
+                    REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                            == distance_index.canonical(top_chain_handle));
                 });
                 REQUIRE(child_i == 5);
 
@@ -1640,6 +1687,8 @@ namespace vg {
                                       (start_id == n6->id() && end_id == n4->id())));
                         }
                         chain_child_count ++;
+                        REQUIRE( distance_index.canonical(distance_index.get_parent(grandchild))
+                            == distance_index.canonical(child));
                         return true;
 
                     });
@@ -1650,6 +1699,8 @@ namespace vg {
                         chain_4_6 = child;
                     }
                     snarl_child_count++;
+                    REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                            == distance_index.canonical(top_snarl_handle));
                     return true;
                 });
                 REQUIRE(snarl_child_count == 2);
@@ -1707,6 +1758,8 @@ namespace vg {
                         distance_index.for_each_child(next, [&](const net_handle_t& child){
                             REQUIRE(distance_index.is_node(child));
                             REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == n3->id());
+                            REQUIRE( distance_index.canonical(distance_index.get_parent(next))
+                                == distance_index.canonical(chain_4_6));
                         });
 
                     } else {
@@ -1958,7 +2011,7 @@ namespace vg {
             //}  
         }
         
-        TEST_CASE("Snarls can be found", "[snarl_distance][bug]") {
+        TEST_CASE("Snarls can be found", "[snarl_distance]") {
     
             // Build a toy graph
             // Top-level chain with snarls (1,6) and (6,9)
@@ -2016,6 +2069,7 @@ namespace vg {
 
 /*
  * TODO: This tests finding the snarls and going through them with a snarl manager
+ */
             SECTION("The integrated snarl finder finds the right snarls") {
                 IntegratedSnarlFinder snarl_finder(graph);
                 auto snarl_manager = snarl_finder.find_snarls_parallel();
@@ -2095,7 +2149,6 @@ namespace vg {
      
                  }
             }
-            */
             
 
             SECTION("The snarl distance index finds the right snarls") {
@@ -2111,6 +2164,8 @@ namespace vg {
                     distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
                         component_count += 1;
                         top_chain_handle = child;
+                        REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                                == distance_index.canonical(root_handle));
                     });
                     REQUIRE(component_count == 1);
 
@@ -2149,6 +2204,8 @@ namespace vg {
 
                         }
                         chain_child_i ++;
+                        REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                                == distance_index.canonical(top_chain_handle));
 
                         return true;
                     });
@@ -2181,6 +2238,8 @@ namespace vg {
                                 REQUIRE(distance_index.is_chain(child));
                                 subchild = child;
                                 child_count ++;
+                                REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                                == distance_index.canonical(child1));
                                 return true;
                             });
                             REQUIRE(child_count == 1);
@@ -2255,7 +2314,6 @@ namespace vg {
                 
             }
         }
-        /*
 
         TEST_CASE("Bubbles can be found in graphs with only heads", "[snarl_distance]") {
             
@@ -2398,6 +2456,7 @@ namespace vg {
                 //The top connected component is a chain with one snarl
                 size_t child_i = 0;
                 distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+                    cerr << " At child of chain " << distance_index.net_handle_as_string(child) << endl;
                     if (child_i == 0 || child_i == 4) {
                         //start or end of chain
                         REQUIRE(distance_index.is_node(child));
@@ -2427,6 +2486,7 @@ namespace vg {
                         REQUIRE(distance_index.is_node(child));
                         REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == 6);
                     }
+                    child_i++;
                 });
                 REQUIRE(child_i == 5);
             }
@@ -2529,6 +2589,7 @@ namespace vg {
                         REQUIRE(distance_index.is_node(child));
                         REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == 6);
                     }
+                    child_i++;
                 });
                 REQUIRE(child_i == 5);
             }
@@ -2604,6 +2665,7 @@ namespace vg {
                 REQUIRE(child_i == 3);
             }
         }
+        /*
          * TODO: I think this would be a looping chain and I dont know how to deal with it yet
 
         TEST_CASE("bubbles can be found in a graph with no heads or tails", "[bubbles][snarls]") {
@@ -2737,6 +2799,7 @@ namespace vg {
             }
             
         }
+        */
 
         TEST_CASE("Bubbles are created based on most distant connected tips", "[snarl_distance]") {
             
@@ -2799,6 +2862,7 @@ namespace vg {
                 //The top connected component is a chain with one snarl
                 size_t child_i = 0;
                 distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+                    cerr << "At child " << distance_index.net_handle_as_string(child) << endl;
                     if (distance_index.is_snarl(child)) {
                         REQUIRE(distance_index.is_snarl(child));
                         size_t grandchild_count = 0;
@@ -2810,11 +2874,11 @@ namespace vg {
                     } else {
                         REQUIRE(distance_index.is_node(child));
                         id_t id = graph.get_id(distance_index.get_handle(child, &graph));
-                        REQUIRE((id == 5 || id == 6));
-                    child_i++;
+                        REQUIRE((id == 5 || id == 2 || id == 3 || id == 6));
                     }
+                    child_i++;
                 });
-                REQUIRE(child_i == 3);
+                REQUIRE(child_i == 5);
             }
         }
         
@@ -2889,6 +2953,8 @@ namespace vg {
                 size_t child_i = 0;
                 vector<net_handle_t> top_snarls;
                 distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+                    REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                                == distance_index.canonical(top_chain_handle));
                     if (child_i % 2 == 1) {
                         REQUIRE(distance_index.is_snarl(child));
                         top_snarls.emplace_back(child);
@@ -3020,7 +3086,8 @@ namespace vg {
             }
             
         }
-          TODO: I think this one will also be a looping chain
+        /*
+         * TODO: I think this one will also be a looping chain
 
 
         TEST_CASE( "Snarls can be found for a graph with no ordinary cycles", "[snarls]" ) {
