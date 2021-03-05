@@ -261,17 +261,18 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
         /*Now that we've gone through all the snarls in the chain, fill in the forward loop vector 
          * by going through the chain in the backwards direction
          */
-        temp_chain_record.forward_loops.resize(temp_chain_record.prefix_sum.size(), 
+        temp_chain_record.forward_loops.resize(temp_chain_record.children.size(), 
                                                std::numeric_limits<int64_t>::max());
-        for (int j = temp_chain_record.children.size() ; j >= 0 ; j--) {
-            if (temp_chain_record.children[j].first == TEMP_SNARL){
-                TemporarySnarlRecord& temp_snarl_record = 
-                        temp_snarl_records[temp_chain_record.children[j].second];
+        for (int j = (int)temp_chain_record.children.size() - 2 ; j >= 0 ; j--) {
+            // We start at the next to last record because we need to look at this record and the next one.
+            auto& child = temp_chain_record.children.at(j);
+            if (child.first == TEMP_SNARL){
+                TemporarySnarlRecord& temp_snarl_record = temp_snarl_records[child.second];
                 if (temp_snarl_record.is_trivial) {
-                    temp_chain_record.forward_loops[j] = temp_chain_record.forward_loops[j+1] + 
+                    temp_chain_record.forward_loops.at(j) = temp_chain_record.forward_loops.at(j+1) + 
                                     2*temp_snarl_record.end_node_length;
                 } else {
-                    temp_chain_record.forward_loops[j] = std::min(temp_chain_record.forward_loops[j+1] + 
+                    temp_chain_record.forward_loops.at(j) = std::min(temp_chain_record.forward_loops.at(j+1) + 
                                   2*temp_snarl_record.end_node_length, temp_snarl_record.loop_start);
                 }
             }
