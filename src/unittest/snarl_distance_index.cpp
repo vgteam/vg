@@ -2014,6 +2014,89 @@ namespace vg {
             REQUIRE(graph.paths.size() == 1);
             
 
+/*
+ * TODO: This tests finding the snarls and going through them with a snarl manager
+ *
+            SECTION("The integrated snarl finder finds the right snarls") {
+                IntegratedSnarlFinder snarl_finder(graph);
+                auto snarl_manager = snarl_finder.find_snarls_parallel();
+                SECTION("There are 2 top level snarls") {
+                    REQUIRE(snarl_manager.top_level_snarls().size() == 2);
+    
+                    const Snarl* child1 = snarl_manager.top_level_snarls()[0];
+                    const Snarl* child2 = snarl_manager.top_level_snarls()[1];
+    
+                    if (child1->start().node_id() > child1->end().node_id()) {
+                        snarl_manager.flip(child1);
+                    }
+    
+                    if (child2->start().node_id() > child2->end().node_id()) {
+                        snarl_manager.flip(child2);
+                    }
+    
+                    SECTION("First child is from 1 end to 6 start") {
+    
+                        {
+                            bool found_in_forward_orientation = (child1->start().node_id() == 1 &&
+                                                                 child1->start().backward() == false &&
+                                                                 child1->end().node_id() == 6 &&
+                                                                 child1->end().backward() == false);
+                            bool found_in_reverse_orientation = (child1->start().node_id() == 6 &&
+                                                                 child1->start().backward() == true &&
+                                                                 child1->end().node_id() == 1 &&
+                                                                 child1->end().backward() == true);
+                            bool found_snarl = found_in_forward_orientation || found_in_reverse_orientation;
+                            REQUIRE(found_snarl);
+                        }
+                        SECTION("First child has a child from 2 end to 5 start") {
+   
+                            REQUIRE(snarl_manager.children_of(child1).size() == 1);
+   
+                            const Snarl* subchild = snarl_manager.children_of(child1)[0];
+   
+                            {
+                                bool found_in_forward_orientation = (subchild->start().node_id() == 2 &&
+                                                                     subchild->start().backward() == false &&
+                                                                     subchild->end().node_id() == 5 &&
+                                                                     subchild->end().backward() == false);
+                                bool found_in_reverse_orientation = (subchild->start().node_id() == 5 &&
+                                                                     subchild->start().backward() == true &&
+                                                                     subchild->end().node_id() == 2 &&
+                                                                     subchild->end().backward() == true);
+                                bool found_snarl = found_in_forward_orientation || found_in_reverse_orientation;
+                                REQUIRE(found_snarl);
+                            }
+   
+                            SECTION("Subchild has no children") {
+                                REQUIRE(snarl_manager.children_of(subchild).size() == 0);
+                            }
+   
+                        }
+   
+                    }
+
+                    SECTION("Second child is from 6 end to 9 start") {
+                        {
+                            bool found_in_forward_orientation = (child2->start().node_id() == 6 &&
+                                                                 child2->start().backward() == false &&
+                                                                 child2->end().node_id() == 9 &&
+                                                                 child2->end().backward() == false);
+                            bool found_in_reverse_orientation = (child2->start().node_id() == 9 &&
+                                                                 child2->start().backward() == true &&
+                                                                 child2->end().node_id() == 6 &&
+                                                                 child2->end().backward() == true);
+                            bool found_snarl = found_in_forward_orientation || found_in_reverse_orientation;
+                            REQUIRE(found_snarl);
+                        }
+     
+                        SECTION("Second child has no children") {
+                            REQUIRE(snarl_manager.children_of(child2).size() == 0);
+                        }
+                    }
+     
+                 }
+            }
+*/
             
 
             SECTION("The snarl distance index finds the right snarls") {
