@@ -16,8 +16,8 @@ namespace vg {
 
     using namespace std;
 
-    MCMCGenotyper::MCMCGenotyper(SnarlManager& snarls, VG& graph, const int n_iterations, const int seed):snarls(snarls), graph(graph), n_iterations(n_iterations), 
-        seed(seed), random_engine(seed){
+    MCMCGenotyper::MCMCGenotyper(SnarlManager& snarls, VG& graph, const int n_iterations, const int seed, const int burn_in, const int frequency):snarls(snarls), graph(graph), n_iterations(n_iterations), 
+        seed(seed), random_engine(seed), burn_in(burn_in), frequency(frequency){
           
     
     }
@@ -40,10 +40,9 @@ namespace vg {
         unique_ptr<vector<unordered_set<size_t>>> gamma(nullptr);
         //stores the sites we swapped alleles at - returned by alt_proposal
         unique_ptr<unordered_set<size_t>> to_swap_back(nullptr);
-        
+        int count =0;
         // build markov chain using Metropolis-Hastings
         for(int i = 0; i< n_iterations; i++){
-
 
             int proposal_sampl =0;
             int karger_stein_proposal =1;
@@ -59,7 +58,7 @@ namespace vg {
             vector<NodeTraversal>* old_allele;
 
             // for first 1/2*n_iterations, use proposal dist
-            if(i < n_iterations/2){
+            if(i < burn_in){
                 to_receive = proposal_sample(genome);
                 modified_haplo = &get<0>(to_receive); 
                 // if the to_receive contents are invalid keep the new allele
@@ -72,17 +71,20 @@ namespace vg {
                 }else{
                     modified_site = get<1>(to_receive); 
                     old_allele = &get<2>(to_receive); 
+                }                
+            }else{
+                count++;
+                //swap between alt and original proposal random uniformly
+                //generate gamma after burn in 
+                if(i == burn_in){
+                    gamma.reset(new vector<unordered_set<size_t>> (karger_stein(reads, *genome))); 
+                }
+                //generate gamma with n frequency after burn in 
+                if(count == frequency){
+                    gamma.reset(new vector<unordered_set<size_t>> (karger_stein(reads, *genome)));
+                    count = 0;//reset counter
                 }
 
-                
-            }else{
-                //swap between alt and original proposal random uniformly
-                //generate a set we will use to create gamma
-                //TODO: use a formula that considers number of iterations between 500-> i_max or send it in with constructor?
-                unordered_set<size_t> generate_gamma_intervals({500, 600, 700, 800, 900});  
-                if(generate_gamma_intervals.count(i)){
-                    gamma.reset(new vector<unordered_set<size_t>> (karger_stein(reads, *genome)));
-                }
                 // get contents from either proposal_samples randomly using uniform dist. 
                 // if rand_num ==1 , choose alt_proposal
                 // check that gamma has contents
@@ -90,9 +92,9 @@ namespace vg {
                     //use alt proposal sample, store the sites we swapped in case we reject sample
                     to_swap_back.reset(new unordered_set<size_t> (alt_proposal_sample(*gamma, *genome)));
                     if(!to_swap_back){
-    // #ifdef debug_mcmc 
-    //                 cerr << "to_swap_back() is empty" <<endl;        
-    // #endif
+// #ifdef debug_mcmc 
+//                      cerr << "to_swap_back() is empty" <<endl;        
+// #endif
                         break;
                 
                     }

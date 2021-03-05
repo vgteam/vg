@@ -32,6 +32,8 @@ namespace vg {
         
         const int seed = 0;
         const int n_iterations = 100;
+        const int burn_in = n_iterations/2;
+        const int gamma_freq = 50;
 
         
         TEST_CASE("Returns optimal phased genome on a 1-node graph with 1 short read ") {
@@ -71,7 +73,7 @@ namespace vg {
 
                 multipath_aln.add_start(0);        
 
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);   
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed, burn_in, gamma_freq);   
                 vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>({multipath_aln});
                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
                 unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
@@ -184,7 +186,7 @@ namespace vg {
                 multipath_aln.add_start(0);
 
             
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed,burn_in, gamma_freq);
                 vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>({multipath_aln});
                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
                 unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
@@ -281,7 +283,7 @@ namespace vg {
                     alns[i].set_sequence(reads[i]);
                 }
 
-               MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
+               MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed,burn_in, gamma_freq);
                vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>();
 
                vector<vector<multipath_alignment_t>> vect = {reads.size(),vector<multipath_alignment_t>() };
@@ -474,7 +476,7 @@ namespace vg {
                 // match and mismatch represent the point system used for penalty
                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
 
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed,burn_in, gamma_freq);
                 vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>({multipath_aln});
                 unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
 
@@ -567,7 +569,7 @@ namespace vg {
                     alns[i].set_sequence(reads[i]);
                 }
 
-               MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
+               MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed, burn_in, gamma_freq);
                vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>(); 
 
                vector<vector<multipath_alignment_t>> vect = {reads.size(),vector<multipath_alignment_t>() };
@@ -677,7 +679,7 @@ namespace vg {
                 }
                 
                 
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed, burn_in, gamma_freq);
                 vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>();
 
                 vector<vector<multipath_alignment_t>> vect = {reads.size(),vector<multipath_alignment_t>() };
@@ -754,6 +756,9 @@ namespace vg {
                 
                 int num_iterations = 1000;
                 int max = 30;
+                int burn = 500;
+                int freq = 500;
+
                 
                 for(int seed_i = 0; seed_i < max; seed_i++){
                     
@@ -817,7 +822,7 @@ namespace vg {
                         alns[i].set_sequence(reads[i]);
                     }
                     
-                    MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, num_iterations, seed_i);
+                    MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, num_iterations, seed_i, burn, freq);
                     vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>();
 
                     vector<vector<multipath_alignment_t>> vect = {reads.size(),vector<multipath_alignment_t>() };
@@ -915,7 +920,8 @@ namespace vg {
                 
                 int num_iterations = 500;
                 int seed_i = std::chrono::system_clock::now().time_since_epoch().count();
-                
+                int burn = 250;
+                int freq = 250;
                 VG graph;
 
                 Node* n1 = graph.create_node("GCA"); //gets ID # in incremintal order starting at 1, used in mapping
@@ -976,7 +982,7 @@ namespace vg {
                     alns[i].set_sequence(reads[i]);
                 }
                 
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, num_iterations, seed_i);
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, num_iterations, seed_i, burn, freq);
                 vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>(); 
 
                 vector<vector<multipath_alignment_t>> vect = {reads.size(),vector<multipath_alignment_t>() };
@@ -1097,7 +1103,7 @@ namespace vg {
                     alns[i].set_sequence(reads[i]);
                 }
                 
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed, burn_in, gamma_freq);
 
                 vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>();
 
@@ -1257,7 +1263,7 @@ namespace vg {
                 alns[i].set_sequence(reads[i]);
             }
 
-            MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
+            MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed, burn_in, gamma_freq);
             vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>(); 
 
             vector<vector<multipath_alignment_t>> vect = {reads.size(),vector<multipath_alignment_t>() };
@@ -1437,7 +1443,7 @@ namespace vg {
                 alns[i].set_sequence(reads[i]);
             }
 
-            MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed);
+            MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed, burn_in, gamma_freq);
             vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>(); 
 
             vector<vector<multipath_alignment_t>> vect = {reads.size(),vector<multipath_alignment_t>() };

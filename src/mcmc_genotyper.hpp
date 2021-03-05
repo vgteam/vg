@@ -27,11 +27,13 @@ class MCMCGenotyper{
     VG& graph;
     const int n_iterations;
     const int seed;
+    const int burn_in; //how many iterations we run only original proposal sample dist. 
+    const int frequency; //frequency we remake gamma set
     mutable minstd_rand0 random_engine;
 
 public:
     
-    MCMCGenotyper(SnarlManager& snarls, VG& graph, const int n_iterations, const int seed); 
+    MCMCGenotyper(SnarlManager& snarls, VG& graph, const int n_iterations, const int seed, const int burn_in, const int frequency); 
 
     /** 
      * Takes as input a collection of mapped reads stored as a vector of multipath alignments and uses 
