@@ -2016,7 +2016,6 @@ namespace vg {
 
 /*
  * TODO: This tests finding the snarls and going through them with a snarl manager
- *
             SECTION("The integrated snarl finder finds the right snarls") {
                 IntegratedSnarlFinder snarl_finder(graph);
                 auto snarl_manager = snarl_finder.find_snarls_parallel();
@@ -2096,7 +2095,7 @@ namespace vg {
      
                  }
             }
-*/
+            */
             
 
             SECTION("The snarl distance index finds the right snarls") {
@@ -2256,6 +2255,7 @@ namespace vg {
                 
             }
         }
+        /*
 
         TEST_CASE("Bubbles can be found in graphs with only heads", "[snarl_distance]") {
             
@@ -2604,7 +2604,6 @@ namespace vg {
                 REQUIRE(child_i == 3);
             }
         }
-        /*
          * TODO: I think this would be a looping chain and I dont know how to deal with it yet
 
         TEST_CASE("bubbles can be found in a graph with no heads or tails", "[bubbles][snarls]") {
@@ -2738,7 +2737,6 @@ namespace vg {
             }
             
         }
-        */
 
         TEST_CASE("Bubbles are created based on most distant connected tips", "[snarl_distance]") {
             
@@ -3022,8 +3020,7 @@ namespace vg {
             }
             
         }
-        /*
-         * TODO: I think this one will also be a looping chain
+          TODO: I think this one will also be a looping chain
 
 
         TEST_CASE( "Snarls can be found for a graph with no ordinary cycles", "[snarls]" ) {
