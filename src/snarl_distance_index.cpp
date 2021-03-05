@@ -325,7 +325,7 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
     handle_t snarl_end_in = graph->get_handle(temp_snarl_record.end_node_id, !temp_snarl_record.end_node_rev);
 
     //Resize the distance vector
-    temp_snarl_record.distances.resize(SnarlRecord::distance_vector_size(DISTANCED_SNARL, temp_snarl_record.node_count) ,
+    temp_snarl_record.distances.resize(SnarlRecord::distance_vector_size(DISTANCED_SNARL, temp_snarl_record.node_count),
                                         std::numeric_limits<int64_t>::max());
 
 
@@ -400,22 +400,22 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
                     //At each of the nodes reachable from the current one, fill in the distance from the start
                     //node to the next node (current_distance). If this handle isn't leaving the snarl,
                     //add the next nodes along with the distance to the end of the next node
-
-                    if (temp_node_records[graph->get_id(next_handle)-min_node_id].node_id == 0){
+                    auto& node_record = temp_node_records.at(graph->get_id(next_handle)-min_node_id);
+                    if (node_record.node_id == 0) {
 #ifdef debug_distance_indexing
                         cerr << "Adding a tip " <<  graph->get_id(next_handle) << endl;
 #endif
                         //If we haven't seen this node before, it means that it was a tip
-                        temp_node_records[graph->get_id(next_handle)-min_node_id].node_id = graph->get_id(next_handle);
-                        temp_node_records[graph->get_id(next_handle)-min_node_id].node_length = graph->get_length(next_handle);
-                        temp_node_records[graph->get_id(next_handle)-min_node_id].rank_in_parent = temp_snarl_record.node_count+1;
-                        temp_node_records[graph->get_id(next_handle)-min_node_id].reversed_in_parent = false;
-                        temp_node_records[graph->get_id(next_handle)-min_node_id].parent = snarl_index; 
+                        node_record.node_id = graph->get_id(next_handle);
+                        node_record.node_length = graph->get_length(next_handle);
+                        node_record.rank_in_parent = temp_snarl_record.node_count+1;
+                        node_record.reversed_in_parent = false;
+                        node_record.parent = snarl_index; 
 
                         //also update the parent
                         temp_snarl_record.node_count ++;
                         temp_snarl_record.children.emplace_back(TEMP_NODE, graph->get_id(next_handle));
-                        temp_node_records[temp_snarl_record.end_node_id-min_node_id].rank_in_parent += 1;
+                        temp_node_records.at(temp_snarl_record.end_node_id-min_node_id).rank_in_parent += 1;
                     }
 
                     //The index of the snarl's child that next_handle represents
@@ -432,7 +432,7 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
                     size_t distance_offset = SnarlRecord::get_distance_vector_offset(start_rank, !start_rev, 
                                 next_rank, next_rev, temp_snarl_record.node_count, DISTANCED_SNARL); 
                     //Set the distance
-                    temp_snarl_record.distances[distance_offset] = current_distance;
+                    temp_snarl_record.distances.at(distance_offset) = current_distance;
 
 
                     if (seen_nodes.count(make_pair(next_index, next_rev)) == 0 &&
