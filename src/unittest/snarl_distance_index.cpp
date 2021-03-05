@@ -1,7 +1,7 @@
 //
-//  snarls.cpp
+//  snarl_distance_index.cpp
 //
-//  Unit tests for SnarlManager and related functions
+//  Unit tests for SnarlDistanceIndex and related functions
 //
 
 #include <stdio.h>
@@ -1206,7 +1206,7 @@ namespace vg {
         */
     
         TEST_CASE( "Distance index's snarl functions return expected answers",
-                  "[snarl_distance][bug]" ) {
+                  "[snarl_distance]" ) {
             
             SECTION( "SnarlManager can be constructed with cactus ultrabubbles") {
                 
@@ -1961,6 +1961,9 @@ namespace vg {
         TEST_CASE("Snarls can be found", "[snarl_distance][bug]") {
     
             // Build a toy graph
+            // Top-level chain with snarls (1,6) and (6,9)
+            // Snarl (1,6) has a child snarl (2,5)
+            //
             const string graph_json = R"(
             
             {
@@ -2010,161 +2013,165 @@ namespace vg {
             // We need to see the path.
             REQUIRE(graph.paths.size() == 1);
             
+
             
-            IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
-            
+
+            SECTION("The snarl distance index finds the right snarls") {
+                IntegratedSnarlFinder snarl_finder(graph); 
+                SnarlDistanceIndex distance_index(&graph, &snarl_finder);
                 
-            SECTION("There are 2 top level snarls") {
+                    
+                SECTION("There are 2 top level snarls") {
 
-                net_handle_t root_handle = distance_index.get_root();
-                net_handle_t top_chain_handle;
-                size_t component_count = 0;
-                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
-                    component_count += 1;
-                    top_chain_handle = child;
-                });
-                REQUIRE(component_count == 1);
+                    net_handle_t root_handle = distance_index.get_root();
+                    net_handle_t top_chain_handle;
+                    size_t component_count = 0;
+                    distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                        component_count += 1;
+                        top_chain_handle = child;
+                    });
+                    REQUIRE(component_count == 1);
 
-                //The top-level chain contains two snarls, 1-6 and 6-9
-                REQUIRE(distance_index.is_chain(top_chain_handle));
-                size_t chain_child_i = 0;
-                net_handle_t child1; //snarl 1-6
-                net_handle_t child2; //snarl 6-9
+                    //The top-level chain contains two snarls, 1-6 and 6-9
+                    REQUIRE(distance_index.is_chain(top_chain_handle));
+                    size_t chain_child_i = 0;
+                    net_handle_t child1; //snarl 1-6
+                    net_handle_t child2; //snarl 6-9
 
-                //should go 1, (1-6), 6, (6-9), 9 in either order
-                distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
-                    if (chain_child_i == 0 || chain_child_i == 4) {
-                        REQUIRE(distance_index.is_node(child));
-                        REQUIRE((graph.get_id(distance_index.get_handle(child, &graph)) == 1 ||
-                                graph.get_id(distance_index.get_handle(child, &graph)) == 9));
-                    } else if (chain_child_i == 2) {
-                        REQUIRE(distance_index.is_node(child));
-                        REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == 6);
-                    } else {
-                        //This is the snarl 1-6 or 6-9
-                        REQUIRE(distance_index.is_snarl(child));
-                        id_t start = graph.get_id(distance_index.get_handle(
-                                distance_index.get_bound(child, false, false), &graph));
-                        id_t end = graph.get_id(distance_index.get_handle(
-                                distance_index.get_bound(child, true, false), &graph));
-                        if (start == 1 || end == 1) {
-                            child1 = child;
-                            REQUIRE(((start == 1 && end == 6) ||
-                                     (start == 6 && end == 1) ));
+                    //should go 1, (1-6), 6, (6-9), 9 in either order
+                    distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+                        if (chain_child_i == 0 || chain_child_i == 4) {
+                            REQUIRE(distance_index.is_node(child));
+                            REQUIRE((graph.get_id(distance_index.get_handle(child, &graph)) == 1 ||
+                                    graph.get_id(distance_index.get_handle(child, &graph)) == 9));
+                        } else if (chain_child_i == 2) {
+                            REQUIRE(distance_index.is_node(child));
+                            REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == 6);
                         } else {
-                            REQUIRE((start == 9 || end == 9));
-                            child2 = child;
-                            REQUIRE(((start == 9 && end == 6) ||
-                                     (start == 6 && end == 9) ));
+                            //This is the snarl 1-6 or 6-9
+                            REQUIRE(distance_index.is_snarl(child));
+                            id_t start = graph.get_id(distance_index.get_handle(
+                                    distance_index.get_bound(child, false, false), &graph));
+                            id_t end = graph.get_id(distance_index.get_handle(
+                                    distance_index.get_bound(child, true, false), &graph));
+                            if (start == 1 || end == 1) {
+                                child1 = child;
+                                REQUIRE(((start == 1 && end == 6) ||
+                                         (start == 6 && end == 1) ));
+                            } else {
+                                REQUIRE((start == 9 || end == 9));
+                                child2 = child;
+                                REQUIRE(((start == 9 && end == 6) ||
+                                         (start == 6 && end == 9) ));
+                            }
+
                         }
+                        chain_child_i ++;
 
-                    }
-                    chain_child_i ++;
+                        return true;
+                    });
+                    REQUIRE(chain_child_i == 5);
 
-                    return true;
-                });
-                REQUIRE(chain_child_i == 5);
-
-                
-                SECTION("First child is from 1 end to 6 start") {
                     
-                    {
-                        handle_t start = distance_index.get_handle(distance_index.get_bound(child1, false, true), &graph);
-                        handle_t end = distance_index.get_handle(distance_index.get_bound(child1, true, false), &graph);
+                    SECTION("First child is from 1 end to 6 start") {
                         
-                        bool found_in_forward_orientation = (graph.get_id(start) == 1 &&
-                                                             graph.get_is_reverse(start) == false &&
-                                                             graph.get_id(end) == 6 &&
-                                                             graph.get_is_reverse(end) == false);
-                        bool found_in_reverse_orientation = (graph.get_id(start) == 6 &&
-                                                             graph.get_is_reverse(start) == true &&
-                                                             graph.get_id(end) == 1 &&
-                                                             graph.get_is_reverse(end) == true);
-                        bool found_snarl = found_in_forward_orientation || found_in_reverse_orientation;
-                        REQUIRE(found_snarl);
-                    }
-                    
-                    SECTION("First child has a child from 2 end to 5 start") {
-                        
-                        size_t child_count = 0;
-                        net_handle_t subchild;//Chain 2-5
-                        distance_index.for_each_child(child1, [&](const net_handle_t& child) {
-                            REQUIRE(distance_index.is_chain(child));
-                            subchild = child;
-                            child_count ++;
-                            return true;
-                        });
-                        REQUIRE(child_count == 1);
-
                         {
-                            handle_t start = distance_index.get_handle(distance_index.get_bound(subchild, false, true), &graph);
-                            handle_t end = distance_index.get_handle(distance_index.get_bound(subchild, true, false), &graph);
-
-                            bool found_in_forward_orientation = (graph.get_id(start) == 2 &&
+                            handle_t start = distance_index.get_handle(distance_index.get_bound(child1, false, true), &graph);
+                            handle_t end = distance_index.get_handle(distance_index.get_bound(child1, true, false), &graph);
+                            
+                            bool found_in_forward_orientation = (graph.get_id(start) == 1 &&
                                                                  graph.get_is_reverse(start) == false &&
-                                                                 graph.get_id(end) == 5 &&
+                                                                 graph.get_id(end) == 6 &&
                                                                  graph.get_is_reverse(end) == false);
-                            bool found_in_reverse_orientation = (graph.get_id(start) == 5 &&
+                            bool found_in_reverse_orientation = (graph.get_id(start) == 6 &&
                                                                  graph.get_is_reverse(start) == true &&
-                                                                 graph.get_id(end)== 2 &&
+                                                                 graph.get_id(end) == 1 &&
                                                                  graph.get_is_reverse(end) == true);
                             bool found_snarl = found_in_forward_orientation || found_in_reverse_orientation;
                             REQUIRE(found_snarl);
                         }
-
                         
-                        SECTION("Subchild has no children") {
-                            //Subchild is chain 2-5, which only has trivial children
-                            size_t subchild_count = 0;
-                            REQUIRE(distance_index.is_chain(subchild));
-                            distance_index.for_each_child(subchild, [&](const net_handle_t& child) {
-                                REQUIRE((distance_index.is_node(child) || distance_index.is_snarl(child)));
-                                if (distance_index.is_snarl(child)){
-                                    distance_index.for_each_child(child, [&](const net_handle_t& grandchild) {
-                                        REQUIRE(distance_index.is_trivial_chain(grandchild));
-                                    });
-                                }
-                                subchild_count ++;
+                        SECTION("First child has a child from 2 end to 5 start") {
+                            
+                            size_t child_count = 0;
+                            net_handle_t subchild;//Chain 2-5
+                            distance_index.for_each_child(child1, [&](const net_handle_t& child) {
+                                REQUIRE(distance_index.is_chain(child));
+                                subchild = child;
+                                child_count ++;
                                 return true;
                             });
-                            REQUIRE(subchild_count == 3);
-                        }
+                            REQUIRE(child_count == 1);
+
+                            {
+                                handle_t start = distance_index.get_handle(distance_index.get_bound(subchild, false, true), &graph);
+                                handle_t end = distance_index.get_handle(distance_index.get_bound(subchild, true, false), &graph);
+
+                                bool found_in_forward_orientation = (graph.get_id(start) == 2 &&
+                                                                     graph.get_is_reverse(start) == false &&
+                                                                     graph.get_id(end) == 5 &&
+                                                                     graph.get_is_reverse(end) == false);
+                                bool found_in_reverse_orientation = (graph.get_id(start) == 5 &&
+                                                                     graph.get_is_reverse(start) == true &&
+                                                                     graph.get_id(end)== 2 &&
+                                                                     graph.get_is_reverse(end) == true);
+                                bool found_snarl = found_in_forward_orientation || found_in_reverse_orientation;
+                                REQUIRE(found_snarl);
+                            }
+
                             
+                            SECTION("Subchild has no children") {
+                                //Subchild is chain 2-5, which only has trivial children
+                                size_t subchild_count = 0;
+                                REQUIRE(distance_index.is_chain(subchild));
+                                distance_index.for_each_child(subchild, [&](const net_handle_t& child) {
+                                    REQUIRE((distance_index.is_node(child) || distance_index.is_snarl(child)));
+                                    if (distance_index.is_snarl(child)){
+                                        distance_index.for_each_child(child, [&](const net_handle_t& grandchild) {
+                                            REQUIRE(distance_index.is_trivial_chain(grandchild));
+                                        });
+                                    }
+                                    subchild_count ++;
+                                    return true;
+                                });
+                                REQUIRE(subchild_count == 3);
+                            }
+                                
+                        }
+                        
                     }
                     
-                }
-                
-                SECTION("Second child is from 6 end to 9 start") {
-                    {
-                        handle_t start = distance_index.get_handle(distance_index.get_bound(child2, false, true), &graph);
-                        handle_t end = distance_index.get_handle(distance_index.get_bound(child2, true, false), &graph);
-                        bool found_in_forward_orientation = (graph.get_id(start)== 6 &&
-                                                             graph.get_is_reverse(start) == false &&
-                                                             graph.get_id(end)== 9 &&
-                                                             graph.get_is_reverse(end) == false);
-                        bool found_in_reverse_orientation = (graph.get_id(start)== 9 &&
-                                                             graph.get_is_reverse(start) == true &&
-                                                             graph.get_id(end)== 6 &&
-                                                             graph.get_is_reverse(end) == true);
-                        bool found_snarl = found_in_forward_orientation || found_in_reverse_orientation;
-                        REQUIRE(found_snarl);
+                    SECTION("Second child is from 6 end to 9 start") {
+                        {
+                            handle_t start = distance_index.get_handle(distance_index.get_bound(child2, false, true), &graph);
+                            handle_t end = distance_index.get_handle(distance_index.get_bound(child2, true, false), &graph);
+                            bool found_in_forward_orientation = (graph.get_id(start)== 6 &&
+                                                                 graph.get_is_reverse(start) == false &&
+                                                                 graph.get_id(end)== 9 &&
+                                                                 graph.get_is_reverse(end) == false);
+                            bool found_in_reverse_orientation = (graph.get_id(start)== 9 &&
+                                                                 graph.get_is_reverse(start) == true &&
+                                                                 graph.get_id(end)== 6 &&
+                                                                 graph.get_is_reverse(end) == true);
+                            bool found_snarl = found_in_forward_orientation || found_in_reverse_orientation;
+                            REQUIRE(found_snarl);
+                        }
+                        
+                        SECTION("Second child has no children") {
+                            //Subchild is snarl 2-5, which only has trivial children
+                            size_t child_count = 0;
+                            distance_index.for_each_child(child2, [&](const net_handle_t& subchild) {
+                                REQUIRE(distance_index.is_trivial_chain(subchild));
+                                child_count ++;
+                                return true;
+                            });
+                            REQUIRE(child_count == 2);
+                        }
                     }
                     
-                    SECTION("Second child has no children") {
-                        //Subchild is snarl 2-5, which only has trivial children
-                        size_t child_count = 0;
-                        distance_index.for_each_child(child2, [&](const net_handle_t& subchild) {
-                            REQUIRE(distance_index.is_trivial_chain(subchild));
-                            child_count ++;
-                            return true;
-                        });
-                        REQUIRE(child_count == 2);
-                    }
                 }
                 
             }
-                
         }
 
         TEST_CASE("Bubbles can be found in graphs with only heads", "[snarl_distance]") {
@@ -2232,10 +2239,10 @@ namespace vg {
                             REQUIRE(!graph.get_is_reverse(end));
                         }
                     } else {
-                        REQUIRE(distance_index.is_sentinel(child));
+                        REQUIRE(distance_index.is_node(child));
                     }
                 });
-                REQUIRE(chain_child_count == 3);
+                REQUIRE(chain_child_count == 2);
             }
         }
 
@@ -2720,7 +2727,7 @@ namespace vg {
                         });
                         REQUIRE(grandchild_count == 2);
                     } else {
-                        REQUIRE(distance_index.is_sentinel(child));
+                        REQUIRE(distance_index.is_node(child));
                         id_t id = graph.get_id(distance_index.get_handle(child, &graph));
                         REQUIRE((id == 5 || id == 6));
                     child_i++;
@@ -2731,7 +2738,6 @@ namespace vg {
         }
         
         
-        /*
         TEST_CASE("DistanceIndex exposes chains correctly", "[snarl_distance]") {
             
             // We need a graph a chain in it.
@@ -2800,262 +2806,36 @@ namespace vg {
 
                 //The top connected component is a chain with one snarl
                 size_t child_i = 0;
+                vector<net_handle_t> top_snarls;
                 distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
-                    if (distance_index.is_snarl(child)) {
+                    if (child_i % 2 == 1) {
                         REQUIRE(distance_index.is_snarl(child));
-                    }
+                        top_snarls.emplace_back(child);
+                    } else {
+                        REQUIRE(distance_index.is_node(child));
+                    } 
+                    child_i++;
                 });
                 REQUIRE(child_i == 7);
 
-                REQUIRE(snarl_manager.top_level_snarls().size() == 3);
-                
-                const Snarl* child1 = snarl_manager.top_level_snarls()[0];
-                const Snarl* child2 = snarl_manager.top_level_snarls()[1];
-                const Snarl* child3 = snarl_manager.top_level_snarls()[2];
-                
-                if (child1->start().node_id() > child1->end().node_id()) {
-                    snarl_manager.flip(child1);
-                }
-                
-                if (child2->start().node_id() > child2->end().node_id()) {
-                    snarl_manager.flip(child2);
-                }
-                
-                if (child3->start().node_id() > child3->end().node_id()) {
-                    snarl_manager.flip(child3);
-                }
-                
                 SECTION("They should be in a chain") {
-                    REQUIRE(snarl_manager.in_nontrivial_chain(child1));
-                    REQUIRE(snarl_manager.in_nontrivial_chain(child2));
-                    REQUIRE(snarl_manager.in_nontrivial_chain(child3));
+                    for (net_handle_t& snarl : top_snarls) {
+                        REQUIRE( distance_index.is_chain(distance_index.get_parent(snarl)));
+                    }
                 }
                 
                 SECTION("They should be in the same chain") {
-                    REQUIRE(snarl_manager.chain_of(child1) == snarl_manager.chain_of(child2));
-                    REQUIRE(snarl_manager.chain_of(child2) == snarl_manager.chain_of(child3));
-                }
-                
-                SECTION("We can traverse the chain with iterators") {
-                    auto& chains = snarl_manager.chains_of(nullptr);
-                    
-                    REQUIRE(chains.size() == 1);
-                    
-                    auto& chain = chains.front();
-                    
-                    // Make sure we are talking about the same exact chain
-                    REQUIRE(&chain == snarl_manager.chain_of(child1));
-                    REQUIRE(&chain == snarl_manager.chain_of(child2));
-                    REQUIRE(&chain == snarl_manager.chain_of(child3));
-                    
-                    auto begin = chain_begin(chain);
-                    auto rbegin = chain_rbegin(chain);
-                    auto rcbegin = chain_rcbegin(chain);
-                    auto end = chain_end(chain);
-                    auto rend = chain_rend(chain);
-                    auto rcend = chain_rcend(chain);
-                    
-                    SECTION("Iterator equality works") {
-                    
-                        REQUIRE(begin == begin);
-                        REQUIRE(begin != end);
-                        REQUIRE(begin != rbegin);
-                        REQUIRE(begin != rend);
-                        
-                        REQUIRE(rbegin == rbegin);
-                        REQUIRE(rbegin != end);
-                        REQUIRE(rbegin != begin);
-                        REQUIRE(rbegin != rend);
-                        
-                        REQUIRE(end == end);
-                        REQUIRE(end != begin);
-                        REQUIRE(end != rbegin);
-                        REQUIRE(end != rend);
-                        
-                        REQUIRE(rend == rend);
-                        REQUIRE(rend != end);
-                        REQUIRE(rend != rbegin);
-                        REQUIRE(rend != begin);
-                        
+                    for (net_handle_t& snarl : top_snarls) {
+                        REQUIRE( distance_index.canonical(distance_index.get_parent(snarl))
+                                == distance_index.canonical(top_chain_handle));
                     }
-                    
-                    SECTION("Iterators traverse the chain left to right and right to left") {
-                        auto it = begin;
-                        auto rit = rbegin;
-                        
-                        REQUIRE(*it == make_pair(child1, false));
-                        REQUIRE(*rit == make_pair(child3, false));
-                        
-                        REQUIRE(it->first == child1);
-                        REQUIRE(it->second == false);
-                        REQUIRE(rit->first == child3);
-                        REQUIRE(rit->second == false);
-                        
-                        ++it;
-                        ++rit;
-                        
-                        REQUIRE(*it == make_pair(child2, false));
-                        REQUIRE(*rit == make_pair(child2, false));
-                        
-                        REQUIRE(it->first == child2);
-                        REQUIRE(it->second == false);
-                        REQUIRE(rit->first == child2);
-                        REQUIRE(rit->second == false);
-                        
-                        ++it;
-                        ++rit;
-                        
-                        REQUIRE(*it == make_pair(child3, false));
-                        REQUIRE(*rit == make_pair(child1, false));
-                        
-                        REQUIRE(it->first == child3);
-                        REQUIRE(it->second == false);
-                        REQUIRE(rit->first == child1);
-                        REQUIRE(rit->second == false);
-                        
-                        ++it;
-                        ++rit;
-                        
-                        REQUIRE(it == end);
-                        REQUIRE(rit == rend);
-                        
-                    }
-                    
-                    SECTION("Reverse complement iterators traverse the chain correctly") {
-                        auto it = rcbegin;
-                        
-                        REQUIRE(*it == make_pair(child3, true));
-                        
-                        REQUIRE(it->first == child3);
-                        REQUIRE(it->second == true);
-                        
-                        ++it;
-                        
-                        REQUIRE(*it == make_pair(child2, true));
-                        
-                        REQUIRE(it->first == child2);
-                        REQUIRE(it->second == true);
-                        
-                        ++it;
-                        
-                        REQUIRE(*it == make_pair(child1, true));
-                        
-                        REQUIRE(it->first == child1);
-                        REQUIRE(it->second == true);
-                        
-                        ++it;
-                        
-                        REQUIRE(it == rcend);
-                        
-                    }
-                    
-                    SECTION("We can view the chain from each end") {
-#ifdef debug
-                        for (auto& pair : chain) {
-                            cerr << "In chain " << &chain << ": " << pair.first->start().node_id() << " - " << pair.first->end().node_id()
-                                << " orientation " << pair.second << endl;
-                        }
-#endif
-                    
-                        REQUIRE(!start_backward(chain));
-                        REQUIRE(chain_begin_from(chain, child1, false) == begin);
-                        REQUIRE(chain_end_from(chain, child1, false) == end);
-                        
-                        REQUIRE(!end_backward(chain));
-                        REQUIRE(chain_begin_from(chain, child3, true) == rcbegin);
-                        REQUIRE(chain_end_from(chain, child3, true) == rcend);
-                        
-                        snarl_manager.flip(child1);
-                        snarl_manager.flip(child3);
-                        
-#ifdef debug
-                        for (auto& pair : chain) {
-                            cerr << "In chain " << &chain << ": " << pair.first->start().node_id() << " - " << pair.first->end().node_id()
-                                << " orientation " << pair.second << endl;
-                        }
-#endif
-                        
-                        REQUIRE(start_backward(chain));
-                        REQUIRE(chain_begin_from(chain, child1, true) == chain_begin(chain));
-                        REQUIRE(chain_end_from(chain, child1, true) == chain_end(chain));
-                        
-                        REQUIRE(end_backward(chain));
-                        REQUIRE(chain_begin_from(chain, child3, false) == chain_rcbegin(chain));
-                        REQUIRE(chain_end_from(chain, child3, false) == chain_rcend(chain));
-                        
-                    }
-                    
-                    SECTION("Empty chains have proper iterators") {
-                        Chain empty;
-                        
-                        REQUIRE(chain_begin(empty) == chain_end(empty));
-                        REQUIRE(chain_rbegin(empty) == chain_rend(empty));
-                    }
-                    
-                }
-                
-                SECTION("We can still see the chain if we flip the snarls around") {
-                    snarl_manager.flip(child1);
-                    snarl_manager.flip(child2);
-                    
-                    auto& chains = snarl_manager.chains_of(nullptr);
-                    
-                    REQUIRE(chains.size() == 1);
-                    
-                    auto& chain = chains.front();
-                    
-                    REQUIRE(chain.size() == 3);
-                    
-                    auto it = chain_begin(chain);
-                    
-                    // Chain should be in the same order but with some orientations flipped.
-                    REQUIRE(*it == make_pair(child1, true));
-                    ++it;
-                    REQUIRE(*it == make_pair(child2, true));
-                    ++it;
-                    REQUIRE(*it == make_pair(child3, false));
-                    ++it;
-                    REQUIRE(it == chain_end(chain));
-                }
-                
-                SECTION("We can look around from a snarl") {
-                    const Chain* chain = snarl_manager.chain_of(child1);
-                    
-                    ChainIterator here = chain_begin_from(*chain, child1, false);
-                    ChainIterator end = chain_end_from(*chain, child1, false);
-                    
-                    SECTION("Looking right into the chain gives us the Snarl to the right") {
-                        ChainIterator right = here;
-                        ++right;
-                        
-                        REQUIRE(right != end);
-                        REQUIRE(right->first == child2);
-                        // Must not be backward
-                        REQUIRE(right->second == false);
-                    }
-                    
-                    // Now look from the other end
-                    here = chain_begin_from(*chain, child3, true);
-                    end = chain_end_from(*chain, child3, true);
-                    
-                    SECTION("Looking left into the chain gives us a Visit to the right Snarl") {
-                        ChainIterator left = here;
-                        ++left;
-                        
-                        REQUIRE(left != end);
-                        REQUIRE(left->first == child2);
-                        // Must be backward
-                        REQUIRE(left->second == true);
-                    }
-                    
-                    
                 }
                 
             }
             
         }
         
-        TEST_CASE("Chain start and end functions work on difficult chains", "[snarls]") {
+        TEST_CASE("chain start and end functions work on difficult chains", "[snarl_distance]") {
             // This graph will have a snarl from 1 to 8, a snarl from 2 to 4, and a
             // snarl from 4 to 7, with a chain in the top snarl. The snarl from 4 to 7
             // will have a child snarl from 5 to 6 (an insertion of node 9)
@@ -3085,278 +2865,83 @@ namespace vg {
             Edge* e12 = graph.create_edge(n7, n8);
             
             // Work out its snarls
-            CactusSnarlFinder bubble_finder(graph);
-            SnarlManager snarl_manager = bubble_finder.find_snarls();
-            
-#ifdef debug
-            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
-                << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
-                    cerr << node->id() << " ";
-                }
-                cerr << endl;
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+                
+            //The root contains one connected component
+            net_handle_t root_handle = distance_index.get_root();
+            net_handle_t top_chain_handle;
+            size_t component_count = 0;
+            distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                component_count += 1;
+                REQUIRE(distance_index.is_chain(child));
+                top_chain_handle = child;
             });
-#endif
+            REQUIRE(component_count == 1);
             
-            // Get the top snarl
-            const Snarl* top_snarl = snarl_manager.top_level_snarls().at(0);
-            
-            if (top_snarl->end().node_id() < top_snarl->start().node_id()) {
-                // Put it a consistent way around
-                snarl_manager.flip(top_snarl);
-            }
-            
-            // Make sure it's what we expect.
-            REQUIRE(top_snarl->start().node_id() == 1);
-            REQUIRE(top_snarl->end().node_id() == 8);
+            size_t top_child_count = 0;
+            net_handle_t top_snarl;
+            distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+                top_child_count += 1;
+                if (distance_index.is_snarl(child)){
+                    top_snarl = child;
+                } else {
+                    REQUIRE(distance_index.is_node(child));
+                    id_t id = graph.get_id(distance_index.get_handle(child, &graph));
+                    REQUIRE((id == 1 || id == 8));
+                }
+            });
+            REQUIRE(top_child_count == 3);
+            id_t start_id = graph.get_id(distance_index.get_handle(distance_index.get_bound(top_snarl, false, false), &graph));
+            id_t end_id = graph.get_id(distance_index.get_handle(distance_index.get_bound(top_snarl, true, false), &graph));
+            REQUIRE((start_id == 1 || start_id == 8));
+            REQUIRE((end_id == 1 || end_id == 8));
+            REQUIRE(start_id != end_id);
 
+            size_t snarl_child_count = 0;
+            net_handle_t child_chain;
+            distance_index.for_each_child(top_snarl, [&](const net_handle_t& child) {
+                snarl_child_count++;
+                REQUIRE(distance_index.is_chain(child));
+                REQUIRE(!distance_index.is_trivial_chain(child));
+                child_chain = child;
+            });
+            REQUIRE(snarl_child_count == 1);
             // Make sure we have one chain    
-            auto& chains = snarl_manager.chains_of(top_snarl);
-            REQUIRE(chains.size() == 1);
             
-            // Get the chain
-            auto& chain = chains.at(0);
-            REQUIRE(chain.size() == 2);
-            
-            // And the snarls in the chain
-            const Snarl* left_child = chain.at(0).first;
-            const Snarl* right_child = chain.at(1).first;
-            
-            bool found_chain_orientation_1 = false, found_chain_orientation_2 = false;
-            
-            {
-                bool found_left_snarl_orientation_1 = (left_child->start().node_id() == 2 &&
-                                                       left_child->start().backward() == false &&
-                                                       left_child->end().node_id() == 4 &&
-                                                       left_child->end().backward() == false);
-                bool found_left_snarl_orientation_2 = (left_child->start().node_id() == 4 &&
-                                                       left_child->start().backward() == true &&
-                                                       left_child->end().node_id() == 2 &&
-                                                       left_child->end().backward() == true);
-                bool found_left = found_left_snarl_orientation_1 | found_left_snarl_orientation_2;
-                
-                bool found_right_snarl_orientation_1 = (right_child->start().node_id() == 4 &&
-                                                        right_child->start().backward() == false &&
-                                                        right_child->end().node_id() == 7 &&
-                                                        right_child->end().backward() == false);
-                bool found_right_snarl_orientation_2 = (right_child->start().node_id() == 7 &&
-                                                        right_child->start().backward() == true &&
-                                                        right_child->end().node_id() == 4 &&
-                                                        right_child->end().backward() == true);
-                bool found_right = found_right_snarl_orientation_1 | found_right_snarl_orientation_2;
-                
-                bool found_sub_child = false;
-                const auto& children = snarl_manager.children_of(right_child);
-                if (children.size() == 1){
-                    const Snarl* sub_child = children[0];
-                    
-                    bool found_sub_child_orientation_1 = (sub_child->start().node_id() == 5 &&
-                                                          sub_child->start().backward() == false &&
-                                                          sub_child->end().node_id() == 6 &&
-                                                          sub_child->end().backward() == false);
-                    bool found_sub_child_orientation_2 = (sub_child->start().node_id() == 6 &&
-                                                          sub_child->start().backward() == true &&
-                                                          sub_child->end().node_id() == 5 &&
-                                                          sub_child->end().backward() == true);
-                    found_sub_child = found_sub_child_orientation_1 || found_sub_child_orientation_2;
+            net_handle_t snarl1;
+            net_handle_t snarl2;
+            size_t chain_child_count = 0;
+            distance_index.for_each_child(child_chain, [&](const net_handle_t& child) {
+                if (distance_index.is_snarl(child)) {
+                    id_t start = graph.get_id(distance_index.get_handle(distance_index.get_bound(child, false, false), &graph));
+                    id_t end = graph.get_id(distance_index.get_handle(distance_index.get_bound(child, true, false), &graph));
+                    if ((start == 2 && end == 4) || (start == 4 && end == 2)){
+                        snarl1 = child;
+                    } else {
+                        REQUIRE(((start == 7 && end == 4) || (start == 4 && end == 7)));
+                        snarl2 = child;
+                    }
+                } else {
+                    REQUIRE(distance_index.is_node(child));
                 }
-                
-                found_chain_orientation_1 = (found_left && found_right && found_sub_child);
-            }
+                chain_child_count++;
+            });
+            REQUIRE(chain_child_count == 5);
+
             
-            {
-                bool found_left_snarl_orientation_1 = (right_child->start().node_id() == 2 &&
-                                                       right_child->start().backward() == false &&
-                                                       right_child->end().node_id() == 4 &&
-                                                       right_child->end().backward() == false);
-                bool found_left_snarl_orientation_2 = (right_child->start().node_id() == 4 &&
-                                                       right_child->start().backward() == true &&
-                                                       right_child->end().node_id() == 2 &&
-                                                       right_child->end().backward() == true);
-                bool found_left = found_left_snarl_orientation_1 | found_left_snarl_orientation_2;
-                
-                bool found_right_snarl_orientation_1 = (left_child->start().node_id() == 4 &&
-                                                        left_child->start().backward() == false &&
-                                                        left_child->end().node_id() == 7 &&
-                                                        left_child->end().backward() == false);
-                bool found_right_snarl_orientation_2 = (left_child->start().node_id() == 7 &&
-                                                        left_child->start().backward() == true &&
-                                                        left_child->end().node_id() == 4 &&
-                                                        left_child->end().backward() == true);
-                bool found_right = found_right_snarl_orientation_1 | found_right_snarl_orientation_2;
-                
-                bool found_sub_child = false;
-                const auto& children = snarl_manager.children_of(left_child);
-                if (children.size() == 1){
-                    const Snarl* sub_child = children[0];
-                    
-                    bool found_sub_child_orientation_1 = (sub_child->start().node_id() == 5 &&
-                                                          sub_child->start().backward() == false &&
-                                                          sub_child->end().node_id() == 6 &&
-                                                          sub_child->end().backward() == false);
-                    bool found_sub_child_orientation_2 = (sub_child->start().node_id() == 6 &&
-                                                          sub_child->start().backward() == true &&
-                                                          sub_child->end().node_id() == 5 &&
-                                                          sub_child->end().backward() == true);
-                    found_sub_child = found_sub_child_orientation_1 || found_sub_child_orientation_2;
-                }
-                
-                found_chain_orientation_2 = (found_left && found_right && found_sub_child);
-            }
-            
-            bool chain_correct = found_chain_orientation_1 || found_chain_orientation_2;
-            REQUIRE(chain_correct);
-            
-            // Make sure the right child is BACKWARD
-            snarl_manager.flip(right_child);
-            
-            SECTION("A chain can be found from a backward member snarl") {
-                const Chain* chain = snarl_manager.chain_of(right_child);
-                
-                REQUIRE(chain != nullptr);
-                
-                SECTION("The chain has the two snarls in it") {
-                    REQUIRE(chain->size() == 2);
-                    REQUIRE(chain->at(0).first == left_child);
-                    REQUIRE(chain->at(1).first == right_child);
-                }
-                
-                SECTION("The chain end orientations are correct") {
-                    REQUIRE(start_backward(*chain) == false);
-                    REQUIRE(end_backward(*chain) == true);
-                    REQUIRE(snarl_manager.chain_orientation_of(left_child) == false);
-                    REQUIRE(snarl_manager.chain_orientation_of(right_child) == true);
-                }
-                
-                SECTION("The chain ranks are correct") {
-                    REQUIRE(snarl_manager.chain_rank_of(left_child) < snarl_manager.chain_rank_of(right_child));
-                }
-                    
-                SECTION("The chain ends are correct") {
-                    REQUIRE(get_start_of(*chain) == left_child->start());
-                    REQUIRE(get_end_of(*chain) == reverse(right_child->start()));
-                }
+            SECTION("A chain can be found from a member snarl") {
+                REQUIRE(distance_index.canonical(distance_index.get_parent(snarl1)) == 
+                        distance_index.canonical(child_chain));
+                REQUIRE(distance_index.canonical(distance_index.get_parent(snarl2)) == 
+                        distance_index.canonical(child_chain));
                 
             }
             
         }
+        /*
+         * TODO: I think this one will also be a looping chain
 
-        TEST_CASE( "NetGraph can traverse unary snarls",
-                  "[snarl_distance]" ) {
-        
-            VG graph;
-                
-            Node* n1 = graph.create_node("GCA");
-            Node* n2 = graph.create_node("T");
-            Node* n3 = graph.create_node("G");
-            Node* n4 = graph.create_node("CTGA");
-            Node* n5 = graph.create_node("GCA");
-            Node* n6 = graph.create_node("T");
-            Node* n7 = graph.create_node("G");
-            
-            Edge* e1 = graph.create_edge(n1, n2);
-            Edge* e2 = graph.create_edge(n1, n3);
-            Edge* e3 = graph.create_edge(n2, n7);
-            Edge* e4 = graph.create_edge(n3, n4);
-            Edge* e5 = graph.create_edge(n3, n5);
-            Edge* e6 = graph.create_edge(n4, n6);
-            Edge* e7 = graph.create_edge(n5, n6);
-            Edge* e8 = graph.create_edge(n6, n7);
-            Edge* e9 = graph.create_edge(n1, n1, true, false);
-            
-            // Define the snarls for the top level
-           
-            CactusSnarlFinder bubble_finder(graph);
-            SnarlManager snarl_manager = bubble_finder.find_snarls();
-
-            const Snarl* snarl = snarl_manager.into_which_snarl(3, true); 
-            
-            
-            SECTION( "Traverse unary snarl in netgraph with internal connectivity" ) {
-
-                // Make a net graph
-                NetGraph net_graph(snarl->start(), snarl->end(), snarl_manager.chains_of(snarl), &graph, true);
-                handle_t node_in = net_graph.get_handle(1, true);
-                handle_t node_out = net_graph.get_handle(1, false);
-            
-                unordered_set<pair<id_t, bool>> seen_in;
-                net_graph.follow_edges(node_in, false, [&](const handle_t& other) {
-                    seen_in.insert(make_pair(net_graph.get_id(other), 
-                                             net_graph.get_is_reverse(other)));
-                });
-                
-                REQUIRE(seen_in.size() == 2);
-                REQUIRE(seen_in.find(make_pair(2, false)) != seen_in.end());
-                REQUIRE(seen_in.find(make_pair(3, false)) != seen_in.end());
-
-                unordered_set<pair<id_t, bool>> seen_out;
-                net_graph.follow_edges(node_out, false, [&](const handle_t& other) {
-                    seen_out.insert(make_pair(net_graph.get_id(other), 
-                                             net_graph.get_is_reverse(other)));
-                });
-
-                unordered_set<pair<id_t, bool>> seen_out_rev;
-                net_graph.follow_edges(node_out, true, [&](const handle_t& other) {
-                    seen_out_rev.insert(make_pair(net_graph.get_id(other), 
-                                             net_graph.get_is_reverse(other)));
-});
-                //Predecessors
-                REQUIRE(seen_out_rev.size() == 2);
-                REQUIRE(seen_out_rev.find(make_pair(2, true)) != seen_out_rev.end());
-                REQUIRE(seen_out_rev.find(make_pair(3, true)) != seen_out_rev.end());
-                
-                unordered_set<pair<id_t, bool>> seen_in_rev;
-                net_graph.follow_edges(node_in, true, [&](const handle_t& other) {
-                    seen_in_rev.insert(make_pair(net_graph.get_id(other), 
-                                             net_graph.get_is_reverse(other)));
-                });
-                REQUIRE(seen_in_rev.size() == 0);
-            }
-
-            
-            
-             SECTION( "Traverse unary snarl in netgraph without internal connectivity" ) {
-                
-                NetGraph net_graph(snarl->start(), snarl->end(), snarl_manager.chains_of(snarl), &graph);
-                handle_t node_in = net_graph.get_handle(1, true);
-                handle_t node_out = net_graph.get_handle(1, false);
-                unordered_set<pair<id_t, bool>> seen_in;
-                net_graph.follow_edges(node_in, false, [&](const handle_t& other) {
-                    seen_in.insert(make_pair(net_graph.get_id(other), 
-                                             net_graph.get_is_reverse(other)));
-                });
-                
-                REQUIRE(seen_in.size() == 0);
-
-                unordered_set<pair<id_t, bool>> seen_out;
-                net_graph.follow_edges(node_out, false, [&](const handle_t& other) {
-                    seen_out.insert(make_pair(net_graph.get_id(other), 
-                                             net_graph.get_is_reverse(other)));
-                });
-                REQUIRE(seen_out.size() == 2);
-                REQUIRE(seen_out.find(make_pair(2, false)) != seen_out.end());
-                REQUIRE(seen_out.find(make_pair(3, false)) != seen_out.end());
-
-                //Predecessors
-                unordered_set<pair<id_t, bool>> seen_out_rev;
-                net_graph.follow_edges(node_out, true, [&](const handle_t& other) {
-                    seen_out_rev.insert(make_pair(net_graph.get_id(other), 
-                                             net_graph.get_is_reverse(other)));
-                });
-                
-                REQUIRE(seen_out_rev.size() == 0);
-                
-                unordered_set<pair<id_t, bool>> seen_in_rev;
-                net_graph.follow_edges(node_in, true, [&](const handle_t& other) {
-                    seen_in_rev.insert(make_pair(net_graph.get_id(other), 
-                                             net_graph.get_is_reverse(other)));
-                });
-                REQUIRE(seen_in_rev.size() == 2);
-                REQUIRE(seen_in_rev.find(make_pair(2, true)) != seen_in_rev.end());
-                REQUIRE(seen_in_rev.find(make_pair(3, true)) != seen_in_rev.end());
-             }
-        }
 
         TEST_CASE( "Snarls can be found for a graph with no ordinary cycles", "[snarls]" ) {
             VG graph;
@@ -3815,300 +3400,8 @@ namespace vg {
         
             
         }
-        
-        TEST_CASE( "SnarlManager IO works correctly",
-                  "[sites][snarls]" ) {
-            
-            SECTION( "SnarlManager can be loaded from an empty snarls file") {
-                
-                stringstream buff;
-                
-                {
-                    // Make an emitter
-                    vg::io::ProtobufEmitter<Snarl> emitter(buff);
-                    // Emit nothing
-                }
-                
-                // Now load it back
-                unique_ptr<SnarlManager> manager = vg::io::VPKG::try_load_one<SnarlManager>(buff);
-                
-                REQUIRE(manager.get() != nullptr);
-                
-            }
-            
-        }
+       
 
-    TEST_CASE( "PathTraversalFinder works correctly",
-               "[sites][snarls]" ) {
-
-
-        // Build a toy graph
-        const string graph_json = R"(
-        
-            {
-                "node": [
-                    {"id": 1, "sequence": "G"},
-                    {"id": 2, "sequence": "A"},
-                    {"id": 3, "sequence": "G"},
-                    {"id": 4, "sequence": "A"},
-                    {"id": 5, "sequence": "G"},
-                    {"id": 6, "sequence": "A"},
-                    {"id": 7, "sequence": "G"},
-                    {"id": 8, "sequence": "A"},
-                    {"id": 9, "sequence": "A"},
-                    {"id": 10, "sequence": "G"},
-                    {"id": 11, "sequence": "A"}
-                ],
-                "edge": [
-                    {"from": 1, "to": 2},
-                    {"from": 2, "to": 3},
-                    {"from": 2, "to": 4},
-                    {"from": 3, "to": 5},
-                    {"from": 3, "to": 6},
-                    {"from": 4, "to": 5},
-                    {"from": 4, "to": 6},
-                    {"from": 5, "to": 7},
-                    {"from": 6, "to": 7},
-                    {"from": 7, "to": 8},
-                    {"from": 8, "to": 9},
-                    {"from": 8, "to": 10, "to_end": "true"},
-                    {"from": 9, "to": 10},
-                    {"from": 9, "to": 10, "from_start": "true"},
-                    {"from": 9, "to": 11, "to_end": "true"},
-                    {"from": 9, "to": 11, "from_start": "true", "to_end": "true"},
-                    {"from": 10, "to": 11, "to_end": "true"}
-                ],
-                "path": [
-                    {"name": "ref", "mapping": [
-                        {"position": {"node_id": 1}, "rank" : 1 },
-                        {"position": {"node_id": 2}, "rank" : 2 },
-                        {"position": {"node_id": 4}, "rank" : 3 },
-                        {"position": {"node_id": 6}, "rank" : 4 },
-                        {"position": {"node_id": 7}, "rank" : 5 },
-                        {"position": {"node_id": 8}, "rank" : 6 },
-                        {"position": {"node_id": 9}, "rank" : 7 },
-                        {"position": {"node_id": 10}, "rank" : 8 },
-                        {"position": {"node_id": 11, "is_reverse" : "true"}, "rank" : 9 }
-                    ]},
-                    {"name": "alt1", "mapping": [
-                        {"position": {"node_id": 1}, "rank" : 1 },
-                        {"position": {"node_id": 2}, "rank" : 2 },
-                        {"position": {"node_id": 3}, "rank" : 3 },
-                        {"position": {"node_id": 5}, "rank" : 4 },
-                        {"position": {"node_id": 7}, "rank" : 5 },
-                        {"position": {"node_id": 8}, "rank" : 6 },
-                        {"position": {"node_id": 10, "is_reverse" : "true"}, "rank" : 7 },
-                        {"position": {"node_id": 9}, "rank" : 8 },
-                        {"position": {"node_id": 11, "is_reverse" : "true"}, "rank" : 9 }
-                    ]},
-                    {"name": "alt1a", "mapping": [
-                        {"position": {"node_id": 2}, "rank" : 2 },
-                        {"position": {"node_id": 3}, "rank" : 3 },
-                        {"position": {"node_id": 5}, "rank" : 4 },
-                        {"position": {"node_id": 7}, "rank" : 5 }
-                    ]},
-                    {"name": "alt2", "mapping": [
-                        {"position": {"node_id": 8, "is_reverse" : "true"}, "rank" : 1 },
-                        {"position": {"node_id": 7, "is_reverse" : "true"}, "rank" : 2 },
-                        {"position": {"node_id": 6, "is_reverse" : "true"}, "rank" : 3 },
-                        {"position": {"node_id": 3, "is_reverse" : "true"}, "rank" : 4 },
-                        {"position": {"node_id": 2, "is_reverse" : "true"}, "rank" : 5 },
-                        {"position": {"node_id": 1, "is_reverse" : "true"}, "rank" : 6 }
-                    ]},
-                    {"name": "shorty", "mapping": [
-                        {"position": {"node_id": 1}, "rank" : 1 },
-                        {"position": {"node_id": 2}, "rank" : 2 },
-                        {"position": {"node_id": 3}, "rank" : 3 },
-                        {"position": {"node_id": 6}, "rank" : 4 }
-                    ]},
-                    {"name": "alt3", "mapping": [
-                        {"position": {"node_id": 11}, "rank" : 1 },
-                        {"position": {"node_id": 9}, "rank" : 2 },
-                        {"position": {"node_id": 10}, "rank" : 3 },
-                        {"position": {"node_id": 8, "is_reverse" : "true"}, "rank" : 4 },
-                        {"position": {"node_id": 7, "is_reverse" : "true"}, "rank" : 5 }
-                    ]},
-                    {"name": "alt4", "mapping": [
-                        {"position": {"node_id": 11}, "rank" : 1 },
-                        {"position": {"node_id": 10, "is_reverse" : "true"}, "rank" : 2 },
-                        {"position": {"node_id": 9, "is_reverse" : "true"}, "rank" : 3 },
-                        {"position": {"node_id": 8, "is_reverse" : "true"}, "rank" : 4 },
-                        {"position": {"node_id": 7, "is_reverse" : "true"}, "rank" : 5 }
-                    ]}
-                ]
-            }            
-            )";
-            
-        // Make an actual graph
-        VG graph;
-        Graph chunk;
-        json2pb(chunk, graph_json.c_str(), graph_json.size());
-        graph.extend(chunk);
-        assert(graph.is_valid());
-        
-        SECTION( "PathTraversalFinder can find simple forward traversals") {
-
-            CactusSnarlFinder snarl_finder(graph);
-            SnarlManager snarl_manager = snarl_finder.find_snarls();
-            PathTraversalFinder trav_finder(graph, snarl_manager);
-
-            Snarl snarl;
-            snarl.mutable_start()->set_node_id(2);
-            snarl.mutable_end()->set_node_id(7);
-
-            auto trav_results = trav_finder.find_path_traversals(snarl);
-
-            // get a path for ref, atl1, alt1a and alt2
-            REQUIRE(trav_results.first.size() == 4);
-
-            set<string> correct_names = {"ref", "alt1", "alt1a", "alt2"};
-            for (auto step_pair : trav_results.second) {
-                string name1 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.first));
-                string name2 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.second));
-                REQUIRE(name1 == name2);
-                REQUIRE(correct_names.count(name1));
-            }
-            
-            map<string, string> true_trav_strings = {
-                {"ref", R"({"visit":[{"node_id":"2"},{"node_id":"4"},{"node_id":"6"},{"node_id":"7"}]})"},
-                {"alt1", R"({"visit":[{"node_id":"2"},{"node_id":"3"},{"node_id":"5"},{"node_id":"7"}]})"},
-                {"alt1a", R"({"visit":[{"node_id":"2"},{"node_id":"3"},{"node_id":"5"},{"node_id":"7"}]})"},
-                {"alt2", R"({"visit":[{"node_id":"2"},{"node_id":"3"},{"node_id":"6"},{"node_id":"7"}]})"}
-            };
-            for (int i = 0; i < trav_results.first.size(); ++i) {
-                string name = graph.get_path_name(graph.get_path_handle_of_step(trav_results.second[i].first));
-                REQUIRE(true_trav_strings.count(name));
-                SnarlTraversal true_trav;
-                json2pb(true_trav, true_trav_strings[name]);
-                bool trav_is_correct = trav_results.first[i] == true_trav;
-                REQUIRE(trav_is_correct);
-            }
-        }
-
-        SECTION( "PathTraversalFinder can find simple traversals when snarl is backward") {
-
-            CactusSnarlFinder snarl_finder(graph);
-            SnarlManager snarl_manager = snarl_finder.find_snarls();
-            PathTraversalFinder trav_finder(graph, snarl_manager);
-
-            Snarl snarl;
-            snarl.mutable_start()->set_node_id(7);
-            snarl.mutable_start()->set_backward(true);
-            snarl.mutable_end()->set_node_id(2);
-            snarl.mutable_end()->set_backward(true);
-            
-            auto trav_results = trav_finder.find_path_traversals(snarl);
-
-            // get a path for ref, atl1, alt1a and alt2
-            REQUIRE(trav_results.first.size() == 4);
-
-            set<string> correct_names = {"ref", "alt1", "alt1a", "alt2"};
-            for (auto step_pair : trav_results.second) {
-                string name1 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.first));
-                string name2 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.second));
-                REQUIRE(name1 == name2);
-                REQUIRE(correct_names.count(name1));
-            }
-
-            map<string, string> true_trav_strings = {
-                {"ref", R"({"visit":[{"node_id":"7","backward":true},{"node_id":"6","backward":true},{"node_id":"4","backward":true},{"node_id":"2","backward":true}]})"},
-                {"alt1", R"({"visit":[{"node_id":"7","backward":true},{"node_id":"5","backward":true},{"node_id":"3","backward":true},{"node_id":"2","backward":true}]})"},
-                {"alt1a", R"({"visit":[{"node_id":"7","backward":true},{"node_id":"5","backward":true},{"node_id":"3","backward":true},{"node_id":"2","backward":true}]})"},
-                {"alt2", R"({"visit":[{"node_id":"7","backward":true},{"node_id":"6","backward":true},{"node_id":"3","backward":true},{"node_id":"2","backward":true}]})"}
-            };
-            for (int i = 0; i < trav_results.first.size(); ++i) {
-                string name = graph.get_path_name(graph.get_path_handle_of_step(trav_results.second[i].first));                
-                REQUIRE(true_trav_strings.count(name));
-                SnarlTraversal true_trav;
-                json2pb(true_trav, true_trav_strings[name]);
-                bool trav_is_correct = trav_results.first[i] == true_trav;
-                REQUIRE(trav_is_correct);
-            }
-        }
-
-        SECTION( "PathTraversalFinder can find forward traversals in snarl with inversion") {
-
-            CactusSnarlFinder snarl_finder(graph);
-            SnarlManager snarl_manager = snarl_finder.find_snarls();
-            PathTraversalFinder trav_finder(graph, snarl_manager);
-
-            Snarl snarl;
-            snarl.mutable_start()->set_node_id(8);
-            snarl.mutable_end()->set_node_id(11);
-            snarl.mutable_end()->set_backward(true);
-            
-            auto trav_results = trav_finder.find_path_traversals(snarl);
-
-            // get a path for ref, atl1, alt1a and alt2
-            REQUIRE(trav_results.first.size() == 4);
-
-            set<string> correct_names = {"ref", "alt1", "alt3", "alt4"};
-            for (auto step_pair : trav_results.second) {
-                string name1 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.first));
-                string name2 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.second));
-                REQUIRE(name1 == name2);
-                REQUIRE(correct_names.count(name1));
-            }
-
-            map<string, string> true_trav_strings = {
-                {"ref", R"({"visit":[{"node_id":"8"},{"node_id":"9"},{"node_id":"10"},{"node_id":"11","backward":true}]})"},
-                {"alt1", R"({"visit":[{"node_id":"8"},{"node_id":"10","backward":true},{"node_id":"9"},{"node_id":"11","backward":true}]})"},
-                {"alt3", R"({"visit":[{"node_id":"8"},{"node_id":"10","backward":true},{"node_id":"9","backward":true},{"node_id":"11","backward":true}]})"},
-                {"alt4", R"({"visit":[{"node_id":"8"},{"node_id":"9"},{"node_id":"10"},{"node_id":"11","backward":true}]})"}
-            };
-            for (int i = 0; i < trav_results.first.size(); ++i) {
-                string name = graph.get_path_name(graph.get_path_handle_of_step(trav_results.second[i].first));                
-                REQUIRE(true_trav_strings.count(name));
-                SnarlTraversal true_trav;
-                json2pb(true_trav, true_trav_strings[name]);
-                bool trav_is_correct = trav_results.first[i] == true_trav;
-                REQUIRE(trav_is_correct);
-            }
-        }
-
-        SECTION( "PathTraversalFinder can find traversals in backward snarl with inversion") {
-
-            CactusSnarlFinder snarl_finder(graph);
-            SnarlManager snarl_manager = snarl_finder.find_snarls();
-            PathTraversalFinder trav_finder(graph, snarl_manager);
-
-            Snarl snarl;
-            snarl.mutable_start()->set_node_id(11);
-            snarl.mutable_end()->set_node_id(8);
-            snarl.mutable_end()->set_backward(true);
-            
-            auto trav_results = trav_finder.find_path_traversals(snarl);
-
-            // get a path for ref, atl1, alt1a and alt2
-            REQUIRE(trav_results.first.size() == 4);
-
-            set<string> correct_names = {"ref", "alt1", "alt3", "alt4"};
-            for (auto step_pair : trav_results.second) {
-                string name1 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.first));
-                string name2 = graph.get_path_name(graph.get_path_handle_of_step(step_pair.second));
-                REQUIRE(name1 == name2);
-                REQUIRE(correct_names.count(name1));
-            }
-                
-            map<string, string> true_trav_strings = {
-                {"ref", R"({"visit":[{"node_id":"11"},{"node_id":"10","backward":true},{"node_id":"9","backward":true},{"node_id":"8","backward":true}]})"},
-                {"alt1", R"({"visit":[{"node_id":"11"},{"node_id":"9","backward":true},{"node_id":"10"},{"node_id":"8","backward":true}]})"},
-                {"alt3", R"({"visit":[{"node_id":"11"},{"node_id":"9"},{"node_id":"10"},{"node_id":"8","backward":true}]})"},
-                {"alt4", R"({"visit":[{"node_id":"11"},{"node_id":"10","backward":true},{"node_id":"9","backward":true},{"node_id":"8","backward":true}]})"}
-            };
-            for (int i = 0; i < trav_results.first.size(); ++i) {
-                string name = graph.get_path_name(graph.get_path_handle_of_step(trav_results.second[i].first));                                
-                REQUIRE(true_trav_strings.count(name));
-                SnarlTraversal true_trav;
-                json2pb(true_trav, true_trav_strings[name]);
-                bool trav_is_correct = trav_results.first[i] == true_trav;
-                REQUIRE(trav_is_correct);
-            }
-        }
-
-        
-            
-    }
     */
 
    }
