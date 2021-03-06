@@ -95,10 +95,7 @@ namespace vg {
                 //The snarl 2,7 has one child (not counting the boundary nodes)
                 size_t node_count = 0;
                 REQUIRE(distance_index.is_snarl(top_snarl));
-                    cerr << "top snarl handle " << as_integer(top_snarl) << endl;
-                cerr << "Go through children of top snarl: " << distance_index.net_handle_as_string(top_snarl) << endl;
                 distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
-                    cerr << "  " << distance_index.net_handle_as_string(handle) << endl;
                     node_count++;
                     REQUIRE( distance_index.canonical(distance_index.get_parent(handle))
                             == distance_index.canonical(top_snarl));
@@ -1472,8 +1469,6 @@ namespace vg {
                 distance_index.print_self();
                 distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
 
-                    cerr << " child " << distance_index.net_handle_as_string(child) << endl;
-                    cerr << " child's parent: " << distance_index.net_handle_as_string(distance_index.get_parent(child)) << endl;
                     if (child_i == 0) {
                         REQUIRE(distance_index.is_node(child));
                         REQUIRE((graph.get_id(distance_index.get_handle(child, &graph)) == n0->id() ||
@@ -1543,9 +1538,7 @@ namespace vg {
 
                 net_handle_t snarl_end  = distance_index.get_bound(top_snarl_handle, true, true);
                 edge_count = 0;
-                cerr << "Following edges from end snarl node " << distance_index.net_handle_as_string(snarl_end) << endl;
                 distance_index.follow_net_edges(snarl_end, &graph, false, [&](const net_handle_t& other) {
-                    cerr << "  reached child " << distance_index.net_handle_as_string(other) << endl;
                     if (distance_index.is_chain(other)) {
                         id_t start_id = graph.get_id(distance_index.get_handle(
                                 distance_index.get_bound(other, false, true), &graph));
@@ -1625,8 +1618,6 @@ namespace vg {
                 net_handle_t top_snarl_handle;
                 size_t child_i = 0;
                 distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
-                    cerr << " child " << distance_index.net_handle_as_string(child) << endl;
-                    cerr << " child's parent: " << distance_index.net_handle_as_string(distance_index.get_parent(child)) << endl;
                     ;
                     if (child_i == 0 || child_i == 4) {
                         //FIrst or last child
@@ -1751,15 +1742,14 @@ namespace vg {
                 REQUIRE(found_7);
                 edge_count = 0;
                 distance_index.follow_net_edges(chain_4_6, &graph, !snarl_rev, [&](const net_handle_t& next) {
-                    cerr << distance_index.net_handle_as_string(next) << endl;
                     if (distance_index.is_chain(next)){
                         //This is the node 3
                         REQUIRE(distance_index.is_trivial_chain(next));
                         distance_index.for_each_child(next, [&](const net_handle_t& child){
                             REQUIRE(distance_index.is_node(child));
                             REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == n3->id());
-                            REQUIRE( distance_index.canonical(distance_index.get_parent(next))
-                                == distance_index.canonical(chain_4_6));
+                            REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                                == distance_index.canonical(next));
                         });
 
                     } else {
@@ -2456,7 +2446,6 @@ namespace vg {
                 //The top connected component is a chain with one snarl
                 size_t child_i = 0;
                 distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
-                    cerr << " At child of chain " << distance_index.net_handle_as_string(child) << endl;
                     if (child_i == 0 || child_i == 4) {
                         //start or end of chain
                         REQUIRE(distance_index.is_node(child));
@@ -2862,7 +2851,6 @@ namespace vg {
                 //The top connected component is a chain with one snarl
                 size_t child_i = 0;
                 distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
-                    cerr << "At child " << distance_index.net_handle_as_string(child) << endl;
                     if (distance_index.is_snarl(child)) {
                         REQUIRE(distance_index.is_snarl(child));
                         size_t grandchild_count = 0;
