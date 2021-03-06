@@ -259,6 +259,17 @@ int main_surject(int argc, char** argv) {
     
     if (input_format == "GAM" || input_format == "GAF") {
         
+        // Give helpful warning if someone tries to surject an un-surjectable GAF
+        auto check_gaf_aln = [&](const Alignment& src) {
+            if (src.has_path() && src.sequence().empty()) {
+#pragma omp critical
+                {
+                    cerr << "error:[surject] Read " << src.name() << " is aligned but does not have a sequence and therefore cannot be surjected. Was it derived from a GAF without a base-level alignment? or a GAF with a CIGAR string in the 'cg' tag (which does not provide enough information to reconstruct the sequence)?" << endl;
+                    exit(1);
+                }
+            }
+        };
+        
         // Set up output to an emitter that will handle serialization.
         // It should process output raw, without any surjection, and it should respect our parameter for whether to think with splicing.
         unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, sequence_dictionary, thread_count, xgidx, true, spliced);
@@ -322,7 +333,12 @@ int main_surject(int argc, char** argv) {
                     vg::io::for_each_interleaved_pair_parallel<Alignment>(in, lambda);
                 });
             } else {
-                vg::io::gaf_paired_interleaved_for_each_parallel(*xgidx, file_name, lambda);
+                auto gaf_checking_lambda = [&](Alignment& src1, Alignment& src2) {
+                    check_gaf_aln(src1);
+                    check_gaf_aln(src2);
+                    return lambda(src1, src2);
+                };
+                vg::io::gaf_paired_interleaved_for_each_parallel(*xgidx, file_name, gaf_checking_lambda);
             }
         } else {
             // We can just surject each Alignment by itself.
@@ -340,7 +356,11 @@ int main_surject(int argc, char** argv) {
                     vg::io::for_each_parallel<Alignment>(in,lambda);
                 });
             } else {
-                vg::io::gaf_unpaired_for_each_parallel(*xgidx, file_name, lambda);
+                auto gaf_checking_lambda = [&](Alignment& src) {
+                    check_gaf_aln(src);
+                    return lambda(src);
+                };
+                vg::io::gaf_unpaired_for_each_parallel(*xgidx, file_name, gaf_checking_lambda);
             }
         }
     } else if (input_format == "GAMP") {
