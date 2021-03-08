@@ -24,7 +24,7 @@ public:
     SnarlDistanceIndex();
 
     //Fill in the index
-    SnarlDistanceIndex(const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder);
+    SnarlDistanceIndex(const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit = 500);
 
 private:
     
@@ -73,9 +73,17 @@ private:
      *   For each of the "rank_in_parent" fields, the last bit is 1 if it is reversed in the parent
      *
      */
+    
+    vector<size_t> snarl_tree_records;
 
-    //TODO: I'm not sure this should be static, at least for construction?
-     vector<size_t> snarl_tree_records;
+    /* If this is 0, then don't store distances
+     * Otherwise, for snarls with more children than snarl_size_limit, only store the distances
+     * that include boundary nodes (OVERSIZED_SNARL)
+     */
+    size_t snarl_size_limit = 500;
+
+
+    
      //TODO: Get rid of this
      public:
         void print_self() {
@@ -85,7 +93,7 @@ private:
             }
             cerr << endl;
         }
-        private:
+    private:
 
     /*
      *
@@ -677,7 +685,6 @@ private:
         virtual void set_start_start_connected() {
 #ifdef debug_indexing
             cerr << record_offset << " set start_start_connected" << endl;
-            assert(records->at(record_offset) == 0);
 #endif
             records->at(record_offset) = records->at(record_offset) | 32;
         }
@@ -1191,16 +1198,15 @@ private:
         }
         void set_distance(size_t rank1, bool right_side1, size_t rank2, bool right_side2, int64_t distance) {
             //offset of the start of the distance vectors in snarl_tree_records
-            size_t distance_vector_start = SnarlRecord::record_offset + get_node_count();
+            size_t distance_vector_start = SnarlRecord::record_offset + SNARL_RECORD_SIZE + get_node_count();
             //Offset of this particular distance in the distance vector
             size_t distance_vector_offset = get_distance_vector_offset(rank1, right_side1, rank2, right_side2);
 
             size_t val = distance == std::numeric_limits<int64_t>::max() ? 0 : distance+1;
+#ifdef debug_indexing
+            cerr <<  distance_vector_start + distance_vector_offset << " set distance_value " << val << endl;
             assert(SnarlTreeRecordConstructor::records->at(distance_vector_start + distance_vector_offset) == 0 || 
                     SnarlTreeRecordConstructor::records->at(distance_vector_start + distance_vector_offset) == val);
-#ifdef debug_indexing
-            cerr << distance_vector_start + distance_vector_offset << " set distance_value " << val << endl;
-            assert(SnarlTreeRecordConstructor::records->at(distance_vector_start + distance_vector_offset) == 0);
 #endif
 
             SnarlTreeRecordConstructor::records->at(distance_vector_start + distance_vector_offset) = val;
@@ -1668,7 +1674,7 @@ protected:
     public:
         TemporaryDistanceIndex();
         ~TemporaryDistanceIndex();
-        TemporaryDistanceIndex(const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder);
+        TemporaryDistanceIndex(const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit);
 
         //Get a string of the start and end of a structure
         string structure_start_end_as_string(pair<temp_record_t, size_t> index) const;
@@ -1701,6 +1707,7 @@ protected:
             size_t rank_in_parent;
             bool reversed_in_parent;
             bool is_trivial;
+            bool is_tip = false;
         };
         struct TemporarySnarlRecord : TemporaryRecord{
             id_t start_node_id;
@@ -1714,6 +1721,7 @@ protected:
             int64_t max_length;
             pair<temp_record_t, size_t> parent;
             vector<pair<temp_record_t, size_t>> children; //All children, nodes and chains, in arbitrary order
+            unordered_set<size_t> tippy_child_ranks; //The ranks of children that are tips
             unordered_map<pair<pair<size_t, bool>, pair<size_t, bool>>, int64_t> distances;
             size_t rank_in_parent;
             bool reversed_in_parent;
@@ -1721,6 +1729,7 @@ protected:
             int64_t loop_start;
             int64_t loop_end;
             bool is_trivial;
+            bool is_tip = false;
         };
         struct TemporaryNodeRecord : TemporaryRecord{
             TemporaryNodeRecord() :
@@ -1732,6 +1741,7 @@ protected:
             size_t node_length;
             size_t rank_in_parent;
             bool reversed_in_parent;
+            bool is_tip = false;
         };
 
 
@@ -1743,7 +1753,7 @@ protected:
 
         //Fill in the temporary snarl record with distances
         void populate_snarl_index(TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record, 
-            pair<temp_record_t, size_t> snarl_index, const HandleGraph* graph) ;
+            pair<temp_record_t, size_t> snarl_index, size_t size_limit, const HandleGraph* graph) ;
     };
 
     //Given an arbitrary number of temporary indexes, produce the final one
