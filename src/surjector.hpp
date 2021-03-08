@@ -7,6 +7,7 @@
  */
 
 #include <set>
+#include <atomic>
 
 #include "alignment.hpp"
 #include "aligner.hpp"
@@ -85,6 +86,12 @@ using namespace std;
         int64_t min_splice_length = 20;
         
         int64_t dominated_path_chunk_diff = 10;
+        
+        /// How big of a graph in bp should we ever try to align against for realigning surjection?
+        size_t max_subgraph_bases = 100 * 1024;
+        
+        /// And have we complained about hitting it?
+        mutable atomic_flag warned_about_subgraph_size = ATOMIC_FLAG_INIT;
         
     protected:
         

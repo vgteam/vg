@@ -13,6 +13,11 @@
 //#define debug_banded_aligner_fill_matrix
 //#define debug_banded_aligner_traceback
 //#define debug_banded_aligner_print_matrices
+//#define debug_jemalloc
+
+#ifdef debug_jemalloc
+#include <jemalloc/jemalloc.h>
+#endif
 
 namespace vg {
 
@@ -255,6 +260,51 @@ void BandedGlobalAligner<IntType>::BAMatrix::fill_matrix(const HandleGraph& grap
     match = (IntType*) malloc(sizeof(IntType) * band_size);
     insert_col = (IntType*) malloc(sizeof(IntType) * band_size);
     insert_row = (IntType*) malloc(sizeof(IntType) * band_size);
+    if (!match || !insert_col || !insert_row) {
+        // An allocation has failed.
+        // We may have run out of virtual memory.
+        
+#ifdef debug_jemalloc
+        size_t requested_size = sizeof(IntType) * band_size;
+        size_t usable_size[3] = {0, 0, 0};
+#endif
+        
+        // Free up what we are holding, and also report how much usable mamoey jemalloc gave us for anything that passed.
+        if (match) {
+#ifdef debug_jemalloc
+            usable_size[0] = malloc_usable_size(match);
+#endif
+            free(match);
+        }
+        if (insert_col) {
+#ifdef debug_jemalloc
+            usable_size[1] = malloc_usable_size(insert_col);
+#endif
+            free(insert_col);
+        }
+        if (insert_row) {
+#ifdef debug_jemalloc
+            usable_size[2] = malloc_usable_size(insert_row);
+#endif
+            free(insert_row);
+        }
+        
+        cerr << "[BAMatrix::fill_matrix]: failed to allocate matrices of height " << band_height << " and width " << ncols << " for a total cell count of " << band_size << endl;
+#ifdef debug_jemalloc
+        cerr << "[BAMatrix::fill_matrix]: requested: " << requested_size << " actually obtained: " << usable_size[0] << " " << usable_size[1] << " " << usable_size[2] << endl;
+#endif
+        cerr << "[BAMatrix::fill_matrix]: is alignment problem too big for your virtual or physical memory?" << endl;
+        
+#ifdef debug_jemalloc
+        // Dump the stats from the allocator.
+        // TODO: skip when not building with jemalloc somehow.
+        malloc_stats_print(nullptr, nullptr, "");
+#endif
+        
+        // Bail out relatively safely
+        throw std::bad_alloc();
+    }
+    
     /* these represent a band in a matrix, but we store it as a rectangle with chopped
      * corners
      *
