@@ -203,6 +203,14 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a0985bcf3a1ed28098bf0271b251dd6e2"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a0985bcf3a1ed28098bf0271b251dd6e2">max_rescue_attempts</a> = 15</td></tr>
 <tr class="memdesc:a0985bcf3a1ed28098bf0271b251dd6e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">For paired end mapping, how many times should we attempt rescue (per read)?  <a href="classvg_1_1MinimizerMapper.html#a0985bcf3a1ed28098bf0271b251dd6e2">More...</a><br /></td></tr>
 <tr class="separator:a0985bcf3a1ed28098bf0271b251dd6e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa462df061307b0b35996a6ecd33091f7"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aa462df061307b0b35996a6ecd33091f7">max_dozeu_cells</a> = (size_t)(1.5 * 1024 * 1024)</td></tr>
+<tr class="separator:aa462df061307b0b35996a6ecd33091f7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a70bd402b25f6008362e82858be9fe9bc"><td class="memItemLeft" align="right" valign="top">atomic_flag&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a70bd402b25f6008362e82858be9fe9bc">warned_about_rescue_size</a> = ATOMIC_FLAG_INIT</td></tr>
+<tr class="memdesc:a70bd402b25f6008362e82858be9fe9bc"><td class="mdescLeft">&#160;</td><td class="mdescRight">And have we complained about hitting it for rescue?  <a href="classvg_1_1MinimizerMapper.html#a70bd402b25f6008362e82858be9fe9bc">More...</a><br /></td></tr>
+<tr class="separator:a70bd402b25f6008362e82858be9fe9bc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0b74ef2cf6f1fd04290172a91623584a"><td class="memItemLeft" align="right" valign="top">atomic_flag&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a0b74ef2cf6f1fd04290172a91623584a">warned_about_tail_size</a> = ATOMIC_FLAG_INIT</td></tr>
+<tr class="memdesc:a0b74ef2cf6f1fd04290172a91623584a"><td class="mdescLeft">&#160;</td><td class="mdescRight">And have we complained about hitting it for tails?  <a href="classvg_1_1MinimizerMapper.html#a0b74ef2cf6f1fd04290172a91623584a">More...</a><br /></td></tr>
+<tr class="separator:a0b74ef2cf6f1fd04290172a91623584a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4575d140e45d04d3d36e6a99bf7b0241"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4575d140e45d04d3d36e6a99bf7b0241">max_fragment_length</a> = 2000</td></tr>
 <tr class="memdesc:a4575d140e45d04d3d36e6a99bf7b0241"><td class="mdescLeft">&#160;</td><td class="mdescRight">What is the maximum fragment length that we accept as valid for paired-end reads?  <a href="classvg_1_1MinimizerMapper.html#a4575d140e45d04d3d36e6a99bf7b0241">More...</a><br /></td></tr>
 <tr class="separator:a4575d140e45d04d3d36e6a99bf7b0241"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2766,6 +2774,21 @@ template&lt;typename Item , typename Score &gt; </div>
 
 </div>
 </div>
+<a id="aa462df061307b0b35996a6ecd33091f7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa462df061307b0b35996a6ecd33091f7">&#9670;&nbsp;</a></span>max_dozeu_cells</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MinimizerMapper::max_dozeu_cells = (size_t)(1.5 * 1024 * 1024)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>How big of an alignment in POA cells should we ever try to do with Dozeu? TODO: Lift this when Dozeu's allocator is able to work with &gt;4 MB of memory. Each cell is 16 bits in Dozeu, and we leave some room for the query and padding to full SSE registers. Note that a very chopped graph might still break this! </p>
+
+</div>
+</div>
 <a id="a5d03747a37700e9a3f73c308709f70d1"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a5d03747a37700e9a3f73c308709f70d1">&#9670;&nbsp;</a></span>max_extensions</h2>
 
@@ -3088,6 +3111,46 @@ template&lt;typename Item , typename Score &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a70bd402b25f6008362e82858be9fe9bc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a70bd402b25f6008362e82858be9fe9bc">&#9670;&nbsp;</a></span>warned_about_rescue_size</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">atomic_flag vg::MinimizerMapper::warned_about_rescue_size = ATOMIC_FLAG_INIT</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>And have we complained about hitting it for rescue? </p>
+
+</div>
+</div>
+<a id="a0b74ef2cf6f1fd04290172a91623584a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0b74ef2cf6f1fd04290172a91623584a">&#9670;&nbsp;</a></span>warned_about_tail_size</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">atomic_flag vg::MinimizerMapper::warned_about_tail_size = ATOMIC_FLAG_INIT</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">mutable</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>And have we complained about hitting it for tails? </p>
 
 </div>
 </div>
