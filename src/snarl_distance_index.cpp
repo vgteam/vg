@@ -117,6 +117,8 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
 
         if (temp_chain_record.children.size() == 1 && temp_chain_record.start_node_id == temp_chain_record.end_node_id) {
             temp_chain_record.is_trivial = true;
+            temp_chain_record.start_node_rev = false;
+            temp_chain_record.end_node_rev = false;
         }
 
 
@@ -357,7 +359,7 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
                 : temp_chain_records.at(start_index.second).rank_in_parent;
         if (start_index.first == TEMP_NODE && start_index.second == temp_snarl_record.start_node_id) {
             start_rank = 0;
-        } else if (start_index.first == TEMP_NODE && start_index.second == temp_snarl_record.end_node_id) {
+        } else if (start_index.second == temp_snarl_record.end_node_id) {
             start_rank = 1;
         } else {
             assert(start_rank != 0 && start_rank != 1);
@@ -462,8 +464,9 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
                     } else {
                         assert(next_rank != 0 && next_rank != 1);
                     }
-                    bool next_rev = next_index.first == TEMP_NODE ? graph->get_is_reverse(next_handle) :
-                            graph->get_id(next_handle) == temp_chain_records[next_index.second].end_node_id;
+                    bool next_rev = next_index.first == TEMP_NODE || temp_chain_records[next_index.second].is_trivial 
+                            ? graph->get_is_reverse(next_handle) 
+                            : graph->get_id(next_handle) == temp_chain_records[next_index.second].end_node_id;
 
                     if (size_limit != 0 &&
                         (temp_snarl_record.node_count < size_limit ||

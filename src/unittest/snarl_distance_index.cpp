@@ -2219,6 +2219,19 @@ namespace vg {
                     });
                     REQUIRE(chain_child_i == 5);
 
+                    SECTION( "Chain can only traverse start to end") {
+                        size_t traversal_count = 0;
+                        distance_index.for_each_traversal(top_chain_handle, [&](const net_handle_t net) {
+
+                            bool start_end = distance_index.starts_at(net) == SnarlDecomposition::START &&
+                                distance_index.ends_at(net) == SnarlDecomposition::END;
+                            bool end_start = distance_index.starts_at(net) == SnarlDecomposition::END &&
+                                distance_index.ends_at(net) == SnarlDecomposition::START;
+                            REQUIRE((start_end || end_start));
+                            traversal_count++;
+                        });
+                        REQUIRE(traversal_count == 2);
+                    }
                     
                     SECTION("First child is from 1 end to 6 start") {
                         
@@ -2293,6 +2306,19 @@ namespace vg {
                                             REQUIRE(distance_index.is_trivial_chain(grandchild));
                                         });
                                     }
+
+                                    size_t traversal_count = 0;
+                                    distance_index.for_each_traversal(child, [&](const net_handle_t net) {
+
+                                        bool start_end = distance_index.starts_at(net) == SnarlDecomposition::START &&
+                                            distance_index.ends_at(net) == SnarlDecomposition::END;
+                                        bool end_start = distance_index.starts_at(net) == SnarlDecomposition::END &&
+                                            distance_index.ends_at(net) == SnarlDecomposition::START;
+                                        REQUIRE((start_end || end_start));
+                                        traversal_count++;
+                                    });
+                                    REQUIRE(traversal_count == 2);
+                       
                                     subchild_count ++;
                                     return true;
                                 });
@@ -2319,7 +2345,7 @@ namespace vg {
                             REQUIRE(found_snarl);
                         }
                         
-                        SECTION("Second child has no children") {
+                        SECTION("Second child has no grandchildren") {
                             //Subchild is snarl 2-5, which only has trivial children
                             size_t child_count = 0;
                             distance_index.for_each_child(child2, [&](const net_handle_t& subchild) {
@@ -2328,6 +2354,19 @@ namespace vg {
                                 return true;
                             });
                             REQUIRE(child_count == 2);
+                        }
+                        SECTION( "Second child can only traverse start to end") {
+                            size_t traversal_count = 0;
+                            distance_index.for_each_traversal(child2, [&](const net_handle_t net) {
+
+                                bool start_end = distance_index.starts_at(net) == SnarlDecomposition::START &&
+                                    distance_index.ends_at(net) == SnarlDecomposition::END;
+                                bool end_start = distance_index.starts_at(net) == SnarlDecomposition::END &&
+                                    distance_index.ends_at(net) == SnarlDecomposition::START;
+                                REQUIRE((start_end || end_start));
+                                traversal_count++;
+                            });
+                            REQUIRE(traversal_count == 2);
                         }
                     }
                     
@@ -2405,6 +2444,20 @@ namespace vg {
                     }
                 });
                 REQUIRE(chain_child_count == 2);
+
+                SECTION( "Chain can only traverse start to end") {
+                    size_t traversal_count = 0;
+                    distance_index.for_each_traversal(top_chain_handle, [&](const net_handle_t net) {
+
+                        bool start_end = distance_index.starts_at(net) == SnarlDecomposition::START &&
+                            distance_index.ends_at(net) == SnarlDecomposition::END;
+                        bool end_start = distance_index.starts_at(net) == SnarlDecomposition::END &&
+                            distance_index.ends_at(net) == SnarlDecomposition::START;
+                        REQUIRE((start_end || end_start));
+                        traversal_count++;
+                    });
+                    REQUIRE(traversal_count == 2);
+                }
             }
         }
 
@@ -2507,8 +2560,35 @@ namespace vg {
                         REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == 6);
                     }
                     child_i++;
-                });
-                REQUIRE(child_i == 5);
+
+                    SECTION( "Snarl can only traverse start to end") {
+                        size_t traversal_count = 0;
+                        distance_index.for_each_traversal(child, [&](const net_handle_t net) {
+
+                            bool start_end = distance_index.starts_at(net) == SnarlDecomposition::START &&
+                                distance_index.ends_at(net) == SnarlDecomposition::END;
+                            bool end_start = distance_index.starts_at(net) == SnarlDecomposition::END &&
+                                distance_index.ends_at(net) == SnarlDecomposition::START;
+                            REQUIRE((start_end || end_start));
+                            traversal_count++;
+                        });
+                        REQUIRE(traversal_count == 2);
+                    }
+                        });
+                        REQUIRE(child_i == 5);
+                SECTION( "Chain can only traverse start to end") {
+                    size_t traversal_count = 0;
+                    distance_index.for_each_traversal(top_chain_handle, [&](const net_handle_t net) {
+    
+                        bool start_end = distance_index.starts_at(net) == SnarlDecomposition::START &&
+                            distance_index.ends_at(net) == SnarlDecomposition::END;
+                        bool end_start = distance_index.starts_at(net) == SnarlDecomposition::END &&
+                            distance_index.ends_at(net) == SnarlDecomposition::START;
+                        REQUIRE((start_end || end_start));
+                        traversal_count++;
+                    });
+                    REQUIRE(traversal_count == 2);
+                }
             }
         }
 
@@ -2610,6 +2690,19 @@ namespace vg {
                         REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == 6);
                     }
                     child_i++;
+                    SECTION( "child can only traverse start to end") {
+                        size_t traversal_count = 0;
+                        distance_index.for_each_traversal(child, [&](const net_handle_t net) {
+    
+                            bool start_end = distance_index.starts_at(net) == SnarlDecomposition::START &&
+                                distance_index.ends_at(net) == SnarlDecomposition::END;
+                            bool end_start = distance_index.starts_at(net) == SnarlDecomposition::END &&
+                                distance_index.ends_at(net) == SnarlDecomposition::START;
+                            REQUIRE((start_end || end_start));
+                            traversal_count++;
+                        });
+                        REQUIRE(traversal_count == 2);
+                    }
                 });
                 REQUIRE(child_i == 5);
             }
@@ -2679,10 +2772,99 @@ namespace vg {
                             grandchild_count++;
                         });
                         REQUIRE(grandchild_count == 2);
+                        /*TODO: I think it should have no connectivity
+                        SECTION( "snarl can only traverse start-tip or end-tip") {
+                            size_t traversal_count = 0;
+                            distance_index.for_each_traversal(child, [&](const net_handle_t net) {
+                                traversal_count++;
+                            });
+                            REQUIRE(traversal_count == 0);
+                        }
+                        */
                     }
                     child_i++;
                 });
                 REQUIRE(child_i == 3);
+            }
+        }
+
+        TEST_CASE("Chain can be found when heads cannot reach tails", "[snarl_distance]") {
+            
+            // Build a toy graph
+            // Looks like:
+            //
+            //1---2
+            //     \
+            //  3---4
+            //   \
+            //    5---6 
+            //
+            // This makes a chain with snarls (1,2), (2,5), (5,6)
+            // where (1,2) and (5,6) are trivial and the snarl (2,5) is not start-end reachable
+            //
+            // TODO: I think this would break the distance index's chain prefix sum
+            const string graph_json = R"(
+            
+            {
+                "node": [
+                    {"id": 1, "sequence": "A"},
+                    {"id": 2, "sequence": "A"},
+                    {"id": 3, "sequence": "A"},
+                    {"id": 4, "sequence": "A"},
+                    {"id": 5, "sequence": "A"},
+                    {"id": 6, "sequence": "A"}
+                ],
+                "edge": [
+                    {"from": 1, "to": 2},
+                    {"from": 3, "to": 4},
+                    {"from": 5, "to": 6},
+                    {"from": 2, "to": 4},
+                    {"from": 3, "to": 5}
+                ]
+            }
+            
+            )";
+            
+            // Make an actual graph
+            VG graph;
+            Graph chunk;
+            json2pb(chunk, graph_json.c_str(), graph_json.size());
+            graph.extend(chunk);
+            cerr << "Made graph" << endl;
+            
+            IntegratedSnarlFinder snarl_finder(graph); 
+            cerr << "Made snarl finder" << endl;
+            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            cerr << "made index" << endl;
+           
+            SECTION("Root should have one child actual bubble") {
+
+                net_handle_t root_handle = distance_index.get_root();
+                net_handle_t top_chain_handle;
+                size_t component_count = 0;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    component_count += 1;
+                    top_chain_handle = child;
+                });
+                REQUIRE(component_count == 1);
+                REQUIRE(distance_index.is_chain(top_chain_handle));
+
+
+                //The top connected component is a chain with one snarl
+                size_t child_i = 0;
+                distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+                    if (distance_index.is_snarl(child)) {
+                        REQUIRE(distance_index.is_snarl(child));
+                        size_t grandchild_count = 0;
+                        distance_index.for_each_child(child, [&](const net_handle_t& grandchild) {
+                            REQUIRE(distance_index.is_trivial_chain(grandchild));
+                            grandchild_count++;
+                        });
+                        REQUIRE(grandchild_count == 2);
+                    }
+                    child_i++;
+                });
+                REQUIRE(child_i == 5);
             }
         }
         /*
