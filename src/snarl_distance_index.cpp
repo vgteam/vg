@@ -349,7 +349,10 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
     all_children.emplace_back(TEMP_NODE, temp_snarl_record.start_node_id);
     all_children.emplace_back(TEMP_NODE, temp_snarl_record.end_node_id);
 
-    for (const pair<temp_record_t, size_t>& start_index : all_children) {
+    while (!all_children.empty()) {
+        const pair<temp_record_t, size_t> start_index = std::move(all_children.back());
+        all_children.pop_back();
+
         bool start_is_tip = start_index.first == TEMP_NODE 
                       ? temp_node_records.at(start_index.second-min_node_id).is_tip 
                       : temp_chain_records.at(start_index.second).is_tip;
@@ -444,6 +447,9 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
                         temp_snarl_record.is_trivial = false;
                         temp_snarl_record.children.emplace_back(TEMP_NODE, graph->get_id(next_handle));
                         temp_snarl_record.tippy_child_ranks.insert(node_record.rank_in_parent);
+
+                        //TODO: Is it bad to change the list as we're walking through it?
+                        all_children.emplace_back(TEMP_NODE, graph->get_id(next_handle)); 
                     }
 
                     //The index of the snarl's child that next_handle represents
