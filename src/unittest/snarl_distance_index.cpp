@@ -3,6 +3,7 @@
 //
 //  Unit tests for SnarlDistanceIndex and related functions
 //
+//TODO: Tips at the end of the top-level chain?
 
 #include <stdio.h>
 #include <iostream>
@@ -1466,7 +1467,6 @@ namespace vg {
                 //The top connected component is a chain with one snarl and four boundaries
                 net_handle_t top_snarl_handle;
                 size_t child_i = 0;
-                distance_index.print_self();
                 distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
 
                     if (child_i == 0) {
@@ -1638,6 +1638,24 @@ namespace vg {
                             == distance_index.canonical(top_chain_handle));
                 });
                 REQUIRE(child_i == 5);
+
+                SECTION( "Index finds only possible traversals") {
+                    size_t traversal_count = 0;
+                    distance_index.for_each_traversal(top_snarl_handle, [&](const net_handle_t net) {
+
+                        bool end_end = distance_index.starts_at(net) == SnarlDecomposition::END &&
+                            distance_index.ends_at(net) == SnarlDecomposition::END;
+                        if (graph.get_id(distance_index.get_handle(distance_index.get_bound(top_snarl_handle, false, false), &graph)) == 7) {
+                            end_end = distance_index.starts_at(net) == SnarlDecomposition::START &&
+                                 distance_index.ends_at(net) == SnarlDecomposition::START;
+                        }
+                        bool tip_tip = distance_index.starts_at(net) == SnarlDecomposition::TIP &&
+                            distance_index.ends_at(net) == SnarlDecomposition::TIP;
+                        REQUIRE((! tip_tip && !end_end));
+                        traversal_count++;
+                    });
+                    REQUIRE(traversal_count == 7);
+                }
 
                 //Get graph handle for bounds of the top snarl facing in
                 handle_t top_snarl_start = distance_index.get_handle(
@@ -2218,6 +2236,19 @@ namespace vg {
                                                                  graph.get_is_reverse(end) == true);
                             bool found_snarl = found_in_forward_orientation || found_in_reverse_orientation;
                             REQUIRE(found_snarl);
+                        }
+                        SECTION( "Child1 can only traverse start to end") {
+                            size_t traversal_count = 0;
+                            distance_index.for_each_traversal(child1, [&](const net_handle_t net) {
+
+                                bool start_end = distance_index.starts_at(net) == SnarlDecomposition::START &&
+                                    distance_index.ends_at(net) == SnarlDecomposition::END;
+                                bool end_start = distance_index.starts_at(net) == SnarlDecomposition::END &&
+                                    distance_index.ends_at(net) == SnarlDecomposition::START;
+                                REQUIRE((start_end || end_start));
+                                traversal_count++;
+                            });
+                            REQUIRE(traversal_count == 2);
                         }
                         
                         SECTION("First child has a child from 2 end to 5 start") {

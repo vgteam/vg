@@ -450,6 +450,8 @@ private:
         virtual bool is_tip_tip_connected() const {return records->at(record_offset) & 1;}
 
         virtual bool has_connectivity(connectivity_t connectivity) const {
+            cerr << "Get connectivity for " << records->at(record_offset) << endl;
+            cerr << "  Check if it is " << connectivity << endl;
             if (connectivity == START_START) {
                 return is_start_start_connected();
             } else if (connectivity == START_END || connectivity == END_START) {
@@ -889,7 +891,6 @@ private:
         }
         virtual bool for_each_child(const std::function<bool(const handlegraph::net_handle_t&)>& iteratee) const {
             size_t connected_component_count = get_connected_component_count();
-            cerr << "Get " << connected_component_count << " children from root " << endl;
             for (size_t i = 0 ; i < connected_component_count ; i++) {
                 size_t child_offset = records->at(record_offset + ROOT_RECORD_SIZE + i);
                 net_handle_record_t type = SnarlTreeRecord(child_offset, records).get_record_handle_type(); 
@@ -1006,6 +1007,7 @@ private:
             NodeRecord::record_offset =  pointer;
             SnarlTreeRecordConstructor::record_offset =  pointer;
             set_record_type(type);
+            set_start_end_connected();
         }
         virtual void set_node_length(size_t length) {
 #ifdef debug_indexing
@@ -1108,8 +1110,8 @@ private:
                 //start and end
                 if (rank1 == 0) {
                     return rank2;
-                } else if (rank2 == node_side_count-1) {
-                    return node_count + 2 + rank1;
+                } else if (rank1 == 1) {
+                    return node_count + 2 + rank2;
                 } else {
                     throw runtime_error("error: trying to access distance in an oversized snarl");
                 }
@@ -1694,6 +1696,7 @@ protected:
             bool start_node_rev;
             id_t end_node_id;
             bool end_node_rev;
+            size_t end_node_length;
             //Type of the parent and offset into the appropriate vector
             //(TEMP_ROOT, 0) if this is a root level chain
             pair<temp_record_t, size_t> parent;
