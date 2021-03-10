@@ -1,5 +1,6 @@
 #include "deconstructor.hpp"
 #include "traversal_finder.hpp"
+#include <gbwtgraph/gbwtgraph.h>
 
 //#define debug
 
@@ -108,7 +109,7 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
     assert(names.size() == trav_to_allele.size());
     // set up our variant fields
     v.format.push_back("GT");
-    if (path_to_sample) {
+    if (path_to_sample && path_restricted) {
         v.format.push_back("PI");
     }
 
@@ -157,7 +158,7 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
             }
         } else {
             v.samples[sample_name]["GT"] = {"."};
-            if (path_to_sample) {
+            if (path_to_sample && path_restricted) {
                 v.samples[sample_name]["PI"] = {"."};
             }
         }
@@ -271,29 +272,42 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         return false;
     }
 
-    // add in the exhaustive traversals
     if (!path_restricted) {
-        // exhaustive traversal can't do all snarls
-        if (snarl->type() != ULTRABUBBLE) {
-            return false;
-        }
-        if (!check_max_nodes(snarl)) {
+        if (gbwt_trav_finder.get() != nullptr) {
+            // add in the gbwt traversals
+            pair<vector<SnarlTraversal>, vector<string>> sample_travs = gbwt_trav_finder->find_sample_traversals(*snarl);
+            for (int i = 0; i < sample_travs.first.size(); ++i) {
+                path_trav_names.push_back(sample_travs.second[i]);
+                path_travs.first.push_back(sample_travs.first[i]);
+                // dummy handles so we can use the same code as the named path traversals above
+                path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
+            }
+        } else {
+            // add in the exhaustive traversals
+            vector<SnarlTraversal> additional_travs;
+                        
+            // exhaustive traversal can't do all snarls
+            if (snarl->type() != ULTRABUBBLE) {
+                return false;
+            }
+            if (!check_max_nodes(snarl)) {
 #pragma omp critical (cerr)
-            cerr << "Warning: Skipping site because it is too complex for exhaustive traversal enumeration: " << pb2json(*snarl) << endl << "         Consider using -e to traverse embedded paths" << endl;
-            return false;
-        }
-        vector<SnarlTraversal> exhaustive_travs = explicit_exhaustive_traversals(snarl);
-        // happens when there was a nested non-ultrabubble snarl
-        if (exhaustive_travs.empty()) {
-            return false;
-        }
-        path_travs.first.insert(path_travs.first.end(), exhaustive_travs.begin(), exhaustive_travs.end());
-        for (int i = 0; i < exhaustive_travs.size(); ++i) {
-            // dummy names so we can use the same code as the named path traversals above
-            path_trav_names.push_back(" >>" + std::to_string(i));
-            // dummy handles so we can use the same code as the named path traversals above
-            path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
-            
+                cerr << "Warning: Skipping site because it is too complex for exhaustive traversal enumeration: " << pb2json(*snarl) << endl << "         Consider using -e to traverse embedded paths" << endl;
+                return false;
+            }
+            additional_travs = explicit_exhaustive_traversals(snarl);
+         
+            // happens when there was a nested non-ultrabubble snarl
+            if (additional_travs.empty()) {
+                return false;
+            }
+            path_travs.first.insert(path_travs.first.end(), additional_travs.begin(), additional_travs.end());
+            for (int i = 0; i < additional_travs.size(); ++i) {
+                // dummy names so we can use the same code as the named path traversals above
+                path_trav_names.push_back(" >>" + std::to_string(i));
+                // dummy handles so we can use the same code as the named path traversals above
+                path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
+            }
         }
     }
     
@@ -353,8 +367,23 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         vector<int> trav_to_allele = get_alleles(v, path_travs.first, ref_trav_idx, prev_char, use_start);
 
         // Fill in the genotypes
-        if (path_restricted) {
+        if (path_restricted || gbwt_trav_finder.get()) {
             get_genotypes(v, path_trav_names, trav_to_allele);
+        }
+
+        // Fill in some snarl hierarchy information
+        if (include_nested) {
+            // would be nicer to do this constant time!
+            size_t level = 0;
+            for (const Snarl* cur = snarl; !snarl_manager->is_root(cur); cur = snarl_manager->parent_of(cur)) {
+                ++level;
+            }
+            v.info["LEVEL"].push_back(std::to_string(level));
+            if (level > 0) {
+                const Snarl* parent = snarl_manager->parent_of(snarl);
+                string parent_id = std::to_string(parent->start().node_id()) + "_" + std::to_string(parent->end().node_id());
+                v.info["PARENT"].push_back(parent_id);
+            } 
         }
 
         // we only bother printing out sites with at least 1 non-reference allele
@@ -373,7 +402,8 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
  */
 void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
                                 bool path_restricted_traversals, int ploidy, bool include_nested,
-                                const unordered_map<string, string>* path_to_sample) {
+                                const unordered_map<string, string>* path_to_sample,
+                                gbwt::GBWT* gbwt) {
 
     this->graph = graph;
     this->snarl_manager = snarl_manager;
@@ -381,7 +411,8 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     this->ploidy =ploidy;
     this->path_to_sample = path_to_sample;
     this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
-    assert(path_to_sample == nullptr || path_restricted);
+    this->include_nested = include_nested;
+    assert(path_to_sample == nullptr || path_restricted || gbwt);
     
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
     sample_names.clear();
@@ -401,16 +432,36 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                 }
             }
         });
+    if (gbwt) {
+        // add in sample names from the gbwt
+        for (size_t i = 0; i < gbwt->metadata.paths(); i++) {
+            string sample_name = thread_sample(*gbwt, i);
+            if (sample_name != gbwtgraph::REFERENCE_PATH_SAMPLE_NAME &&
+                (path_to_sample == nullptr || path_to_sample->count(sample_name))) {
+                sample_names.insert(thread_sample(*gbwt, i));
+            }
+        }
+    }
     
     // print the VCF header
     stringstream stream;
     stream << "##fileformat=VCFv4.2" << endl;
-    if (path_restricted) {
+    if (path_restricted || gbwt) {
         stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
     }
-    if (path_to_sample) {
+    if (path_to_sample && path_restricted) {
         stream << "##FORMAT=<ID=PI,Number=.,Type=String,Description=\"Path information. Original vg path name for sample as well as its allele (can be many paths per sample)\">" << endl;
-        stream << "##INFO=<ID=CONFLICT,Number=.,Type=String,Description=\"Sample names for which there are multiple paths in the graph with conflicting alleles (details in PI field)\">" << endl;
+    }
+    if (path_to_sample || gbwt) {
+        stream << "##INFO=<ID=CONFLICT,Number=.,Type=String,Description=\"Sample names for which there are multiple paths in the graph with conflicting alleles";
+        if (!gbwt) {
+            stream << " (details in PI field)";
+        }
+        stream << "\">" << endl;
+    }
+    if (include_nested) {
+        stream << "##INFO=<ID=LEVEL,Number=1,Type=Integer,Description=\"Level in the snarl tree (0=top level)\">" << endl;
+        stream << "##INFO=<ID=PARENT,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
     }
     for(auto& refpath : ref_paths) {
         size_t path_len = 0;
@@ -421,7 +472,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         stream << "##contig=<ID=" << refpath << ",length=" << path_len << ">" << endl;
     }
     stream << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT";
-    if (path_restricted) {
+    if (path_restricted || gbwt) {
         for (auto& sample_name : sample_names) {
             stream << "\t" << sample_name;
         }
@@ -437,11 +488,15 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*graph,
                                                                                *snarl_manager));
     
-    if (!path_restricted) {
+    if (!path_restricted && !gbwt) {
         trav_finder = unique_ptr<TraversalFinder>(new ExhaustiveTraversalFinder(*graph,
                                                                                 *snarl_manager,
                                                                                 true));
 
+    }
+    
+    if (gbwt != nullptr) {
+        gbwt_trav_finder = unique_ptr<GBWTTraversalFinder>(new GBWTTraversalFinder(*graph, *gbwt));
     }
     
     // Do the top-level snarls in parallel

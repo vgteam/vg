@@ -33,7 +33,8 @@ public:
     // deconstruct the entire graph to cout
     void deconstruct(vector<string> refpaths, const PathPositionHandleGraph* grpah, SnarlManager* snarl_manager,
                      bool path_restricted_traversals, int ploidy, bool include_nested,
-                     const unordered_map<string, string>* path_to_sample = nullptr); 
+                     const unordered_map<string, string>* path_to_sample = nullptr,
+                     gbwt::GBWT* gbwt = nullptr); 
     
 private:
 
@@ -81,6 +82,8 @@ private:
     unique_ptr<PathTraversalFinder> path_trav_finder;
     // we optionally use another (exhaustive for now) traversal finder if we don't want to rely on paths
     unique_ptr<TraversalFinder> trav_finder;
+    // we can also use a gbwt for traversals
+    unique_ptr<GBWTTraversalFinder> gbwt_trav_finder;
 
     // the ref paths
     set<string> ref_paths;
@@ -92,7 +95,10 @@ private:
     const unordered_map<string, string>* path_to_sample;
 
     // upper limit of degree-2+ nodes for exhaustive traversal
-    int max_nodes_for_exhaustive = 100;    
+    int max_nodes_for_exhaustive = 100;
+
+    // recurse on child snarls
+    bool include_nested = false;
 };
 
 }
