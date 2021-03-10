@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['job_5ffunc_9885',['job_func',['../classvg_1_1JobSchedule.html#a801f56bdc606a6ef0c3c26ac2a27ec24',1,'vg::JobSchedule']]],
-  ['joint_5finitial_5fdistr_9886',['joint_initial_distr',['../classvg_1_1NGSSimulator.html#a147d596d664076c94b468230d78290c4',1,'vg::NGSSimulator']]]
+  ['job_5ffunc_9893',['job_func',['../classvg_1_1JobSchedule.html#a801f56bdc606a6ef0c3c26ac2a27ec24',1,'vg::JobSchedule']]],
+  ['joint_5finitial_5fdistr_9894',['joint_initial_distr',['../classvg_1_1NGSSimulator.html#a147d596d664076c94b468230d78290c4',1,'vg::NGSSimulator']]]
 ];

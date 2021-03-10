@@ -1166,6 +1166,8 @@ Functions</h2></td></tr>
 <tr class="separator:a768828fcd9f2ecf7661e7d873f23bc58"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a490ce7f2c377c649eed822596c8a1916"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a490ce7f2c377c649eed822596c8a1916">thread_name</a> (const gbwt::GBWT &amp;gbwt_index, gbwt::size_type <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>)</td></tr>
 <tr class="separator:a490ce7f2c377c649eed822596c8a1916"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aadbdac4004dde6a682ae36d74b23fa21"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aadbdac4004dde6a682ae36d74b23fa21">thread_sample</a> (const gbwt::GBWT &amp;gbwt_index, gbwt::size_type <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>)</td></tr>
+<tr class="separator:aadbdac4004dde6a682ae36d74b23fa21"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a571047c58b73b78d02a767c3ab6ec222"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a571047c58b73b78d02a767c3ab6ec222">get_gbwt</a> (const std::vector&lt; gbwt::vector_type &gt; &amp;paths)</td></tr>
 <tr class="memdesc:a571047c58b73b78d02a767c3ab6ec222"><td class="mdescLeft">&#160;</td><td class="mdescRight">Transform the paths into a GBWT index. Primarily for testing.  <a href="namespacevg.html#a571047c58b73b78d02a767c3ab6ec222">More...</a><br /></td></tr>
 <tr class="separator:a571047c58b73b78d02a767c3ab6ec222"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -18627,6 +18629,35 @@ template&lt;typename Collection &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Get a string representation of a thread name stored in GBWT metadata. NOTE: id is a gbwt path id, not a gbwt sequence id. </p>
+
+</div>
+</div>
+<a id="aadbdac4004dde6a682ae36d74b23fa21"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aadbdac4004dde6a682ae36d74b23fa21">&#9670;&nbsp;</a></span>thread_sample()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::string vg::thread_sample </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>gbwt_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">gbwt::size_type&#160;</td>
+          <td class="paramname"><em>id</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Get a sample name of a thread stored in GBWT metadata. NOTE: id is a gbwt path id, not a gbwt sequence id. </p>
 
 </div>
 </div>
