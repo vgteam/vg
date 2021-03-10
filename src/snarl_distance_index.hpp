@@ -108,15 +108,20 @@ private:
      * NODE, SNARL, and CHAIN indicate that they don't store distances.
      * SIMPLE_SNARL is a snarl with all children connecting only to the boundary nodes
      * OVERSIZED_SNARL only stores distances to the boundaries
+     * ROOT_SNARL represents a connected component of the root. It has no start or end node so 
+     *    its children actually belong to the root
+     * MULTICOMPONENT_CHAIN can represent a chain with snarls that are not start-end connected
+     *     The chain is split up into components between these snarls, each node is tagged with
+     *     which component it belongs to
      */
     //TODO: Make simple snarls work
     //TODO: Maybe also add a tag for trivial snarls/chains
     //TODO: Unary snarls? Looping chains?
     enum record_t {ROOT=1, 
-                     NODE, DISTANCED_NODE, 
-                     SNARL, DISTANCED_SNARL, SIMPLE_SNARL, OVERSIZED_SNARL, 
-                     CHAIN, DISTANCED_CHAIN, 
-                     CHILDREN};
+                   NODE, DISTANCED_NODE, 
+                   SNARL, DISTANCED_SNARL, SIMPLE_SNARL, OVERSIZED_SNARL, ROOT_SNARL, DISTANCED_ROOT_SNARL,
+                   CHAIN, DISTANCED_CHAIN, MULTICOMPONENT_CHAIN,
+                   CHILDREN};
 
     enum connectivity_t { START_START=1, START_END, START_TIP, 
                             END_START, END_END, END_TIP, 
@@ -128,8 +133,8 @@ private:
 private:
     /*Give each of the enum types a name for debugging */
     vector<string> record_t_as_string = {"ROOT", "NODE", "DISTANCED_NODE", 
-                     "SNARL", "DISTANCED_SNARL", "SIMPLE_SNARL", "OVERSIZED_SNARL", 
-                     "CHAIN", "DISTANCED_CHAIN", 
+                     "SNARL", "DISTANCED_SNARL", "SIMPLE_SNARL", "OVERSIZED_SNARL", "ROOT_SNARL", "DISTANCED_ROOT_SNARL",
+                     "CHAIN", "DISTANCED_CHAIN", "MULTICOMPONENT_CHAIN",
                      "CHILDREN"};
     vector<string> connectivity_t_as_string = { "START_START", "START_END", "START_TIP", 
                             "END_START", "END_END", "END_TIP", 
@@ -370,6 +375,8 @@ private:
     const static size_t CHAIN_NODE_FORWARD_LOOP_OFFSET = 2;
     const static size_t CHAIN_NODE_REVERSE_LOOP_OFFSET = 3;
     const static size_t CHAIN_NODE_SNARL_SIZE_OFFSET = 4;
+    //This is only for multicomponent chains (in which case CHAIN_NODE_RECORD_SIZE should be 6)
+    const static size_t CHAIN_NODE_COMPONENT_OFFSET = 5;
     //If there is a snarl, the snarl size is repeated after the snarl record
 
 
@@ -407,13 +414,13 @@ private:
             records = tree_records;
 
             record_t type = get_record_type();
-            assert(type >= 1 && type <= 10 );
+            assert(type >= 1 && type <= 13 );
         }
         SnarlTreeRecord (const net_handle_t& net, const vector<size_t>* tree_records){
             record_offset = get_record_offset(net);
             records = tree_records;
             record_t type = get_record_type();
-            assert(type >= 1 && type <= 10 );
+            assert(type >= 1 && type <= 13 );
         }
 
         virtual size_t get_offset() {
@@ -426,17 +433,18 @@ private:
             return static_cast<record_t>(records->at(record_offset) >> 9);
         }
 
-        //This is a bit misleading, it is the handle type that the record thinks it is, 
+        //The name is a bit misleading, it is the handle type that the record thinks it is, 
         //not necessarily the record type of the net_handle_t that was used to produce it
         virtual net_handle_record_t get_record_handle_type() const {
             record_t type= get_record_type();
-            if (type == ROOT) {
+            //TODO: I"m not sure if a root snarl should be a root or a snarl
+            if (type == ROOT || type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL) {
                 return ROOT_HANDLE;
             } else if (type == NODE || type == DISTANCED_NODE) {
                 return NODE_HANDLE;
             } else if (type == SNARL || type == DISTANCED_SNARL || type ==  SIMPLE_SNARL ||type ==  OVERSIZED_SNARL){
                 return SNARL_HANDLE;
-            } else if (type == CHAIN || type == DISTANCED_CHAIN) {
+            } else if (type == CHAIN || type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN) {
                 return CHAIN_HANDLE;
             } else {
                 throw runtime_error("error: trying to get the handle type of a list of children");
@@ -459,8 +467,6 @@ private:
         virtual bool is_externally_end_end_connected() const {return records->at(record_offset) & 256;}
 
         virtual bool has_connectivity(connectivity_t connectivity) const {
-            cerr << "Get connectivity for " << records->at(record_offset) << endl;
-            cerr << "  Check if it is " << connectivity << endl;
             if (connectivity == START_START) {
                 return is_start_start_connected();
             } else if (connectivity == START_END || connectivity == END_START) {
@@ -490,9 +496,10 @@ private:
                 return 0;
             } else if (type == NODE || type == DISTANCED_NODE) {
                 return (records->at(record_offset + NODE_PARENT_OFFSET));
-            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
+            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL 
+                     || type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL)  {
                 return (records->at(record_offset + SNARL_PARENT_OFFSET));
-            } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
+            } else if (type == CHAIN || type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
                 return (records->at(record_offset + CHAIN_PARENT_OFFSET));
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
@@ -507,10 +514,12 @@ private:
                 return records->at(record_offset + NODE_LENGTH_OFFSET);
             } else if (type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
                 return records->at(record_offset + SNARL_MIN_LENGTH_OFFSET);
-            } else if (type == DISTANCED_CHAIN)  {
+            } else if (type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
                 return records->at(record_offset + CHAIN_MIN_LENGTH_OFFSET);
             } else if (type == NODE || type == SNARL || type == CHAIN) {
                 throw runtime_error("error: trying to access get distance in a distanceless index");
+            } else if (type == ROOT || type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL) {
+                throw runtime_error("error: trying to find the length of the root");
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
@@ -525,10 +534,12 @@ private:
                 return records->at(record_offset + NODE_LENGTH_OFFSET);
             } else if (type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
                 return records->at(record_offset + SNARL_MAX_LENGTH_OFFSET);
-            } else if (type == DISTANCED_CHAIN)  {
+            } else if (type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
                 return records->at(record_offset + CHAIN_MAX_LENGTH_OFFSET);
             } else if (type == NODE || type == SNARL || type == CHAIN) {
                 throw runtime_error("error: trying to access get distance in a distanceless index");
+            }  else if (type == ROOT || type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL) {
+                throw runtime_error("error: trying to find the length of the root");
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
@@ -541,9 +552,10 @@ private:
             record_t type = get_record_type();
             if (type == NODE || type == DISTANCED_NODE) {
                 return records->at(record_offset + NODE_RANK_OFFSET) >> 1;
-            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
+            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL
+                    || type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL)  {
                 return records->at(record_offset + SNARL_RANK_OFFSET) >> 1;
-            } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
+            } else if (type == CHAIN || type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
                 return records->at(record_offset + CHAIN_RANK_OFFSET) >> 1;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
@@ -556,9 +568,10 @@ private:
             record_t type = get_record_type();
             if (type == NODE || type == DISTANCED_NODE) {
                 return records->at(record_offset + NODE_RANK_OFFSET) & 1;
-            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
+            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL 
+                    || type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL)  {
                 return records->at(record_offset + SNARL_RANK_OFFSET) & 1;
-            } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
+            } else if (type == CHAIN || type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
                 return records->at(record_offset + CHAIN_RANK_OFFSET) & 1;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
@@ -578,8 +591,10 @@ private:
                 return get_id_from_offset(record_offset);
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
                 return (records->at(record_offset + SNARL_START_NODE_OFFSET)) >> 1;
-            } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
+            } else if (type == CHAIN || type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
                 return (records->at(record_offset + CHAIN_START_NODE_OFFSET)) >> 1;
+            } else if (type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL) {
+                throw runtime_error("error: trying to find the start node of a root snarl");
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
@@ -596,9 +611,11 @@ private:
                 return false;
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
                 return (records->at(record_offset + SNARL_START_NODE_OFFSET) & 1);
-            } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
+            } else if (type == CHAIN || type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
                 return (records->at(record_offset + CHAIN_START_NODE_OFFSET)) & 1;
-            } else {
+            } else if (type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL) {
+                throw runtime_error("error: trying to find the start node of a root snarl");
+            }else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
         }
@@ -615,8 +632,10 @@ private:
                 return get_id_from_offset(record_offset);
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
                 return (records->at(record_offset + SNARL_END_NODE_OFFSET)) >> 1;
-            } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
+            } else if (type == CHAIN || type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
                 return (records->at(record_offset + CHAIN_END_NODE_OFFSET)) >> 1;
+            } else if (type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL) {
+                throw runtime_error("error: trying to find the end node of a root snarl");
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
@@ -635,8 +654,10 @@ private:
                 return get_id_from_offset(record_offset);
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
                 return (records->at(record_offset + SNARL_END_NODE_OFFSET)) & 1;
-            } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
+            } else if (type == CHAIN || type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
                 return (records->at(record_offset + CHAIN_END_NODE_OFFSET)) & 1;
+            } else if (type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL) {
+                throw runtime_error("error: trying to find the end node of a root snarl");
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
@@ -655,7 +676,7 @@ private:
         virtual id_t get_id_from_offset(size_t offset) const {
         size_t min_node_id = records->at(MIN_NODE_ID_OFFSET);
         size_t node_records_offset = records->at(COMPONENT_COUNT_OFFSET) + ROOT_RECORD_SIZE; 
-        return ((offset-node_records_offset) / NODE_RECORD_SIZE) + min_node_id;
+            return ((offset-node_records_offset) / NODE_RECORD_SIZE) + min_node_id;
         }
     };
 
@@ -676,16 +697,18 @@ private:
 
             record_t type = get_record_type();
             assert(type == ROOT || type == NODE || type == DISTANCED_NODE || type == SNARL || 
-                    type == DISTANCED_SNARL || type == OVERSIZED_SNARL || type == CHAIN || 
-                    type == DISTANCED_CHAIN );
+                    type == DISTANCED_SNARL || type == OVERSIZED_SNARL || 
+                    type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL || type == CHAIN || 
+                    type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN);
         }
         SnarlTreeRecordConstructor (const net_handle_t& net, vector<size_t>* tree_records){
             record_offset = get_record_offset(net);
             records = tree_records;
             record_t type = get_record_type();
             assert(type == ROOT || type == NODE || type == DISTANCED_NODE || type == SNARL || 
-                    type == DISTANCED_SNARL || type == OVERSIZED_SNARL || type == CHAIN || 
-                    type == DISTANCED_CHAIN );
+                    type == DISTANCED_SNARL || type == OVERSIZED_SNARL || 
+                    type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL || type == CHAIN || 
+                    type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN);
         }
         //What type of snarl tree node is this?
         //This will be the first value of any record
@@ -762,10 +785,12 @@ private:
                 offset = record_offset + NODE_LENGTH_OFFSET;
             } else if (type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
                 offset = record_offset + SNARL_MIN_LENGTH_OFFSET;
-            } else if (type == DISTANCED_CHAIN)  {
+            } else if (type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
                 offset = record_offset + CHAIN_MIN_LENGTH_OFFSET;
-            } else if (type == NODE || type == SNARL || type == CHAIN) {
+            } else if (type == NODE || type == SNARL || type == CHAIN ) {
                 throw runtime_error("error: trying to access get distance in a distanceless index");
+            } else if (type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL) {
+                throw runtime_error("error: set the length of a root snarl");
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
@@ -782,10 +807,12 @@ private:
                 offset = record_offset + NODE_LENGTH_OFFSET;
             } else if (type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
                 offset = record_offset + SNARL_MAX_LENGTH_OFFSET;
-            } else if (type == DISTANCED_CHAIN)  {
+            } else if (type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
                 offset = record_offset + CHAIN_MAX_LENGTH_OFFSET;
             } else if (type == DISTANCED_NODE || type == SNARL || type == CHAIN) {
                 throw runtime_error("error: trying to access get distance in a distanceless index");
+            }  else if (type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL) {
+                throw runtime_error("error: set the length of a root snarl");
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
@@ -800,9 +827,10 @@ private:
             size_t offset;
             if (type == NODE || type == DISTANCED_NODE) {
                 offset = record_offset + NODE_RANK_OFFSET;
-            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
+            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL
+                    || type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL)  {
                 offset = record_offset + SNARL_RANK_OFFSET;
-            } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
+            } else if (type == CHAIN || type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
                 offset = record_offset + CHAIN_RANK_OFFSET;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
@@ -819,9 +847,10 @@ private:
             size_t offset;
             if (type == NODE || type == DISTANCED_NODE) {
                 offset = record_offset + NODE_RANK_OFFSET;
-            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
+            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL 
+                    || type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL)  {
                 offset = record_offset + SNARL_RANK_OFFSET;
-            } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
+            } else if (type == CHAIN || type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
                 offset = record_offset + CHAIN_RANK_OFFSET;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
@@ -836,9 +865,10 @@ private:
             size_t offset; 
             if (type == NODE || type == DISTANCED_NODE) {
                 offset = record_offset + NODE_PARENT_OFFSET;
-            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
+            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL
+                    || type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL)  {
                 offset = record_offset + SNARL_PARENT_OFFSET;
-            } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
+            } else if (type == CHAIN || type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
                 offset = record_offset + CHAIN_PARENT_OFFSET;
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
@@ -857,8 +887,10 @@ private:
                 throw runtime_error("error: trying to set the node id of a node or root");
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
                 offset = record_offset + SNARL_START_NODE_OFFSET;
-            } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
+            } else if (type == CHAIN || type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
                 offset = record_offset + CHAIN_START_NODE_OFFSET;
+            }  else if (type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL) {
+                throw runtime_error("error: set the start node of a root snarl");
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
@@ -876,8 +908,10 @@ private:
                 throw runtime_error("error: trying to set the node id of a node or root");
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
                 offset = record_offset + SNARL_END_NODE_OFFSET;
-            } else if (type == CHAIN || type == DISTANCED_CHAIN)  {
+            } else if (type == CHAIN || type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
                 offset = record_offset + CHAIN_END_NODE_OFFSET;
+            }  else if (type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL) {
+                throw runtime_error("error: set the end node of a root snarl");
             } else {
                 throw runtime_error("error: trying to access a snarl tree node of the wrong type");
             }
@@ -1060,19 +1094,20 @@ private:
             record_offset = pointer;
             records = tree_records;
             record_t type = get_record_type();
-            assert(type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL);
+            assert(type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL || type == ROOT_SNARL
+                || type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL);
         }
 
         SnarlRecord (net_handle_t net, const vector<size_t>* tree_records){
             record_offset = get_record_offset(net);
             records = tree_records;
             net_handle_record_t type = get_handle_type(net);
-            assert(type == SNARL_HANDLE || type == SENTINEL_HANDLE);
+            assert(type == SNARL_HANDLE || type == SENTINEL_HANDLE || type == ROOT_HANDLE);
         }
 
         //How big is the entire snarl record?
         static size_t distance_vector_size(record_t type, size_t node_count) {
-            if (type == SNARL){
+            if (type == SNARL || type == ROOT_SNARL){
                 //For a normal snarl, its just the record size and the pointers to children
                 return 0; 
             } else if (type == DISTANCED_SNARL) {
@@ -1085,6 +1120,9 @@ private:
                 //the min distances from each node side to the two boundary nodes
                 size_t node_side_count = node_count * 2 + 2;
                 return  (node_side_count * 2);
+            } else if (type == DISTANCED_ROOT_SNARL) {
+                size_t node_side_count = node_count * 2;
+                return  (((node_side_count+1)*node_side_count) / 2);
             } else {
                 throw runtime_error ("error: this is not a snarl");
             }
@@ -1106,13 +1144,16 @@ private:
             size_t node_side_count = node_count * 2 + 2; 
 
             //make sure we're looking at the correct node side
-             if (rank1 != 0 && rank1 != 1) {
+            //If this is the start or end node, then we don't adjust based on orientation
+            //because we only care about the inner sides. If this is a root snarl, then
+            //there is no start or end node and the ranks 0 and 1 are not special
+             if (type == DISTANCED_ROOT_SNARL || (rank1 != 0 && rank1 != 1)) {
                 rank1 = (rank1-1) * 2;
                 if (right_side1) {
                     rank1 += 1;
                 }
             }
-            if (rank2 != 0 && rank2 != 1) {
+            if (type == DISTANCED_ROOT_SNARL || (rank2 != 0 && rank2 != 1)) {
                 rank2 = (rank2-1) * 2;
                 if (right_side2) {
                     rank2 += 1;
@@ -1126,9 +1167,9 @@ private:
                 rank2 = tmp;
             }
             
-            if (type == SNARL) {
+            if (type == SNARL || type == ROOT_SNARL) {
                 throw runtime_error("error: trying to access distance in a distanceless snarl tree");
-            } else if (type == DISTANCED_SNARL) {
+            } else if (type == DISTANCED_SNARL || type == DISTANCED_ROOT_SNARL) {
                 //normal distance index
                 size_t k = node_side_count-rank1;
                 return (((node_side_count+1) * node_side_count)/2) - (((k+1)*k) / 2) + rank2 - rank1;
@@ -1332,6 +1373,15 @@ private:
             size_t val =  records->at(pointer+CHAIN_NODE_REVERSE_LOOP_OFFSET); 
             return val == 0 ? std::numeric_limits<int64_t>::max() : val-1; 
         }
+        virtual size_t get_chain_component(size_t pointer) const {
+            if (get_record_handle_type() == NODE_HANDLE) {
+                throw runtime_error("error: Trying to get chain distances from a node");
+            }
+            if (get_record_type() != MULTICOMPONENT_CHAIN){
+                throw runtime_error("error: Trying to get the component of a single component chain");
+            }
+            return records->at(pointer+CHAIN_NODE_COMPONENT_OFFSET); 
+        }
 
         //Get the distance between the given node sides (relative to the orientation of the chain)
         //Nodes represent a tuple of <pointer, rank, right_side, and length of the node>
@@ -1394,13 +1444,15 @@ private:
         //go_left is true if we are traversing the chain right to left
         //returns 0 if this was the last (/first) node in the chain
         virtual pair<size_t, bool> get_next_child(const pair<size_t, bool> pointer, bool go_left) const {
+            //If this is a multicomponent chain, then the size of each node record in the chain is bigger
+            size_t extra_node_record_size = get_record_type() == MULTICOMPONENT_CHAIN ? 1 : 0;
             if (get_record_handle_type() == NODE_HANDLE) {
                 throw runtime_error("error: Trying to get chain traversal from a node");
             }
             if (pointer.second) {
                 //This is a snarl
                 if (go_left) {
-                    return make_pair(pointer.first - CHAIN_NODE_RECORD_SIZE, false);
+                    return make_pair(pointer.first - CHAIN_NODE_RECORD_SIZE + extra_node_record_size, false);
                 } else {
                     size_t snarl_record_length = SnarlRecord(pointer.first, records).record_size();
                     return make_pair(pointer.first + snarl_record_length + 1, false);
@@ -1416,7 +1468,7 @@ private:
                     size_t snarl_record_size = records->at(pointer.first-1);
                     if (snarl_record_size == 0) {
                         //Just another node to the left
-                        return make_pair(pointer.first-CHAIN_NODE_RECORD_SIZE, false);
+                        return make_pair(pointer.first-CHAIN_NODE_RECORD_SIZE + extra_node_record_size, false);
                     } else {
                         //There is a snarl to the left of this node
                         return make_pair(pointer.first - snarl_record_size - 1, true);
@@ -1424,7 +1476,7 @@ private:
                 } else {
                     //Looking right in the chain
                     if (records->at(pointer.first+CHAIN_NODE_SNARL_SIZE_OFFSET) == 0 &&
-                        records->at(pointer.first+CHAIN_NODE_RECORD_SIZE) == 0) {
+                        records->at(pointer.first+CHAIN_NODE_RECORD_SIZE+ extra_node_record_size) == 0) {
                         //If this is the last node in the chain
                         return make_pair(0, false);
                     }
@@ -1520,7 +1572,8 @@ private:
         //TODO: I don't think I even need node count
         ChainRecordConstructor (size_t pointer, record_t type, size_t node_count, vector<size_t>* records){
             assert(type == CHAIN || 
-                   type == DISTANCED_CHAIN);
+                   type == DISTANCED_CHAIN ||
+                   type == MULTICOMPONENT_CHAIN);
             ChainRecord::record_offset = pointer;
             SnarlTreeRecordConstructor::record_offset = pointer;
             SnarlTreeRecordConstructor::records = records;
@@ -1543,6 +1596,7 @@ private:
          */
 
         void add_node(id_t id, int64_t prefix_sum, int64_t forward_loop, int64_t reverse_loop) {
+            assert(ChainRecord::get_record_type() != MULTICOMPONENT_CHAIN);
 #ifdef debug_indexing
             cerr << SnarlTreeRecordConstructor::records->size() << " - " << SnarlTreeRecordConstructor::records->size() + 3 << " Adding chain's child node the end of the array " << endl;
 #endif
@@ -1550,6 +1604,17 @@ private:
             SnarlTreeRecordConstructor::records->emplace_back(prefix_sum==std::numeric_limits<int64_t>::max() ? 0 : prefix_sum+1);
             SnarlTreeRecordConstructor::records->emplace_back(forward_loop==std::numeric_limits<int64_t>::max() ? 0 : forward_loop+1);
             SnarlTreeRecordConstructor::records->emplace_back(reverse_loop==std::numeric_limits<int64_t>::max() ? 0 : reverse_loop+1);
+        }
+        void add_node(id_t id, int64_t prefix_sum, int64_t forward_loop, int64_t reverse_loop, size_t component) {
+            assert(ChainRecord::get_record_type() == MULTICOMPONENT_CHAIN);
+#ifdef debug_indexing
+            cerr << SnarlTreeRecordConstructor::records->size() << " - " << SnarlTreeRecordConstructor::records->size() + 3 << " Adding chain's child node the end of the array " << endl;
+#endif
+            SnarlTreeRecordConstructor::records->emplace_back(id);
+            SnarlTreeRecordConstructor::records->emplace_back(prefix_sum==std::numeric_limits<int64_t>::max() ? 0 : prefix_sum+1);
+            SnarlTreeRecordConstructor::records->emplace_back(forward_loop==std::numeric_limits<int64_t>::max() ? 0 : forward_loop+1);
+            SnarlTreeRecordConstructor::records->emplace_back(reverse_loop==std::numeric_limits<int64_t>::max() ? 0 : reverse_loop+1);
+            SnarlTreeRecordConstructor::records->emplace_back(component);
         }
         void set_node_count(size_t node_count) {
 #ifdef debug_indexing
