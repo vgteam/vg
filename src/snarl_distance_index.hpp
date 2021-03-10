@@ -423,7 +423,7 @@ private:
         //What type of snarl tree node is this?
         //This will be the first value of any record
         virtual record_t get_record_type() const {
-            return static_cast<record_t>(records->at(record_offset) >> 6);
+            return static_cast<record_t>(records->at(record_offset) >> 9);
         }
 
         //This is a bit misleading, it is the handle type that the record thinks it is, 
@@ -442,12 +442,21 @@ private:
                 throw runtime_error("error: trying to get the handle type of a list of children");
             }
         }
+
+        //Get the internal connectivity of the structure
         virtual bool is_start_start_connected() const {return records->at(record_offset) & 32;}
         virtual bool is_start_end_connected() const {return records->at(record_offset) & 16;}
         virtual bool is_start_tip_connected() const {return records->at(record_offset) & 8;}
         virtual bool is_end_end_connected() const {return records->at(record_offset) & 4;}
         virtual bool is_end_tip_connected() const {return records->at(record_offset) & 2;}
         virtual bool is_tip_tip_connected() const {return records->at(record_offset) & 1;}
+        virtual bool is_end_start_connected() const {return records->at(record_offset) & 32;}
+
+        //And the external connectivity. This is only relevant for root-level structures
+        //since it would otherwise be captured by the containing snarl
+        virtual bool is_externally_start_end_connected() const {return records->at(record_offset) & 64;}
+        virtual bool is_externally_start_start_connected() const {return records->at(record_offset) & 128;}
+        virtual bool is_externally_end_end_connected() const {return records->at(record_offset) & 256;}
 
         virtual bool has_connectivity(connectivity_t connectivity) const {
             cerr << "Get connectivity for " << records->at(record_offset) << endl;
@@ -682,7 +691,7 @@ private:
         //This will be the first value of any record
         //TODO: This copies from SnarlTreeRecord
         virtual record_t get_record_type() const {
-            return static_cast<record_t>(records->at(record_offset) >> 6);
+            return static_cast<record_t>(records->at(record_offset) >> 9);
         }
         virtual void set_start_start_connected() {
 #ifdef debug_indexing
@@ -720,12 +729,30 @@ private:
 #endif
             records->at(record_offset) = records->at(record_offset) | 1;
         }
+        virtual void set_externally_start_end_connected() {
+#ifdef debug_indexing
+            cerr << record_offset << " set externally start_end connected" << endl;
+#endif
+            records->at(record_offset) = records->at(record_offset) | 64;
+        }
+        virtual void set_externally_start_start_connected() const {
+#ifdef debug_indexing
+            cerr << record_offset << " set externally start_start connected" << endl;
+#endif
+            records->at(record_offset) = records->at(record_offset) | 128;
+        }
+        virtual void set_externally_end_end_connected() const {
+#ifdef debug_indexing
+            cerr << record_offset << " set externally end_end connected" << endl;
+#endif
+            records->at(record_offset) = records->at(record_offset) | 256;
+        }
         virtual void set_record_type(record_t type) {
 #ifdef debug_indexing
             cerr << record_offset << " set record type to be " << type << endl;
 #endif
             assert(records->at(record_offset) == 0);
-            records->at(record_offset) = ((static_cast<size_t>(type) << 6) | (records->at(record_offset) & 63));
+            records->at(record_offset) = ((static_cast<size_t>(type) << 9) | (records->at(record_offset) & 511));
         }
 
         virtual void set_min_length(size_t length) {
@@ -1462,17 +1489,23 @@ private:
             //If this is a node, then the offset of the node in the chain, false
             //If it is a snarl, then the offset of the snarl record, true
             pair<size_t, bool> current_child (get_first_node_offset(), false);
+            bool is_first = true;
 
             while (current_child.first != 0) {
                 net_handle_t child_handle = current_child.second 
                     ? get_net_handle (current_child.first, START_END, SNARL_HANDLE) 
                     : get_net_handle (get_offset_from_id(records->at(current_child.first)), START_END, NODE_HANDLE);
+                if (!is_first && current_child == make_pair(get_first_node_offset(), false)){
+                    //Don't look at the first node a second time
+                    return true;
+                }
 
                 bool result = iteratee(child_handle); 
                 if (result == false) {
                     return false;
                 }
                 current_child = get_next_child(current_child, false); 
+                is_first = false;
             }
             return true;
         }
@@ -1559,16 +1592,16 @@ private:
 private:
     ////////////////////// More methods for dealing with net_handle_ts
     SnarlTreeRecord get_snarl_tree_record(const handlegraph::net_handle_t& net_handle) const {
-        return SnarlTreeRecord(as_integer(net_handle) >> 6, &snarl_tree_records);
+        return SnarlTreeRecord(get_record_offset(net_handle), &snarl_tree_records);
     }
     SnarlTreeRecord get_node_record(const handlegraph::net_handle_t& net_handle) const {
-        return NodeRecord(as_integer(net_handle) >> 6, &snarl_tree_records); 
+        return NodeRecord(get_record_offset(net_handle), &snarl_tree_records); 
     }
     SnarlTreeRecord get_snarl_record(const handlegraph::net_handle_t& net_handle) const {
-        return SnarlRecord(as_integer(net_handle) >> 6, &snarl_tree_records); 
+        return SnarlRecord(get_record_offset(net_handle), &snarl_tree_records); 
     }
     SnarlTreeRecord get_chain_record(const handlegraph::net_handle_t& net_handle) const {
-        return ChainRecord(as_integer(net_handle) >> 6, &snarl_tree_records); 
+        return ChainRecord(get_record_offset(net_handle), &snarl_tree_records); 
     }
 
     const static connectivity_t endpoints_to_connectivity(endpoint_t start, endpoint_t end) {
@@ -1761,7 +1794,7 @@ protected:
 
     //Given an arbitrary number of temporary indexes, produce the final one
     //Each temporary index must be a separate connected component
-    vector<size_t> get_snarl_tree_records(const vector<const TemporaryDistanceIndex*>& temporary_indexes);
+    vector<size_t> get_snarl_tree_records(const vector<const TemporaryDistanceIndex*>& temporary_indexes, const HandleGraph* graph);
     friend class TemporaryDistanceIndex;
 
 };

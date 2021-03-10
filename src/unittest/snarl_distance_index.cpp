@@ -1222,7 +1222,7 @@ namespace vg {
         */
     
         TEST_CASE( "Distance index's snarl functions return expected answers",
-                  "[snarl_distance][bug]" ) {
+                  "[snarl_distance]" ) {
             
             SECTION( "SnarlManager can be constructed with cactus ultrabubbles") {
                 
@@ -1279,6 +1279,7 @@ namespace vg {
                     top_chain_handle = child;
                     REQUIRE( distance_index.canonical(distance_index.get_parent(child))
                             == distance_index.canonical(root_handle));
+                    REQUIRE(distance_index.is_root(distance_index.get_parent(child)));
                 });
                 REQUIRE(component_count == 1);
                 REQUIRE(distance_index.is_chain(top_chain_handle));
@@ -1460,6 +1461,7 @@ namespace vg {
                     top_chain_handle = child;
                     REQUIRE( distance_index.canonical(distance_index.get_parent(child))
                             == distance_index.canonical(root_handle));
+                    REQUIRE(distance_index.is_root(distance_index.get_parent(child)));
                 });
                 REQUIRE(component_count == 1);
 
@@ -2830,12 +2832,9 @@ namespace vg {
             Graph chunk;
             json2pb(chunk, graph_json.c_str(), graph_json.size());
             graph.extend(chunk);
-            cerr << "Made graph" << endl;
             
             IntegratedSnarlFinder snarl_finder(graph); 
-            cerr << "Made snarl finder" << endl;
             SnarlDistanceIndex distance_index(&graph, &snarl_finder);
-            cerr << "made index" << endl;
            
             SECTION("Root should have one child actual bubble") {
 
@@ -2867,10 +2866,7 @@ namespace vg {
                 REQUIRE(child_i == 5);
             }
         }
-        /*
-         * TODO: I think this would be a looping chain and I dont know how to deal with it yet
-
-        TEST_CASE("bubbles can be found in a graph with no heads or tails", "[bubbles][snarls]") {
+        TEST_CASE("Distance index can deal with chains that loop at the root", "[snarl_distance]") {
             
             // Build a toy graph
             const string graph_json = R"(
@@ -2901,107 +2897,33 @@ namespace vg {
             json2pb(chunk, graph_json.c_str(), graph_json.size());
             graph.extend(chunk);
             
-            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
-            
-#ifdef debug
-            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
-                    cerr << node->id() << " ";
-                }
-                cerr << endl;
-            });
-#endif
-            
-            SECTION("Root node has 2 child bubbles") {
-                REQUIRE(snarl_manager.top_level_snarls().size() == 2);
-                
-                const Snarl* child1 = snarl_manager.top_level_snarls()[0];
-                const Snarl* child2 = snarl_manager.top_level_snarls()[1];
-                
-                if (child1->start().node_id() > child1->end().node_id()) {
-                    snarl_manager.flip(child1);
-                }
-                
-                if (child2->start().node_id() > child2->end().node_id()) {
-                    snarl_manager.flip(child2);
-                }
-                
-                SECTION("First child is from 1 start/end to 2 end/start") {
-                    REQUIRE(child1->start().node_id() == 1);
-                    REQUIRE(child1->end().node_id() == 2);
-                    REQUIRE(!child1->start().backward() != child1->end().backward());
-                    
-                    SECTION("First child has no children") {
-                        REQUIRE(snarl_manager.children_of(child1).size() == 0);
-                    }
-                    
-                }
-                
-                SECTION("Second child is from 1 start/end to 2 end/start") {
-                    REQUIRE(child2->start().node_id() == 1);
-                    REQUIRE(child2->end().node_id() == 2);
-                    REQUIRE(!child1->start().backward() != child1->end().backward());
-                    
-                    SECTION("Second child has no children") {
-                        REQUIRE(snarl_manager.children_of(child2).size() == 0);
-                    }
-                    
-                }
-                
-            }
-            
-        }
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+           
+            SECTION("Root should have one child actual bubble") {
 
-        TEST_CASE("bubbles can be found in a graph with no heads or tails or paths", "[bubbles]") {
-            
-            // Build a toy graph
-            const string graph_json = R"(
-            
-            {
-                "node": [
-                    {"id": 1, "sequence": "G"},
-                    {"id": 2, "sequence": "A"}
-                ],
-                "edge": [
-                    {"from": 1, "to": 2},
-                    {"from": 2, "to": 1}
-                    
-                ]
+                net_handle_t root_handle = distance_index.get_root();
+                net_handle_t top_chain_handle;
+                size_t component_count = 0;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    component_count += 1;
+                    top_chain_handle = child;
+                });
+                REQUIRE(component_count == 1);
+                REQUIRE(distance_index.is_chain(top_chain_handle));
+
+
+                //The top connected component is a chain with one snarl
+                size_t child_i = 0;
+                distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+                    REQUIRE(distance_index.is_node(child));
+                    child_i++;
+                });
+                REQUIRE(child_i == 2);
             }
             
-            )";
-            
-            // Make an actual graph
-            VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
-            
-            SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
-            
-#ifdef debug
-            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
-                    << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
-                    cerr << node->id() << " ";
-                }
-                cerr << endl;
-            });
-#endif
-            
-            SECTION("Root node has 2 child bubbles") {
-                REQUIRE(snarl_manager.top_level_snarls().size() == 2);
-                
-                // We should have 2 bubbles, one looking around the cycle in each direction.
-                // TODO: can't really say much about its contents.
-                
-            }
             
         }
-        */
 
         TEST_CASE("Bubbles are created based on most distant connected tips", "[snarl_distance]") {
             
@@ -3287,16 +3209,16 @@ namespace vg {
             }
             
         }
-        /*
-         * TODO: I think this one will also be a looping chain
 
 
-        TEST_CASE( "Snarls can be found for a graph with no ordinary cycles", "[snarls]" ) {
+        TEST_CASE( "Distance index can deal with edges in the root", "[snarl_distance]" ) {
             VG graph;
                 
             // We have this dumbell-shaped graph, where you have to break open
             // a cycle but just saying you go from a node to itself isn't a
             // valid snarl.
+            //
+            // TODO: CHeck for connectivity at the root
             
             Node* n1 = graph.create_node("A");
             Node* n2 = graph.create_node("G");
@@ -3305,32 +3227,62 @@ namespace vg {
             Edge* e2 = graph.create_edge(n1, n1, true, false);
             Edge* e3 = graph.create_edge(n2, n2, false, true);
             
-            CactusSnarlFinder bubble_finder(graph);
-            SnarlManager snarl_manager = bubble_finder.find_snarls();
-            
-            // There must be something in the top level snarls
-            REQUIRE(!snarl_manager.top_level_snarls().empty());
-            
-            // The decomposition must cover all the nodes
-            unordered_set<id_t> seen_nodes;
-            
-            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                // Get the contents of each snarl
-                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = pb_contents(graph, snarl_manager.shallow_contents(snarl, graph, true));
-            
-                for (auto& node_ptr : contents.first) {
-                    // And record all the nodes
-                    seen_nodes.insert(node_ptr->id());
-                }
-            });
-            
-            // Make sure both nodes appear.
-            REQUIRE(seen_nodes.size() == 2);
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+           
+            SECTION("Root should have one child actual bubble") {
+
+                net_handle_t root_handle = distance_index.get_root();
+                size_t component_count = 0;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+
+                    REQUIRE(distance_index.is_chain(child));
+                    REQUIRE(distance_index.starts_at(child) == SnarlDecomposition::START);
+                    REQUIRE(distance_index.ends_at(child) == SnarlDecomposition::END);
+                    REQUIRE(distance_index.is_root(distance_index.get_parent(child)));
+
+                    //Following edges of a start-end handle reaches the end
+                    distance_index.follow_net_edges(child, &graph, false, [&](const net_handle_t& next) {
+                        REQUIRE(distance_index.is_chain(next));
+                        REQUIRE((distance_index.starts_at(next) == SnarlDecomposition::END 
+                              && distance_index.ends_at(next) == SnarlDecomposition::START));
+                    });
+                    //And following it backwards finds the start
+                    distance_index.follow_net_edges(child, &graph, true, [&](const net_handle_t& next) {
+                        REQUIRE(distance_index.is_chain(next));
+                        REQUIRE((distance_index.starts_at(next) == SnarlDecomposition::START 
+                              && distance_index.ends_at(next) == SnarlDecomposition::END));
+                    });
+
+                    //Flipping the handle to a end-start handle, we can find the start
+                    net_handle_t flipped_child = distance_index.flip(child);
+
+                    REQUIRE(distance_index.starts_at(flipped_child) == SnarlDecomposition::END);
+                    REQUIRE(distance_index.ends_at(flipped_child) == SnarlDecomposition::START);
+                    distance_index.follow_net_edges(flipped_child, &graph, false, [&](const net_handle_t& next) {
+                        REQUIRE(distance_index.is_chain(next));
+                        REQUIRE((distance_index.starts_at(next) == SnarlDecomposition::START 
+                              && distance_index.ends_at(next) == SnarlDecomposition::END));
+                    });
+                    //And the end by going backwards
+                    distance_index.follow_net_edges(flipped_child, &graph, true, [&](const net_handle_t& next) {
+                        REQUIRE(distance_index.is_chain(next));
+                        REQUIRE((distance_index.starts_at(next) == SnarlDecomposition::END 
+                              && distance_index.ends_at(next) == SnarlDecomposition::START));
+                    });
+
+
+
+                    component_count += 1;
+                });
+                REQUIRE(component_count == 1);
+
+            }
             
             
         }
         
-        TEST_CASE( "Snarls can be found for a bigger graph with no ordinary cycles", "[snarls]" ) {
+        TEST_CASE( "Distance index can deal with a bigger graph with no ordinary cycles", "[snarl_distance][bad]" ) {
             VG graph;
                 
             Node* n1 = graph.create_node("GCA");
@@ -3347,31 +3299,50 @@ namespace vg {
             Edge* e6 = graph.create_edge(n4, n5);
             Edge* e7 = graph.create_edge(n5, n3, false, true);
             
-            CactusSnarlFinder bubble_finder(graph);
-            SnarlManager snarl_manager = bubble_finder.find_snarls();
-            
-            // There must be something in the top level snarls
-            REQUIRE(!snarl_manager.top_level_snarls().empty());
-            
-            // The decomposition must cover all the nodes
-            unordered_set<id_t> seen_nodes;
-            
-            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
-                // Get the contents of each snarl
-                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = pb_contents(graph, snarl_manager.shallow_contents(snarl, graph, true));
-            
-                for (auto& node_ptr : contents.first) {
-                    // And record all the nodes
-                    seen_nodes.insert(node_ptr->id());
-                }
-            });
-            
-            // Make sure all nodes appear.
-            REQUIRE(seen_nodes.size() == 5);
-            
+           
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SECTION("Integrated snarl finder can find a decomposition") {
+                unordered_set<pair<id_t, bool>> seen_node_sides;
+                snarl_finder.traverse_decomposition(
+                [&](handle_t chain_start_handle){
+                    cerr << "Start new chain at " << graph.get_id(chain_start_handle) << (graph.get_is_reverse(chain_start_handle) ? "rev" : "fd") << endl;
+                    REQUIRE(seen_node_sides.count(make_pair(graph.get_id(chain_start_handle), graph.get_is_reverse(chain_start_handle)))==0);
+                    seen_node_sides.emplace(graph.get_id(chain_start_handle), graph.get_is_reverse(chain_start_handle));
+                },
+                [&](handle_t chain_end_handle) {
+                    cerr << "End new chain at " << graph.get_id(chain_end_handle) << (graph.get_is_reverse(chain_end_handle) ? "rev" : "fd") << endl;
+                    REQUIRE(seen_node_sides.count(make_pair(graph.get_id(chain_end_handle), !graph.get_is_reverse(chain_end_handle)))==0);
+                    seen_node_sides.emplace(graph.get_id(chain_end_handle), !graph.get_is_reverse(chain_end_handle));
+                },
+                [&](handle_t snarl_start_handle) {
+                    cerr << "Start new snarl at " << graph.get_id(snarl_start_handle) << (graph.get_is_reverse(snarl_start_handle) ? "rev" : "fd") << endl;
+                    REQUIRE(seen_node_sides.count(make_pair(graph.get_id(snarl_start_handle), graph.get_is_reverse(snarl_start_handle)))==0);
+                    seen_node_sides.emplace(graph.get_id(snarl_start_handle), graph.get_is_reverse(snarl_start_handle));
+                },
+                [&](handle_t snarl_end_handle) {
+                    cerr << "End new snarl at " << graph.get_id(snarl_end_handle) << (graph.get_is_reverse(snarl_end_handle) ? "rev" : "fd") << endl;
+                    REQUIRE(seen_node_sides.count(make_pair(graph.get_id(snarl_end_handle), !graph.get_is_reverse(snarl_end_handle)))==0);
+                    seen_node_sides.emplace(graph.get_id(snarl_end_handle), !graph.get_is_reverse(snarl_end_handle));
+                });
+            }
+            /*
+            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+           
+            SECTION("Find all the nodes") {
+
+                net_handle_t root_handle = distance_index.get_root();
+                size_t component_count = 0;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    component_count += 1;
+                });
+                REQUIRE(component_count == 1);
+
+            }
+            */
             
         }
 
+        /*
         TEST_CASE( "NetGraph can traverse looping snarls",
                   "[snarl_distance]" ) {
         
