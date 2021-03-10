@@ -271,14 +271,19 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         return false;
     }
 
-
     if (!path_restricted) {
-        vector<SnarlTraversal> additional_travs;
         if (gbwt_trav_finder.get() != nullptr) {
             // add in the gbwt traversals
-            additional_travs = gbwt_trav_finder->find_traversals(*snarl);
+            pair<vector<SnarlTraversal>, vector<string>> sample_travs = gbwt_trav_finder->find_sample_traversals(*snarl);
+            for (int i = 0; i < sample_travs.first.size(); ++i) {
+                path_trav_names.push_back(sample_travs.second[i]);
+                path_travs.first.push_back(sample_travs.first[i]);
+                // dummy handles so we can use the same code as the named path traversals above
+                path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
+            }
         } else {
             // add in the exhaustive traversals
+            vector<SnarlTraversal> additional_travs;
                         
             // exhaustive traversal can't do all snarls
             if (snarl->type() != ULTRABUBBLE) {
@@ -290,17 +295,18 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
                 return false;
             }
             additional_travs = explicit_exhaustive_traversals(snarl);
-        } 
-        // happens when there was a nested non-ultrabubble snarl
-        if (additional_travs.empty()) {
-            return false;
-        }
-        path_travs.first.insert(path_travs.first.end(), additional_travs.begin(), additional_travs.end());
-        for (int i = 0; i < additional_travs.size(); ++i) {
-            // dummy names so we can use the same code as the named path traversals above
-            path_trav_names.push_back(" >>" + std::to_string(i));
-            // dummy handles so we can use the same code as the named path traversals above
-            path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
+         
+            // happens when there was a nested non-ultrabubble snarl
+            if (additional_travs.empty()) {
+                return false;
+            }
+            path_travs.first.insert(path_travs.first.end(), additional_travs.begin(), additional_travs.end());
+            for (int i = 0; i < additional_travs.size(); ++i) {
+                // dummy names so we can use the same code as the named path traversals above
+                path_trav_names.push_back(" >>" + std::to_string(i));
+                // dummy handles so we can use the same code as the named path traversals above
+                path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
+            }
         }
     }
     
@@ -360,7 +366,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         vector<int> trav_to_allele = get_alleles(v, path_travs.first, ref_trav_idx, prev_char, use_start);
 
         // Fill in the genotypes
-        if (path_restricted) {
+        if (path_restricted || gbwt_trav_finder.get()) {
             get_genotypes(v, path_trav_names, trav_to_allele);
         }
 
@@ -409,11 +415,17 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                 }
             }
         });
+    if (gbwt) {
+        // add in sample names from the gbwt
+        for (size_t i = 0; i < gbwt->metadata.paths(); i++) {
+            sample_names.insert(thread_sample(*gbwt, i));
+        }
+    }
     
     // print the VCF header
     stringstream stream;
     stream << "##fileformat=VCFv4.2" << endl;
-    if (path_restricted) {
+    if (path_restricted || gbwt) {
         stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
     }
     if (path_to_sample) {
@@ -429,7 +441,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         stream << "##contig=<ID=" << refpath << ",length=" << path_len << ">" << endl;
     }
     stream << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT";
-    if (path_restricted) {
+    if (path_restricted || gbwt) {
         for (auto& sample_name : sample_names) {
             stream << "\t" << sample_name;
         }
@@ -445,7 +457,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     path_trav_finder = unique_ptr<PathTraversalFinder>(new PathTraversalFinder(*graph,
                                                                                *snarl_manager));
     
-    if (!path_restricted) {
+    if (!path_restricted && !gbwt) {
         trav_finder = unique_ptr<TraversalFinder>(new ExhaustiveTraversalFinder(*graph,
                                                                                 *snarl_manager,
                                                                                 true));

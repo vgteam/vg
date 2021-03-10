@@ -130,8 +130,8 @@ int main_deconstruct(int argc, char** argv){
 
     }
 
-    if ((!altpath_prefixes.empty() || set_ploidy) && !path_restricted_traversals) {
-        cerr << "Error [vg deconstruct]: -A and -d can only be used with -e" << endl;
+    if ((!altpath_prefixes.empty() || set_ploidy) && !path_restricted_traversals && gbwt_file_name.empty()) {
+        cerr << "Error [vg deconstruct]: -A and -d can only be used with -e or -g" << endl;
         return 1;
     }
 

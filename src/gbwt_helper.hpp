@@ -147,6 +147,10 @@ Path extract_gbwt_path(const HandleGraph& graph, const gbwt::GBWT& gbwt_index, g
 /// NOTE: id is a gbwt path id, not a gbwt sequence id.
 std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
 
+/// Get a sample name of a thread stored in GBWT metadata.
+/// NOTE: id is a gbwt path id, not a gbwt sequence id.
+std::string thread_sample(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
+
 //------------------------------------------------------------------------------
 
 /// Transform the paths into a GBWT index. Primarily for testing.
