@@ -7,10 +7,9 @@
 #include <utility>
 #include "multipath_alignment.hpp"
 
-// #define debug_mcmc
-
-#define debug_bottlenecks
-// #define debug_make_snarl_graph
+#define debug_mcmc
+#define debug_make_snarl_graph
+#define debug_karger_stein
 
 namespace vg {
 
@@ -43,12 +42,16 @@ namespace vg {
         int count =0;
         // build markov chain using Metropolis-Hastings
         for(int i = 0; i< n_iterations; i++){
-
-            int proposal_sampl =0;
+#ifdef debug_mcmc 
+            cerr << "i " << i<<endl;        
+#endif
+            int proposal_sampl = 0;
             int karger_stein_proposal =1;
-        
             int random_num = generate_discrete_uniform(random_engine, proposal_sampl , karger_stein_proposal);
-            
+#ifdef debug_mcmc 
+            cerr << "rand num " << random_num<<endl;
+            cerr << "proposal_sampl " << proposal_sampl <<endl;         
+#endif
             // holds the previous sample allele
             double x_prev = log_target(genome, reads);
 
@@ -64,50 +67,96 @@ namespace vg {
                 // if the to_receive contents are invalid keep the new allele
                 // for graphs that do not contain snarls
                 if (*modified_haplo ==-1){
-// #ifdef debug_mcmc 
-//                 cerr << "modified haplo is empty" <<endl;        
-// #endif
+#ifdef debug_mcmc 
+                cerr << "modified haplo is empty" <<endl;        
+#endif
                     break;
                 }else{
                     modified_site = get<1>(to_receive); 
                     old_allele = &get<2>(to_receive); 
+                }
+                //calculate acceptance probability 
+                // holds new sample allele score 
+                double x_new = log_target(genome, reads);
+
+                double likelihood_ratio = exp(log_base*(x_new - x_prev));
+                
+                current_likelihood = previous_likelihood + log_base*(x_new-x_prev);
+                
+                if (current_likelihood > max_likelihood){
+                    max_likelihood = current_likelihood;
+                    optimal.reset(new PhasedGenome(*genome));
+                    return_optimal=true;
+                }
+                
+                // calculate acceptance probability 
+                double acceptance_probability = min(1.0, likelihood_ratio);
+
+                // if u~U(0,1) > alpha, discard new allele and keep previous 
+                auto uniform_smpl = generate_continuous_uniform(0.0,1.0);
+                if(uniform_smpl > acceptance_probability){ 
+                    //swap back to old allele at random snarl, random haplo
+                    genome->set_allele(*modified_site, old_allele->begin(), old_allele->end(), *modified_haplo); 
+                
+                }else{
+                    //keep sample
+                    previous_likelihood = current_likelihood;
                 }                
             }else{
                 count++;
+#ifdef debug_mcmc 
+                cerr << "count " << count <<endl;
+                cerr << "i " << i <<endl; 
+                cerr << "burn in " << burn_in <<endl;       
+#endif
                 //swap between alt and original proposal random uniformly
                 //generate gamma after burn in 
                 if(i == burn_in){
+#ifdef debug_mcmc 
+                    cerr << "building gamma " <<endl;      
+#endif
                     gamma.reset(new vector<unordered_set<size_t>> (karger_stein(reads, *genome))); 
+#ifdef debug_mcmc 
+                    cerr << "gamma size " << gamma->size() << endl;      
+#endif
                 }
                 //generate gamma with n frequency after burn in 
                 if(count == frequency){
+#ifdef debug_mcmc 
+                    cerr << "building gamma " <<endl;      
+#endif
                     gamma.reset(new vector<unordered_set<size_t>> (karger_stein(reads, *genome)));
                     count = 0;//reset counter
+#ifdef debug_mcmc 
+                    cerr << "gamma size " << gamma->size() << endl;      
+#endif
                 }
-
+                if(gamma->size() <= 0){
+                    break;
+                }
                 // get contents from either proposal_samples randomly using uniform dist. 
                 // if rand_num ==1 , choose alt_proposal
                 // check that gamma has contents
-                if(random_num && gamma){
+                if(random_num == karger_stein_proposal){
                     //use alt proposal sample, store the sites we swapped in case we reject sample
                     to_swap_back.reset(new unordered_set<size_t> (alt_proposal_sample(*gamma, *genome)));
                     if(!to_swap_back){
-// #ifdef debug_mcmc 
-//                      cerr << "to_swap_back() is empty" <<endl;        
-// #endif
+#ifdef debug_mcmc 
+                        cerr << "to_swap_back() is empty" <<endl;        
+#endif
                         break;
-                
                     }
                     
-                }else{ //otherwise choose original
+                }
+                if(random_num == proposal_sampl){ //otherwise choose original
                     to_receive = proposal_sample(genome);
                     modified_haplo = &get<0>(to_receive); 
                     // if the to_receive contents are invalid keep the new allele
                     // for graphs that do not contain snarls
                     if (*modified_haplo ==-1){
-    // #ifdef debug_mcmc 
-    //                 cerr << "modified haplo is empty" <<endl;        
-    // #endif
+#ifdef debug_mcmc 
+                cerr << "modified haplo is empty" <<endl;        
+#endif
                         break;
                     }else{
                         modified_site = get<1>(to_receive); 
@@ -115,54 +164,60 @@ namespace vg {
                     }
                 }
 
-            }
+                // holds new sample allele score 
+                double x_new = log_target(genome, reads);
 
-            // holds new sample allele score 
-            double x_new = log_target(genome, reads);
-
-            double likelihood_ratio = exp(log_base*(x_new - x_prev));
-            
-            current_likelihood = previous_likelihood + log_base*(x_new-x_prev);
-            
-            if (current_likelihood > max_likelihood){
-                max_likelihood = current_likelihood;
-                optimal.reset(new PhasedGenome(*genome));
-                return_optimal=true;
-            }
-            
-            // calculate acceptance probability 
-            double acceptance_probability = min(1.0, likelihood_ratio);
-
-            // if u~U(0,1) > alpha, discard new allele and keep previous 
-            auto uniform_smpl = generate_continuous_uniform(0.0,1.0);
-            if(uniform_smpl > acceptance_probability){ 
-                if(random_num == proposal_sampl){
-                    //swap back to old allele at random snarl, random haplo
-                    genome->set_allele(*modified_site, old_allele->begin(), old_allele->end(), *modified_haplo); 
-                }else{
-                    int haplotype_0 =0;
-                    int haplotype_1 =1;
-                    //swap alleles at all sites in to_swap_back 
-                    for(auto iter = to_swap_back->begin(); iter != to_swap_back->end(); ++iter){
-                        const Snarl* snarl_to_swap = snarls.translate_snarl_num(*iter); 
-                        genome->swap_alleles(*snarl_to_swap, haplotype_0, haplotype_1);
-                    }
+                double likelihood_ratio = exp(log_base*(x_new - x_prev));
+                
+                current_likelihood = previous_likelihood + log_base*(x_new-x_prev);
+                
+                if (current_likelihood > max_likelihood){
+                    max_likelihood = current_likelihood;
+                    optimal.reset(new PhasedGenome(*genome));
+                    return_optimal=true;
                 }
                 
-// #ifdef debug_mcmc
-//                 cerr << "Rejected new allele" <<endl;
-//                 cerr << "clikelihood " << previous_likelihood <<endl;
-//                 genome->print_phased_genome();
-// #endif                    
-            }else{     
-// #ifdef debug_mcmc 
-//                 cerr << "Accepted new allele" <<endl;
-//                 cerr << "clikelihood " << current_likelihood <<endl;
-//                 genome->print_phased_genome();
-// #endif
-                previous_likelihood = current_likelihood;
-                
-            }         
+                // calculate acceptance probability 
+                double acceptance_probability = min(1.0, likelihood_ratio);
+
+                // if u~U(0,1) > alpha, discard new allele and keep previous 
+                auto uniform_smpl = generate_continuous_uniform(0.0,1.0);
+                if(uniform_smpl > acceptance_probability){ 
+                    if(random_num=proposal_sampl){ //if rand num==0, use proposal sample swap back method
+                        //swap back to old allele at random snarl, random haplo
+                        genome->set_allele(*modified_site, old_allele->begin(), old_allele->end(), *modified_haplo); 
+                    }
+                    if(random_num == karger_stein_proposal){ //or if, use alt proposal sample swap back method
+#ifdef debug_mcmc 
+                        cerr << "rand num " << random_num<<endl;
+                        cerr << "proposal_sampl " << proposal_sampl <<endl;         
+#endif
+                        int haplotype_0 =0;
+                        int haplotype_1 =1;
+                        //swap alleles at all sites in to_swap_back
+                        for(auto iter = to_swap_back->begin(); iter != to_swap_back->end(); ++iter){
+                            const Snarl* snarl_to_swap = snarls.translate_snarl_num(*iter); 
+                            genome->swap_alleles(*snarl_to_swap, haplotype_0, haplotype_1);
+                        }
+                    }
+                    
+#ifdef debug_mcmc
+                    cerr << "Rejected new allele" <<endl;
+                    cerr << "clikelihood " << previous_likelihood <<endl;
+                    genome->print_phased_genome();
+#endif                    
+                }else{     
+#ifdef debug_mcmc 
+                    cerr << "Accepted new allele" <<endl;
+                    cerr << "clikelihood " << current_likelihood <<endl;
+                    genome->print_phased_genome();
+#endif
+                    previous_likelihood = current_likelihood;
+                    
+                } 
+
+            }
+                    
             
         } 
         if(!return_optimal){
@@ -650,13 +705,20 @@ namespace vg {
     }
 
     vector<unordered_set<size_t>> MCMCGenotyper::karger_stein(const vector<multipath_alignment_t>& reads, PhasedGenome& genome) const{
-        
+
+#ifdef debug_karger_stein   
+        cerr << "num reads" << reads.size() <<endl;    
+        genome.print_phased_genome();
+#endif
         //make snarl map
         unordered_map<pair<const Snarl*, const Snarl*>, int32_t> snarl_map  = make_snarl_map(reads, genome);
         
         //make snarl graph
         algorithms::Graph snarl_graph =  make_snarl_graph(snarl_map);
-
+#ifdef debug_karger_stein   
+        cerr << "size of snarl map" << snarl_map.size() <<endl;    
+        cerr << "size of snarl graph" << snarl_graph.get_size() <<endl;
+#endif
         //generate set used to make swap in alt proposal dist
         vector<unordered_set<size_t>> to_recv =  algorithms::min_cut_decomposition(snarl_graph, seed);
 
@@ -673,7 +735,10 @@ namespace vg {
 
         //generate set used to make swap in alt proposal dist
         int random_num = generate_discrete_uniform(random_engine, lower_bound , upper_bound);
-
+#ifdef debug_mcmc 
+            cerr << "rand num " << random_num<<endl;
+            cerr << "upper_bound " << upper_bound <<endl;         
+#endif
         unordered_set<size_t> sites_to_swap = gamma[random_num];
 
         // swap alleles at sites in chosen set using snarl indexes
@@ -685,6 +750,9 @@ namespace vg {
         return sites_to_swap;
         
     }
+
+    
+    
 
 
 }

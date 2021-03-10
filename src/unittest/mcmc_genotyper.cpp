@@ -107,7 +107,7 @@ namespace vg {
             }
  
         }
-        TEST_CASE("Returns optimal phased genome on a 4-node graph, snarl with 1 short read"){
+        TEST_CASE("Returns optimal phased genome on a 4-node graph and snarl with 1 short read"){
             SECTION("Test2: Requires haplotype pair to match truth set") {   
                 VG graph;
 				
@@ -186,7 +186,7 @@ namespace vg {
                 multipath_aln.add_start(0);
 
             
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed,burn_in, gamma_freq);
+                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed, burn_in, gamma_freq);
                 vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>({multipath_aln});
                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
                 unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
@@ -616,7 +616,7 @@ namespace vg {
             
             }
         }    
-        TEST_CASE("Returns optimal phased genome on a 7-node graph containing 2 connected snarls, and 4 mapped reads"){
+        TEST_CASE("Returns optimal phased genome on a 7-node graph containing 2 connected snarls and 4 mapped reads"){
             SECTION("Test6: Requires haplotype pair to match truth set"){
                 VG graph;
 
@@ -745,7 +745,7 @@ namespace vg {
                 delete lcpidx;
             }
         }
-        TEST_CASE("Returns optimal phased genome on a 7-node graph, two connected snarls with 8 short read"){
+        TEST_CASE("Returns optimal phased genome on a 7-node graph and two connected snarls with 8 short read"){
             SECTION("Test7: Requires haplotype pair to match truth set"){
                 
                 vector<int> failed_seeds;
@@ -908,7 +908,7 @@ namespace vg {
             }
             
         }
-        TEST_CASE("Returns optimal phased genome on a 7-node graph, two connected snarls with 9 short read"){
+        TEST_CASE("Returns optimal phased genome on a 7-node graph and two connected snarls with 9 short read"){
             SECTION("Test8: Requires haplotype pair to match truth set"){
                 
                 vector<int> failed_seeds;
@@ -1492,8 +1492,20 @@ namespace vg {
 
             // index sites
             phased_genome->build_indices();
+            unique_ptr<vector<unordered_set<size_t>>> gamma(nullptr);
+            //stores the sites we swapped alleles at - returned by alt_proposal
+            unique_ptr<unordered_set<size_t>> to_swap_back(nullptr);
+            // build gamma set 
+            gamma.reset(new vector<unordered_set<size_t>> (mcmc_genotyper.karger_stein(multipath_aln_vector, *phased_genome))); 
 
-            // mcmc_genotyper.get_out_of_bottlenecks(multipath_aln_vector, phased_genome);
+            to_swap_back.reset(new unordered_set<size_t> (mcmc_genotyper.alt_proposal_sample(*gamma, *phased_genome)));
+            REQUIRE(!to_swap_back->empty());
+            REQUIRE(to_swap_back->size() >1 );
+            
+            for(auto iter = to_swap_back->begin(); iter != to_swap_back->end(); ++iter){
+                cerr << "snarl num to swap backs" <<*iter << endl; 
+            
+            }
 
 
         }

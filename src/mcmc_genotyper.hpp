@@ -88,6 +88,7 @@ public:
 
      unordered_set<size_t> alt_proposal_sample(vector<unordered_set<size_t>>& gamma, PhasedGenome& genome) const;
 
+
 };
 
 }
