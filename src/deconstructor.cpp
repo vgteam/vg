@@ -1,5 +1,6 @@
 #include "deconstructor.hpp"
 #include "traversal_finder.hpp"
+#include <gbwtgraph/gbwtgraph.h>
 
 //#define debug
 
@@ -108,7 +109,7 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
     assert(names.size() == trav_to_allele.size());
     // set up our variant fields
     v.format.push_back("GT");
-    if (path_to_sample) {
+    if (path_to_sample && path_restricted) {
         v.format.push_back("PI");
     }
 
@@ -157,7 +158,7 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
             }
         } else {
             v.samples[sample_name]["GT"] = {"."};
-            if (path_to_sample) {
+            if (path_to_sample && path_restricted) {
                 v.samples[sample_name]["PI"] = {"."};
             }
         }
@@ -395,7 +396,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     this->ploidy =ploidy;
     this->path_to_sample = path_to_sample;
     this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
-    assert(path_to_sample == nullptr || path_restricted);
+    assert(path_to_sample == nullptr || path_restricted || gbwt);
     
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
     sample_names.clear();
@@ -418,7 +419,11 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     if (gbwt) {
         // add in sample names from the gbwt
         for (size_t i = 0; i < gbwt->metadata.paths(); i++) {
-            sample_names.insert(thread_sample(*gbwt, i));
+            string sample_name = thread_sample(*gbwt, i);
+            if (sample_name != gbwtgraph::REFERENCE_PATH_SAMPLE_NAME &&
+                (path_to_sample == nullptr || path_to_sample->count(sample_name))) {
+                sample_names.insert(thread_sample(*gbwt, i));
+            }
         }
     }
     
@@ -428,8 +433,10 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     if (path_restricted || gbwt) {
         stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
     }
-    if (path_to_sample) {
+    if (path_to_sample && path_restricted) {
         stream << "##FORMAT=<ID=PI,Number=.,Type=String,Description=\"Path information. Original vg path name for sample as well as its allele (can be many paths per sample)\">" << endl;
+    }
+    if (path_to_sample || gbwt) {
         stream << "##INFO=<ID=CONFLICT,Number=.,Type=String,Description=\"Sample names for which there are multiple paths in the graph with conflicting alleles (details in PI field)\">" << endl;
     }
     for(auto& refpath : ref_paths) {

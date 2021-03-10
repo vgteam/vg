@@ -29,7 +29,8 @@ void help_deconstruct(char** argv){
          << "options: " << endl
          << "    -p, --path NAME          A reference path to deconstruct against (multiple allowed)." << endl
          << "    -P, --path-prefix NAME   All paths beginning with NAME used as reference (multiple allowed)." << endl
-         << "    -A, --alt-prefix NAME    Non-reference paths beginning with NAME get lumped together to same sample in VCF (multiple allowed).  Other non-ref paths not considered as samples." << endl
+         << "    -A, --alt-prefix NAME    Non-reference paths beginning with NAME get lumped together to same sample in VCF (multiple allowed)." << endl
+         << "                             Other non-ref paths not considered as samples.  When using a GBWT, select only samples with given prefix." << endl
          << "    -r, --snarls FILE        Snarls file (from vg snarls) to avoid recomputing." << endl
          << "    -g, --gbwt FILE          only consider alt traversals that correspond to GBWT threads FILE." << endl
          << "    -e, --path-traversals    Only consider traversals that correspond to paths in the graph." << endl
@@ -219,6 +220,16 @@ int main_deconstruct(int argc, char** argv){
                     }
                 }
             });
+        if (gbwt_index.get() && !altpath_prefixes.empty()) {
+            for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
+                string sample_name = thread_sample(*gbwt_index.get(), i);
+                for (auto& prefix : altpath_prefixes) {
+                    if (sample_name.compare(0, prefix.size(), prefix) == 0) {
+                        alt_path_to_prefix[sample_name] = sample_name;
+                    }
+                }
+            }
+        }
     }
 
     // make sure we have at least one reference
