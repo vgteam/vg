@@ -3377,9 +3377,12 @@ GBWTTraversalFinder::find_path_traversals(const Snarl& site, bool return_paths) 
         graph.get_handle(site.end().node_id(), site.end().backward()));
 
     // follow all gbwt threads from end to start
-    vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > backward_traversals = get_spanning_haplotypes(
-        graph.get_handle(site.end().node_id(), !site.end().backward()),
-        graph.get_handle(site.start().node_id(), !site.start().backward()));
+    vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > backward_traversals;
+    if (!gbwt.bidirectional()) {
+        backward_traversals = get_spanning_haplotypes(
+            graph.get_handle(site.end().node_id(), !site.end().backward()),
+            graph.get_handle(site.start().node_id(), !site.start().backward()));
+    }
 
     // store them all as snarltraversals
     vector<SnarlTraversal> traversals;
@@ -3461,10 +3464,9 @@ pair<vector<SnarlTraversal>, vector<string>> GBWTTraversalFinder::find_sample_tr
         SnarlTraversal& trav = path_traversals.first[i];
         vector<gbwt::size_type>& paths = path_traversals.second[i];
         for (size_t j = 0; j < paths.size(); ++j) {
-            string sample = thread_sample(gbwt, paths[j]);
+            string sample = thread_sample(gbwt, gbwt::Path::id(paths[j]));
             sample_traversals.first.push_back(trav);
             sample_traversals.second.push_back(sample);
-            
         }
     }
     
