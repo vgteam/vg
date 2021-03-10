@@ -7,9 +7,9 @@
 #include <utility>
 #include "multipath_alignment.hpp"
 
-#define debug_mcmc
-#define debug_make_snarl_graph
-#define debug_karger_stein
+// #define debug_mcmc
+// #define debug_make_snarl_graph
+// #define debug_karger_stein
 
 namespace vg {
 

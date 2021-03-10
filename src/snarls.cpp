@@ -3,7 +3,7 @@
 ///
 ///
 
-//#define debug
+// #define debug
 
 #include <vg/io/protobuf_emitter.hpp>
 
@@ -781,6 +781,9 @@ const Snarl* SnarlManager::discrete_uniform_sample(minstd_rand0& random_engine)c
     // have to set the seed to the random engine in the unit tests , pass the random engine 
 
     int number_of_snarls = num_snarls();
+#ifdef debug
+    cerr << "number_of_snarls "<< number_of_snarls <<endl;
+#endif
 
     // if we have no snarls we return a flag 
     if(number_of_snarls ==0){
@@ -788,15 +791,14 @@ const Snarl* SnarlManager::discrete_uniform_sample(minstd_rand0& random_engine)c
     }
     
     // we choose a snarl from the master list of snarls in the graph at random uniformly
-    // unif[a,b]
+    // unif[a,b],  deque starts at index 0 so upperbound is size-1
     uniform_int_distribution<int> distribution(0, number_of_snarls-1);  
     int random_num = distribution(random_engine);
 #ifdef debug
-    cerr << "modifying snarl num " << random_num << endl ;  
+    cerr << "modifying snarl num " << random_num << endl;  
 #endif
-    const Snarl* random_snarl = unrecord(&snarls[random_num]);
 
-    return random_snarl;
+    return unrecord(&snarls[random_num]);
 
 } 
 
@@ -873,7 +875,7 @@ const Snarl* SnarlManager::add_snarl(const Snarl& new_snarl) {
     *new_record = new_snarl;
 
     // Initialized snarl number for each record as deque is being filled
-    new_record->snarl_number = (size_t)snarls.size();
+    new_record->snarl_number = (size_t)snarls.size()-1;
     
     // TODO: Should this be a non-default SnarlRecord constructor?
 

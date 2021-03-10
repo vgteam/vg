@@ -25,7 +25,7 @@
 
 // #define debug
 
-#define debug_snarl_graph
+// #define debug_snarl_graph
 
 namespace vg {
     namespace unittest {
@@ -345,8 +345,9 @@ namespace vg {
 
                 path_handle_t path_handle = graph.create_path_handle("x");
                 graph.append_step(path_handle, graph.get_handle(n1->id()));
-                graph.append_step(path_handle, graph.get_handle(n7->id()));
-                graph.append_step(path_handle, graph.get_handle(n8->id()));
+                graph.append_step(path_handle, graph.get_handle(n2->id()));
+                graph.append_step(path_handle, graph.get_handle(n3->id()));
+                graph.append_step(path_handle, graph.get_handle(n5->id()));
                 graph.append_step(path_handle, graph.get_handle(n6->id()));
 
                 
@@ -524,8 +525,9 @@ namespace vg {
 
                 path_handle_t path_handle = graph.create_path_handle("x");
                 graph.append_step(path_handle, graph.get_handle(n1->id()));
-                graph.append_step(path_handle, graph.get_handle(n7->id()));
-                graph.append_step(path_handle, graph.get_handle(n8->id()));
+                graph.append_step(path_handle, graph.get_handle(n2->id()));
+                graph.append_step(path_handle, graph.get_handle(n3->id()));
+                graph.append_step(path_handle, graph.get_handle(n5->id()));
                 graph.append_step(path_handle, graph.get_handle(n6->id()));
 
                 
