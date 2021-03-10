@@ -220,12 +220,14 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
         //Add the first values for the prefix sum and backwards loop vectors
         temp_chain_record.prefix_sum.emplace_back(0);
         temp_chain_record.backward_loops.emplace_back(std::numeric_limits<int64_t>::max());
+        temp_chain_record.chain_components.emplace_back(0);
 
 
         /*First, go through each of the snarls in the chain in the forward direction and
          * fill in the distances in the snarl. Also fill in the prefix sum and backwards
          * loop vectors here
          */
+        size_t curr_component = 0; //which component of the chain are we in
         for (const pair<temp_record_t, size_t>& chain_child_index : temp_chain_record.children){ 
             //Go through each of the children in the chain, skipping nodes 
             //The snarl may be trivial, in which case don't fill in the distances
@@ -243,13 +245,21 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
                 populate_snarl_index(temp_snarl_record, chain_child_index, size_limit, graph);
 
                 int64_t length;
+                bool new_component = false;
                 //TODO: Double check these orientations
                 if (temp_snarl_record.distances.count(make_pair(make_pair(0, false), make_pair(1, false)))){
                     length = temp_snarl_record.distances.at(make_pair(make_pair(0, false), make_pair(1, false)));
                 } else if (temp_snarl_record.distances.count(make_pair(make_pair(1, false), make_pair(0, false)))){
                     length = temp_snarl_record.distances.at(make_pair(make_pair(1, false), make_pair(0, false)));
                 } else {
+                    //The snarl is not start-end connected
                     length = std::numeric_limits<int64_t>::max();
+                    //Start a new component
+                    curr_component ++;
+                    new_component=true;
+#ifdef debug_distance_indexing
+            cerr << "      This snarl is not start-end connected, starting new chain component " << endl; 
+#endif
                 }
                 temp_snarl_record.min_length = length == std::numeric_limits<int64_t>::max() ? length :
                                length + temp_snarl_record.start_node_length + temp_snarl_record.end_node_length;
@@ -266,33 +276,54 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
                   ? temp_snarl_record.distances.at(make_pair(make_pair(1, false), make_pair(1, false))) 
                   : std::numeric_limits<int64_t>::max();
 
-                //And get the distance values for the end node in the chain
-                temp_chain_record.prefix_sum.emplace_back(temp_chain_record.prefix_sum.back() + 
-                    temp_snarl_record.min_length + temp_snarl_record.start_node_length);
-                temp_chain_record.backward_loops.emplace_back(std::min(temp_snarl_record.loop_end,
-                    temp_chain_record.backward_loops.back() 
-                    + 2 * (temp_snarl_record.start_node_length + temp_snarl_record.min_length)));
+                //And get the distance values for the end node of the snarl in the chain
+                if (new_component) {
+                    //If this snarl wasn't start-end connected, then we start tracking the distance vectors
+                    //here
+                    temp_chain_record.prefix_sum.emplace_back(0);
+                    temp_chain_record.backward_loops.emplace_back(temp_snarl_record.loop_end);
+                } else {
+                    temp_chain_record.prefix_sum.emplace_back(temp_chain_record.prefix_sum.back() + 
+                        temp_snarl_record.min_length + temp_snarl_record.start_node_length);
+                    temp_chain_record.backward_loops.emplace_back(std::min(temp_snarl_record.loop_end,
+                        temp_chain_record.backward_loops.back() 
+                        + 2 * (temp_snarl_record.start_node_length + temp_snarl_record.min_length)));
+                }
+                temp_chain_record.chain_components.emplace_back(curr_component);
             }
         }
         temp_chain_record.min_length = temp_chain_record.prefix_sum.back() + temp_chain_record.end_node_length; 
 
+        assert(temp_chain_record.prefix_sum.size() == temp_chain_record.backward_loops.size());
+        assert(temp_chain_record.prefix_sum.size() == temp_chain_record.chain_components.size());
+        cerr << temp_chain_record.children.size() << " Children, and " << temp_chain_record.prefix_sum.size() << " values" << temp_chain_record.chain_components.size() << endl;
+
+
         /*Now that we've gone through all the snarls in the chain, fill in the forward loop vector 
          * by going through the chain in the backwards direction
          */
-        temp_chain_record.forward_loops.resize(temp_chain_record.children.size(), 
+        temp_chain_record.forward_loops.resize(temp_chain_record.prefix_sum.size(), 
                                                std::numeric_limits<int64_t>::max());
-        for (int j = (int)temp_chain_record.children.size() - 2 ; j >= 0 ; j--) {
-            // We start at the next to last record because we need to look at this record and the next one.
+
+        size_t node_i = temp_chain_record.prefix_sum.size() - 2;
+        // We start at the next to last node because we need to look at this record and the next one.
+
+        for (int j = (int)temp_chain_record.children.size() - 1 ; j >= 0 ; j--) {
             auto& child = temp_chain_record.children.at(j);
             if (child.first == TEMP_SNARL){
                 TemporarySnarlRecord& temp_snarl_record = temp_snarl_records.at(child.second);
-                if (temp_snarl_record.is_trivial) {
-                    temp_chain_record.forward_loops.at(j) = temp_chain_record.forward_loops.at(j+1) + 
+                if (temp_chain_record.chain_components.at(node_i) != temp_chain_record.chain_components.at(node_i+1)){
+                    //If this is a new chain component, then add the loop distance from the snarl
+                    temp_chain_record.forward_loops.at(node_i) = temp_snarl_record.loop_start;
+                } else if (temp_snarl_record.is_trivial) {
+                    //If this is a trivial chain, then we always add the previous loop value
+                    temp_chain_record.forward_loops.at(node_i) = temp_chain_record.forward_loops.at(node_i+1) + 
                                     2*temp_snarl_record.end_node_length;
                 } else {
-                    temp_chain_record.forward_loops.at(j) = std::min(temp_chain_record.forward_loops.at(j+1) + 
+                    temp_chain_record.forward_loops.at(node_i) = std::min(temp_chain_record.forward_loops.at(node_i+1) + 
                                   2*temp_snarl_record.end_node_length, temp_snarl_record.loop_start);
                 }
+                node_i --;
             }
         }
     }
@@ -618,8 +649,16 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
 #endif 
                     record_to_offset.emplace(make_pair(temp_index_i,current_record_index), snarl_tree_records.size());
 
-                    ChainRecordConstructor chain_record_constructor(snarl_tree_records.size(), DISTANCED_CHAIN, 
-                                                                  temp_chain_record.prefix_sum.size(), &snarl_tree_records);
+                    ChainRecordConstructor chain_record_constructor;
+
+                    if (temp_chain_record.chain_components.back() == 0) {
+                        chain_record_constructor = ChainRecordConstructor(snarl_tree_records.size(), DISTANCED_CHAIN, 
+                                                               temp_chain_record.prefix_sum.size(), &snarl_tree_records);
+                        chain_record_constructor.set_start_end_connected();
+                    } else {
+                        chain_record_constructor = ChainRecordConstructor(snarl_tree_records.size(), MULTICOMPONENT_CHAIN, 
+                                                               temp_chain_record.prefix_sum.size(), &snarl_tree_records);
+                    }
                     chain_record_constructor.set_parent_record_offset(
                             record_to_offset[make_pair(temp_index_i, temp_chain_record.parent)]);//TODO: Get the actual parent
                     chain_record_constructor.set_min_length(temp_chain_record.min_length);
@@ -627,7 +666,8 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                     chain_record_constructor.set_rank_in_parent(temp_chain_record.rank_in_parent);
                     chain_record_constructor.set_start_node(temp_chain_record.start_node_id, temp_chain_record.start_node_rev);
                     chain_record_constructor.set_end_node(temp_chain_record.end_node_id, temp_chain_record.end_node_rev);
-                    chain_record_constructor.set_start_end_connected();
+
+
                     size_t chain_node_i = 0; //How far along the chain are we?
                     bool prev_node = false;//Was the previous thing in the chain a node?
 
@@ -671,9 +711,16 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                                 node_record_constructor.set_rank_in_parent(snarl_tree_records.size());
 
                                 //Add the node to the chain
-                                chain_record_constructor.add_node(temp_node_record.node_id, temp_chain_record.prefix_sum[chain_node_i],
+                                if (chain_record_constructor.ChainRecord::get_record_type() == MULTICOMPONENT_CHAIN) {
+                                    chain_record_constructor.add_node(temp_node_record.node_id, temp_chain_record.prefix_sum[chain_node_i],
+                                                                  temp_chain_record.forward_loops[chain_node_i],
+                                                                  temp_chain_record.backward_loops[chain_node_i],
+                                                                  temp_chain_record.chain_components[chain_node_i]);
+                                } else {
+                                    chain_record_constructor.add_node(temp_node_record.node_id, temp_chain_record.prefix_sum[chain_node_i],
                                                                   temp_chain_record.forward_loops[chain_node_i],
                                                                   temp_chain_record.backward_loops[chain_node_i]);
+                                }
 
 #ifdef debug_distance_indexing
                             cerr << "    The node record is at offset " << node_record_constructor.NodeRecord::record_offset << endl;
@@ -759,6 +806,7 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
 
                                 //Add connectivity in chain based on this snarl
                                 //TODO: Tip-tip connected?
+                                //TODO: What about if it's a multicomponent chain?
                                 if (!snarl_record_constructor.get_is_rev_in_parent()) {
                                     //If this snarl is oriented forward in the chain
                                     if (snarl_record_constructor.is_start_start_connected()) {

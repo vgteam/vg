@@ -458,7 +458,6 @@ private:
         virtual bool is_end_end_connected() const {return records->at(record_offset) & 4;}
         virtual bool is_end_tip_connected() const {return records->at(record_offset) & 2;}
         virtual bool is_tip_tip_connected() const {return records->at(record_offset) & 1;}
-        virtual bool is_end_start_connected() const {return records->at(record_offset) & 32;}
 
         //And the external connectivity. This is only relevant for root-level structures
         //since it would otherwise be captured by the containing snarl
@@ -1570,6 +1569,7 @@ private:
         //not allocated yet
 
         //TODO: I don't think I even need node count
+        ChainRecordConstructor() {}
         ChainRecordConstructor (size_t pointer, record_t type, size_t node_count, vector<size_t>* records){
             assert(type == CHAIN || 
                    type == DISTANCED_CHAIN ||
@@ -1805,6 +1805,7 @@ protected:
             vector<int64_t> prefix_sum;
             vector<int64_t> forward_loops;
             vector<int64_t> backward_loops;
+            vector<size_t> chain_components;//Which component does each node belong to, usually all 0s
             size_t rank_in_parent;
             bool reversed_in_parent;
             bool is_trivial;
