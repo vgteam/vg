@@ -96,6 +96,9 @@ private:
 
     // upper limit of degree-2+ nodes for exhaustive traversal
     int max_nodes_for_exhaustive = 100;
+
+    // recurse on child snarls
+    bool include_nested = false;
 };
 
 }

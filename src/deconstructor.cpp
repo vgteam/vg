@@ -371,6 +371,21 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
             get_genotypes(v, path_trav_names, trav_to_allele);
         }
 
+        // Fill in some snarl hierarchy information
+        if (include_nested) {
+            // would be nicer to do this constant time!
+            size_t level = 0;
+            for (const Snarl* cur = snarl; !snarl_manager->is_root(cur); cur = snarl_manager->parent_of(cur)) {
+                ++level;
+            }
+            v.info["LEVEL"].push_back(std::to_string(level));
+            if (level > 0) {
+                const Snarl* parent = snarl_manager->parent_of(snarl);
+                string parent_id = std::to_string(parent->start().node_id()) + "_" + std::to_string(parent->end().node_id());
+                v.info["PARENT"].push_back(parent_id);
+            } 
+        }
+
         // we only bother printing out sites with at least 1 non-reference allele
         if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return i == 0; })) {
 #pragma omp critical (cout)
@@ -396,6 +411,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     this->ploidy =ploidy;
     this->path_to_sample = path_to_sample;
     this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
+    this->include_nested = include_nested;
     assert(path_to_sample == nullptr || path_restricted || gbwt);
     
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
@@ -437,7 +453,15 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         stream << "##FORMAT=<ID=PI,Number=.,Type=String,Description=\"Path information. Original vg path name for sample as well as its allele (can be many paths per sample)\">" << endl;
     }
     if (path_to_sample || gbwt) {
-        stream << "##INFO=<ID=CONFLICT,Number=.,Type=String,Description=\"Sample names for which there are multiple paths in the graph with conflicting alleles (details in PI field)\">" << endl;
+        stream << "##INFO=<ID=CONFLICT,Number=.,Type=String,Description=\"Sample names for which there are multiple paths in the graph with conflicting alleles";
+        if (!gbwt) {
+            stream << " (details in PI field)";
+        }
+        stream << "\">" << endl;
+    }
+    if (include_nested) {
+        stream << "##INFO=<ID=LEVEL,Number=1,Type=Integer,Description=\"Level in the snarl tree (0=top level)\">" << endl;
+        stream << "##INFO=<ID=PARENT,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
     }
     for(auto& refpath : ref_paths) {
         size_t path_len = 0;
