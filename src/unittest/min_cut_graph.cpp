@@ -14,7 +14,7 @@
 #include <stdlib.h>     
 #include <time.h>
 #include <chrono>       
-#define debug
+// #define debug
 
 namespace vg {
     namespace unittest {
