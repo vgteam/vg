@@ -81,7 +81,7 @@ public:
     void write_variants(ostream& out_stream) const;
 
     /// Run vcffixup from vcflib
-    void vcf_fixup() const;
+    void vcf_fixup(vcflib::Variant& var) const;
     
 protected:
 
@@ -120,7 +120,8 @@ protected:
     string sample_name;
 
     /// output buffers (1/thread) (for sorting)
-    mutable vector<vector<vcflib::Variant>> output_variants;
+    /// variants stored as strings (and position key pairs) because vcflib::Variant in-memory struct so huge
+    mutable vector<vector<pair<pair<string, size_t>, string>>> output_variants;
 
     /// print up to this many uncalled alleles when doing ref-genotpes in -a mode
     size_t max_uncalled_alleles = 5;

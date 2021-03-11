@@ -387,6 +387,10 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
 
         // we only bother printing out sites with at least 1 non-reference allele
         if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return i == 0; })) {
+            if (path_restricted || gbwt_trav_finder.get()) {
+                // run vcffixup to add some basic INFO like AC
+                vcf_fixup(v);
+            }
             add_variant(v);
         }
     }    
@@ -521,11 +525,6 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                 next.clear();
             }
         });
-
-    if (path_restricted || gbwt_trav_finder.get()) {
-        // run vcffixup to add some basic INFO like AC
-        vcf_fixup();
-    }
     
     // write variants in sorted order
     write_variants(cout);

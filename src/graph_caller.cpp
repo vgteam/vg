@@ -206,21 +206,26 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
 }
 
 void VCFOutputCaller::add_variant(vcflib::Variant& var) const {
-    output_variants[omp_get_thread_num()].push_back(var);
+    var.setVariantCallFile(output_vcf);
+    stringstream ss;
+    ss << var;
+    // the Variant object is too big to keep in memory when there are many genotypes, so we
+    // store it in string
+    output_variants[omp_get_thread_num()].push_back(make_pair(make_pair(var.sequenceName, var.position), ss.str()));
 }
 
 void VCFOutputCaller::write_variants(ostream& out_stream) const {
-    vector<vcflib::Variant> all_variants;
+    vector<pair<pair<string, size_t>, string>> all_variants;
     for (const auto& buf : output_variants) {
         all_variants.reserve(all_variants.size() + buf.size());
         std::move(buf.begin(), buf.end(), std::back_inserter(all_variants));
     }
-    std::sort(all_variants.begin(), all_variants.end(), [](const vcflib::Variant& v1, const vcflib::Variant& v2) {
-            return v1.sequenceName < v2.sequenceName || (v1.sequenceName == v2.sequenceName && v1.position < v2.position);
+    std::sort(all_variants.begin(), all_variants.end(), [](const pair<pair<string, size_t>, string>& v1,
+                                                           const pair<pair<string, size_t>, string>& v2) {
+            return v1.first.first < v2.first.first || (v1.first.first == v2.first.first && v1.first.second < v2.first.second);
         });
     for (auto v : all_variants) {
-        v.setVariantCallFile(output_vcf);
-        out_stream << v << endl;
+        out_stream << v.second << endl;
     }
 }
 
@@ -281,39 +286,34 @@ static int countSamplesWithData(vcflib::Variant& var) {
     return samples_with_data;
 }
 
-void VCFOutputCaller::vcf_fixup() const {
+void VCFOutputCaller::vcf_fixup(vcflib::Variant& var) const {
     // copied from https://github.com/vgteam/vcflib/blob/master/src/vcffixup.cpp
     
-#pragma omp parallel for schedule(dynamic, 1)
-    for (size_t i = 0; i < output_variants.size(); ++i) {
-        for (auto& var : output_variants[i]) {
-            stringstream ns;
-            ns << countSamplesWithData(var);
-            var.info["NS"].clear();
-            var.info["NS"].push_back(ns.str());
+    stringstream ns;
+    ns << countSamplesWithData(var);
+    var.info["NS"].clear();
+    var.info["NS"].push_back(ns.str());
 
-            var.info["AC"].clear();
-            var.info["AF"].clear();
-            var.info["AN"].clear();
+    var.info["AC"].clear();
+    var.info["AF"].clear();
+    var.info["AN"].clear();
 
-            int allelecount = countAlleles(var);
-            stringstream an;
-            an << allelecount;
-            var.info["AN"].push_back(an.str());
+    int allelecount = countAlleles(var);
+    stringstream an;
+    an << allelecount;
+    var.info["AN"].push_back(an.str());
 
-            for (vector<string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
-                string& allele = *a;
-                int altcount = countAlts(var, var.getAltAlleleIndex(allele) + 1);
-                stringstream ac;
-                ac << altcount;
-                var.info["AC"].push_back(ac.str());
-                stringstream af;
-                double faf = (double) altcount / (double) allelecount;
-                if(faf != faf) faf = 0;
-                af << faf;
-                var.info["AF"].push_back(af.str());
-            }
-        }
+    for (vector<string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
+        string& allele = *a;
+        int altcount = countAlts(var, var.getAltAlleleIndex(allele) + 1);
+        stringstream ac;
+        ac << altcount;
+        var.info["AC"].push_back(ac.str());
+        stringstream af;
+        double faf = (double) altcount / (double) allelecount;
+        if(faf != faf) faf = 0;
+        af << faf;
+        var.info["AF"].push_back(af.str());
     }
 }
 
