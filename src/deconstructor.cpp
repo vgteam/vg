@@ -588,7 +588,8 @@ string Deconstructor::snarl_name(const Snarl* snarl) {
         }
         end_node = i->second.first;
     }
-    return std::to_string(start_node) + "_" + std::to_string(end_node);
+    return (snarl->start().backward() ? "<" : ">") + std::to_string(start_node) +
+        (snarl->end().backward() ? "<" : ">") + std::to_string(end_node);
 }
 
 }
