@@ -1,7 +1,8 @@
 #ifndef VG_SNARL_DISTANCE_HPP_INCLUDED
 #define VG_SNARL_DISTANCE_HPP_INCLUDED
 
-//#define debug_indexing
+#define debug_indexing
+
 #include <handlegraph/snarl_decomposition.hpp>
 #include <structures/union_find.hpp>
 #include "snarls.hpp"
@@ -134,7 +135,8 @@ private:
 private:
     /*Give each of the enum types a name for debugging */
     vector<string> record_t_as_string = {"ROOT", "NODE", "DISTANCED_NODE", 
-                     "SNARL", "DISTANCED_SNARL", "SIMPLE_SNARL", "OVERSIZED_SNARL", "ROOT_SNARL", "DISTANCED_ROOT_SNARL",
+                     "SNARL", "DISTANCED_SNARL", "SIMPLE_SNARL", "OVERSIZED_SNARL", 
+                     "ROOT_SNARL", "DISTANCED_ROOT_SNARL",
                      "CHAIN", "DISTANCED_CHAIN", "MULTICOMPONENT_CHAIN",
                      "CHILDREN"};
     vector<string> connectivity_t_as_string = { "START_START", "START_END", "START_TIP", 
@@ -1157,7 +1159,7 @@ private:
                 bool right_side2, size_t node_count, record_t type) {
 
             //how many node sides in this snarl
-            size_t node_side_count = node_count * 2 + 2; 
+            size_t node_side_count = type == DISTANCED_ROOT_SNARL ? node_count : node_count * 2 + 2; 
 
             //make sure we're looking at the correct node side
             //If this is the start or end node, then we don't adjust based on orientation
@@ -1291,8 +1293,8 @@ private:
             size_t val = distance == std::numeric_limits<int64_t>::max() ? 0 : distance+1;
 #ifdef debug_indexing
             cerr <<  distance_vector_start + distance_vector_offset << " set distance_value " << val << endl;
-            assert(SnarlTreeRecordConstructor::records->at(distance_vector_start + distance_vector_offset) == 0 || 
-                    SnarlTreeRecordConstructor::records->at(distance_vector_start + distance_vector_offset) == val);
+            //assert(SnarlTreeRecordConstructor::records->at(distance_vector_start + distance_vector_offset) == 0 || 
+            //        SnarlTreeRecordConstructor::records->at(distance_vector_start + distance_vector_offset) == val);
 #endif
 
             SnarlTreeRecordConstructor::records->at(distance_vector_start + distance_vector_offset) = val;
@@ -1625,7 +1627,7 @@ private:
         void add_node(id_t id, int64_t prefix_sum, int64_t forward_loop, int64_t reverse_loop, size_t component) {
             assert(ChainRecord::get_record_type() == MULTICOMPONENT_CHAIN);
 #ifdef debug_indexing
-            cerr << SnarlTreeRecordConstructor::records->size() << " - " << SnarlTreeRecordConstructor::records->size() + 3 << " Adding chain's child node the end of the array " << endl;
+            cerr << SnarlTreeRecordConstructor::records->size() << " - " << SnarlTreeRecordConstructor::records->size() + 4 << " Adding chain's child node the end of the array " << endl;
 #endif
             SnarlTreeRecordConstructor::records->emplace_back(id);
             SnarlTreeRecordConstructor::records->emplace_back(prefix_sum==std::numeric_limits<int64_t>::max() ? 0 : prefix_sum+1);
