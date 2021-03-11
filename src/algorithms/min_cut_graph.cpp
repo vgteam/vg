@@ -16,9 +16,9 @@
 #include <unordered_set>
 #include <functional>
 
-#define debug_min_decomp
-#define debug_kargers_min
-#define debug_compute_min
+// #define debug_min_decomp
+// #define debug_kargers_min
+// #define debug_compute_min
 
 namespace vg {
     namespace algorithms {

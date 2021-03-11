@@ -42,12 +42,14 @@ namespace vg {
         //stores the sites we swapped alleles at - returned by alt_proposal
         unique_ptr<unordered_set<size_t>> to_swap_back(nullptr);
         int count =0;
+        enum sample_mode {PROPOSAL_ORIGINAL, PROPOSAL_KARGER_STEIN};
+#ifdef stdout_for_performance_script 
+        cerr << "PROPOSAL_ORIGINAL "<< PROPOSAL_ORIGINAL <<endl;
+        cerr << "PROPOSAL_KARGER_STEIN "<< PROPOSAL_KARGER_STEIN <<endl;
+#endif        
         // build markov chain using Metropolis-Hastings
-        for(int i = 0; i< n_iterations; i++){
-#ifdef debug_mcmc 
-            cerr << "i " << i<<endl;        
-#endif 
-            enum sample_mode {PROPOSAL_ORIGINAL, PROPOSAL_KARGER_STEIN};
+        for(int i = 0; i< n_iterations; i++){ 
+            
             int random_num;
 
             // holds the previous sample allele
@@ -60,85 +62,88 @@ namespace vg {
 
             if(i < burn_in){
                 random_num = PROPOSAL_ORIGINAL;
+#ifdef stdout_for_performance_script 
+                cerr << "ITERATION " << i <<endl; 
+                cerr << "RANDOM NUM " << random_num <<endl;             
+#endif
+            }else{
+                //choose between sample proposals randomly/uniformly
+                random_num = generate_discrete_uniform(random_engine, PROPOSAL_ORIGINAL, PROPOSAL_KARGER_STEIN);
+                count++;
+                //generate gamma after burn in 
+                if(i == burn_in){
+                    gamma.reset(new vector<unordered_set<size_t>> (karger_stein(reads, *genome))); 
+#ifdef stdout_for_performance_script 
+                    cerr << "building gamma " <<endl;
+                    cerr << "gamma size " << gamma->size() << endl;      
+#endif
+                }
+                //generate gamma with n frequency after burn in 
+                if(count == frequency){
+                    gamma.reset(new vector<unordered_set<size_t>> (karger_stein(reads, *genome)));
+                    count = 0;//reset counter
+#ifdef stdout_for_performance_script 
+                    cerr << "building gamma " <<endl; 
+                    cerr << "gamma size " << gamma->size() << endl;      
+#endif
+                }
+                if(gamma->size() <= 0){
+#ifdef stdout_for_performance_script 
+                    cerr << "empty gamma "<<endl;        
+#endif 
+                    break;
+                }
+#ifdef stdout_for_performance_script 
+                cerr << "COUNT " << count <<endl;
+                cerr << "ITERATION  " << i <<endl;  
+                cerr << "RANDOM NUM " << random_num <<endl;    
+#endif
+
+            }
+
+            /*
+            *########################################################################################
+            *                      SAMPLE
+            *########################################################################################
+            **/
+            if(random_num == PROPOSAL_KARGER_STEIN){
+#ifdef stdout_for_performance_script 
+                cerr << "karger stein proposal" <<endl;        
+#endif
+                //use alt proposal sample, store the sites we swapped in case we reject sample
+                to_swap_back.reset(new unordered_set<size_t> (alt_proposal_sample(*gamma, *genome)));
+                if(!to_swap_back){
+#ifdef stdout_for_performance_script 
+                    cerr << "to_swap_back() is empty" <<endl;        
+#endif
+                    break;
+                }
+                
+            }
+            if(random_num == PROPOSAL_ORIGINAL){ //otherwise choose original
+#ifdef stdout_for_performance_script 
+                cerr << "original proposal" <<endl;        
+#endif
                 to_receive = proposal_sample(genome);
                 modified_haplo = &get<0>(to_receive); 
                 // if the to_receive contents are invalid keep the new allele
                 // for graphs that do not contain snarls
                 if (*modified_haplo ==-1){
-#ifdef debug_mcmc 
-                cerr << "modified haplo is empty" <<endl;        
+#ifdef stdout_for_performance_script 
+                    cerr << "modified haplo is empty" <<endl;        
 #endif
                     break;
                 }else{
                     modified_site = get<1>(to_receive); 
                     old_allele = &get<2>(to_receive); 
                 }
-      
-            }else{
-                //choose between sample proposals randomly/uniformly
-                random_num = generate_discrete_uniform(random_engine, PROPOSAL_ORIGINAL, PROPOSAL_KARGER_STEIN);
-                count++;
-#ifdef debug_mcmc 
-                cerr << "count " << count <<endl;
-                cerr << "i " << i <<endl; 
-                cerr << "burn in " << burn_in <<endl;       
-#endif
-                //swap between alt and original proposal random uniformly
-                //generate gamma after burn in 
-                if(i == burn_in){
-#ifdef debug_mcmc 
-                    cerr << "building gamma " <<endl;      
-#endif
-                    gamma.reset(new vector<unordered_set<size_t>> (karger_stein(reads, *genome))); 
-#ifdef debug_mcmc 
-                    cerr << "gamma size " << gamma->size() << endl;      
-#endif
-                }
-                //generate gamma with n frequency after burn in 
-                if(count == frequency){
-#ifdef debug_mcmc 
-                    cerr << "building gamma " <<endl;      
-#endif
-                    gamma.reset(new vector<unordered_set<size_t>> (karger_stein(reads, *genome)));
-                    count = 0;//reset counter
-#ifdef debug_mcmc 
-                    cerr << "gamma size " << gamma->size() << endl;      
-#endif
-                }
-                if(gamma->size() <= 0){
-                    break;
-                }
-                // get contents from either proposal_samples randomly using uniform dist. 
-                // if rand_num ==1 , choose alt_proposal
-                // check that gamma has contents
-                if(random_num == PROPOSAL_KARGER_STEIN){
-                    //use alt proposal sample, store the sites we swapped in case we reject sample
-                    to_swap_back.reset(new unordered_set<size_t> (alt_proposal_sample(*gamma, *genome)));
-                    if(!to_swap_back){
-#ifdef debug_mcmc 
-                        cerr << "to_swap_back() is empty" <<endl;        
-#endif
-                        break;
-                    }
-                    
-                }
-                if(random_num == PROPOSAL_ORIGINAL){ //otherwise choose original
-                    to_receive = proposal_sample(genome);
-                    modified_haplo = &get<0>(to_receive); 
-                    // if the to_receive contents are invalid keep the new allele
-                    // for graphs that do not contain snarls
-                    if (*modified_haplo ==-1){
-#ifdef debug_mcmc 
-                        cerr << "modified haplo is empty" <<endl;        
-#endif
-                        break;
-                    }else{
-                        modified_site = get<1>(to_receive); 
-                        old_allele = &get<2>(to_receive); 
-                    }
-                } 
-
             }
+
+            /*
+            *########################################################################################
+            *                      ACCEPT/REJECT SAMPLE 
+            *########################################################################################
+            **/
             // holds new sample allele score 
             double x_new = log_target(genome, reads);
 
@@ -157,7 +162,7 @@ namespace vg {
 
             // if u~U(0,1) > alpha, discard new allele and keep previous 
             auto uniform_smpl = generate_continuous_uniform(0.0,1.0);
-            if(uniform_smpl > acceptance_probability){ 
+            if(uniform_smpl > acceptance_probability){ //REJECT
                 if(random_num==PROPOSAL_ORIGINAL){ //if rand num==0, use proposal sample swap back method
                     //swap back to old allele at random snarl, random haplo
                     genome->set_allele(*modified_site, old_allele->begin(), old_allele->end(), *modified_haplo); 
@@ -171,27 +176,17 @@ namespace vg {
                 }
                 
 #ifdef stdout_for_performance_script
-                if(random_num == 0){
-                    cerr << "original proposal"<<endl;
-                }else{
-                    cerr << "karger-stein proposal" <<endl;
-                }
                 cerr << "Rejected new allele" <<endl;
                 cerr << "clikelihood " << previous_likelihood <<endl;
-                genome->print_phased_genome();
+                // genome->print_phased_genome();
 #endif                    
             }else{     
 #ifdef stdout_for_performance_script
-                if(random_num == 0){
-                    cerr << "original proposal"<<endl;
-                }else{
-                    cerr << "karger-stein proposal" <<endl;
-                }
                 cerr << "Accepted new allele" <<endl;
                 cerr << "clikelihood " << current_likelihood <<endl;
-                genome->print_phased_genome();
+                // genome->print_phased_genome();
 #endif
-                previous_likelihood = current_likelihood;   
+                previous_likelihood = current_likelihood;   //ACCEPT
             }
         } 
         if(!return_optimal){
@@ -199,7 +194,7 @@ namespace vg {
             return genome; 
         }else{
 #ifdef stdout_for_performance_script 
-            cerr <<"mlikelihood " << max_likelihood <<endl;
+            cerr <<"clikelihood " << max_likelihood <<endl;
             optimal->print_phased_genome();
 #endif
             return optimal; 

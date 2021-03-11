@@ -115,8 +115,10 @@ int main_mcmc(int argc, char** argv) {
                 break;
             case 'b':
                 burn_in = parse<int>(optarg);
+                break;
             case 'g':
                 gamma_freq = parse<int>(optarg);
+                break;
             case 'h':
             case '?':
             default:
