@@ -50,10 +50,16 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
     //(temp_node/snarl/chain_records)
     vector<pair<temp_record_t, size_t>> stack;
 
+    //There may be components of the root that are connected to each other. Each connected component will
+    //get put into a (fake) root-level snarl, but we don't know what those components will be initially, 
+    //since the decomposition just puts them in the same root snarl. This is used to group the root-level
+    //components into connected components that will later be used to make root snarls
+    structures::UnionFind root_snarl_component_uf (0);
+
 
     /*Go through the decomposition top down and record the connectivity of the snarls and chains
      * Distances will be added later*/
-
+    
     snarl_finder->traverse_decomposition(
     [&](handle_t chain_start_handle) {
         /*This gets called when a new chain is found, starting at the start handle going into chain
@@ -102,11 +108,54 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
         temp_chain_record.end_node_rev = graph->get_is_reverse(chain_end_handle);
         temp_chain_record.end_node_length = graph->get_length(chain_end_handle);
 
+        //TODO: Add root-level snarls
         if (stack.empty()) {
             //If this was the last thing on the stack, then this was a root
-            temp_chain_record.parent = make_pair(TEMP_ROOT, 0);
-            root_structure_count += 1;
-            components.emplace_back(chain_index);
+
+            //Check to see if there is anything connected to the ends of the chain
+            vector<id_t> reachable_nodes;
+            graph->follow_edges(graph->get_handle(temp_chain_record.start_node_id, !temp_chain_record.start_node_rev), 
+                false, [&] (const handle_t& next) {
+                    if (graph->get_id(next) != temp_chain_record.start_node_id &&
+                        graph->get_id(next) != temp_chain_record.end_node_id) {
+                        reachable_nodes.emplace_back(graph->get_id(next));
+                    }
+                });
+            graph->follow_edges(graph->get_handle(temp_chain_record.end_node_id, temp_chain_record.end_node_rev), 
+                false, [&] (const handle_t& next) {
+                    if (graph->get_id(next) != temp_chain_record.start_node_id &&
+                        graph->get_id(next) != temp_chain_record.end_node_id) {
+                        reachable_nodes.emplace_back(graph->get_id(next));
+                    }
+                });
+            if (reachable_nodes.size()) {
+                //If we can reach anything leaving the chain (besides the chain itself), then it is part of a root snarl
+
+                //Add this to the union find
+                root_snarl_component_uf.resize(root_snarl_component_uf.size() + 1);
+                //And remember that it's in a connected component of the root
+                temp_chain_record.root_snarl_index = root_snarl_components.size();
+                root_snarl_components.emplace_back(chain_index);
+                for (id_t next_id : reachable_nodes) {
+                    //For each node that this is connected to, check if we've already seen it and if we have, then
+                    //union this chain and that node's chain
+                    TemporaryNodeRecord& node_record = temp_node_records[next_id-min_node_id];
+                    if (node_record.node_id != 0) {
+                        //If we've already seen this node, union it with the new one
+                        //If we can see it by walking out from this top-level chain, then it must also be a
+                        //top-level chain (or node pretending to be a chain)
+                        assert(node_record.parent.first == TEMP_CHAIN);
+                        size_t other_i = temp_chain_records[node_record.parent.second].root_snarl_index;
+                        assert(other_i != std::numeric_limits<size_t>::max()); 
+                        root_snarl_component_uf.union_groups(other_i, temp_chain_record.root_snarl_index);
+                    }
+                }
+            } else {
+                //If this chain isn't connected to anything else, then it is a single component of the root
+                temp_chain_record.parent = make_pair(TEMP_ROOT, 0);
+                root_structure_count += 1;
+                components.emplace_back(chain_index);
+            }
         } else {
             //The last thing on the stack is the parent of this chain, which must be a snarl
             temp_chain_record.parent = stack.back();
@@ -199,6 +248,36 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
 #endif
     });
 
+
+    /*
+     * We finished going through everything that exists according to the snarl decomposition, but
+     * it's still missing tips, which will be discovered when filling in the snarl distances,
+     * and root-level snarls, which we'll add now by combining the chain components in root_snarl_components
+     * into snarls defined by root_snarl_component_uf
+     * The root-level snarl is a fake snarl that doesn't exist according to the snarl decomposition, 
+     * but is an extra layer that groups together components of the root that are connected
+     */
+
+    vector<vector<size_t>> root_snarl_component_indexes = root_snarl_component_uf.all_groups();
+    for (vector<size_t>& root_snarl_indexes : root_snarl_component_indexes) {
+        //For each of the root snarls
+        components.emplace_back(TEMP_SNARL, temp_snarl_records.size());
+        temp_snarl_records.emplace_back();
+        TemporarySnarlRecord& temp_snarl_record = temp_snarl_records.back();
+        temp_snarl_record.is_root_snarl = true;
+        temp_snarl_record.parent = make_pair(TEMP_ROOT, 0); 
+
+        for (size_t chain_i : root_snarl_indexes) {
+            //For each chain component of this root-level snarl
+            assert(root_snarl_components[chain_i].first == TEMP_CHAIN);
+            TemporaryChainRecord temp_chain_record = temp_chain_records[root_snarl_components[chain_i].second];
+            temp_chain_record.parent = make_pair(TEMP_SNARL, temp_snarl_records.size() - 1);
+            temp_chain_record.rank_in_parent = temp_snarl_record.children.size();
+            temp_chain_record.reversed_in_parent = false;
+
+            temp_snarl_record.children.emplace_back(root_snarl_components[chain_i]);
+        }
+    }
 
     /*Now go through the decomposition again to fill in the distances
      * This traverses all chains in reverse order that we found them in, so bottom up
@@ -680,7 +759,6 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                         if (child_record_index.first == TEMP_NODE) {
                             //Add a node to the chain
                             if (prev_node) {
-                                //TODO: I think trivial snarls would actually get their own temp record
                                 //If the last thing we saw was a node, then this is the end of a trivial snarl 
                                 chain_record_constructor.add_trivial_snarl();
 #ifdef debug_distance_indexing
@@ -869,6 +947,39 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
 
                     record_to_offset.emplace(make_pair(temp_index_i, current_record_index), node_record.NodeRecord::record_offset);
                 }
+            } else if (current_record_index.first == TEMP_SNARL) {
+                //This is a root-level snarl
+
+                const TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = temp_index->temp_snarl_records[current_record_index.second];
+                record_to_offset.emplace(make_pair(temp_index_i,current_record_index), snarl_tree_records.size());
+
+                SnarlRecordConstructor snarl_record_constructor (temp_snarl_record.node_count, &snarl_tree_records, DISTANCED_ROOT_SNARL);
+
+                //Fill in snarl info
+                snarl_record_constructor.set_parent_record_offset(0);
+                //Add distances and record connectivity
+                for (const auto& it : temp_snarl_record.distances) {
+                    const pair<pair<size_t, bool>, pair<size_t, bool>>& node_ranks = it.first;
+                    const int64_t distance = it.second;
+                    if (snarl_size_limit != 0 ) {
+                        //TODO: I"m checking this but also automatically making a distanced snarl
+                        //If we are keeping track of distances and either this is a small enough snarl,
+                        //or the snarl is too big but we are looking at the boundaries
+                        snarl_record_constructor.set_distance(node_ranks.first.first, node_ranks.first.second, 
+                            node_ranks.second.first, node_ranks.second.second, distance);
+                    }
+                }
+#ifdef debug_distance_indexing
+                cerr << "    The snarl record is at offset " << snarl_record_constructor.SnarlRecord::record_offset << endl;
+                cerr << "    This child snarl has " << snarl_record_constructor.get_node_count() << " children: " << endl;
+#endif
+                for (const pair<temp_record_t, size_t>& child : temp_snarl_record.children) {
+                        temp_record_stack.emplace_back(child);
+#ifdef debug_distance_indexing
+                    cerr << "      " << temp_index->structure_start_end_as_string(child) << endl;
+#endif
+                }
+                
             } else {
                 //TODO: This was a node that was a tip, so it wasn't put in a chain by the temporary index
                 assert(current_record_index.first == TEMP_NODE);
@@ -1065,7 +1176,7 @@ net_handle_t SnarlDistanceIndex::get_parent(const net_handle_t& child) const {
     } else if (parent_type == ROOT_HANDLE) {
         //The parent could be a root snarl, in which case we want to actually return the root, not the 
         //snarl pretending to be the root
-        return get_net_handle(0, parent_connectivity)
+        return get_net_handle(0, parent_connectivity);
     }
 
     return get_net_handle(parent_pointer, parent_connectivity);

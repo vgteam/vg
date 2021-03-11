@@ -3,6 +3,7 @@
 
 //#define debug_indexing
 #include <handlegraph/snarl_decomposition.hpp>
+#include <structures/union_find.hpp>
 #include "snarls.hpp"
 
 
@@ -958,9 +959,11 @@ private:
             for (size_t i = 0 ; i < connected_component_count ; i++) {
 
                 size_t child_offset = records->at(record_offset + ROOT_RECORD_SIZE + i);
-                net_handle_record_t type = SnarlTreeRecord(child_offset, records).get_record_handle_type(); 
+                net_handle_record_t type = SnarlTreeRecord(child_offset, records).get_record_handle_type();
+                record_t record_type = SnarlTreeRecord(child_offset, records).get_record_type();
 
-                if (type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL) {
+
+                if (record_type == ROOT_SNARL || record_type == DISTANCED_ROOT_SNARL) {
                     //This is a bunch of root components that are connected, so go through each 
                     SnarlRecord snarl_record(child_offset, records);
                     if (! snarl_record.for_each_child(iteratee)) {
@@ -1824,6 +1827,8 @@ protected:
             bool reversed_in_parent;
             bool is_trivial;
             bool is_tip = false;
+            //What is the index of this record in root_snarl_components
+            size_t root_snarl_index = std::numeric_limits<size_t>::max();
         };
         struct TemporarySnarlRecord : TemporaryRecord{
             id_t start_node_id;
@@ -1846,6 +1851,7 @@ protected:
             int64_t loop_end;
             bool is_trivial;
             bool is_tip = false;
+            bool is_root_snarl = false;
         };
         struct TemporaryNodeRecord : TemporaryRecord{
             TemporaryNodeRecord() :
@@ -1862,6 +1868,7 @@ protected:
 
 
         vector<pair<temp_record_t, size_t>> components;
+        vector<pair<temp_record_t, size_t>> root_snarl_components;
         vector<TemporaryChainRecord> temp_chain_records;
         vector<TemporarySnarlRecord> temp_snarl_records;
         vector<TemporaryNodeRecord> temp_node_records;
