@@ -128,8 +128,9 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
                         reachable_nodes.emplace_back(graph->get_id(next));
                     }
                 });
-            if (reachable_nodes.size()) {
+            if (reachable_nodes.size() && temp_chain_record.start_node_id != temp_chain_record.end_node_id) {
                 //If we can reach anything leaving the chain (besides the chain itself), then it is part of a root snarl
+                //Note that if the chain's start and end node are the same, then it will always be a single component
 #ifdef debug_distance_indexing
                 cerr << "                 This chain is part of the root but connects with something else in the root"<<endl;
 #endif
@@ -151,6 +152,9 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
                         size_t other_i = temp_chain_records[node_record.parent.second].root_snarl_index;
                         assert(other_i != std::numeric_limits<size_t>::max()); 
                         root_snarl_component_uf.union_groups(other_i, temp_chain_record.root_snarl_index);
+#ifdef debug_distance_indexing
+                        cerr << "        Union this chain with " << temp_chain_records[node_record.parent.second].start_node_id << " " << temp_chain_records[node_record.parent.second].end_node_id << endl;
+#endif
                     }
                 }
             } else {
@@ -282,7 +286,6 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
             temp_chain_record.reversed_in_parent = false;
 
             temp_snarl_record.children.emplace_back(root_snarl_components[chain_i]);
-
         }
     }
 
@@ -1077,7 +1080,6 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
         for (size_t temp_snarl_i = 0 ; temp_snarl_i < temp_index->temp_snarl_records.size() ; temp_snarl_i ++) {
             //Get the temporary index for this snarl
             const TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = temp_index->temp_snarl_records[temp_snarl_i];
-cerr << " snarl " << temp_snarl_record.start_node_id << endl;
             if (!temp_snarl_record.is_trivial) {
                 //And a constructor for the permanent record, which we've already created
                 SnarlRecordConstructor snarl_record_constructor (&snarl_tree_records,

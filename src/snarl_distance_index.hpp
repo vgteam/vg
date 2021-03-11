@@ -379,7 +379,7 @@ private:
     const static size_t CHAIN_NODE_REVERSE_LOOP_OFFSET = 3;
     const static size_t CHAIN_NODE_SNARL_SIZE_OFFSET = 4;
     //This is only for multicomponent chains (in which case CHAIN_NODE_RECORD_SIZE should be 6)
-    const static size_t CHAIN_NODE_COMPONENT_OFFSET = 5;
+    const static size_t CHAIN_NODE_COMPONENT_OFFSET = 4;
     //If there is a snarl, the snarl size is repeated after the snarl record
 
 
@@ -1470,7 +1470,7 @@ private:
             if (pointer.second) {
                 //This is a snarl
                 if (go_left) {
-                    return make_pair(pointer.first - CHAIN_NODE_RECORD_SIZE + extra_node_record_size, false);
+                    return make_pair(pointer.first - CHAIN_NODE_RECORD_SIZE - extra_node_record_size, false);
                 } else {
                     size_t snarl_record_length = SnarlRecord(pointer.first, records).record_size();
                     return make_pair(pointer.first + snarl_record_length + 1, false);
@@ -1486,20 +1486,20 @@ private:
                     size_t snarl_record_size = records->at(pointer.first-1);
                     if (snarl_record_size == 0) {
                         //Just another node to the left
-                        return make_pair(pointer.first-CHAIN_NODE_RECORD_SIZE + extra_node_record_size, false);
+                        return make_pair(pointer.first-CHAIN_NODE_RECORD_SIZE - extra_node_record_size, false);
                     } else {
                         //There is a snarl to the left of this node
                         return make_pair(pointer.first - snarl_record_size - 1, true);
                     }
                 } else {
                     //Looking right in the chain
-                    if (records->at(pointer.first+CHAIN_NODE_SNARL_SIZE_OFFSET) == 0 &&
+                    if (records->at(pointer.first+CHAIN_NODE_SNARL_SIZE_OFFSET + extra_node_record_size) == 0 &&
                         records->at(pointer.first+CHAIN_NODE_RECORD_SIZE+ extra_node_record_size) == 0) {
                         //If this is the last node in the chain
                         return make_pair(0, false);
                     }
-                    size_t snarl_record_size = records->at(pointer.first+CHAIN_NODE_SNARL_SIZE_OFFSET);
-                    return make_pair(pointer.first+CHAIN_NODE_RECORD_SIZE, snarl_record_size != 0);
+                    size_t snarl_record_size = records->at(pointer.first+CHAIN_NODE_SNARL_SIZE_OFFSET+extra_node_record_size);
+                    return make_pair(pointer.first+CHAIN_NODE_RECORD_SIZE+extra_node_record_size, snarl_record_size != 0);
                 }
             }
         }
