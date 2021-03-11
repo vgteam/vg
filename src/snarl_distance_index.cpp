@@ -873,19 +873,19 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                 //TODO: This was a node that was a tip, so it wasn't put in a chain by the temporary index
                 assert(current_record_index.first == TEMP_NODE);
 #ifdef debug_distance_indexing
-                    cerr << "        this just a node that is a tip " 
-                         << temp_index->structure_start_end_as_string(current_record_index) << endl;
+                cerr << "        this just a node that is a tip " 
+                     << temp_index->structure_start_end_as_string(current_record_index) << endl;
 #endif
-                    const TemporaryDistanceIndex::TemporaryNodeRecord& temp_node_record = 
-                            temp_index->temp_node_records[current_record_index.second-min_node_id];
-                    NodeRecordConstructor node_record(
-                        get_offset_from_node_id(temp_node_record.node_id), DISTANCED_NODE, &snarl_tree_records);
-                    node_record.set_node_length(temp_node_record.node_length);
-                    node_record.set_rank_in_parent(temp_node_record.rank_in_parent);
-                    node_record.set_is_rev_in_parent(false);//TODO: Make sure that this is true
-                    node_record.set_parent_record_offset(record_to_offset[make_pair(temp_index_i, temp_node_record.parent)]);
+                const TemporaryDistanceIndex::TemporaryNodeRecord& temp_node_record = 
+                        temp_index->temp_node_records[current_record_index.second-min_node_id];
+                NodeRecordConstructor node_record(
+                    get_offset_from_node_id(temp_node_record.node_id), DISTANCED_NODE, &snarl_tree_records);
+                node_record.set_node_length(temp_node_record.node_length);
+                node_record.set_rank_in_parent(temp_node_record.rank_in_parent);
+                node_record.set_is_rev_in_parent(false);//TODO: Make sure that this is true
+                node_record.set_parent_record_offset(record_to_offset[make_pair(temp_index_i, temp_node_record.parent)]);
 
-                    record_to_offset.emplace(make_pair(temp_index_i, current_record_index), node_record.NodeRecord::record_offset);
+                record_to_offset.emplace(make_pair(temp_index_i, current_record_index), node_record.NodeRecord::record_offset);
             }
 #ifdef debug_distance_indexing
             cerr << "Finished translating " << temp_index->structure_start_end_as_string(current_record_index) << endl;
@@ -1062,6 +1062,10 @@ net_handle_t SnarlDistanceIndex::get_parent(const net_handle_t& child) const {
         //If this is a node and it's parent is not a chain, we want to pretend that its 
         //parent is a chain
         return get_net_handle(get_record_offset(child), parent_connectivity, CHAIN_HANDLE);
+    } else if (parent_type == ROOT_HANDLE) {
+        //The parent could be a root snarl, in which case we want to actually return the root, not the 
+        //snarl pretending to be the root
+        return get_net_handle(0, parent_connectivity)
     }
 
     return get_net_handle(parent_pointer, parent_connectivity);

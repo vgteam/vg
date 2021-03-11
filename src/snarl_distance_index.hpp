@@ -491,12 +491,11 @@ private:
         //TODO: I don't think it matters if a chain is reversed or not, also it might not matter if a snarl is
         virtual size_t get_parent_record_offset() const {
             record_t type = get_record_type();
-            if (type == ROOT ) {
+            if (type == ROOT || type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL) {
                 return 0;
             } else if (type == NODE || type == DISTANCED_NODE) {
                 return (records->at(record_offset + NODE_PARENT_OFFSET));
-            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL 
-                     || type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL)  {
+            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL )  {
                 return (records->at(record_offset + SNARL_PARENT_OFFSET));
             } else if (type == CHAIN || type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
                 return (records->at(record_offset + CHAIN_PARENT_OFFSET));
@@ -866,6 +865,11 @@ private:
                 offset = record_offset + NODE_PARENT_OFFSET;
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL
                     || type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL)  {
+#ifdef debug_indexing
+                if (type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL) {
+                    assert(pointer == 0);
+                }
+#endif
                 offset = record_offset + SNARL_PARENT_OFFSET;
             } else if (type == CHAIN || type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
                 offset = record_offset + CHAIN_PARENT_OFFSET;
@@ -952,12 +956,22 @@ private:
         virtual bool for_each_child(const std::function<bool(const handlegraph::net_handle_t&)>& iteratee) const {
             size_t connected_component_count = get_connected_component_count();
             for (size_t i = 0 ; i < connected_component_count ; i++) {
+
                 size_t child_offset = records->at(record_offset + ROOT_RECORD_SIZE + i);
                 net_handle_record_t type = SnarlTreeRecord(child_offset, records).get_record_handle_type(); 
-                net_handle_t child_handle =  get_net_handle(child_offset, START_END, type);
-                bool result = iteratee(child_handle); 
-                if (result == false) {
-                    return false;
+
+                if (type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL) {
+                    //This is a bunch of root components that are connected, so go through each 
+                    SnarlRecord snarl_record(child_offset, records);
+                    if (! snarl_record.for_each_child(iteratee)) {
+                        return false;
+                    }
+                } else { 
+                    //Otherwise, it is a separate connected component
+                    net_handle_t child_handle =  get_net_handle(child_offset, START_END, type);
+                    if (!iteratee(child_handle)) {
+                        return false;
+                    }
                 }
             }
             return true;
