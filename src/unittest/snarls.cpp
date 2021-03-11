@@ -4093,58 +4093,80 @@ namespace vg {
         
         TEST_CASE("snarls and chains can be found in a graph with lots of root snarl connectivity", "[snarls]") {
     
-            // Build a toy graph
-            const string graph_json = R"(
+            VG graph;
+                
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
             
-            {
-                "node": [
-                    {"id": 1, "sequence": "A"},
-                    {"id": 2, "sequence": "A"},
-                    {"id": 3, "sequence": "A"},
-                    {"id": 4, "sequence": "A"},
-                    {"id": 5, "sequence": "A"}
-                ],
-                "edge": [
-                    {"from": 1, "to": 2},
-                    {"from": 1, "from_start": true, "to": 2},
-                    {"from": 2, "to": 3},
-                    {"from": 3, "to": 4},
-                    {"from": 4, "to": 5},
-                    {"from": 3, "to": 5},
-                    {"from": 3, "to": 3, "to_end": true}
-                    
-                ]
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n2, true, false);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n3, n4);
+            Edge* e5 = graph.create_edge(n3, n5);
+            Edge* e6 = graph.create_edge(n4, n5);
+            Edge* e7 = graph.create_edge(n5, n3, false, true);
+           
+            IntegratedSnarlFinder snarl_finder(graph);
+            
+            SECTION("events should be unique") {
+            
+                // Collect all the begins and ends shown by the snarl finder
+                vector<string> events;
+                
+                auto revfwd = [&](const handle_t h) -> std::string {
+                    return graph.get_is_reverse(h) ? "rev" : "fwd";
+                };
+                
+                snarl_finder.traverse_decomposition([&](const handle_t& here) {
+                    // Chain begun
+                    events.push_back("begin chain @ " + std::to_string(graph.get_id(here)) + " " + revfwd(here));
+                }, [&](const handle_t& here) {
+                    // Chain ended
+                    events.push_back("end chain @ " + std::to_string(graph.get_id(here)) + " " + revfwd(here));
+                }, [&](const handle_t& here) {
+                    // Snarl begun
+                    events.push_back("begin snarl @ " + std::to_string(graph.get_id(here)) + " " + revfwd(here));
+                }, [&](const handle_t& here) {
+                    // Snarl ended
+                    events.push_back("end snarl @ " + std::to_string(graph.get_id(here)) + " " + revfwd(here));
+                });
+                
+                for (auto& item : events) {
+                    std::cerr << item << std::endl;
+                }
+                
+                unordered_set<string> uniques(events.begin(), events.end());
+                
+                // There should be no duplicate messages
+                REQUIRE(events.size() == uniques.size());
             }
             
-            )";
-            
-            // Make an actual graph
-            VG graph;
-            Graph chunk;
-            json2pb(chunk, graph_json.c_str(), graph_json.size());
-            graph.extend(chunk);
-            
-            IntegratedSnarlFinder finder(graph);
-            
-            // Collect all the begins and ends shown by the snarl finder
-            vector<string> events;
-            
-            finder.traverse_decomposition([&](const handle_t& here) {
-                // Chain begun
-                events.push_back("begin chain " + std::to_string(graph.get_id(here)));
-            }, [&](const handle_t& here) {
-                // Chain ended
-                events.push_back("end chain " + std::to_string(graph.get_id(here)));
-            }, [&](const handle_t& here) {
-                // Snarl begun
-                events.push_back("begin snarl " + std::to_string(graph.get_id(here)));
-            }, [&](const handle_t& here) {
-                // Snarl ended
-                events.push_back("end snarl " + std::to_string(graph.get_id(here)));
-            });
-            
-            for (auto& item : events) {
-                std::cerr << item << std::endl;
+            SECTION("Endpoints should only be seen once") {
+                unordered_set<pair<id_t, bool>> seen_node_sides;
+                snarl_finder.traverse_decomposition(
+                [&](handle_t chain_start_handle){
+                    cerr << "Start new chain at " << graph.get_id(chain_start_handle) << (graph.get_is_reverse(chain_start_handle) ? "rev" : "fd") << endl;
+                    REQUIRE(seen_node_sides.count(make_pair(graph.get_id(chain_start_handle), graph.get_is_reverse(chain_start_handle)))==0);
+                    seen_node_sides.emplace(graph.get_id(chain_start_handle), graph.get_is_reverse(chain_start_handle));
+                },
+                [&](handle_t chain_end_handle) {
+                    cerr << "End new chain at " << graph.get_id(chain_end_handle) << (graph.get_is_reverse(chain_end_handle) ? "rev" : "fd") << endl;
+                    REQUIRE(seen_node_sides.count(make_pair(graph.get_id(chain_end_handle), !graph.get_is_reverse(chain_end_handle)))==0);
+                    seen_node_sides.emplace(graph.get_id(chain_end_handle), !graph.get_is_reverse(chain_end_handle));
+                },
+                [&](handle_t snarl_start_handle) {
+                    cerr << "Start new snarl at " << graph.get_id(snarl_start_handle) << (graph.get_is_reverse(snarl_start_handle) ? "rev" : "fd") << endl;
+                    REQUIRE(seen_node_sides.count(make_pair(graph.get_id(snarl_start_handle), graph.get_is_reverse(snarl_start_handle)))==0);
+                    seen_node_sides.emplace(graph.get_id(snarl_start_handle), graph.get_is_reverse(snarl_start_handle));
+                },
+                [&](handle_t snarl_end_handle) {
+                    cerr << "End new snarl at " << graph.get_id(snarl_end_handle) << (graph.get_is_reverse(snarl_end_handle) ? "rev" : "fd") << endl;
+                    REQUIRE(seen_node_sides.count(make_pair(graph.get_id(snarl_end_handle), !graph.get_is_reverse(snarl_end_handle)))==0);
+                    seen_node_sides.emplace(graph.get_id(snarl_end_handle), !graph.get_is_reverse(snarl_end_handle));
+                });
             }
         }
     }
