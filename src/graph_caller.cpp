@@ -224,6 +224,99 @@ void VCFOutputCaller::write_variants(ostream& out_stream) const {
     }
 }
 
+static int countAlts(vcflib::Variant& var, int alleleIndex) {
+    int alts = 0;
+    for (map<string, map<string, vector<string> > >::iterator s = var.samples.begin(); s != var.samples.end(); ++s) {
+        map<string, vector<string> >& sample = s->second;
+        map<string, vector<string> >::iterator gt = sample.find("GT");
+        if (gt != sample.end()) {
+            map<int, int> genotype = vcflib::decomposeGenotype(gt->second.front());
+            for (map<int, int>::iterator g = genotype.begin(); g != genotype.end(); ++g) {
+                if (g->first == alleleIndex) {
+                    alts += g->second;
+                }
+            }
+        }
+    }
+    return alts;
+}
+
+static int countAlleles(vcflib::Variant& var) {
+    int alleles = 0;
+    for (map<string, map<string, vector<string> > >::iterator s = var.samples.begin(); s != var.samples.end(); ++s) {
+        map<string, vector<string> >& sample = s->second;
+        map<string, vector<string> >::iterator gt = sample.find("GT");
+        if (gt != sample.end()) {
+            map<int, int> genotype = vcflib::decomposeGenotype(gt->second.front());
+            for (map<int, int>::iterator g = genotype.begin(); g != genotype.end(); ++g) {
+		if (g->first != vcflib::NULL_ALLELE) {
+		    alleles += g->second;
+		}
+            }
+        }
+    }
+    return alleles;
+}
+
+// this isn't from vcflib, but seems to make more sense than just returning the number of samples in the file again and again
+static int countSamplesWithData(vcflib::Variant& var) {
+    int samples_with_data = 0;
+    for (map<string, map<string, vector<string> > >::iterator s = var.samples.begin(); s != var.samples.end(); ++s) {
+        map<string, vector<string> >& sample = s->second;
+        map<string, vector<string> >::iterator gt = sample.find("GT");
+        bool has_data = false;
+        if (gt != sample.end()) {
+            map<int, int> genotype = vcflib::decomposeGenotype(gt->second.front());
+            for (map<int, int>::iterator g = genotype.begin(); g != genotype.end(); ++g) {
+		if (g->first != vcflib::NULL_ALLELE) {
+                    has_data = true;
+                    break;
+		}
+            }
+        }
+        if (has_data) {
+            ++samples_with_data;
+        }
+    }
+    return samples_with_data;
+}
+
+void VCFOutputCaller::vcf_fixup() const {
+    // copied from https://github.com/vgteam/vcflib/blob/master/src/vcffixup.cpp
+    
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t i = 0; i < output_variants.size(); ++i) {
+        for (auto& var : output_variants[i]) {
+            stringstream ns;
+            ns << countSamplesWithData(var);
+            var.info["NS"].clear();
+            var.info["NS"].push_back(ns.str());
+
+            var.info["AC"].clear();
+            var.info["AF"].clear();
+            var.info["AN"].clear();
+
+            int allelecount = countAlleles(var);
+            stringstream an;
+            an << allelecount;
+            var.info["AN"].push_back(an.str());
+
+            for (vector<string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
+                string& allele = *a;
+                int altcount = countAlts(var, var.getAltAlleleIndex(allele) + 1);
+                stringstream ac;
+                ac << altcount;
+                var.info["AC"].push_back(ac.str());
+                stringstream af;
+                double faf = (double) altcount / (double) allelecount;
+                if(faf != faf) faf = 0;
+                af << faf;
+                var.info["AF"].push_back(af.str());
+            }
+        }
+    }
+}
+
 string VCFOutputCaller::trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const {
     string seq;
     for (int i = 0; i < trav.visit_size(); ++i) {

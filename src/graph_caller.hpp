@@ -79,6 +79,9 @@ public:
 
     /// Sort then write variants in the buffer
     void write_variants(ostream& out_stream) const;
+
+    /// Run vcffixup from vcflib
+    void vcf_fixup() const;
     
 protected:
 

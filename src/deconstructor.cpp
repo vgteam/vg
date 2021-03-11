@@ -377,11 +377,11 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
             for (const Snarl* cur = snarl; !snarl_manager->is_root(cur); cur = snarl_manager->parent_of(cur)) {
                 ++level;
             }
-            v.info["LEVEL"].push_back(std::to_string(level));
+            v.info["LV"].push_back(std::to_string(level));
             if (level > 0) {
                 const Snarl* parent = snarl_manager->parent_of(snarl);
                 string parent_id = snarl_name(parent);
-                v.info["PARENT"].push_back(parent_id);
+                v.info["PS"].push_back(parent_id);
             } 
         }
 
@@ -457,9 +457,15 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         }
         stream << "\">" << endl;
     }
+    if (path_restricted || gbwt) {
+        stream << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Total number of alternate alleles in called genotypes\">" << endl;
+        stream << "##INFO=<ID=AF,Number=A,Type=Float,Description=\"Estimated allele frequency in the range (0,1]\">" << endl;
+        stream << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of samples with data\">" << endl;
+        stream << "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">" << endl;
+    }
     if (include_nested) {
-        stream << "##INFO=<ID=LEVEL,Number=1,Type=Integer,Description=\"Level in the snarl tree (0=top level)\">" << endl;
-        stream << "##INFO=<ID=PARENT,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
+        stream << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree (0=top level)\">" << endl;
+        stream << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
     }
     for(auto& refpath : ref_paths) {
         size_t path_len = 0;
@@ -516,6 +522,11 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
             }
         });
 
+    if (path_restricted || gbwt_trav_finder.get()) {
+        // run vcffixup to add some basic INFO like AC
+        vcf_fixup();
+    }
+    
     // write variants in sorted order
     write_variants(cout);
 }
