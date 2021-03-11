@@ -4116,22 +4116,30 @@ namespace vg {
                 unordered_set<pair<id_t, bool>> seen_snarl_sides;
                 snarl_finder.traverse_decomposition(
                 [&](handle_t chain_start_handle){
+#ifdef debug
                     cerr << "Start new chain at " << graph.get_id(chain_start_handle) << (graph.get_is_reverse(chain_start_handle) ? "rev" : "fd") << endl;
+#endif
                     REQUIRE(seen_chain_sides.count(make_pair(graph.get_id(chain_start_handle), graph.get_is_reverse(chain_start_handle)))==0);
                     seen_chain_sides.emplace(graph.get_id(chain_start_handle), graph.get_is_reverse(chain_start_handle));
                 },
                 [&](handle_t chain_end_handle) {
+#ifdef debug
                     cerr << "End new chain at " << graph.get_id(chain_end_handle) << (graph.get_is_reverse(chain_end_handle) ? "rev" : "fd") << endl;
+#endif
                     REQUIRE(seen_chain_sides.count(make_pair(graph.get_id(chain_end_handle), !graph.get_is_reverse(chain_end_handle)))==0);
                     seen_chain_sides.emplace(graph.get_id(chain_end_handle), !graph.get_is_reverse(chain_end_handle));
                 },
                 [&](handle_t snarl_start_handle) {
+#ifdef debug
                     cerr << "Start new snarl at " << graph.get_id(snarl_start_handle) << (graph.get_is_reverse(snarl_start_handle) ? "rev" : "fd") << endl;
+#endif
                     REQUIRE(seen_snarl_sides.count(make_pair(graph.get_id(snarl_start_handle), graph.get_is_reverse(snarl_start_handle)))==0);
                     seen_snarl_sides.emplace(graph.get_id(snarl_start_handle), graph.get_is_reverse(snarl_start_handle));
                 },
                 [&](handle_t snarl_end_handle) {
+#ifdef debug
                     cerr << "End new snarl at " << graph.get_id(snarl_end_handle) << (graph.get_is_reverse(snarl_end_handle) ? "rev" : "fd") << endl;
+#endif
                     REQUIRE(seen_snarl_sides.count(make_pair(graph.get_id(snarl_end_handle), !graph.get_is_reverse(snarl_end_handle)))==0);
                     seen_snarl_sides.emplace(graph.get_id(snarl_end_handle), !graph.get_is_reverse(snarl_end_handle));
                 });
