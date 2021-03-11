@@ -326,7 +326,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         const SnarlTraversal& ref_trav = path_travs.first[ref_trav_idx];
         
         vcflib::Variant v;
-        v.quality = 23;
+        v.quality = 60;
 
         // write variant's sequenceName (VCF contig)
         v.sequenceName = ref_trav_name;
