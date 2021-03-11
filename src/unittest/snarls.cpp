@@ -4111,39 +4111,6 @@ namespace vg {
            
             IntegratedSnarlFinder snarl_finder(graph);
             
-            SECTION("events should be unique") {
-            
-                // Collect all the begins and ends shown by the snarl finder
-                vector<string> events;
-                
-                auto revfwd = [&](const handle_t h) -> std::string {
-                    return graph.get_is_reverse(h) ? "rev" : "fwd";
-                };
-                
-                snarl_finder.traverse_decomposition([&](const handle_t& here) {
-                    // Chain begun
-                    events.push_back("begin chain @ " + std::to_string(graph.get_id(here)) + " " + revfwd(here));
-                }, [&](const handle_t& here) {
-                    // Chain ended
-                    events.push_back("end chain @ " + std::to_string(graph.get_id(here)) + " " + revfwd(here));
-                }, [&](const handle_t& here) {
-                    // Snarl begun
-                    events.push_back("begin snarl @ " + std::to_string(graph.get_id(here)) + " " + revfwd(here));
-                }, [&](const handle_t& here) {
-                    // Snarl ended
-                    events.push_back("end snarl @ " + std::to_string(graph.get_id(here)) + " " + revfwd(here));
-                });
-                
-                for (auto& item : events) {
-                    std::cerr << item << std::endl;
-                }
-                
-                unordered_set<string> uniques(events.begin(), events.end());
-                
-                // There should be no duplicate messages
-                REQUIRE(events.size() == uniques.size());
-            }
-            
             SECTION("Endpoints should only be seen once") {
                 unordered_set<pair<id_t, bool>> seen_node_sides;
                 snarl_finder.traverse_decomposition(
