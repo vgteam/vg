@@ -9,6 +9,7 @@
 #include "handle.hpp"
 #include "genotypekit.hpp"
 #include "traversal_finder.hpp"
+#include "graph_caller.hpp"
 
 /** \file
 * Deconstruct is getting rewritten.
@@ -24,7 +25,10 @@
 namespace vg{
 using namespace std;
 
-class Deconstructor{
+// note: added VCFOutputCaller parent class from vg call bring in sorted vcf output.  it would
+//       be nice to re-use more of the VCFOutputCaller code, much of which is still duplicated in
+//       Deconstructor
+class Deconstructor : public VCFOutputCaller {
 public:
 
     Deconstructor();
@@ -66,9 +70,6 @@ private:
 
     // get a snarl name, using trnaslation if availabe
     string snarl_name(const Snarl* snarl);
-    
-    // output vcf object
-    vcflib::VariantCallFile outvcf;
     
     // toggle between exhaustive and path restricted traversal finder
     bool path_restricted = false;

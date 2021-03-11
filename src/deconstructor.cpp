@@ -8,7 +8,7 @@ using namespace std;
 
 
 namespace vg {
-Deconstructor::Deconstructor(){
+Deconstructor::Deconstructor() : VCFOutputCaller("") {
 
 }
 Deconstructor::~Deconstructor(){
@@ -326,7 +326,6 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         const SnarlTraversal& ref_trav = path_travs.first[ref_trav_idx];
         
         vcflib::Variant v;
-        v.setVariantCallFile(outvcf);
         v.quality = 23;
 
         // write variant's sequenceName (VCF contig)
@@ -388,12 +387,9 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
 
         // we only bother printing out sites with at least 1 non-reference allele
         if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return i == 0; })) {
-#pragma omp critical (cout)
-            {
-                cout << v << endl;
-            }
+            add_variant(v);
         }
-    }
+    }    
     return true;
 }
 
@@ -482,8 +478,8 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     stream << endl;
     
     string hstr = stream.str();
-    assert(outvcf.openForOutput(hstr));
-    cout << outvcf.header << endl;
+    assert(output_vcf.openForOutput(hstr));
+    cout << output_vcf.header << endl;
 
     // create the traversal finder
     map<string, const Alignment*> reads_by_name;
@@ -519,6 +515,9 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                 next.clear();
             }
         });
+
+    // write variants in sorted order
+    write_variants(cout);
 }
 
 bool Deconstructor::check_max_nodes(const Snarl* snarl)  {
