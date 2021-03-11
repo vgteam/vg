@@ -361,7 +361,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
 
         v.position = first_path_pos;
 
-        v.id = std::to_string(snarl->start().node_id()) + "_" + std::to_string(snarl->end().node_id());
+        v.id = snarl_name(snarl);
         
         // Convert the snarl traversals to strings and add them to the variant
         vector<int> trav_to_allele = get_alleles(v, path_travs.first, ref_trav_idx, prev_char, use_start);
@@ -381,7 +381,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
             v.info["LEVEL"].push_back(std::to_string(level));
             if (level > 0) {
                 const Snarl* parent = snarl_manager->parent_of(snarl);
-                string parent_id = std::to_string(parent->start().node_id()) + "_" + std::to_string(parent->end().node_id());
+                string parent_id = snarl_name(parent);
                 v.info["PARENT"].push_back(parent_id);
             } 
         }
@@ -403,7 +403,8 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
 void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
                                 bool path_restricted_traversals, int ploidy, bool include_nested,
                                 const unordered_map<string, string>* path_to_sample,
-                                gbwt::GBWT* gbwt) {
+                                gbwt::GBWT* gbwt,
+                                const unordered_map<nid_t, pair<nid_t, size_t>>* translation) {
 
     this->graph = graph;
     this->snarl_manager = snarl_manager;
@@ -412,6 +413,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     this->path_to_sample = path_to_sample;
     this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
     this->include_nested = include_nested;
+    this->translation = translation;
     assert(path_to_sample == nullptr || path_restricted || gbwt);
     
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
@@ -569,6 +571,24 @@ vector<SnarlTraversal> Deconstructor::explicit_exhaustive_traversals(const Snarl
         out_travs.clear();
     }        
     return out_travs;
+}
+
+string Deconstructor::snarl_name(const Snarl* snarl) {
+    nid_t start_node = snarl->start().node_id();
+    nid_t end_node = snarl->end().node_id();
+    if (translation) {
+        auto i = translation->find(start_node);
+        if (i == translation->end()) {
+            throw runtime_error("Error [vg deconstruct]: Unable to find node " + std::to_string(start_node) + " in translation file");
+        }
+        start_node = i->second.first;
+        i = translation->find(end_node);
+        if (i == translation->end()) {
+            throw runtime_error("Error [vg deconstruct]: Unable to find node " + std::to_string(end_node) + " in translation file");
+        }
+        end_node = i->second.first;
+    }
+    return std::to_string(start_node) + "_" + std::to_string(end_node);
 }
 
 }
