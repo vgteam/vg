@@ -1477,7 +1477,7 @@ int main_giraffe(int argc, char** argv) {
                 << " reads per second per thread" << endl;
             
             cerr << "Used " << cpu_seconds << " CPU-seconds (including output)." << endl;
-            cerr << "Mapping speed: " << reads_per_cpu_second
+            cerr << "Achieved " << reads_per_cpu_second
                 << " reads per CPU-second (including output)" << endl;
             
             if (total_instructions != 0) {

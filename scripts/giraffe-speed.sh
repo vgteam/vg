@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # giraffe-speed.sh: evaluate Giraffe mapping speed.
-# Suggested to run on an AWS
+# Suggested to run on an AWS r5.4xlarge, with 100 GB disk, the "vg-data-user" IAM role and Ubuntu 20.04 
 # Partially based on https://github.com/vgteam/giraffe-sv-paper/blob/566573b708878d8854acb088a0a8f7c920b120eb/scripts/giraffe/speed_giraffe.sh
 set -e
 
