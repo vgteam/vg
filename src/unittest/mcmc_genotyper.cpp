@@ -346,7 +346,7 @@ namespace vg {
                 path_handle_t path_handle = graph.create_path_handle("x");
                 graph.append_step(path_handle, graph.get_handle(n1->id()));
                 graph.append_step(path_handle, graph.get_handle(n2->id()));
-                graph.append_step(path_handle, graph.get_handle(n3->id()));
+                graph.append_step(path_handle, graph.get_handle(n4->id()));
                 graph.append_step(path_handle, graph.get_handle(n5->id()));
                 graph.append_step(path_handle, graph.get_handle(n6->id()));
 
@@ -526,7 +526,7 @@ namespace vg {
                 path_handle_t path_handle = graph.create_path_handle("x");
                 graph.append_step(path_handle, graph.get_handle(n1->id()));
                 graph.append_step(path_handle, graph.get_handle(n2->id()));
-                graph.append_step(path_handle, graph.get_handle(n3->id()));
+                graph.append_step(path_handle, graph.get_handle(n4->id()));
                 graph.append_step(path_handle, graph.get_handle(n5->id()));
                 graph.append_step(path_handle, graph.get_handle(n6->id()));
 
@@ -1364,7 +1364,6 @@ namespace vg {
 #endif
 
         }
-
         TEST_CASE("run mcmc_genotyper with karger-stein min cut and alt. proposal") {
             VG graph;
 				

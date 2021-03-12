@@ -9,8 +9,8 @@
 
 #define stdout_for_performance_script
 // #define debug_mcmc
-// #define debug_make_snarl_graph
-// #define debug_karger_stein
+#define debug_make_snarl_graph
+#define debug_karger_stein
 
 namespace vg {
 
@@ -195,7 +195,7 @@ namespace vg {
         }else{
 #ifdef stdout_for_performance_script 
             cerr <<"clikelihood " << max_likelihood <<endl;
-            optimal->print_phased_genome();
+            // optimal->print_phased_genome();
 #endif
             return optimal; 
         }
@@ -691,6 +691,9 @@ namespace vg {
         //generate set used to make swap in alt proposal dist
         vector<unordered_set<size_t>> to_recv =  algorithms::min_cut_decomposition(snarl_graph, seed);
 
+#ifdef debug_karger_stein   
+        cerr << "min decomposition size of gamma" << to_recv.size() <<endl;    
+#endif
         return to_recv;
         
     }
@@ -702,12 +705,15 @@ namespace vg {
         int lower_bound = 0;
         int upper_bound = gamma.size();
 
+#ifdef karger_stein 
+            cerr << "rand num " << random_num<<endl;
+            cerr << "upper_bound " << upper_bound <<endl;
+                     
+#endif
         //generate set used to make swap in alt proposal dist
         int random_num = generate_discrete_uniform(random_engine, lower_bound , upper_bound);
-#ifdef debug_mcmc 
-            cerr << "rand num " << random_num<<endl;
-            cerr << "upper_bound " << upper_bound <<endl;         
-#endif
+
+        
         unordered_set<size_t> sites_to_swap = gamma[random_num];
 
         // swap alleles at sites in chosen set using snarl indexes

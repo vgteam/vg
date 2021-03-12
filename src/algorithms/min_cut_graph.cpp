@@ -16,7 +16,7 @@
 #include <unordered_set>
 #include <functional>
 
-// #define debug_min_decomp
+#define debug_min_decomp
 // #define debug_kargers_min
 // #define debug_compute_min
 
@@ -354,11 +354,11 @@ namespace vg {
             const int rand_seed = seed;
 
             function<void(Graph)> recurse = [&](Graph graph){
-// #ifdef debug_min_decomp
-//                 cout << "============================================================================= " << endl;
-//                 cout << "MIN-CUT-DECOMPOSITION"  <<endl;
-//                 cout << "============================================================================= " << endl;
-// #endif               
+#ifdef debug_min_decomp
+                cout << "============================================================================= " << endl;
+                cout << "MIN-CUT-DECOMPOSITION"  <<endl;
+                cout << "============================================================================= " << endl;
+#endif               
                 size_t V = graph.get_size();
 
                 //base case
