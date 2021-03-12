@@ -83,11 +83,12 @@ Inheritance diagram for vg::VCFOutputCaller:</div>
  <div class="center">
   <img src="classvg_1_1VCFOutputCaller.png" usemap="#vg::VCFOutputCaller_map" alt=""/>
   <map id="vg::VCFOutputCaller_map" name="vg::VCFOutputCaller_map">
-<area href="classvg_1_1FlowCaller.html" alt="vg::FlowCaller" shape="rect" coords="0,56,132,80"/>
-<area href="classvg_1_1LegacyCaller.html" alt="vg::LegacyCaller" shape="rect" coords="142,56,274,80"/>
-<area href="classvg_1_1MCMCCaller.html" alt="vg::MCMCCaller" shape="rect" coords="284,56,416,80"/>
-<area href="classvg_1_1NestedFlowCaller.html" alt="vg::NestedFlowCaller" shape="rect" coords="426,56,558,80"/>
-<area href="classvg_1_1VCFGenotyper.html" alt="vg::VCFGenotyper" shape="rect" coords="568,56,700,80"/>
+<area href="classvg_1_1Deconstructor.html" alt="vg::Deconstructor" shape="rect" coords="0,56,132,80"/>
+<area href="classvg_1_1FlowCaller.html" alt="vg::FlowCaller" shape="rect" coords="142,56,274,80"/>
+<area href="classvg_1_1LegacyCaller.html" alt="vg::LegacyCaller" shape="rect" coords="284,56,416,80"/>
+<area href="classvg_1_1MCMCCaller.html" alt="vg::MCMCCaller" shape="rect" coords="426,56,558,80"/>
+<area href="classvg_1_1NestedFlowCaller.html" alt="vg::NestedFlowCaller" shape="rect" coords="568,56,700,80"/>
+<area href="classvg_1_1VCFGenotyper.html" alt="vg::VCFGenotyper" shape="rect" coords="710,56,842,80"/>
   </map>
 </div></div>
 <table class="memberdecls">
@@ -106,6 +107,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a1f1dca8be7cb9d0c6211aa08b9a1f0c9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a1f1dca8be7cb9d0c6211aa08b9a1f0c9">write_variants</a> (ostream &amp;out_stream) const</td></tr>
 <tr class="memdesc:a1f1dca8be7cb9d0c6211aa08b9a1f0c9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sort then write variants in the buffer.  <a href="classvg_1_1VCFOutputCaller.html#a1f1dca8be7cb9d0c6211aa08b9a1f0c9">More...</a><br /></td></tr>
 <tr class="separator:a1f1dca8be7cb9d0c6211aa08b9a1f0c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab063824a02c65e499cac3d2ca96ca504"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#ab063824a02c65e499cac3d2ca96ca504">vcf_fixup</a> (vcflib::Variant &amp;<a class="el" href="namespacevg.html#afe7fae89b379b5411189ac0ac74b2dd4">var</a>) const</td></tr>
+<tr class="memdesc:ab063824a02c65e499cac3d2ca96ca504"><td class="mdescLeft">&#160;</td><td class="mdescRight">Run vcffixup from vcflib.  <a href="classvg_1_1VCFOutputCaller.html#ab063824a02c65e499cac3d2ca96ca504">More...</a><br /></td></tr>
+<tr class="separator:ab063824a02c65e499cac3d2ca96ca504"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
@@ -133,9 +137,8 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:a70e8288543e7facfb79f5211ce33fa7f"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a70e8288543e7facfb79f5211ce33fa7f">sample_name</a></td></tr>
 <tr class="memdesc:a70e8288543e7facfb79f5211ce33fa7f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sample name.  <a href="classvg_1_1VCFOutputCaller.html#a70e8288543e7facfb79f5211ce33fa7f">More...</a><br /></td></tr>
 <tr class="separator:a70e8288543e7facfb79f5211ce33fa7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a062e34518eddb55df7831c33a6136ca8"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; vcflib::Variant &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a062e34518eddb55df7831c33a6136ca8">output_variants</a></td></tr>
-<tr class="memdesc:a062e34518eddb55df7831c33a6136ca8"><td class="mdescLeft">&#160;</td><td class="mdescRight">output buffers (1/thread) (for sorting)  <a href="classvg_1_1VCFOutputCaller.html#a062e34518eddb55df7831c33a6136ca8">More...</a><br /></td></tr>
-<tr class="separator:a062e34518eddb55df7831c33a6136ca8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa9a532dbc58fe6031595ed819d31b02a"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; pair&lt; pair&lt; string, size_t &gt;, string &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#aa9a532dbc58fe6031595ed819d31b02a">output_variants</a></td></tr>
+<tr class="separator:aa9a532dbc58fe6031595ed819d31b02a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acf04132e0a3cf52b5ba58a88f0b2d3d4"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#acf04132e0a3cf52b5ba58a88f0b2d3d4">max_uncalled_alleles</a> = 5</td></tr>
 <tr class="memdesc:acf04132e0a3cf52b5ba58a88f0b2d3d4"><td class="mdescLeft">&#160;</td><td class="mdescRight">print up to this many uncalled alleles when doing ref-genotpes in -a mode  <a href="classvg_1_1VCFOutputCaller.html#acf04132e0a3cf52b5ba58a88f0b2d3d4">More...</a><br /></td></tr>
 <tr class="separator:acf04132e0a3cf52b5ba58a88f0b2d3d4"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -504,6 +507,26 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="ab063824a02c65e499cac3d2ca96ca504"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab063824a02c65e499cac3d2ca96ca504">&#9670;&nbsp;</a></span>vcf_fixup()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::VCFOutputCaller::vcf_fixup </td>
+          <td>(</td>
+          <td class="paramtype">vcflib::Variant &amp;&#160;</td>
+          <td class="paramname"><em>var</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Run vcffixup from vcflib. </p>
+
+</div>
+</div>
 <a id="aeb9a75eed0ba2a369439abddf1ac3f65"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aeb9a75eed0ba2a369439abddf1ac3f65">&#9670;&nbsp;</a></span>vcf_header()</h2>
 
@@ -595,8 +618,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a062e34518eddb55df7831c33a6136ca8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a062e34518eddb55df7831c33a6136ca8">&#9670;&nbsp;</a></span>output_variants</h2>
+<a id="aa9a532dbc58fe6031595ed819d31b02a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa9a532dbc58fe6031595ed819d31b02a">&#9670;&nbsp;</a></span>output_variants</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -605,7 +628,7 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt;vector&lt;vcflib::Variant&gt; &gt; vg::VCFOutputCaller::output_variants</td>
+          <td class="memname">vector&lt;vector&lt;pair&lt;pair&lt;string, size_t&gt;, string&gt; &gt; &gt; vg::VCFOutputCaller::output_variants</td>
         </tr>
       </table>
   </td>
@@ -614,8 +637,7 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>output buffers (1/thread) (for sorting) </p>
+<p>output buffers (1/thread) (for sorting) variants stored as strings (and position key pairs) because vcflib::Variant in-memory struct so huge </p>
 
 </div>
 </div>

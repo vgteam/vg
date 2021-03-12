@@ -1171,6 +1171,10 @@ Functions</h2></td></tr>
 <tr class="memitem:a571047c58b73b78d02a767c3ab6ec222"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a571047c58b73b78d02a767c3ab6ec222">get_gbwt</a> (const std::vector&lt; gbwt::vector_type &gt; &amp;paths)</td></tr>
 <tr class="memdesc:a571047c58b73b78d02a767c3ab6ec222"><td class="mdescLeft">&#160;</td><td class="mdescRight">Transform the paths into a GBWT index. Primarily for testing.  <a href="namespacevg.html#a571047c58b73b78d02a767c3ab6ec222">More...</a><br /></td></tr>
 <tr class="separator:a571047c58b73b78d02a767c3ab6ec222"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1fd28c153f4dc014fd0bf4994de750cf"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, vector&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1fd28c153f4dc014fd0bf4994de750cf">load_translation_map</a> (ifstream &amp;input_stream)</td></tr>
+<tr class="separator:a1fd28c153f4dc014fd0bf4994de750cf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a422af8ffea0249bd1008f65f3e1fee54"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a422af8ffea0249bd1008f65f3e1fee54">load_translation_back_map</a> (<a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, ifstream &amp;input_stream)</td></tr>
+<tr class="separator:a422af8ffea0249bd1008f65f3e1fee54"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a28c93b1c4a71fadf62fc2582cc8f0ed2"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a28c93b1c4a71fadf62fc2582cc8f0ed2">gbwt_to_handle</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, gbwt::node_type node)</td></tr>
 <tr class="memdesc:a28c93b1c4a71fadf62fc2582cc8f0ed2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert gbwt::node_type to handle_t.  <a href="namespacevg.html#a28c93b1c4a71fadf62fc2582cc8f0ed2">More...</a><br /></td></tr>
 <tr class="separator:a28c93b1c4a71fadf62fc2582cc8f0ed2"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -11114,6 +11118,54 @@ template&lt;class Element &gt; </div>
 </div><div class="memdoc">
 
 <p>Load a compressed GBWT from the file. </p>
+
+</div>
+</div>
+<a id="a422af8ffea0249bd1008f65f3e1fee54"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a422af8ffea0249bd1008f65f3e1fee54">&#9670;&nbsp;</a></span>load_translation_back_map()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t &gt; &gt; vg::load_translation_back_map </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">ifstream &amp;&#160;</td>
+          <td class="paramname"><em>input_stream</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Load a translation file (created with vg gbwt &ndash;translation) and return a backwards mapping of chopped node to original segment position (id,offset pair) NOTE: hopefully this is just a short-term hack, and we get a general interface baked into </p>
+
+</div>
+</div>
+<a id="a1fd28c153f4dc014fd0bf4994de750cf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1fd28c153f4dc014fd0bf4994de750cf">&#9670;&nbsp;</a></span>load_translation_map()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, vector&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &gt; &gt; vg::load_translation_map </td>
+          <td>(</td>
+          <td class="paramtype">ifstream &amp;&#160;</td>
+          <td class="paramname"><em>input_stream</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Load a translation file (created with vg gbwt &ndash;translation) and return a mapping original segment ids to a list of chopped node ids </p>
 
 </div>
 </div>
