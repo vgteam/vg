@@ -33,6 +33,7 @@ void help_deconstruct(char** argv){
          << "                             Other non-ref paths not considered as samples.  When using a GBWT, select only samples with given prefix." << endl
          << "    -r, --snarls FILE        Snarls file (from vg snarls) to avoid recomputing." << endl
          << "    -g, --gbwt FILE          only consider alt traversals that correspond to GBWT threads FILE." << endl
+         << "    -T, --translation FILE   Node ID translation (as created by vg gbwt --translation) to apply to snarl names in output" << endl
          << "    -e, --path-traversals    Only consider traversals that correspond to paths in the graph." << endl
          << "    -a, --all-snarls         Process all snarls, including nested snarls (by default only top-level snarls reported)." << endl
          << "    -d, --ploidy N           Expected ploidy.  If more traversals found, they will be flagged as conflicts (default: 2)" << endl
@@ -53,6 +54,7 @@ int main_deconstruct(int argc, char** argv){
     string graphname;
     string snarl_file_name;
     string gbwt_file_name;
+    string translation_file_name;
     bool path_restricted_traversals = false;
     bool show_progress = false;
     int ploidy = 2;
@@ -69,7 +71,8 @@ int main_deconstruct(int argc, char** argv){
                 {"path-prefix", required_argument, 0, 'P'},
                 {"alt-prefix", required_argument, 0, 'A'},
                 {"snarls", required_argument, 0, 'r'},
-                {"gbwt", required_argument, 0, 'g'},                
+                {"gbwt", required_argument, 0, 'g'},
+                {"translation", required_argument, 0, 'T'},
                 {"path-traversals", no_argument, 0, 'e'},
                 {"ploidy", required_argument, 0, 'd'},
                 {"all-snarls", no_argument, 0, 'a'},
@@ -80,7 +83,7 @@ int main_deconstruct(int argc, char** argv){
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:P:A:r:g:ed:at:v",
+        c = getopt_long (argc, argv, "hp:P:A:r:g:T:ed:at:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -103,7 +106,10 @@ int main_deconstruct(int argc, char** argv){
             break;
         case 'g':
             gbwt_file_name = optarg;
-            break;            
+            break;
+        case 'T':
+            translation_file_name = optarg;
+            break;
         case 'e':
             path_restricted_traversals = true;
             break;
@@ -166,6 +172,18 @@ int main_deconstruct(int argc, char** argv){
                     refpaths.push_back(name);
                 }
             });
+    }
+
+    // Read the translation
+    unique_ptr<unordered_map<nid_t, pair<nid_t, size_t>>> translation;
+    if (!translation_file_name.empty()) {
+        ifstream translation_file(translation_file_name.c_str());
+        if (!translation_file) {
+            cerr << "Error [vg deconstruct]: Unable to load translation file: " << translation_file_name << endl;
+            return 1;
+        }
+        translation = make_unique<unordered_map<nid_t, pair<nid_t, size_t>>>();
+        *translation = load_translation_back_map(*graph, translation_file);
     }
     
     // Load or compute the snarls
@@ -249,7 +267,7 @@ int main_deconstruct(int argc, char** argv){
         cerr << "Decsontructing top-level snarls" << endl;
     }
     dd.deconstruct(refpaths, graph, snarl_manager.get(), path_restricted_traversals, ploidy, all_snarls,
-                   !alt_path_to_prefix.empty() ? &alt_path_to_prefix : nullptr, gbwt_index.get());
+                   !alt_path_to_prefix.empty() ? &alt_path_to_prefix : nullptr, gbwt_index.get(), translation.get());
     return 0;
 }
 

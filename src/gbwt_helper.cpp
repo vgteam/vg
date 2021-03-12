@@ -344,4 +344,68 @@ gbwt::GBWT get_gbwt(const std::vector<gbwt::vector_type>& paths) {
 
 //------------------------------------------------------------------------------
 
+unordered_map<nid_t, vector<nid_t>> load_translation_map(ifstream& input_stream) {
+    string buffer;
+    size_t line = 1;
+    unordered_map<nid_t, vector<nid_t>> translation_map;
+    try {
+        while (getline(input_stream, buffer)) {
+            vector<string> toks = split_delims(buffer, "\t");
+            if (toks.size() == 3 && toks[0] == "T") {
+                vector<string> toks2 = split_delims(toks[2], ",");
+                nid_t segment_id = parse<nid_t>(toks[1]);
+                vector<nid_t> node_ids;
+                node_ids.reserve(toks2.size());
+                for (string& node_id_str : toks2) {
+                    node_ids.push_back(parse<nid_t>(node_id_str));
+                }
+                vector<nid_t>& val = translation_map[segment_id];
+                if (!val.empty()) {
+                    throw runtime_error("Segment " + toks[0] + " already in map");
+                }
+                translation_map[segment_id] = node_ids;
+            } else {
+                throw runtime_error("Invalid columns");
+            }
+            ++line;
+        }
+    } catch (const std::exception& e) {
+        throw runtime_error("[load_translation_map] error: unable to parse line " + to_string(line) +
+                            " of translation map: " + e.what());
+    }
+    return translation_map;
+}
+
+unordered_map<nid_t, pair<nid_t, size_t>> load_translation_back_map(HandleGraph& graph, ifstream& input_stream) {
+    string buffer;
+    size_t line = 1;
+    unordered_map<nid_t, pair<nid_t, size_t>> translation_back_map;
+    try {
+        while (getline(input_stream, buffer)) {
+            vector<string> toks = split_delims(buffer, "\t");
+            if (toks.size() == 3 && toks[0] == "T") {
+                vector<string> toks2 = split_delims(toks[2], ",");
+                nid_t segment_id = stol(toks[1]);
+                size_t offset = 0;
+                for (string& node_id_str : toks2) {
+                    nid_t node_id = stol(node_id_str);
+                    if (translation_back_map.count(node_id)) {
+                        throw runtime_error("Node ID " + node_id_str + " already in map");
+                    }
+                    translation_back_map[node_id] = make_pair(segment_id, offset);
+                    offset += graph.get_length(graph.get_handle(node_id));
+                }
+            } else {
+                throw runtime_error("Invalid columns");
+            }
+            ++line;
+        }
+    } catch (const std::exception& e) {
+        throw runtime_error("[load_translation_back_map] error: unable to parse line " + to_string(line) +
+                            " of translation map: " + e.what());
+    }
+    return translation_back_map;
+}
+
+
 } // namespace vg

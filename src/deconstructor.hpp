@@ -9,6 +9,7 @@
 #include "handle.hpp"
 #include "genotypekit.hpp"
 #include "traversal_finder.hpp"
+#include "graph_caller.hpp"
 
 /** \file
 * Deconstruct is getting rewritten.
@@ -24,7 +25,10 @@
 namespace vg{
 using namespace std;
 
-class Deconstructor{
+// note: added VCFOutputCaller parent class from vg call bring in sorted vcf output.  it would
+//       be nice to re-use more of the VCFOutputCaller code, much of which is still duplicated in
+//       Deconstructor
+class Deconstructor : public VCFOutputCaller {
 public:
 
     Deconstructor();
@@ -34,7 +38,8 @@ public:
     void deconstruct(vector<string> refpaths, const PathPositionHandleGraph* grpah, SnarlManager* snarl_manager,
                      bool path_restricted_traversals, int ploidy, bool include_nested,
                      const unordered_map<string, string>* path_to_sample = nullptr,
-                     gbwt::GBWT* gbwt = nullptr); 
+                     gbwt::GBWT* gbwt = nullptr,
+                     const unordered_map<nid_t, pair<nid_t, size_t>>* translation = nullptr); 
     
 private:
 
@@ -62,9 +67,9 @@ private:
     // get traversals from the exhaustive finder.  if they have nested visits, fill them in (exhaustively)
     // with node visits
     vector<SnarlTraversal> explicit_exhaustive_traversals(const Snarl* snarl);
-    
-    // output vcf object
-    vcflib::VariantCallFile outvcf;
+
+    // get a snarl name, using trnaslation if availabe
+    string snarl_name(const Snarl* snarl);
     
     // toggle between exhaustive and path restricted traversal finder
     bool path_restricted = false;
@@ -99,6 +104,9 @@ private:
 
     // recurse on child snarls
     bool include_nested = false;
+
+    // optional node translation to apply to snarl names in variant IDs
+    const unordered_map<nid_t, pair<nid_t, size_t>>* translation;
 };
 
 }

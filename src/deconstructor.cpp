@@ -8,7 +8,7 @@ using namespace std;
 
 
 namespace vg {
-Deconstructor::Deconstructor(){
+Deconstructor::Deconstructor() : VCFOutputCaller("") {
 
 }
 Deconstructor::~Deconstructor(){
@@ -326,8 +326,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         const SnarlTraversal& ref_trav = path_travs.first[ref_trav_idx];
         
         vcflib::Variant v;
-        v.setVariantCallFile(outvcf);
-        v.quality = 23;
+        v.quality = 60;
 
         // write variant's sequenceName (VCF contig)
         v.sequenceName = ref_trav_name;
@@ -361,7 +360,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
 
         v.position = first_path_pos;
 
-        v.id = std::to_string(snarl->start().node_id()) + "_" + std::to_string(snarl->end().node_id());
+        v.id = snarl_name(snarl);
         
         // Convert the snarl traversals to strings and add them to the variant
         vector<int> trav_to_allele = get_alleles(v, path_travs.first, ref_trav_idx, prev_char, use_start);
@@ -378,22 +377,23 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
             for (const Snarl* cur = snarl; !snarl_manager->is_root(cur); cur = snarl_manager->parent_of(cur)) {
                 ++level;
             }
-            v.info["LEVEL"].push_back(std::to_string(level));
+            v.info["LV"].push_back(std::to_string(level));
             if (level > 0) {
                 const Snarl* parent = snarl_manager->parent_of(snarl);
-                string parent_id = std::to_string(parent->start().node_id()) + "_" + std::to_string(parent->end().node_id());
-                v.info["PARENT"].push_back(parent_id);
+                string parent_id = snarl_name(parent);
+                v.info["PS"].push_back(parent_id);
             } 
         }
 
         // we only bother printing out sites with at least 1 non-reference allele
         if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return i == 0; })) {
-#pragma omp critical (cout)
-            {
-                cout << v << endl;
+            if (path_restricted || gbwt_trav_finder.get()) {
+                // run vcffixup to add some basic INFO like AC
+                vcf_fixup(v);
             }
+            add_variant(v);
         }
-    }
+    }    
     return true;
 }
 
@@ -403,7 +403,8 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
 void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
                                 bool path_restricted_traversals, int ploidy, bool include_nested,
                                 const unordered_map<string, string>* path_to_sample,
-                                gbwt::GBWT* gbwt) {
+                                gbwt::GBWT* gbwt,
+                                const unordered_map<nid_t, pair<nid_t, size_t>>* translation) {
 
     this->graph = graph;
     this->snarl_manager = snarl_manager;
@@ -412,6 +413,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     this->path_to_sample = path_to_sample;
     this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
     this->include_nested = include_nested;
+    this->translation = translation;
     assert(path_to_sample == nullptr || path_restricted || gbwt);
     
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
@@ -459,9 +461,15 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         }
         stream << "\">" << endl;
     }
+    if (path_restricted || gbwt) {
+        stream << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Total number of alternate alleles in called genotypes\">" << endl;
+        stream << "##INFO=<ID=AF,Number=A,Type=Float,Description=\"Estimated allele frequency in the range (0,1]\">" << endl;
+        stream << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of samples with data\">" << endl;
+        stream << "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of alleles in called genotypes\">" << endl;
+    }
     if (include_nested) {
-        stream << "##INFO=<ID=LEVEL,Number=1,Type=Integer,Description=\"Level in the snarl tree (0=top level)\">" << endl;
-        stream << "##INFO=<ID=PARENT,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
+        stream << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree (0=top level)\">" << endl;
+        stream << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
     }
     for(auto& refpath : ref_paths) {
         size_t path_len = 0;
@@ -480,8 +488,8 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     stream << endl;
     
     string hstr = stream.str();
-    assert(outvcf.openForOutput(hstr));
-    cout << outvcf.header << endl;
+    assert(output_vcf.openForOutput(hstr));
+    cout << output_vcf.header << endl;
 
     // create the traversal finder
     map<string, const Alignment*> reads_by_name;
@@ -517,6 +525,9 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                 next.clear();
             }
         });
+    
+    // write variants in sorted order
+    write_variants(cout);
 }
 
 bool Deconstructor::check_max_nodes(const Snarl* snarl)  {
@@ -569,6 +580,25 @@ vector<SnarlTraversal> Deconstructor::explicit_exhaustive_traversals(const Snarl
         out_travs.clear();
     }        
     return out_travs;
+}
+
+string Deconstructor::snarl_name(const Snarl* snarl) {
+    nid_t start_node = snarl->start().node_id();
+    nid_t end_node = snarl->end().node_id();
+    if (translation) {
+        auto i = translation->find(start_node);
+        if (i == translation->end()) {
+            throw runtime_error("Error [vg deconstruct]: Unable to find node " + std::to_string(start_node) + " in translation file");
+        }
+        start_node = i->second.first;
+        i = translation->find(end_node);
+        if (i == translation->end()) {
+            throw runtime_error("Error [vg deconstruct]: Unable to find node " + std::to_string(end_node) + " in translation file");
+        }
+        end_node = i->second.first;
+    }
+    return (snarl->start().backward() ? "<" : ">") + std::to_string(start_node) +
+        (snarl->end().backward() ? "<" : ">") + std::to_string(end_node);
 }
 
 }

@@ -571,6 +571,14 @@ int main_call(int argc, char** argv) {
         }
     }
 
+    string header;
+    if (!gaf_output) {
+        // Init The VCF       
+        VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        assert(vcf_caller != nullptr);
+        header = vcf_caller->vcf_header(*graph, ref_paths, ref_path_lengths);
+    }
+
     // Call the graph
     if (!traversals_only) {
 
@@ -587,7 +595,7 @@ int main_call(int argc, char** argv) {
         // Output VCF
         VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
         assert(vcf_caller != nullptr);
-        cout << vcf_caller->vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
+        cout << header << flush;
         vcf_caller->write_variants(cout);
     }
     

@@ -206,21 +206,114 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
 }
 
 void VCFOutputCaller::add_variant(vcflib::Variant& var) const {
-    output_variants[omp_get_thread_num()].push_back(var);
+    var.setVariantCallFile(output_vcf);
+    stringstream ss;
+    ss << var;
+    // the Variant object is too big to keep in memory when there are many genotypes, so we
+    // store it in string
+    output_variants[omp_get_thread_num()].push_back(make_pair(make_pair(var.sequenceName, var.position), ss.str()));
 }
 
 void VCFOutputCaller::write_variants(ostream& out_stream) const {
-    vector<vcflib::Variant> all_variants;
+    vector<pair<pair<string, size_t>, string>> all_variants;
     for (const auto& buf : output_variants) {
         all_variants.reserve(all_variants.size() + buf.size());
         std::move(buf.begin(), buf.end(), std::back_inserter(all_variants));
     }
-    std::sort(all_variants.begin(), all_variants.end(), [](const vcflib::Variant& v1, const vcflib::Variant& v2) {
-            return v1.sequenceName < v2.sequenceName || (v1.sequenceName == v2.sequenceName && v1.position < v2.position);
+    std::sort(all_variants.begin(), all_variants.end(), [](const pair<pair<string, size_t>, string>& v1,
+                                                           const pair<pair<string, size_t>, string>& v2) {
+            return v1.first.first < v2.first.first || (v1.first.first == v2.first.first && v1.first.second < v2.first.second);
         });
     for (auto v : all_variants) {
-        v.setVariantCallFile(output_vcf);
-        out_stream << v << endl;
+        out_stream << v.second << endl;
+    }
+}
+
+static int countAlts(vcflib::Variant& var, int alleleIndex) {
+    int alts = 0;
+    for (map<string, map<string, vector<string> > >::iterator s = var.samples.begin(); s != var.samples.end(); ++s) {
+        map<string, vector<string> >& sample = s->second;
+        map<string, vector<string> >::iterator gt = sample.find("GT");
+        if (gt != sample.end()) {
+            map<int, int> genotype = vcflib::decomposeGenotype(gt->second.front());
+            for (map<int, int>::iterator g = genotype.begin(); g != genotype.end(); ++g) {
+                if (g->first == alleleIndex) {
+                    alts += g->second;
+                }
+            }
+        }
+    }
+    return alts;
+}
+
+static int countAlleles(vcflib::Variant& var) {
+    int alleles = 0;
+    for (map<string, map<string, vector<string> > >::iterator s = var.samples.begin(); s != var.samples.end(); ++s) {
+        map<string, vector<string> >& sample = s->second;
+        map<string, vector<string> >::iterator gt = sample.find("GT");
+        if (gt != sample.end()) {
+            map<int, int> genotype = vcflib::decomposeGenotype(gt->second.front());
+            for (map<int, int>::iterator g = genotype.begin(); g != genotype.end(); ++g) {
+		if (g->first != vcflib::NULL_ALLELE) {
+		    alleles += g->second;
+		}
+            }
+        }
+    }
+    return alleles;
+}
+
+// this isn't from vcflib, but seems to make more sense than just returning the number of samples in the file again and again
+static int countSamplesWithData(vcflib::Variant& var) {
+    int samples_with_data = 0;
+    for (map<string, map<string, vector<string> > >::iterator s = var.samples.begin(); s != var.samples.end(); ++s) {
+        map<string, vector<string> >& sample = s->second;
+        map<string, vector<string> >::iterator gt = sample.find("GT");
+        bool has_data = false;
+        if (gt != sample.end()) {
+            map<int, int> genotype = vcflib::decomposeGenotype(gt->second.front());
+            for (map<int, int>::iterator g = genotype.begin(); g != genotype.end(); ++g) {
+		if (g->first != vcflib::NULL_ALLELE) {
+                    has_data = true;
+                    break;
+		}
+            }
+        }
+        if (has_data) {
+            ++samples_with_data;
+        }
+    }
+    return samples_with_data;
+}
+
+void VCFOutputCaller::vcf_fixup(vcflib::Variant& var) const {
+    // copied from https://github.com/vgteam/vcflib/blob/master/src/vcffixup.cpp
+    
+    stringstream ns;
+    ns << countSamplesWithData(var);
+    var.info["NS"].clear();
+    var.info["NS"].push_back(ns.str());
+
+    var.info["AC"].clear();
+    var.info["AF"].clear();
+    var.info["AN"].clear();
+
+    int allelecount = countAlleles(var);
+    stringstream an;
+    an << allelecount;
+    var.info["AN"].push_back(an.str());
+
+    for (vector<string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
+        string& allele = *a;
+        int altcount = countAlts(var, var.getAltAlleleIndex(allele) + 1);
+        stringstream ac;
+        ac << altcount;
+        var.info["AC"].push_back(ac.str());
+        stringstream af;
+        double faf = (double) altcount / (double) allelecount;
+        if(faf != faf) faf = 0;
+        af << faf;
+        var.info["AF"].push_back(af.str());
     }
 }
 

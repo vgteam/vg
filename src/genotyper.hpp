@@ -17,7 +17,6 @@
 #include <vg/vg.pb.h>
 #include "vg.hpp"
 #include "translator.hpp"
-#include "deconstructor.hpp"
 #include "srpe.hpp"
 #include "hash_map.hpp"
 #include "utility.hpp"
