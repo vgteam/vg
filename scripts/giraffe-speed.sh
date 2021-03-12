@@ -6,7 +6,6 @@ set -e
 
 THREAD_COUNT=16
 
-#2million real reads
 READS=s3://vg-k8s/profiling/reads/real/NA19239/novaseq6000-ERR3239454-shuffled-1m.fq.gz
 
 # The HGSVC graph is smaller and faster to load so we use that here.
@@ -30,5 +29,10 @@ fetch "${GRAPH_BASE}.${GBWT}.gbwt" "./${GRAPH}.${GBWT}.gbwt"
 fetch "${GRAPH_BASE}.${GBWT}.gg" "./${GRAPH}.${GBWT}.gg"
 fetch "${GRAPH_BASE}.${GBWT}.min" "./${GRAPH}.${GBWT}.min"
 
-/usr/bin/time -v timeout -k1 1h bash -c "vg giraffe -x '${GRAPH}.xg' -H '${GRAPH}.${GBWT}.gbwt' -g '${GRAPH}.${GBWT}.gg' -m '${GRAPH}.${GBWT}.min' -d '${GRAPH}.dist' -f '${READS}.fq.gz' -i -t '${THREAD_COUNT}' -p 2>log.txt >mapped.gam" 2> time-log.txt || true
+# Build a bigger reads file (10m) so we can run for more than like 16 seconds
+cat ./reads.fq.gz ./reads.fq.gz ./reads.fq.gz ./reads.fq.gz ./reads.fq.gz ./reads.fq.gz ./reads.fq.gz ./reads.fq.gz ./reads.fq.gz ./reads.fq.gz >./many-reads.fq.gz
+
+SUDO=$(which sudo 2>/dev/null || true)
+
+${SUDO} timeout -k1 1h bash -c "vg giraffe -x '${GRAPH}.xg' -H '${GRAPH}.${GBWT}.gbwt' -g '${GRAPH}.${GBWT}.gg' -m '${GRAPH}.${GBWT}.min' -d '${GRAPH}.dist' -f './many-reads.fq.gz' -i -t '${THREAD_COUNT}' -p 2>log.txt >mapped.gam" || true
 
