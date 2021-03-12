@@ -107,7 +107,7 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
                 // track the change in size of the snarl.
                 snarl_sequence_change.first += one_snarl_error_record[4];
                 snarl_sequence_change.second += one_snarl_error_record[5];
-                cerr << "normalized snarl starting at: " << roots->start().node_id() << endl;
+                // cerr << "normalized snarl starting at: " << roots->start().node_id() << endl;
             } else {
                 // else, there was an error. Track which errors caused the snarl to not
                 // normalize.
@@ -118,7 +118,6 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
                 }
                 num_snarls_skipped += 1;
             }
-            //todo! Make unit test for shrinking snarls.
             
             // //todo: debug_statement for extracting snarl of interest.
             // VG outGraph;
@@ -264,7 +263,7 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
         // TODO:    accounted for in the code, remove next chunk of code that finds 
         // TODO: source-to-sink paths.
         // find the paths that stretch from source to sink:
-        cerr << "~~~~~~~~~~source: " << source_id << "sink: " << sink_id << endl;
+        // cerr << "~~~~~~~~~~source: " << source_id << "sink: " << sink_id << endl;
         for (auto path : embedded_paths) {
 
             // cerr << "checking path of name " << _graph.get_path_name(_graph.get_path_handle_of_step(path.first)) << " with source " << _graph.get_id(_graph.get_handle_of_step(path.first)) << " and sink " << _graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) << endl;
@@ -344,6 +343,7 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
     }
     // todo: decide if we should only normalize snarls that decrease in size.
     if (error_record[5] > error_record[4]) {
+        cerr << "**************************in UNIT-TEST for normalize_snarl: **************************" << endl;
         cerr << "NOTE: normalized a snarl which *increased* in sequence quantity, "
                 "starting at "
              << source_id << endl
@@ -633,12 +633,14 @@ SubHandleGraph SnarlNormalizer::extract_subgraph(const HandleGraph &graph,
 //                        old_embedded_path, and pair.second is the step_handle *after*
 //                        the last step_handle of interest in the old_embedded_path (can
 //                        be the null step at the end of the path.)
+//                        Note: these paths will be altered to represent the way they
+//                        overlap in the new snarl. Otherwise, they would be invalidated.
 //      source_id: the source of the old (to be replaced) snarl in _graph
 //      sink_id: the sink of the old (to be replaced) snarl in _graph.
 // Return: None.
 void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl, 
     const HandleGraph &to_insert_snarl,
-    const vector<pair<step_handle_t, step_handle_t>> embedded_paths, 
+    vector<pair<step_handle_t, step_handle_t>>& embedded_paths, 
     const id_t &source_id, const id_t &sink_id, const bool backwards) {
     // cerr << "integrate_snarl" << endl;
 
@@ -750,7 +752,8 @@ void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl,
         });
     }
     // For each path of interest, move it onto the new_snarl.
-    for (auto path : embedded_paths) {
+    for (int i = 0; i != embedded_paths.size(); i++)
+    {
         // //todo: debug_statement
         // cerr << "the new sink id: " << temp_snarl_rightmost_id << endl;
         // //todo: debug_statement
@@ -766,19 +769,19 @@ void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl,
         // path_spans_left_right.second = (!backwards && _graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) == sink_id) || (backwards && _graph.get_id(_graph.get_handle_of_step(path.first)) == sink_id);
         // cerr << "first: " << path_spans_left_right.first << "second: " << path_spans_left_right.second << endl;
         pair<bool, bool> path_spans_left_right;
-        path_spans_left_right.first = (_graph.get_id(_graph.get_handle_of_step(path.first)) == source_id);
-        path_spans_left_right.second = (_graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) == sink_id);
+        path_spans_left_right.first = (_graph.get_id(_graph.get_handle_of_step(embedded_paths[i].first)) == source_id);
+        path_spans_left_right.second = (_graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(embedded_paths[i].second))) == sink_id);
 
-        move_path_to_new_snarl(path, temp_snarl_leftmost_id, temp_snarl_rightmost_id, path_spans_left_right, !backwards);
-
+        embedded_paths[i] = move_path_to_new_snarl(embedded_paths[i], temp_snarl_leftmost_id, temp_snarl_rightmost_id, path_spans_left_right, !backwards);
     }
 
     // Destroy the old snarl.
-    old_snarl.for_each_handle([&](const handle_t &handle) {
-            // //todo: debug_statement these are the handles in old_snarl:
-            // cerr << old_snarl.get_id(handle) << old_snarl.get_sequence(handle) << endl;
-            _graph.destroy_handle(handle);
-        });
+    old_snarl.for_each_handle([&](const handle_t &handle) 
+    {
+        // //todo: debug_statement these are the handles in old_snarl:
+        // cerr << old_snarl.get_id(handle) << old_snarl.get_sequence(handle) << endl;
+        _graph.destroy_handle(handle);
+    });
 
     // Replace the source and sink handles with ones that have the original source/sink id
     // (for compatibility with future iterations on neighboring top-level snarls using the
@@ -795,7 +798,7 @@ void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl,
     {
         new_leftmost_handle = overwrite_node_id(temp_snarl_leftmost_id, sink_id);
         new_rightmost_handle = overwrite_node_id(temp_snarl_rightmost_id, source_id);
-    }
+    }    
 }
 
 
@@ -827,6 +830,11 @@ handle_t SnarlNormalizer::overwrite_node_id(const id_t& old_node_id, const id_t&
     // move the paths:
     _graph.for_each_step_on_handle(old_handle, [&](step_handle_t step) 
     {
+        handle_t properly_oriented_old_handle = _graph.get_handle_of_step(step); 
+        if (_graph.get_is_reverse(properly_oriented_old_handle) != _graph.get_is_reverse(new_handle))
+        {
+            new_handle = _graph.flip(new_handle);
+        }
         _graph.rewrite_segment(step, _graph.get_next_step(step), vector<handle_t>{new_handle});
     });
 
@@ -834,7 +842,6 @@ handle_t SnarlNormalizer::overwrite_node_id(const id_t& old_node_id, const id_t&
     _graph.destroy_handle(old_handle);
     return new_handle;
 }
-
 /** Used to help move_path_to_snarl map paths from an old snarl to its newly
  * normalized counterpart. In particular, ensures that any paths which touch the
  * source and/or sink of the old snarl still do so in the new snarl (which is
@@ -968,27 +975,27 @@ SnarlNormalizer::debug_get_sources_and_sinks(const HandleGraph &graph) {
     // identify sources and sinks
     graph.for_each_handle([&](const handle_t &handle) {
         //todo: debug_statements in code below:
-        cerr << "identifying if " << graph.get_id(handle) << "is a source/sink." <<endl;
+        // cerr << "identifying if " << graph.get_id(handle) << "is a source/sink." <<endl;
         bool is_source = true, is_sink = true;
-        cerr << "handles to the left: ";
+        // cerr << "handles to the left: ";
         graph.follow_edges(handle, true, [&](const handle_t &prev) {
-            cerr << graph.get_id(prev) << endl;
+            // cerr << graph.get_id(prev) << endl;
             is_source = false;
             return false;
         });
-        cerr << "handles to the right: ";
+        // cerr << "handles to the right: ";
         graph.follow_edges(handle, false, [&](const handle_t &next) {
-            cerr << graph.get_id(next) << endl;
+            // cerr << graph.get_id(next) << endl;
             is_sink = false;
             return false;
         });
 
         if (is_source) {
-            cerr<< "determined is_source" << endl;
+            // cerr<< "determined is_source" << endl;
             source.push_back(handle);
         }
         if (is_sink) {
-            cerr<< "determined is_sink" << endl;
+            // cerr<< "determined is_sink" << endl;
             sink.emplace_back(handle);
         }
     });

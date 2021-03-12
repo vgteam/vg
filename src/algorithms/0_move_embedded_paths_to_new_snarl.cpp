@@ -117,12 +117,12 @@ vector<handle_t> SnarlNormalizer::extend_possible_paths(vector<pair<vector<handl
                 // return false;
             });
     }
-    cerr << "************UNIT_TEST for extend_possible_paths************" << endl;
     if (correct_path.size() == 0)
     {
+        cerr << "************UNIT_TEST for extend_possible_paths************" << endl;
         cerr << "no correct path in snarl found. output path size is zero." << endl;
+        cerr << "************END-UNIT_TEST for extend_possible_paths.************"<< endl;
     }
-    cerr << "************END-UNIT_TEST for extend_possible_paths.************"<< endl;
 
     return correct_path;
 }
@@ -135,8 +135,9 @@ vector<handle_t> SnarlNormalizer::extend_possible_paths(vector<pair<vector<handl
  * @param  {pair<bool} undefined                         : 
  * @param  {bool>} path_spans_left_right                 : 
  * @param  {bool} path_directed_left_to_right            : 
+ * @return {pair<step_handle_t, step_handle_t>}          :
  */
-void SnarlNormalizer::move_path_to_new_snarl(const pair<step_handle_t, step_handle_t> & old_path, const id_t &leftmost_id, const id_t &rightmost_id, const pair<bool, bool> &path_spans_left_right, const bool &path_directed_left_to_right)
+pair<step_handle_t, step_handle_t> SnarlNormalizer::move_path_to_new_snarl(const pair<step_handle_t, step_handle_t> & old_path, const id_t &leftmost_id, const id_t &rightmost_id, const pair<bool, bool> &path_spans_left_right, const bool &path_directed_left_to_right)
 {
     /*
 * This should return the series of handles, from left to right if path_left_to_right==true (else vice-versa), that the path should move to.
@@ -152,17 +153,21 @@ void SnarlNormalizer::move_path_to_new_snarl(const pair<step_handle_t, step_hand
         cerr << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << endl;
         cerr << "PATH DOESN'T SPAN SOURCE AND SINK! THIS IS CURRENTLY UNSUPPORTED. SNARL WILL BE NORMALIZED, BUT PATH WON'T BE INCLUDED." << endl;
         cerr << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << endl;
-        vector<handle_t> no_path;
-        return;
+        pair<step_handle_t, step_handle_t> no_path;
+        return no_path;
     }
 
     // get the path_string from the handles in the old_path:
     string path_str;
     step_handle_t cur_step = old_path.first;
     string path_name = _graph.get_path_name(_graph.get_path_handle_of_step(old_path.first)); // used for unit tests at bottom.
+    vector<handle_t> old_path_location;
     while (cur_step != old_path.second)
     {
+        // cerr << "orientation of cur_step: " << _graph.apply_orientation
         path_str += _graph.get_sequence(_graph.get_handle_of_step(cur_step));
+        //todo: note following line of for loop is for debug purposes. delete?
+        old_path_location.push_back(_graph.get_handle_of_step(cur_step));
         cur_step = _graph.get_next_step(cur_step);
     }
 
@@ -199,28 +204,29 @@ void SnarlNormalizer::move_path_to_new_snarl(const pair<step_handle_t, step_hand
     // one node.
     //todo!
 
-    // possible_paths tracks all the possible locations of the path as we extend the
-    // path_string-to-_graph alignment.
-    //
-    // Each "location" in the vector is a pair. pair.first is the vector of handles
-    // comprising the path found thus far. pair.second is the size of the extended path
-    // thus far, so that we know where we are in path_str.
-    //
-    // Each path will be filled left-to-right. If path_left_to_right==false, the final
-    // path will be reversed before it's returned.
     vector<pair<vector<handle_t>, int>> possible_path_starts = find_possible_path_starts(leftmost_handle, rightmost_handle, path_spans_left_right);
     // cerr << "size of possible_path_starts: " << possible_path_starts.size() << endl;
     vector<handle_t> new_path_location = extend_possible_paths(possible_path_starts, path_str, leftmost_handle, rightmost_handle, path_spans_left_right);
     // cerr << "size of new_path_location: " << new_path_location.size() << endl;
 
-    //todo! debug comment_out below.
+
     // flip the order of the handles if the path moves right-to-left.
     if (!path_directed_left_to_right)
     {
         std::reverse(new_path_location.begin(), new_path_location.end());
         for (int i = 0; i != new_path_location.size(); i++)
         {
-            new_path_location[i] = _graph.flip(new_path_location[i]);
+            // new_path_location[i] = _graph.app(new_path_location[i]);
+            // cerr << "path_name: " << path_name << endl;
+            // cerr << "handle_id: " << _graph.get_id(new_path_location[i]) << endl;
+            // cerr << "handle seq: " << _graph.get_sequence(new_path_location[i]) << endl;
+            // cerr << "is the handle reversed?: " << _graph.get_is_reverse(new_path_location[i]) << endl;
+            // if (path_name != "CBS432.chrXIV")
+            // {
+                new_path_location[i] = _graph.flip(new_path_location[i]);
+            // }
+            // cerr << "is the handle reversed?: " << _graph.get_is_reverse(new_path_location[i]) << endl;
+            // cerr << "is the handle at old_path in this pos reversed? " << _graph.get_is_reverse(old_path_location[i]) << endl;
         }
     }
 
@@ -249,14 +255,12 @@ void SnarlNormalizer::move_path_to_new_snarl(const pair<step_handle_t, step_hand
     // cerr << "request to rewrite segment with old_path: " << old_path_series << " " << old_path_str  << endl;
     // cerr << "and new path: " << new_path_series << " " << new_path_str  << endl;
     
-    cerr << "sequence according to old_path.first: " << _graph.get_id(_graph.get_handle_of_step(old_path.first)) << " " << _graph.get_sequence(_graph.get_handle_of_step(old_path.first)) << endl;
-    _graph.rewrite_segment(old_path.first, old_path.second, new_path_location);
-    cerr << "sequence at new_path_location first entry: " << _graph.get_id(new_path_location.front()) << " " << _graph.get_sequence(new_path_location.front()) << endl;
+    pair<step_handle_t, step_handle_t> new_path = _graph.rewrite_segment(old_path.first, old_path.second, new_path_location);
 
-    cerr << "************UNIT_TEST for extend_possible_paths************" << endl;
     // Test that the new path exists.
     if (new_path_location.size() == 0)
     {
+        cerr << "************in UNIT_TEST for move_path_to_new_snarl************" << endl;
         cerr << "no new path location found." << endl;
     }
     // Test that the new path seq = old path seq.
@@ -290,15 +294,16 @@ void SnarlNormalizer::move_path_to_new_snarl(const pair<step_handle_t, step_hand
         }
         if (old_path_str != new_path_str)
         {
+            cerr << "************in UNIT_TEST for move_path_to_new_snarl************" << endl;
             cerr << "Once the path was moved into the new snarl, it didn't have the same sequence." << endl;
             cerr << "original seq: " << old_path_str << endl;
             cerr << "     new seq: " << new_path_str << endl;
         }
     }
     
-    cerr << "************END-UNIT_TEST for extend_possible_paths.************"<< endl;
+    // cerr << "************END-UNIT_TEST for move_path_to_new_snarl.************"<< endl;
 
-    
+    return new_path;
 }
 
 // // Moves a path from its original location in the _graph to a new snarl,

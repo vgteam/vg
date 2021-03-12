@@ -51,7 +51,7 @@ class SnarlNormalizer {
     VG align_source_to_sink_haplotypes(unordered_set<string> source_to_sink_haplotypes);
 
     void integrate_snarl(SubHandleGraph &old_snarl, const HandleGraph &new_snarl,
-                         const vector<pair<step_handle_t, step_handle_t>> embedded_paths,
+                         vector<pair<step_handle_t, step_handle_t>>& embedded_paths,
                          const id_t &source_id, const id_t &sink_id, const bool backwards);
 
     handle_t overwrite_node_id(const id_t& old_node_id, const id_t& new_node_id);
@@ -68,7 +68,7 @@ class SnarlNormalizer {
 
     vector<handle_t> extend_possible_paths(vector<pair<vector<handle_t>, int>> &possible_path_starts, const string &path_str, const handle_t &leftmost_handle, const handle_t &rightmost_handle, const pair<bool, bool> &path_spans_left_right);
 
-    void move_path_to_new_snarl(const pair<step_handle_t, step_handle_t> & old_path, const id_t &source, const id_t &sink, const pair<bool, bool> &path_spans_left_right, const bool &path_directed_left_to_right);
+    pair<step_handle_t, step_handle_t> move_path_to_new_snarl(const pair<step_handle_t, step_handle_t> & old_path, const id_t &source, const id_t &sink, const pair<bool, bool> &path_spans_left_right, const bool &path_directed_left_to_right);
 
     //////////////////////////////////////////////////////////////////////////////////////
     // format-type switching:

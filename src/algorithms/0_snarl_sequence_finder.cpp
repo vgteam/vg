@@ -228,14 +228,14 @@ SnarlSequenceFinder::find_gbwt_haps() {
     move(haplotypes_not_starting_at_source.begin(),
          haplotypes_not_starting_at_source.end(), back_inserter(other_haplotypes));
 
-    //todo: debug_statement
-    cerr << "lets look through all the haplotypes after extraction:" << endl;
-    for (vector<handle_t> hap_vec : haplotypes_from_source_to_sink) {
-        cerr << "new hap:" << endl;
-        for (handle_t handle : hap_vec){
-            cerr << _haploGraph.get_id(handle) << " " << _haploGraph.get_sequence(handle) << endl;
-        }
-    }
+    // //todo: debug_statement
+    // cerr << "lets look through all the haplotypes after extraction:" << endl;
+    // for (vector<handle_t> hap_vec : haplotypes_from_source_to_sink) {
+    //     cerr << "new hap:" << endl;
+    //     for (handle_t handle : hap_vec){
+    //         cerr << _haploGraph.get_id(handle) << " " << _haploGraph.get_sequence(handle) << endl;
+    //     }
+    // }
 
     return tuple<vector<vector<handle_t>>, vector<vector<handle_t>>,
                  unordered_set<handle_t>>{haplotypes_from_source_to_sink,
@@ -263,10 +263,10 @@ SnarlSequenceFinder::find_haplotypes_not_at_source(unordered_set<handle_t> &touc
         leftmost_id = _sink_id;
         rightmost_id = _source_id;
     }
-    //todo: debug_statement
-    for (handle_t handle : touched_handles){
-        cerr << "touched handles find_gbwt_haps: " << _graph.get_id(handle) << endl;
-    }
+    // //todo: debug_statement
+    // for (handle_t handle : touched_handles){
+    //     cerr << "touched handles find_gbwt_haps: " << _graph.get_id(handle) << endl;
+    // }
     // cerr << "find_haplotypes_not_at_source" << endl;
 
     /// Search every handle in touched handles for haplotypes starting at that point.
@@ -450,12 +450,12 @@ SnarlSequenceFinder::find_embedded_paths() {
 
     // look for handles with paths we haven't touched yet.
     _snarl.for_each_handle([&](const handle_t &handle) {
-        cerr << "looking for paths at handle " << _graph.get_id(handle) << endl; 
+        // cerr << "looking for paths at handle " << _graph.get_id(handle) << endl; 
         vector<step_handle_t> steps = _graph.steps_of_handle(handle);
         // do any of these steps belong to a path not in paths_found?
         for (step_handle_t &step : steps) {
             path_handle_t path = _graph.get_path_handle_of_step(step);
-            cerr << "found a path. Is it new?" << endl;
+            // cerr << "found a path. Is it new?" << endl;
             // If it's a step along a new path, save the first step to that path we find.
             // (The avoidance
             // of source and sink here is to ensure that we can properly check to see if
@@ -465,7 +465,7 @@ SnarlSequenceFinder::find_embedded_paths() {
             if (paths_found.find(path) == paths_found.end() ||
                 _graph.get_id(_graph.get_handle_of_step(paths_found[path])) == _source_id ||
                 _graph.get_id(_graph.get_handle_of_step(paths_found[path])) == _sink_id) {
-                cerr << "found a new path." << endl;
+                // cerr << "found a new path." << endl;
                 // then we need to mark it as found and save the step.
                 paths_found[path] = step;
             }
@@ -524,22 +524,25 @@ SnarlSequenceFinder::find_embedded_paths() {
     }
 
     //todo: move the following to unit tests:
-    cerr << "************UNIT_TEST for find_embedded_paths************" << endl;
     unordered_set<string> path_names;
     for (auto path : paths_in_snarl) {
         if (!(_graph.get_id(_graph.get_handle_of_step(path.first)) == _source_id)) {
+            cerr << "************in UNIT_TEST for find_embedded_paths************" << endl;
             cerr << "path " << _graph.get_path_name(_graph.get_path_handle_of_step(path.first)) << " doesn't start at source of snarl. " << " source: " << _source_id << "; start of path: " << _graph.get_id(_graph.get_handle_of_step(path.first)) << endl;
         }
         if (!(_graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) == _sink_id)) {
+            cerr << "************in UNIT_TEST for find_embedded_paths************" << endl;
             cerr << "path " << _graph.get_path_name(_graph.get_path_handle_of_step(path.second)) << " doesn't end at sink of snarl. " << " source: " << _sink_id << "; end of path: " << _graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) << endl;
             cerr << "note that the 'true' end of the path is one step further than the sink. Print statement above corrects for that convention." << endl;
         }
         if (!(path_names.find(_graph.get_path_name(_graph.get_path_handle_of_step(path.first))) == path_names.end())) {
+            cerr << "************in UNIT_TEST for find_embedded_paths************" << endl;
             cerr << "path " << _graph.get_path_name(_graph.get_path_handle_of_step(path.second)) << " has been found more than once in find_embedded_paths, when it should only have been extracted once. " << endl;
         }
         path_names.emplace(_graph.get_path_name(_graph.get_path_handle_of_step(path.first)));
     } 
     if ((path_names.size() == 0)) {
+        cerr << "************in UNIT_TEST for find_embedded_paths************" << endl;
         cerr << "no embedded paths found in find_embedded_paths." << endl;
     }
     // for (auto path : paths_in_snarl) {
@@ -550,7 +553,7 @@ SnarlSequenceFinder::find_embedded_paths() {
     //     path_names.emplace(_graph.get_path_name(_graph.get_path_handle_of_step(path.first)));
     // } 
     // cerr << "tested " << path_names.size() << " paths in UNIT_TEST." << endl;
-    cerr << "************END-UNIT_TEST for find_embedded_paths. Tested " << path_names.size() << " paths in UNIT_TEST.************"<< endl;
+    // cerr << "************END-UNIT_TEST for find_embedded_paths. Tested " << path_names.size() << " paths in UNIT_TEST.************"<< endl;
 
     return paths_in_snarl;
 }
