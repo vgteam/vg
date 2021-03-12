@@ -8,6 +8,7 @@
 #include <iostream>
 #include <cassert>
 #include <cstring>
+#include <ctime>
 #include <map>
 #include <vector>
 #include <unordered_set>
@@ -33,6 +34,17 @@
 
 #ifdef USE_CALLGRIND
 #include <valgrind/callgrind.h>
+#endif
+
+#include <sys/ioctl.h>
+#ifdef __linux__
+#include <linux/perf_event.h>
+#include <asm/unistd.h>
+/// Bind perf_event_open for counting instructions.
+/// See <https://stackoverflow.com/a/64863392/402891>
+static long perf_event_open(struct perf_event_attr* hw_event, pid_t pid, int cpu, int group_fd, unsigned long flags) {
+    return syscall(__NR_perf_event_open, hw_event, pid, cpu, group_fd, flags);
+}
 #endif
 
 using namespace std;
@@ -1191,6 +1203,32 @@ int main_giraffe(int argc, char** argv) {
         std::chrono::time_point<std::chrono::system_clock> first_thread_start;
         std::chrono::time_point<std::chrono::system_clock> all_threads_start;
         
+        // We also time in terms of CPU time
+        clock_t cpu_time_before;
+        
+        // We may also have access to perf stats
+        int perf_fd = 0;
+        
+#ifdef __linux__
+        // Set up a counter for executed instructions.
+        // See <https://stackoverflow.com/a/64863392/402891>
+        struct perf_event_attr perf_config;
+        memset(&perf_config, 0, sizeof(struct perf_event_attr));
+        perf_config.type = PERF_TYPE_HARDWARE;
+        perf_config.size = sizeof(struct perf_event_attr);
+        perf_config.config = PERF_COUNT_HW_INSTRUCTIONS;
+        // Start disabled
+        perf_config.disabled = 1;
+        perf_config.exclude_kernel = 1;
+        perf_config.exclude_hv = 1;
+        perf_fd = perf_event_open(&perf_config, 0, -1, -1, 0);
+        // TODO: check errno/strerror here. May not work if not root!
+#endif
+
+
+        cerr << "Profiling with fd " << perf_fd << endl;
+        assert(perf_fd != 0 && paef_fd != -1);
+        
         {
         
             // Look up all the paths we might need to surject to.
@@ -1215,6 +1253,14 @@ int main_giraffe(int argc, char** argv) {
 
             // Start timing overall mapping time now that indexes are loaded.
             first_thread_start = std::chrono::system_clock::now();
+            cpu_time_before = clock();
+            
+#ifdef __linux__
+            if (perf_fd) {
+                ioctl(perf_fd, PERF_EVENT_IOC_RESET, 0);
+                ioctl(perf_fd, PERF_EVENT_IOC_ENABLE, 0);
+            }
+#endif
 
             if (interleaved || !fastq_filename_2.empty()) {
                 //Map paired end from either one gam or fastq file or two fastq files
@@ -1350,8 +1396,32 @@ int main_giraffe(int argc, char** argv) {
         
         // Now mapping is done
         std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+        clock_t cpu_time_after = clock();
+#ifdef __linux__
+        if (perf_fd) {
+            ioctl(perf_fd, PERF_EVENT_IOC_DISABLE, 0);
+        }
+#endif
+        
+        // Compute wall clock elapsed
         std::chrono::duration<double> all_threads_seconds = end - all_threads_start;
         std::chrono::duration<double> first_thread_additional_seconds = all_threads_start - first_thread_start;
+        
+        // Compute CPU time elapsed
+        double cpu_seconds = (cpu_time_after - cpu_time_before) / (double)CLOCKS_PER_SEC;
+        
+        // Compute instructions used
+        long long total_instructions = 0;
+        if (perf_fd) {
+            if (read(perf_fd, &total_instructions, sizeof(long long)) != sizeof(long long)) {
+                // Read failed for some reason.
+                cerr << "Could not count instructions" << endl;
+                total_instructions = 0;
+            }
+            close(perf_fd);
+        }
+        
+        cerr << "Total instructions: " << total_instructions << endl;
         
         // How many reads did we map?
         size_t total_reads_mapped = 0;
@@ -1361,6 +1431,10 @@ int main_giraffe(int argc, char** argv) {
         
         // Compute speed (as reads per thread-second)
         double reads_per_second_per_thread = total_reads_mapped / (all_threads_seconds.count() * thread_count + first_thread_additional_seconds.count());
+        // And per CPU second (including any IO threads)
+        double reads_per_cpu_second = total_reads_mapped / cpu_seconds;
+        double instructions_per_read = total_instructions / (double)total_reads_mapped;
+        double instructions_per_second = total_instructions / cpu_seconds;
         
         if (show_progress) {
             // Log to standard error
@@ -1368,9 +1442,17 @@ int main_giraffe(int argc, char** argv) {
                 << thread_count << " threads in "
                 << all_threads_seconds.count() << " seconds with " 
                 << first_thread_additional_seconds.count() << " additional single-threaded seconds." << endl;
+            cerr << "Used " << cpu_seconds << " CPU-seconds." << endl;
             
             cerr << "Mapping speed: " << reads_per_second_per_thread
                 << " reads per second per thread" << endl;
+            cerr << "Mapping speed: " << reads_per_cpu_second
+                << " reads per CPU-second" << endl;
+            if (total_instructions != 0) {
+                cerr << "Mapping slowness: " << instructions_per_read
+                    << " instructions per read at " << instructions_per_second
+                    << " instructions per CPU-second" << endl;
+            }
 
             cerr << "Memory footprint: " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GB" << endl;
         }
