@@ -297,6 +297,31 @@ public:
     net_handle_t get_parent_traversal(const net_handle_t& traversal_start, const net_handle_t& traversal_end) const;
 
 
+///////////////////////////// More public functions for distance calculations using net_handle_t's 
+
+
+public:
+    /**
+     * Find the distance between the two child node sides in the parent
+     * If go_left is true, go left relative to the orientation of the child handle. This only takes
+     * into account the endpoint of the net_handle_t traversal, it does not care if the traversal
+     * was possible. Doesn't allow you to find the distance from a traversal ending/starting in a tip
+     * requires that the children are children of the parent
+     * Returns std::numeric_limits<int64_t>::max() if there is not path between them in the parent 
+     * or if they are not children of the parent
+     */
+    const int64_t distance_in_parent(const net_handle_t& parent, const net_handle_t& child1, bool go_left1, 
+            const net_handle_t& child2, bool go_left2);
+
+
+    /** 
+     * For two net handles, get a net handle lowest common ancestor
+     * If the lowest common ancestor is the root, then the two handles may be in 
+     * different connected components. In this case, return false
+     */
+    const pair<net_handle_t, bool> lowest_common_ancestor(const net_handle_t& net1, const net_handle_t& net2);
+
+
 
 ////////////////////////////// How to interpret net_handle_ts
 //TODO: Does this depend on endianness???
@@ -494,11 +519,12 @@ private:
         //TODO: I don't think it matters if a chain is reversed or not, also it might not matter if a snarl is
         virtual size_t get_parent_record_offset() const {
             record_t type = get_record_type();
-            if (type == ROOT || type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL) {
+            if (type == ROOT) {
                 return 0;
             } else if (type == NODE || type == DISTANCED_NODE) {
                 return (records->at(record_offset + NODE_PARENT_OFFSET));
-            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL )  {
+            } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL  
+                    || type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL)  {
                 return (records->at(record_offset + SNARL_PARENT_OFFSET));
             } else if (type == CHAIN || type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
                 return (records->at(record_offset + CHAIN_PARENT_OFFSET));
@@ -565,7 +591,7 @@ private:
 
         //Is this node reversed in its parent
         //TODO: I think a node is the only thing that can be reversed in its parent, and only if it is in a chain
-        virtual bool get_is_rev_in_parent() const {
+        virtual bool get_is_reversed_in_parent() const {
             record_t type = get_record_type();
             if (type == NODE || type == DISTANCED_NODE) {
                 return records->at(record_offset + NODE_RANK_OFFSET) & 1;
@@ -843,7 +869,7 @@ private:
             bool rev = records->at(offset) & 1;
             records->at(offset) = (rank << 1) | rev; 
         };
-        virtual void set_is_rev_in_parent(bool rev) {
+        virtual void set_is_reversed_in_parent(bool rev) {
             record_t type = get_record_type();
             size_t offset;
             if (type == NODE || type == DISTANCED_NODE) {
@@ -1402,47 +1428,52 @@ private:
         }
 
         //Get the distance between the given node sides (relative to the orientation of the chain)
-        //Nodes represent a tuple of <pointer, rank, right_side, and length of the node>
+        //Nodes represent a tuple of <pointer, right_side, and length of the node>
         //This is the distance between the node sides, leaving the first and entering the second,
         //not including node lengths
         //TODO: I don't think we're allowing looping chains so I'm going to ignore them for now
-        virtual int64_t get_distance(tuple<size_t, size_t, bool, size_t> node1, 
-                             tuple<size_t, size_t, bool, size_t> node2) const {
+        virtual int64_t get_distance(tuple<size_t, bool, size_t> node1, 
+                             tuple<size_t, bool, size_t> node2) const {
             if (get_record_handle_type() == NODE_HANDLE) {
                 throw runtime_error("error: Trying to get chain distances from a node");
+            } else if (get_record_type() == MULTICOMPONENT_CHAIN) {
+                if (records->at(std::get<0>(node1) + CHAIN_NODE_COMPONENT_OFFSET) != 
+                    records->at(std::get<0>(node2) + CHAIN_NODE_COMPONENT_OFFSET)) {
+                    return std::numeric_limits<int64_t>::max();
+                }
             }
 
-            if (std::get<1>(node1) > std::get<1>(node2)) {
+            if (std::get<0>(node1) > std::get<0>(node2)) {
                 //If the first node comes after the second in the chain, reverse them
-                tuple<size_t,size_t, bool, size_t> tmp = node1;
+                tuple<size_t, bool, size_t> tmp = node1;
                 node1 = node2;
                 node2 = tmp;
             }
 
-            if (std::get<2>(node1) && !std::get<2>(node2)) {
+            if (std::get<1>(node1) && !std::get<1>(node2)) {
                 //Right of 1 and left of 2, so a simple forward traversal of the chain
                 return get_prefix_sum_value(std::get<0>(node2)) 
                      - get_prefix_sum_value(std::get<0>(node1))
-                     - std::get<3>(node1);
-            } else if (std::get<2>(node1) && std::get<2>(node2)) {
+                     - std::get<2>(node1);
+            } else if (std::get<1>(node1) && std::get<1>(node2)) {
                 //Right side of 1 and right side of 2
                 return get_prefix_sum_value(std::get<0>(node2)) 
                      - get_prefix_sum_value(std::get<0>(node1))  
-                     - std::get<3>(node1) + std::get<3>(node2) 
+                     - std::get<2>(node1) + std::get<2>(node2) 
                      + get_forward_loop_value(std::get<0>(node2));
-            } else if (!std::get<2>(node1) && !std::get<2>(node2)) {
+            } else if (!std::get<1>(node1) && !std::get<1>(node2)) {
                 //Left side of 1 and left side of 2
                 return get_prefix_sum_value(std::get<0>(node2)) 
                      - get_prefix_sum_value(std::get<0>(node1))  
                      + get_reverse_loop_value(std::get<0>(node1));
             } else {
-                assert(!std::get<2>(node1) && std::get<2>(node2));
+                assert(!std::get<1>(node1) && std::get<1>(node2));
                 //Left side of 1 and right side of 2
                 return get_prefix_sum_value(std::get<0>(node2)) 
                      - get_prefix_sum_value(std::get<0>(node1))  
                      + get_reverse_loop_value(std::get<0>(node1))
                      + get_forward_loop_value(std::get<0>(node1)) 
-                     + std::get<3>(node1);
+                     + std::get<2>(node1);
             }
         }
 
@@ -1528,7 +1559,7 @@ private:
                 }
                 bool next_is_reversed_in_parent = NodeRecord(
                         get_offset_from_id(records->at(next_pointer.first)), records
-                    ).get_is_rev_in_parent();
+                    ).get_is_reversed_in_parent();
                 
                 return get_net_handle(get_offset_from_id(records->at(next_pointer.first)),
                                   go_left == next_is_reversed_in_parent ? START_END : END_START,

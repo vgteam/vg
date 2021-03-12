@@ -792,7 +792,7 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                                     get_offset_from_node_id(temp_node_record.node_id), record_type, &snarl_tree_records);
                                 node_record_constructor.set_node_length(temp_node_record.node_length);
                                 node_record_constructor.set_parent_record_offset(chain_record_constructor.get_offset());
-                                node_record_constructor.set_is_rev_in_parent(temp_node_record.reversed_in_parent);
+                                node_record_constructor.set_is_reversed_in_parent(temp_node_record.reversed_in_parent);
 
                                 //TODO: This is not really used
                                 //The "rank" of the node actually points to the node in the chain, so it is the
@@ -899,7 +899,7 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                                 //Add connectivity in chain based on this snarl
                                 //TODO: Tip-tip connected?
                                 //TODO: What about if it's a multicomponent chain?
-                                if (!snarl_record_constructor.get_is_rev_in_parent()) {
+                                if (!snarl_record_constructor.get_is_reversed_in_parent()) {
                                     //If this snarl is oriented forward in the chain
                                     if (snarl_record_constructor.is_start_start_connected()) {
                                         chain_record_constructor.set_start_start_connected();
@@ -958,7 +958,7 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                         get_offset_from_node_id(temp_node_record.node_id), record_type, &snarl_tree_records);
                     node_record.set_node_length(temp_node_record.node_length);
                     node_record.set_rank_in_parent(temp_node_record.rank_in_parent);
-                    node_record.set_is_rev_in_parent(false);//TODO: Make sure that this is true
+                    node_record.set_is_reversed_in_parent(false);//TODO: Make sure that this is true
                     node_record.set_parent_record_offset(record_to_offset[make_pair(temp_index_i, temp_chain_record.parent)]);
 
                     record_to_offset.emplace(make_pair(temp_index_i, current_record_index), node_record.NodeRecord::record_offset);
@@ -1015,7 +1015,7 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                     get_offset_from_node_id(temp_node_record.node_id), record_type, &snarl_tree_records);
                 node_record.set_node_length(temp_node_record.node_length);
                 node_record.set_rank_in_parent(temp_node_record.rank_in_parent);
-                node_record.set_is_rev_in_parent(false);//TODO: Make sure that this is true
+                node_record.set_is_reversed_in_parent(false);//TODO: Make sure that this is true
                 node_record.set_parent_record_offset(record_to_offset[make_pair(temp_index_i, temp_node_record.parent)]);
 
                 record_to_offset.emplace(make_pair(temp_index_i, current_record_index), node_record.NodeRecord::record_offset);
@@ -1208,7 +1208,7 @@ net_handle_t SnarlDistanceIndex::get_bound(const net_handle_t& snarl, bool get_e
     if (get_handle_type(snarl) == CHAIN_HANDLE) {
         id_t id = get_end ? SnarlTreeRecord(snarl, &snarl_tree_records).get_end_id() 
                           : SnarlTreeRecord(snarl, &snarl_tree_records).get_start_id();
-        bool rev_in_parent = NodeRecord(get_offset_from_node_id(id), &snarl_tree_records).get_is_rev_in_parent();
+        bool rev_in_parent = NodeRecord(get_offset_from_node_id(id), &snarl_tree_records).get_is_reversed_in_parent();
         if (get_end) {
             rev_in_parent = !rev_in_parent;
         }
@@ -1438,7 +1438,7 @@ bool SnarlDistanceIndex::follow_net_edges_impl(const net_handle_t& here, const h
                 } else {
                     //next_node_record is also the start of a chain
 
-                    bool rev = graph->get_id(h) == next_node_record.get_is_rev_in_parent() ? false : true;
+                    bool rev = graph->get_id(h) == next_node_record.get_is_reversed_in_parent() ? false : true;
                     net_handle_t next_net = get_net_handle(next_node_record.get_parent_record_offset(), 
                                                            rev ? END_START : START_END, 
                                                            CHAIN_HANDLE);
@@ -1552,5 +1552,114 @@ net_handle_t SnarlDistanceIndex::get_parent_traversal(const net_handle_t& traver
 
 
 }
+
+const int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent, 
+        const net_handle_t& child1, bool go_left1, const net_handle_t& child2, bool go_left2){
+
+    net_handle_record_t parent_handle_type = get_handle_type(parent);
+    assert(canonical(parent) == canonical(get_parent(child1)));
+    assert(canonical(parent) == canonical(get_parent(child2)));
+
+    if (parent_handle_type == ROOT_HANDLE) {
+        //If the parent is the root, then the children must be in the same root snarl for them to be
+        //connected
+        RootRecord root_record(parent, &snarl_tree_records);
+        size_t parent_record_offset1 = SnarlTreeRecord(child1, &snarl_tree_records).get_parent_record_offset();
+        size_t parent_record_offset2 = SnarlTreeRecord(child2, &snarl_tree_records).get_parent_record_offset();
+        if (parent_record_offset1 != parent_record_offset2) {
+            //If the children are in different connected components
+            return std::numeric_limits<int64_t>::max();
+        } else if (SnarlTreeRecord(parent_record_offset1, &snarl_tree_records).get_record_type() 
+                    != DISTANCED_ROOT_SNARL){
+            //If they are in the same connected component, but it is not a root snarl
+            return std::numeric_limits<int64_t>::max();
+        } else {
+            //They are in the same root snarl, so find the distance between them
+            //
+            SnarlRecord snarl_record(parent_record_offset1, &snarl_tree_records);
+            SnarlTreeRecord child_record1 (child1, &snarl_tree_records);
+            SnarlTreeRecord child_record2 (child2, &snarl_tree_records);
+            size_t rank1 = child_record1.get_rank_in_parent();
+            size_t rank2 = child_record2.get_rank_in_parent();
+
+            if (ends_at(child1) == START) {
+                go_left1 = !go_left1;
+            }
+            if (ends_at(child2) == START) {
+                go_left2 = !go_left2;
+            }
+            return snarl_record.get_distance(rank1, go_left1, rank2, go_left2);
+        }
+
+
+    } else if (parent_handle_type == CHAIN_HANDLE) {
+        ChainRecord chain_record(get_parent(child1), &snarl_tree_records);
+        NodeRecord child_record1 (child1, &snarl_tree_records);
+        NodeRecord child_record2 (child2, &snarl_tree_records);
+
+        if (child_record1.get_is_reversed_in_parent()){
+            go_left1 = !go_left1;
+        }
+        if (ends_at(child1) == START){
+            go_left1 = !go_left1;
+        }
+        if (child_record2.get_is_reversed_in_parent()){
+            go_left2 = !go_left2;
+        }
+        if (ends_at(child2) == START){
+            go_left2 = !go_left2;
+        }
+
+        return chain_record.get_distance(
+            make_tuple(child_record1.get_rank_in_parent(), go_left1, child_record1.get_node_length()), 
+            make_tuple(child_record2.get_rank_in_parent(), go_left2, child_record2.get_node_length()) );
+
+    } else if (parent_handle_type == SNARL_HANDLE) {
+        SnarlRecord snarl_record(get_parent(child1), &snarl_tree_records);
+        SnarlTreeRecord child_record1 (child1, &snarl_tree_records);
+        SnarlTreeRecord child_record2 (child2, &snarl_tree_records);
+        size_t rank1 = child_record1.get_rank_in_parent();
+        size_t rank2 = child_record2.get_rank_in_parent();
+
+        if (ends_at(child1) == START) {
+            go_left1 = !go_left1;
+        }
+        if (ends_at(child2) == START) {
+            go_left2 = !go_left2;
+        }
+        return snarl_record.get_distance(rank1, go_left1, rank2, go_left2);
+    } else {
+        throw runtime_error("error: Trying to find distance in the wrong type of handle");
+    }
+}
+
+const pair<net_handle_t, bool> SnarlDistanceIndex::lowest_common_ancestor(const net_handle_t& net1, const net_handle_t& net2){
+    net_handle_t parent1 = net1;
+    net_handle_t parent2 = net2;
+
+    bool is_connected = true;
+    while (canonical(parent1) != canonical(parent2)){
+        //Go up until the parents are the same
+        //This loop will end because everything is in the same root eventually
+        size_t parent_record_offset1 = SnarlTreeRecord(parent1, &snarl_tree_records).get_parent_record_offset();
+        size_t parent_record_offset2 = SnarlTreeRecord(parent2, &snarl_tree_records).get_parent_record_offset();
+        parent1 = get_parent(parent1);
+        parent2 = get_parent(parent2);
+
+        if (is_root(parent1)) {
+            if (parent_record_offset1 == parent_record_offset2
+                && (SnarlTreeRecord(parent_record_offset1, &snarl_tree_records).get_record_type() == ROOT_SNARL
+                || SnarlTreeRecord(parent_record_offset1, &snarl_tree_records).get_record_type() == DISTANCED_ROOT_SNARL)) {
+                //If this is the root but the two children are both in the same root snarl, they are connected
+                is_connected = true;
+            } else {
+                //Otherwise, if the common parent is the root then they won't be connected
+                is_connected = false;
+            }
+        }
+    }
+    return make_pair(parent1, is_connected);
+}
+
 
 }
