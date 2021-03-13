@@ -431,4 +431,4 @@ int main_augment(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_augment("augment", "augment a graph from an alignment", PIPELINE, 5, main_augment);
+static Subcommand vg_augment("augment", "augment a graph from an alignment", PIPELINE, 8, main_augment);
