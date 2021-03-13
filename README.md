@@ -327,30 +327,38 @@ vg deconstruct x.xg -p x > x.vcf
 
 As with `vg call`, it is best to compute snarls separately and pass them in with `-r` when working with large graphs.
 
+### Transcriptomic analysis
+
+`vg` has a number of tools to support transcriptomic analyses with spliced graphs (i.e. graphs that have annotated splice junctions added as edges into the graph). These edges can be added into an existing graph using `vg rna`. We can then perform splice-aware mapping to these graphs using `vg mpmap`. `vg` developers have also made a tool for haplotype-aware transcript quantification based on these tools in [`rpvg`](https://github.com/jonassibbesen/rpvg). The easiest way to start this pipeline is to use the `vg autoindex` subcommand to make indexes for `vg mpmap`. `vg autoindex` creates indexes for mapping from common interchange formats like FASTA, VCF, and GTF. 
+
+More information is available in the [wiki page on transcriptomics](https://github.com/vgteam/vg/wiki/Transcriptomic-analyses).
+
 ### Command line interface
 
 A variety of commands are available:
 
+- *autoindex*: construct graphs and indexes for other tools from common interchange file formats
 - *construct*: graph construction
-- *view*: conversion (dot/protobuf/json/GFA)
 - *index*: index features of the graph in a disk-backed key/value store
-- *find*: use an index to find nodes, edges, kmers, or positions
-- *paths*: traverse paths in the graph
-- *align*: local alignment
-- *map*: global alignment (kmer-driven)
-- *stats*: metrics describing graph properties
-- *join*: combine graphs (parallel)
-- *concat*: combine graphs (serial)
-- *ids*: id manipulation
-- *kmers*: generate kmers from a graph
-- *sim*: simulate reads by walking paths in the graph
-- *mod*: various transformations of the graph
-- *surject*: force graph alignments into a linear reference space
-- *msga*: construct a graph from an assembly of multiple sequences
-- *validate*: determine if graph is valid
-- *filter*: filter reads out of an alignment
+- *map*: mapp reads to a graph
+- *giraffe*: fast, haplotype-based mapping of reads to a graph
+- *mpmap*: short read mapping and multipath alignment (optionally spliced)
+- *surject*: project graph alignments onto a linear reference
 - *augment*: adds variation from aligned reads into the graph
-- *call/genotype*: call variants from an augmented graph
+- *call*: call variants from an augmented graph
+- *rna*: spliced graph construction and indexing
+- *convert*: convert graph and alignment formats
+- *combine*: combine graphs
+- *chunk*: extract or break into subgraphs
+- *ids*: node ID manipulation
+- *sim*: simulate reads by walking paths in the graph
+- *prune*: prune graphs to restrict their path complexity
+- *snarls*: find bubble-like motifs in a graph
+- *mod*: various graph transformations
+- *filter*: filter reads out of an alignment
+- *deconstruct*: create a VCF from variation in the graph
+- *paths*: traverse paths in the graph
+- *stats*: metrics describing graph properties
 
 ## Implementation notes
 

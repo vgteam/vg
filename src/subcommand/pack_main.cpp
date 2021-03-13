@@ -263,4 +263,4 @@ int main_pack(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_pack("pack", "convert alignments to a compact coverage index", PIPELINE, 6, main_pack);
+static Subcommand vg_pack("pack", "convert alignments to a compact coverage index", PIPELINE, 9, main_pack);
