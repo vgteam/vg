@@ -5,6 +5,7 @@
 
 #include <handlegraph/snarl_decomposition.hpp>
 #include <structures/union_find.hpp>
+#include "position.hpp"
 #include "snarls.hpp"
 
 
@@ -302,16 +303,14 @@ public:
 
 public:
     /**
-     * Find the distance between the two child node sides in the parent
-     * If go_left is true, go left relative to the orientation of the child handle. This only takes
-     * into account the endpoint of the net_handle_t traversal, it does not care if the traversal
+     * Find the distance between the two child node sides in the parent, facing each other
+     * This only takes into account the endpoint of the net_handle_t traversal, it does not care if the traversal
      * was possible. Doesn't allow you to find the distance from a traversal ending/starting in a tip
      * requires that the children are children of the parent
      * Returns std::numeric_limits<int64_t>::max() if there is not path between them in the parent 
      * or if they are not children of the parent
      */
-    const int64_t distance_in_parent(const net_handle_t& parent, const net_handle_t& child1, bool go_left1, 
-            const net_handle_t& child2, bool go_left2);
+    int64_t distance_in_parent(const net_handle_t& parent, const net_handle_t& child1, const net_handle_t& child2) const;
 
 
     /** 
@@ -319,7 +318,24 @@ public:
      * If the lowest common ancestor is the root, then the two handles may be in 
      * different connected components. In this case, return false
      */
-    const pair<net_handle_t, bool> lowest_common_ancestor(const net_handle_t& net1, const net_handle_t& net2);
+    pair<net_handle_t, bool> lowest_common_ancestor(const net_handle_t& net1, const net_handle_t& net2) const;
+
+
+    /**
+     * Return the length of the net, which must represent a node
+     */
+    int64_t node_length(const net_handle_t& net) const ;
+
+
+    /**
+     * Get the minimum distance between two positions in the graph
+     * If unoriented_distance is true, then ignore the orientations of the positions
+     * Otherwise, distance is calculated from the first position going forward to the second position going forward
+     * The distance includes one of the positions; the distance from one position to itself is 1
+     * Returns std::numeric_limits<int64_t>::max() if there is no path between the two positions
+     */
+    //TODO: The positions can't be const?
+    int64_t minimum_distance(pos_t pos1, pos_t pos2, bool unoriented_distance = false) const ;
 
 
 
@@ -409,7 +425,7 @@ private:
 
 
     //Get the offset into snarl_tree_records for a node record
-    size_t get_offset_from_node_id (id_t id) const {
+    size_t get_offset_from_node_id (const id_t& id) const {
         size_t node_records_offset = snarl_tree_records.at(COMPONENT_COUNT_OFFSET) + ROOT_RECORD_SIZE; 
         size_t offset = (id-snarl_tree_records.at(MIN_NODE_ID_OFFSET)) * NODE_RECORD_SIZE;
         return node_records_offset + offset; 
@@ -692,7 +708,7 @@ private:
 
         //TODO: These are redeclared so that I don't need to pass the SnarlTreeRecord the actual distance index
         //Get the offset into snarl_tree_records for a node record
-        virtual size_t get_offset_from_id (id_t id) const {
+        virtual size_t get_offset_from_id (const id_t id) const {
             size_t node_records_offset = records->at(COMPONENT_COUNT_OFFSET) + ROOT_RECORD_SIZE; 
             size_t offset = (id-records->at(MIN_NODE_ID_OFFSET)) * NODE_RECORD_SIZE;
             return node_records_offset + offset; 
