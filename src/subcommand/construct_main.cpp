@@ -249,7 +249,7 @@ int main_construct(int argc, char** argv) {
         constructor.max_node_size = max_node_size;
         constructor.show_progress = show_progress;
 
-        
+        unordered_set<string> used_region_contigs; 
         for (auto& region : regions) {
             // We want to limit to one or more region
             if (!region_is_chrom) {
@@ -261,6 +261,12 @@ int main_construct(int argc, char** argv) {
                              seq_name,
                              start_pos,
                              stop_pos);
+                             
+                if (used_region_contigs.count(seq_name)) {
+                    cerr << "error:[vg construct] cannot construct multiple regions of " << seq_name << endl;
+                    exit(1);
+                }
+                used_region_contigs.insert(seq_name);
                 
                 if (start_pos > 0 && stop_pos > 0) {
                     // These are 0-based, so if both are nonzero we got a real set of coordinates
