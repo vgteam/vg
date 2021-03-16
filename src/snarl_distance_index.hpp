@@ -1449,6 +1449,7 @@ private:
         //This is the distance between the node sides, leaving the first and entering the second,
         //not including node lengths
         //TODO: I don't think we're allowing looping chains so I'm going to ignore them for now
+        //TODO: Double check finding the distance for the same node
         virtual int64_t get_distance(tuple<size_t, bool, size_t> node1, 
                              tuple<size_t, bool, size_t> node2) const {
             if (get_record_handle_type() == NODE_HANDLE) {
