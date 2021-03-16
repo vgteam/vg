@@ -3501,35 +3501,48 @@ vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > GBWTTraversalFinder::g
         auto last = std::move(search_intermediates.back());
         search_intermediates.pop_back();
 
+        vector<tuple<handle_t, gbwt::node_type, gbwt::SearchState>> next_handle_states;
         graph.follow_edges(gbwt_to_handle(graph, last.first.back()), false, [&](const handle_t& next) {
-                
                 // extend the last node of the thread using gbwt
                 auto extend_node = handle_to_gbwt(graph, next);
                 auto new_state = gbwt.extend(last.second, extend_node);
 #ifdef debug
                 cerr << "Extend state " << last.second << " to " << new_state << " with " << gbwt::Node::id(extend_node) << endl;
 #endif
-                if(!new_state.empty()) {
-
-                    // todo: possible to save a copy here by carefully moving (would change extending a big
-                    // reference haplotype from O(n^2) to O(n)
-                    vector<gbwt::node_type> new_thread = last.first;
-                    new_thread.push_back(extend_node);
-
-                    if (next == end) {
-#ifdef debug
-                        cerr << "\tGot " << new_state.size() << " results at limit; emitting" << endl;
-#endif
-                        search_results.push_back(make_pair(std::move(new_thread), new_state));
-                    }
-                    else {
-#ifdef debug
-                        cerr << "\tGot " << new_state.size() << " results; extending more" << endl;
-#endif
-                        search_intermediates.push_back(make_pair(std::move(new_thread), new_state));
-                    }
-                }
+                if (!new_state.empty()) {
+                    next_handle_states.push_back(make_tuple(next, extend_node, new_state));
+                }                    
             });
+
+        for (auto& nhs : next_handle_states) {
+            
+            const handle_t& next = get<0>(nhs);
+            gbwt::node_type& extend_node = get<1>(nhs);
+            gbwt::SearchState& new_state = get<2>(nhs);
+                
+            vector<gbwt::node_type> new_thread;
+            if (&nhs == &next_handle_states.back()) {
+                // avoid a copy by re-using the vector for the last thread. this way simple cases
+                // like scanning along one path don't blow up to n^2
+                new_thread = std::move(last.first);
+            } else {
+                new_thread = last.first;
+            }                        
+            new_thread.push_back(extend_node);
+
+            if (next == end) {
+#ifdef debug
+                cerr << "\tGot " << new_state.size() << " results at limit; emitting" << endl;
+#endif
+                search_results.push_back(make_pair(std::move(new_thread), new_state));
+            }
+            else {
+#ifdef debug
+                cerr << "\tGot " << new_state.size() << " results; extending more" << endl;
+#endif
+                search_intermediates.push_back(make_pair(std::move(new_thread), new_state));
+            }
+        }
     }
     
     return search_results;
