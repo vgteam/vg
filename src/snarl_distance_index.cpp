@@ -1589,11 +1589,38 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
 
     } else if (parent_handle_type == CHAIN_HANDLE) {
         ChainRecord chain_record(get_parent(child1), &snarl_tree_records);
-        NodeRecord child_record1 (child1, &snarl_tree_records);
-        NodeRecord child_record2 (child2, &snarl_tree_records);
+        NodeRecord child_record1;
+        NodeRecord child_record2;
+        bool go_left1;
+        bool go_left2;
+        int64_t node_length1 = 0;
+        int64_t node_length2 = 0;
 
-        bool go_left1 = child_record1.get_is_reversed_in_parent();
-        bool go_left2 = child_record2.get_is_reversed_in_parent();
+        //Get the first node
+        if (is_node(child1)) {
+            child_record1 = NodeRecord(child1, &snarl_tree_records);
+            go_left1 = child_record1.get_is_reversed_in_parent();
+        } else {
+            assert(is_snarl(child1));
+            SnarlRecord snarl_record (get_record_offset(child1), &snarl_tree_records);
+            child_record1 = ends_at(child1) == START ? 
+                NodeRecord(get_offset_from_node_id(snarl_record.get_start_node_id()), &snarl_tree_records) :
+                NodeRecord(get_offset_from_node_id(snarl_record.get_end_node_id()), &snarl_tree_records);
+            bool go_left1 = ends_at(child1) == START ? true : false;
+            node_length1 = child_record1.get_node_length();
+        }
+        //And the second
+        if (is_node(child2)) {
+            child_record2 = (child2, &snarl_tree_records);
+            go_left2 = child_record2.get_is_reversed_in_parent();
+        } else {
+            assert(is_snarl(child2));
+            SnarlRecord snarl_record (get_record_offset(child2), &snarl_tree_records);
+            child_record2 = ends_at(child2) == START ? 
+                NodeRecord(get_offset_from_node_id(snarl_record.get_start_node_id()), &snarl_tree_records) :
+                NodeRecord(get_offset_from_node_id(snarl_record.get_end_node_id()), &snarl_tree_records);
+            bool go_left2 = ends_at(child2) == START ? true : false;
+            node_length2 = child_record1.get_node_length();
 
         if (ends_at(child1) == START){
             go_left1 = !go_left1;
@@ -1604,7 +1631,8 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
 
         return chain_record.get_distance(
             make_tuple(child_record1.get_rank_in_parent(), go_left1, child_record1.get_node_length()), 
-            make_tuple(child_record2.get_rank_in_parent(), go_left2, child_record2.get_node_length()) );
+            make_tuple(child_record2.get_rank_in_parent(), go_left2, child_record2.get_node_length())) 
+            + node_length1 + node_length2;
 
     } else if (parent_handle_type == SNARL_HANDLE) {
         SnarlRecord snarl_record(get_parent(child1), &snarl_tree_records);
@@ -1655,6 +1683,10 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
     /*Helper function to walk up the snarl tree
      * Given a net handle, its parent,  and the distances to the start and end of the handle, 
      * update the distances to reach the ends of the parent and update the handle and its parent*/
+    //TODO: This should really be an actual function and it doesn't consider the lengths of the 
+    //boundary nodes. I think chains might need to know the lengths of their boundary nodes,
+    //or it could find it from the snarl. Really, since the snarl is storing it anyway, I should
+    //probaby rearrange things so that either the snarl or the chain can access boundary node lengths
     auto update_distances = [&](net_handle_t& net, net_handle_t& parent, int64_t& dist_start, int64_t& dist_end) {
 
         net_handle_t start_bound = get_bound(parent, false, true);
@@ -1669,10 +1701,13 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
         int64_t distance_start = dist_start;
         int64_t distance_end = dist_end; 
 
+        int64_t start_length = is_chain(parent) ? node_length(start_bound) : 0;
+        int64_t end_length = is_chain(parent) ? node_length(end_bound) : 0;
+
         dist_start = std::min( distance_start_start+ distance_start, 
-                                      distance_start_end + distance_end);
+                                      distance_start_end + distance_end) + start_length;
         dist_end = std::min(distance_end_start + distance_start, 
-                                    distance_end_end + distance_end);
+                                    distance_end_end + distance_end) + end_length;
         return;
     };
 
@@ -1739,6 +1774,8 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
      * ancestor
      */
     while (!is_root(net1)){
+        //TODO: Actually checking distance in a chain is between the nodes, not the snarl
+        //and neither include the lengths of the nodes
 
         //Find the minimum distance between the two children (net1 and net2)
         int64_t distance_start_start = distance_in_parent(common_ancestor, flip(net1), net2);
@@ -1771,7 +1808,23 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
 
 int64_t SnarlDistanceIndex::node_length(const net_handle_t& net) const {
     assert(is_node(net));
-    return NodeRecord(net, &snarl_tree_records).get_node_length();
+    if (is_node(net)) {
+        return NodeRecord(net, &snarl_tree_records).get_node_length();
+    } else if (is_sentinel(net)) {
+        //If this is the sentinel of a snarl, return the node length
+        //TODO: It might be better to store the node lengths in the chains
+        //This would use more memory, but it would mean a faster lookup since you wouldn't have
+        //to go back down to the level of nodes. But at some point you would probably have 
+        //encountered those nodes anyway, so it might not be that expensive to do it this way
+        SnarlRecord snarl_record(net, &snarl_tree_records);
+        NodeRecord node_record;
+        if (get_start_endpoint(net) == START) {
+            node_record = NodeRecord(get_offset_from_node_id(snarl_record.get_start_id()), &snarl_tree_records);
+        } else {
+            node_record = NodeRecord(get_offset_from_node_id(snarl_record.get_end_id()), &snarl_tree_records);
+        }
+        return node_record.get_node_length();
+    }
 
 }
 

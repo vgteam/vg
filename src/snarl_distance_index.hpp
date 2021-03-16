@@ -307,6 +307,7 @@ public:
      * This only takes into account the endpoint of the net_handle_t traversal, it does not care if the traversal
      * was possible. Doesn't allow you to find the distance from a traversal ending/starting in a tip
      * requires that the children are children of the parent
+     * For chains, the distance to/from a snarl is really the distance from the outer node of the snarl
      * Returns std::numeric_limits<int64_t>::max() if there is not path between them in the parent 
      * or if they are not children of the parent
      */
