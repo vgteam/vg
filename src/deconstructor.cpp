@@ -165,9 +165,16 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
                 }
             }
         } else {
-            v.samples[sample_name]["GT"] = {"."};
+            string blank_gt = ".";
+            if (gbwt_sample_to_phase_range.count(sample_name)) {
+                auto& phase_range = gbwt_sample_to_phase_range[sample_name];
+                for (int phase = phase_range.first + 1; phase <= phase_range.second; ++phase) {
+                    blank_gt += "|.";
+                }
+            }
+            v.samples[sample_name]["GT"] = {blank_gt};
             if (path_to_sample && path_restricted) {
-                v.samples[sample_name]["PI"] = {"."};
+                v.samples[sample_name]["PI"] = {blank_gt};
             }
         }
     }
@@ -217,8 +224,8 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
     bool has_phasing = std::any_of(gbwt_phases.begin(), gbwt_phases.end(), [](int i) { return i >= 0; });
     bool phasing_conflict = false;
     int sample_ploidy = ploidy;
-    int min_phase;
-    int max_phase;
+    int min_phase = 1;
+    int max_phase = ploidy;
     if (has_phasing) {
         // override ploidy with information about all phases found in input
         std::tie(min_phase, max_phase) = gbwt_sample_to_phase_range.at(sample_name);
@@ -250,23 +257,16 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
     if (has_phasing) {
         std::sort(most_frequent_travs.begin(), most_frequent_travs.end(),
                   [&](int t1, int t2) {return gbwt_phases.at(t1) < gbwt_phases.at(t2);});
-        int min_phase;
-        int max_phase;
-
         if (max_phase > 0) {
             // pad out by phase
             assert(gbwt_phases.at(most_frequent_travs.back()) <= max_phase);
-            vector<int> padded_travs;
+            assert(max_phase < 1000);
+            // we normally expect to have phases 1,2,3, ...
+            // in this case, we shift them all back, otherwise leave 0-based
+            int offset = min_phase != 0 ? -1 : 0;
+            vector<int> padded_travs(max_phase + 1 + offset, -1);
             for (auto ft : most_frequent_travs) {
-                int phase = gbwt_phases.at(ft);
-                // we normally expect to have phases 1,2,3, ...
-                // in this case, we shift them all back, otherwise leave 0-based
-                if (min_phase != 0) {
-                    --phase;
-                }
-                if (phase >= padded_travs.size()) {
-                    padded_travs.resize(phase + 1, -1);
-                }
+                int phase = gbwt_phases.at(ft) + offset;
                 padded_travs.at(phase) = ft;
             }
             swap(padded_travs, most_frequent_travs);
@@ -357,7 +357,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
     // if there's no reference traversal, go fishing in the gbwt
     // todo: need to interface this properly -- use should be able to toggle this on and off, as well
     // as choose which threads to use etc.
-    if (ref_travs.empty() && gbwt_trav_finder.get() != nullptr) {
+    if (ref_travs.empty() && gbwt_trav_finder.get() != nullptr && include_nested) {
         int gbwt_ref_trav = -1;
         for (int i = first_gbwt_trav_idx; i < path_travs.first.size(); ++i) {
             if (gbwt_ref_trav < 0 || path_trav_names[i] < path_trav_names[gbwt_ref_trav]) {
@@ -561,9 +561,13 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                 (path_to_sample == nullptr || path_to_sample->count(sample_name))) {
                 sample_names.insert(thread_sample(*gbwt, i));
                 int phase = thread_phase(*gbwt, i);
-                pair<int, int>& phase_range = gbwt_sample_to_phase_range[sample_name];
-                phase_range.first = std::min(phase_range.first, phase);
-                phase_range.second = std::max(phase_range.second, phase);
+                if (!gbwt_sample_to_phase_range.count(sample_name)) {
+                    gbwt_sample_to_phase_range[sample_name] = make_pair(phase, phase);
+                } else {
+                    pair<int, int>& phase_range = gbwt_sample_to_phase_range[sample_name];
+                    phase_range.first = std::min(phase_range.first, phase);
+                    phase_range.second = std::max(phase_range.second, phase);
+                }
             }
         }
     }
