@@ -107,7 +107,8 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
 }
 
 void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& names,
-                                  const vector<int>& trav_to_allele) {
+                                  const vector<int>& trav_to_allele,
+                                  const vector<gbwt::size_type>& trav_thread_ids) {
     assert(names.size() == trav_to_allele.size());
     // set up our variant fields
     v.format.push_back("GT");
@@ -118,19 +119,21 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
     // get a list of traversals for every vcf sample
     // (this will be 1:1 unless we're using the path_to_sample name map)
     map<string, vector<int> > sample_to_traversals;
+    // phasing information from the gbwt where applicable
+    vector<int> gbwt_phases(trav_to_allele.size(), -1);
     for (int i = 0; i < names.size(); ++i) {
         string sample_name;
-        if (path_to_sample && path_to_sample->count(names[i])) {
+        if (trav_thread_ids[i] != numeric_limits<gbwt::size_type>::max()) {
+            sample_name = thread_sample(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(trav_thread_ids[i]));
+            gbwt_phases[i] = thread_phase(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(trav_thread_ids[i]));
+        }
+        else if (path_to_sample && path_to_sample->count(names[i])) {
             sample_name = path_to_sample->find(names[i])->second;
         } else {
             sample_name = names[i];
         }
         if (sample_names.count(sample_name)) {
-            if (sample_to_traversals.count(sample_name)) {
-                sample_to_traversals[sample_name].push_back(i);
-            } else {
-                sample_to_traversals[sample_name] = {i};
-            }
+            sample_to_traversals[sample_name].push_back(i);
         }
     }
 
@@ -138,19 +141,22 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
     // if we're mapping a vg path name to its prefix for the sample name, we stick some information about the full
     // path name in the PI part of format
     set<string> conflicts;
-    for (auto& sample_name : sample_names) {
+    for (const auto& sample_name : sample_names) {
         if (sample_to_traversals.count(sample_name)) {
             const vector<int>& travs = sample_to_traversals[sample_name];
             assert(!travs.empty());
             vector<int> chosen_travs;
             bool conflict;
-            std::tie(chosen_travs, conflict) = choose_traversals(travs, trav_to_allele, names);
+            std::tie(chosen_travs, conflict) = choose_traversals(sample_name, travs, trav_to_allele, names, gbwt_phases);
             if (conflict) {
                 conflicts.insert(sample_name);
-            }
-            string genotype = std::to_string(trav_to_allele[chosen_travs[0]]);
-            for (int i = 1; i < chosen_travs.size(); ++i) {
-                genotype += "/" + std::to_string(trav_to_allele[chosen_travs[i]]);
+            }            
+            string genotype;
+            for (int i = 0; i < chosen_travs.size(); ++i) {
+                if (i > 0) {
+                    genotype += gbwt_trav_finder.get() ? "|" : "/";
+                }
+                genotype += chosen_travs[i] != -1 ? std::to_string(trav_to_allele[chosen_travs[i]]) : ".";
             }
             v.samples[sample_name]["GT"] = {genotype};
             if (path_to_sample) {
@@ -170,43 +176,106 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
     }
 }
 
-pair<vector<int>, bool> Deconstructor::choose_traversals(const vector<int>& travs, const vector<int>& trav_to_allele,
-                                                         const vector<string>& trav_to_name) {
+pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_name,
+                                                         const vector<int>& travs, const vector<int>& trav_to_allele,
+                                                         const vector<string>& trav_to_name,
+                                                         const vector<int>& gbwt_phases) {
+
+
+    assert(trav_to_name.size() == trav_to_allele.size());
+    assert(gbwt_phases.size() == trav_to_name.size());    
     assert(!travs.empty());
     // count the number of times each allele comes up in a traversal
-    vector<int> allele_frequencies(trav_to_allele.size(), 0);
+    vector<int> allele_frequencies(*max_element(trav_to_allele.begin(), trav_to_allele.end()) + 1, 0);
     for (auto trav : travs) {
-        ++allele_frequencies[trav_to_allele[trav]];
+        ++allele_frequencies.at(trav_to_allele.at(trav));
     }
     // sort on frquency
     function<bool(int, int)> comp = [&] (int trav1, int trav2) {
-        if (allele_frequencies[trav_to_allele[trav1]] < allele_frequencies[trav_to_allele[trav2]]) {
+        if (allele_frequencies.at(trav_to_allele.at(trav1)) < allele_frequencies.at(trav_to_allele.at(trav2))) {
             return true;
-        } else if (allele_frequencies[trav_to_allele[trav1]] == allele_frequencies[trav_to_allele[trav2]]) {
+        } else if (allele_frequencies.at(trav_to_allele.at(trav1)) == allele_frequencies.at(trav_to_allele.at(trav2))) {
             // prefer non-ref when possible
-            if (trav_to_allele[trav1] == 0 && trav_to_allele[trav2] != 0) {
+            if (trav_to_allele.at(trav1) == 0 && trav_to_allele.at(trav2) != 0) {
                 return true;
             }
             // or break tie using lex order on path name
             else {
-                return trav_to_name[trav1] < trav_to_name[trav2];
+                return trav_to_name.at(trav1) < trav_to_name.at(trav2);
             }
         } else {
             return false;
         }
     };
     vector<int> sorted_travs = travs;
-    std::sort(sorted_travs.begin(), sorted_travs.end());
+    std::sort(sorted_travs.begin(), sorted_travs.end(), comp);
     
     // find the <ploidy> most frequent traversals
     vector<int> most_frequent_travs;
-    for (int i = sorted_travs.size() - 1; i >= 0 && most_frequent_travs.size() < ploidy; --i) {
-        most_frequent_travs.push_back(sorted_travs[i]);
+
+    // try to pull out unique phases if available
+    bool has_phasing = std::any_of(gbwt_phases.begin(), gbwt_phases.end(), [](int i) { return i >= 0; });
+    bool phasing_conflict = false;
+    int sample_ploidy = ploidy;
+    int min_phase;
+    int max_phase;
+    if (has_phasing) {
+        // override ploidy with information about all phases found in input
+        std::tie(min_phase, max_phase) = gbwt_sample_to_phase_range.at(sample_name);
+        // shift left by 1 unless min phase is 0
+        sample_ploidy = min_phase == 0 ? max_phase + 1 : max_phase;
+        assert(sample_ploidy > 0);
+        
+        set<int> used_phases;
+        for (int i = sorted_travs.size() - 1; i >= 0 && most_frequent_travs.size() < sample_ploidy; --i) {
+            int phase = gbwt_phases.at(sorted_travs.at(i));
+            if (phase >= 0) {
+                if (!used_phases.count(phase)) {
+                    most_frequent_travs.push_back(sorted_travs.at(i));
+                    used_phases.insert(phase);
+                    sorted_travs.at(i) = -1;
+                } else {
+                    phasing_conflict = true;
+                }
+            }
+        }
+    }
+    for (int i = sorted_travs.size() - 1; i >= 0 && most_frequent_travs.size() < sample_ploidy; --i) {
+        if (sorted_travs.at(i) != -1) {
+            most_frequent_travs.push_back(sorted_travs.at(i));
+        }
+    }
+
+    // sort by phase
+    if (has_phasing) {
+        std::sort(most_frequent_travs.begin(), most_frequent_travs.end(),
+                  [&](int t1, int t2) {return gbwt_phases.at(t1) < gbwt_phases.at(t2);});
+        int min_phase;
+        int max_phase;
+
+        if (max_phase > 0) {
+            // pad out by phase
+            assert(gbwt_phases.at(most_frequent_travs.back()) <= max_phase);
+            vector<int> padded_travs;
+            for (auto ft : most_frequent_travs) {
+                int phase = gbwt_phases.at(ft);
+                // we normally expect to have phases 1,2,3, ...
+                // in this case, we shift them all back, otherwise leave 0-based
+                if (min_phase != 0) {
+                    --phase;
+                }
+                if (phase >= padded_travs.size()) {
+                    padded_travs.resize(phase + 1, -1);
+                }
+                padded_travs.at(phase) = ft;
+            }
+            swap(padded_travs, most_frequent_travs);
+        }
     }
 
     // check if there's a conflict
     size_t zero_count = std::count(allele_frequencies.begin(), allele_frequencies.end(), 0);
-    bool conflict = allele_frequencies.size() - zero_count > ploidy;
+    bool conflict = phasing_conflict || allele_frequencies.size() - zero_count > sample_ploidy;
 
     return make_pair(most_frequent_travs, conflict);
 }
@@ -266,17 +335,22 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
 
     // add in the gbwt traversals if we can
     size_t first_gbwt_trav_idx = path_travs.first.size();
-    vector<gbwt::size_type> trav_thread_ids(first_gbwt_trav_idx, numeric_limits<size_t>::max());
+    vector<gbwt::size_type> trav_thread_ids(first_gbwt_trav_idx, numeric_limits<gbwt::size_type>::max());
     if (gbwt_trav_finder.get() != nullptr) {
         pair<vector<SnarlTraversal>, vector<gbwt::size_type>> thread_travs = gbwt_trav_finder->find_path_traversals(*snarl);
         for (int i = 0; i < thread_travs.first.size(); ++i) {
-            string sample_name = thread_sample(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(thread_travs.second[i]));
-            path_trav_names.push_back(sample_name);
-            path_travs.first.push_back(thread_travs.first[i]);
-            // dummy handles so we can use the same code as the named path traversals above
-            path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
-            // but we keep the thread id for later
-            trav_thread_ids.push_back(thread_travs.second[i]);
+            string gbwt_sample_name = thread_sample(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(thread_travs.second[i]));
+            // we count on convention of reference as embedded path above, so ignore it here
+            // todo: would be nice to be more flexible...
+            if (gbwt_sample_name != gbwtgraph::REFERENCE_PATH_SAMPLE_NAME) {
+                string name = thread_name(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(thread_travs.second[i]));
+                path_trav_names.push_back(name);
+                path_travs.first.push_back(thread_travs.first[i]);
+                // dummy handles so we can use the same code as the named path traversals above
+                path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
+                // but we keep the thread id for later
+                trav_thread_ids.push_back(thread_travs.second[i]);
+            }
         }
     }
 
@@ -292,7 +366,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         }
         if (gbwt_ref_trav >= 0) {
             ref_travs.push_back(gbwt_ref_trav);
-            string name = thread_name(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(trav_thread_ids[gbwt_ref_trav]));
+            string& name = path_trav_names[gbwt_ref_trav];
             assert(name.compare(0, 8, "_thread_") == 0);
             ref_trav_name = name.substr(8);
         }
@@ -404,7 +478,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
 
         // Fill in the genotypes
         if (path_restricted || gbwt_trav_finder.get()) {
-            get_genotypes(v, path_trav_names, trav_to_allele);
+            get_genotypes(v, path_trav_names, trav_to_allele, trav_thread_ids);
         }
 
         // Fill in some snarl hierarchy information
@@ -486,6 +560,10 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
             if (sample_name != gbwtgraph::REFERENCE_PATH_SAMPLE_NAME &&
                 (path_to_sample == nullptr || path_to_sample->count(sample_name))) {
                 sample_names.insert(thread_sample(*gbwt, i));
+                int phase = thread_phase(*gbwt, i);
+                pair<int, int>& phase_range = gbwt_sample_to_phase_range[sample_name];
+                phase_range.first = std::min(phase_range.first, phase);
+                phase_range.second = std::max(phase_range.second, phase);
             }
         }
     }

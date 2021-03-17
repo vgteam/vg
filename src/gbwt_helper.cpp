@@ -321,6 +321,16 @@ std::string thread_sample(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
     return stream.str();
 }
 
+int thread_phase(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
+    if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
+        return -1;
+    }
+    
+    const gbwt::PathName& path = gbwt_index.metadata.path(id);
+    return path.phase;
+}
+
+
 //------------------------------------------------------------------------------
 
 gbwt::GBWT get_gbwt(const std::vector<gbwt::vector_type>& paths) {
