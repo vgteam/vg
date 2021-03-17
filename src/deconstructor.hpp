@@ -10,6 +10,7 @@
 #include "genotypekit.hpp"
 #include "traversal_finder.hpp"
 #include "graph_caller.hpp"
+#include "lru_cache.h"
 
 /** \file
 * Deconstruct is getting rewritten.
@@ -68,6 +69,11 @@ private:
     // with node visits
     vector<SnarlTraversal> explicit_exhaustive_traversals(const Snarl* snarl);
 
+    // get the path location of a given traversal out of the gbwt
+    // this will be much slower than doing the same using the PathPositionGraph interface as there's no
+    // underlying index. 
+    tuple<bool, handle_t, size_t> get_gbwt_path_position(const SnarlTraversal& trav, const gbwt::size_type& thread);
+
     // get a snarl name, using trnaslation if availabe
     string snarl_name(const Snarl* snarl);
     
@@ -89,6 +95,12 @@ private:
     unique_ptr<TraversalFinder> trav_finder;
     // we can also use a gbwt for traversals
     unique_ptr<GBWTTraversalFinder> gbwt_trav_finder;
+    // hacky path position index for alts in the gbwt
+    // we map from gbwt path id -> { map of handle -> offset } for every handle in the path
+    // because child snarls are done in series, we often hit the same non-ref path consecutively
+    // which makes the lru cache fairly effective
+    size_t lru_size = 10; 
+    vector<LRUCache<gbwt::size_type, shared_ptr<unordered_map<handle_t, size_t>>>*> gbwt_pos_caches;
 
     // the ref paths
     set<string> ref_paths;

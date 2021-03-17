@@ -9,9 +9,11 @@ using namespace std;
 
 namespace vg {
 Deconstructor::Deconstructor() : VCFOutputCaller("") {
-
 }
 Deconstructor::~Deconstructor(){
+    for (auto& c : gbwt_pos_caches) {
+        delete c;
+    }
 }
 
 /**
@@ -249,7 +251,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         }
         path_trav_names.push_back(path_trav_name);
     }
-
+    
     // remember all the reference traversals (there can be more than one only in the case of a
     // cycle in the reference path
     vector<int> ref_travs;
@@ -262,6 +264,40 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         }
     }
 
+    // add in the gbwt traversals if we can
+    size_t first_gbwt_trav_idx = path_travs.first.size();
+    vector<gbwt::size_type> trav_thread_ids(first_gbwt_trav_idx, numeric_limits<size_t>::max());
+    if (gbwt_trav_finder.get() != nullptr) {
+        pair<vector<SnarlTraversal>, vector<gbwt::size_type>> thread_travs = gbwt_trav_finder->find_path_traversals(*snarl);
+        for (int i = 0; i < thread_travs.first.size(); ++i) {
+            string sample_name = thread_sample(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(thread_travs.second[i]));
+            path_trav_names.push_back(sample_name);
+            path_travs.first.push_back(thread_travs.first[i]);
+            // dummy handles so we can use the same code as the named path traversals above
+            path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
+            // but we keep the thread id for later
+            trav_thread_ids.push_back(thread_travs.second[i]);
+        }
+    }
+
+    // if there's no reference traversal, go fishing in the gbwt
+    // todo: need to interface this properly -- use should be able to toggle this on and off, as well
+    // as choose which threads to use etc.
+    if (ref_travs.empty() && gbwt_trav_finder.get() != nullptr) {
+        int gbwt_ref_trav = -1;
+        for (int i = first_gbwt_trav_idx; i < path_travs.first.size(); ++i) {
+            if (gbwt_ref_trav < 0 || path_trav_names[i] < path_trav_names[gbwt_ref_trav]) {
+                gbwt_ref_trav = i;
+            }
+        }
+        if (gbwt_ref_trav >= 0) {
+            ref_travs.push_back(gbwt_ref_trav);
+            string name = thread_name(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(trav_thread_ids[gbwt_ref_trav]));
+            assert(name.compare(0, 8, "_thread_") == 0);
+            ref_trav_name = name.substr(8);
+        }
+    }
+                                                          
     // there's no reference path through the snarl, so we can't make a variant
     // (todo: should we try to detect this before computing traversals?)
     if (ref_travs.empty()) {
@@ -272,43 +308,33 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         return false;
     }
 
-    if (!path_restricted) {
-        if (gbwt_trav_finder.get() != nullptr) {
-            // add in the gbwt traversals
-            pair<vector<SnarlTraversal>, vector<string>> sample_travs = gbwt_trav_finder->find_sample_traversals(*snarl);
-            for (int i = 0; i < sample_travs.first.size(); ++i) {
-                path_trav_names.push_back(sample_travs.second[i]);
-                path_travs.first.push_back(sample_travs.first[i]);
-                // dummy handles so we can use the same code as the named path traversals above
-                path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
-            }
-        } else {
-            // add in the exhaustive traversals
-            vector<SnarlTraversal> additional_travs;
+    if (!path_restricted && gbwt_trav_finder.get() == nullptr) {
+        // add in the exhaustive traversals
+        vector<SnarlTraversal> additional_travs;
                         
-            // exhaustive traversal can't do all snarls
-            if (snarl->type() != ULTRABUBBLE) {
-                return false;
-            }
-            if (!check_max_nodes(snarl)) {
-#pragma omp critical (cerr)
-                cerr << "Warning: Skipping site because it is too complex for exhaustive traversal enumeration: " << pb2json(*snarl) << endl << "         Consider using -e to traverse embedded paths" << endl;
-                return false;
-            }
-            additional_travs = explicit_exhaustive_traversals(snarl);
-         
-            // happens when there was a nested non-ultrabubble snarl
-            if (additional_travs.empty()) {
-                return false;
-            }
-            path_travs.first.insert(path_travs.first.end(), additional_travs.begin(), additional_travs.end());
-            for (int i = 0; i < additional_travs.size(); ++i) {
-                // dummy names so we can use the same code as the named path traversals above
-                path_trav_names.push_back(" >>" + std::to_string(i));
-                // dummy handles so we can use the same code as the named path traversals above
-                path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
-            }
+        // exhaustive traversal can't do all snarls
+        if (snarl->type() != ULTRABUBBLE) {
+            return false;
         }
+        if (!check_max_nodes(snarl)) {
+#pragma omp critical (cerr)
+            cerr << "Warning: Skipping site because it is too complex for exhaustive traversal enumeration: " << pb2json(*snarl) << endl << "         Consider using -e to traverse embedded paths" << endl;
+            return false;
+        }
+        additional_travs = explicit_exhaustive_traversals(snarl);
+         
+        // happens when there was a nested non-ultrabubble snarl
+        if (additional_travs.empty()) {
+            return false;
+        }
+        path_travs.first.insert(path_travs.first.end(), additional_travs.begin(), additional_travs.end());
+        for (int i = 0; i < additional_travs.size(); ++i) {
+            // dummy names so we can use the same code as the named path traversals above
+            path_trav_names.push_back(" >>" + std::to_string(i));
+            // dummy handles so we can use the same code as the named path traversals above
+            path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
+        }
+
     }
     
     // there's not alt path through the snarl, so we can't make an interesting variant
@@ -332,15 +358,26 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         v.sequenceName = ref_trav_name;
 
         // Map our snarl endpoints to oriented positions in the embedded path in the graph
-        step_handle_t start_step = path_travs.second[ref_trav_idx].first;
-        step_handle_t end_step = path_travs.second[ref_trav_idx].second;
-        handle_t start_handle = graph->get_handle_of_step(start_step);
-        handle_t end_handle = graph->get_handle_of_step(end_step);
-        size_t start_pos = graph->get_position_of_step(start_step);
-        size_t end_pos = graph->get_position_of_step(end_step);
-        bool use_start = start_pos < end_pos;
-        handle_t first_path_handle = use_start ? start_handle : end_handle;
-        size_t first_path_pos = use_start ? start_pos : end_pos;
+        handle_t first_path_handle;
+        size_t first_path_pos;
+        bool use_start;
+        if (ref_trav_idx < first_gbwt_trav_idx) {
+            step_handle_t start_step = path_travs.second[ref_trav_idx].first;
+            step_handle_t end_step = path_travs.second[ref_trav_idx].second;
+            handle_t start_handle = graph->get_handle_of_step(start_step);
+            handle_t end_handle = graph->get_handle_of_step(end_step);
+            size_t start_pos = graph->get_position_of_step(start_step);
+            size_t end_pos = graph->get_position_of_step(end_step);
+            use_start = start_pos < end_pos;
+            first_path_handle = use_start ? start_handle : end_handle;
+            first_path_pos = use_start ? start_pos : end_pos;
+        } else {
+            std::tie(use_start, first_path_handle, first_path_pos) = get_gbwt_path_position(ref_trav, trav_thread_ids[ref_trav_idx]);
+#ifdef debug
+            cerr << "got " << use_start << " " << graph->get_id(first_path_handle) << ":" << graph->get_is_reverse(first_path_handle)
+                 << " " << first_path_pos << " from gbwt for " << ref_trav_name << endl;
+#endif
+        }
         // Get the first visit of our snarl traversal
         const Visit& first_trav_visit = use_start ? ref_trav.visit(0) : ref_trav.visit(ref_trav.visit_size() - 1);
 
@@ -415,6 +452,14 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     this->include_nested = include_nested;
     this->translation = translation;
     assert(path_to_sample == nullptr || path_restricted || gbwt);
+    if (gbwt) {
+        this->gbwt_pos_caches.resize(get_thread_count(), nullptr);
+        for (size_t i = 0; i < this->gbwt_pos_caches.size(); ++i) {
+            if (this->gbwt_pos_caches[i] == nullptr) {
+                this->gbwt_pos_caches[i] = new LRUCache<gbwt::size_type, shared_ptr<unordered_map<handle_t, size_t>>>(lru_size);
+            }
+        }
+    }
     
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
     sample_names.clear();
@@ -599,6 +644,58 @@ string Deconstructor::snarl_name(const Snarl* snarl) {
     }
     return (snarl->start().backward() ? "<" : ">") + std::to_string(start_node) +
         (snarl->end().backward() ? "<" : ">") + std::to_string(end_node);
+}
+
+tuple<bool, handle_t, size_t> Deconstructor::get_gbwt_path_position(const SnarlTraversal& trav, const gbwt::size_type& thread) {
+
+    // scan the whole thread in order to get the path positions -- there's no other way unless we build an index a priori
+    const gbwt::GBWT& gbwt = gbwt_trav_finder->get_gbwt();
+    bool thread_reversed = gbwt::Path::is_reverse(thread);
+    gbwt::size_type sequence_id = gbwt::Path::encode(gbwt::Path::id(thread), false);
+        ;
+    // the handles we're looking out for when walking along the thread
+    handle_t start_handle;
+    handle_t end_handle;
+    const Visit& v1 = trav.visit(0);
+    const Visit& v2 = trav.visit(trav.visit_size() - 1);
+    if (thread_reversed) {
+        start_handle = graph->get_handle(v2.node_id(), !v2.backward());
+        end_handle = graph->get_handle(v1.node_id(), !v1.backward());
+    } else {
+        start_handle = graph->get_handle(v1.node_id(), v1.backward());
+        end_handle = graph->get_handle(v2.node_id(), v2.backward());
+    }
+    int64_t start_offset = -1;
+    int64_t end_offset = -1;
+    int64_t offset = 0;
+
+    LRUCache<gbwt::size_type, shared_ptr<unordered_map<handle_t, size_t>>>* gbwt_pos_cache =
+        gbwt_pos_caches[omp_get_thread_num()];
+    
+    pair<shared_ptr<unordered_map<handle_t, size_t>>, bool> cached = gbwt_pos_cache->retrieve(thread);
+    if (cached.second) {
+        start_offset = cached.first->at(start_handle);
+    } else {
+        shared_ptr<unordered_map<handle_t, size_t>> path_map = make_shared<unordered_map<handle_t, size_t>>();
+        for (gbwt::edge_type pos = gbwt.start(sequence_id); pos.first != gbwt::ENDMARKER; pos = gbwt.LF(pos)) {
+            handle_t handle = graph->get_handle(gbwt::Node::id(pos.first), gbwt::Node::is_reverse(pos.first));
+            path_map->insert(make_pair(handle, offset));
+            if (handle == start_handle) {
+                start_offset = offset;
+            }
+            if (handle == end_handle && start_offset != -1) {
+                end_offset = offset;
+            }
+            size_t len = graph->get_length(gbwt_to_handle(*graph, pos.first));
+            offset += len;
+        }
+        assert(start_offset >= 0 && end_offset >= 0);
+        gbwt_pos_cache->put(thread, path_map);
+    }
+  
+    auto rval = make_tuple<bool, handle_t, size_t>((bool)!thread_reversed, (handle_t)start_handle, (size_t)start_offset);
+
+    return rval;
 }
 
 }
