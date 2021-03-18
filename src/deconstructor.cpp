@@ -202,16 +202,13 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
             return true;
         } else if (allele_frequencies.at(trav_to_allele.at(trav1)) == allele_frequencies.at(trav_to_allele.at(trav2))) {
             // prefer non-ref when possible
-            if (trav_to_allele.at(trav1) == 0 && trav_to_allele.at(trav2) != 0) {
+            if (trav_to_allele.at(trav1) < trav_to_allele.at(trav2)) {
                 return true;
-            }
-            // or break tie using lex order on path name
-            else {
+            } else if (trav_to_allele.at(trav1) == trav_to_allele.at(trav2)) {
                 return trav_to_name.at(trav1) < trav_to_name.at(trav2);
             }
-        } else {
-            return false;
-        }
+        } 
+        return false;
     };
     vector<int> sorted_travs = travs;
     std::sort(sorted_travs.begin(), sorted_travs.end(), comp);
