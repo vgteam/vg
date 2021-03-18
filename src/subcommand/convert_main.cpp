@@ -407,12 +407,25 @@ void help_convert(char** argv) {
 }
 //------------------------------------------------------------------------------
 
+void check_duplicate_contigs(const gbwt::GBWT& index, const std::vector<gbwt::size_type>& thread_ids, const std::string& ref_sample) {
+    std::unordered_set<gbwt::size_type> found_contigs;
+    for (auto thread_id : thread_ids) {
+        gbwt::size_type contig = index.metadata.path(thread_id).contig;
+        if (found_contigs.find(contig) != found_contigs.end()) {
+            std::cerr << "error [vg convert]: duplicate reference path name " << index.metadata.contig(contig) << " in the GBWT index" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        found_contigs.insert(contig);
+    }
+}
+
 void gbwtgraph_to_xg(const gbwtgraph::GBWTGraph* input, xg::XG* output, const std::string& ref_sample) {
     const gbwt::GBWT& index = *(input->index);
     std::vector<gbwt::size_type> thread_ids = threads_for_sample(index, ref_sample);
     if (thread_ids.empty()) {
         std::cerr << "warning [vg convert]: no threads for reference sample " << ref_sample << " in the GBWT index" << std::endl;
     }
+    check_duplicate_contigs(index, thread_ids, ref_sample);
 
     // Enumerate nodes.
     auto for_each_sequence = [&](const std::function<void(const std::string& seq, const nid_t& node_id)>& lambda) {
@@ -448,7 +461,6 @@ void gbwtgraph_to_xg(const gbwtgraph::GBWTGraph* input, xg::XG* output, const st
     // Build XG.
     output->from_enumerators(for_each_sequence, for_each_edge, for_each_path_element, false);
 }
-//------------------------------------------------------------------------------
 
 void add_paths(const gbwtgraph::GBWTGraph* input, MutablePathHandleGraph* output, const std::string& ref_sample) {
     const gbwt::GBWT& index = *(input->index);
@@ -456,6 +468,7 @@ void add_paths(const gbwtgraph::GBWTGraph* input, MutablePathHandleGraph* output
     if (thread_ids.empty()) {
         std::cerr << "warning [vg convert]: no threads for reference sample " << ref_sample << " in the GBWT index" << std::endl;
     }
+    check_duplicate_contigs(index, thread_ids, ref_sample);
 
     for (gbwt::size_type thread_id : thread_ids) {
         std::string path_name = index.metadata.contig(index.metadata.path(thread_id).contig);
