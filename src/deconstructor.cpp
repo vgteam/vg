@@ -188,7 +188,6 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
                                                          const vector<string>& trav_to_name,
                                                          const vector<int>& gbwt_phases) {
 
-
     assert(trav_to_name.size() == trav_to_allele.size());
     assert(gbwt_phases.size() == trav_to_name.size());    
     assert(!travs.empty());
@@ -216,12 +215,12 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
     };
     vector<int> sorted_travs = travs;
     std::sort(sorted_travs.begin(), sorted_travs.end(), comp);
-    
     // find the <ploidy> most frequent traversals
     vector<int> most_frequent_travs;
 
     // try to pull out unique phases if available
-    bool has_phasing = std::any_of(gbwt_phases.begin(), gbwt_phases.end(), [](int i) { return i >= 0; });
+    bool has_phasing = gbwt_sample_to_phase_range.count(sample_name) &&
+        std::any_of(gbwt_phases.begin(), gbwt_phases.end(), [](int i) { return i >= 0; });
     bool phasing_conflict = false;
     int sample_ploidy = ploidy;
     int min_phase = 1;
@@ -268,10 +267,9 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
             swap(padded_travs, most_frequent_travs);
         }
     }
-
     // check if there's a conflict
     size_t zero_count = std::count(allele_frequencies.begin(), allele_frequencies.end(), 0);
-    bool conflict = phasing_conflict || allele_frequencies.size() - zero_count > sample_ploidy;    
+    bool conflict = phasing_conflict || allele_frequencies.size() - zero_count > sample_ploidy;
     return make_pair(most_frequent_travs, conflict);
 }
     
@@ -350,12 +348,11 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
     }
 
     // if there's no reference traversal, go fishing in the gbwt
-    // todo: need to interface this properly -- use should be able to toggle this on and off, as well
-    // as choose which threads to use etc.
-    if (ref_travs.empty() && gbwt_trav_finder.get() != nullptr && include_nested) {
+    if (ref_travs.empty() && gbwt_trav_finder.get()) {
         int gbwt_ref_trav = -1;
         for (int i = first_gbwt_trav_idx; i < path_travs.first.size(); ++i) {
-            if (gbwt_ref_trav < 0 || path_trav_names[i] < path_trav_names[gbwt_ref_trav]) {
+            if (ref_paths.count(path_trav_names[i]) &&
+                (gbwt_ref_trav < 0 || path_trav_names[i] < path_trav_names[gbwt_ref_trav])) {
                 gbwt_ref_trav = i;
             }
         }
@@ -593,14 +590,31 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         stream << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree (0=top level)\">" << endl;
         stream << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
     }
+    set<string> gbwt_ref_paths;
     for(auto& refpath : ref_paths) {
-        size_t path_len = 0;
-        path_handle_t path_handle = graph->get_path_handle(refpath);
-        for (handle_t handle : graph->scan_path(path_handle)) {
-            path_len += graph->get_length(handle);
-        }
-        stream << "##contig=<ID=" << refpath << ",length=" << path_len << ">" << endl;
+        if (graph->has_path(refpath)) {
+            size_t path_len = 0;
+            path_handle_t path_handle = graph->get_path_handle(refpath);
+            for (handle_t handle : graph->scan_path(path_handle)) {
+                path_len += graph->get_length(handle);
+            }
+            stream << "##contig=<ID=" << refpath << ",length=" << path_len << ">" << endl;
+        } else {
+            gbwt_ref_paths.insert(refpath);
+        }       
     }
+    if (!gbwt_ref_paths.empty()) {
+        unordered_map<string, gbwt::size_type> gbwt_name_to_id;
+        for (size_t i = 0; i < gbwt->metadata.paths(); i++) {
+            gbwt_name_to_id[thread_name(*gbwt, i)] = i;
+        }
+        for (const string& refpath : gbwt_ref_paths) {
+            gbwt::size_type thread_id = gbwt_name_to_id.at(refpath);
+            size_t path_len = path_to_length(extract_gbwt_path(*graph, *gbwt, thread_id));
+            stream << "##contig=<ID=" << refpath << ",length=" << path_len << ">" << endl;
+        }
+    }
+    
     stream << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT";
     if (path_restricted || gbwt) {
         for (auto& sample_name : sample_names) {
