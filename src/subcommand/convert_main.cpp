@@ -15,6 +15,7 @@
 #include "bdsg/odgi.hpp"
 
 #include <gbwtgraph/gbwtgraph.h>
+#include <gbwtgraph/gfa.h>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -168,8 +169,18 @@ int main_convert(int argc, char** argv) {
         return 1;
     }
     if (output_format != "gfa" && (!rgfa_paths.empty() || !rgfa_prefixes.empty() || !wline_sep.empty())) {
-        cerr << "error [vg convert]: -P, -Q, -w and -H can only be used with -f" << endl;
+        cerr << "error [vg convert]: -P, -Q, and -w can only be used with -f" << endl;
         return 1;
+    }
+    if (!gbwt_name.empty()) {
+        if (input_gfa) {
+            cerr << "error [vg convert]: GFA input (-g) cannot be used with GBWT input (-b)" << endl;
+            return 1;
+        }
+        if (output_format == "gfa" && (!rgfa_paths.empty() || !rgfa_prefixes.empty() || !wline_sep.empty())) {
+            cerr << "error [vg convert]: GFA output options (-P, -Q, -w) cannot be used with GBWT input (-b)" << endl;
+            return 1;
+        }
     }
 
     // with -F or -G we convert an alignment and not a graph
@@ -227,6 +238,7 @@ int main_convert(int argc, char** argv) {
     }
 
     unique_ptr<HandleGraph> input_graph;
+    unique_ptr<gbwt::GBWT> input_gbwt;
     PathHandleGraph* output_path_graph = dynamic_cast<PathHandleGraph*>(output_graph.get());
     
     if (input_gfa) {
@@ -276,7 +288,6 @@ int main_convert(int argc, char** argv) {
     }
     else {
         // Load a GBWTGraph or another HandleGraph.
-        unique_ptr<gbwt::GBWT> input_gbwt;
         if (!gbwt_name.empty()) {
             get_input_file(optind, argc, argv, [&](istream& in) {
                 input_graph = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(in);
@@ -341,30 +352,34 @@ int main_convert(int argc, char** argv) {
     }
 
     // GFA output.
-    // TODO: GBWTGraph to GFA once GBWTGraph implements it.
     if (output_format == "gfa") {
-        const PathHandleGraph* graph_to_write;
-        if (input_gfa) {
-            graph_to_write = dynamic_cast<const PathHandleGraph*>(output_graph.get());
-        } else {
-            graph_to_write = dynamic_cast<const PathHandleGraph*>(input_graph.get());
+        if (!gbwt_name.empty()) {
+            gbwtgraph::gbwt_to_gfa(*dynamic_cast<const gbwtgraph::GBWTGraph*>(input_graph.get()), std::cout, false);
         }
-        for (const string& path_name : rgfa_paths) {
-            if (!graph_to_write->has_path(path_name)) {
-                cerr << "error [vg convert]: specified path, " << " not found in graph" << path_name << endl;
-                return 1;
+        else {
+            const PathHandleGraph* graph_to_write;
+            if (input_gfa) {
+                graph_to_write = dynamic_cast<const PathHandleGraph*>(output_graph.get());
+            } else {
+                graph_to_write = dynamic_cast<const PathHandleGraph*>(input_graph.get());
             }
-        }
-        graph_to_write->for_each_path_handle([&](path_handle_t path_handle) {
-                string path_name = graph_to_write->get_path_name(path_handle);
-                for (const string& prefix : rgfa_prefixes) {
-                    if (path_name.substr(0, prefix.length()) == prefix) {
-                        rgfa_paths.insert(path_name);
-                        continue;
-                    }
+            for (const string& path_name : rgfa_paths) {
+                if (!graph_to_write->has_path(path_name)) {
+                    cerr << "error [vg convert]: specified path, " << " not found in graph" << path_name << endl;
+                    return 1;
                 }
-            });
-        graph_to_gfa(graph_to_write, std::cout, rgfa_paths, rgfa_pline, wline_sep);
+            }
+            graph_to_write->for_each_path_handle([&](path_handle_t path_handle) {
+                    string path_name = graph_to_write->get_path_name(path_handle);
+                    for (const string& prefix : rgfa_prefixes) {
+                        if (path_name.substr(0, prefix.length()) == prefix) {
+                            rgfa_paths.insert(path_name);
+                            continue;
+                        }
+                    }
+                });
+            graph_to_gfa(graph_to_write, std::cout, rgfa_paths, rgfa_pline, wline_sep);
+        }
     }
     // Serialize the output graph.
     else {

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 41
+plan tests 45
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -217,9 +217,16 @@ vg view components.hg | grep "^S" | sort > converted.gfa
 cmp sorted.gfa converted.gfa
 is $? 0 "GFA -> GBWTGraph -> HashGraph -> GFA conversion maintains segments"
 
+# GBWTGraph to GFA with walks
+vg convert -b components.gbwt -f components.gg > extracted.gfa
+is $? 0 "GBWTGraph to GFA conversion with walks"
+cmp extracted.gfa graphs/components_walks.gfa
+is $? 0 "GBWTGraph to GFA conversion creates the correct normalized GFA file"
+
 rm -f components.gbwt components.gg
 rm -f components.hg
 rm -f sorted.gfa converted.gfa
+rm -f extracted.gfa
 
 
 # GFA to GBWTGraph with paths and walks
@@ -241,7 +248,14 @@ vg paths -A -v components.xg > xg_paths.gaf
 cmp xg_paths.gaf correct_paths.gaf
 is $? 0 "GBWTGraph to XG conversion creates the correct reference paths"
 
+# GBWTGraph to GFA with paths and walks
+vg convert -b components.gbwt -f components.gg > extracted.gfa
+is $? 0 "GBWTGraph to GFA conversion with paths and walks"
+cmp extracted.gfa graphs/components_paths_walks.gfa
+is $? 0 "GBWTGraph to GFA conversion creates the correct normalized GFA file"
+
 rm -f components.gbwt components.gg
 rm -f direct.hg correct_paths.gaf
 rm -f components.hg hg_paths.gaf
 rm -f components.xg xg_paths.gaf
+rm -f extracted.gfa
