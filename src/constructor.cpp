@@ -767,9 +767,17 @@ namespace vg {
                         last_edit_end = max(last_edit_end, bounds.second);
                     }
                 }
+                
+                if (skipped.size() == clump.size()) {
+                    // We skipped all the variants in the clump. Kick back up
+                    // to clump building.
+                    clump.clear();
+                    clump_end = 0;
+                    continue;
+                }
 
-                // We have to have some non-ref material in the clump, even if it
-                // occupies 0 reference space.
+                // Otherwise, we have to have some non-ref material in the
+                // clump, even if it occupies 0 reference space.
                 assert(last_edit_end != -1);
                 assert(first_edit_start != numeric_limits<int64_t>::max());
 
