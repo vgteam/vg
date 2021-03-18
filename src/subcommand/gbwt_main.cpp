@@ -1395,8 +1395,6 @@ void GraphHandler::serialize_segment_translation(const GBWTConfig& config) const
         std::cerr << "Serializing segment to node translation to " << config.segment_translation << std::endl;
     }
 
-    // FIXME This is a temporary format. Once the format is finalized,
-    // GBWTGraph can handle the serialization.
     std::ofstream out(config.segment_translation, std::ios_base::binary);
     if (this->sequence_source->uses_translation()) {
         auto& translation = this->sequence_source->segment_translation;
