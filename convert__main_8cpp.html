@@ -87,6 +87,7 @@ $(function() {
 <code>#include &quot;bdsg/hash_graph.hpp&quot;</code><br />
 <code>#include &quot;bdsg/odgi.hpp&quot;</code><br />
 <code>#include &lt;gbwtgraph/gbwtgraph.h&gt;</code><br />
+<code>#include &lt;gbwtgraph/gfa.h&gt;</code><br />
 <code>#include &lt;unistd.h&gt;</code><br />
 <code>#include &lt;getopt.h&gt;</code><br />
 </div><table class="memberdecls">
@@ -100,6 +101,8 @@ Functions</h2></td></tr>
 <tr class="separator:a094fbac0ecc5cde5c47dfc030da6c29e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abd9dc3a752930342a8096088f2d4b742"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#abd9dc3a752930342a8096088f2d4b742">main_convert</a> (int argc, char **argv)</td></tr>
 <tr class="separator:abd9dc3a752930342a8096088f2d4b742"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a60e7c2d4e8201cf6bd144531d51e3942"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#a60e7c2d4e8201cf6bd144531d51e3942">check_duplicate_contigs</a> (const gbwt::GBWT &amp;index, const std::vector&lt; gbwt::size_type &gt; &amp;thread_ids, const std::string &amp;ref_sample)</td></tr>
+<tr class="separator:a60e7c2d4e8201cf6bd144531d51e3942"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Function Documentation</h2>
 <a id="a094fbac0ecc5cde5c47dfc030da6c29e"></a>
@@ -119,6 +122,40 @@ Functions</h2></td></tr>
           <td></td>
           <td class="paramtype"><a class="el" href="namespacevg.html#a24350c08e6d69244e6930f41fee00e1f">MutablePathHandleGraph</a> *&#160;</td>
           <td class="paramname"><em>output</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>ref_sample</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a60e7c2d4e8201cf6bd144531d51e3942"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a60e7c2d4e8201cf6bd144531d51e3942">&#9670;&nbsp;</a></span>check_duplicate_contigs()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void check_duplicate_contigs </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; gbwt::size_type &gt; &amp;&#160;</td>
+          <td class="paramname"><em>thread_ids</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
