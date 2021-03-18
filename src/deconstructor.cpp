@@ -236,19 +236,15 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
         set<int> used_phases;
         for (int i = sorted_travs.size() - 1; i >= 0 && most_frequent_travs.size() < sample_ploidy; --i) {
             int phase = gbwt_phases.at(sorted_travs.at(i));
-            if (phase >= 0) {
-                if (!used_phases.count(phase)) {
-                    most_frequent_travs.push_back(sorted_travs.at(i));
-                    used_phases.insert(phase);
-                    sorted_travs.at(i) = -1;
-                } else {
-                    phasing_conflict = true;
-                }
+            if (!used_phases.count(phase)) {
+                most_frequent_travs.push_back(sorted_travs.at(i));
+                used_phases.insert(phase);
+            } else {
+                phasing_conflict = true;
             }
         }
-    }
-    for (int i = sorted_travs.size() - 1; i >= 0 && most_frequent_travs.size() < sample_ploidy; --i) {
-        if (sorted_travs.at(i) != -1) {
+    } else {
+        for (int i = sorted_travs.size() - 1; i >= 0 && most_frequent_travs.size() < sample_ploidy; --i) {
             most_frequent_travs.push_back(sorted_travs.at(i));
         }
     }
@@ -275,8 +271,7 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
 
     // check if there's a conflict
     size_t zero_count = std::count(allele_frequencies.begin(), allele_frequencies.end(), 0);
-    bool conflict = phasing_conflict || allele_frequencies.size() - zero_count > sample_ploidy;
-
+    bool conflict = phasing_conflict || allele_frequencies.size() - zero_count > sample_ploidy;    
     return make_pair(most_frequent_travs, conflict);
 }
     
