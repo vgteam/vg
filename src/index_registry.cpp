@@ -45,6 +45,7 @@
 #include "min_distance.hpp"
 #include "gfa.hpp"
 #include "job_schedule.hpp"
+#include "path.hpp"
 
 #include "io/save_handle_graph.hpp"
 
@@ -115,23 +116,31 @@ bool is_gzipped(const string& filename) {
     return false;
 }
 
+int64_t get_num_samples(const string& vcf_filename) {
+    htsFile* vcf_file = hts_open(vcf_filename.c_str(),"rb");
+    bcf_hdr_t* header = bcf_hdr_read(vcf_file);
+    int64_t num_samples = bcf_hdr_nsamples(header);
+    bcf_hdr_destroy(header);
+    hts_close(vcf_file);
+    return num_samples;
+}
+
 // quickly guess the number of variants in a VCF file based on the filesize
 double approx_num_vars(const string& vcf_filename) {
     
-    // read the file to get the number of samples
-    htsFile* vcf_file = hts_open(vcf_filename.c_str(),"rb");
-    bcf_hdr_t* header = bcf_hdr_read(vcf_file);
-    size_t num_samples = bcf_hdr_nsamples(header);
-    bcf_hdr_destroy(header);
-    hts_close(vcf_file);
-    
+    int64_t num_samples = get_num_samples(vcf_filename);
     int64_t file_size = get_file_size(vcf_filename);
     
     // TODO: bcf coefficient
     // a shitty regression that Jordan fit on the human autosomes, gives a very rough
     // estimate of the number of variants contained in a VCF
-    double coef = is_gzipped(vcf_filename) ? 12.41 : 0.2448;
-    return (coef * file_size) / num_samples;
+    if (is_gzipped(vcf_filename)) {
+        // square root got a pretty good fit, for whatever reason
+        return 0.255873 * file_size / sqrt(num_samples);
+    }
+    else {
+        return 0.193182 * file_size / num_samples;
+    }
 }
 
 // the ratio to the HashGraph memory usage, as estimated by a couple of graphs
@@ -230,38 +239,13 @@ int64_t approx_graph_memory(const string& fasta_filename, const string& vcf_file
     return approx_graph_memory(vector<string>(1, fasta_filename), vector<string>(1, vcf_filename));
 }
 
-// estimate the amount of memory of a graph constructed GFAs
-int64_t approx_graph_memory(const vector<string>& gfa_filenames) {
-    
-    int64_t total_size = 0;
-    for (const auto& gfa : gfa_filenames) {
-        total_size += get_file_size(gfa);
-    }
-    
-    // factor estimated by regression on 1000GP graphs of human chromosomes
-    int64_t hash_graph_memory_usage = 13.17 * total_size;
-    return hash_graph_memory_usage * format_multiplier();
-}
-
+// estimate the amount of memory of a GFA constructed graph
 int64_t approx_graph_memory(const string& gfa_filename) {
-    return approx_graph_memory(vector<string>(1, gfa_filename));
-}
-
-int64_t approx_gbwt_memory(const vector<string>& vcf_filenames) {
-    
-    int64_t total_size = 0;
-    
-    for (const auto& vcf_filename : vcf_filenames) {
-        // another shitty regression that Jordan ran on the human chromosomes
-        double coef = is_gzipped(vcf_filename) ? 1.068 : 2.107e-02;
-        total_size += coef * get_file_size(vcf_filename);
-    }
-    
-    return total_size;
-}
+    int64_t hash_graph_memory_usage = 13.17 * get_file_size(gfa_filename);
+    return hash_graph_memory_usage * format_multiplier();}
 
 int64_t approx_gbwt_memory(const string& vcf_filename) {
-    return approx_gbwt_memory(vector<string>(1, vcf_filename));
+    return 22.9071 * log(get_num_samples(vcf_filename)) * approx_num_vars(vcf_filename);
 }
 
 int64_t approx_graph_load_memory(const string& graph_filename) {
@@ -337,6 +321,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("Chunked Reference FASTA", "chunked.fasta");
     registry.register_index("Chunked VCF", "chunked.vcf");
     registry.register_index("Chunked VCF w/ Phasing", "phased.chunked.vcf");
+    registry.register_index("Chunked GTF/GFF", "chunked.gff");
     
     /// True indexes
     registry.register_index("VG", "vg");
@@ -460,24 +445,43 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 #endif
     
     // meta recipe for with and without phasing
-    auto chunk_reference_and_vcf = [&](const vector<const IndexFile*>& inputs,
-                                       const IndexingPlan* plan,
-                                       AliasGraph& alias_graph,
-                                       const IndexGroup& constructing) {
+    auto chunk_contigs = [&](const vector<const IndexFile*>& inputs,
+                             const IndexingPlan* plan,
+                             AliasGraph& alias_graph,
+                             const IndexGroup& constructing) {
         
         if (IndexingParameters::verbose) {
             cerr << "[IndexRegistry]: Chunking reference and VCFs for parallism." << endl;
         }
         
-        assert(inputs.size() == 2);
-        assert(constructing.size() == 2);
-        auto fasta_filenames = inputs.at(0)->get_filenames();
-        auto vcf_filenames = inputs.at(1)->get_filenames();
+        // boilerplate
+        assert(inputs.size() == 2 || inputs.size() == 3);
+        assert(constructing.size() == 2 || constructing.size() == 3);
+        assert(constructing.size() == inputs.size());
+        bool chunking_tx = inputs.size() == 3;
+        vector<string> fasta_filenames, vcf_filenames, tx_filenames;
+        {
+            int i = 0;
+            if (chunking_tx) {
+                tx_filenames = inputs[i++]->get_filenames();
+            }
+            fasta_filenames = inputs[i++]->get_filenames();
+            vcf_filenames = inputs[i++]->get_filenames();
+        }
         vector<vector<string>> all_outputs(constructing.size());
-        auto output_fasta = *constructing.begin();
-        auto output_vcf = *constructing.rbegin();
-        auto& output_fasta_names = all_outputs[0];
-        auto& output_vcf_names = all_outputs[1];
+        string output_fasta, output_vcf, output_tx;
+        {
+            auto it = constructing.begin();
+            if (chunking_tx) {
+                output_tx = *it;
+                ++it;
+            }
+            output_fasta = *it;
+            ++it;
+            output_vcf = *it;
+        }
+        auto& output_fasta_names = all_outputs[chunking_tx ? 1 : 0];
+        auto& output_vcf_names = all_outputs[chunking_tx ? 2 : 1];
         
         // records of (length, seq name, index in input)
         priority_queue<tuple<int64_t, string, int64_t>> seq_queue;
@@ -524,18 +528,23 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
         }
         
+        // sort all of the buckets so that they occur in the order we'll discover them in the VCF
+        for (auto& bucket : buckets) {
+            sort(bucket.begin(), bucket.end());
+        }
         
+        // to look bucket index up from a contig
+        unordered_map<string, int64_t> contig_to_idx;
+        for (int64_t i = 0; i < buckets.size(); ++i) {
+            for (auto& bucket_item : buckets[i])  {
+                contig_to_idx[bucket_item.first] = i;
+            }
+        }
         
-        if (buckets.size() == fasta_filenames.size() && buckets.size() == vcf_filenames.size()) {
+        if (buckets.size() == fasta_filenames.size() && buckets.size() == vcf_filenames.size()
+            && (tx_filenames.empty() || buckets.size() == tx_filenames.size())) {
             // it looks like we might have just recapitulated the original chunking, let's check to make sure
             
-            // to look bucket index up from a contig
-            unordered_map<string, int64_t> contig_to_idx;
-            for (int64_t i = 0; i < buckets.size(); ++i) {
-                for (auto& bucket_item : buckets[i])  {
-                    contig_to_idx[bucket_item.first] = i;
-                }
-            }
             
             // does each bucket come from exactly one FASTA file?
             bool all_buckets_match = true;
@@ -545,9 +554,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 int64_t bucket_idx = -1;
                 for (const auto& idx_entry : *ref.index) {
                     if (bucket_idx == -1) {
-                        bucket_idx = contig_to_idx[idx_entry.second.name];
+                        bucket_idx = contig_to_idx.at(idx_entry.second.name);
                     }
-                    else if (contig_to_idx[idx_entry.second.name] != bucket_idx) {
+                    else if (contig_to_idx.at(idx_entry.second.name) != bucket_idx) {
                         all_buckets_match = false;
                         break;
                     }
@@ -558,15 +567,18 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 // there's no need for chunking, just alias them
                 output_fasta_names = fasta_filenames;
                 output_vcf_names = vcf_filenames;
-                alias_graph.register_alias(output_fasta, inputs[0]);
-                alias_graph.register_alias(output_vcf, inputs[1]);
+                if (chunking_tx) {
+                    all_outputs[0] = tx_filenames;
+                    alias_graph.register_alias(output_tx, inputs[0]);
+                    alias_graph.register_alias(output_fasta, inputs[1]);
+                    alias_graph.register_alias(output_vcf, inputs[2]);
+                }
+                else {
+                    alias_graph.register_alias(output_fasta, inputs[0]);
+                    alias_graph.register_alias(output_vcf, inputs[1]);
+                }
                 return all_outputs;
             }
-        }
-        
-        // sort all of the buckets so that they occur in the order we'll discover them in the VCF
-        for (auto& bucket : buckets) {
-            sort(bucket.begin(), bucket.end());
         }
         
         // shuffle so that it's not ordered by job size
@@ -576,6 +588,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         output_vcf_names.resize(buckets.size());
         
         // make FASTA sequences for each bucket
+        // the threading here gets to be pretty simple because the fai allows random access
 #pragma omp parallel for schedule(dynamic)
         for (int64_t i = 0; i < buckets.size(); ++i) {
             
@@ -629,6 +642,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
             input_vcf_files[i] = make_tuple(vcf, header, vcf_rec);
         }
+        
+        // TODO: i wonder if there's a better option with threads assigned to each reading file,
+        // seems like it might be tricky to maintain contig ordering though.
         
         output_vcf_names.resize(buckets.size());
         
@@ -793,24 +809,131 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
         }
         
+        if (chunking_tx) {
+            
+            auto& output_gff_names = all_outputs[0];
+            for (int64_t i = 0; i < buckets.size(); ++i) {
+                output_gff_names.emplace_back(plan->output_filepath(output_vcf, i, buckets.size()));
+            }
+            
+            // a mutex to lock the process of checking out a chunk for writing to
+            mutex gff_mutex;
+            
+            // we'll thread by input files in this case
+            vector<thread> tx_workers;
+            vector<atomic<bool>> chunk_gff_checked_out(buckets.size());
+            for (int64_t i = 0; i < buckets.size(); ++i) {
+                chunk_gff_checked_out[i].store(false);
+            }
+            
+            for (int64_t i = 0; i < tx_filenames.size(); ++i) {
+                tx_workers.emplace_back([&](int64_t idx) {
+                    
+                    ifstream infile_tx;
+                    init_in(infile_tx, tx_filenames[idx]);
+                    
+                    ofstream tx_chunk_out;
+                    
+                    int64_t prev_chunk_idx = -1;
+                    while (infile_tx.good()) {
+                        
+                        string line;
+                        getline(infile_tx, line);
+                        
+                        stringstream line_strm(line);
+                        string chrom;
+                        getline(line_strm, chrom, '\t');
+                        if (chrom.empty() || chrom.front() == '#') {
+                            // skip header
+                            continue;
+                        }
+                        
+                        int64_t chunk_idx = contig_to_idx.at(chrom);
+                        if (chunk_idx != prev_chunk_idx) {
+                            // we're transitioning between chunks, so we need to check the chunk
+                            // out for writing
+                            
+                            // release the old chunk
+                            if (prev_chunk_idx >= 0) {
+                                tx_chunk_out.close();
+                                tx_chunk_out.clear();
+                                chunk_gff_checked_out[prev_chunk_idx].store(false);
+                            }
+                            
+                            // keep trying to check the new chunk until succeeding
+                            bool success = false;
+                            while (!success) {
+                                // only one thread can try to check out at a time
+                                gff_mutex.lock();
+                                if (!chunk_gff_checked_out[chunk_idx].load()) {
+                                    // the chunk is free to be written to
+                                    chunk_gff_checked_out[chunk_idx].store(true);
+                                    success = true;
+                                }
+                                gff_mutex.unlock();
+                                if (!success) {
+                                    // wait for a couple seconds to check again if we can write
+                                    // to the file
+                                    this_thread::sleep_for(chrono::seconds(2));
+                                }
+                                else {
+                                    // open for writing, starting from the end
+                                    tx_chunk_out.open(output_gff_names[chunk_idx], ios_base::ate);
+                                    if (!tx_chunk_out) {
+                                        cerr << "error:[IndexRegistry] could not open " << output_gff_names[chunk_idx] << " for appending" << endl;
+                                        exit(1);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // copy the line to the chunk
+                        tx_chunk_out << line << '\n';
+                        
+                        prev_chunk_idx = chunk_idx;
+                    }
+                    
+                    // release the last chunk we were writing to
+                    if (prev_chunk_idx >= 0) {
+                        tx_chunk_out.close();
+                        chunk_gff_checked_out[prev_chunk_idx].store(false);
+                    }
+                }, i);
+            };
+        }
+        
         
         return all_outputs;
     };
     
     // call the meta recipe
+    registry.register_recipe({"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF w/ Phasing"}, {"GTF/GFF", "Reference FASTA", "VCF w/ Phasing"},
+                             [&](const vector<const IndexFile*>& inputs,
+                                 const IndexingPlan* plan,
+                                 AliasGraph& alias_graph,
+                                 const IndexGroup& constructing) {
+        return chunk_contigs(inputs, plan, alias_graph, constructing);
+    });
+    registry.register_recipe({"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF"}, {"GTF/GFF", "Reference FASTA", "VCF"},
+                             [&](const vector<const IndexFile*>& inputs,
+                                 const IndexingPlan* plan,
+                                 AliasGraph& alias_graph,
+                                 const IndexGroup& constructing) {
+        return chunk_contigs(inputs, plan, alias_graph, constructing);
+    });
     registry.register_recipe({"Chunked Reference FASTA", "Chunked VCF w/ Phasing"}, {"Reference FASTA", "VCF w/ Phasing"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        return chunk_reference_and_vcf(inputs, plan, alias_graph, constructing);
+        return chunk_contigs(inputs, plan, alias_graph, constructing);
     });
     registry.register_recipe({"Chunked Reference FASTA", "Chunked VCF"}, {"Reference FASTA", "VCF"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        return chunk_reference_and_vcf(inputs, plan, alias_graph, constructing);
+        return chunk_contigs(inputs, plan, alias_graph, constructing);
     });
     
     
@@ -852,8 +975,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             // gather handles to the alt allele paths
             vector<path_handle_t> alt_paths;
             graph->for_each_path_handle([&](const path_handle_t& path) {
-                auto name = graph->get_path_name(path);
-                if (!name.empty() && name.substr(0, 5) == "_alt_") {
+                if (Paths::is_alt(graph->get_path_name(path))) {
                     alt_paths.push_back(path);
                 }
             });
@@ -984,11 +1106,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         vector<string> ref_filenames, vcf_filenames, insertions, transcripts;
         {
             size_t i = 0;
-            ref_filenames = inputs[i++]->get_filenames();
-            vcf_filenames = inputs[i++]->get_filenames();
             if (has_transcripts) {
                 transcripts = inputs[i++]->get_filenames();
             }
+            ref_filenames = inputs[i++]->get_filenames();
+            vcf_filenames = inputs[i++]->get_filenames();
             if (has_ins_fasta) {
                 insertions = inputs[i++]->get_filenames();
             }
@@ -1157,32 +1279,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         // TODO: allow contig renaming through Constructor::add_name_mapping
         
-        
-//        if (ref_filenames.size() == 1 && vcf_filenames.size() != 1) {
-//
-//            // we will have added components for all of the paths that are also
-//            // VCF sequences, but we may have FASTA sequences that don't
-//            // correspond to any VCF sequence (e.g. unlocalized contigs of
-//            // decoys)
-//
-//            // TODO: how can we keep track of all of the contigs seen in the Constructor
-//            // so that we know which ones to include in this component?
-//
-//            string output_name = (plan->prefix(constructing)
-//                                  + "." + to_string(inputs[1]->get_filenames().size())
-//                                  + "." + plan->suffix(constructing));
-//
-//            // FIXME: punting on this for now
-//            // FIXME: also need to add a dummy VCF, but how to add it to const index?
-//            // FIXME: also need to locate these contigs in the GTF/GFF
-//            // maybe i should add it as a second index, along with this graph...
-//        }
-        
         // construct the jobs in parallel, trying to use multithreading while also
         // restraining memory usage
         JobSchedule schedule(approx_job_requirements, make_graph);
         schedule.execute(plan->target_memory_usage());
         
+        // TODO: I could get the max ids during execution and do this in parallel
         if (graph_names.size() > 1) {
             // join the ID spaces
             VGset graph_set(graph_names);
@@ -1255,7 +1357,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // TODO: spliced vg from GFA input
     
     registry.register_recipe({"Spliced MaxNodeID", "Spliced VG"},
-                             {"Chunked Reference FASTA", "Chunked VCF", "GTF/GFF", "Insertion Sequence FASTA"},
+                             {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF", "Insertion Sequence FASTA"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -1264,7 +1366,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     
     registry.register_recipe({"Spliced MaxNodeID", "Spliced VG"},
-                             {"Chunked Reference FASTA", "Chunked VCF", "GTF/GFF"},
+                             {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -1272,7 +1374,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         return construct_with_constructor(inputs, plan, constructing, false, true);
     });
     registry.register_recipe({"Spliced MaxNodeID", "Spliced VG w/ Variant Paths"},
-                             {"Chunked Reference FASTA", "Chunked VCF w/ Phasing", "GTF/GFF", "Insertion Sequence FASTA"},
+                             {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF w/ Phasing", "Insertion Sequence FASTA"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -1281,7 +1383,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     
     registry.register_recipe({"Spliced MaxNodeID", "Spliced VG w/ Variant Paths"},
-                             {"Chunked Reference FASTA", "Chunked VCF w/ Phasing", "GTF/GFF"},
+                             {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF w/ Phasing"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -1747,7 +1849,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     
     registry.register_recipe({"Haplotype-Transcript GBWT", "Spliced VG w/ Transcript Paths", "Unjoined Transcript Origin Table", },
-                             {"GTF/GFF", "Spliced GBWT", "Spliced VG"},
+                             {"Chunked GTF/GFF", "Spliced GBWT", "Spliced VG"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -2096,7 +2198,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             pruned_graph_names[i] = vg_output_name;
         };
-        
         
         // TODO: it is only possible to do the non haplotype pruning in parallel because
         // haplotype pruning needs to modify the mapping
