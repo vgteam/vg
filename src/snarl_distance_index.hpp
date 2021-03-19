@@ -303,7 +303,8 @@ public:
 
 public:
     /**
-     * Find the distance between the two child node sides in the parent, facing each other
+     * Find the distance between the two child node sides in the parent, facing each other, not 
+     * including the lengths of the nodes
      * This only takes into account the endpoint of the net_handle_t traversal, it does not care if the traversal
      * was possible. Doesn't allow you to find the distance from a traversal ending/starting in a tip
      * requires that the children are children of the parent
@@ -1103,7 +1104,7 @@ private:
         }
 
         //TODO: This one is a bit redundant but fine I think
-        virtual size_t get_node_length() const {
+        virtual int64_t get_node_length() const {
             return records->at(record_offset + NODE_LENGTH_OFFSET);
         }
 
@@ -1450,13 +1451,14 @@ private:
         //not including node lengths
         //TODO: I don't think we're allowing looping chains so I'm going to ignore them for now
         //TODO: Double check finding the distance for the same node
-        virtual int64_t get_distance(tuple<size_t, bool, size_t> node1, 
-                             tuple<size_t, bool, size_t> node2) const {
+        virtual int64_t get_distance(tuple<size_t, bool, int64_t> node1, 
+                             tuple<size_t, bool, int64_t> node2) const {
             if (get_record_handle_type() == NODE_HANDLE) {
                 throw runtime_error("error: Trying to get chain distances from a node");
             } else if (get_record_type() == MULTICOMPONENT_CHAIN) {
                 if (records->at(std::get<0>(node1) + CHAIN_NODE_COMPONENT_OFFSET) != 
                     records->at(std::get<0>(node2) + CHAIN_NODE_COMPONENT_OFFSET)) {
+cerr << "Nodes are in disconnected components" << endl;
                     return std::numeric_limits<int64_t>::max();
                 }
             }
@@ -1466,32 +1468,54 @@ private:
                 tuple<size_t, bool, size_t> tmp = node1;
                 node1 = node2;
                 node2 = tmp;
+cerr << "Getting distance between node ranks " << std::get<0>(node1) << " and " << std::get<0>(node2) << endl;
+
             }
 
-            if (std::get<1>(node1) && !std::get<1>(node2)) {
+            if (!std::get<1>(node1) && std::get<1>(node2)) {
                 //Right of 1 and left of 2, so a simple forward traversal of the chain
-                return get_prefix_sum_value(std::get<0>(node2)) 
-                     - get_prefix_sum_value(std::get<0>(node1))
+cerr << "  Right side of node1 and left side of node 2" << endl;
+cerr << "   return: " <<  get_prefix_sum_value(std::get<0>(node2))  
+                     << " - " <<  get_prefix_sum_value(std::get<0>(node1))
+                     << " - " <<  std::get<2>(node1)
+                     << endl;
+                return get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1))
                      - std::get<2>(node1);
-            } else if (std::get<1>(node1) && std::get<1>(node2)) {
-                //Right side of 1 and right side of 2
-                return get_prefix_sum_value(std::get<0>(node2)) 
-                     - get_prefix_sum_value(std::get<0>(node1))  
-                     - std::get<2>(node1) + std::get<2>(node2) 
-                     + get_forward_loop_value(std::get<0>(node2));
             } else if (!std::get<1>(node1) && !std::get<1>(node2)) {
+                //Right side of 1 and right side of 2
+cerr << "  Right side of node1 and right side of node 2" << endl;
+cerr << "   return: " <<          get_prefix_sum_value(std::get<0>(node2))  
+                     << " - " <<  get_prefix_sum_value(std::get<0>(node1))
+                     << " - " <<  std::get<2>(node1)
+                     << " + " <<  get_forward_loop_value(std::get<0>(node2))
+                     << endl;
+                return minus( sum({get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1)) , 
+                                   std::get<2>(node2), 
+                                   get_forward_loop_value(std::get<0>(node2))}), 
+                             std::get<2>(node1));
+            } else if (std::get<1>(node1) && std::get<1>(node2)) {
                 //Left side of 1 and left side of 2
-                return get_prefix_sum_value(std::get<0>(node2)) 
-                     - get_prefix_sum_value(std::get<0>(node1))  
-                     + get_reverse_loop_value(std::get<0>(node1));
+cerr << "  Left side of node1 and left side of node 2" << endl;
+cerr << "   return: " <<          get_prefix_sum_value(std::get<0>(node2))  
+                     << " - " <<  get_prefix_sum_value(std::get<0>(node1))
+                     << " + " <<  get_reverse_loop_value(std::get<0>(node1))
+                     << endl;
+                return sum({get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1))  
+                     , get_reverse_loop_value(std::get<0>(node1))});
             } else {
-                assert(!std::get<1>(node1) && std::get<1>(node2));
+                assert(std::get<1>(node1) && !std::get<1>(node2));
                 //Left side of 1 and right side of 2
-                return get_prefix_sum_value(std::get<0>(node2)) 
-                     - get_prefix_sum_value(std::get<0>(node1))  
-                     + get_reverse_loop_value(std::get<0>(node1))
-                     + get_forward_loop_value(std::get<0>(node1)) 
-                     + std::get<2>(node1);
+cerr << "  Left side of node1 and right side of node 2" << endl;
+cerr << "   return: " <<          get_prefix_sum_value(std::get<0>(node2))  
+                     << " - " <<  get_prefix_sum_value(std::get<0>(node1))  
+                     << " + " <<  get_reverse_loop_value(std::get<0>(node1))
+                     << " + " <<  get_forward_loop_value(std::get<0>(node1)) 
+                     << " + " <<  std::get<2>(node1)
+                     << endl;
+                return sum({get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1))  
+                     , get_reverse_loop_value(std::get<0>(node1))
+                     , get_forward_loop_value(std::get<0>(node1)) 
+                     , std::get<2>(node1)});
             }
         }
 
@@ -1666,7 +1690,7 @@ private:
         void add_node(id_t id, int64_t prefix_sum, int64_t forward_loop, int64_t reverse_loop) {
             assert(ChainRecord::get_record_type() != MULTICOMPONENT_CHAIN);
 #ifdef debug_indexing
-            cerr << SnarlTreeRecordConstructor::records->size() << " - " << SnarlTreeRecordConstructor::records->size() + 3 << " Adding chain's child node the end of the array " << endl;
+            cerr << SnarlTreeRecordConstructor::records->size() << " - " << SnarlTreeRecordConstructor::records->size() + 3 << " Adding chain's child node " << id << " to the end of the array (values: " << prefix_sum << "," << forward_loop << "," << reverse_loop << ")" << endl;
 #endif
             SnarlTreeRecordConstructor::records->emplace_back(id);
             SnarlTreeRecordConstructor::records->emplace_back(prefix_sum==std::numeric_limits<int64_t>::max() ? 0 : prefix_sum+1);
@@ -1862,11 +1886,11 @@ protected:
             bool start_node_rev;
             id_t end_node_id;
             bool end_node_rev;
-            size_t end_node_length;
+            int64_t end_node_length;
             //Type of the parent and offset into the appropriate vector
             //(TEMP_ROOT, 0) if this is a root level chain
             pair<temp_record_t, size_t> parent;
-            int64_t min_length;
+            int64_t min_length;//Including boundary nodes
             int64_t max_length;
             vector<pair<temp_record_t, size_t>> children; //All children, both nodes and snarls, in order
             //Distances for the chain, one entry per node
@@ -1889,7 +1913,7 @@ protected:
             bool end_node_rev;
             int64_t end_node_length;
             size_t node_count;
-            int64_t min_length;
+            int64_t min_length; //Not including boundary nodes
             int64_t max_length;
             pair<temp_record_t, size_t> parent;
             vector<pair<temp_record_t, size_t>> children; //All children, nodes and chains, in arbitrary order
@@ -1935,6 +1959,28 @@ protected:
     vector<size_t> get_snarl_tree_records(const vector<const TemporaryDistanceIndex*>& temporary_indexes, const HandleGraph* graph);
     friend class TemporaryDistanceIndex;
 
+    private:
+    ///Add integers, returning max() if any of them are max()
+    static int64_t sum(const vector<int64_t> vals) {
+        int64_t sum = 0;
+        for (const int64_t& x : vals) {
+            if (x ==  std::numeric_limits<int64_t>::max()) {
+                return std::numeric_limits<int64_t>::max();
+            } else {
+                sum += x;
+            }
+        }
+        return sum;
+    }
+    static int64_t minus(int64_t x, int64_t y) {
+        if (x == std::numeric_limits<int64_t>::max()) {
+            return numeric_limits<int64_t>::max();
+        } else if (y == std::numeric_limits<int64_t>::max()) {
+            return -numeric_limits<int64_t>::max();
+        } else {
+            return x - y;
+        }
+    }
 };
 
 

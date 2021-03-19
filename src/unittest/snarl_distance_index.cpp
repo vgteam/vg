@@ -27,7 +27,7 @@ namespace vg {
     namespace unittest {
     
         TEST_CASE( "Snarl decomposition can allow traversal of a simple net graph",
-                  "[snarl_distance]" ) {
+                  "[snarl_distance][bug]" ) {
         
         
             // This graph will have a snarl from 1 to 8, a snarl from 2 to 7,
@@ -57,6 +57,16 @@ namespace vg {
             //get the snarls
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SECTION("Nodes all have correct lengths") {
+                REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n1->id(), true), &graph)) == 3);
+                REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n2->id(), true), &graph)) == 1);
+                REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n3->id(), true), &graph)) == 1);
+                REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n4->id(), true), &graph)) == 4);
+                REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n5->id(), true), &graph)) == 3);
+                REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n6->id(), true), &graph)) == 1);
+                REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n7->id(), true), &graph)) == 1);
+                REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n8->id(), true), &graph)) == 4);
+            }
 
             //Handle for first node facing in
             net_handle_t n1_fd = distance_index.get_net(graph.get_handle(1, false), &graph); 
@@ -90,8 +100,22 @@ namespace vg {
                 child_i++;
                 return true;
             });
+            SECTION("The distances in the top-level chain are correct"){
+                REQUIRE(distance_index.distance_in_parent(chain1, 
+                        distance_index.get_net(graph.get_handle(n1->id(), false), &graph),
+                        distance_index.get_net(graph.get_handle(n8->id(), true), &graph)) == 0);
+                REQUIRE(distance_index.distance_in_parent(chain1, 
+                        distance_index.get_net(graph.get_handle(n1->id(), true), &graph),
+                        distance_index.get_net(graph.get_handle(n8->id(), true), &graph)) == std::numeric_limits<int64_t>:: max());
+                REQUIRE(distance_index.distance_in_parent(chain1, 
+                        distance_index.get_net(graph.get_handle(n1->id(), true), &graph),
+                        distance_index.get_net(graph.get_handle(n8->id(), false), &graph)) == std::numeric_limits<int64_t>:: max());
+                REQUIRE(distance_index.distance_in_parent(chain1, 
+                        distance_index.get_net(graph.get_handle(n1->id(), false), &graph),
+                        distance_index.get_net(graph.get_handle(n8->id(), false), &graph)) == std::numeric_limits<int64_t>:: max());
+            }
 
-            SECTION( "The top-level NetGraph has 3 nodes" ) {
+            SECTION( "The top-level snarl has 3 nodes" ) {
 
                 //The snarl 2,7 has one child (not counting the boundary nodes)
                 size_t node_count = 0;

@@ -1,5 +1,6 @@
 #define debug_distance_indexing
 //#define debug_snarl_traversal
+#define debug_distances
 
 #include "snarl_distance_index.hpp"
 
@@ -350,8 +351,8 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
             cerr << "      This snarl is not start-end connected, starting new chain component " << endl; 
 #endif
                 }
-                temp_snarl_record.min_length = length == std::numeric_limits<int64_t>::max() ? length :
-                               length + temp_snarl_record.start_node_length + temp_snarl_record.end_node_length;
+                temp_snarl_record.min_length = length;
+                cerr << "Setting snarl length to be " << temp_snarl_record.min_length << endl;
 
 
 
@@ -372,16 +373,16 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
                     temp_chain_record.prefix_sum.emplace_back(0);
                     temp_chain_record.backward_loops.emplace_back(temp_snarl_record.loop_end);
                 } else {
-                    temp_chain_record.prefix_sum.emplace_back(temp_chain_record.prefix_sum.back() + 
-                        temp_snarl_record.min_length + temp_snarl_record.start_node_length);
+                    temp_chain_record.prefix_sum.emplace_back(sum({temp_chain_record.prefix_sum.back(), 
+                        temp_snarl_record.min_length, temp_snarl_record.start_node_length}));
                     temp_chain_record.backward_loops.emplace_back(std::min(temp_snarl_record.loop_end,
-                        temp_chain_record.backward_loops.back() 
-                        + 2 * (temp_snarl_record.start_node_length + temp_snarl_record.min_length)));
+                        sum({temp_chain_record.backward_loops.back() 
+                        , 2 * (temp_snarl_record.start_node_length , temp_snarl_record.min_length)})));
                 }
                 temp_chain_record.chain_components.emplace_back(curr_component);
             }
         }
-        temp_chain_record.min_length = temp_chain_record.prefix_sum.back() + temp_chain_record.end_node_length; 
+        temp_chain_record.min_length = sum({temp_chain_record.prefix_sum.back() , temp_chain_record.end_node_length}); 
 
         assert(temp_chain_record.prefix_sum.size() == temp_chain_record.backward_loops.size());
         assert(temp_chain_record.prefix_sum.size() == temp_chain_record.chain_components.size());
@@ -405,11 +406,12 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
                     temp_chain_record.forward_loops.at(node_i) = temp_snarl_record.loop_start;
                 } else if (temp_snarl_record.is_trivial) {
                     //If this is a trivial chain, then we always add the previous loop value
-                    temp_chain_record.forward_loops.at(node_i) = temp_chain_record.forward_loops.at(node_i+1) + 
-                                    2*temp_snarl_record.end_node_length;
+                    temp_chain_record.forward_loops.at(node_i) = sum({temp_chain_record.forward_loops.at(node_i+1) , 
+                                    2*temp_snarl_record.end_node_length});
                 } else {
-                    temp_chain_record.forward_loops.at(node_i) = std::min(temp_chain_record.forward_loops.at(node_i+1) + 
-                                  2*temp_snarl_record.end_node_length, temp_snarl_record.loop_start);
+                    temp_chain_record.forward_loops.at(node_i) = 
+                        std::min(sum({temp_chain_record.forward_loops.at(node_i+1) , 2*temp_snarl_record.end_node_length}), 
+                                 temp_snarl_record.loop_start);
                 }
                 node_i --;
             }
@@ -610,8 +612,10 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
                             ? make_pair(start_rank, false) : make_pair(start_rank, !start_rev);
                         pair<size_t, bool> next = next_rank == 0 || next_rank == 1 
                             ? make_pair(next_rank, false) : make_pair(next_rank, next_rev);
+                        if (!temp_snarl_record.distances.count(make_pair(start, next)) ) {
 
-                        temp_snarl_record.distances[make_pair(start, next)] = current_distance;
+                            temp_snarl_record.distances[make_pair(start, next)] = current_distance;
+                        }
                     }
 
 
@@ -1555,6 +1559,10 @@ net_handle_t SnarlDistanceIndex::get_parent_traversal(const net_handle_t& traver
 
 int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent, 
         const net_handle_t& child1, const net_handle_t& child2) const {
+#ifdef debug_distances
+    cerr << "Finding the distance between " << net_handle_as_string(child1) << " and " << net_handle_as_string(child2)
+         << " in parent " << net_handle_as_string(parent) << endl;
+#endif
 
     net_handle_record_t parent_handle_type = get_handle_type(parent);
     assert(canonical(parent) == canonical(get_parent(child1)));
@@ -1596,6 +1604,7 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
             //The distance between two nodes
             NodeRecord child_record1 (child1, &snarl_tree_records);
             NodeRecord child_record2 (child2, &snarl_tree_records);
+            cerr << " The nodes have lengths: " << child_record1.get_node_length() << " " <<  child_record2.get_node_length() << endl;
 
             bool go_left1 = child_record1.get_is_reversed_in_parent();
             if (ends_at(child1) == START){
@@ -1631,10 +1640,10 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
                 //Otherwise, find the actual distance from the node to the correct boundary of the snarl,
                 //and add the length of the boundary of the snarl, since it is not included in the chain distance
                 NodeRecord snarl_node_record (get_offset_from_node_id(snarl_node), &snarl_tree_records);
-                return chain_record.get_distance(
-                    make_tuple(node_record.get_rank_in_parent(), go_left_node, node_record.get_node_length()), 
-                    make_tuple(snarl_node_record.get_rank_in_parent(), go_left_snarl, snarl_node_record.get_node_length())) 
-                    + snarl_node_record.get_node_length();
+                return sum({chain_record.get_distance(
+                               make_tuple(node_record.get_rank_in_parent(), go_left_node, node_record.get_node_length()), 
+                               make_tuple(snarl_node_record.get_rank_in_parent(), go_left_snarl, snarl_node_record.get_node_length())) 
+                           , snarl_node_record.get_node_length()});
             }
         } else {
             assert(is_snarl(child1));
@@ -1654,10 +1663,10 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
                 //If the snarls are adjacent (and not the same snarl)
                 return node_record1.get_node_length();
             } else {
-                return chain_record.get_distance(
-                    make_tuple(node_record1.get_rank_in_parent(), go_left1, node_record1.get_node_length()), 
-                    make_tuple(node_record2.get_rank_in_parent(), go_left2, node_record2.get_node_length())) 
-                    + node_record1.get_node_length() + node_record2.get_node_length();
+                return sum({chain_record.get_distance(
+                            make_tuple(node_record1.get_rank_in_parent(), go_left1, node_record1.get_node_length()), 
+                            make_tuple(node_record2.get_rank_in_parent(), go_left2, node_record2.get_node_length())) 
+                    , node_record1.get_node_length() , node_record2.get_node_length()});
             }
         }
 
@@ -1738,10 +1747,12 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
         int64_t start_length = is_chain(parent) ? node_length(start_bound) : 0;
         int64_t end_length = is_chain(parent) ? node_length(end_bound) : 0;
 
-        dist_start = std::min( distance_start_start+ distance_start, 
-                                      distance_start_end + distance_end) + start_length;
-        dist_end = std::min(distance_end_start + distance_start, 
-                                    distance_end_end + distance_end) + end_length;
+        dist_start = sum({std::min( sum({distance_start_start, distance_start}), 
+                                    sum({distance_start_end , distance_end})) , 
+                           start_length});
+        dist_end = sum({std::min(sum({distance_end_start , distance_start}), 
+                            sum({distance_end_end , distance_end})) ,
+                       end_length});
         return;
     };
 
@@ -1783,8 +1794,8 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
     //just return the distance between them in the node
     if (canonical(net1) == canonical(net2) && 
         get_connectivity(net1) != get_connectivity(net1) && 
-        distance_to_start1 + distance_to_start2 > node_length(net1)) {
-        minimum_distance = distance_to_start1 + distance_to_start2 - node_length(net1);
+        sum({distance_to_start1 , distance_to_start2}) > node_length(net1)) {
+        minimum_distance = minus(sum({distance_to_start1 , distance_to_start2}), node_length(net1));
     }
 
     //Get the distance from position 1 up to the ends of a child of the common ancestor
@@ -1819,10 +1830,10 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
 
         //And add those to the distances we've found to get the minimum distance between the positions
         minimum_distance = std::min(minimum_distance, 
-                           std::min(distance_start_start + distance_to_start1 + distance_to_start2,
-                           std::min(distance_start_end + distance_to_start1 + distance_to_end2,
-                           std::min(distance_end_start + distance_to_end1 + distance_to_start2,
-                                    distance_end_end + distance_to_end1 + distance_to_end2))));
+                           std::min(sum({distance_start_start , distance_to_start1 , distance_to_start2}),
+                           std::min(sum({distance_start_end , distance_to_start1 , distance_to_end2}),
+                           std::min(sum({distance_end_start , distance_to_end1 , distance_to_start2}),
+                                    sum({distance_end_end , distance_to_end1 , distance_to_end2})))));
 
         //Update the distances to reach the ends of the common ancestor
         update_distances(net1, common_ancestor, distance_to_start1, distance_to_end1);
