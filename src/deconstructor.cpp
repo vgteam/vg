@@ -194,18 +194,18 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
     // count the number of times each allele comes up in a traversal
     vector<int> allele_frequencies(*max_element(trav_to_allele.begin(), trav_to_allele.end()) + 1, 0);
     for (auto trav : travs) {
-        ++allele_frequencies.at(trav_to_allele.at(trav));
+        ++allele_frequencies[trav_to_allele.at(trav)];
     }
     // sort on frquency
     function<bool(int, int)> comp = [&] (int trav1, int trav2) {
-        if (allele_frequencies.at(trav_to_allele.at(trav1)) < allele_frequencies.at(trav_to_allele.at(trav2))) {
+        if (allele_frequencies[trav_to_allele[trav1]] < allele_frequencies[trav_to_allele[trav2]]) {
             return true;
-        } else if (allele_frequencies.at(trav_to_allele.at(trav1)) == allele_frequencies.at(trav_to_allele.at(trav2))) {
+        } else if (allele_frequencies[trav_to_allele[trav1]] == allele_frequencies[trav_to_allele[trav2]]) {
             // prefer non-ref when possible
-            if (trav_to_allele.at(trav1) < trav_to_allele.at(trav2)) {
+            if (trav_to_allele[trav1] < trav_to_allele[trav2]) {
                 return true;
-            } else if (trav_to_allele.at(trav1) == trav_to_allele.at(trav2)) {
-                return trav_to_name.at(trav1) < trav_to_name.at(trav2);
+            } else if (trav_to_allele[trav1] == trav_to_allele[trav2]) {
+                return trav_to_name[trav1] < trav_to_name[trav2];
             }
         } 
         return false;
@@ -231,9 +231,9 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
         
         set<int> used_phases;
         for (int i = sorted_travs.size() - 1; i >= 0 && most_frequent_travs.size() < sample_ploidy; --i) {
-            int phase = gbwt_phases.at(sorted_travs.at(i));
+            int phase = gbwt_phases.at(sorted_travs[i]);
             if (!used_phases.count(phase)) {
-                most_frequent_travs.push_back(sorted_travs.at(i));
+                most_frequent_travs.push_back(sorted_travs[i]);
                 used_phases.insert(phase);
             } else {
                 phasing_conflict = true;
@@ -241,7 +241,7 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
         }
     } else {
         for (int i = sorted_travs.size() - 1; i >= 0 && most_frequent_travs.size() < sample_ploidy; --i) {
-            most_frequent_travs.push_back(sorted_travs.at(i));
+            most_frequent_travs.push_back(sorted_travs[i]);
         }
     }
 
