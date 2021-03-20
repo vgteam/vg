@@ -74,8 +74,8 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
     pair<int, int> snarl_sequence_change;
 
     // // //todo: debug_code
-    int stop_size = 1;
-    int num_snarls_touched = 0;
+    // int stop_size = 1;
+    // int num_snarls_touched = 0;
 
     // int skip_first_few = 2; //#1, node 3702578 is a cyclic snarl. Don't recall about #0. #2 also cyclic. Looks like cyclic snarls weren't buggy?
     // int skipped = 0;
@@ -87,11 +87,11 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
         //     skipped++;
         //     continue;
         // }
-        if (num_snarls_touched == stop_size){
-            break;
-        } else {
-            num_snarls_touched++;
-        }
+            // if (num_snarls_touched == stop_size){
+            //     break;
+            // } else {
+            //     num_snarls_touched++;
+            // }
         // if (roots->start().node_id() == 3881494) {
             // cerr << "root backwards?" << roots->start().backward() << endl;
             // cerr << "disambiguating snarl #"
