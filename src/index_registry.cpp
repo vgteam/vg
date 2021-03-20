@@ -435,6 +435,16 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         alias_graph.register_alias(*constructing.begin(), inputs[0]);
         return vector<vector<string>>(1, inputs.front()->get_filenames());
     });
+    // FIXME: must bring this back, but leaving it commented out to maintain consitency
+    // while i debug another problem
+//    registry.register_recipe({"Chunked VCF"}, {"Chunked VCF w/ Phasing"},
+//                             [](const vector<const IndexFile*>& inputs,
+//                                const IndexingPlan* plan,
+//                                AliasGraph& alias_graph,
+//                                const IndexGroup& constructing) {
+//        alias_graph.register_alias(*constructing.begin(), inputs[0]);
+//        return vector<vector<string>>(1, inputs.front()->get_filenames());
+//    });
     
     ////////////////////////////////////
     // Chunking Recipes
@@ -444,16 +454,16 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     cerr << "registering chunking recipes" << endl;
 #endif
     
-    // meta recipe for with and without phasing
+    // meta recipe for with/out phasing and with/out transcripts
     auto chunk_contigs = [&](const vector<const IndexFile*>& inputs,
                              const IndexingPlan* plan,
                              AliasGraph& alias_graph,
                              const IndexGroup& constructing) {
         
         if (IndexingParameters::verbose) {
-            cerr << "[IndexRegistry]: Chunking reference and VCFs for parallism." << endl;
+            cerr << "[IndexRegistry]: Chunking inputs for parallism." << endl;
         }
-        
+                
         // boilerplate
         assert(inputs.size() == 2 || inputs.size() == 3);
         assert(constructing.size() == 2 || constructing.size() == 3);
@@ -528,11 +538,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
         }
         
-        // sort all of the buckets so that they occur in the order we'll discover them in the VCF
-        for (auto& bucket : buckets) {
-            sort(bucket.begin(), bucket.end());
-        }
-        
         // to look bucket index up from a contig
         unordered_map<string, int64_t> contig_to_idx;
         for (int64_t i = 0; i < buckets.size(); ++i) {
@@ -540,6 +545,21 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 contig_to_idx[bucket_item.first] = i;
             }
         }
+        
+        // sort all of the buckets so that they occur in the order we'll discover them in the VCF
+        for (auto& bucket : buckets) {
+            sort(bucket.begin(), bucket.end());
+        }
+        
+#ifdef debug_index_registry_recipes
+        cerr << "assigned contigs into buckets:" << endl;
+        for (int i = 0; i < buckets.size(); ++i) {
+            cerr << "bucket " << i << endl;
+            for (auto& contig : buckets[i]) {
+                cerr << "\t" << contig.first << ": " << seq_lengths[contig.first] << endl;
+            }
+        }
+#endif
         
         if (buckets.size() == fasta_filenames.size() && buckets.size() == vcf_filenames.size()
             && (tx_filenames.empty() || buckets.size() == tx_filenames.size())) {
@@ -581,6 +601,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
         }
         
+        if (IndexingParameters::verbose) {
+            cerr << "[IndexRegistry]: Chunking FASTA(s)." << endl;
+        }
+        
         // shuffle so that it's not ordered by job size
         uint64_t shuf_seed = 0xD00DAD;
         shuffle(buckets.begin(), buckets.end(), default_random_engine(shuf_seed));
@@ -607,7 +631,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 
                 auto entry = ref.index->entry(contig);
                 int64_t length = entry.length;
-                int64_t line_length = entry.line_blen;
+                int64_t line_length = entry.line_blen; // the base length
                 
                 // copy over the FASTA sequence
                 outfile_fasta << '>' << contig << '\n';
@@ -622,6 +646,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 // add an FAI entry
                 outfile_fai << contig << '\t' <<  length << '\t' << seq_start << '\t' << line_length << '\t' << line_length + 1 << endl;
             }
+        }
+        
+        if (IndexingParameters::verbose) {
+            cerr << "[IndexRegistry]: Chunking VCF(s)." << endl;
         }
         
         // open all of the input VCF files
@@ -718,7 +746,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                             all_blocked = worker_blocked[j];
                         }
                         if (all_blocked) {
-                            cerr << "error:[IndexRegistry] Input VCFs must be sorted by contig and position to support multi-threading" << endl;
+                            cerr << "error:[IndexRegistry] Input VCFs must be sorted by contig and position to support multi-threading. Failed to find contig '" << buckets[idx][ctg_idx].first << "'." << endl;
                             exit(1);
                         }
                     }
@@ -730,8 +758,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     
                     if (input_idx < 0) {
                         // other threads need to get through earlier contigs until this bucket's next
-                        // contig is exposed, let's leave them alone for a few seconds
-                        this_thread::sleep_for(chrono::seconds(5));
+                        // contig is exposed, let's leave them alone for a second
+                        this_thread::sleep_for(chrono::seconds(1));
                         continue;
                     }
                     
@@ -810,6 +838,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
         
         if (chunking_tx) {
+            
+            if (IndexingParameters::verbose) {
+                cerr << "[IndexRegistry]: Chunking GTF/GFF(s)." << endl;
+            }
             
             auto& output_gff_names = all_outputs[0];
             for (int64_t i = 0; i < buckets.size(); ++i) {
@@ -955,10 +987,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         auto chunk_filenames = inputs.at(0)->get_filenames();
         auto output_index = *constructing.begin();
-        
         vector<vector<string>> all_outputs(constructing.size());
-        vector<string>& output_names = all_outputs[0];
-        for (int i = 0; i < chunk_filenames.size(); ++i) {
+        
+        auto& output_names = all_outputs.front();
+        output_names.resize(chunk_filenames.size());
+        auto strip_chunk = [&](int64_t i) {
             // test streams for I/O
             ifstream infile;
             init_in(infile, chunk_filenames[i]);
@@ -988,8 +1021,18 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             // and save the graph
             vg::io::save_handle_graph(graph.get(), outfile);
             
-            output_names.push_back(output_name);
+            output_names[i] = output_name;
+        };
+        
+        // approximate the time and memory use for each chunk
+        vector<pair<int64_t, int64_t>> approx_job_requirements;
+        for (auto& chunk_filename : chunk_filenames) {
+            approx_job_requirements.emplace_back(get_file_size(chunk_filename),
+                                                 approx_graph_load_memory(chunk_filename));
         }
+        
+        JobSchedule schedule(approx_job_requirements, strip_chunk);
+        schedule.execute(plan->target_memory_usage());
         
         // return the filename(s)
         return all_outputs;
@@ -1012,18 +1055,18 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // meta-recipe for creating a VG from a GFA
     auto construct_from_gfa = [&](const vector<const IndexFile*>& inputs,
                                   const IndexingPlan* plan,
-                                  const IndexGroup& constructing,
-                                  nid_t* max_node_id_out) {
+                                  const IndexGroup& constructing) {
         
         if (IndexingParameters::verbose) {
             cerr << "[IndexRegistry]: Constructing VG graph from GFA input." << endl;
         }
         
-        assert(constructing.size() == 1);
+        assert(constructing.size() == 2);
         vector<vector<string>> all_outputs(constructing.size());
         
         assert(inputs.size() == 1);
-        auto output_index = *constructing.begin();
+        auto output_max_id = *constructing.begin();
+        auto output_index = *constructing.rbegin();
         auto input_filenames = inputs.at(0)->get_filenames();
         if (input_filenames.size() > 1) {
             cerr << "error:[IndexRegistry] Graph construction does not support multiple GFAs at this time." << endl;
@@ -1032,8 +1075,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto input_filename = input_filenames.front();
         
         string output_name = plan->output_filepath(output_index);
-        ofstream outfile;
+        string max_id_name = plan->output_filepath(output_max_id);
+        ofstream outfile, max_id_outfile;
         init_out(outfile, output_name);
+        init_out(max_id_outfile, max_id_name);
         auto graph = init_mutable_graph();
         
         // make the graph from GFA
@@ -1047,25 +1092,16 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             exit(1);
         }
         
-        if (max_node_id_out) {
-            *max_node_id_out = graph->max_node_id();
-        }
-        
-        // save the file
+        // save the graph
         vg::io::save_handle_graph(graph.get(), outfile);
+        // and the max id
+        max_id_outfile << graph->max_node_id();
         
-        // return the filename
-        all_outputs[0].push_back(output_name);
+        // return the filenames
+        all_outputs[0].push_back(max_id_name);
+        all_outputs[1].push_back(output_name);
         return all_outputs;
     };
-    
-    registry.register_recipe({"VG"}, {"Reference GFA"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
-        return construct_from_gfa(inputs, plan, constructing, nullptr);
-    });
     
     // A meta-recipe to make VG and spliced VG files using the Constructor
     // Expects inputs to be ordered: FASTA, VCF[, GTF/GFF][, Insertion FASTA]
@@ -1114,6 +1150,17 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             if (has_ins_fasta) {
                 insertions = inputs[i++]->get_filenames();
             }
+        }
+        
+        if (has_ins_fasta) {
+            if (insertions.size() > 1) {
+                cerr << "error:[IndexRegistry] can only provide one FASTA for insertion sequences" << endl;
+                exit(1);
+            }
+            
+            // make sure this FASTA has an fai index before we get into all the parallel stuff
+            FastaReference ins_ref;
+            ins_ref.open(insertions.front());
         }
         
         if (ref_filenames.size() != 1 && vcf_filenames.size() != 1 &&
@@ -1304,20 +1351,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     };
     
     // the specific instantiations of the meta-recipe above
-    registry.register_recipe({"MaxNodeID", "VG"}, {"Chunked Reference FASTA", "Chunked VCF", "Insertion Sequence FASTA"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
-        return construct_with_constructor(inputs, plan, constructing, false, false);
-    });
-    registry.register_recipe({"MaxNodeID", "VG"}, {"Chunked Reference FASTA", "Chunked VCF"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
-        return construct_with_constructor(inputs, plan, constructing, false, false);
-    });
     registry.register_recipe({"MaxNodeID", "VG w/ Variant Paths"}, {"Chunked Reference FASTA", "Chunked VCF w/ Phasing", "Insertion Sequence FASTA"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
@@ -1331,6 +1364,27 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         return construct_with_constructor(inputs, plan, constructing, true, false);
+    });
+    registry.register_recipe({"MaxNodeID", "VG"}, {"Reference GFA"},
+                             [&](const vector<const IndexFile*>& inputs,
+                                 const IndexingPlan* plan,
+                                 AliasGraph& alias_graph,
+                                 const IndexGroup& constructing) {
+        return construct_from_gfa(inputs, plan, constructing);
+    });
+    registry.register_recipe({"MaxNodeID", "VG"}, {"Chunked Reference FASTA", "Chunked VCF", "Insertion Sequence FASTA"},
+                             [&](const vector<const IndexFile*>& inputs,
+                                 const IndexingPlan* plan,
+                                 AliasGraph& alias_graph,
+                                 const IndexGroup& constructing) {
+        return construct_with_constructor(inputs, plan, constructing, false, false);
+    });
+    registry.register_recipe({"MaxNodeID", "VG"}, {"Chunked Reference FASTA", "Chunked VCF"},
+                             [&](const vector<const IndexFile*>& inputs,
+                                 const IndexingPlan* plan,
+                                 AliasGraph& alias_graph,
+                                 const IndexGroup& constructing) {
+        return construct_with_constructor(inputs, plan, constructing, false, false);
     });
     
 #ifdef debug_index_registry_setup
@@ -1510,61 +1564,64 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // MaxNodeID Recipes
     ////////////////////////////////////
     
-#ifdef debug_index_registry_setup
-    cerr << "registering MaxNodeID recipes" << endl;
-#endif
+    // these recipes actually kinda mess up everything now that we just make the max node id
+    // alongside the graphs during construction
     
-    // meta-recipe to write max node id down to a file
-    auto write_max_node_id = [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 const IndexGroup& constructing) {
-        
-        if (IndexingParameters::verbose) {
-            cerr << "[IndexRegistry]: Determining node ID interval." << endl;
-        }
-        
-        // TODO: this is pretty unoptimized in that we have to load the whole graph just
-        // to read the max node id
-        
-        assert(constructing.size() == 1);
-        assert(inputs.size() == 1);
-        vector<vector<string>> all_outputs(constructing.size());
-        auto output_index = *constructing.begin();
-        auto graph_files = inputs.at(0)->get_filenames();
-        
-        // test I/O
-        for (const string& graph_file : graph_files) {
-            ifstream infile;
-            init_in(infile, graph_file);
-        }
-        string output_name = plan->output_filepath(output_index);
-        ofstream outfile;
-        init_out(outfile, output_name);
-        
-        VGset graph_set(graph_files);
-        nid_t max_node_id = graph_set.max_node_id();
-        
-        outfile << max_node_id;
-        
-        all_outputs[0].push_back(output_name);
-        return all_outputs;
-    };
-    
-    registry.register_recipe({"MaxNodeID"}, {"VG"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
-        return write_max_node_id(inputs, plan, constructing);
-    });
-    
-    registry.register_recipe({"Spliced MaxNodeID"}, {"Spliced VG w/ Transcript Paths"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
-        return write_max_node_id(inputs, plan, constructing);
-    });
+//#ifdef debug_index_registry_setup
+//    cerr << "registering MaxNodeID recipes" << endl;
+//#endif
+//
+//    // meta-recipe to write max node id down to a file
+//    auto write_max_node_id = [&](const vector<const IndexFile*>& inputs,
+//                                 const IndexingPlan* plan,
+//                                 const IndexGroup& constructing) {
+//
+//        if (IndexingParameters::verbose) {
+//            cerr << "[IndexRegistry]: Determining node ID interval." << endl;
+//        }
+//
+//        // TODO: this is pretty unoptimized in that we have to load the whole graph just
+//        // to read the max node id
+//
+//        assert(constructing.size() == 1);
+//        assert(inputs.size() == 1);
+//        vector<vector<string>> all_outputs(constructing.size());
+//        auto output_index = *constructing.begin();
+//        auto graph_files = inputs.at(0)->get_filenames();
+//
+//        // test I/O
+//        for (const string& graph_file : graph_files) {
+//            ifstream infile;
+//            init_in(infile, graph_file);
+//        }
+//        string output_name = plan->output_filepath(output_index);
+//        ofstream outfile;
+//        init_out(outfile, output_name);
+//
+//        VGset graph_set(graph_files);
+//        nid_t max_node_id = graph_set.max_node_id();
+//
+//        outfile << max_node_id;
+//
+//        all_outputs[0].push_back(output_name);
+//        return all_outputs;
+//    };
+//
+//    registry.register_recipe({"MaxNodeID"}, {"VG"},
+//                             [&](const vector<const IndexFile*>& inputs,
+//                                 const IndexingPlan* plan,
+//                                 AliasGraph& alias_graph,
+//                                 const IndexGroup& constructing) {
+//        return write_max_node_id(inputs, plan, constructing);
+//    });
+//
+//    registry.register_recipe({"Spliced MaxNodeID"}, {"Spliced VG w/ Transcript Paths"},
+//                             [&](const vector<const IndexFile*>& inputs,
+//                                 const IndexingPlan* plan,
+//                                 AliasGraph& alias_graph,
+//                                 const IndexGroup& constructing) {
+//        return write_max_node_id(inputs, plan, constructing);
+//    });
     
     ////////////////////////////////////
     // GBWT Recipes
@@ -2935,9 +2992,11 @@ RecipeName IndexRegistry::register_recipe(const vector<IndexName>& identifiers,
     }
     
     // test that the input identifiers are in alphabetical order
-    // this is an easy-to-troubleshoot check that lets us use IndexGroup's internally and
-    // still provide the vector<IndexFile*> in the same order as the input identifiers to
-    // the RecipeFunc and in the recipe declaration
+    // this is an easy-to-troubleshoot check that lets us use IndexGroup's (which are ordered set)
+    // internally and still provide the vector<IndexFile*> in the same order as the input identifiers to
+    // the RecipeFunc and in the recipe declaration.
+    // i.e. this helps ensure that the order of the indexes that you code in the recipe declaration
+    // is the order that they will continue to be given throughout the registry
     IndexGroup input_group(input_identifiers.begin(), input_identifiers.end());
     IndexGroup output_group(identifiers.begin(), identifiers.end());
     {
@@ -3281,28 +3340,22 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
         // make a singleton group for the recipe graph
         IndexGroup product_group{product};
         
-        // records of (identifier, lowest level requester, ordinal index of recipe selected)
-        vector<tuple<size_t, size_t, size_t>> plan_path;
+        // records of (identifier, requesters, ordinal index of recipe selected)
+        vector<tuple<size_t, set<size_t>, size_t>> plan_path;
         
-        // map dependency priority to lowest level priority that requested this and
-        // the number of requesters
-        map<size_t, pair<size_t, size_t>, greater<size_t>> queue;
+        // map dependency priority to requesters
+        map<size_t, set<size_t>, greater<size_t>> queue;
+        
+        auto num_recipes = [&](const IndexGroup& indexes) {
+            int64_t num = 0;
+            if (recipe_registry.count(indexes)) {
+                num = recipe_registry.at(indexes).size();
+            }
+            return num;
+        };
         
         // update the queue to request the inputs of a recipe from the final index on the plan path
         auto request_from_back = [&]() {
-            auto make_request = [&](const IndexGroup& inputs) {
-                size_t dep_order = dep_order_of_identifier[inputs];
-                auto f = queue.find(dep_order);
-                if (f == queue.end()) {
-                    // no lower-level index has requested this one yet
-                    queue[dep_order] = pair<size_t, size_t>(get<0>(plan_path.back()), 1);
-                }
-                else {
-                    // record that one more index is requesting this one
-                    f->second.second++;
-                }
-                
-            };
             
             // the index at the back of the plan path is making the request
             auto& requester = identifier_order[get<0>(plan_path.back())];
@@ -3315,88 +3368,127 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
             
             if (requester.size() == 1 && inputs.count(*requester.begin())) {
                 // this is an unboxing recipe, request the whole previous group
-                make_request(inputs);
+                queue[dep_order_of_identifier[inputs]].insert(get<0>(plan_path.back()));
             }
             else {
                 // this is not an unboxing recipe, request all of the recipe inputs separately
                 for (auto& input_index : inputs) {
                     IndexGroup singleton_input{input_index};
-                    make_request(singleton_input);
+                    queue[dep_order_of_identifier[singleton_input]].insert(get<0>(plan_path.back()));
                 }
             }
         };
         
+        // place the final step in the plan path back in the queue
+        auto requeue_back = [&]() {
+#ifdef debug_index_registry
+            cerr << "requeueing " << to_string(identifier_order[get<0>(plan_path.back())]) << ", requested by:" << endl;
+            for (auto d : get<1>(plan_path.back())) {
+                cerr << "\t" << to_string(identifier_order[d]) << endl;
+            }
+#endif
+            // TODO: is this check necessary?
+            if (!get<1>(plan_path.back()).empty()) {
+                queue[get<0>(plan_path.back())] = get<1>(plan_path.back());
+            }
+            plan_path.pop_back();
+        };
+        
         // update the queue to remove requests to the inputs of a recipe from the final index on the plan path
         auto unrequest_from_back = [&]() {
+            
             auto make_unrequest = [&](const IndexGroup& inputs) {
-                size_t input_dep_order = dep_order_of_identifier[inputs];
-                auto q = queue.find(input_dep_order);
-                if (q != queue.end()) {
-                    // there is now one fewer index requesting this index as input
-                    --q->second.second;
-                    if (q->second.second == 0) {
-                        // this is the only index that's requesting this queued index,
-                        // so we can remove it from the queue
-                        queue.erase(q);
-                    }
+                auto it = queue.find(dep_order_of_identifier[inputs]);
+                it->second.erase(get<0>(plan_path.back()));
+                if (it->second.empty()) {
+#ifdef debug_index_registry
+                    cerr << "\t\tremoved final request to " << to_string(identifier_order[it->first]) << ", dequeuing" << endl;
+#endif
+                    queue.erase(it);
                 }
             };
             
             auto& requester = identifier_order[get<0>(plan_path.back())];
             
-#ifdef debug_index_registry
-            cerr << "retracting request from " << to_string(requester) << endl;
-#endif
-            
             if (!all_finished(requester) && recipe_registry.count(requester)) {
                 // this index was using a recipe, we need to update its dependencies
                 // that are currently in the queue
                 
-                if (get<2>(plan_path.back()) < recipe_registry.at(requester).size()) {
-                    // there's a recipe left
-                    auto inputs = recipe_registry.at(requester).at(get<2>(plan_path.back())).input_group();
-                    
 #ifdef debug_index_registry
-                    cerr << to_string(requester) << " made requests from recipe requiring " << to_string(inputs) << endl;
+                cerr << "retracting requests from " << to_string(requester) << ", recipe " << get<2>(plan_path.back()) << endl;
 #endif
-                    
-                    if (requester.size() == 1 && inputs.count(*requester.begin())) {
-                        // this is an unboxing recipe, unrequest the whole previous group
-                        make_unrequest(inputs);
-                    }
-                    else {
-                        // this is not an unboxing recipe, unrequest all of the recipe inputs separately
-                        for (auto& input_index : inputs) {
-                            IndexGroup singleton_input{input_index};
-                            make_unrequest(singleton_input);
-                        }
+                auto inputs = recipe_registry.at(requester).at(get<2>(plan_path.back())).input_group();
+                
+#ifdef debug_index_registry
+                cerr << "\tmade requests from recipe requiring " << to_string(inputs) << endl;
+#endif
+                
+                if (requester.size() == 1 && inputs.count(*requester.begin())) {
+                    // this is an unboxing recipe, unrequest the whole previous group
+                    make_unrequest(inputs);
+                }
+                else {
+                    // this is not an unboxing recipe, unrequest all of the recipe inputs separately
+                    for (auto& input_index : inputs) {
+                        IndexGroup singleton_input{input_index};
+                        make_unrequest(singleton_input);
                     }
                 }
             }
+#ifdef debug_index_registry
+            else {
+                cerr << "no need to retract requests from " << to_string(requester) << endl;
+            }
+#endif
         };
         
         // init the queue
-        queue[dep_order_of_identifier[product_group]] = pair<size_t, size_t>(identifier_order.size(), 1);
+        queue[dep_order_of_identifier[product_group]] = set<size_t>();
         
         while (!queue.empty()) {
 #ifdef debug_index_registry_path_state
             cerr << "new iteration, path:" << endl;
             for (auto pe : plan_path) {
-                cerr << "\t" << to_string(identifier_order[get<0>(pe)]) << ", requester: " << (get<1>(pe) == identifier_order.size() ? string("PLAN TARGET") : to_string(identifier_order[get<1>(pe)])) << ", recipe " << get<2>(pe) << endl;
+                cerr << "\t" << to_string(identifier_order[get<0>(pe)]) << ", requesters:";
+                if (get<1>(pe).empty())  {
+                    cerr << " PLAN TARGET";
+                }
+                else {
+                    for (auto d : get<1>(pe)) {
+                        cerr << " " << to_string(identifier_order[d]);
+                    }
+                }
+                cerr << ", recipe " << get<2>(pe) << endl;
             }
             cerr << "state of queue:" << endl;
             for (auto q : queue) {
-                cerr << "\t" << to_string(identifier_order[q.first]) << ", requester: " << (q.second.first == identifier_order.size() ? string("PLAN TARGET") : to_string(identifier_order[q.second.first])) << ", num requesters " << q.second.second << endl;
+                cerr << "\t" << to_string(identifier_order[q.first]) << ", requesters:";
+                if (q.second.empty())  {
+                    cerr << " PLAN TARGET";
+                }
+                else {
+                    for (auto d : q.second) {
+                        cerr << " " << to_string(identifier_order[d]);
+                    }
+                }
+                cerr << endl;
             }
 #endif
             
-            // get the latest file in the dependency order
-            // that we have left to build
+            // get the latest file in the dependency order that we have left to build
             auto it = queue.begin();
-            plan_path.emplace_back(it->first, it->second.first, 0);
+            plan_path.emplace_back(it->first, it->second, 0);
             
 #ifdef debug_index_registry
-            cerr << "dequeue " << to_string(identifier_order[it->first]) << " requested from " << (it->second.first == identifier_order.size() ? string("PLAN TARGET") : to_string(identifier_order[it->second.first])) << " and " << (it->second.second - 1) << " other indexes" << endl;
+            cerr << "dequeue " << to_string(identifier_order[it->first]) << " requested from:" << endl;
+            if (it->second.empty()) {
+                cerr << "\tPLAN TARGET" << endl;
+            }
+            else {
+                for (auto requester : it->second) {
+                    cerr << "\t" << to_string(identifier_order[requester]) << endl;
+                }
+            }
 #endif
             queue.erase(it);
             auto index_group = identifier_order[get<0>(plan_path.back())];
@@ -3419,38 +3511,46 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
                 // so now we backtrack until hitting something that has remaining
                 // lower priority recipes
 #ifdef debug_index_registry
-                cerr << "index " << to_string(index_group) << " cannot be made from existing inputs, need to back prune" << endl;
+                cerr << "index " << to_string(index_group) << " cannot be made from existing inputs, need to backtrack" << endl;
 #endif
                 
                 // prune to requester and advance to its next recipe, as many times as necessary until
                 // requester has remaining un-tried recipes
-                while (!plan_path.empty() &&
-                       (recipe_registry.count(identifier_order[get<0>(plan_path.back())]) ?
-                        get<2>(plan_path.back()) >= recipe_registry.at(identifier_order[get<0>(plan_path.back())]).size() : true)) {
+                // note: if we're backtracking from a data file it might not have recipes
+                while (get<2>(plan_path.back()) >= num_recipes(identifier_order[get<0>(plan_path.back())])) {
                     // there are no remaining recipes to build the last index in the plan
                     
-                    // remove items off the plan path until we get to the index that requested
-                    // this one
-                    size_t requester = get<1>(plan_path.back());
-#ifdef debug_index_registry
-                    cerr << "pruning path to previous requester: " << (requester == identifier_order.size() ? "PLAN TARGET" : to_string(identifier_order[requester])) << endl;
-#endif
-                    while (!plan_path.empty() && get<0>(plan_path.back()) != requester) {
-                        unrequest_from_back();
-                        plan_path.pop_back();
+                    if (get<1>(plan_path.back()).empty()) {
+                        // this is the product of the plan path, and we're out of recipes for it
+                        throw InsufficientInputException(product, *this);
                     }
                     
-                    if (!plan_path.empty()) {
-                        // the requester should now use its next highest priority recipe
+                    // remove items off the plan path until we get to the first index that requested
+                    // this one
+                    size_t requester = *get<1>(plan_path.back()).rbegin();
+                    
+#ifdef debug_index_registry
+                    cerr << "no remaining recipes for " << to_string(identifier_order[get<0>(plan_path.back())]) << ", pruning to earliest requester: " << to_string(identifier_order[requester]) << endl;
+#endif
+                    
+                    requeue_back(); // nothing to unrequest from the first one, which is past its last recipe
+                    while (get<0>(plan_path.back()) != requester) {
                         unrequest_from_back();
-                        // advance to the next recipe
-                        ++get<2>(plan_path.back());
+                        requeue_back();
                     }
+                    
+                    // advance to the next recipe
+                    unrequest_from_back();
+                    ++get<2>(plan_path.back());
+                    
+#ifdef debug_index_registry
+                    cerr << "advance to recipe " << get<2>(plan_path.back()) << " for " << to_string(identifier_order[get<0>(plan_path.back())]) << endl;
+#endif
                 }
                 
-                if (!plan_path.empty()) {
-                    request_from_back();
-                }
+                // we pulled back far enough that we found an index with a lower-priority recipe
+                // remaining
+                request_from_back();
             }
             
         }
@@ -3458,14 +3558,12 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
 #ifdef debug_index_registry
         cerr << "final plan path for index " << product << ":" << endl;
         for (auto path_elem : plan_path) {
-            cerr << "\t" << to_string(identifier_order[get<0>(path_elem)]) << ", from " << (get<1>(path_elem) == identifier_order.size() ? "PLAN START" : to_string(identifier_order[get<1>(path_elem)])) << ", recipe " << get<2>(path_elem) << endl;
+            cerr << "\t" << to_string(identifier_order[get<0>(path_elem)]) << ", recipe " << get<2>(path_elem) << ", from:" << endl;
+            for (auto d : get<1>(path_elem)) {
+                cerr << "\t\t" << to_string(identifier_order[d]) << endl;
+            }
         }
 #endif
-        
-        if (plan_path.empty()) {
-            // we don't have enough of the inputs to create this index
-            throw InsufficientInputException(product, *this);
-        }
         
         // record the elements of this plan
         for (size_t i = 0; i < plan_path.size(); ++i) {
