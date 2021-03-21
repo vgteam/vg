@@ -528,21 +528,25 @@ SnarlSequenceFinder::find_embedded_paths() {
     for (auto path : paths_in_snarl) {
         if (!(_graph.get_id(_graph.get_handle_of_step(path.first)) == _source_id)) {
             cerr << "************in UNIT_TEST for find_embedded_paths************" << endl;
+            cerr << "in snarl with source: " << _source_id << " and sink " << _sink_id << ":" << endl;
             cerr << "path " << _graph.get_path_name(_graph.get_path_handle_of_step(path.first)) << " doesn't start at source of snarl. " << " source: " << _source_id << "; start of path: " << _graph.get_id(_graph.get_handle_of_step(path.first)) << endl;
         }
         if (!(_graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) == _sink_id)) {
             cerr << "************in UNIT_TEST for find_embedded_paths************" << endl;
+            cerr << "in snarl with source: " << _source_id << " and sink " << _sink_id << ":" << endl;
             cerr << "path " << _graph.get_path_name(_graph.get_path_handle_of_step(path.second)) << " doesn't end at sink of snarl. " << " source: " << _sink_id << "; end of path: " << _graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) << endl;
             cerr << "note that the 'true' end of the path is one step further than the sink. Print statement above corrects for that convention." << endl;
         }
         if (!(path_names.find(_graph.get_path_name(_graph.get_path_handle_of_step(path.first))) == path_names.end())) {
             cerr << "************in UNIT_TEST for find_embedded_paths************" << endl;
+            cerr << "in snarl with source: " << _source_id << " and sink " << _sink_id << ":" << endl;
             cerr << "path " << _graph.get_path_name(_graph.get_path_handle_of_step(path.second)) << " has been found more than once in find_embedded_paths, when it should only have been extracted once. " << endl;
         }
         path_names.emplace(_graph.get_path_name(_graph.get_path_handle_of_step(path.first)));
     } 
     if ((path_names.size() == 0)) {
         cerr << "************in UNIT_TEST for find_embedded_paths************" << endl;
+        cerr << "in snarl with source: " << _source_id << " and sink " << _sink_id << ":" << endl;
         cerr << "no embedded paths found in find_embedded_paths." << endl;
     }
     // for (auto path : paths_in_snarl) {

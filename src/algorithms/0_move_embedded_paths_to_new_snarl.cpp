@@ -120,6 +120,7 @@ vector<handle_t> SnarlNormalizer::extend_possible_paths(vector<pair<vector<handl
     if (correct_path.size() == 0)
     {
         cerr << "************UNIT_TEST for extend_possible_paths************" << endl;
+        cerr << "in snarl with leftmost_id: " << _graph.get_id(leftmost_handle) << " and rightmost_id " << _graph.get_id(rightmost_handle) << ":" << endl;
         cerr << "no correct path in snarl found. output path size is zero." << endl;
         cerr << "************END-UNIT_TEST for extend_possible_paths.************"<< endl;
     }
@@ -151,6 +152,7 @@ pair<step_handle_t, step_handle_t> SnarlNormalizer::move_path_to_new_snarl(const
     if (!(path_spans_left_right.first and path_spans_left_right.second))
     {
         cerr << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << endl;
+        cerr << "in snarl with leftmost_id: " << leftmost_id << " and rightmost_id " << rightmost_id << ":" << endl;
         cerr << "PATH DOESN'T SPAN SOURCE AND SINK! THIS IS CURRENTLY UNSUPPORTED. SNARL WILL BE NORMALIZED, BUT PATH WON'T BE INCLUDED." << endl;
         cerr << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << endl;
         pair<step_handle_t, step_handle_t> no_path;
@@ -261,6 +263,7 @@ pair<step_handle_t, step_handle_t> SnarlNormalizer::move_path_to_new_snarl(const
     if (new_path_location.size() == 0)
     {
         cerr << "************in UNIT_TEST for move_path_to_new_snarl************" << endl;
+        cerr << "in snarl with leftmost_id: " << _graph.get_id(leftmost_handle) << " and rightmost_id " << _graph.get_id(rightmost_handle) << ":" << endl;
         cerr << "no new path location found." << endl;
     }
     // Test that the new path seq = old path seq.
@@ -295,6 +298,7 @@ pair<step_handle_t, step_handle_t> SnarlNormalizer::move_path_to_new_snarl(const
         if (old_path_str != new_path_str)
         {
             cerr << "************in UNIT_TEST for move_path_to_new_snarl************" << endl;
+            cerr << "in snarl with leftmost_id: " << _graph.get_id(leftmost_handle) << " and rightmost_id " << _graph.get_id(rightmost_handle) << ":" << endl;
             cerr << "Once the path was moved into the new snarl, it didn't have the same sequence." << endl;
             cerr << "original seq: " << old_path_str << endl;
             cerr << "     new seq: " << new_path_str << endl;
