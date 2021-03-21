@@ -30,8 +30,6 @@ void help_depth(char** argv) {
          << "options:" << endl
          << "  packed coverage depth (print positional depths along path):" << endl
          << "    -k, --pack FILE        supports created from vg pack for given input graph" << endl
-         << "    -p, --ref-path NAME    reference path to call on (multipile allowed.  defaults to all paths)" << endl
-         << "    -b, --bin-size N       bin size (in bases) [1] (2 extra columns printed when N>1: bin-end-pos and stddev)" << endl
          << "    -d, --count-dels       count deletion edges within the bin as covering reference positions" << endl
          << "  GAM/GAF coverage depth (print <mean> <stddev> for depth):" << endl
          << "    -g, --gam FILE         read alignments from this GAM file (could be '-' for stdin)" << endl
@@ -39,7 +37,12 @@ void help_depth(char** argv) {
          << "    -n, --max-nodes N      maximum nodes to consider [1000000]" << endl
          << "    -s, --random-seed N    random seed for sampling nodes to consider" << endl
          << "    -Q, --min-mapq N       ignore alignments with mapping quality < N [0]" << endl
+         << "  path coverage depth (print positional depths along path):" << endl
+         << "     activate by specifiying -p without -k" << endl
          << "  common options:" << endl
+         << "    -p, --ref-path NAME    reference path to call on (multipile allowed.  defaults to all paths)" << endl
+         << "    -P, --paths-by STR     select the paths with the given name prefix" << endl        
+         << "    -b, --bin-size N       bin size (in bases) [1] (2 extra columns printed when N>1: bin-end-pos and stddev)" << endl
          << "    -m, --min-coverage N   ignore nodes with less than N coverage [1]" << endl
          << "    -t, --threads N        number of threads to use [all available]" << endl;
 }
@@ -53,6 +56,7 @@ int main_depth(int argc, char** argv) {
 
     string pack_filename;
     vector<string> ref_paths;
+    vector<string> path_prefixes;
     size_t bin_size = 1;
     bool count_dels = false;
     
@@ -71,6 +75,7 @@ int main_depth(int argc, char** argv) {
         static const struct option long_options[] = {
             {"pack", required_argument, 0, 'k'},            
             {"ref-path", required_argument, 0, 'p'},
+            {"paths-by", required_argument, 0, 'P'}, 
             {"bin-size", required_argument, 0, 'b'},
             {"count-dels", no_argument, 0, 'd'},
             {"gam", required_argument, 0, 'g'},
@@ -85,7 +90,7 @@ int main_depth(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:p:c:b:dg:a:n:s:m:t:",
+        c = getopt_long (argc, argv, "hk:p:P:c:b:dg:a:n:s:m:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -99,7 +104,10 @@ int main_depth(int argc, char** argv) {
             break;
         case 'p':
             ref_paths.push_back(optarg);
-            break;            
+            break;
+        case 'P':
+            path_prefixes.push_back(optarg);
+            break;
         case 'b':
             bin_size = parse<size_t>(optarg);
             break;
@@ -153,8 +161,8 @@ int main_depth(int argc, char** argv) {
     size_t input_count = pack_filename.empty() ? 0 : 1;
     if (!gam_filename.empty()) ++input_count;
     if (!gaf_filename.empty()) ++input_count;
-    if (input_count != 1) {                                          
-        cerr << "error:[vg depth] Exactly one of a pack file (-k), a GAM file (-g), or a GAF file (-a) must be given" << endl;
+    if (input_count > 1) {                                          
+        cerr << "error:[vg depth] At most one of a pack file (-k), a GAM file (-g), or a GAF file (-a) must be given" << endl;
         exit(1);
     }
 
@@ -172,34 +180,47 @@ int main_depth(int argc, char** argv) {
         assert(graph != nullptr);
     }
 
-    // Process the pack
+    // Process the pack (or paths)
     unique_ptr<Packer> packer;
-    if (!pack_filename.empty()) {        
-        // Load our packed supports (they must have come from vg pack on graph)
-        packer = unique_ptr<Packer>(new Packer(graph));
-        packer->load_from_file(pack_filename);
+    if (!pack_filename.empty() || input_count == 0) {
+        if (!pack_filename.empty()) {
+            // Load our packed supports (they must have come from vg pack on graph)
+            packer = unique_ptr<Packer>(new Packer(graph));
+            packer->load_from_file(pack_filename);
+        }
 
         // All paths if none given
-        if (ref_paths.empty()) {
+        if (ref_paths.empty() || !path_prefixes.empty()) {
             graph->for_each_path_handle([&](path_handle_t path_handle) {
                     string path_name = graph->get_path_name(path_handle);
-                    if (!Paths::is_alt(path_name)) {
+                    // just take anything if no selection
+                    bool use_it = !Paths::is_alt(path_name) && path_prefixes.empty();
+                    // otherwise look for a prefix match
+                    for (size_t i = 0; i < path_prefixes.size() && !use_it; ++i) {
+                        if (path_name.substr(0, path_prefixes[i].length()) == path_prefixes[i] &&
+                            std::find(ref_paths.begin(), ref_paths.end(), path_name) == ref_paths.end()) {
+                            use_it = true;
+                        }
+                    }
+                    if (use_it) {
                         ref_paths.push_back(path_name);
                     }
                 });
-        } else {
-            for (const string& ref_name : ref_paths) {
-                if (!graph->has_path(ref_name)) {
-                    cerr << "error:[vg depth] Path \"" << ref_name << "\" not found in graph" << endl;
-                }
+        } 
+        for (const string& ref_name : ref_paths) {
+            if (!graph->has_path(ref_name)) {
+                cerr << "error:[vg depth] Path \"" << ref_name << "\" not found in graph" << endl;
             }
         }
         
-
         for (const string& ref_path : ref_paths) {
             if (bin_size > 1) {
-                vector<tuple<size_t, size_t, double, double>> binned_depth =
-                    algorithms::binned_packed_depth(*packer, ref_path, bin_size, min_coverage, count_dels);
+                vector<tuple<size_t, size_t, double, double>> binned_depth;
+                if (!pack_filename.empty()) {
+                    binned_depth = algorithms::binned_packed_depth(*packer, ref_path, bin_size, min_coverage, count_dels);
+                } else {
+                    binned_depth = algorithms::binned_path_depth(*graph, ref_path, bin_size, min_coverage);
+                }
                 for (auto& bin_cov : binned_depth) {
                     // bins can ben nan if min_coverage filters everything out.  just skip
                     if (!isnan(get<3>(bin_cov))) {
@@ -208,7 +229,11 @@ int main_depth(int argc, char** argv) {
                     }
                 }
             } else {
-                algorithms::packed_depths(*packer, ref_path, min_coverage, cout);
+                if (!pack_filename.empty()) {
+                    algorithms::packed_depths(*packer, ref_path, min_coverage, cout);
+                } else {
+                    algorithms::path_depths(*graph, ref_path, min_coverage, cout);
+                }
             }
         }
     }

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 18
+plan tests 20
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -G x.gbwt -v small/x.vcf.gz x.vg
@@ -16,7 +16,12 @@ vg minimizer -k 29 -w 11 -g x.gbwt -i x.min x.xg
 vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with all indexes specified without crashing"
 
-rm -f x.vg x.xg x.gbwt x.snarls x.min x.dist x.gg
+vg minimizer -k 29 -b -s 18 -g x.gbwt -i x.sync x.xg
+
+vg giraffe -x x.xg -H x.gbwt -m x.sync -d x.dist -f reads/small.middle.ref.fq > mapped.sync.gam
+is "${?}" "0" "a read can be mapped with syncmer indexes without crashing"
+
+rm -f x.vg x.xg x.gbwt x.snarls x.min x.sync x.dist x.gg
 
 cp small/x.fa .
 cp small/x.vcf.gz .
@@ -25,10 +30,11 @@ cp small/x.vcf.gz.tbi .
 vg giraffe x.fa x.vcf.gz -f reads/small.middle.ref.fq > mapped2.gam
 is "${?}" "0" "a read can be mapped with just FASTA and VCF without crashing"
 
-# These files can differ as serialized and still represent the same data, dur to protobuf field order not being specified.
+# These files can differ as serialized and still represent the same data, due to protobuf field order not being specified.
 # Tripping through JSON will sort all the keys.
 vg view -aj mapped1.gam >mapped1.json
 vg view -aj mapped2.gam >mapped2.json
+vg view -aj mapped.sync.gam >mapped.sync.json
 
 # Make sure at least one file converted successfully
 SIZE="$(wc -c mapped2.json | cut -f1 -d' ')"
@@ -41,7 +47,9 @@ is "${EMPTY}" "0" "mapping with just a FASTA and a VCF produced JSON-able alignm
 diff mapped1.json mapped2.json
 is "${?}" "0" "mapping to manually-generated indexes and automatically-generated indexes is the same"
 
-rm -rf mapped1.gam mapped1.json mapped2.gam mapped2.json
+is "$(jq '.path' mapped1.json)" "$(jq '.path' mapped.sync.json)" "mapping with syncmers produces the same alignment as mapping with minimizers"
+
+rm -rf mapped1.gam mapped1.json mapped2.gam mapped2.json mapped.sync.gam mapped.sync.json
 
 vg giraffe x.fa x.vcf.gz -f small/x.fa_1.fastq > single.gam
 is "$(vg view -aj single.gam | jq -c 'select((.fragment_next | not) and (.fragment_prev | not))' | wc -l)" "1000" "unpaired reads lack cross-references"

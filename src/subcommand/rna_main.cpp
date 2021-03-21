@@ -229,8 +229,21 @@ int32_t main_rna(int32_t argc, char** argv) {
     double time_parsing_start = gcsa::readTimer();
     if (show_progress) { cerr << "[vg rna] Parsing graph file ..." << endl; }
 
+    unique_ptr<MutablePathDeletableHandleGraph> splice_graph(nullptr);
+
+    // Load variation graph.
+    get_input_file(optind, argc, argv, [&](istream& in) {
+        splice_graph = move(vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in));
+    });
+
+    if (splice_graph == nullptr) {
+        cerr << "[transcriptome] ERROR: Could not load graph." << endl;
+        exit(1);
+    }
+
     // Construct transcriptome and parse graph.
-    Transcriptome transcriptome(get_input_file_name(optind, argc, argv), show_progress);
+    Transcriptome transcriptome(move(splice_graph));
+    assert(splice_graph == nullptr);
 
     unique_ptr<gbwt::GBWT> haplotype_index;
 
@@ -407,5 +420,5 @@ int32_t main_rna(int32_t argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_rna("rna", "construct spliced variation graphs and transcript paths", main_rna);
+static Subcommand vg_rna("rna", "construct spliced variation graphs and transcript paths", PIPELINE, 3, main_rna);
 

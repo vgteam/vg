@@ -5,10 +5,8 @@
 
 //#define debug
 
-#include "algorithms/topological_sort.hpp"
-#include "algorithms/is_acyclic.hpp"
-#include "algorithms/weakly_connected_components.hpp"
 #include "subgraph_overlay.hpp"
+#include "handle.hpp"
 
 #include "cactus_snarl_finder.hpp"
 
@@ -76,7 +74,7 @@ SnarlManager CactusSnarlFinder::find_snarls() {
 
 SnarlManager CactusSnarlFinder::find_snarls_parallel() {
 
-    vector<unordered_set<id_t>> weak_components = algorithms::weakly_connected_components(graph);    
+    vector<unordered_set<id_t>> weak_components = handlealgs::weakly_connected_components(graph);
     vector<SnarlManager> snarl_managers(weak_components.size());
 
 #pragma omp parallel for schedule(dynamic, 1)
@@ -358,7 +356,7 @@ const Snarl* CactusSnarlFinder::recursively_emit_snarls(const Visit& start, cons
             NetGraph flat_net_graph(start, end, child_chains, graph);
             
             // This definitely should be calculated based on the internal-connectivity-ignoring net graph.
-            snarl.set_directed_acyclic_net_graph(algorithms::is_directed_acyclic(&flat_net_graph));
+            snarl.set_directed_acyclic_net_graph(handlealgs::is_directed_acyclic(&flat_net_graph));
         }
 
         // Now we need to work out if the snarl can be a unary snarl or an ultrabubble or what.

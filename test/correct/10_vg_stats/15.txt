@@ -4,6 +4,8 @@ Total secondary: 0
 Total aligned: 100
 Total perfect: 100
 Total gapless (softclips allowed): 100
+Total paired: 0
+Total properly paired: 0
 Insertions: 0 bp in 0 read events
 Deletions: 0 bp in 0 read events
 Substitutions: 0 bp in 0 read events

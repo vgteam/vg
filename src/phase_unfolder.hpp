@@ -18,8 +18,7 @@
 #include <vector>
 
 #include <gcsa/support.h>
-
-#include "algorithms/extend.hpp"
+#include <bdsg/hash_graph.hpp>
 
 namespace vg {
 
@@ -43,7 +42,7 @@ public:
      * These indexes must represent the same original graph. 'next_node' should
      * usually be max_node_id() + 1 in the original graph.
      */
-    PhaseUnfolder(const PathPositionHandleGraph& path_graph, const gbwt::GBWT& gbwt_index, vg::id_t next_node);
+    PhaseUnfolder(const PathHandleGraph& path_graph, const gbwt::GBWT& gbwt_index, vg::id_t next_node);
 
     /**
      * Unfold the pruned regions in the input graph:
@@ -107,7 +106,7 @@ private:
      * GBWT index but not in the input graph. Split the complement into
      * disjoint components and return the components.
      */
-    std::list<VG> complement_components(MutableHandleGraph& graph, bool show_progress);
+    std::list<bdsg::HashGraph> complement_components(MutableHandleGraph& graph, bool show_progress);
 
     /**
      * Generate all border-to-border paths in the component supported by the
@@ -159,7 +158,7 @@ private:
     gbwt::node_type get_suffix(gbwt::node_type node, gbwt::node_type to);
 
     /// XG and GBWT indexes for the original graph.
-    const PathPositionHandleGraph& path_graph;
+    const PathHandleGraph& path_graph;
     const gbwt::GBWT& gbwt_index;
 
     /// Mapping from duplicated nodes to original ids.

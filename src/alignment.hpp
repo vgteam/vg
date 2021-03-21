@@ -9,10 +9,10 @@
 #include "position.hpp"
 #include <vg/vg.pb.h>
 #include "vg/io/edit.hpp"
-#include "htslib/hfile.h"
-#include "htslib/hts.h"
-#include "htslib/sam.h"
-#include "htslib/vcf.h"
+#include <htslib/hfile.h>
+#include <htslib/hts.h>
+#include <htslib/sam.h>
+#include <htslib/vcf.h>
 #include "handle.hpp"
 #include "vg/io/alignment_io.hpp"
 
@@ -192,6 +192,9 @@ int32_t determine_flag(const Alignment& alignment,
 /// suppress softclips up to that length. This will necessitate adjusting pos,
 /// which is why it is passed by reference.
 vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress);
+
+/// Merge runs of successive I/D operations into a single I and D
+void consolidate_ID_runs(vector<pair<int, char>>& cigar);
 
 void mapping_against_path(Alignment& alignment, const bam1_t *b,
                           const PathPositionHandleGraph* graph, bool on_reverse_strand);

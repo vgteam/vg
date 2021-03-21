@@ -3,7 +3,7 @@
 #include <vg/io/stream.hpp>
 #include "chunker.hpp"
 #include "algorithms/subgraph.hpp"
-#include "algorithms/copy_graph.hpp"
+#include "handle.hpp"
 
 //#define debug
 
@@ -229,7 +229,7 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
         if (!mappings.begin()->is_reverse() && vg_subgraph->start_degree(start_node) != 0) {
             for (auto edge : vg_subgraph->edges_to(start_node)) {
 #ifdef debug
-#pragma omp crticial(cerr)
+#pragma omp critical(cerr)
                 {
                     cerr << "clipping out edge " << pb2json(*edge) << " in order to make path start a tip" << endl;
                 }
@@ -239,7 +239,7 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
         } else if (mappings.begin()->is_reverse() && vg_subgraph->end_degree(start_node) != 0) {
             for (auto edge : vg_subgraph->edges_from(start_node)) {
 #ifdef debug
-#pragma omp crticial(cerr)
+#pragma omp critical(cerr)
                 {
                     cerr << "clipping out edge " << pb2json(*edge) << " in order to make path start a tip" << endl;
                 }
@@ -254,7 +254,7 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
         if (!mappings.rbegin()->is_reverse() && vg_subgraph->end_degree(end_node) != 0) {
             for (auto edge : vg_subgraph->edges_from(end_node)) {
 #ifdef debug
-#pragma omp crticial(cerr)
+#pragma omp critical(cerr)
                 {
                     cerr << "clipping out edge " << pb2json(*edge) << " in order to make path end a tip" << endl;
                 }
@@ -264,7 +264,7 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
         } else if (mappings.rbegin()->is_reverse() && vg_subgraph->start_degree(end_node) != 0) {
             for (auto edge : vg_subgraph->edges_to(end_node)) {
 #ifdef debug
-#pragma omp crticial(cerr)
+#pragma omp critical(cerr)
                 {
                     cerr << "clipping out edge " << pb2json(*edge) << " in order to make path end a tip" << endl;
                 }
@@ -284,7 +284,7 @@ void PathChunker::extract_subgraph(const Region& region, int64_t context, int64_
 
     // copy back out of vg if necessary
     if (dynamic_cast<VG*>(&subgraph) == nullptr) {
-        algorithms::copy_path_handle_graph(vg_subgraph, &subgraph);
+        handlealgs::copy_path_handle_graph(vg_subgraph, &subgraph);
         delete vg_subgraph;
     }
 

@@ -171,5 +171,5 @@ int main_translate(int argc, char** argv) {
 
 
 // Register subcommand
-static Subcommand vg_version("translate", "project alignments and paths through a graph translation", main_translate);
+static Subcommand vg_version("translate", "project alignments and paths through a graph translation", DEPRECATED, main_translate);
 

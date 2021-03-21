@@ -1,5 +1,6 @@
 #include "variant_adder.hpp"
 #include "mapper.hpp"
+#include "algorithms/prune.hpp"
 
 //#define debug
 
@@ -730,8 +731,11 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 if (edge_max) {
                     VG gcsa_graph = graph; // copy the graph
                     // remove complex components
-                    gcsa_graph.prune_complex_with_head_tail(kmer_size, edge_max);
-                    if (subgraph_prune) gcsa_graph.prune_short_subgraphs(subgraph_prune);
+                    algorithms::prune_complex_with_head_tail(gcsa_graph, kmer_size, edge_max);
+                    if (subgraph_prune) {
+                        algorithms::prune_short_subgraphs(gcsa_graph, subgraph_prune);
+                    }
+                        
                     // then index
 #ifdef debug
                     cerr << "\tGCSA index size: " << gcsa_graph.length() << " bp" << endl;

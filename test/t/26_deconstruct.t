@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 19
+plan tests 20
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > tiny.vg
 vg index tiny.vg -x tiny.xg
@@ -124,4 +124,11 @@ diff tiny_names_decon.vcf tiny_names_decon_vg.vcf
 is "$?" 0 "deconstructing vg graph gives same output as xg graph"
 
 rm -f tiny_names.gfa tiny_names.vg tiny_names.xg tiny_names_decon.vcf tiny_names_decon_vg.vcf
+
+vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
+vg index -x x.xg -G x.gbwt -v small/x.vcf.gz x.vg
+vg deconstruct x.xg -g x.gbwt > x.decon.vcf
+# todo: something better
+is $(cat x.decon.vcf | grep ^x | wc -l) 70 "gbwt deconstruct makes reasonable sized output"
+
 

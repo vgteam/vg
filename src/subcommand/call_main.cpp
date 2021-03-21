@@ -6,7 +6,7 @@
 #include <omp.h>
 #include <unistd.h>
 #include <getopt.h>
-
+#include <regex>
 #include <list>
 #include <fstream>
 
@@ -49,6 +49,10 @@ void help_call(char** argv) {
        << "    -o, --ref-offset N      Offset in reference path (multiple allowed, 1 per path)" << endl
        << "    -l, --ref-length N      Override length of reference in the contig field of output VCF" << endl
        << "    -d, --ploidy N          Ploidy of sample.  Only 1 and 2 supported. (default: 2)" << endl
+       << "    -R, --ploidy-regex RULES    use the given comma-separated list of colon-delimited REGEX:PLOIDY rules to assign" << endl
+       << "                                ploidies to contigs not visited by the selected samples, or to all contigs simulated" << endl
+       << "                                from if no samples are used. Unmatched contigs get ploidy 2 (or that from -d)." << endl
+       << "    -n, --nested            Activate nested calling mode (experimental)" << endl
        << "    -t, --threads N         number of threads to use" << endl;
 }    
 
@@ -70,10 +74,14 @@ int main_call(int argc, char** argv) {
     bool ratio_caller = false;
     bool legacy = false;
     int ploidy = 2;
+    // copied over from vg sim
+    std::vector<std::pair<std::regex, size_t>> ploidy_rules;
+
     bool traversals_only = false;
     bool gaf_output = false;
     size_t trav_padding = 0;
     bool genotype_snarls = false;
+    bool nested = false;
 
     // constants
     const size_t avg_trav_threshold = 50;
@@ -107,10 +115,12 @@ int main_call(int argc, char** argv) {
             {"ref-offset", required_argument, 0, 'o'},
             {"ref-length", required_argument, 0, 'l'},
             {"ploidy", required_argument, 0, 'd'},
+            {"ploidy-regex", required_argument, 0, 'R'},
             {"gaf", no_argument, 0, 'G'},
             {"traversals", no_argument, 0, 'T'},
             {"min-trav-len", required_argument, 0, 'M'},
             {"legacy", no_argument, 0, 'L'},
+            {"nested", no_argument, 0, 'n'},
             {"threads", required_argument, 0, 't'},
             {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
@@ -118,7 +128,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:af:i:s:r:g:p:o:l:d:GTLM:t:h",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:af:i:s:r:g:p:o:l:d:R:GTLM:nt:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -175,6 +185,27 @@ int main_call(int argc, char** argv) {
         case 'd':
             ploidy = parse<int>(optarg);
             break;
+        case 'R':
+            for (auto& rule : split_delims(optarg, ",")) {
+                // For each comma-separated rule
+                auto parts = split_delims(rule, ":");
+                if (parts.size() != 2) {
+                    cerr << "error: ploidy rules must be REGEX:PLOIDY" << endl;
+                    exit(1);
+                }
+                try {
+                    // Parse the regex
+                    std::regex match(parts[0]);
+                    size_t weight = parse<size_t>(parts[1]);
+                    // Save the rule
+                    ploidy_rules.emplace_back(match, weight);
+                } catch (const std::regex_error& e) {
+                    // This is not a good regex
+                    cerr << "error: unacceptable regular expression \"" << parts[0] << "\": " << e.what() << endl;
+                    exit(1);
+                }
+            }
+            break;            
         case 'G':
             gaf_output = true;
             break;
@@ -187,6 +218,9 @@ int main_call(int argc, char** argv) {
             break;
         case 'L':
             legacy = true;
+            break;
+        case 'n':
+            nested =true;
             break;
         case 't':
         {
@@ -346,6 +380,19 @@ int main_call(int argc, char** argv) {
             });
     }
 
+    // build table of ploidys
+    vector<int> ref_path_ploidies;
+    for (const string& ref_path : ref_paths) {
+        int path_ploidy = ploidy;
+        for (auto& rule : ploidy_rules) {
+            if (std::regex_match(ref_path, rule.first)) {
+                path_ploidy = rule.second;
+                break;
+            }
+        }
+        ref_path_ploidies.push_back(path_ploidy);
+    }
+
     // Load or compute the snarls
     unique_ptr<SnarlManager> snarl_manager;    
     if (!snarl_filename.empty()) {
@@ -370,10 +417,14 @@ int main_call(int argc, char** argv) {
         // Load our packed supports (they must have come from vg pack on graph)
         packer = unique_ptr<Packer>(new Packer(graph));
         packer->load_from_file(pack_filename);
-        // Make a packed traversal support finder (using cached veresion important for poisson caller)
-        PackedTraversalSupportFinder* packed_support_finder = new CachedPackedTraversalSupportFinder(*packer, *snarl_manager);
-        support_finder = unique_ptr<TraversalSupportFinder>(packed_support_finder);
-        
+        if (nested) {
+            // Make a nested packed traversal support finder (using cached veresion important for poisson caller)
+            support_finder.reset(new NestedCachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+        } else {
+            // Make a packed traversal support finder (using cached veresion important for poisson caller)
+            support_finder.reset(new CachedPackedTraversalSupportFinder(*packer, *snarl_manager));
+        }
+                
         // need to use average support when genotyping as small differences in between sample and graph
         // will lead to spots with 0-support, espeically in and around SVs. 
         support_finder->set_support_switch_threshold(avg_trav_threshold, avg_node_threshold);
@@ -387,7 +438,7 @@ int main_call(int argc, char** argv) {
             depth_index = algorithms::binned_packed_depth_index(*packer, ref_paths, min_depth_bin_width, max_depth_bin_width,
                                                                 depth_scale_fac, 0, true, true);
             // Make a new-stype probablistic caller
-            auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *packed_support_finder, depth_index,
+            auto poisson_caller = new PoissonSupportSnarlCaller(*graph, *snarl_manager, *support_finder, depth_index,
                                                                 //todo: qualities need to be used better in conjunction with
                                                                 //expected depth.
                                                                 //packer->has_qualities());
@@ -399,7 +450,7 @@ int main_call(int argc, char** argv) {
             packed_caller = poisson_caller;
         } else {
             // Make an old-style ratio support caller
-            auto ratio_caller = new RatioSupportSnarlCaller(*graph, *snarl_manager, *packed_support_finder);
+            auto ratio_caller = new RatioSupportSnarlCaller(*graph, *snarl_manager, *support_finder);
             if (het_bias >= 0) {
                 ratio_caller->set_het_bias(het_bias, ref_het_bias);
             }
@@ -450,7 +501,7 @@ int main_call(int argc, char** argv) {
         
         VCFGenotyper* vcf_genotyper = new VCFGenotyper(*graph, *snarl_caller,
                                                        *snarl_manager, variant_file,
-                                                       sample_name, ref_paths,
+                                                       sample_name, ref_paths, ref_path_ploidies,
                                                        ref_fasta.get(),
                                                        ins_fasta.get(),
                                                        alignment_emitter.get(),
@@ -463,7 +514,7 @@ int main_call(int argc, char** argv) {
         LegacyCaller* legacy_caller = new LegacyCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
                                                        *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
                                                        *snarl_manager,
-                                                       sample_name, ref_paths, ref_path_offsets);
+                                                       sample_name, ref_paths, ref_path_offsets, ref_path_ploidies);
         graph_caller = unique_ptr<GraphCaller>(legacy_caller);
     } else {
         // flow caller can take any kind of traversal finder.  two are supported for now:
@@ -495,16 +546,37 @@ int main_call(int argc, char** argv) {
             traversal_finder = unique_ptr<TraversalFinder>(flow_traversal_finder);
         }
 
-        FlowCaller* flow_caller = new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
-                                                 *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
-                                                 *snarl_manager,
-                                                 sample_name, *traversal_finder, ref_paths, ref_path_offsets,
-                                                 alignment_emitter.get(),
-                                                 traversals_only,
-                                                 gaf_output,
-                                                 trav_padding,
-                                                 genotype_snarls);
-        graph_caller = unique_ptr<GraphCaller>(flow_caller);
+        if (nested) {
+            graph_caller.reset(new NestedFlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
+                                                    *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
+                                                    *snarl_manager,
+                                                    sample_name, *traversal_finder, ref_paths, ref_path_offsets,
+                                                    ref_path_ploidies,
+                                                    alignment_emitter.get(),
+                                                    traversals_only,
+                                                    gaf_output,
+                                                    trav_padding,
+                                                    genotype_snarls));
+        } else {
+            graph_caller.reset(new FlowCaller(*dynamic_cast<PathPositionHandleGraph*>(graph),
+                                              *dynamic_cast<SupportBasedSnarlCaller*>(snarl_caller.get()),
+                                              *snarl_manager,
+                                              sample_name, *traversal_finder, ref_paths, ref_path_offsets,
+                                              ref_path_ploidies,
+                                              alignment_emitter.get(),
+                                              traversals_only,
+                                              gaf_output,
+                                              trav_padding,
+                                              genotype_snarls));            
+        }
+    }
+
+    string header;
+    if (!gaf_output) {
+        // Init The VCF       
+        VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        assert(vcf_caller != nullptr);
+        header = vcf_caller->vcf_header(*graph, ref_paths, ref_path_lengths);
     }
 
     // Call the graph
@@ -523,7 +595,7 @@ int main_call(int argc, char** argv) {
         // Output VCF
         VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
         assert(vcf_caller != nullptr);
-        cout << vcf_caller->vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
+        cout << header << flush;
         vcf_caller->write_variants(cout);
     }
     
@@ -531,5 +603,5 @@ int main_call(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_call("call", "call or genotype VCF variants", PIPELINE, 7, main_call);
+static Subcommand vg_call("call", "call or genotype VCF variants", PIPELINE, 10, main_call);
 

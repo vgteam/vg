@@ -36,7 +36,7 @@ public:
      */
 
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
-         const std::vector<gbwtgraph::DefaultMinimizerIndex*>& minimizer_indexes,
+         const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
          MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph = nullptr);
 
     /**
@@ -77,6 +77,8 @@ public:
      * fragment length distribution.
      */
     pair<vector<Alignment>, vector<Alignment>> map_paired(Alignment& aln1, Alignment& aln2);
+
+
 
 
     // Mapping settings.
@@ -140,6 +142,9 @@ public:
     /// and track if/when their descendants make it through stages of the
     /// algorithm. Only works if track_provenance is true.
     bool track_correctness = false;
+    
+    /// If set, log what the mapper is thinking in its mapping of each read.
+    bool show_work = false;
 
     ////How many stdevs from fragment length distr mean do we cluster together?
     double paired_distance_stdevs = 2.0; 
@@ -152,6 +157,19 @@ public:
 
     /// For paired end mapping, how many times should we attempt rescue (per read)?
     size_t max_rescue_attempts = 15;
+    
+    /// How big of an alignment in POA cells should we ever try to do with Dozeu?
+    /// TODO: Lift this when Dozeu's allocator is able to work with >4 MB of memory.
+    /// Each cell is 16 bits in Dozeu, and we leave some room for the query and
+    /// padding to full SSE registers. Note that a very chopped graph might
+    /// still break this!
+    size_t max_dozeu_cells = (size_t)(1.5 * 1024 * 1024);
+    
+    /// And have we complained about hitting it for rescue?
+    atomic_flag warned_about_rescue_size = ATOMIC_FLAG_INIT;
+    
+    /// And have we complained about hitting it for tails?
+    mutable atomic_flag warned_about_tail_size = ATOMIC_FLAG_INIT;
 
     ///What is the maximum fragment length that we accept as valid for paired-end reads?
     size_t max_fragment_length = 2000;
@@ -185,6 +203,7 @@ protected:
 
     /**
      * We define our own type for minimizers, to use during mapping and to pass around between our internal functions.
+     * Also used to represent syncmers, in which case the only window, the "minimizer", and the agglomeration are all the same region.
      */
     struct Minimizer {
         typename gbwtgraph::DefaultMinimizerIndex::minimizer_type value;
@@ -193,7 +212,7 @@ protected:
         size_t hits; // How many hits does the minimizer have?
         const gbwtgraph::hit_type* occs;
         int32_t length; // How long is the minimizer (index's k)
-        int32_t candidates_per_window; // How many minimizers compete to be the best (index's w)  
+        int32_t candidates_per_window; // How many minimizers compete to be the best (index's w), or 1 for syncmers.  
         double score; // Scores as 1 + ln(hard_hit_cap) - ln(hits).
 
         // Sort the minimizers in descending order by score.
@@ -233,7 +252,7 @@ protected:
 
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
-    const std::vector<gbwtgraph::DefaultMinimizerIndex*>& minimizer_indexes;
+    const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
     MinimumDistanceIndex& distance_index;
     /// This is our primary graph.
     const gbwtgraph::GBWTGraph& gbwt_graph;
@@ -588,7 +607,11 @@ protected:
      */ 
     void dfs_gbwt(const gbwt::SearchState& start_state, size_t from_offset, size_t walk_distance,
         const function<void(const handle_t&)>& enter_handle, const function<void(void)> exit_handle) const;
-        
+ 
+    /**
+     * Score a pair of alignments given the distance between them
+     */
+    double score_alignment_pair(Alignment& aln1, Alignment& aln2, int64_t fragment_distance);
     
     /**
      * Given a vector of items, a function to get the score of each, a
@@ -646,6 +669,9 @@ protected:
     
     /// Print a sequence with base numbering
     static void dump_debug_sequence(ostream& out, const string& sequence);
+    
+    /// Get the thread identifier prefix for logging
+    static string log_name();
 
     friend class TestMinimizerMapper;
 };

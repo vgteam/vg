@@ -17,13 +17,9 @@
 #include "subcommand.hpp"
 #include "../algorithms/distance_to_head.hpp"
 #include "../algorithms/distance_to_tail.hpp"
-#include "../algorithms/find_tips.hpp"
-#include "../algorithms/is_acyclic.hpp"
-#include "../algorithms/strongly_connected_components.hpp"
-#include "../algorithms/weakly_connected_components.hpp"
-#include "../algorithms/copy_graph.hpp"
 #include "../handle.hpp"
 #include "../cactus_snarl_finder.hpp"
+#include "../annotation.hpp"
 
 #include "../path.hpp"
 #include "../statistics.hpp"
@@ -276,7 +272,7 @@ int main_stats(int argc, char** argv) {
 
     if (stats_heads) {
         require_graph();
-        vector<handle_t> heads = algorithms::head_nodes(graph.get());
+        vector<handle_t> heads = handlealgs::head_nodes(graph.get());
         cout << "heads" << "\t";
         for (auto& h : heads) {
             cout << graph->get_id(h) << " ";
@@ -286,7 +282,7 @@ int main_stats(int argc, char** argv) {
 
     if (stats_tails) {
         require_graph();
-        vector<handle_t> tails = algorithms::tail_nodes(graph.get());
+        vector<handle_t> tails = handlealgs::tail_nodes(graph.get());
         cout << "tails" << "\t";
         for (auto& t : tails) {
             cout << graph->get_id(t) << " ";
@@ -301,7 +297,7 @@ int main_stats(int argc, char** argv) {
         // but this isn't really explained.
         
         vector<pair<unordered_set<nid_t>, vector<handle_t>>> subgraphs_with_tips =
-            algorithms::weakly_connected_components_with_tips(graph.get());
+            handlealgs::weakly_connected_components_with_tips(graph.get());
         
         for (auto& subgraph_and_tips : subgraphs_with_tips) {
             // For each subgraph set and its inward tip handles
@@ -343,7 +339,7 @@ int main_stats(int argc, char** argv) {
 
     if (show_components) {
         require_graph();
-        for (auto& c : algorithms::strongly_connected_components(graph.get())) {
+        for (auto& c : handlealgs::strongly_connected_components(graph.get())) {
             for (auto& id : c) {
                 cout << id << ", ";
             }
@@ -353,7 +349,7 @@ int main_stats(int argc, char** argv) {
 
     if (is_acyclic) {
         require_graph();
-        if (algorithms::is_acyclic(graph.get())) {
+        if (handlealgs::is_acyclic(graph.get())) {
             cout << "acyclic" << endl;
         } else {
             cout << "cyclic" << endl;
@@ -429,7 +425,7 @@ int main_stats(int argc, char** argv) {
         if (vg_graph == nullptr) {
             // TODO: This path overlap code can be handle-ified, and should be.
             vg_graph = new vg::VG();
-            algorithms::copy_path_handle_graph(graph.get(), vg_graph);
+            handlealgs::copy_path_handle_graph(graph.get(), vg_graph);
             // Give the unique_ptr ownership and delete the graph we loaded.
             graph.reset(vg_graph);
             // Make sure the paths are all synced up
@@ -548,6 +544,9 @@ int main_stats(int argc, char** argv) {
             // And softclips
             size_t total_softclips = 0;
             size_t total_softclipped_bases = 0;
+            // And pairing
+            size_t total_paired = 0;
+            size_t total_proper_paired = 0;
 
             // In verbose mode we want to report details of insertions, deletions,
             // and substitutions, and soft clips.
@@ -582,6 +581,8 @@ int main_stats(int argc, char** argv) {
                 total_substituted_bases += other.total_substituted_bases;
                 total_softclips += other.total_softclips;
                 total_softclipped_bases += other.total_softclipped_bases;
+                total_paired += other.total_paired;
+                total_proper_paired += other.total_proper_paired;
                 
                 std::copy(other.insertions.begin(), other.insertions.end(), std::back_inserter(insertions));
                 std::copy(other.deletions.begin(), other.deletions.end(), std::back_inserter(deletions));
@@ -693,6 +694,13 @@ int main_stats(int argc, char** argv) {
                     // the primary can't be unaligned if the secondary is
                     // aligned.
                     stats.total_aligned++;
+                }
+                
+                if (aln.has_fragment_next() || aln.has_fragment_prev() || has_annotation(aln, "proper_pair")) {
+                    stats.total_paired++;
+                    if (has_annotation(aln, "proper_pair") && get_annotation<bool>(aln, "proper_pair")) {
+                        stats.total_proper_paired++;
+                    }
                 }
 
                 // Which sites and alleles does this read support. TODO: if we hit
@@ -906,6 +914,8 @@ int main_stats(int argc, char** argv) {
         cout << "Total aligned: " << combined.total_aligned << endl;
         cout << "Total perfect: " << combined.total_perfect << endl;
         cout << "Total gapless (softclips allowed): " << combined.total_gapless << endl;
+        cout << "Total paired: " << combined.total_paired << endl;
+        cout << "Total properly paired: " << combined.total_proper_paired << endl;
 
         cout << "Insertions: " << combined.total_inserted_bases << " bp in " << combined.total_insertions << " read events" << endl;
         if(verbose) {
@@ -935,7 +945,7 @@ int main_stats(int argc, char** argv) {
                     << " on " << id_and_edit.first << endl;
             }
         }
-
+        
         if (graph.get() != nullptr) {
             cout << "Unvisited nodes: " << unvisited_nodes << "/" << graph->get_node_count()
                 << " (" << unvisited_node_bases << " bp)" << endl;

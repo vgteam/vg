@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <gcsa/gcsa.h>
 #include "handle.hpp"
-#include "index.hpp"
 #include "xg.hpp"
 #include "vg.hpp"
 #include "kmer.hpp"
@@ -44,10 +43,6 @@ public:
     /// They are returned separately by inserting them into the provided map if not null.
     void to_xg(xg::XG& index, const function<bool(const string&)>& paths_to_take,
                map<string, Path>* removed_paths = nullptr);
-
-    // stores the nodes in the VGs identified by the filenames into the index
-    void store_in_index(Index& index);
-    void store_paths_in_index(Index& index);
 
     /// Iterate over all kmers in the graph.
     void for_each_kmer_parallel(size_t kmer_size, const function<void(const kmer_t&)>& lambda);

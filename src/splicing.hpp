@@ -133,6 +133,12 @@ public:
     /// Get the handle corresponding to the right side of the splice join
     handle_t right_splice_node() const;
     
+    /// Get the minimum length of a walk from the left seed to the right seed
+    int64_t min_link_length() const;
+    
+    /// Get the maximum length of a walk from the left seed to the right seed
+    int64_t max_link_length() const;
+    
     //////////////////////////
     /// HandleGraph interface
     //////////////////////////
@@ -223,28 +229,6 @@ private:
     size_t num_left_handles;
 };
 
-///*
-// * Struct to hold the relevant information for a detected candidate splice site
-// */
-//struct SpliceSide {
-//public:
-//    SpliceSide(const pos_t& search_pos, const pos_t& splice_pos, int64_t search_dist,
-//               int64_t trim_length, int64_t trimmed_score);
-//    SpliceSide() = default;
-//    ~SpliceSide() = default;
-//
-//    // where did we start looking for the splice site
-//    pos_t search_pos;
-//    // where is the splice motif
-//    pos_t splice_pos;
-//    // how far is the splice from the search pos in the graph
-//    int64_t search_dist;
-//    // how far is the splice from the end of the read
-//    int64_t trim_length;
-//    // how much is the score of the clipped region's alignment
-//    int64_t trimmed_score;
-//};
-
 multipath_alignment_t from_hit(const Alignment& alignment, const HandleGraph& graph,
                                const pos_t& hit_pos, const MaximalExactMatch& mem,
                                const GSSWAligner& scorer);
@@ -258,7 +242,8 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                                            const HandleGraph& graph, const GSSWAligner& aligner);
 
 // remove the portion of the path either to the left or right of a given position along it,
-// described in terms of the indexes in the path object
+// described in terms of the indexes in the path object. returns true if any edits were
+// actually removed.
 bool trim_path(path_t* path, bool from_left, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx);
 
 // consumes two multipath alignments and returns a spliced multipath alignment, which is connected
@@ -269,7 +254,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
                                                 multipath_alignment_t&& left_mp_aln, multipath_alignment_t&& right_mp_aln,
                                                 int64_t left_bridge_point, const Alignment& splice_segment,
                                                 int64_t splice_junction_idx, int32_t splice_score, const GSSWAligner& scorer,
-                                                const HandleGraph& graph);
+                                                const HandleGraph& graph);  
 
 }
 

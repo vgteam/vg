@@ -1,7 +1,6 @@
 #include "aligner.hpp"
 
 #include "hash_map.hpp"
-#include "algorithms/find_tips.hpp"
 
 //#define debug_print_score_matrices
 
@@ -21,7 +20,7 @@ GSSWAligner::GSSWAligner(const int8_t* _score_matrix,
                          int8_t _gap_open,
                          int8_t _gap_extension,
                          int8_t _full_length_bonus,
-                         double _gc_content) {
+                         double _gc_content) : deletion_aligner(_gap_open, _gap_extension) {
     
     log_base = recover_log_base(_score_matrix, _gc_content, 1e-12);
     
@@ -39,7 +38,7 @@ GSSWAligner::GSSWAligner(const int8_t* _score_matrix,
 
 gssw_graph* GSSWAligner::create_gssw_graph(const HandleGraph& g) const {
     
-    vector<handle_t> topological_order = algorithms::lazier_topological_order(&g);
+    vector<handle_t> topological_order = handlealgs::lazier_topological_order(&g);
     
     gssw_graph* graph = gssw_graph_create(g.get_node_count());
     unordered_map<int64_t, gssw_node*> nodes;
@@ -99,7 +98,7 @@ unordered_set<vg::id_t> GSSWAligner::identify_pinning_points(const HandleGraph& 
     unordered_set<vg::id_t> return_val;
     
     // start at the sink nodes
-    vector<handle_t> sinks = algorithms::tail_nodes(&graph);
+    vector<handle_t> sinks = handlealgs::tail_nodes(&graph);
     
     // walk backwards to find non-empty nodes if necessary
     for (const handle_t& handle : sinks) {
@@ -1154,7 +1153,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
                 // those manually
                 
                 // find the sink nodes of the oriented graph, which may be empty
-                auto pinning_points = algorithms::tail_nodes(oriented_graph);
+                auto pinning_points = handlealgs::tail_nodes(oriented_graph);
                 // impose a consistent ordering for machine independent behavior
                 sort(pinning_points.begin(), pinning_points.end(), [&](const handle_t& h1, const handle_t& h2) {
                     return oriented_graph->get_id(h1) < oriented_graph->get_id(h2);
@@ -1363,6 +1362,12 @@ void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_al
 void Aligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
                                   int32_t band_padding, bool permissive_banding) const {
     
+    if (alignment.sequence().empty()) {
+        // we can save time by using a specialized deletion aligner for empty strings
+        deletion_aligner.align(alignment, g);
+        return;
+    }
+    
     // We need to figure out what size ints we need to use.
     // Get upper and lower bounds on the scores. TODO: if these overflow int64 we're out of luck
     int64_t best_score = alignment.sequence().size() * match;
@@ -1415,7 +1420,13 @@ void Aligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
 
 void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                         int32_t max_alt_alns, int32_t band_padding, bool permissive_banding) const {
-                                        
+                              
+    if (alignment.sequence().empty()) {
+        // we can save time by using a specialized deletion aligner for empty strings
+        deletion_aligner.align_multi(alignment, alt_alignments, g, max_alt_alns);
+        return;
+    }
+    
     // We need to figure out what size ints we need to use.
     // Get upper and lower bounds on the scores. TODO: if these overflow int64 we're out of luck
     int64_t best_score = alignment.sequence().size() * match;
@@ -1475,7 +1486,7 @@ void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>&
 void Aligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
                           bool reverse_complemented, uint16_t max_gap_length) const
 {
-    align_xdrop(alignment, g, algorithms::lazier_topological_order(&g), mems, reverse_complemented,
+    align_xdrop(alignment, g, handlealgs::lazier_topological_order(&g), mems, reverse_complemented,
                 max_gap_length);
 }
 
@@ -1603,7 +1614,7 @@ QualAdjAligner::QualAdjAligner(const int8_t* _score_matrix,
                                int8_t _gap_extension,
                                int8_t _full_length_bonus,
                                double _gc_content)
-    : GSSWAligner(_score_matrix, _gap_open, _gap_extension, _full_length_bonus,  _gc_content)
+    : GSSWAligner(_score_matrix, _gap_open, _gap_extension, _full_length_bonus, _gc_content)
 {
     // TODO: this interface could really be improved in GSSW, oh well though
     
@@ -1876,7 +1887,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
                 // those manually
                 
                 // find the sink nodes of the oriented graph, which may be empty
-                auto pinning_points = algorithms::tail_nodes(oriented_graph);
+                auto pinning_points = handlealgs::tail_nodes(oriented_graph);
                 // impose a consistent ordering for machine independent behavior
                 sort(pinning_points.begin(), pinning_points.end(), [&](const handle_t& h1, const handle_t& h2) {
                     return oriented_graph->get_id(h1) < oriented_graph->get_id(h2);
@@ -2025,6 +2036,12 @@ void QualAdjAligner::align_pinned_multi(Alignment& alignment, vector<Alignment>&
 void QualAdjAligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
                                          int32_t band_padding, bool permissive_banding) const {
     
+    if (alignment.sequence().empty()) {
+        // we can save time by using a specialized deletion aligner for empty strings
+        deletion_aligner.align(alignment, g);
+        return;
+    }
+    
     int64_t best_score = alignment.sequence().size() * match;
     size_t total_bases = 0;
     g.for_each_handle([&](const handle_t& handle) {
@@ -2075,6 +2092,12 @@ void QualAdjAligner::align_global_banded(Alignment& alignment, const HandleGraph
 
 void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                                int32_t max_alt_alns, int32_t band_padding, bool permissive_banding) const {
+    
+    if (alignment.sequence().empty()) {
+        // we can save time by using a specialized deletion aligner for empty strings
+        deletion_aligner.align_multi(alignment, alt_alignments, g, max_alt_alns);
+        return;
+    }
     
     // We need to figure out what size ints we need to use.
     // Get upper and lower bounds on the scores. TODO: if these overflow int64 we're out of luck
@@ -2135,7 +2158,7 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
 void QualAdjAligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<MaximalExactMatch>& mems,
                                  bool reverse_complemented, uint16_t max_gap_length) const
 {
-    align_xdrop(alignment, g, algorithms::lazier_topological_order(&g), mems, reverse_complemented, max_gap_length);
+    align_xdrop(alignment, g, handlealgs::lazier_topological_order(&g), mems, reverse_complemented, max_gap_length);
 }
 
 void QualAdjAligner::align_xdrop(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& order,

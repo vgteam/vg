@@ -43,7 +43,7 @@ class TraversalFinder {
 public:
     virtual ~TraversalFinder() = default;
     
-    virtual vector<SnarlTraversal> find_traversals(const Snarl& site) = 0;
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site) = 0;        
 };
 
 class ExhaustiveTraversalFinder : public TraversalFinder {
@@ -604,7 +604,8 @@ public:
      * Return the K widest traversals, along with their flows
      */
     virtual pair<vector<SnarlTraversal>, vector<double>> find_weighted_traversals(const Snarl& site,
-                                                                                  bool greedy_avg = false);
+                                                                                  bool greedy_avg = false,
+                                                                                  const HandleGraph* overlay = nullptr);
 
     /// Set K
     void setK(size_t k);
@@ -626,16 +627,28 @@ public:
     
     virtual ~GBWTTraversalFinder();
 
+    /* Return a traversal for every gbwt thread through the snarl 
+     */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
 
+    /** Return the traversals, paired with their path ids in the gbwt.  The traversals are 
+     *  unique, but there can be more than one path along each one (hence the vector)
+     */
+    virtual pair<vector<SnarlTraversal>, vector<vector<gbwt::size_type>>>
+    find_path_traversals(const Snarl& site, bool return_paths = true);
+
+    /** Return traversals paired with sample names from the GBWT.  The traversals are *not* unique
+     * (which is consistent with PathTraversalFinder)
+     */
+    virtual pair<vector<SnarlTraversal>, vector<string>> find_sample_traversals(const Snarl& site);
+    
 protected:
 
     /**
      * Breadth first search from the start to the end, only branching if there's a haplotype 
      * in the GBWT, and returning all unique haplotypes found. 
      */
-    vector<vector<gbwt::node_type>> get_spanning_haplotypes(handle_t start, handle_t end);
-    
+    vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > get_spanning_haplotypes(handle_t start, handle_t end);    
 };
 
 }
