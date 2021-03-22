@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <cerrno>
 #include <omp.h>
+#include <sys/stat.h>
 
 #include <bdsg/hash_graph.hpp>
 #include <bdsg/packed_graph.hpp>
@@ -512,6 +513,38 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             for (int i = 0; i < n; ++i) {
                 
                 int j = omp_get_thread_num();
+                
+                tbx_t* tabix_index = nullptr;
+                for (string tabix_name : {scan_vcf_filenames[i] + ".tbi", scan_vcf_filenames[i] + ".csi"}) {
+                    struct stat stat_tbi, stat_vcf;
+                    if (stat(tabix_name.c_str(), &stat_tbi) != 0) {
+                        // the tabix doesn't exist
+                        continue;
+                    }
+                    stat(scan_vcf_filenames[i].c_str(), &stat_vcf);
+                    if (stat_vcf.st_mtime > stat_tbi.st_mtime) {
+                        cerr << "warning:[IndexRegistry] Tabix index " + tabix_name + " is older than VCF " + scan_vcf_filenames[i] + " and will not be used. Consider recreating this tabix index to speed up index creation.\n";
+                        continue;
+                    }
+                    
+                    tabix_index = tbx_index_load(tabix_name.c_str());
+                    if (tabix_index == nullptr) {
+                        cerr << "error:[IndexRegistry] failed to load tabix index " << tabix_index << endl;
+                        exit(1);
+                    }
+                }
+                
+                if (tabix_index != nullptr) {
+                    // we have a tabix index, so we can make this query more efficiently
+                    int num_seq_names;
+                    const char** seq_names = tbx_seqnames(tabix_index, &num_seq_names);
+                    for (int k = 0; k < num_seq_names; ++k) {
+                        thread_contigs[j].push_back(seq_names[k]);
+                    }
+                    free(seq_names);
+                    continue;
+                }
+                // no tabix index, so we have to do the full scan
                 
                 htsFile* vcf = bcf_open(scan_vcf_filenames[i].c_str(), "r");
                 bcf_hdr_t* header = bcf_hdr_read(vcf);
