@@ -2,10 +2,12 @@
  *
  * Defines the "vg autoindex" subcommand, which produces indexes needed for other subcommands
  */
-#include <getopt.h>
 #include <iostream>
 #include <sstream>
 #include <algorithm>
+#include <cctype>
+#include <unistd.h>
+#include <getopt.h>
 
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
@@ -18,6 +20,13 @@
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
+
+// from https://stackoverflow.com/questions/2513505/how-to-get-available-memory-c-g
+int64_t get_system_memory() {
+    int64_t pages = sysconf(_SC_PHYS_PAGES);
+    int64_t page_size = sysconf(_SC_PAGE_SIZE);
+    return pages * page_size;
+}
 
 bool vcf_is_phased(const string& filepath) {
     
@@ -110,6 +119,53 @@ bool vcf_is_phased(const string& filepath) {
     return found_phased;
 }
 
+int64_t parse_memory_usage(const string& mem_arg) {
+    if (mem_arg.empty()) {
+        cerr << "error:[vg autoindex] target memory usage arg is empty" << endl;
+        exit(1);
+    }
+    string mem = mem_arg;
+    if (mem.back() == 'B') {
+        mem.pop_back();
+    }
+    int64_t base;
+    if (mem.back() == 'k') {
+        base = 1024;
+        mem.pop_back();
+    }
+    else if (mem.back() == 'M') {
+        base = 1024 * 1024;
+        mem.pop_back();
+    }
+    else if (mem.back() == 'G') {
+        base = 1024 * 1024 * 1024;
+        mem.pop_back();
+    }
+    else {
+        base = 1;
+    }
+    return parse<int64_t>(mem) * base;
+}
+
+string mem_usage_string(int64_t mem) {
+    assert(mem > 0);
+    stringstream strm;
+    strm.precision(1);
+    if (mem >= 1024 * 1024 * 1024) {
+        strm << double(mem) / (1024 * 1024 * 1024) << "GB";
+    }
+    else if (mem >= 1024 * 1024) {
+        strm << double(mem) / (1024 * 1024) << "MB";
+    }
+    else if (mem >= 1024) {
+        strm << double(mem) / (1024) << "kB";
+    }
+    else {
+        strm << double(mem) << "B";
+    }
+    return strm.str();
+};
+
 void help_autoindex(char** argv) {
     cerr
     << "usage: " << argv[0] << " autoindex [options]" << endl
@@ -129,6 +185,8 @@ void help_autoindex(char** argv) {
     << "    -a, --gff-tx-tag STR   GTF/GFF tag (in col. 9) for transcript ID (default: " << IndexingParameters::gff_transcript_tag << ")" << endl
     << "  logging and computation:" << endl
     << "    -T, --tmp-dir DIR      temporary directory to use for intermediate files" << endl
+    << "    -M, --target-mem MEM   target max memory usage (not exact, formatted INT[kMG])" << endl
+    << "                           (default: 1/2 of available)" << endl
     << "    -t, --threads NUM      number of threads (default: all available)" << endl
     << "    -V, --verbose          log progress to stderr" << endl
     //<< "    -d, --dot              print the dot-formatted graph of index recipes and exit" << endl
@@ -136,7 +194,7 @@ void help_autoindex(char** argv) {
 }
 
 int main_autoindex(int argc, char** argv) {
-
+    
     if (argc == 2) {
         help_autoindex(argv);
         return 1;
@@ -153,6 +211,7 @@ int main_autoindex(int argc, char** argv) {
     vector<string> vcf_names;
     bool force_unphased = false;
     bool force_phased = false;
+    int64_t target_mem_usage = get_system_memory() / 2;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -168,6 +227,7 @@ int main_autoindex(int argc, char** argv) {
             {"tx-gff", required_argument, 0, 'x'},
             {"gff-feature", required_argument, 0, 'f'},
             {"gff-tx-tag", required_argument, 0, 'a'},
+            {"target-mem", required_argument, 0, 'M'},
             {"tmp-dir", required_argument, 0, 'T'},
             {"threads", required_argument, 0, 't'},
             {"verbose", no_argument, 0, 'V'},
@@ -180,7 +240,7 @@ int main_autoindex(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "p:w:r:v:i:g:x:a:f:T:t:dVh",
+        c = getopt_long (argc, argv, "p:w:r:v:i:g:x:a:f:M:T:t:dVh",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -233,6 +293,9 @@ int main_autoindex(int argc, char** argv) {
                 break;
             case 'a':
                 IndexingParameters::gff_transcript_tag = optarg;
+                break;
+            case 'M':
+                target_mem_usage = parse_memory_usage(optarg);
                 break;
             case 'T':
                 temp_file::set_dir(optarg);
@@ -291,6 +354,8 @@ int main_autoindex(int argc, char** argv) {
         cout << registry.to_dot(targets);
         return 0;
     }
+    
+    registry.set_target_memory_usage(target_mem_usage);
     
     if (targets.empty()) {
         // default to vg map indexes

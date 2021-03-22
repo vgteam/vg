@@ -136,10 +136,10 @@ double approx_num_vars(const string& vcf_filename) {
     // estimate of the number of variants contained in a VCF
     if (is_gzipped(vcf_filename)) {
         // square root got a pretty good fit, for whatever reason
-        return 0.255873 * file_size / sqrt(num_samples);
+        return 0.255293 * file_size / sqrt(num_samples);
     }
     else {
-        return 0.193182 * file_size / num_samples;
+        return 0.192505 * file_size / num_samples;
     }
 }
 
@@ -245,7 +245,7 @@ int64_t approx_graph_memory(const string& gfa_filename) {
     return hash_graph_memory_usage * format_multiplier();}
 
 int64_t approx_gbwt_memory(const string& vcf_filename) {
-    return 22.9071 * log(get_num_samples(vcf_filename)) * approx_num_vars(vcf_filename);
+    return 21.9724 * log(get_num_samples(vcf_filename)) * approx_num_vars(vcf_filename);
 }
 
 int64_t approx_graph_load_memory(const string& graph_filename) {
@@ -580,7 +580,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         greater<pair<int64_t, int64_t>>> bucket_queue;
         
         // one of the threads gets used up to do scheduling after this initial chunking
-        int num_active_threads = get_thread_count() - 1;
+        int num_active_threads = get_thread_count();
         // we'll let it go a bit larger so we can take advantage of dynamic scheduling
         int max_num_buckets = max<int>(1, ceil(IndexingParameters::thread_chunk_inflation_factor * num_active_threads));
         // records of (contig, index of fasta)
@@ -666,6 +666,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             if (all_buckets_match) {
                 // there's no need for chunking, just alias them
+#ifdef debug_index_registry_recipes
+                cerr << "chunking matches input files, no need to re-chunk" << endl;
+#endif
+                
                 output_fasta_names = fasta_filenames;
                 output_vcf_names = vcf_filenames;
                 if (chunking_tx) {
@@ -842,7 +846,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     if (input_idx < 0) {
                         // other threads need to get through earlier contigs until this bucket's next
                         // contig is exposed, let's leave them alone for a second
-                        this_thread::sleep_for(chrono::seconds(3));
+                        this_thread::sleep_for(chrono::seconds(1));
                         continue;
                     }
                                         
@@ -891,7 +895,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 
                 // tabix-index the bgzipped VCF we just wrote
                 // parameters inferred from tabix main's sourcecode
-                int min_shift = 14;
+                int min_shift = 0;
                 tbx_conf_t conf = tbx_conf_vcf;
                 int tabix_err_code = tbx_index_build(output_vcf_name.c_str(), min_shift, &conf);
                 if (tabix_err_code == -2) {
@@ -1294,7 +1298,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
 #endif
         graph_names.resize(max(ref_filenames.size(), vcf_filenames.size()));
-        nid_t max_node_id = 0;
+        vector<pair<nid_t, nid_t>> node_id_ranges(graph_names.size());
         auto make_graph = [&](int64_t idx) {
 #ifdef debug_index_registry_recipes
             cerr << "making graph chunk " << idx << endl;
@@ -1393,16 +1397,15 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     }
                 }
                 
-                // we don't need to worry about race conditions on this, because it will
-                // be fixed when the ID spaces are joined anyway
-                max_node_id = max(max_node_id, transcriptome.splice_graph().max_node_id());
+                node_id_ranges[idx] = make_pair(transcriptome.splice_graph().min_node_id(),
+                                                transcriptome.splice_graph().max_node_id());
                 
                 // save the file
                 transcriptome.write_splice_graph(&outfile);
             }
             else {
-                // any races on this will be fixed when the node ID spaces are joined
-                max_node_id = max(max_node_id, graph->max_node_id());
+                
+                node_id_ranges[idx] = make_pair(graph->min_node_id(), graph->max_node_id());
                 
                 // save the file
                 vg::io::save_handle_graph(graph.get(), outfile);
@@ -1418,17 +1421,54 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         JobSchedule schedule(approx_job_requirements, make_graph);
         schedule.execute(plan->target_memory_usage());
         
-        // TODO: I could get the max ids during execution and do this in parallel
+        // merge the ID spaces if we need to
+        vector<nid_t> id_increment(1, 1 - node_id_ranges[0].first);
         if (graph_names.size() > 1) {
-            // join the ID spaces
-            VGset graph_set(graph_names);
-            max_node_id = graph_set.merge_id_space();
+            // the increments we'll need to make each ID range non-overlapping
+            for (int i = 1; i < node_id_ranges.size(); ++i) {
+                id_increment.push_back(node_id_ranges[i - 1].second + id_increment[i - 1] - node_id_ranges[i].first + 1);
+            }
+            
+            vector<pair<int64_t, int64_t>> approx_job_requirements;
+            for (int i = 0; i < node_id_ranges.size(); ++i) {
+                approx_job_requirements.emplace_back(node_id_ranges[i].second - node_id_ranges[i].first,
+                                                     approx_graph_load_memory(graph_names[i]));
+            }
+            
+#ifdef debug_index_registry_recipes
+            cerr << "computed node ID increments for chunks:" << endl;
+            for (int i = 0; i < id_increment.size(); ++i) {
+                cerr << "\t[" << node_id_ranges[i].first << ", " << node_id_ranges[i].second  << "] + " << id_increment[i] << endl;
+            }
+#endif
+            
+            // do the incrementation in parallel
+            auto increment_node_ids = [&](int64_t idx) {
+                
+                // load the graph
+                ifstream infile;
+                init_in(infile, graph_names[idx]);
+                unique_ptr<MutablePathMutableHandleGraph> graph
+                    = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(infile);
+                
+                // adjust the IDs
+                graph->increment_node_ids(id_increment[idx]);
+                
+                // save back to the same file
+                ofstream outfile;
+                init_out(outfile, graph_names[idx]);
+                vg::io::save_handle_graph(graph.get(), outfile);
+            };
+            
+            JobSchedule schedule(approx_job_requirements, increment_node_ids);
+            schedule.execute(plan->target_memory_usage());
         }
         
         // save the max node id as a simple text file
         auto max_id_name = plan->output_filepath(output_max_id);
         ofstream max_id_outfile;
         init_out(max_id_outfile, max_id_name);
+        nid_t max_node_id = node_id_ranges.back().second + id_increment.back();
         max_id_outfile << max_node_id;
         
         max_id_names.push_back(max_id_name);
