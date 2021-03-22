@@ -14,7 +14,7 @@
 #include <cctype>
 #include <cstdio>
 #include <cerrno>
-#include <unistd.h>
+#include <omp.h>
 
 #include <bdsg/hash_graph.hpp>
 #include <bdsg/packed_graph.hpp>
@@ -319,8 +319,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     /// Chunked inputs
     registry.register_index("Chunked Reference FASTA", "chunked.fasta");
-    registry.register_index("Chunked VCF", "chunked.vcf");
-    registry.register_index("Chunked VCF w/ Phasing", "phased.chunked.vcf");
+    registry.register_index("Chunked VCF", "chunked.vcf.gz");
+    registry.register_index("Chunked VCF w/ Phasing", "phased.chunked.vcf.gz");
     registry.register_index("Chunked GTF/GFF", "chunked.gff");
     
     /// True indexes
@@ -435,16 +435,14 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         alias_graph.register_alias(*constructing.begin(), inputs[0]);
         return vector<vector<string>>(1, inputs.front()->get_filenames());
     });
-    // FIXME: must bring this back, but leaving it commented out to maintain consitency
-    // while i debug another problem
-//    registry.register_recipe({"Chunked VCF"}, {"Chunked VCF w/ Phasing"},
-//                             [](const vector<const IndexFile*>& inputs,
-//                                const IndexingPlan* plan,
-//                                AliasGraph& alias_graph,
-//                                const IndexGroup& constructing) {
-//        alias_graph.register_alias(*constructing.begin(), inputs[0]);
-//        return vector<vector<string>>(1, inputs.front()->get_filenames());
-//    });
+    registry.register_recipe({"Chunked VCF"}, {"Chunked VCF w/ Phasing"},
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
+        alias_graph.register_alias(*constructing.begin(), inputs[0]);
+        return vector<vector<string>>(1, inputs.front()->get_filenames());
+    });
     
     ////////////////////////////////////
     // Chunking Recipes
@@ -461,9 +459,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                              const IndexGroup& constructing) {
         
         if (IndexingParameters::verbose) {
-            cerr << "[IndexRegistry]: Chunking inputs for parallism." << endl;
+            cerr << "[IndexRegistry]: Chunking inputs for parallelism." << endl;
         }
-                
+                        
         // boilerplate
         assert(inputs.size() == 2 || inputs.size() == 3);
         assert(constructing.size() == 2 || constructing.size() == 3);
@@ -493,10 +491,80 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto& output_fasta_names = all_outputs[chunking_tx ? 1 : 0];
         auto& output_vcf_names = all_outputs[chunking_tx ? 2 : 1];
         
+        
+        // let's do this first, since it can detect data problems
+        
+        // i really hate to do two whole passes over the VCFs, but it's hard to see how to not
+        // do this to be able to distinguish when we need to wait for a contig to become available
+        // and when it simply doesn't have any variants in the VCFs (especially since it seems
+        // to be not uncommon for the header to have these sequences included, such as alt scaffolds)
+        unordered_set<string> contigs_with_variants;
+        {
+            // do the bigger jobs first to reduce makespan
+            vector<string> scan_vcf_filenames = vcf_filenames;
+            sort(scan_vcf_filenames.begin(), scan_vcf_filenames.end(), [](const string& a, const string& b) {
+                return get_file_size(a) > get_file_size(b);
+            });
+            
+            vector<vector<string>> thread_contigs(get_thread_count());
+            int n = scan_vcf_filenames.size();
+#pragma omp parallel for schedule(dynamic, 1)
+            for (int i = 0; i < n; ++i) {
+                
+                int j = omp_get_thread_num();
+                
+                htsFile* vcf = bcf_open(scan_vcf_filenames[i].c_str(), "r");
+                bcf_hdr_t* header = bcf_hdr_read(vcf);
+                bcf1_t* vcf_rec = bcf_init();
+                int err_code = bcf_read(vcf, header, vcf_rec);
+                while (err_code == 0) {
+                    const char* chrom = bcf_hdr_id2name(header, vcf_rec->rid);
+                    if (!thread_contigs[j].empty()) {
+                        auto& curr_contig = thread_contigs[j].back();
+                        if (curr_contig < chrom) {
+                            thread_contigs[j].push_back(chrom);
+                        }
+                        else if (curr_contig > chrom) {
+                            cerr << "error:[IndexRegistry] Contigs in VCF must be in ASCII-lexicographic order. Encountered contig '" << chrom << "' after contig '" << thread_contigs[j].back() << "' in VCF file" << scan_vcf_filenames[i] << "." << endl;
+                            exit(1);
+                        }
+                    }
+                    else {
+                        thread_contigs[j].push_back(chrom);
+                    }
+                    
+                    err_code = bcf_read(vcf, header, vcf_rec);
+                }
+                if (err_code != -1) {
+                    cerr << "error:[IndexRegistry] failed to read from VCF " << scan_vcf_filenames[i] << endl;
+                    exit(1);
+                }
+                bcf_destroy(vcf_rec);
+                bcf_hdr_destroy(header);
+                err_code = hts_close(vcf);
+                if (err_code != 0) {
+                    cerr << "error:[IndexRegistry] encountered error closing VCF " << scan_vcf_filenames[i] << endl;
+                    exit(1);
+                }
+            }
+            
+            // merge the individual thread lists
+            for (auto& contig_list : thread_contigs) {
+                contigs_with_variants.insert(contig_list.begin(), contig_list.end());
+            }
+        }
+        
+#ifdef debug_index_registry_recipes
+        cerr << "contigs that have variants in the VCFs:" << endl;
+        for (auto contig : contigs_with_variants) {
+            cerr << "\t" << contig << endl;
+        }
+#endif
+        
         // records of (length, seq name, index in input)
         priority_queue<tuple<int64_t, string, int64_t>> seq_queue;
         unordered_map<string, int64_t> seq_lengths;
-        
+                
         for (int64_t i = 0; i < fasta_filenames.size(); ++i) {
             FastaReference ref;
             ref.open(fasta_filenames[i]);
@@ -505,16 +573,16 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 seq_lengths[idx_entry.second.name] = idx_entry.second.length;
             }
         }
-        
+                
         // we'll greedily assign contigs to the smallest bucket (2-opt bin packing algorithm)
         // records of (total length, bucket index)
         priority_queue<pair<int64_t, int64_t>, vector<pair<int64_t, int64_t>>,
         greater<pair<int64_t, int64_t>>> bucket_queue;
         
-        // one of the threads gets used up to do scheduling
+        // one of the threads gets used up to do scheduling after this initial chunking
         int num_active_threads = get_thread_count() - 1;
         // we'll let it go a bit larger so we can take advantage of dynamic scheduling
-        int max_num_buckets = ceil(IndexingParameters::thread_chunk_inflation_factor * num_active_threads);
+        int max_num_buckets = max<int>(1, ceil(IndexingParameters::thread_chunk_inflation_factor * num_active_threads));
         // records of (contig, index of fasta)
         vector<vector<pair<string, int64_t>>> buckets;
         while (!seq_queue.empty()) {
@@ -538,6 +606,20 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
         }
         
+        // sort the buckets in descending order by sequence length so that the
+        // biggest jobs get dynamically scheduled first
+        sort(buckets.begin(), buckets.end(),
+             [&](const vector<pair<string, int64_t>>& a, const vector<pair<string, int64_t>>& b) {
+            size_t len_a = 0, len_b = 0;
+            for (const auto& contig : a) {
+                len_a += seq_lengths.at(contig.first);
+            }
+            for (const auto& contig : b) {
+                len_b += seq_lengths.at(contig.first);
+            }
+            return len_a > len_b;
+        });
+                
         // to look bucket index up from a contig
         unordered_map<string, int64_t> contig_to_idx;
         for (int64_t i = 0; i < buckets.size(); ++i) {
@@ -564,7 +646,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         if (buckets.size() == fasta_filenames.size() && buckets.size() == vcf_filenames.size()
             && (tx_filenames.empty() || buckets.size() == tx_filenames.size())) {
             // it looks like we might have just recapitulated the original chunking, let's check to make sure
-            
             
             // does each bucket come from exactly one FASTA file?
             bool all_buckets_match = true;
@@ -605,21 +686,18 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             cerr << "[IndexRegistry]: Chunking FASTA(s)." << endl;
         }
         
-        // shuffle so that it's not ordered by job size
-        uint64_t shuf_seed = 0xD00DAD;
-        shuffle(buckets.begin(), buckets.end(), default_random_engine(shuf_seed));
         output_fasta_names.resize(buckets.size());
         output_vcf_names.resize(buckets.size());
         
         // make FASTA sequences for each bucket
         // the threading here gets to be pretty simple because the fai allows random access
-#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for schedule(dynamic, 1)
         for (int64_t i = 0; i < buckets.size(); ++i) {
             
             auto chunk_fasta_name = plan->output_filepath(output_fasta, i, buckets.size());
             auto chunk_fai_name = chunk_fasta_name + ".fai";
             output_fasta_names[i] = chunk_fasta_name;
-            
+                        
             ofstream outfile_fasta, outfile_fai;
             init_out(outfile_fasta, chunk_fasta_name);
             init_out(outfile_fai, chunk_fai_name);
@@ -639,7 +717,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 int64_t j = 0;
                 while (j < length) {
                     int64_t end = min<int64_t>(j + line_length, length);
-                    outfile_fasta << ref.getSubSequence(contig, j, end) << '\n';
+                    outfile_fasta << ref.getSubSequence(contig, j, end - j) << '\n';
                     j = end;
                 }
                 
@@ -665,7 +743,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 checked_out_or_finished[i].store(true);
             }
             else if (err_code < 0) {
-                cerr << "error:[IndexRegistry] failed to open VCF " << vcf_filenames[i] << endl;
+                cerr << "error:[IndexRegistry] failed to read VCF " << vcf_filenames[i] << endl;
                 exit(1);
             }
             input_vcf_files[i] = make_tuple(vcf, header, vcf_rec);
@@ -682,29 +760,51 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         // construct the new VCFs in parallel
         vector<thread> workers;
-        vector<bool> worker_blocked(buckets.size(), false); // only used in mutex, no need for atomic
         for (int64_t i = 0; i < buckets.size(); ++i) {
             workers.emplace_back([&](int64_t idx) {
                 // thread body
                 auto output_vcf_name = plan->output_filepath(output_vcf, idx, buckets.size());
                 output_vcf_names[idx] = output_vcf_name;
-                
+                                
                 // open to write in bgzipped format
                 htsFile* vcf_out = bcf_open(output_vcf_name.c_str(), "wz");
                 bcf_hdr_t* header_out = bcf_hdr_init("w");
                 
                 // merge will all the input headers for each output header, just to be safe
+                unordered_set<string> samples_added;
                 for (auto& input_vcf_file : input_vcf_files) {
-                    bcf_hdr_t* merged = bcf_hdr_merge(header_out, get<1>(input_vcf_file));
-                    bcf_hdr_destroy(header_out);
-                    header_out = merged;
+                    bcf_hdr_t* header_in = get<1>(input_vcf_file);
+                    header_out = bcf_hdr_merge(header_out, header_in);
                     if (header_out == nullptr) {
                         cerr << "error:[IndexRegistry] error merging VCF header" << endl;
                         exit(1);
                     }
+                    
+                    // add the samples from every header
+                    for (int64_t j = 0; j < bcf_hdr_nsamples(header_in); ++j) {
+                        const char* sample = header_in->samples[j];
+                        if (!samples_added.count(sample)) {
+                            // TODO: the header has its own dictionary, so this shouldn't be necessary,
+                            // but the khash_t isn't documented very well
+                            samples_added.insert(sample);
+                            // the sample hasn't been added yet
+                            int sample_err_code = bcf_hdr_add_sample(header_out, header_in->samples[j]);
+                            // returns a -1 if the sample is already included, which we expect
+                            if (sample_err_code != 0) {
+                                cerr << "error:[IndexRegistry] error adding samples to VCF header" << endl;
+                                exit(1);
+                            }
+                        }
+                    }
                 }
-                int bcf_write_err = bcf_hdr_write(vcf_out, header_out);
-                if (bcf_write_err != 0) {
+                // documentation in htslib/vcf.h says that this has to be called after addding samples
+                int sync_err_code = bcf_hdr_sync(header_out);
+                if (sync_err_code != 0) {
+                    cerr << "error:[IndexRegistry] error syncing VCF header" << endl;
+                    exit(1);
+                }
+                int hdr_write_err_code = bcf_hdr_write(vcf_out, header_out);
+                if (hdr_write_err_code != 0) {
                     cerr << "error:[IndexRegistry] error writing VCF header to " << output_vcf_name << endl;
                     exit(1);
                 }
@@ -713,8 +813,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 int64_t ctg_idx = 0;
                 while (ctg_idx < buckets[idx].size()) {
                     
-                    if (bcf_hdr_name2id(header_out, buckets[idx][ctg_idx].first.c_str()) == -1) {
-                        // this contig isn't in any of the VCFs, so we skip it
+                    if (!contigs_with_variants.count(buckets[idx][ctg_idx].first)) {
+                        // this contig doesn't have variants in any of the VCFs, so we skip it
                         ++ctg_idx;
                         continue;
                     }
@@ -737,32 +837,15 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                             break;
                         }
                     }
-                    
-                    if (input_idx < 0) {
-                        // we didn't find our next contig, check to make sure all threads aren't also locked
-                        worker_blocked[idx] = true;
-                        bool all_blocked = true;
-                        for (int64_t j = 0; j < workers.size() && all_blocked; ++j) {
-                            all_blocked = worker_blocked[j];
-                        }
-                        if (all_blocked) {
-                            cerr << "error:[IndexRegistry] Input VCFs must be sorted by contig and position to support multi-threading. Failed to find contig '" << buckets[idx][ctg_idx].first << "'." << endl;
-                            exit(1);
-                        }
-                    }
-                    else {
-                        // we found the next contig
-                        worker_blocked[idx] = false;
-                    }
                     vcf_mutex.unlock();
                     
                     if (input_idx < 0) {
                         // other threads need to get through earlier contigs until this bucket's next
                         // contig is exposed, let's leave them alone for a second
-                        this_thread::sleep_for(chrono::seconds(1));
+                        this_thread::sleep_for(chrono::seconds(3));
                         continue;
                     }
-                    
+                                        
                     // we've checked out one of the input vcfs, now we can read from it
                     auto& input_vcf_file = input_vcf_files[input_idx];
                     
@@ -775,7 +858,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                         }
                         
                         bcf_translate(header_out, get<1>(input_vcf_file), get<2>(input_vcf_file));
-                        
+                                                
                         int write_err_code = bcf_write(vcf_out, header_out, get<2>(input_vcf_file));
                         if (write_err_code != 0) {
                             cerr << "error:[IndexRegistry] error writing VCF line to " << output_vcf_name << endl;
@@ -845,7 +928,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             auto& output_gff_names = all_outputs[0];
             for (int64_t i = 0; i < buckets.size(); ++i) {
-                output_gff_names.emplace_back(plan->output_filepath(output_vcf, i, buckets.size()));
+                output_gff_names.emplace_back(plan->output_filepath(output_tx, i, buckets.size()));
             }
             
             // a mutex to lock the process of checking out a chunk for writing to
@@ -906,7 +989,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                 if (!success) {
                                     // wait for a couple seconds to check again if we can write
                                     // to the file
-                                    this_thread::sleep_for(chrono::seconds(2));
+                                    this_thread::sleep_for(chrono::seconds(1));
                                 }
                                 else {
                                     // open for writing, starting from the end
@@ -932,6 +1015,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     }
                 }, i);
             };
+            
+            // barrier sync
+            for (auto& worker : tx_workers) {
+                worker.join();
+            }
         }
         
         
@@ -1118,7 +1206,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
             cerr << " VG graph from FASTA and VCF input." << endl;
         }
-        
         
         assert(constructing.size() == 2);
         vector<vector<string>> all_outputs(constructing.size());

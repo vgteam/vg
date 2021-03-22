@@ -22,13 +22,12 @@ using namespace vg::subcommand;
 bool vcf_is_phased(const string& filepath) {
     
     if (IndexingParameters::verbose) {
-        cerr << "[IndexRegistry]: Checking for phasing in VCF." << endl;
+        cerr << "[IndexRegistry]: Checking for phasing in VCF(s)." << endl;
     }
     
     // check about 30k variants before concluding that the VCF isn't phased
     // TODO: will there be contig ordering biases that make this a bad assumption?
     constexpr int vars_to_check = 1 << 15;
-    
     
     htsFile* file = hts_open(filepath.c_str(), "rb");
     bcf_hdr_t* hdr = bcf_hdr_read(file);
