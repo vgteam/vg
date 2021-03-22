@@ -355,6 +355,14 @@ int main_autoindex(int argc, char** argv) {
         return 0;
     }
     
+    if (IndexingParameters::verbose) {
+        cerr << "[vg autoindex] Excecuting command:";
+        for (int i = 0; i < argc; ++i) {
+            cerr << argv[i] << " ";
+        }
+        cerr << endl;
+    }
+    
     registry.set_target_memory_usage(target_mem_usage);
     
     if (targets.empty()) {

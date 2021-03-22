@@ -516,20 +516,22 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 htsFile* vcf = bcf_open(scan_vcf_filenames[i].c_str(), "r");
                 bcf_hdr_t* header = bcf_hdr_read(vcf);
                 bcf1_t* vcf_rec = bcf_init();
+                string curr_contig;
                 int err_code = bcf_read(vcf, header, vcf_rec);
                 while (err_code == 0) {
                     const char* chrom = bcf_hdr_id2name(header, vcf_rec->rid);
-                    if (!thread_contigs[j].empty()) {
-                        auto& curr_contig = thread_contigs[j].back();
+                    if (!curr_contig.empty()) {
                         if (curr_contig < chrom) {
+                            curr_contig = chrom;
                             thread_contigs[j].push_back(chrom);
                         }
                         else if (curr_contig > chrom) {
-                            cerr << "error:[IndexRegistry] Contigs in VCF must be in ASCII-lexicographic order. Encountered contig '" << chrom << "' after contig '" << thread_contigs[j].back() << "' in VCF file" << scan_vcf_filenames[i] << "." << endl;
+                            cerr << "error:[IndexRegistry] Contigs in VCF must be in ASCII-lexicographic order. Encountered contig '" << chrom << "' after contig '" << curr_contig << "' in VCF file" << scan_vcf_filenames[i] << "." << endl;
                             exit(1);
                         }
                     }
                     else {
+                        curr_contig = chrom;
                         thread_contigs[j].push_back(chrom);
                     }
                     
@@ -539,6 +541,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     cerr << "error:[IndexRegistry] failed to read from VCF " << scan_vcf_filenames[i] << endl;
                     exit(1);
                 }
+                // we'll be moving on to a different file, so we won't demand that these
+                // be in order anymore
                 bcf_destroy(vcf_rec);
                 bcf_hdr_destroy(header);
                 err_code = hts_close(vcf);
@@ -2369,12 +2373,17 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 }
                 else {
                     // we can expand out complex regions using haplotypes as well as paths
-                    // TODO: it's a bit inelegant that i keep overwriting the mapping...
                     
+                    // TODO: can't do this fully in parallel because each chunk needs to modify
+                    // the same mapping
+                    // TODO: it's a bit inelegant that i keep overwriting the mapping...
                     PhaseUnfolder unfolder(*unpruned_graph, *gbwt_index, max_node_id + 1);
-                    unfolder.read_mapping(mapping_name);
-                    unfolder.unfold(*graph, IndexingParameters::verbose);
-                    unfolder.write_mapping(mapping_name);
+#pragma omp critical
+                    {
+                        unfolder.read_mapping(mapping_name);
+                        unfolder.unfold(*graph, IndexingParameters::verbose);
+                        unfolder.write_mapping(mapping_name);
+                    }
                 }
             }
             
@@ -2383,24 +2392,22 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             pruned_graph_names[i] = vg_output_name;
         };
         
-        // TODO: it is only possible to do the non haplotype pruning in parallel because
-        // haplotype pruning needs to modify the mapping
+        int64_t target_memory_usage = plan->target_memory_usage();
+        
         if (using_haplotypes) {
-            for (int64_t i = 0; i < graph_names.size(); ++i) {
-                prune_job(i);
-            }
-        }
-        else {
-            vector<pair<int64_t, int64_t>> approx_job_requirements;
-            for (int64_t i = 0; i < graph_names.size(); ++i) {
-                // double the memory because we'll probably need to re-load the graph to restore paths
-                approx_job_requirements.emplace_back(get_file_size(graph_names[i]),
-                                                     2 * approx_graph_load_memory(graph_names[i]));
-            }
-            JobSchedule schedule(approx_job_requirements, prune_job);
-            schedule.execute(plan->target_memory_usage());
+            // we only need to load the GBWT once, so we take it out of the shared budget
+            target_memory_usage -= get_file_size(gbwt_name);
         }
         
+        vector<pair<int64_t, int64_t>> approx_job_requirements;
+        for (int64_t i = 0; i < graph_names.size(); ++i) {
+            // for paths, double the memory because we'll probably need to re-load the graph to restore paths
+            approx_job_requirements.emplace_back(get_file_size(graph_names[i]),
+                                                 (using_haplotypes ? 1 : 2) * approx_graph_load_memory(graph_names[i]));
+        }
+        
+        JobSchedule schedule(approx_job_requirements, prune_job);
+        schedule.execute(target_memory_usage);
         
         return all_outputs;
     };
