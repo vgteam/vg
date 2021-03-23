@@ -645,6 +645,16 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
             contig_groups.emplace_back(move(it->second));
         }
+        
+#ifdef debug_index_registry_recipes
+        cerr << "contigs by sample group" << endl;
+        for (int i = 0; i < contig_groups.size(); ++i) {
+            cerr << "group " << i << endl;
+            for (auto contig : contig_groups[i]) {
+                cerr << "\t" << contig << endl;
+            }
+        }
+#endif
                 
         // we'll greedily assign contigs to the smallest bucket (2-opt bin packing algorithm)
         // modified to ensure that we can bucket contigs with the same sample sets together
@@ -656,7 +666,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                        ceil(IndexingParameters::thread_chunk_inflation_factor * num_threads));
         int num_buckets = 0;
         int groups_without_bucket = contig_groups.size();
-        // records of (contig, index of fasta), grouped by sample groups
+        // buckets of contigs, grouped by sample groups
         vector<vector<vector<string>>> sample_group_buckets(contig_groups.size());
         // records of (total length, bucket index), grouped by sample gorups
         vector<priority_queue<pair<int64_t, int64_t>, vector<pair<int64_t, int64_t>>,
@@ -692,7 +702,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             // always make sure there's enough room in our budget of buckets
             // to make one for each sample group
-            if (num_buckets < max_num_buckets - groups_without_bucket) {
+            if (bucket_queues[group].empty() || num_buckets < max_num_buckets - groups_without_bucket) {
                 // make a new bucket
                 if (bucket_queues[group].empty()) {
                     groups_without_bucket--;
