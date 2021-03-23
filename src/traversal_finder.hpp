@@ -631,16 +631,19 @@ public:
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
 
-    /** Return the traversals, paired with their path ids in the gbwt.  The traversals are 
+    /** Return the traversals, paired with their path identifiers in the gbwt.  The traversals are 
      *  unique, but there can be more than one path along each one (hence the vector)
      */
     virtual pair<vector<SnarlTraversal>, vector<vector<gbwt::size_type>>>
-    find_path_traversals(const Snarl& site, bool return_paths = true);
+    find_gbwt_traversals(const Snarl& site, bool return_paths = true);
 
-    /** Return traversals paired with sample names from the GBWT.  The traversals are *not* unique
+    /** Return traversals paired with path identifiers from the GBWT.  The traversals are *not* unique
      * (which is consistent with PathTraversalFinder)
+     * To get the sample name from the path identifier id, use thread_sample(gbwt, gbwt::Path::id(id));
      */
-    virtual pair<vector<SnarlTraversal>, vector<string>> find_sample_traversals(const Snarl& site);
+    virtual pair<vector<SnarlTraversal>, vector<gbwt::size_type>> find_path_traversals(const Snarl& site);
+
+    const gbwt::GBWT& get_gbwt() { return gbwt; }
     
 protected:
 

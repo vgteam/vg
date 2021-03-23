@@ -3369,7 +3369,7 @@ GBWTTraversalFinder::~GBWTTraversalFinder() {
 }
 
 pair<vector<SnarlTraversal>, vector<vector<gbwt::size_type>>>
-GBWTTraversalFinder::find_path_traversals(const Snarl& site, bool return_paths) {
+GBWTTraversalFinder::find_gbwt_traversals(const Snarl& site, bool return_paths) {
     
     // follow all gbwt threads from start to end
     vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > forward_traversals = get_spanning_haplotypes(
@@ -3451,26 +3451,25 @@ GBWTTraversalFinder::find_path_traversals(const Snarl& site, bool return_paths) 
 }
 
 vector<SnarlTraversal> GBWTTraversalFinder::find_traversals(const Snarl& site) {
-    return find_path_traversals(site, false).first;
+    return find_gbwt_traversals(site, false).first;
 }
 
-pair<vector<SnarlTraversal>, vector<string>> GBWTTraversalFinder::find_sample_traversals(const Snarl& site) {
+pair<vector<SnarlTraversal>, vector<gbwt::size_type>> GBWTTraversalFinder::find_path_traversals(const Snarl& site) {
     // get the unique traversals
-    pair<vector<SnarlTraversal>, vector<vector<gbwt::size_type>>> path_traversals = find_path_traversals(site, true);
+    pair<vector<SnarlTraversal>, vector<vector<gbwt::size_type>>> gbwt_traversals = find_gbwt_traversals(site, true);
 
     // expand them out to one per path (this is to be consistent with PathTraversalFinder as used in deconstruct)
-    pair<vector<SnarlTraversal>, vector<string>> sample_traversals;
-    for (size_t i = 0; i < path_traversals.first.size(); ++i) {
-        SnarlTraversal& trav = path_traversals.first[i];
-        vector<gbwt::size_type>& paths = path_traversals.second[i];
+    pair<vector<SnarlTraversal>, vector<gbwt::size_type>> path_traversals;
+    for (size_t i = 0; i < gbwt_traversals.first.size(); ++i) {
+        SnarlTraversal& trav = gbwt_traversals.first[i];
+        vector<gbwt::size_type>& paths = gbwt_traversals.second[i];
         for (size_t j = 0; j < paths.size(); ++j) {
-            string sample = thread_sample(gbwt, gbwt::Path::id(paths[j]));
-            sample_traversals.first.push_back(trav);
-            sample_traversals.second.push_back(sample);
+            path_traversals.first.push_back(trav);
+            path_traversals.second.push_back(paths[j]);
         }
     }
     
-    return sample_traversals;
+    return path_traversals;
 }
 
 vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > GBWTTraversalFinder::get_spanning_haplotypes(handle_t start, handle_t end) {
