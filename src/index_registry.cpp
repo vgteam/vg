@@ -499,31 +499,24 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // do this to be able to distinguish when we need to wait for a contig to become available
         // and when it simply doesn't have any variants in the VCFs (especially since it seems
         // to be not uncommon for the header to have these sequences included, such as alt scaffolds)
-        unordered_set<string> contigs_with_variants;
+        vector<vector<string>> vcf_contigs_with_variants(vcf_filenames.size());
+        vector<set<string>> vcf_samples(vcf_filenames.size());
         {
             // do the bigger jobs first to reduce makespan
-            vector<string> scan_vcf_filenames = vcf_filenames;
-            sort(scan_vcf_filenames.begin(), scan_vcf_filenames.end(), [](const string& a, const string& b) {
-                return get_file_size(a) > get_file_size(b);
-            });
             
-            vector<vector<string>> thread_contigs(get_thread_count());
-            int n = scan_vcf_filenames.size();
 #pragma omp parallel for schedule(dynamic, 1)
-            for (int i = 0; i < n; ++i) {
-                
-                int j = omp_get_thread_num();
-                
+            for (int i = 0; i < vcf_filenames.size(); ++i) {
+                                
                 tbx_t* tabix_index = nullptr;
-                for (string tabix_name : {scan_vcf_filenames[i] + ".tbi", scan_vcf_filenames[i] + ".csi"}) {
+                for (string tabix_name : {vcf_filenames[i] + ".tbi", vcf_filenames[i] + ".csi"}) {
                     struct stat stat_tbi, stat_vcf;
                     if (stat(tabix_name.c_str(), &stat_tbi) != 0) {
                         // the tabix doesn't exist
                         continue;
                     }
-                    stat(scan_vcf_filenames[i].c_str(), &stat_vcf);
+                    stat(vcf_filenames[i].c_str(), &stat_vcf);
                     if (stat_vcf.st_mtime > stat_tbi.st_mtime) {
-                        cerr << "warning:[IndexRegistry] Tabix index " + tabix_name + " is older than VCF " + scan_vcf_filenames[i] + " and will not be used. Consider recreating this tabix index to speed up index creation.\n";
+                        cerr << "warning:[IndexRegistry] Tabix index " + tabix_name + " is older than VCF " + vcf_filenames[i] + " and will not be used. Consider recreating this tabix index to speed up index creation.\n";
                         continue;
                     }
                     
@@ -534,20 +527,32 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     }
                 }
                 
+                // get the sample set
+                htsFile* vcf = bcf_open(vcf_filenames[i].c_str(), "r");
+                bcf_hdr_t* header = bcf_hdr_read(vcf);
+                for (int j = 0; j < bcf_hdr_nsamples(header); ++j) {
+                    vcf_samples[i].insert(header->samples[j]);
+                }
+                
                 if (tabix_index != nullptr) {
-                    // we have a tabix index, so we can make this query more efficiently
+                    // we have a tabix index, so we can make contigs query more efficiently
                     int num_seq_names;
                     const char** seq_names = tbx_seqnames(tabix_index, &num_seq_names);
-                    for (int k = 0; k < num_seq_names; ++k) {
-                        thread_contigs[j].push_back(seq_names[k]);
+                    for (int j = 0; j < num_seq_names; ++j) {
+                        vcf_contigs_with_variants[i].push_back(seq_names[j]);
                     }
                     free(seq_names);
+                    bcf_hdr_destroy(header);
+                    int close_err_code = hts_close(vcf);
+                    if (close_err_code != 0) {
+                        cerr << "error:[IndexRegistry] encountered error closing VCF " << vcf_filenames[i] << endl;
+                        exit(1);
+                    }
                     continue;
                 }
+                
                 // no tabix index, so we have to do the full scan
                 
-                htsFile* vcf = bcf_open(scan_vcf_filenames[i].c_str(), "r");
-                bcf_hdr_t* header = bcf_hdr_read(vcf);
                 bcf1_t* vcf_rec = bcf_init();
                 string curr_contig;
                 int err_code = bcf_read(vcf, header, vcf_rec);
@@ -556,22 +561,22 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     if (!curr_contig.empty()) {
                         if (curr_contig < chrom) {
                             curr_contig = chrom;
-                            thread_contigs[j].push_back(chrom);
+                            vcf_contigs_with_variants[i].push_back(chrom);
                         }
                         else if (curr_contig > chrom) {
-                            cerr << "error:[IndexRegistry] Contigs in VCF must be in ASCII-lexicographic order. Encountered contig '" << chrom << "' after contig '" << curr_contig << "' in VCF file" << scan_vcf_filenames[i] << "." << endl;
+                            cerr << "error:[IndexRegistry] Contigs in VCF must be in ASCII-lexicographic order. Encountered contig '" << chrom << "' after contig '" << curr_contig << "' in VCF file" << vcf_filenames[i] << "." << endl;
                             exit(1);
                         }
                     }
                     else {
                         curr_contig = chrom;
-                        thread_contigs[j].push_back(chrom);
+                        vcf_contigs_with_variants[i].push_back(chrom);
                     }
                     
                     err_code = bcf_read(vcf, header, vcf_rec);
                 }
                 if (err_code != -1) {
-                    cerr << "error:[IndexRegistry] failed to read from VCF " << scan_vcf_filenames[i] << endl;
+                    cerr << "error:[IndexRegistry] failed to read from VCF " << vcf_filenames[i] << endl;
                     exit(1);
                 }
                 // we'll be moving on to a different file, so we won't demand that these
@@ -580,66 +585,143 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 bcf_hdr_destroy(header);
                 err_code = hts_close(vcf);
                 if (err_code != 0) {
-                    cerr << "error:[IndexRegistry] encountered error closing VCF " << scan_vcf_filenames[i] << endl;
+                    cerr << "error:[IndexRegistry] encountered error closing VCF " << vcf_filenames[i] << endl;
                     exit(1);
                 }
-            }
-            
-            // merge the individual thread lists
-            for (auto& contig_list : thread_contigs) {
-                contigs_with_variants.insert(contig_list.begin(), contig_list.end());
             }
         }
         
 #ifdef debug_index_registry_recipes
         cerr << "contigs that have variants in the VCFs:" << endl;
-        for (auto contig : contigs_with_variants) {
-            cerr << "\t" << contig << endl;
+        for (auto& vcf_contigs : vcf_contigs_with_variants) {
+            for (auto& contig : vcf_contigs) {
+                cerr << "\t" << contig << endl;
+            }
         }
 #endif
         
-        // records of (length, seq name, index in input)
-        priority_queue<tuple<int64_t, string, int64_t>> seq_queue;
+        // consolidate this for easy look up later
+        unordered_set<string> contigs_with_variants;
+        for (auto& vcf_contigs : vcf_contigs_with_variants) {
+            for (auto& contig : vcf_contigs) {
+                contigs_with_variants.insert(contig);
+            }
+        }
+        
+        unordered_map<string, int64_t> seq_files;
         unordered_map<string, int64_t> seq_lengths;
+        // records of (length, name)
+        priority_queue<pair<int64_t, string>> seq_queue;
                 
         for (int64_t i = 0; i < fasta_filenames.size(); ++i) {
             FastaReference ref;
             ref.open(fasta_filenames[i]);
             for (const auto& idx_entry : *ref.index) {
-                seq_queue.emplace(idx_entry.second.length, idx_entry.second.name, i);
+                seq_files[idx_entry.second.name] = i;
                 seq_lengths[idx_entry.second.name] = idx_entry.second.length;
+                seq_queue.emplace(idx_entry.second.length, idx_entry.second.name);
             }
+        }
+        
+        // we'll partition sequences that have the same samples (chunking the the VCFs
+        // ultimately requires that we do this)
+        map<set<string>, vector<string>> sample_set_contigs;
+        for (int i = 0; i < vcf_samples.size(); ++i) {
+            auto& contigs = sample_set_contigs[vcf_samples[i]];
+            for (auto& contig : vcf_contigs_with_variants[i]) {
+                contigs.push_back(contig);
+            }
+        }
+        // move these lists of contigs into more convenient data structures
+        vector<vector<string>> contig_groups;
+        unordered_map<string, int64_t> contig_to_group;
+        for (auto it = sample_set_contigs.begin(); it != sample_set_contigs.end(); ++it) {
+            for (const auto& contig : it->second) {
+                if (contig_to_group.count(contig)) {
+                    cerr << "error:[IndexRegistry] Contig " << contig << " is found in multiple VCFs with different samples" << endl;
+                    exit(1);
+                }
+                contig_to_group[contig] = contig_groups.size();
+            }
+            contig_groups.emplace_back(move(it->second));
         }
                 
         // we'll greedily assign contigs to the smallest bucket (2-opt bin packing algorithm)
-        // records of (total length, bucket index)
-        priority_queue<pair<int64_t, int64_t>, vector<pair<int64_t, int64_t>>,
-        greater<pair<int64_t, int64_t>>> bucket_queue;
+        // modified to ensure that we can bucket contigs with the same sample sets together
         
         // one of the threads gets used up to do scheduling after this initial chunking
         int num_threads = get_thread_count();
         // we'll let it go a bit larger so we can take advantage of dynamic scheduling
-        int max_num_buckets = max<int>(1, ceil(IndexingParameters::thread_chunk_inflation_factor * num_threads));
-        // records of (contig, index of fasta)
-        vector<vector<pair<string, int64_t>>> buckets;
+        int max_num_buckets = max<int>(contig_groups.size(),
+                                       ceil(IndexingParameters::thread_chunk_inflation_factor * num_threads));
+        int num_buckets = 0;
+        int groups_without_bucket = contig_groups.size();
+        // records of (contig, index of fasta), grouped by sample groups
+        vector<vector<vector<string>>> sample_group_buckets(contig_groups.size());
+        // records of (total length, bucket index), grouped by sample gorups
+        vector<priority_queue<pair<int64_t, int64_t>, vector<pair<int64_t, int64_t>>,
+                              greater<pair<int64_t, int64_t>>>> bucket_queues(contig_groups.size());
         while (!seq_queue.empty()) {
-            int64_t length, idx;
+            int64_t length;
             string seq_name;
-            tie(length, seq_name, idx) = seq_queue.top();
+            tie(length, seq_name) = seq_queue.top();
             seq_queue.pop();
             
-            if (buckets.size() < max_num_buckets) {
+            int64_t group = 0;
+            if (contig_to_group.count(seq_name)) {
+                // this contig has variant samples associated with it, so we need to
+                // group it in with them
+                group = contig_to_group[seq_name];
+            }
+            else {
+                // this contig has no variants associated, we can put it in whichever
+                // bucket is smallest
+                for (int64_t i = 0; i < bucket_queues.size(); ++i) {
+                    int64_t min_bucket_length = numeric_limits<int64_t>::max();
+                    if (bucket_queues[i].empty()) {
+                        min_bucket_length = 0;
+                        group = i;
+                    }
+                    else if (bucket_queues[i].top().first < min_bucket_length) {
+                        min_bucket_length = bucket_queues[i].top().first;
+                        group = i;
+                    }
+                    
+                }
+            }
+            
+            // always make sure there's enough room in our budget of buckets
+            // to make one for each sample group
+            if (num_buckets < max_num_buckets - groups_without_bucket) {
                 // make a new bucket
-                bucket_queue.emplace(length, buckets.size());
-                buckets.emplace_back(1, make_pair(seq_name, idx));
+                if (bucket_queues[group].empty()) {
+                    groups_without_bucket--;
+                }
+                auto& group_buckets = sample_group_buckets[group];
+                bucket_queues[group].emplace(seq_lengths[seq_name], group_buckets.size());
+                group_buckets.emplace_back(1, seq_name);
+                num_buckets++;
             }
             else {
                 // add to the smallest bucket
                 int64_t total_length, b_idx;
-                tie(total_length, b_idx) = bucket_queue.top();
-                bucket_queue.pop();
-                buckets[b_idx].emplace_back(seq_name, idx);
-                bucket_queue.emplace(total_length + length, b_idx);
+                tie(total_length, b_idx) = bucket_queues[group].top();
+                bucket_queues[group].pop();
+                sample_group_buckets[group][b_idx].emplace_back(seq_name);
+                bucket_queues[group].emplace(total_length + length, b_idx);
+            }
+        }
+        
+        // merge the list of sample group buckets and collate with their
+        // FASTA of origin
+        vector<vector<pair<string, int64_t>>> buckets;
+        for (auto& group_buckets : sample_group_buckets) {
+            for (auto& bucket : group_buckets) {
+                buckets.emplace_back();
+                auto& new_bucket = buckets.back();
+                for (auto& contig : bucket) {
+                    new_bucket.emplace_back(move(contig), seq_files[contig]);
+                }
             }
         }
         
