@@ -1,7 +1,7 @@
 #ifndef VG_SNARL_DISTANCE_HPP_INCLUDED
 #define VG_SNARL_DISTANCE_HPP_INCLUDED
 
-#define debug_indexing
+//#define debug_indexing
 
 #include <handlegraph/snarl_decomposition.hpp>
 #include <structures/union_find.hpp>
@@ -324,7 +324,7 @@ public:
 
 
     /**
-     * Return the length of the net, which must represent a node
+     * Return the length of the net, which must represent a node (or sentinel of a snarl)
      */
     int64_t node_length(const net_handle_t& net) const ;
 
@@ -1261,11 +1261,13 @@ private:
         virtual int64_t get_distance(size_t rank1, bool right_side1, size_t rank2, bool right_side2) const {
 
             //offset of the start of the distance vectors in snarl_tree_records
-            size_t distance_vector_start = record_offset + get_node_count();
+            size_t distance_vector_start = record_offset + SNARL_RECORD_SIZE + get_node_count();
             //Offset of this particular distance in the distance vector
             size_t distance_vector_offset = get_distance_vector_offset(rank1, right_side1, rank2, right_side2);
 
             size_t val = records->at(distance_vector_start + distance_vector_offset);
+            cerr << "Getting distance from  " << rank1 << " " <<  right_side1 << " and " << rank2 << " " << right_side2 << endl << "   " ;
+            cerr <<  distance_vector_start + distance_vector_offset << " set distance_value " << val << endl;
             return  val == 0 ? std::numeric_limits<int64_t>::max() : val-1;
 
         }
@@ -1335,6 +1337,8 @@ private:
             size_t distance_vector_offset = get_distance_vector_offset(rank1, right_side1, rank2, right_side2);
 
             size_t val = distance == std::numeric_limits<int64_t>::max() ? 0 : distance+1;
+            cerr << "For ranks " << rank1 << " " <<  right_side1 << " and " << rank2 << " " << right_side2 << endl << "   " ;
+            cerr <<  distance_vector_start + distance_vector_offset << " set distance_value " << val << endl;
 #ifdef debug_indexing
             cerr <<  distance_vector_start + distance_vector_offset << " set distance_value " << val << endl;
             //assert(SnarlTreeRecordConstructor::records->at(distance_vector_start + distance_vector_offset) == 0 || 

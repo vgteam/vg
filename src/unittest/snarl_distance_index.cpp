@@ -117,23 +117,45 @@ namespace vg {
 
             SECTION( "The top-level snarl has 3 nodes" ) {
 
-                //The snarl 2,7 has one child (not counting the boundary nodes)
+                //The snarl 1,8 has one child (not counting the boundary nodes)
                 size_t node_count = 0;
                 REQUIRE(distance_index.is_snarl(top_snarl));
+                net_handle_t child;
                 distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
                     node_count++;
                     REQUIRE( distance_index.canonical(distance_index.get_parent(handle))
                             == distance_index.canonical(top_snarl));
+                    child=handle;
                     return true;
                 });
                 
                 REQUIRE(node_count == 1);
-                
-                //SECTION( "The nodes are numbered 1, 2, and 8" ) {
-                //    REQUIRE(nodes.count(net_graph.get_handle(1, false)) == 1);
-                //    REQUIRE(nodes.count(net_graph.get_handle(2, false)) == 1);
-                //    REQUIRE(nodes.count(net_graph.get_handle(8, false)) == 1);
-                //}
+             
+                SECTION("Distances in the top-level snarl is correct"){
+
+                    int64_t d_start_start = distance_index.distance_in_parent(top_snarl,
+                                                distance_index.get_bound(top_snarl, false, true), 
+                                                child);
+                    int64_t d_start_end = distance_index.distance_in_parent(top_snarl,
+                                                distance_index.get_bound(top_snarl, false, true), 
+                                                distance_index.flip(child));
+                    int64_t d_end_start = distance_index.distance_in_parent(top_snarl,
+                                                distance_index.get_bound(top_snarl, true, true), 
+                                                child);
+                    int64_t d_end_end = distance_index.distance_in_parent(top_snarl,
+                                                distance_index.get_bound(top_snarl, true, true), 
+                                                distance_index.flip(child));
+                    int64_t d_across = distance_index.distance_in_parent(top_snarl,
+                                                distance_index.get_bound(top_snarl, false, true), 
+                                                distance_index.get_bound(top_snarl, true, true));
+                    cerr << d_start_start << " " << d_start_end << " " << d_end_start << " " << d_end_end << endl;
+                    REQUIRE(d_across == 0);
+                    REQUIRE(((d_start_start == 0 && d_start_end == std::numeric_limits<int64_t>::max()) ||
+                            (d_start_end == 0 && d_start_start == std::numeric_limits<int64_t>::max())));
+                    REQUIRE(((d_end_start == 0 && d_end_end == std::numeric_limits<int64_t>::max()) ||
+                            (d_end_end == 0 && d_end_start == std::numeric_limits<int64_t>::max())));
+
+                }   
             }
             
             SECTION( "The top-level NetGraph has 3 edges" ) {

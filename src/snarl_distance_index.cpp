@@ -1,4 +1,4 @@
-#define debug_distance_indexing
+//#define debug_distance_indexing
 //#define debug_snarl_traversal
 #define debug_distances
 
@@ -432,6 +432,7 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
     cerr << "Getting the distances for snarl " << structure_start_end_as_string(snarl_index) << endl;
     assert(snarl_index.first == TEMP_SNARL);
 #endif
+    cerr << "Getting the distances for snarl " << structure_start_end_as_string(snarl_index) << endl;
 
 
 
@@ -504,9 +505,9 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
 
         //Start from either direction for all nodes, but only going in for start and end
         vector<bool> directions;
-        if (start_index.second == temp_snarl_record.start_node_id) {
+        if (start_index.first == TEMP_NODE && start_index.second == temp_snarl_record.start_node_id) {
             directions.emplace_back(temp_snarl_record.start_node_rev);
-        } else if (start_index.second == temp_snarl_record.end_node_id){
+        } else if (start_index.first == TEMP_NODE && start_index.second == temp_snarl_record.end_node_id){
             directions.emplace_back(!temp_snarl_record.end_node_rev);
         } else {
             directions.emplace_back(true);
@@ -516,6 +517,8 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
             //Start a dijkstra traversal from start_index going in the direction indicated by start_rev
             //Record the distances to each node (child of the snarl) found
 
+            cerr << "  Starting from child " << structure_start_end_as_string(start_index)
+                 << " going " << (start_rev ? "rev" : "fd") << endl;
 #ifdef debug_distance_indexing
             cerr << "  Starting from child " << structure_start_end_as_string(start_index)
                  << " going " << (start_rev ? "rev" : "fd") << endl;
@@ -553,6 +556,9 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
                              << (current_rev ? "rev" : "fd") << " at actual node " << graph->get_id(current_end_handle) 
                              << (graph->get_is_reverse(current_end_handle) ? "rev" : "fd") << endl;
 #endif
+                        cerr << "    at child " << structure_start_end_as_string(current_index) << " going "
+                             << (current_rev ? "rev" : "fd") << " at actual node " << graph->get_id(current_end_handle) 
+                             << (graph->get_is_reverse(current_end_handle) ? "rev" : "fd") << endl;
                 graph->follow_edges(current_end_handle, false, [&](const handle_t next_handle) {
                     //At each of the nodes reachable from the current one, fill in the distance from the start
                     //node to the next node (current_distance). If this handle isn't leaving the snarl,
@@ -615,6 +621,7 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
                         if (!temp_snarl_record.distances.count(make_pair(start, next)) ) {
 
                             temp_snarl_record.distances[make_pair(start, next)] = current_distance;
+                            cerr << "  temp distance from " << start.first << " " << start.second << " to " << next.first << " " << next.second << " is " << current_distance << endl;
                         }
                     }
 
@@ -830,6 +837,7 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                             //Get the temporary snarl record
                             const TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = 
                                  temp_index->temp_snarl_records[child_record_index.second];
+cerr << " At snarl " << temp_snarl_record.start_node_id << endl;
                             if (!temp_snarl_record.is_trivial) {
                                 //If this is an actual snarl that we need to make
 
@@ -865,6 +873,7 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                                         //or the snarl is too big but we are looking at the boundaries
                                         snarl_record_constructor.set_distance(node_ranks.first.first, node_ranks.first.second, 
                                             node_ranks.second.first, node_ranks.second.second, distance);
+                                        cerr << "Add distance " << distance << "  for ranks " << node_ranks.first.first << " " <<  node_ranks.first.second << ", " << node_ranks.second.first << " " <<  node_ranks.second.second << endl;
                                     }
 
                                     //Now set the connectivity of this snarl
@@ -1674,10 +1683,28 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
         SnarlRecord snarl_record(get_parent(child1), &snarl_tree_records);
         SnarlTreeRecord child_record1 (child1, &snarl_tree_records);
         SnarlTreeRecord child_record2 (child2, &snarl_tree_records);
-        size_t rank1 = child_record1.get_rank_in_parent();
-        size_t rank2 = child_record2.get_rank_in_parent();
+        size_t rank1, rank2; bool rev1, rev2;
+        if (is_sentinel(child1)) {
+            rank1 = starts_at(child1) == START ? 0 : 1;
+            rev1 = false;
+        } else {
+            rank1 = child_record1.get_rank_in_parent();
+            rev1 = ends_at(child1) == END;
+        }
+        if (is_sentinel(child2)) {
+            rank2 = starts_at(child2) == START ? 0 : 1;
+            rev2 = false;
+        } else {
+            rank2 = child_record2.get_rank_in_parent();
+            rev2 = ends_at(child2) == END;
+        }
+        if ((is_sentinel(child1) && starts_at(child1) == ends_at(child1)) ||
+            (is_sentinel(child2) && starts_at(child2) == ends_at(child2)) ) {
+            //If this is a sentinel pointing out of the snarl
+            return std::numeric_limits<int64_t>::max();
+        }
 
-        return snarl_record.get_distance(rank1, ends_at(child1) == END, rank2, ends_at(child2) == END);
+        return snarl_record.get_distance(rank1, rev1, rank2, rev2);
     } else {
         throw runtime_error("error: Trying to find distance in the wrong type of handle");
     }
