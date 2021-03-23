@@ -617,9 +617,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         greater<pair<int64_t, int64_t>>> bucket_queue;
         
         // one of the threads gets used up to do scheduling after this initial chunking
-        int num_active_threads = get_thread_count();
+        int num_threads = get_thread_count();
         // we'll let it go a bit larger so we can take advantage of dynamic scheduling
-        int max_num_buckets = max<int>(1, ceil(IndexingParameters::thread_chunk_inflation_factor * num_active_threads));
+        int max_num_buckets = max<int>(1, ceil(IndexingParameters::thread_chunk_inflation_factor * num_threads));
         // records of (contig, index of fasta)
         vector<vector<pair<string, int64_t>>> buckets;
         while (!seq_queue.empty()) {
@@ -773,7 +773,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         // open all of the input VCF files
         vector<tuple<htsFile*, bcf_hdr_t*, bcf1_t*>> input_vcf_files(vcf_filenames.size());
-        vector<atomic<bool>> checked_out_or_finished(vcf_filenames.size());
+        vector<atomic<bool>> input_checked_out_or_finished(vcf_filenames.size());
         for (int64_t i = 0; i < input_vcf_files.size(); ++i) {
             htsFile* vcf = bcf_open(vcf_filenames[i].c_str(), "r");
             bcf_hdr_t* header = bcf_hdr_read(vcf);
@@ -781,7 +781,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             int err_code = bcf_read(vcf, header, vcf_rec);
             if (err_code == -1) {
                 // this vcf is empty, actually
-                checked_out_or_finished[i].store(true);
+                input_checked_out_or_finished[i].store(true);
             }
             else if (err_code < 0) {
                 cerr << "error:[IndexRegistry] failed to read VCF " << vcf_filenames[i] << endl;
@@ -795,98 +795,148 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         output_vcf_names.resize(buckets.size());
         
-        // a mutex to lock the process of checking whether the next contig the thread
-        // needs is exposed
-        mutex vcf_mutex;
-        
-        // construct the new VCFs in parallel
-        vector<thread> workers;
+        // initialize the output VCFs in serial (shouldn't take too much time)
+        vector<atomic<bool>> bucket_checked_out_or_finished(buckets.size());
+        vector<pair<htsFile*, bcf_hdr_t*>> bucket_vcfs;
+        vector<size_t> contig_idx(buckets.size(), 0);
         for (int64_t i = 0; i < buckets.size(); ++i) {
-            workers.emplace_back([&](int64_t idx) {
-                // thread body
-                auto output_vcf_name = plan->output_filepath(output_vcf, idx, buckets.size());
-                output_vcf_names[idx] = output_vcf_name;
-                                
-                // open to write in bgzipped format
-                htsFile* vcf_out = bcf_open(output_vcf_name.c_str(), "wz");
-                bcf_hdr_t* header_out = bcf_hdr_init("w");
+            bucket_checked_out_or_finished[i].store(false);
+            auto output_vcf_name = plan->output_filepath(output_vcf, i, buckets.size());
+            output_vcf_names[i] = output_vcf_name;
+            
+            // open to write in bgzipped format
+            htsFile* vcf_out = bcf_open(output_vcf_name.c_str(), "wz");
+            bcf_hdr_t* header_out = bcf_hdr_init("w");
+            
+            // merge will all the input headers for each output header, just to be safe
+            unordered_set<string> samples_added;
+            for (auto& input_vcf_file : input_vcf_files) {
+                bcf_hdr_t* header_in = get<1>(input_vcf_file);
+                header_out = bcf_hdr_merge(header_out, header_in);
+                if (header_out == nullptr) {
+                    cerr << "error:[IndexRegistry] error merging VCF header" << endl;
+                    exit(1);
+                }
                 
-                // merge will all the input headers for each output header, just to be safe
-                unordered_set<string> samples_added;
-                for (auto& input_vcf_file : input_vcf_files) {
-                    bcf_hdr_t* header_in = get<1>(input_vcf_file);
-                    header_out = bcf_hdr_merge(header_out, header_in);
-                    if (header_out == nullptr) {
-                        cerr << "error:[IndexRegistry] error merging VCF header" << endl;
-                        exit(1);
-                    }
-                    
-                    // add the samples from every header
-                    for (int64_t j = 0; j < bcf_hdr_nsamples(header_in); ++j) {
-                        const char* sample = header_in->samples[j];
-                        if (!samples_added.count(sample)) {
-                            // TODO: the header has its own dictionary, so this shouldn't be necessary,
-                            // but the khash_t isn't documented very well
-                            samples_added.insert(sample);
-                            // the sample hasn't been added yet
-                            int sample_err_code = bcf_hdr_add_sample(header_out, header_in->samples[j]);
-                            // returns a -1 if the sample is already included, which we expect
-                            if (sample_err_code != 0) {
-                                cerr << "error:[IndexRegistry] error adding samples to VCF header" << endl;
-                                exit(1);
-                            }
+                // add the samples from every header
+                for (int64_t j = 0; j < bcf_hdr_nsamples(header_in); ++j) {
+                    const char* sample = header_in->samples[j];
+                    if (!samples_added.count(sample)) {
+                        // TODO: the header has its own dictionary, so this shouldn't be necessary,
+                        // but the khash_t isn't documented very well
+                        samples_added.insert(sample);
+                        // the sample hasn't been added yet
+                        int sample_err_code = bcf_hdr_add_sample(header_out, header_in->samples[j]);
+                        // returns a -1 if the sample is already included, which we expect
+                        if (sample_err_code != 0) {
+                            cerr << "error:[IndexRegistry] error adding samples to VCF header" << endl;
+                            exit(1);
                         }
                     }
                 }
-                // documentation in htslib/vcf.h says that this has to be called after addding samples
-                int sync_err_code = bcf_hdr_sync(header_out);
-                if (sync_err_code != 0) {
-                    cerr << "error:[IndexRegistry] error syncing VCF header" << endl;
-                    exit(1);
-                }
-                int hdr_write_err_code = bcf_hdr_write(vcf_out, header_out);
-                if (hdr_write_err_code != 0) {
-                    cerr << "error:[IndexRegistry] error writing VCF header to " << output_vcf_name << endl;
-                    exit(1);
-                }
-                
-                // keep going until we've grabbed all of the contigs for this vcf
-                int64_t ctg_idx = 0;
-                while (ctg_idx < buckets[idx].size()) {
+            }
+            
+            
+            // documentation in htslib/vcf.h says that this has to be called after addding samples
+            int sync_err_code = bcf_hdr_sync(header_out);
+            if (sync_err_code != 0) {
+                cerr << "error:[IndexRegistry] error syncing VCF header" << endl;
+                exit(1);
+            }
+            int hdr_write_err_code = bcf_hdr_write(vcf_out, header_out);
+            if (hdr_write_err_code != 0) {
+                cerr << "error:[IndexRegistry] error writing VCF header to " << output_vcf_name << endl;
+                exit(1);
+            }
+            
+            // remember these so that we can check them out later
+            bucket_vcfs.emplace_back(vcf_out, header_out);
+        }
+        
+        // the parallel iteration in here is pretty complicated because contigs from
+        // the input VCFs are being shuffled among the output bucket VCFs, and contigs
+        // need to be both read and written in lexicographic order. the mutexes here
+        // let the threads shift between reading and writing from different pairs of VCFs.
+        // hopefully this high-contention process won't cause too many problems since
+        // copying each contig takes up a relatively large amount of time
+        
+        // a mutex to lock the process of checking whether the next contig the thread
+        // needs is exposed
+        mutex input_vcf_mutex;
+        // a mutex to lock the process of switching to a new bucket
+        mutex output_vcf_mutex;
+        vector<thread> workers;
+        atomic<int64_t> buckets_finished(0);
+        
+        for (int64_t i = 0; i < num_threads; ++i) {
+            workers.emplace_back([&]() {
+                int64_t bucket_idx = -1;
+                while (buckets_finished.load() < buckets.size()) {
+                    // select an output VCF corresponding to a bucket
+                    output_vcf_mutex.lock();
+                    bool found_bucket = false;
+                    // start iteration at 1 so we always advance to a new bucket if possible
+                    for (int64_t j = 1; j <= buckets.size(); ++j) {
+                        int64_t next_bucket_idx = (bucket_idx + j) % buckets.size();
+                        if (!bucket_checked_out_or_finished[next_bucket_idx].load()) {
+                            bucket_checked_out_or_finished[next_bucket_idx].store(true);
+                            bucket_idx = next_bucket_idx;
+                            found_bucket = true;
+                            break;
+                        }
+                    }
+                    output_vcf_mutex.unlock();
                     
-                    if (!contigs_with_variants.count(buckets[idx][ctg_idx].first)) {
+                    if (!found_bucket) {
+                        // it's now possible for all buckets to be checked out simultaneously
+                        // by other threads, so there's no more need to have this thread
+                        return;
+                    }
+                    
+                    auto& ctg_idx = contig_idx[bucket_idx];
+                    
+                    if (!contigs_with_variants.count(buckets[bucket_idx][ctg_idx].first)) {
                         // this contig doesn't have variants in any of the VCFs, so we skip it
                         ++ctg_idx;
+                        if (ctg_idx == buckets[bucket_idx].size()) {
+                            buckets_finished.fetch_add(1);
+                        }
+                        else {
+                            bucket_checked_out_or_finished[bucket_idx].store(false);
+                        }
                         continue;
                     }
+                    
+                    htsFile* vcf_out = bucket_vcfs[bucket_idx].first;
+                    bcf_hdr_t* header_out = bucket_vcfs[bucket_idx].second;
                     
                     // check if any of the VCFs' next contig is the next one we want for
                     // this bucket (and lock other threads out from checking simultaneously)
                     int64_t input_idx = -1;
-                    vcf_mutex.lock();
+                    input_vcf_mutex.lock();
                     for (int64_t j = 0; j < input_vcf_files.size(); ++j) {
-                        if (checked_out_or_finished[j].load()) {
+                        if (input_checked_out_or_finished[j].load()) {
                             continue;
                         }
                         
                         // what is the next contig in this VCF?
                         const char* chrom = bcf_hdr_id2name(get<1>(input_vcf_files[j]),
                                                             get<2>(input_vcf_files[j])->rid);
-                        if (buckets[idx][ctg_idx].first == chrom) {
+                        if (buckets[bucket_idx][ctg_idx].first == chrom) {
                             input_idx = j;
-                            checked_out_or_finished[j].store(true);
+                            input_checked_out_or_finished[j].store(true);
                             break;
                         }
                     }
-                    vcf_mutex.unlock();
+                    input_vcf_mutex.unlock();
                     
                     if (input_idx < 0) {
                         // other threads need to get through earlier contigs until this bucket's next
                         // contig is exposed, let's leave them alone for a second
-                        this_thread::sleep_for(chrono::seconds(1));
+                        bucket_checked_out_or_finished[bucket_idx].store(false);
                         continue;
                     }
-                                        
+                    
                     // we've checked out one of the input vcfs, now we can read from it
                     auto& input_vcf_file = input_vcf_files[input_idx];
                     
@@ -894,60 +944,73 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     while (read_err_code >= 0) {
                         
                         const char* chrom = bcf_hdr_id2name(get<1>(input_vcf_file), get<2>(input_vcf_file)->rid);
-                        if (buckets[idx][ctg_idx].first != chrom) {
+                        if (buckets[bucket_idx][ctg_idx].first != chrom) {
                             break;
                         }
                         
                         bcf_translate(header_out, get<1>(input_vcf_file), get<2>(input_vcf_file));
-                                                
+                        
                         int write_err_code = bcf_write(vcf_out, header_out, get<2>(input_vcf_file));
                         if (write_err_code != 0) {
-                            cerr << "error:[IndexRegistry] error writing VCF line to " << output_vcf_name << endl;
+                            cerr << "error:[IndexRegistry] error writing VCF line to " << output_vcf_names[bucket_idx] << endl;
                             exit(1);
                         }
                         
                         read_err_code = bcf_read(get<0>(input_vcf_file), get<1>(input_vcf_file), get<2>(input_vcf_file));
                     }
                     
-                    // we finished this contig
-                    ++ctg_idx;
-                    
                     if (read_err_code >= 0) {
                         // there's still more to read, it's just on different contigs
-                        checked_out_or_finished[input_idx].store(false);
+                        input_checked_out_or_finished[input_idx].store(false);
                     }
                     else if (read_err_code != -1) {
                         // we encountered a real error
                         cerr << "error:[IndexRegistry] error reading VCF file " << vcf_filenames[input_idx] << endl;
                         exit(1);
                     }
+                    
+                    // we finished this contig
+                    ++ctg_idx;
+                    if (ctg_idx == buckets[bucket_idx].size()) {
+                        buckets_finished.fetch_add(1);
+                    }
+                    else {
+                        bucket_checked_out_or_finished[bucket_idx].store(false);
+                    }
                 }
-                
-                bcf_hdr_destroy(header_out);
-                int close_err_code = hts_close(vcf_out);
-                if (close_err_code != 0) {
-                    cerr << "error:[IndexRegistry] encountered error closing VCF " << output_vcf_name << endl;
-                    exit(1);
-                }
-                
-                // tabix-index the bgzipped VCF we just wrote
-                // parameters inferred from tabix main's sourcecode
-                int min_shift = 0;
-                tbx_conf_t conf = tbx_conf_vcf;
-                int tabix_err_code = tbx_index_build(output_vcf_name.c_str(), min_shift, &conf);
-                if (tabix_err_code == -2) {
-                    cerr << "error:[IndexRegistry] output VCF is not bgzipped: " << output_vcf_name << endl;
-                    exit(1);
-                }
-                else if (tabix_err_code != 0) {
-                    cerr << "error:[IndexRegistry] could not tabix index VCF " << output_vcf_name << endl;
-                    exit(1);
-                }
-            }, i);
+            });
         }
         // barrier sync
         for (auto& worker : workers) {
             worker.join();
+        }
+        
+        // close out files and tabix index
+#pragma omp parallel for schedule(dynamic, 1)
+        for (int64_t i = 0; i < bucket_vcfs.size(); ++i) {
+            
+            htsFile* vcf_out = bucket_vcfs[i].first;
+            bcf_hdr_t* header_out = bucket_vcfs[i].second;
+            
+            bcf_hdr_destroy(header_out);
+            int close_err_code = hts_close(vcf_out);
+            if (close_err_code != 0) {
+                cerr << "error:[IndexRegistry] encountered error closing VCF " << output_vcf_names[i] << endl;
+                exit(1);
+            }
+            
+            // tabix-index the bgzipped VCF we just wrote
+            // parameters inferred from tabix main's sourcecode
+            int min_shift = 0;
+            tbx_conf_t conf = tbx_conf_vcf;
+            int tabix_err_code = tbx_index_build(output_vcf_names[i].c_str(), min_shift, &conf);
+            if (tabix_err_code == -2) {
+                cerr << "error:[IndexRegistry] output VCF is not bgzipped: " << output_vcf_names[i] << endl;
+                exit(1);
+            }
+            else if (tabix_err_code != 0) {
+                cerr << "warning:[IndexRegistry] could not tabix index VCF " + output_vcf_names[i] + "\n";
+            }
         }
         
         for (int64_t i = 0; i < input_vcf_files.size(); ++i) {
@@ -968,94 +1031,102 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
             
             auto& output_gff_names = all_outputs[0];
+            vector<ofstream> tx_files_out(buckets.size());
             for (int64_t i = 0; i < buckets.size(); ++i) {
                 output_gff_names.emplace_back(plan->output_filepath(output_tx, i, buckets.size()));
+                init_out(tx_files_out[i], output_gff_names.back());
             }
             
-            // a mutex to lock the process of checking out a chunk for writing to
-            mutex gff_mutex;
+            // mutexes to lock the process of checking out for writing/reading
+            mutex gff_out_mutex;
             
             // we'll thread by input files in this case
             vector<thread> tx_workers;
             vector<atomic<bool>> chunk_gff_checked_out(buckets.size());
-            for (int64_t i = 0; i < buckets.size(); ++i) {
+            for (int64_t i = 0; i < chunk_gff_checked_out.size(); ++i) {
                 chunk_gff_checked_out[i].store(false);
             }
             
-            for (int64_t i = 0; i < tx_filenames.size(); ++i) {
-                tx_workers.emplace_back([&](int64_t idx) {
-                    
-                    ifstream infile_tx;
-                    init_in(infile_tx, tx_filenames[idx]);
-                    
-                    ofstream tx_chunk_out;
-                    
-                    int64_t prev_chunk_idx = -1;
-                    while (infile_tx.good()) {
+            atomic<int64_t> input_gffs_read(0);
+            for (int64_t i = 0; i < num_threads; ++i) {
+                
+                tx_workers.emplace_back([&]() {
+                    while (input_gffs_read.load() < tx_filenames.size()) {
                         
-                        string line;
-                        getline(infile_tx, line);
+                        int64_t idx = input_gffs_read.fetch_add(1);
+
+                        ifstream infile_tx;
+                        init_in(infile_tx, tx_filenames[idx]);
                         
-                        stringstream line_strm(line);
-                        string chrom;
-                        getline(line_strm, chrom, '\t');
-                        if (chrom.empty() || chrom.front() == '#') {
-                            // skip header
-                            continue;
-                        }
+                        ofstream tx_chunk_out;
                         
-                        int64_t chunk_idx = contig_to_idx.at(chrom);
-                        if (chunk_idx != prev_chunk_idx) {
-                            // we're transitioning between chunks, so we need to check the chunk
-                            // out for writing
+                        int64_t prev_chunk_idx = -1;
+                        while (infile_tx.good()) {
                             
-                            // release the old chunk
-                            if (prev_chunk_idx >= 0) {
-                                tx_chunk_out.close();
-                                tx_chunk_out.clear();
-                                chunk_gff_checked_out[prev_chunk_idx].store(false);
+                            string line;
+                            getline(infile_tx, line);
+                            
+                            stringstream line_strm(line);
+                            string chrom;
+                            getline(line_strm, chrom, '\t');
+                            if (chrom.empty() || chrom.front() == '#') {
+                                // skip header
+                                continue;
                             }
                             
-                            // keep trying to check the new chunk until succeeding
-                            bool success = false;
-                            while (!success) {
-                                // only one thread can try to check out at a time
-                                gff_mutex.lock();
-                                if (!chunk_gff_checked_out[chunk_idx].load()) {
-                                    // the chunk is free to be written to
-                                    chunk_gff_checked_out[chunk_idx].store(true);
-                                    success = true;
+                            int64_t chunk_idx = contig_to_idx.at(chrom);
+                            if (chunk_idx != prev_chunk_idx) {
+                                // we're transitioning between chunks, so we need to check the chunk
+                                // out for writing
+                                
+                                // release the old chunk
+                                if (prev_chunk_idx >= 0) {
+                                    tx_chunk_out.close();
+                                    tx_chunk_out.clear();
+                                    chunk_gff_checked_out[prev_chunk_idx].store(false);
                                 }
-                                gff_mutex.unlock();
-                                if (!success) {
-                                    // wait for a couple seconds to check again if we can write
-                                    // to the file
-                                    this_thread::sleep_for(chrono::seconds(1));
-                                }
-                                else {
-                                    // open for writing, starting from the end
-                                    tx_chunk_out.open(output_gff_names[chunk_idx], ios_base::ate);
-                                    if (!tx_chunk_out) {
-                                        cerr << "error:[IndexRegistry] could not open " << output_gff_names[chunk_idx] << " for appending" << endl;
-                                        exit(1);
+                                
+                                // keep trying to check the new chunk until succeeding
+                                bool success = false;
+                                while (!success) {
+                                    // only one thread can try to check out at a time
+                                    gff_out_mutex.lock();
+                                    if (!chunk_gff_checked_out[chunk_idx].load()) {
+                                        // the chunk is free to be written to
+                                        chunk_gff_checked_out[chunk_idx].store(true);
+                                        success = true;
+                                    }
+                                    gff_out_mutex.unlock();
+                                    if (!success) {
+                                        // wait for a couple seconds to check again if we can write
+                                        // to the file
+                                        this_thread::sleep_for(chrono::seconds(1));
+                                    }
+                                    else {
+                                        // open for writing, starting from the end
+                                        tx_chunk_out.open(output_gff_names[chunk_idx], ios_base::ate);
+                                        if (!tx_chunk_out) {
+                                            cerr << "error:[IndexRegistry] could not open " << output_gff_names[chunk_idx] << " for appending" << endl;
+                                            exit(1);
+                                        }
                                     }
                                 }
                             }
+                            
+                            // copy the line to the chunk
+                            tx_chunk_out << line << '\n';
+                            
+                            prev_chunk_idx = chunk_idx;
                         }
                         
-                        // copy the line to the chunk
-                        tx_chunk_out << line << '\n';
-                        
-                        prev_chunk_idx = chunk_idx;
+                        // release the last chunk we were writing to
+                        if (prev_chunk_idx >= 0) {
+                            tx_chunk_out.close();
+                            chunk_gff_checked_out[prev_chunk_idx].store(false);
+                        }
                     }
-                    
-                    // release the last chunk we were writing to
-                    if (prev_chunk_idx >= 0) {
-                        tx_chunk_out.close();
-                        chunk_gff_checked_out[prev_chunk_idx].store(false);
-                    }
-                }, i);
-            };
+                });
+            }
             
             // barrier sync
             for (auto& worker : tx_workers) {
