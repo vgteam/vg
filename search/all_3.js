@@ -94,7 +94,7 @@ var searchData=
   ['children_5fof_557',['children_of',['../classvg_1_1SnarlManager.html#abeae275f106a85cca72817c02fd132b2',1,'vg::SnarlManager']]],
   ['choose_5fgood_5fthread_5fcount_558',['choose_good_thread_count',['../namespacevg.html#acfe23dc452245bf901fee2ed698afe7d',1,'vg']]],
   ['choose_5fln_559',['choose_ln',['../namespacevg.html#abf777e701e331bb422d91135a13408d2',1,'vg']]],
-  ['choose_5ftraversals_560',['choose_traversals',['../classvg_1_1Deconstructor.html#a53198cf2319bf5f53ef22f0b65136b79',1,'vg::Deconstructor']]],
+  ['choose_5ftraversals_560',['choose_traversals',['../classvg_1_1Deconstructor.html#abf0058cfc205df642533b0f29c471b73',1,'vg::Deconstructor']]],
   ['chop_561',['chop',['../namespacehandlegraph_1_1algorithms.html#a8433023fa5c3747d6d1123a886ccbce1',1,'handlegraph::algorithms']]],
   ['chrom_562',['chrom',['../structvg_1_1Transcript.html#ad79bd4743b079f2de3156970344ba689',1,'vg::Transcript']]],
   ['chrom_5flength_563',['chrom_length',['../structvg_1_1Transcript.html#a5f9b9e50b5889f072172a61cca23b43b',1,'vg::Transcript']]],
