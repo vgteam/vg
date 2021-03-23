@@ -7,10 +7,10 @@
 #include <utility>
 #include "multipath_alignment.hpp"
 
-#define stdout_for_performance_script
+// #define stdout_for_performance_script
 // #define debug_mcmc
-#define debug_make_snarl_graph
-#define debug_karger_stein
+// #define debug_make_snarl_graph
+// #define debug_karger_stein
 
 namespace vg {
 

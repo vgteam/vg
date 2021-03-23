@@ -329,295 +329,295 @@ namespace vg {
 
             }
         }
-        TEST_CASE("Returns optimal phased genome on a 8-node graph 2 nested snarls with 1 short read"){
-            SECTION("Test4: Requires haplotype pair to match truth set") {   
-                VG graph;
+//         TEST_CASE("Returns optimal phased genome on a 8-node graph 2 nested snarls with 1 short read"){
+//             SECTION("Test4: Requires haplotype pair to match truth set") {   
+//                 VG graph;
 				
                 
-                Node* n1 = graph.create_node("GGG"); //gets ID in incremintal order 
-                Node* n2 = graph.create_node("CCC");
-                Node* n3 = graph.create_node("A");
-                Node* n4 = graph.create_node("T");
-                Node* n5 = graph.create_node("G");
-                Node* n6 = graph.create_node("CTGG");
-                Node* n7 = graph.create_node("TAC");
-                Node* n8 = graph.create_node("C");
+//                 Node* n1 = graph.create_node("GGG"); //gets ID in incremintal order 
+//                 Node* n2 = graph.create_node("CCC");
+//                 Node* n3 = graph.create_node("A");
+//                 Node* n4 = graph.create_node("T");
+//                 Node* n5 = graph.create_node("G");
+//                 Node* n6 = graph.create_node("CTGG");
+//                 Node* n7 = graph.create_node("TAC");
+//                 Node* n8 = graph.create_node("C");
 
-                path_handle_t path_handle = graph.create_path_handle("x");
-                graph.append_step(path_handle, graph.get_handle(n1->id()));
-                graph.append_step(path_handle, graph.get_handle(n2->id()));
-                graph.append_step(path_handle, graph.get_handle(n4->id()));
-                graph.append_step(path_handle, graph.get_handle(n5->id()));
-                graph.append_step(path_handle, graph.get_handle(n6->id()));
+//                 path_handle_t path_handle = graph.create_path_handle("x");
+//                 graph.append_step(path_handle, graph.get_handle(n1->id()));
+//                 graph.append_step(path_handle, graph.get_handle(n2->id()));
+//                 graph.append_step(path_handle, graph.get_handle(n4->id()));
+//                 graph.append_step(path_handle, graph.get_handle(n5->id()));
+//                 graph.append_step(path_handle, graph.get_handle(n6->id()));
 
                 
-                graph.create_edge(n1, n2);
-                graph.create_edge(n1, n7);
-                graph.create_edge(n2, n3);
-                graph.create_edge(n2, n4);
-                graph.create_edge(n3, n5);
-                graph.create_edge(n4, n5);
-                graph.create_edge(n5, n6);
-                graph.create_edge(n7, n8);
-                graph.create_edge(n8, n6);
+//                 graph.create_edge(n1, n2);
+//                 graph.create_edge(n1, n7);
+//                 graph.create_edge(n2, n3);
+//                 graph.create_edge(n2, n4);
+//                 graph.create_edge(n3, n5);
+//                 graph.create_edge(n4, n5);
+//                 graph.create_edge(n5, n6);
+//                 graph.create_edge(n7, n8);
+//                 graph.create_edge(n8, n6);
 				
-                IntegratedSnarlFinder bubble_finder(graph);
-                SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
+//                 IntegratedSnarlFinder bubble_finder(graph);
+//                 SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
                 
-                string read = string("GGGCCCAGCTGG");
-                multipath_alignment_t multipath_aln;
-                multipath_aln.set_sequence(read);
+//                 string read = string("GGGCCCAGCTGG");
+//                 multipath_alignment_t multipath_aln;
+//                 multipath_aln.set_sequence(read);
                 
-                // add subpaths with same topology as graph
-                multipath_aln.add_subpath();
-                multipath_aln.add_subpath();
-                multipath_aln.add_subpath();
-                multipath_aln.add_subpath();
-                multipath_aln.add_subpath();
-                multipath_aln.add_subpath();
-                multipath_aln.add_subpath();
-                multipath_aln.add_subpath();
-                subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
-                subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
-                subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
-                subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
-                subpath_t* subpath4 = multipath_aln.mutable_subpath(4);
-                subpath_t* subpath5 = multipath_aln.mutable_subpath(5);
-                subpath_t* subpath6 = multipath_aln.mutable_subpath(6);
-                subpath_t* subpath7 = multipath_aln.mutable_subpath(7);
+//                 // add subpaths with same topology as graph
+//                 multipath_aln.add_subpath();
+//                 multipath_aln.add_subpath();
+//                 multipath_aln.add_subpath();
+//                 multipath_aln.add_subpath();
+//                 multipath_aln.add_subpath();
+//                 multipath_aln.add_subpath();
+//                 multipath_aln.add_subpath();
+//                 multipath_aln.add_subpath();
+//                 subpath_t* subpath0 = multipath_aln.mutable_subpath(0);
+//                 subpath_t* subpath1 = multipath_aln.mutable_subpath(1);
+//                 subpath_t* subpath2 = multipath_aln.mutable_subpath(2);
+//                 subpath_t* subpath3 = multipath_aln.mutable_subpath(3);
+//                 subpath_t* subpath4 = multipath_aln.mutable_subpath(4);
+//                 subpath_t* subpath5 = multipath_aln.mutable_subpath(5);
+//                 subpath_t* subpath6 = multipath_aln.mutable_subpath(6);
+//                 subpath_t* subpath7 = multipath_aln.mutable_subpath(7);
                 
-                // set edges between subpaths
-                subpath0->add_next(1);
-                subpath0->add_next(6);
-                subpath1->add_next(2);
-                subpath1->add_next(3);
-                subpath2->add_next(4);
-                subpath3->add_next(4);
-                subpath4->add_next(5);
-                subpath6->add_next(7);
-                subpath7->add_next(5);
+//                 // set edges between subpaths
+//                 subpath0->add_next(1);
+//                 subpath0->add_next(6);
+//                 subpath1->add_next(2);
+//                 subpath1->add_next(3);
+//                 subpath2->add_next(4);
+//                 subpath3->add_next(4);
+//                 subpath4->add_next(5);
+//                 subpath6->add_next(7);
+//                 subpath7->add_next(5);
 
-                // set scores
-                subpath0->set_score(1);
-                subpath1->set_score(1);
-                subpath2->set_score(1);
-                subpath3->set_score(-4);
-                subpath4->set_score(1);
-                subpath5->set_score(1);
-                subpath6->set_score(-3);
-                subpath7->set_score(-10);
+//                 // set scores
+//                 subpath0->set_score(1);
+//                 subpath1->set_score(1);
+//                 subpath2->set_score(1);
+//                 subpath3->set_score(-4);
+//                 subpath4->set_score(1);
+//                 subpath5->set_score(1);
+//                 subpath6->set_score(-3);
+//                 subpath7->set_score(-10);
                 
-                // designate mappings
-                path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
-                mapping0->mutable_position()->set_node_id(1);
-                edit_t* edit0 = mapping0->add_edit();
-                edit0->set_from_length(3); //a match 
-                edit0->set_to_length(3);
+//                 // designate mappings
+//                 path_mapping_t* mapping0 = subpath0->mutable_path()->add_mapping();
+//                 mapping0->mutable_position()->set_node_id(1);
+//                 edit_t* edit0 = mapping0->add_edit();
+//                 edit0->set_from_length(3); //a match 
+//                 edit0->set_to_length(3);
                 
-                path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
-                mapping1->mutable_position()->set_node_id(2);
-                edit_t* edit1 = mapping1->add_edit();
-                edit1->set_from_length(3); //a match 
-                edit1->set_to_length(3);
+//                 path_mapping_t* mapping1 = subpath1->mutable_path()->add_mapping();
+//                 mapping1->mutable_position()->set_node_id(2);
+//                 edit_t* edit1 = mapping1->add_edit();
+//                 edit1->set_from_length(3); //a match 
+//                 edit1->set_to_length(3);
                 
-                path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
-                mapping2->mutable_position()->set_node_id(3);
-                edit_t* edit2 = mapping2->add_edit();
-                edit2->set_from_length(1); //a match 
-                edit2->set_to_length(1);
+//                 path_mapping_t* mapping2 = subpath2->mutable_path()->add_mapping();
+//                 mapping2->mutable_position()->set_node_id(3);
+//                 edit_t* edit2 = mapping2->add_edit();
+//                 edit2->set_from_length(1); //a match 
+//                 edit2->set_to_length(1);
                 
-                path_mapping_t* mapping3 = subpath3->mutable_path()->add_mapping();
-                mapping3->mutable_position()->set_node_id(4);
-                edit_t* edit3 = mapping3->add_edit();
-                edit3->set_from_length(1); //a mismatch, snp
-                edit3->set_to_length(1);
-                edit3->set_sequence("A");
+//                 path_mapping_t* mapping3 = subpath3->mutable_path()->add_mapping();
+//                 mapping3->mutable_position()->set_node_id(4);
+//                 edit_t* edit3 = mapping3->add_edit();
+//                 edit3->set_from_length(1); //a mismatch, snp
+//                 edit3->set_to_length(1);
+//                 edit3->set_sequence("A");
 
-                path_mapping_t* mapping4 = subpath4->mutable_path()->add_mapping();
-                mapping4->mutable_position()->set_node_id(5);
-                edit_t* edit4 = mapping4->add_edit();
-                edit4->set_from_length(1); //a match 
-                edit4->set_to_length(1);
+//                 path_mapping_t* mapping4 = subpath4->mutable_path()->add_mapping();
+//                 mapping4->mutable_position()->set_node_id(5);
+//                 edit_t* edit4 = mapping4->add_edit();
+//                 edit4->set_from_length(1); //a match 
+//                 edit4->set_to_length(1);
 
-                path_mapping_t* mapping5 = subpath5->mutable_path()->add_mapping();
-                mapping5->mutable_position()->set_node_id(6);
-                edit_t* edit5 = mapping5->add_edit();
-                edit5->set_from_length(3); //a match 
-                edit5->set_to_length(3);
+//                 path_mapping_t* mapping5 = subpath5->mutable_path()->add_mapping();
+//                 mapping5->mutable_position()->set_node_id(6);
+//                 edit_t* edit5 = mapping5->add_edit();
+//                 edit5->set_from_length(3); //a match 
+//                 edit5->set_to_length(3);
 
-                path_mapping_t* mapping6 = subpath6->mutable_path()->add_mapping();
-                mapping6->mutable_position()->set_node_id(7);
-                edit_t* edit6 = mapping6->add_edit();
-                edit6->set_from_length(2); //a mismatch 
-                edit6->set_to_length(2); // will offset 2 positions in read and graph 
-                edit6->set_sequence("CC");
-                edit_t* edit6b = mapping6->add_edit();
-                edit6b->set_from_length(1); // a match
-                edit6b->set_to_length(1);
+//                 path_mapping_t* mapping6 = subpath6->mutable_path()->add_mapping();
+//                 mapping6->mutable_position()->set_node_id(7);
+//                 edit_t* edit6 = mapping6->add_edit();
+//                 edit6->set_from_length(2); //a mismatch 
+//                 edit6->set_to_length(2); // will offset 2 positions in read and graph 
+//                 edit6->set_sequence("CC");
+//                 edit_t* edit6b = mapping6->add_edit();
+//                 edit6b->set_from_length(1); // a match
+//                 edit6b->set_to_length(1);
                 
 
-                path_mapping_t* mapping7 = subpath7->mutable_path()->add_mapping();
-                mapping7->mutable_position()->set_node_id(8);
-                edit_t* edit7 = mapping7->add_edit();
-                edit7->set_from_length(1); //a mismatch 
-                edit7->set_to_length(1);
-                edit7->set_sequence("A");
-                edit_t* edit7b = mapping7->add_edit(); // a deletion , gap open
-                edit7b->set_from_length(1); // denotes the length of the gap observed in alt seq
-                edit7b->set_to_length(0); // length in alt sequence is zero because it is a gap
-                edit7b->set_sequence("G");
+//                 path_mapping_t* mapping7 = subpath7->mutable_path()->add_mapping();
+//                 mapping7->mutable_position()->set_node_id(8);
+//                 edit_t* edit7 = mapping7->add_edit();
+//                 edit7->set_from_length(1); //a mismatch 
+//                 edit7->set_to_length(1);
+//                 edit7->set_sequence("A");
+//                 edit_t* edit7b = mapping7->add_edit(); // a deletion , gap open
+//                 edit7b->set_from_length(1); // denotes the length of the gap observed in alt seq
+//                 edit7b->set_to_length(0); // length in alt sequence is zero because it is a gap
+//                 edit7b->set_sequence("G");
 
-                multipath_aln.add_start(0); //integer given is the subpath number
-#ifdef debug
-        cerr << "Multipath mapper alignment " <<endl;
-        cerr << pb2json(multipath_aln) <<endl;        
-#endif
+//                 multipath_aln.add_start(0); //integer given is the subpath number
+// #ifdef debug
+//         cerr << "Multipath mapper alignment " <<endl;
+//         cerr << pb2json(multipath_aln) <<endl;        
+// #endif
                 
 				
-                // match and mismatch represent the point system used for penalty
-                double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
+//                 // match and mismatch represent the point system used for penalty
+//                 double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
 
-                MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed,burn_in, gamma_freq);
-                vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>({multipath_aln});
-                unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
+//                 MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed,burn_in, gamma_freq);
+//                 vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>({multipath_aln});
+//                 unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
 
-                 // create a set of possible solutions
-                vector<NodeTraversal> soln1;
-                soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n3), NodeTraversal(n5), NodeTraversal(n6)};
+//                  // create a set of possible solutions
+//                 vector<NodeTraversal> soln1;
+//                 soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n3), NodeTraversal(n5), NodeTraversal(n6)};
 
-                set<vector<NodeTraversal>> solns_set;
-                solns_set.insert(soln1); 
+//                 set<vector<NodeTraversal>> solns_set;
+//                 solns_set.insert(soln1); 
 
-                // check requirements 
-                REQUIRE(genome->num_haplotypes() == 2);
+//                 // check requirements 
+//                 REQUIRE(genome->num_haplotypes() == 2);
 
-                // move the genome haplotype into a vector
-                vector<NodeTraversal> haplotype1, haplotype2;
-                copy(genome->begin(0), genome->end(0), back_inserter(haplotype1));
-                copy(genome->begin(1), genome->end(1), back_inserter(haplotype2));
+//                 // move the genome haplotype into a vector
+//                 vector<NodeTraversal> haplotype1, haplotype2;
+//                 copy(genome->begin(0), genome->end(0), back_inserter(haplotype1));
+//                 copy(genome->begin(1), genome->end(1), back_inserter(haplotype2));
                 
-                vector<vector<NodeTraversal>> haplos = {haplotype1, haplotype2};
+//                 vector<vector<NodeTraversal>> haplos = {haplotype1, haplotype2};
                 
-                bool pass = false;
-                if(solns_set.count(haplotype1) || solns_set.count(haplotype2)){
-                    pass = true;
-                }
-                // requires at least one of the haplotypes to match truth set 
-                // only one match is required because there is only one read
-                REQUIRE(pass);
+//                 bool pass = false;
+//                 if(solns_set.count(haplotype1) || solns_set.count(haplotype2)){
+//                     pass = true;
+//                 }
+//                 // requires at least one of the haplotypes to match truth set 
+//                 // only one match is required because there is only one read
+//                 REQUIRE(pass);
             
-            }    
+//             }    
 
-        }
-        TEST_CASE("Returns optimal phased genome on a 8-node graph 2 nested snarls with 1 read"){
-            SECTION("Test5:Requires haplotype pair to match truth set") {   
-                VG graph;
+//         }
+//         TEST_CASE("Returns optimal phased genome on a 8-node graph 2 nested snarls with 1 read"){
+            // SECTION("Test5:Requires haplotype pair to match truth set") {   
+            //     VG graph;
 				
                 
-                Node* n1 = graph.create_node("GGG"); //gets ID in incremintal order 
-                Node* n2 = graph.create_node("CCC");
-                Node* n3 = graph.create_node("A");
-                Node* n4 = graph.create_node("T");
-                Node* n5 = graph.create_node("G");
-                Node* n6 = graph.create_node("CTGG");
-                Node* n7 = graph.create_node("TAC");
-                Node* n8 = graph.create_node("C");
+            //     Node* n1 = graph.create_node("GGG"); //gets ID in incremintal order 
+            //     Node* n2 = graph.create_node("CCC");
+            //     Node* n3 = graph.create_node("A");
+            //     Node* n4 = graph.create_node("T");
+            //     Node* n5 = graph.create_node("G");
+            //     Node* n6 = graph.create_node("CTGG");
+            //     Node* n7 = graph.create_node("TAC");
+            //     Node* n8 = graph.create_node("C");
 
-                path_handle_t path_handle = graph.create_path_handle("x");
-                graph.append_step(path_handle, graph.get_handle(n1->id()));
-                graph.append_step(path_handle, graph.get_handle(n2->id()));
-                graph.append_step(path_handle, graph.get_handle(n4->id()));
-                graph.append_step(path_handle, graph.get_handle(n5->id()));
-                graph.append_step(path_handle, graph.get_handle(n6->id()));
+            //     path_handle_t path_handle = graph.create_path_handle("x");
+            //     graph.append_step(path_handle, graph.get_handle(n1->id()));
+            //     graph.append_step(path_handle, graph.get_handle(n2->id()));
+            //     graph.append_step(path_handle, graph.get_handle(n4->id()));
+            //     graph.append_step(path_handle, graph.get_handle(n5->id()));
+            //     graph.append_step(path_handle, graph.get_handle(n6->id()));
 
                 
-                graph.create_edge(n1, n2);
-                graph.create_edge(n1, n7);
-                graph.create_edge(n2, n3);
-                graph.create_edge(n2, n4);
-                graph.create_edge(n3, n5);
-                graph.create_edge(n4, n5);
-                graph.create_edge(n5, n6);
-                graph.create_edge(n7, n8);
-                graph.create_edge(n8, n6);
+            //     graph.create_edge(n1, n2);
+            //     graph.create_edge(n1, n7);
+            //     graph.create_edge(n2, n3);
+            //     graph.create_edge(n2, n4);
+            //     graph.create_edge(n3, n5);
+            //     graph.create_edge(n4, n5);
+            //     graph.create_edge(n5, n6);
+            //     graph.create_edge(n7, n8);
+            //     graph.create_edge(n8, n6);
 				
-                IntegratedSnarlFinder bubble_finder(graph);
-                SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
+            //     IntegratedSnarlFinder bubble_finder(graph);
+            //     SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
 
-                // Configure GCSA temp directory to the system temp directory
-                gcsa::TempFile::setDirectory(temp_file::get_dir());
-                // And make it quiet
-                gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+            //     // Configure GCSA temp directory to the system temp directory
+            //     gcsa::TempFile::setDirectory(temp_file::get_dir());
+            //     // And make it quiet
+            //     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
                 
-                // Make pointers to fill in
-                gcsa::GCSA* gcsaidx = nullptr;
-                gcsa::LCPArray* lcpidx = nullptr;
+            //     // Make pointers to fill in
+            //     gcsa::GCSA* gcsaidx = nullptr;
+            //     gcsa::LCPArray* lcpidx = nullptr;
                 
-                // Build the GCSA index
-                build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3); 
+            //     // Build the GCSA index
+            //     build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3); 
                 
-                // Build the xg index
-                xg::XG xg_index; 
-                xg_index.from_path_handle_graph(graph);              
+            //     // Build the xg index
+            //     xg::XG xg_index; 
+            //     xg_index.from_path_handle_graph(graph);              
 
-                // Make a multipath mapper to map against the graph.
-                MultipathMapper multipath_mapper(&xg_index, gcsaidx, lcpidx); 
+            //     // Make a multipath mapper to map against the graph.
+            //     MultipathMapper multipath_mapper(&xg_index, gcsaidx, lcpidx); 
                 
-                vector<string> reads = {"GGGCCCAGCTGG"};
-                vector<Alignment> alns = {reads.size(), Alignment()};
+            //     vector<string> reads = {"GGGCCCAGCTGG"};
+            //     vector<Alignment> alns = {reads.size(), Alignment()};
 
-                // set alignment sequence
-                for(int i = 0; i< reads.size(); i++){
-                    alns[i].set_sequence(reads[i]);
-                }
+            //     // set alignment sequence
+            //     for(int i = 0; i< reads.size(); i++){
+            //         alns[i].set_sequence(reads[i]);
+            //     }
 
-               MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed, burn_in, gamma_freq);
-               vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>(); 
+            //    MCMCGenotyper mcmc_genotyper = MCMCGenotyper(snarl_manager, graph, n_iterations, seed, burn_in, gamma_freq);
+            //    vector<multipath_alignment_t> multipath_aln_vector = vector<multipath_alignment_t>(); 
 
-               vector<vector<multipath_alignment_t>> vect = {reads.size(),vector<multipath_alignment_t>() };
+            //    vector<vector<multipath_alignment_t>> vect = {reads.size(),vector<multipath_alignment_t>() };
                     
                     
-                // map read in alignment to graph and make multipath alignments 
-                for(int i = 0; i< reads.size(); i++){
-                    multipath_mapper.multipath_map(alns[i], vect[i]);
-                }
+            //     // map read in alignment to graph and make multipath alignments 
+            //     for(int i = 0; i< reads.size(); i++){
+            //         multipath_mapper.multipath_map(alns[i], vect[i]);
+            //     }
 
 
-                // accumulate the mapped reads in one vector
-                for(int i = 0; i< reads.size(); i++){
-                    move(vect[i].begin(), vect[i].end(), back_inserter(multipath_aln_vector)); 
-                }
+            //     // accumulate the mapped reads in one vector
+            //     for(int i = 0; i< reads.size(); i++){
+            //         move(vect[i].begin(), vect[i].end(), back_inserter(multipath_aln_vector)); 
+            //     }
                     
-                double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
-                unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
+            //     double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
+            //     unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(multipath_aln_vector, log_base);
 
-                 // create a set of possible solutions
-                vector<NodeTraversal> soln1;
-                soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n3), NodeTraversal(n5), NodeTraversal(n6)};
+            //      // create a set of possible solutions
+            //     vector<NodeTraversal> soln1;
+            //     soln1 = {NodeTraversal(n1), NodeTraversal(n2), NodeTraversal(n3), NodeTraversal(n5), NodeTraversal(n6)};
 
-                set<vector<NodeTraversal>> solns_set;
-                solns_set.insert(soln1); 
+            //     set<vector<NodeTraversal>> solns_set;
+            //     solns_set.insert(soln1); 
 
-                // check requirements 
-                REQUIRE(genome->num_haplotypes() == 2);
+            //     // check requirements 
+            //     REQUIRE(genome->num_haplotypes() == 2);
 
-                // move the genome haplotype into a vector
-                vector<NodeTraversal> haplotype1, haplotype2;
-                copy(genome->begin(0), genome->end(0), back_inserter(haplotype1));
-                copy(genome->begin(1), genome->end(1), back_inserter(haplotype2));
+            //     // move the genome haplotype into a vector
+            //     vector<NodeTraversal> haplotype1, haplotype2;
+            //     copy(genome->begin(0), genome->end(0), back_inserter(haplotype1));
+            //     copy(genome->begin(1), genome->end(1), back_inserter(haplotype2));
                 
-                vector<vector<NodeTraversal>> haplos = {haplotype1, haplotype2};
+            //     vector<vector<NodeTraversal>> haplos = {haplotype1, haplotype2};
                 
-                bool pass = false;
-                if(solns_set.count(haplotype1) || solns_set.count(haplotype2)){
-                    pass = true;
-                }
-                // requires at least one of the haplotypes to match truth set 
-                // only one match is required because there is only one read
-                REQUIRE(pass);
+            //     bool pass = false;
+            //     if(solns_set.count(haplotype1) || solns_set.count(haplotype2)){
+            //         pass = true;
+            //     }
+            //     // requires at least one of the haplotypes to match truth set 
+            //     // only one match is required because there is only one read
+            //     REQUIRE(pass);
             
-            }
-        }    
+        //     }
+        // }    
         TEST_CASE("Returns optimal phased genome on a 7-node graph containing 2 connected snarls and 4 mapped reads"){
             SECTION("Test6: Requires haplotype pair to match truth set"){
                 VG graph;
@@ -1504,7 +1504,7 @@ namespace vg {
             REQUIRE(to_swap_back->size() >1 );
             
             for(auto iter = to_swap_back->begin(); iter != to_swap_back->end(); ++iter){
-                cerr << "snarl num to swap backs" <<*iter << endl; 
+                // cerr << "snarl num to swap backs" <<*iter << endl; 
             
             }
 
