@@ -579,71 +579,88 @@ namespace vg {
 
             SparseUnionFind suf = SparseUnionFind(true, graph.get_node_ids());
 
-
+#ifdef debug
                 cout << "suf has " << suf.size() << " nodes" <<endl;
+#endif
                 REQUIRE(suf.size() == 4);
                 vector<vector<size_t>> all = suf.all_groups(); 
                 for(int i = 0 ; i < all.size(); i++){
                     for(int j = 0 ; j < all[i].size(); j++){
+#ifdef debug
                         cout <<"group " <<all[i][j] << " has " << suf.group_size(all[i][j]) << " members"<<endl;
+#endif
                     }
                         
                 }
 
                 suf.union_groups(5, 6);
+#ifdef debug
                 cout << "union between 5,6" <<endl;
-
                 cout << "suf now has " << suf.all_groups().size() << " groups" <<endl;
+#endif
                 REQUIRE(suf.all_groups().size() ==3);
 
                 vector<vector<size_t>> new_all = suf.all_groups(); 
                 for(int i = 0 ; i < new_all.size(); i++){
                     for(int j = 0 ; j < new_all[i].size(); j++){
+#ifdef debug
                         cout <<"group " <<new_all[i][j] << " has " << suf.group_size(new_all[i][j]) << " members"<<endl;
+#endif
                     }
                         
                 }
                 size_t group_5_id = suf.find_group(5);
                 size_t group_6_id = suf.find_group(6);
+#ifdef debug
                 cout << "group 5 is now in " << group_5_id <<endl;
                 cout << "group 6 is now in " << group_6_id <<endl;
+#endif
 
                 size_t group_5_size = suf.group_size(5);
                 size_t group_6_size = suf.group_size(6);
-
+#ifdef debug
                 cout << "group 5 size " << group_5_size <<endl;
                 cout << "group 6 size " << group_6_size <<endl;
-
+#endif
                 
                 if(5 != group_5_id){
                     vector<size_t> group_members = suf.group(5);
                     for (size_t i = 0 ; i < group_members.size(); i++){
+#ifdef debug
                         cout << "super node is "<< group_5_id <<endl;
                         cout << "member "<< group_members[i] <<endl;
+#endif
                     }
                 }
                 if(6 != group_6_id){
                     vector<size_t> group_members = suf.group(6);
                     for (size_t i = 0 ; i < group_members.size(); i++){
+#ifdef debug
                         cout << "super node is "<< group_6_id <<endl;
                         cout << "member "<< group_members[i] <<endl;
+#endif
                     }
                 }
 
                 suf.union_groups(7, 6);
+#ifdef debug
                 cout << "union between 7,6" <<endl;
                 cout << "suf now has " << suf.all_groups().size() << " groups" <<endl;
+#endif
                 REQUIRE(suf.all_groups().size() ==2);
 
                 size_t group_7_id = suf.find_group(7);
                 size_t group_six_id = suf.find_group(6);
+#ifdef debug
                 cout << "group 7 is now in " << group_7_id <<endl;
                 cout << "group 6 is now in " << group_six_id <<endl;
-
+#endif
                 vector<vector<size_t>> g = suf.all_groups(); 
                 for(int i = 0 ; i < g.size(); i++){
                     for(int j = 0 ; j < g[i].size(); j++){
+#ifdef debug
                         cout <<"group " <<g[i][j] << " has " << suf.group_size(g[i][j]) << " members"<<endl;
+#endif
                     }
                         
                 }
@@ -916,17 +933,17 @@ namespace vg {
             // Get ending timepoint 
             auto stop = high_resolution_clock::now(); 
             auto duration = duration_cast<microseconds>(stop - start); 
-            cout << "Size of Gamma "<< to_recv.size() << endl;
-            
 #ifdef debug
+            cout << "Size of Gamma "<< to_recv.size() << endl;
             for(size_t i = 0; i < to_recv.size(); i++){
                 for (auto& x:to_recv[i] ) {
 
                 cout << "set "<<i<<" has" << x <<endl;
                 }
             }
-#endif 
             cout << "Time taken by function: " << duration.count() / 1000000 << " seconds" <<endl;
+#endif 
+            
         }
 
     }
