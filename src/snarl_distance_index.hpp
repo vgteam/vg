@@ -1266,8 +1266,6 @@ private:
             size_t distance_vector_offset = get_distance_vector_offset(rank1, right_side1, rank2, right_side2);
 
             size_t val = records->at(distance_vector_start + distance_vector_offset);
-            cerr << "Getting distance from  " << rank1 << " " <<  right_side1 << " and " << rank2 << " " << right_side2 << endl << "   " ;
-            cerr <<  distance_vector_start + distance_vector_offset << " set distance_value " << val << endl;
             return  val == 0 ? std::numeric_limits<int64_t>::max() : val-1;
 
         }
@@ -1337,8 +1335,6 @@ private:
             size_t distance_vector_offset = get_distance_vector_offset(rank1, right_side1, rank2, right_side2);
 
             size_t val = distance == std::numeric_limits<int64_t>::max() ? 0 : distance+1;
-            cerr << "For ranks " << rank1 << " " <<  right_side1 << " and " << rank2 << " " << right_side2 << endl << "   " ;
-            cerr <<  distance_vector_start + distance_vector_offset << " set distance_value " << val << endl;
 #ifdef debug_indexing
             cerr <<  distance_vector_start + distance_vector_offset << " set distance_value " << val << endl;
             //assert(SnarlTreeRecordConstructor::records->at(distance_vector_start + distance_vector_offset) == 0 || 
@@ -1462,7 +1458,6 @@ private:
             } else if (get_record_type() == MULTICOMPONENT_CHAIN) {
                 if (records->at(std::get<0>(node1) + CHAIN_NODE_COMPONENT_OFFSET) != 
                     records->at(std::get<0>(node2) + CHAIN_NODE_COMPONENT_OFFSET)) {
-cerr << "Nodes are in disconnected components" << endl;
                     return std::numeric_limits<int64_t>::max();
                 }
             }
@@ -1472,50 +1467,31 @@ cerr << "Nodes are in disconnected components" << endl;
                 tuple<size_t, bool, size_t> tmp = node1;
                 node1 = node2;
                 node2 = tmp;
-cerr << "Getting distance between node ranks " << std::get<0>(node1) << " and " << std::get<0>(node2) << endl;
 
             }
 
             if (!std::get<1>(node1) && std::get<1>(node2)) {
                 //Right of 1 and left of 2, so a simple forward traversal of the chain
-cerr << "  Right side of node1 and left side of node 2" << endl;
-cerr << "   return: " <<  get_prefix_sum_value(std::get<0>(node2))  
-                     << " - " <<  get_prefix_sum_value(std::get<0>(node1))
-                     << " - " <<  std::get<2>(node1)
-                     << endl;
                 return get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1))
                      - std::get<2>(node1);
             } else if (!std::get<1>(node1) && !std::get<1>(node2)) {
                 //Right side of 1 and right side of 2
-cerr << "  Right side of node1 and right side of node 2" << endl;
-cerr << "   return: " <<          get_prefix_sum_value(std::get<0>(node2))  
-                     << " - " <<  get_prefix_sum_value(std::get<0>(node1))
-                     << " - " <<  std::get<2>(node1)
-                     << " + " <<  get_forward_loop_value(std::get<0>(node2))
-                     << endl;
+                cerr << " returning: " << minus( sum({get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1)) , 
+                                   std::get<2>(node2), 
+                                   get_forward_loop_value(std::get<0>(node2))}), 
+                             std::get<2>(node1)) << endl;
+
                 return minus( sum({get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1)) , 
                                    std::get<2>(node2), 
                                    get_forward_loop_value(std::get<0>(node2))}), 
                              std::get<2>(node1));
             } else if (std::get<1>(node1) && std::get<1>(node2)) {
                 //Left side of 1 and left side of 2
-cerr << "  Left side of node1 and left side of node 2" << endl;
-cerr << "   return: " <<          get_prefix_sum_value(std::get<0>(node2))  
-                     << " - " <<  get_prefix_sum_value(std::get<0>(node1))
-                     << " + " <<  get_reverse_loop_value(std::get<0>(node1))
-                     << endl;
                 return sum({get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1))  
                      , get_reverse_loop_value(std::get<0>(node1))});
             } else {
                 assert(std::get<1>(node1) && !std::get<1>(node2));
                 //Left side of 1 and right side of 2
-cerr << "  Left side of node1 and right side of node 2" << endl;
-cerr << "   return: " <<          get_prefix_sum_value(std::get<0>(node2))  
-                     << " - " <<  get_prefix_sum_value(std::get<0>(node1))  
-                     << " + " <<  get_reverse_loop_value(std::get<0>(node1))
-                     << " + " <<  get_forward_loop_value(std::get<0>(node1)) 
-                     << " + " <<  std::get<2>(node1)
-                     << endl;
                 return sum({get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1))  
                      , get_reverse_loop_value(std::get<0>(node1))
                      , get_forward_loop_value(std::get<0>(node1)) 
@@ -1832,7 +1808,7 @@ private:
         if (type == ROOT_HANDLE) {
             return "root";
         } else if (type == NODE_HANDLE) {
-            return  "node " + std::to_string( get_node_id_from_offset(get_record_offset(net)));
+            return  "node " + std::to_string( get_node_id_from_offset(get_record_offset(net))) + (ends_at(net) == START ? "rev" : "fd");
         } else if (type == SNARL_HANDLE) {
             result += "snarl ";        
         } else if (type == CHAIN_HANDLE && record_type == NODE_HANDLE) {
