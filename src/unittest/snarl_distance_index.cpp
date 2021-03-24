@@ -27,7 +27,7 @@ namespace vg {
     namespace unittest {
     
         TEST_CASE( "Snarl decomposition can allow traversal of a simple net graph",
-                  "[snarl_distance][bug]" ) {
+                  "[snarl_distance]" ) {
         
         
             // This graph will have a snarl from 1 to 8, a snarl from 2 to 7,
@@ -185,6 +185,48 @@ namespace vg {
                 
                 //Double counting I think
                 REQUIRE(edges.size() == 6);
+            }
+            SECTION("Get the ancestors of a single node") {
+                net_handle_t node6 = distance_index.get_net(graph.get_handle(n6->id(), false), &graph); 
+                net_handle_t n6_as_chain = distance_index.get_parent(node6);
+                REQUIRE(distance_index.is_chain(n6_as_chain));
+                REQUIRE(distance_index.is_trivial_chain(distance_index.canonical(n6_as_chain)));
+                REQUIRE(distance_index.is_chain(distance_index.canonical(n6_as_chain)));
+                REQUIRE(distance_index.is_trivial_chain(n6_as_chain));
+                net_handle_t snarl27 = distance_index.get_parent(n6_as_chain);
+                REQUIRE(distance_index.is_snarl(snarl27));
+                net_handle_t chain27 = distance_index.get_parent(snarl27);
+                REQUIRE(distance_index.is_chain(chain27));
+                net_handle_t snarl18 = distance_index.get_parent(chain27);
+                REQUIRE(distance_index.is_snarl(snarl18));
+                net_handle_t chain18 = distance_index.get_parent(snarl18);
+                REQUIRE(distance_index.is_chain(chain18));
+                net_handle_t root = distance_index.get_parent(chain18);
+                REQUIRE(distance_index.is_root(root));
+            }
+            SECTION("Minimum distances are correct") {
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n1->id(), false, 0), make_pos_t(n8->id(), false, 0)) == 3);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n1->id(), false, 0), make_pos_t(n7->id(), false, 0)) == 5);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n3->id(), false, 0), make_pos_t(n7->id(), false, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n7->id(), true, 0), make_pos_t(n3->id(), true, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n2->id(), false, 0), make_pos_t(n5->id(), false, 0)) == 2);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n6->id(), false, 0), make_pos_t(n8->id(), false, 1)) == 3);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n2->id(), false, 0), make_pos_t(n6->id(), false, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n7->id(), true, 0), make_pos_t(n4->id(), true, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n5->id(), true, 0), make_pos_t(n2->id(), true, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n5->id(), true, 0), make_pos_t(n2->id(), false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n6->id(), false, 0), make_pos_t(n5->id(), false, 0)) == std::numeric_limits<int64_t>::max());
             }
         
         }
@@ -2356,7 +2398,9 @@ namespace vg {
                                     }
 
                                     size_t traversal_count = 0;
+                                    cerr << "Traversals of " << distance_index.net_handle_as_string(child) << endl;
                                     distance_index.for_each_traversal(child, [&](const net_handle_t net) {
+                                    cerr << "  " << distance_index.net_handle_as_string(net) << endl;
 
                                         bool start_end = distance_index.starts_at(net) == SnarlDecomposition::START &&
                                             distance_index.ends_at(net) == SnarlDecomposition::END;

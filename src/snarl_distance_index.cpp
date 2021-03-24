@@ -965,7 +965,7 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                     NodeRecordConstructor node_record(
                         get_offset_from_node_id(temp_node_record.node_id), record_type, &snarl_tree_records);
                     node_record.set_node_length(temp_node_record.node_length);
-                    node_record.set_rank_in_parent(temp_node_record.rank_in_parent);
+                    node_record.set_rank_in_parent(temp_chain_record.rank_in_parent);
                     node_record.set_is_reversed_in_parent(false);//TODO: Make sure that this is true
                     node_record.set_parent_record_offset(record_to_offset[make_pair(temp_index_i, temp_chain_record.parent)]);
 
@@ -1258,7 +1258,7 @@ net_handle_t SnarlDistanceIndex::canonical(const net_handle_t& net) const {
     } else {
         connectivity = START_END; //TODO: put this back throw runtime_error("error: This node has no connectivity");
     }
-    return get_net_handle(get_record_offset(net), connectivity);
+    return get_net_handle(get_record_offset(net), connectivity, get_handle_type(net));
 }
 
 SnarlDecomposition::endpoint_t SnarlDistanceIndex::starts_at(const net_handle_t& traversal) const {
@@ -1579,16 +1579,16 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
         size_t parent_record_offset2 = SnarlTreeRecord(child2, &snarl_tree_records).get_parent_record_offset();
         if (parent_record_offset1 != parent_record_offset2) {
             //If the children are in different connected components
-#ifdef debug_distances
-            cerr << "            => " << std::numeric_limits<int64_t>::max() << endl;
-#endif
+//#ifdef debug_distances
+//            cerr << "            => " << std::numeric_limits<int64_t>::max() << endl;
+//#endif
             return std::numeric_limits<int64_t>::max();
         } else if (SnarlTreeRecord(parent_record_offset1, &snarl_tree_records).get_record_type() 
                     != DISTANCED_ROOT_SNARL){
             //If they are in the same connected component, but it is not a root snarl
-#ifdef debug_distances
-            cerr << "            => " << std::numeric_limits<int64_t>::max() << endl;
-#endif
+//#ifdef debug_distances
+//            cerr << "            => " << std::numeric_limits<int64_t>::max() << endl;
+//#endif
             return std::numeric_limits<int64_t>::max();
         } else {
             //They are in the same root snarl, so find the distance between them
@@ -1599,9 +1599,9 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
             size_t rank1 = child_record1.get_rank_in_parent();
             size_t rank2 = child_record2.get_rank_in_parent();
 
-#ifdef debug_distances
-            cerr << "            => " << snarl_record.get_distance(rank1, ends_at(child1) == END, rank2, ends_at(child2) == END);
-#endif
+//#ifdef debug_distances
+//            cerr << "            => " << snarl_record.get_distance(rank1, ends_at(child1) == END, rank2, ends_at(child2) == END);
+//#endif
             //TODO: Double check orientations
             return snarl_record.get_distance(rank1, ends_at(child1) == END, rank2, ends_at(child2) == END);
         }
@@ -1625,11 +1625,11 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
             if (ends_at(child2) == START) {
                 go_left2 = !go_left2;
             }
-#ifdef debug_distances
-            cerr << "            => " << chain_record.get_distance(
-                make_tuple(child_record1.get_rank_in_parent(), go_left1, child_record1.get_node_length()), 
-                make_tuple(child_record2.get_rank_in_parent(), go_left2, child_record2.get_node_length())) << endl;
-#endif
+//#ifdef debug_distances
+//            cerr << "            => " << chain_record.get_distance(
+//                make_tuple(child_record1.get_rank_in_parent(), go_left1, child_record1.get_node_length()), 
+//                make_tuple(child_record2.get_rank_in_parent(), go_left2, child_record2.get_node_length())) << endl;
+//#endif
 
             return chain_record.get_distance(
                 make_tuple(child_record1.get_rank_in_parent(), go_left1, child_record1.get_node_length()), 
@@ -1650,20 +1650,20 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
                                 
             if (node_record.get_node_id() == snarl_node && go_left_node != go_left_snarl) {
                 //If the node is the boundary of the snarl facing in
-#ifdef debug_distances
-                cerr << "        => 0" << endl;
-#endif
+//#ifdef debug_distances
+//                cerr << "        => 0" << endl;
+//#endif
                 return 0;
             } else {
                 //Otherwise, find the actual distance from the node to the correct boundary of the snarl,
                 //and add the length of the boundary of the snarl, since it is not included in the chain distance
                 NodeRecord snarl_node_record (get_offset_from_node_id(snarl_node), &snarl_tree_records);
-#ifdef debug_distances
-            cerr << "            => " << sum({chain_record.get_distance(
-                               make_tuple(node_record.get_rank_in_parent(), go_left_node, node_record.get_node_length()), 
-                               make_tuple(snarl_node_record.get_rank_in_parent(), go_left_snarl, snarl_node_record.get_node_length())) 
-                           , snarl_node_record.get_node_length()}) << endl;
-#endif
+//#ifdef debug_distances
+//            cerr << "            => " << sum({chain_record.get_distance(
+//                               make_tuple(node_record.get_rank_in_parent(), go_left_node, node_record.get_node_length()), 
+//                               make_tuple(snarl_node_record.get_rank_in_parent(), go_left_snarl, snarl_node_record.get_node_length())) 
+//                           , snarl_node_record.get_node_length()}) << endl;
+//#endif
                 return sum({chain_record.get_distance(
                                make_tuple(node_record.get_rank_in_parent(), go_left_node, node_record.get_node_length()), 
                                make_tuple(snarl_node_record.get_rank_in_parent(), go_left_snarl, snarl_node_record.get_node_length())) 
@@ -1680,8 +1680,8 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
             NodeRecord node_record1 (get_offset_from_node_id(node_id1), &snarl_tree_records);
             NodeRecord node_record2 (get_offset_from_node_id(node_id2), &snarl_tree_records); 
 
-            bool go_left1 = ends_at(child1) == START ? !child_record1.get_start_orientation() : child_record1.get_end_orientation();
-            bool go_left2 = ends_at(child2) == START ? !child_record2.get_start_orientation() : child_record2.get_end_orientation();
+            bool go_left1 = ends_at(child1) == START;
+            bool go_left2 = ends_at(child2) == START;
 
             if (node_id1 == node_id2 && go_left1 != go_left2) {
                 //If the snarls are adjacent (and not the same snarl)
@@ -1725,15 +1725,16 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
         if ((is_sentinel(child1) && starts_at(child1) == ends_at(child1)) ||
             (is_sentinel(child2) && starts_at(child2) == ends_at(child2)) ) {
             //If this is a sentinel pointing out of the snarl
-#ifdef debug_distances
-            cerr << "            => " << std::numeric_limits<int64_t>::max() << endl;
-#endif
+//#ifdef debug_distances
+//            cerr << "            => " << std::numeric_limits<int64_t>::max() << endl;
+//#endif
             return std::numeric_limits<int64_t>::max();
         }
 
-#ifdef debug_distances
-            cerr << "            => " << snarl_record.get_distance(rank1, rev1, rank2, rev2) << endl;
-#endif
+//#ifdef debug_distances
+//            cerr << "             between ranks " << rank1 << " " << rev1 << " " << rank2 << " " << rev2 << endl;
+//            cerr << "            => " << snarl_record.get_distance(rank1, rev1, rank2, rev2) << endl;
+//#endif
         return snarl_record.get_distance(rank1, rev1, rank2, rev2);
     } else {
         throw runtime_error("error: Trying to find distance in the wrong type of handle");
@@ -1749,7 +1750,6 @@ pair<net_handle_t, bool> SnarlDistanceIndex::lowest_common_ancestor(const net_ha
         net1_ancestors.insert(canonical(parent1));
         parent1 = canonical(get_parent(parent1));
         cerr << "    " << net_handle_as_string(parent1) << endl;
-        cerr << net1_ancestors.size() << endl;
     }
 
     while (net1_ancestors.count(canonical(parent2)) == 0 && !is_root(parent2)){
@@ -1757,7 +1757,6 @@ pair<net_handle_t, bool> SnarlDistanceIndex::lowest_common_ancestor(const net_ha
         //This loop will end because everything is in the same root eventually
         parent2 = canonical(get_parent(parent2));
         cerr << "    " << net_handle_as_string(parent2) << endl;
-        cerr << net1_ancestors.count(parent2) << endl;
     }
 
     bool is_connected = true;
@@ -1775,6 +1774,7 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
 
 
 #ifdef debug_distances
+        cerr << endl;
         cerr << "Find the minimum distance between " << pos1 << " and " << pos2 << endl;
 #endif
 
@@ -1792,6 +1792,11 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
 #ifdef debug_distances
         cerr << "     at node " << net_handle_as_string(net) << " at parent " << net_handle_as_string(parent) << endl;
 #endif
+
+        if (is_trivial_chain(parent)) {
+            //Don't update distances for the trivial chain
+            return;
+        }
 
 
         net_handle_t start_bound = get_bound(parent, false, true);
@@ -1813,9 +1818,6 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
 
         int64_t start_length = is_chain(parent) ? node_length(start_bound) : 0;
         int64_t end_length = is_chain(parent) ? node_length(end_bound) : 0;
-        cerr << "Adding up distances: " << distance_start_start << " " << distance_start_end << " " << distance_end_start << " " << distance_end_end << endl;
-        cerr << "   and " << distance_start << " " << distance_end << endl;
-        cerr << "   and lengths " << start_length << " " << end_length << endl;
 
         dist_start = sum({std::min( sum({distance_start_start, distance_start}), 
                                     sum({distance_start_end , distance_end})) , 
@@ -1824,7 +1826,7 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
                             sum({distance_end_end , distance_end})) ,
                        end_length});
 #ifdef debug_distances
-        cerr << "New distances to start and end: " << dist_start << " " << dist_end << endl;
+        cerr << "        ...new distances to start and end: " << dist_start << " " << dist_end << endl;
 #endif
         return;
     };
@@ -1901,7 +1903,7 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
             net1 = parent;
         }
 #ifdef debug_distances
-        cerr << "At node " << net_handle_as_string(net1) << " for pos1" << endl;
+        cerr << "Reached node " << net_handle_as_string(net1) << " for pos1" << endl;
         cerr << "   with distances to ends " << distance_to_start1 << " and " << distance_to_end1 << endl;
         cerr << "Reaching the children of the lowest common ancestor for pos2..." << endl;
 #endif   
@@ -1912,7 +1914,7 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
             net2 = parent;
         }
 #ifdef debug_distances
-        cerr << "At node " << net_handle_as_string(net2) << " for pos2" << endl;
+        cerr << "Reached node " << net_handle_as_string(net2) << " for pos2" << endl;
         cerr << "   with distances to ends " << distance_to_start2 << " and " << distance_to_end2 << endl;
 #endif
     }
