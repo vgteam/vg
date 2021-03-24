@@ -96,7 +96,7 @@ void register_loader_saver_gfa() {
         bdsg::PackedGraph* packed_graph = new bdsg::PackedGraph();
         
         // Load it
-        algorithms::gfa_to_path_handle_graph_in_memory(input, packed_graph);
+        algorithms::gfa_to_path_handle_graph_stream(input, packed_graph);
         
         // Return it so the caller owns it.
         return (void*) packed_graph;

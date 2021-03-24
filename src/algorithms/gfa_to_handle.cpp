@@ -119,6 +119,10 @@ static bool gfa_sequence_parse_rgfa_tags(const gfak::sequence_elem& s,
     return has_sn && has_so && has_sr;
 }
 
+static bool gfa_sequence_parse_rgfa_tags(const vector<string>& toks) {
+    return false;
+}
+
 static bool gfa_to_handle_graph_in_memory(istream& in, MutableHandleGraph* graph,
                                           gfak::GFAKluge& gg, IDMapInfo& id_map_info) {
     if (!in) {
@@ -182,7 +186,6 @@ static bool gfa_to_handle_graph_on_disk(const string& filename, MutableHandleGra
     });
     return has_rgfa_tags;
 }
-
 
 /// Parse nodes and edges and load them into the given GFAKluge.
 /// If the input is a seekable file, filename will be filled in and unseekable will be nullptr.
@@ -344,6 +347,96 @@ static void gfa_to_handle_graph_add_rgfa_paths(const string filename, istream* u
     }    
 }
 
+static bool gfa_to_path_handle_graph_stream(istream& in, MutablePathMutableHandleGraph* graph,
+                                            IDMapInfo& id_map_info) {
+    if (!in) {
+        throw std::ios_base::failure("error:[gfa_to_handle_graph] Couldn't open input stream");
+    }
+
+    bool has_rgfa_tags = false;
+    string line_buffer; // can be quite big
+
+    function<void()> fall_back_to_disk = [&]() {
+        string fb_name = temp_file::create();
+        cerr << "warning:[gfa] Unable to stream GFA as it's not in canonical order.  Buffering to " << fb_name << endl;
+        ofstream fb_file(fb_name);
+        if (!fb_file) {
+            throw runtime_error("error:[gfa] Could not open fallback gfa temp file: " + fb_name);
+        }
+        // put that last line back
+        fb_file << line_buffer << "\n";
+        // copy the rest of the file
+        std::copy(istreambuf_iterator<char>(in),
+                  istreambuf_iterator<char>(),
+                  ostreambuf_iterator<char>(fb_file));
+        fb_file.close();
+        // read the file from disk
+        gfak::GFAKluge gg;
+        bool ret = gfa_to_handle_graph_on_disk(fb_name, graph, false, gg, id_map_info);
+        gfa_to_handle_graph_add_paths(fb_name, nullptr, graph, gg, id_map_info);
+        has_rgfa_tags = has_rgfa_tags || ret;
+    };
+    
+    while (getline(in, line_buffer)) {
+        if (!line_buffer.empty()) {
+            // We mimic gfakluge behaviour by silently ignoring lines we don't parse
+            if (line_buffer[0] == 'S') {
+                tuple<string, string, vector<string>> s_parse = parse_gfa_s_line(line_buffer);
+                graph->create_handle(get<1>(s_parse), parse_gfa_sequence_id(get<0>(s_parse), id_map_info));
+                has_rgfa_tags = has_rgfa_tags || gfa_sequence_parse_rgfa_tags(get<2>(s_parse));
+                // todo: handle rgfa paths
+            } else if (line_buffer[0] == 'L') {
+                tuple<string, bool, string, bool, vector<string>> l_parse = parse_gfa_l_line(line_buffer);
+                nid_t n1 = parse_gfa_sequence_id(get<0>(l_parse), id_map_info);
+                nid_t n2 = parse_gfa_sequence_id(get<2>(l_parse), id_map_info);
+                if (!graph->has_node(n1) || !graph->has_node(n2)) {
+                    fall_back_to_disk();
+                    break;
+                }
+                graph->create_edge(graph->get_handle(n1, get<1>(l_parse)),
+                                   graph->get_handle(n2, get<3>(l_parse)));
+            } else if (line_buffer[0] == 'P') {
+                bool missing = false;
+                // pass 1: make sure we have all the nodes in the graph
+                parse_gfa_p_line(line_buffer, [&](const string& path_name,
+                                                  int64_t step_rank,
+                                                  const string& step_id,
+                                                  bool step_is_reverse) {
+                                     if (step_rank >= 0) {
+                                         nid_t n = parse_gfa_sequence_id(step_id, id_map_info);
+                                         if (!graph->has_node(n)) {
+                                             missing = true;
+                                             return false;
+                                         }
+                                     }
+                                     return true;
+                                 });
+                if (missing) {
+                    fall_back_to_disk();
+                    break;
+                }
+                path_handle_t path_handle;
+                // pass 2: make the path
+                parse_gfa_p_line(line_buffer, [&](const string& path_name,
+                                                  int64_t step_rank,
+                                                  const string& step_id,
+                                                  bool step_is_reverse) {
+                                     if (step_rank <= 0) {
+                                         path_handle = graph->create_path_handle(path_name);
+                                     }
+                                     if (step_rank >= 0) {
+                                         nid_t n = parse_gfa_sequence_id(step_id, id_map_info);
+                                         graph->append_step(path_handle, graph->get_handle(n, step_is_reverse));
+                                     }
+                                     return true;
+                                 });
+                
+            }
+        }
+    }
+    return has_rgfa_tags;
+}
+
 void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
                          bool try_from_disk, bool try_id_increment_hint,
                          const string& translation_filename) {
@@ -425,6 +518,92 @@ void gfa_to_path_handle_graph_in_memory(istream& in,
     }
     
 }
+
+void gfa_to_path_handle_graph_stream(istream& in,
+                                     MutablePathMutableHandleGraph* graph,
+                                     int64_t max_rgfa_rank) {
+    gfak::GFAKluge gg;
+    IDMapInfo id_map_info;
+    bool has_rgfa_tags = gfa_to_path_handle_graph_stream(in, graph, id_map_info);
+    if (has_rgfa_tags) {
+        //todo
+    }        
+}
+
+tuple<string, string, vector<string>> parse_gfa_s_line(const string& s_line) {
+    assert(s_line[0] == 'S');
+    vector<string> toks = split_delims(s_line, "\t");
+    if (toks.size() < 3 || toks[0] != "S") {
+        throw runtime_error("error:[gfa parse] malformed S line: " + s_line);
+    }
+    vector<string> opt_tags;
+    opt_tags.insert(opt_tags.end(),
+                    std::make_move_iterator(toks.begin() + 3),
+                    std::make_move_iterator(toks.end()));
+    return make_tuple(std::move(toks[1]), std::move(toks[2]), opt_tags);
+}
+
+tuple<string, bool, string, bool, vector<string>> parse_gfa_l_line(const string& l_line) {
+    assert(l_line[0] == 'L');
+    vector<string> toks = split_delims(l_line, "\t");
+    if (toks.size() < 6 || toks[0] != "L" || (toks[2] != "+" && toks[2] != "-") ||
+        (toks[4] != "+" && toks[4] != "-")) {
+        throw runtime_error("error:[gfa parse] malformed L line: " + l_line);
+    }
+    vector<string> opt_tags;
+    opt_tags.insert(opt_tags.end(),
+                    std::make_move_iterator(toks.begin() + 6),
+                    std::make_move_iterator(toks.end()));
+    return make_tuple(std::move(toks[1]), toks[2] == "-", std::move(toks[3]), toks[4] == "-", opt_tags);    
+}
+
+void parse_gfa_p_line(const string& p_line,
+                      function<bool(const string&, int64_t, const string&, bool)> visit_step) {
+    assert(p_line[0] == 'P');
+
+    size_t i = 0;
+    
+    string path_name;
+
+    // Just copy over gfakluge's character by character reading code from for_each_path_element_in_file()
+    // todo: check for errors
+
+    // scan forward to find name
+    i += 2;
+    while (p_line[i] != '\t') {
+        path_name.push_back(p_line[i++]);
+    }
+    ++i; // get to path id/orientation description
+    size_t j = i;
+    while (p_line[j++] != '\t');
+    // now j points to the overlaps
+    char b = p_line[i], c = p_line[j];
+    int64_t rank = 0;
+    while (b != '\t' && j != p_line.length()) {
+        string id;
+        if (b == ',') b = p_line[++i];
+        while (b != ',' && b != '\t' && b != '+' && b != '-') {
+            id.push_back(b);
+            b = p_line[++i];
+        }
+        bool is_rev = b=='-';
+        b = p_line[++i];
+        string overlap;
+        if (c == ',') c = p_line[++j];
+        while (c != ',' && c != '\t' && c != '\n' && c != ' ' && j < p_line.length()) {
+            overlap.push_back(c);
+            c = p_line[++j];
+        }
+        bool ret = visit_step(path_name, rank++, id, is_rev);
+        if (!ret) {
+            break;
+        }
+    }
+    if (rank == 0) {
+        visit_step(path_name, -1, "", false);
+    }
+}
+
 
 }
 }
