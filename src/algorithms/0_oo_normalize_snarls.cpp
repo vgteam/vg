@@ -16,7 +16,6 @@
 #include "../msa_converter.hpp"
 #include "../snarls.hpp"
 #include "../vg.hpp"
-#include "is_acyclic.hpp"
 
 #include "../types.hpp"
 #include "extract_containing_graph.hpp"
@@ -201,7 +200,7 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
     //     });
     // });
 
-    if (!algorithms::is_acyclic(&snarl)) {
+    if (!handlealgs::is_acyclic(&snarl)) {
         cerr << "snarl at " << source_id << " is cyclic. Skipping." << endl;
         error_record[3] = true;
         return error_record;
@@ -681,7 +680,7 @@ void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl,
     // add to_insert_snarl into _graph without directly attaching the snarl to the _graph
     // (yet).
     vector<handle_t> to_insert_snarl_topo_order =
-        algorithms::lazier_topological_order(&to_insert_snarl);
+        handlealgs::lazier_topological_order(&to_insert_snarl);
 
     // Construct a parallel new_snarl_topo_order to identify
     // paralogous nodes between to_insert_snarl and the new snarl inserted in _graph.

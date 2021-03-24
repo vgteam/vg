@@ -26,7 +26,7 @@
 // #include "../msa_converter.hpp"
 // #include "vg.hpp"
 
-#include "topological_sort.hpp"
+// #include "topological_sort.hpp"
 
 
 #include <gbwtgraph/gbwtgraph.h>
@@ -611,7 +611,7 @@ SnarlSequenceFinder::find_exhaustive_paths() {
 
     // count walks by dynamic programming
     bool overflowed = false;
-    for (const handle_t &handle : lazier_topological_order(&_snarl)) {
+    for (const handle_t &handle : handlealgs::lazier_topological_order(&_snarl)) {
         touched_handles.emplace(handle);
         size_t count_here = count[handle];
         vector<string> seqs_here = sequences[handle];

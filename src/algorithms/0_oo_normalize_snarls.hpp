@@ -2,7 +2,6 @@
 #include "../handle.hpp"
 #include "../subgraph.hpp"
 #include "../vg.hpp"
-#include "count_walks.hpp"
 #include <string>
 #include <gbwtgraph/gbwtgraph.h>
 
