@@ -168,9 +168,8 @@ int main_depth(int argc, char** argv) {
 
     // Read the graph
     unique_ptr<PathHandleGraph> path_handle_graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-            path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
-        });
+    string path_handle_graph_filename = get_input_file_name(optind, argc, argv);
+    path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(path_handle_graph_filename);
     PathHandleGraph* graph = path_handle_graph.get();
     
     // Apply the overlay if necessary

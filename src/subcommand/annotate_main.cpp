@@ -190,11 +190,9 @@ int main_annotate(int argc, char** argv) {
     bdsg::PathPositionOverlayHelper overlay_helper;
 
     if (!xg_name.empty()) {
-        get_input_file(xg_name, [&](istream& in) {
-            // Read in the XG index
-            path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
-            xg_index = overlay_helper.apply(path_handle_graph.get());
-        });
+        // Read in the XG index
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+        xg_index = overlay_helper.apply(path_handle_graph.get());
     } else {
         cerr << "error [vg annotate]: no xg index provided" << endl;
         return 1;

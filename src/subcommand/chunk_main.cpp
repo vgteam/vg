@@ -314,8 +314,9 @@ int main_chunk(int argc, char** argv) {
             cerr << "error:[vg chunk] unable to load graph / xg index file " << xg_file << endl;
             return 1;
         }
+        in.close();
         
-        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_file);
         graph = overlay_helper.apply(path_handle_graph.get());
         in.close();
     }
