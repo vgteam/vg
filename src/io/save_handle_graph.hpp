@@ -14,7 +14,7 @@
 #include "xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
-
+#include "gfa.hpp"
 #include <memory>
 
 namespace vg {
@@ -39,7 +39,7 @@ inline void save_handle_graph(HandleGraph* graph, ostream& os) {
 
     if (dynamic_cast<GFAHandleGraph*>(graph) != nullptr) {
         // We loaded a GFA into a handle graph, want to write back to GFA
-        vg::io::VPKG::save(*dynamic_cast<GFAHandleGraph*>(graph), os);
+        graph_to_gfa(dynamic_cast<GFAHandleGraph*>(graph), os);
     } else if (dynamic_cast<SerializableHandleGraph*>(graph) != nullptr) {
         // SerializableHandleGraphs are all serialized bare, without VPKG framing, for libbdsg compatibility.
         dynamic_cast<SerializableHandleGraph*>(graph)->serialize(os);
@@ -54,7 +54,11 @@ inline void save_handle_graph(HandleGraph* graph, ostream& os) {
 inline void save_handle_graph(HandleGraph* graph, const string& dest_path) {
     if (dynamic_cast<GFAHandleGraph*>(graph) != nullptr) {
         // We loaded a GFA into a handle graph, want to write back to GFA
-        vg::io::VPKG::save(*dynamic_cast<GFAHandleGraph*>(graph), dest_path);
+        ofstream os(dest_path);
+        if (!os) {
+            throw runtime_error("error[save_handle_graph]: Unable to write to: " + dest_path);
+        }
+        graph_to_gfa(dynamic_cast<GFAHandleGraph*>(graph), os);
     } else if (dynamic_cast<SerializableHandleGraph*>(graph) != nullptr) {
         // SerializableHandleGraphs are all serialized bare, without VPKG framing, for libbdsg compatibility.
         dynamic_cast<SerializableHandleGraph*>(graph)->serialize(dest_path);
