@@ -102,6 +102,20 @@ double IndexingParameters::max_memory_proportion = 0.75;
 double IndexingParameters::thread_chunk_inflation_factor = 2.0;
 bool IndexingParameters::verbose = false;
 
+void copy_file(const string& from_fp, const string& to_fp) {
+    ifstream from_file(from_fp, std::ios::binary);
+    ofstream to_file(to_fp, std::ios::binary);
+    if (!from_file) {
+        cerr << "error:[IndexRegistry] Couldn't open " << from_fp << endl;
+        exit(1);
+    }
+    if (!to_file) {
+        cerr << "error:[IndexRegistry] Couldn't open " << to_fp << endl;
+        exit(1);
+    }
+    to_file << from_file.rdbuf();
+}
+
 // return file size in bytes
 int64_t get_file_size(const string& filename) {
     // get the file size
@@ -757,7 +771,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
         }
         
-        // sort all of the buckets so that they occur in the order we'll discover them in the VCF
+        // sort contigs of each bucket lexicographically so that they occur in the order
+        // we'll discover them in the VCF
         for (auto& bucket : buckets) {
             sort(bucket.begin(), bucket.end());
         }
@@ -882,113 +897,344 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             input_vcf_files[i] = make_tuple(vcf, header, vcf_rec);
         }
         
-        // TODO: i wonder if there's a better option with threads assigned to each reading file,
-        // seems like it might be tricky to maintain contig ordering though.
+        unordered_map<string, int64_t> contig_to_vcf_idx;
+        for (int64_t i = 0; i < vcf_contigs_with_variants.size(); ++i) {
+            for (const auto& contig : vcf_contigs_with_variants[i]) {
+                contig_to_vcf_idx[contig] = i;
+            }
+        }
+        
+        // see if we can identify any chunked VCFs that are identical to our input VCFs
+        // records of (input vcf index, bucket index)
+        vector<pair<int64_t, int64_t>> copiable_vcfs;
+        for (int64_t i = 0; i < buckets.size(); ++i) {
+            int64_t prev_vcf_idx = -1;
+            int64_t count = 0;
+            for (auto& contig : buckets[i]) {
+                if (contig_to_vcf_idx.count(contig.first)) {
+                    int64_t vcf_idx = contig_to_vcf_idx[contig.first];
+                    if (prev_vcf_idx == -1 || prev_vcf_idx == vcf_idx) {
+                        prev_vcf_idx = vcf_idx;
+                        count++;
+                    }
+                    else {
+                        // we've seen a second input VCF, mark a sentinel and stop looking
+                        count = -1;
+                        break;
+                    }
+                }
+            }
+            if (prev_vcf_idx >= 0 && count == vcf_contigs_with_variants[prev_vcf_idx].size()) {
+                // we saw all and only contigs from one VCF, we can just copy it
+                copiable_vcfs.emplace_back(prev_vcf_idx, i);
+            }
+        }
+        
+#ifdef debug_index_registry_recipes
+        cerr << "identified " << copiable_vcfs.size() << " copiable VCFs:" << endl;
+        for (const auto& copiable_vcf : copiable_vcfs) {
+            cerr << "\tinput " << copiable_vcf.first << " " << vcf_filenames[copiable_vcf.first] << " -> bucket " << copiable_vcf.second << endl;
+        }
+#endif
         
         output_vcf_names.resize(buckets.size());
         
-        // initialize the output VCFs in serial (shouldn't take too much time)
-        vector<atomic<bool>> bucket_checked_out_or_finished(buckets.size());
-        vector<pair<htsFile*, bcf_hdr_t*>> bucket_vcfs;
-        vector<size_t> contig_idx(buckets.size(), 0);
-        for (int64_t i = 0; i < buckets.size(); ++i) {
-            bucket_checked_out_or_finished[i].store(false);
-            auto output_vcf_name = plan->output_filepath(output_vcf, i, buckets.size());
-            output_vcf_names[i] = output_vcf_name;
+        // check if we can do a sort-of-aliasing for VCFs, since they're the most time-
+        // consuming part of the chunking
+        if (copiable_vcfs.size() == vcf_filenames.size()) {
+            // all of the input VCFs could be copied to 1 bucket, so we'll just alias
+            // them and make dummies for the rest
+            for (auto vcf_copy : copiable_vcfs) {
+                int64_t input_idx, output_idx;
+                tie(input_idx, output_idx) = vcf_copy;
+                output_vcf_names[output_idx] = vcf_filenames[input_idx];
+            }
+            for (int64_t i = 0; i < output_vcf_names.size(); ++i) {
+                if (output_vcf_names[i].empty()) {
+                    // this bucket didn't receive a VCF chunk, let's make a dummy VCF for it
+                    auto output_vcf_name = plan->output_filepath(output_vcf, i, buckets.size());
+                    htsFile* vcf = bcf_open(output_vcf_name.c_str(), "wz");
+                    bcf_hdr_t* header = bcf_hdr_init("w");
+                    int hdr_write_err_code = bcf_hdr_write(vcf, header);
+                    if (hdr_write_err_code != 0) {
+                        cerr << "error:[IndexRegistry] error writing VCF header to " << output_vcf_name << endl;
+                        exit(1);
+                    }
+                    bcf_hdr_destroy(header);
+                    int close_err_code = hts_close(vcf);
+                    if (close_err_code != 0) {
+                        cerr << "error:[IndexRegistry] encountered error closing VCF " << output_vcf_name << endl;
+                        exit(1);
+                    }
+                    output_vcf_names[i] = output_vcf_name;
+                }
+            }
+            // register that this is an alias
+            alias_graph.register_alias(output_vcf, inputs[chunking_tx ? 2 : 1]);
+#ifdef debug_index_registry_recipes
+            cerr << "pseudo-aliased VCFs with filenames:" << endl;
+            for (const auto& filename : output_vcf_names) {
+                cerr << "\t" << filename << endl;
+            }
+#endif
+        }
+        else {
             
-            // open to write in bgzipped format
-            htsFile* vcf_out = bcf_open(output_vcf_name.c_str(), "wz");
-            bcf_hdr_t* header_out = bcf_hdr_init("w");
+            // trackers for whether we can write to a bucket's vcf
+            vector<atomic<bool>> bucket_checked_out_or_finished(buckets.size());
+            for (int64_t i = 0; i < buckets.size(); ++i) {
+                bucket_checked_out_or_finished[i].store(false);
+            }
             
-            // merge will all the input headers for each output header, just to be safe
-            unordered_set<string> samples_added;
-            for (auto& input_vcf_file : input_vcf_files) {
-                bcf_hdr_t* header_in = get<1>(input_vcf_file);
-                header_out = bcf_hdr_merge(header_out, header_in);
-                if (header_out == nullptr) {
-                    cerr << "error:[IndexRegistry] error merging VCF header" << endl;
+            // if we can copy over a vcf, we don't want to check it out for reading/writing
+            for (auto copiable_vcf : copiable_vcfs) {
+                input_checked_out_or_finished[copiable_vcf.first].store(true);
+                bucket_checked_out_or_finished[copiable_vcf.second].store(true);
+            }
+            
+            // the output files
+            vector<pair<htsFile*, bcf_hdr_t*>> bucket_vcfs(buckets.size());
+            for (int64_t i = 0; i < buckets.size(); ++i) {
+                auto output_vcf_name = plan->output_filepath(output_vcf, i, buckets.size());
+                output_vcf_names[i] = output_vcf_name;
+                
+                if (bucket_checked_out_or_finished[i].load()) {
+                    // we can copy to make this file, so we don't need to initialize
+                    // a file
+                    continue;
+                }
+                
+                // open to write in bgzipped format
+                htsFile* vcf_out = bcf_open(output_vcf_name.c_str(), "wz");
+                bcf_hdr_t* header_out = bcf_hdr_init("w");
+                
+                // identify which input VCFs we'll be pulling from
+                unordered_set<int64_t> vcf_indexes;
+                for (const auto& contig : buckets[i]) {
+                    if (contig_to_vcf_idx.count(contig.first)) {
+                        vcf_indexes.insert(contig_to_vcf_idx[contig.first]);
+                    }
+                }
+                // merge will all the input headers
+                unordered_set<string> samples_added;
+                for (auto vcf_idx : vcf_indexes) {
+                    
+                    auto input_vcf_file = input_vcf_files[vcf_idx];
+                    bcf_hdr_t* header_in = get<1>(input_vcf_file);
+                    header_out = bcf_hdr_merge(header_out, header_in);
+                    if (header_out == nullptr) {
+                        cerr << "error:[IndexRegistry] error merging VCF header" << endl;
+                        exit(1);
+                    }
+                    
+                    // add the samples from every header
+                    for (int64_t j = 0; j < bcf_hdr_nsamples(header_in); ++j) {
+                        const char* sample = header_in->samples[j];
+                        if (!samples_added.count(sample)) {
+                            // TODO: the header has its own dictionary, so this shouldn't be necessary,
+                            // but the khash_t isn't documented very well
+                            samples_added.insert(sample);
+                            // the sample hasn't been added yet
+                            int sample_err_code = bcf_hdr_add_sample(header_out, header_in->samples[j]);
+                            // returns a -1 if the sample is already included, which we expect
+                            if (sample_err_code != 0) {
+                                cerr << "error:[IndexRegistry] error adding samples to VCF header" << endl;
+                                exit(1);
+                            }
+                        }
+                    }
+                }
+                
+                // documentation in htslib/vcf.h says that this has to be called after addding samples
+                int sync_err_code = bcf_hdr_sync(header_out);
+                if (sync_err_code != 0) {
+                    cerr << "error:[IndexRegistry] error syncing VCF header" << endl;
+                    exit(1);
+                }
+                int hdr_write_err_code = bcf_hdr_write(vcf_out, header_out);
+                if (hdr_write_err_code != 0) {
+                    cerr << "error:[IndexRegistry] error writing VCF header to " << output_vcf_name << endl;
                     exit(1);
                 }
                 
-                // add the samples from every header
-                for (int64_t j = 0; j < bcf_hdr_nsamples(header_in); ++j) {
-                    const char* sample = header_in->samples[j];
-                    if (!samples_added.count(sample)) {
-                        // TODO: the header has its own dictionary, so this shouldn't be necessary,
-                        // but the khash_t isn't documented very well
-                        samples_added.insert(sample);
-                        // the sample hasn't been added yet
-                        int sample_err_code = bcf_hdr_add_sample(header_out, header_in->samples[j]);
-                        // returns a -1 if the sample is already included, which we expect
-                        if (sample_err_code != 0) {
-                            cerr << "error:[IndexRegistry] error adding samples to VCF header" << endl;
+                // remember these so that we can check them out later
+                bucket_vcfs[i] = make_pair(vcf_out, header_out);
+            }
+            
+            // the parallel iteration in here is pretty complicated because contigs from
+            // the input VCFs are being shuffled among the output bucket VCFs, and contigs
+            // need to be both read and written in lexicographic order. the mutexes here
+            // let the threads shift between reading and writing from different pairs of VCFs.
+            // hopefully this high-contention process won't cause too many problems since
+            // copying each contig takes up a relatively large amount of time
+            
+            // a mutex to lock the process of checking whether the next contig the thread
+            // needs is exposed
+            mutex input_vcf_mutex;
+            // a mutex to lock the process of switching to a new bucket
+            mutex output_vcf_mutex;
+            // to keep track of which contig in the bucket we're looking for next
+            vector<size_t> contig_idx(buckets.size(), 0);
+            // how many buckets we've finished so far
+            atomic<int64_t> buckets_finished(0);
+            vector<thread> workers;
+            for (int64_t i = 0; i < num_threads; ++i) {
+                workers.emplace_back([&]() {
+                    int64_t bucket_idx = -1;
+                    while (buckets_finished.load() < buckets.size()) {
+                        // select an output VCF corresponding to a bucket
+                        int64_t copy_from_idx = -1, copy_to_idx = -1;
+                        bool found_bucket = false;
+                        output_vcf_mutex.lock();
+                        if (!copiable_vcfs.empty()) {
+                            // there are copiable VCFs remaining, do these first
+                            tie(copy_from_idx, copy_to_idx) = copiable_vcfs.back();
+                            copiable_vcfs.pop_back();
+                        }
+                        else {
+                            // start iteration at 1 so we always advance to a new bucket if possible
+                            for (int64_t j = 1; j <= buckets.size(); ++j) {
+                                int64_t next_bucket_idx = (bucket_idx + j) % buckets.size();
+                                if (!bucket_checked_out_or_finished[next_bucket_idx].load()) {
+                                    bucket_checked_out_or_finished[next_bucket_idx].store(true);
+                                    bucket_idx = next_bucket_idx;
+                                    found_bucket = true;
+                                    break;
+                                }
+                            }
+                        }
+                        output_vcf_mutex.unlock();
+                        
+                        if (copy_from_idx >= 0) {
+#ifdef debug_index_registry_recipes
+                            cerr << "direct copying " + vcf_filenames[copy_from_idx] + " to " + output_vcf_names[copy_to_idx] + "\n";
+#endif
+                            // we can copy an entire file on this iteration instead of parsing
+                            copy_file(vcf_filenames[copy_from_idx], output_vcf_names[copy_to_idx]);
+                            if (file_exists(vcf_filenames[copy_from_idx] + ".tbi")) {
+                                // there's also a tabix, grab that as well
+                                copy_file(vcf_filenames[copy_from_idx] + ".tbi", output_vcf_names[copy_to_idx] + ".tbi");
+                            }
+                            // this bucket is now totally finished
+                            buckets_finished.fetch_add(1);
+                            continue;
+                        }
+                        
+                        if (!found_bucket) {
+                            // it's now possible for all buckets to be checked out simultaneously
+                            // by other threads, so there's no more need to have this thread running
+#ifdef debug_index_registry_recipes
+                            cerr << "thread exiting\n";
+#endif
+                            return;
+                        }
+                        
+                        auto& ctg_idx = contig_idx[bucket_idx];
+                        
+                        if (!contigs_with_variants.count(buckets[bucket_idx][ctg_idx].first)) {
+                            // this contig doesn't have variants in any of the VCFs, so we skip it
+                            ++ctg_idx;
+                            if (ctg_idx == buckets[bucket_idx].size()) {
+                                buckets_finished.fetch_add(1);
+                            }
+                            else {
+                                bucket_checked_out_or_finished[bucket_idx].store(false);
+                            }
+                            continue;
+                        }
+                        
+                        htsFile* vcf_out = bucket_vcfs[bucket_idx].first;
+                        bcf_hdr_t* header_out = bucket_vcfs[bucket_idx].second;
+                        
+                        // check if any of the VCFs' next contig is the next one we want for
+                        // this bucket (and lock other threads out from checking simultaneously)
+                        int64_t input_idx = -1;
+                        input_vcf_mutex.lock();
+                        for (int64_t j = 0; j < input_vcf_files.size(); ++j) {
+                            if (input_checked_out_or_finished[j].load()) {
+                                continue;
+                            }
+                            
+                            // what is the next contig in this VCF?
+                            const char* chrom = bcf_hdr_id2name(get<1>(input_vcf_files[j]),
+                                                                get<2>(input_vcf_files[j])->rid);
+                            if (buckets[bucket_idx][ctg_idx].first == chrom) {
+                                input_idx = j;
+                                input_checked_out_or_finished[j].store(true);
+                                break;
+                            }
+                        }
+                        input_vcf_mutex.unlock();
+                        
+                        if (input_idx < 0) {
+                            // other threads need to get through earlier contigs until this bucket's next
+                            // contig is exposed
+                            bucket_checked_out_or_finished[bucket_idx].store(false);
+                            continue;
+                        }
+                        
+                        // we've checked out one of the input vcfs, now we can read from it
+                        auto& input_vcf_file = input_vcf_files[input_idx];
+                        
+                        int read_err_code = 0;
+                        while (read_err_code >= 0) {
+                            
+                            const char* chrom = bcf_hdr_id2name(get<1>(input_vcf_file), get<2>(input_vcf_file)->rid);
+                            if (buckets[bucket_idx][ctg_idx].first != chrom) {
+                                break;
+                            }
+                            
+                            // FIXME: i'm not sure how important it is to handle these malformed VCFs it is
+//                            // read the "END" info field to see if we need to repair it (this seems to be a problem
+//                            // in the grch38 liftover variants from 1kg)
+//                            int32_t* end_dst = NULL;
+//                            int num_end;
+//                            int end_err_code = bcf_get_info_int32(get<1>(input_vcf_file), get<2>(input_vcf_file), "END",
+//                                                                  &end_dst, &num_end);
+//                            if (end_err_code >= 0) {
+//                                // there is an END tag to read
+//                                int64_t end = *end_dst;
+//                                // note: we can query alleles without bcf_unpack, because it will have already
+//                                // unpacked up to info fields
+//                                // calculate it the way the spec says to
+//                                int64_t calc_end = get<2>(input_vcf_file)->pos + strlen(get<2>(input_vcf_file)->d.allele[0]) - 1;
+//                                if (end != calc_end) {
+//                                    string msg = "warning:[IndexRegistry] fixing \"END\" of variant " + buckets[bucket_idx][ctg_idx].first + " " + to_string(get<2>(input_vcf_file)->pos) + " from " + to_string(end) + " to " + to_string(calc_end) + "\n";
+//#pragma omp critical
+//                                    cerr << msg;
+//
+//                                    int update_err_code = bcf_update_info_int32(get<1>(input_vcf_file), get<2>(input_vcf_file), "END",
+//                                                                                &calc_end, 1);
+//                                    if (update_err_code < 0) {
+//                                        cerr << "error:[IndexRegistry] failed to update \"END\"" << endl;
+//                                        exit(1);
+//                                    }
+//                                }
+//                                free(end_dst);
+//                            }
+                            
+                            bcf_translate(header_out, get<1>(input_vcf_file), get<2>(input_vcf_file));
+                            
+                            int write_err_code = bcf_write(vcf_out, header_out, get<2>(input_vcf_file));
+                            if (write_err_code != 0) {
+                                cerr << "error:[IndexRegistry] error writing VCF line to " << output_vcf_names[bucket_idx] << endl;
+                                exit(1);
+                            }
+                            
+                            read_err_code = bcf_read(get<0>(input_vcf_file), get<1>(input_vcf_file), get<2>(input_vcf_file));
+                        }
+                        
+                        if (read_err_code >= 0) {
+                            // there's still more to read, it's just on different contigs
+                            input_checked_out_or_finished[input_idx].store(false);
+                        }
+                        else if (read_err_code != -1) {
+                            // we encountered a real error
+                            cerr << "error:[IndexRegistry] error reading VCF file " << vcf_filenames[input_idx] << endl;
                             exit(1);
                         }
-                    }
-                }
-            }
-            
-            
-            // documentation in htslib/vcf.h says that this has to be called after addding samples
-            int sync_err_code = bcf_hdr_sync(header_out);
-            if (sync_err_code != 0) {
-                cerr << "error:[IndexRegistry] error syncing VCF header" << endl;
-                exit(1);
-            }
-            int hdr_write_err_code = bcf_hdr_write(vcf_out, header_out);
-            if (hdr_write_err_code != 0) {
-                cerr << "error:[IndexRegistry] error writing VCF header to " << output_vcf_name << endl;
-                exit(1);
-            }
-            
-            // remember these so that we can check them out later
-            bucket_vcfs.emplace_back(vcf_out, header_out);
-        }
-        
-        // the parallel iteration in here is pretty complicated because contigs from
-        // the input VCFs are being shuffled among the output bucket VCFs, and contigs
-        // need to be both read and written in lexicographic order. the mutexes here
-        // let the threads shift between reading and writing from different pairs of VCFs.
-        // hopefully this high-contention process won't cause too many problems since
-        // copying each contig takes up a relatively large amount of time
-        
-        // a mutex to lock the process of checking whether the next contig the thread
-        // needs is exposed
-        mutex input_vcf_mutex;
-        // a mutex to lock the process of switching to a new bucket
-        mutex output_vcf_mutex;
-        vector<thread> workers;
-        atomic<int64_t> buckets_finished(0);
-        
-        for (int64_t i = 0; i < num_threads; ++i) {
-            workers.emplace_back([&]() {
-                int64_t bucket_idx = -1;
-                while (buckets_finished.load() < buckets.size()) {
-                    // select an output VCF corresponding to a bucket
-                    output_vcf_mutex.lock();
-                    bool found_bucket = false;
-                    // start iteration at 1 so we always advance to a new bucket if possible
-                    for (int64_t j = 1; j <= buckets.size(); ++j) {
-                        int64_t next_bucket_idx = (bucket_idx + j) % buckets.size();
-                        if (!bucket_checked_out_or_finished[next_bucket_idx].load()) {
-                            bucket_checked_out_or_finished[next_bucket_idx].store(true);
-                            bucket_idx = next_bucket_idx;
-                            found_bucket = true;
-                            break;
-                        }
-                    }
-                    output_vcf_mutex.unlock();
-                    
-                    if (!found_bucket) {
-                        // it's now possible for all buckets to be checked out simultaneously
-                        // by other threads, so there's no more need to have this thread
-                        return;
-                    }
-                    
-                    auto& ctg_idx = contig_idx[bucket_idx];
-                    
-                    if (!contigs_with_variants.count(buckets[bucket_idx][ctg_idx].first)) {
-                        // this contig doesn't have variants in any of the VCFs, so we skip it
+                        
+                        // we finished this contig
                         ++ctg_idx;
                         if (ctg_idx == buckets[bucket_idx].size()) {
                             buckets_finished.fetch_add(1);
@@ -996,102 +1242,51 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                         else {
                             bucket_checked_out_or_finished[bucket_idx].store(false);
                         }
-                        continue;
                     }
-                    
-                    htsFile* vcf_out = bucket_vcfs[bucket_idx].first;
-                    bcf_hdr_t* header_out = bucket_vcfs[bucket_idx].second;
-                    
-                    // check if any of the VCFs' next contig is the next one we want for
-                    // this bucket (and lock other threads out from checking simultaneously)
-                    int64_t input_idx = -1;
-                    input_vcf_mutex.lock();
-                    for (int64_t j = 0; j < input_vcf_files.size(); ++j) {
-                        if (input_checked_out_or_finished[j].load()) {
-                            continue;
-                        }
-                        
-                        // what is the next contig in this VCF?
-                        const char* chrom = bcf_hdr_id2name(get<1>(input_vcf_files[j]),
-                                                            get<2>(input_vcf_files[j])->rid);
-                        if (buckets[bucket_idx][ctg_idx].first == chrom) {
-                            input_idx = j;
-                            input_checked_out_or_finished[j].store(true);
-                            break;
-                        }
-                    }
-                    input_vcf_mutex.unlock();
-                    
-                    if (input_idx < 0) {
-                        // other threads need to get through earlier contigs until this bucket's next
-                        // contig is exposed, let's leave them alone for a second
-                        bucket_checked_out_or_finished[bucket_idx].store(false);
-                        continue;
-                    }
-                    
-                    // we've checked out one of the input vcfs, now we can read from it
-                    auto& input_vcf_file = input_vcf_files[input_idx];
-                    
-                    int read_err_code = 0;
-                    while (read_err_code >= 0) {
-                        
-                        const char* chrom = bcf_hdr_id2name(get<1>(input_vcf_file), get<2>(input_vcf_file)->rid);
-                        if (buckets[bucket_idx][ctg_idx].first != chrom) {
-                            break;
-                        }
-                        
-                        bcf_translate(header_out, get<1>(input_vcf_file), get<2>(input_vcf_file));
-                        
-                        int write_err_code = bcf_write(vcf_out, header_out, get<2>(input_vcf_file));
-                        if (write_err_code != 0) {
-                            cerr << "error:[IndexRegistry] error writing VCF line to " << output_vcf_names[bucket_idx] << endl;
-                            exit(1);
-                        }
-                        
-                        read_err_code = bcf_read(get<0>(input_vcf_file), get<1>(input_vcf_file), get<2>(input_vcf_file));
-                    }
-                    
-                    if (read_err_code >= 0) {
-                        // there's still more to read, it's just on different contigs
-                        input_checked_out_or_finished[input_idx].store(false);
-                    }
-                    else if (read_err_code != -1) {
-                        // we encountered a real error
-                        cerr << "error:[IndexRegistry] error reading VCF file " << vcf_filenames[input_idx] << endl;
-                        exit(1);
-                    }
-                    
-                    // we finished this contig
-                    ++ctg_idx;
-                    if (ctg_idx == buckets[bucket_idx].size()) {
-                        buckets_finished.fetch_add(1);
-                    }
-                    else {
-                        bucket_checked_out_or_finished[bucket_idx].store(false);
-                    }
-                }
-            });
-        }
-        // barrier sync
-        for (auto& worker : workers) {
-            worker.join();
-        }
-        
-        // close out files and tabix index
-#pragma omp parallel for schedule(dynamic, 1)
-        for (int64_t i = 0; i < bucket_vcfs.size(); ++i) {
-            
-            htsFile* vcf_out = bucket_vcfs[i].first;
-            bcf_hdr_t* header_out = bucket_vcfs[i].second;
-            
-            bcf_hdr_destroy(header_out);
-            int close_err_code = hts_close(vcf_out);
-            if (close_err_code != 0) {
-                cerr << "error:[IndexRegistry] encountered error closing VCF " << output_vcf_names[i] << endl;
-                exit(1);
+                });
             }
             
+            // barrier sync
+            for (auto& worker : workers) {
+                worker.join();
+            }
+            
+            // close out files
+            for (int64_t i = 0; i < input_vcf_files.size(); ++i) {
+                auto vcf_file = input_vcf_files[i];
+                bcf_destroy(get<2>(vcf_file));
+                bcf_hdr_destroy(get<1>(vcf_file));
+                int err_code = hts_close(get<0>(vcf_file));
+                if (err_code != 0) {
+                    cerr << "error:[IndexRegistry] encountered error closing VCF " << vcf_filenames[i] << endl;
+                    exit(1);
+                }
+            }
+            for (int64_t i = 0; i < bucket_vcfs.size(); ++i) {
+                if (!bucket_vcfs[i].second) {
+                    // we didn't open this VCF (probably because we just copied it)
+                    continue;
+                }
+                bcf_hdr_destroy(bucket_vcfs[i].second);
+                int close_err_code = hts_close(bucket_vcfs[i].first);
+                if (close_err_code != 0) {
+                    cerr << "error:[IndexRegistry] encountered error closing VCF " << output_vcf_names[i] << endl;
+                    exit(1);
+                }
+            }
+        }
+        
+        // TODO: move this into the same work queue as the rest of the VCF chunking?
+        // tabix index
+#pragma omp parallel for schedule(dynamic, 1)
+        for (int64_t i = 0; i < buckets.size(); ++i) {
             // tabix-index the bgzipped VCF we just wrote
+            
+            if (file_exists(output_vcf_names[i] + ".tbi")) {
+                // the tabix already exists
+                continue;
+            }
+            
             // parameters inferred from tabix main's sourcecode
             int min_shift = 0;
             tbx_conf_t conf = tbx_conf_vcf;
@@ -1102,17 +1297,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
             else if (tabix_err_code != 0) {
                 cerr << "warning:[IndexRegistry] could not tabix index VCF " + output_vcf_names[i] + "\n";
-            }
-        }
-        
-        for (int64_t i = 0; i < input_vcf_files.size(); ++i) {
-            auto vcf_file = input_vcf_files[i];
-            bcf_destroy(get<2>(vcf_file));
-            bcf_hdr_destroy(get<1>(vcf_file));
-            int err_code = hts_close(get<0>(vcf_file));
-            if (err_code != 0) {
-                cerr << "error:[IndexRegistry] encountered error closing VCF " << vcf_filenames[i] << endl;
-                exit(1);
             }
         }
         
@@ -1623,7 +1807,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         // merge the ID spaces if we need to
         vector<nid_t> id_increment(1, 1 - node_id_ranges[0].first);
-        if (graph_names.size() > 1) {
+        if (graph_names.size() > 1 || id_increment.front() != 0) {
             // the increments we'll need to make each ID range non-overlapping
             for (int i = 1; i < node_id_ranges.size(); ++i) {
                 id_increment.push_back(node_id_ranges[i - 1].second + id_increment[i - 1] - node_id_ranges[i].first + 1);
@@ -1987,7 +2171,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
     };
     
-    // TODO: add Jouni's parallel chunked workflow here
     // meta-recipe to make GBWTs
     auto make_gbwt = [&](const vector<const IndexFile*>& inputs,
                          const IndexingPlan* plan,
@@ -3214,15 +3397,7 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
             for (size_t j = 0; j < aliasee_filenames.size(); ++j) {
                 
                 auto copy_filename = plan.output_filepath(aliasors[i], j, aliasee_filenames.size());
-                ifstream aliasee(aliasee_filenames[j], std::ios::binary);
-                ofstream aliasor(copy_filename, std::ios::binary);
-                if (!aliasee) {
-                    cerr << "error:[IndexRegistry] Couldn't open " << aliasee_filenames[j] << endl;
-                }
-                if (!aliasor) {
-                    cerr << "error:[IndexRegistry] Couldn't open " << copy_filename << endl;
-                }
-                aliasor << aliasee.rdbuf();
+                copy_file(aliasee_filenames[j], copy_filename);
             }
         }
         // if we can move the aliasee (i.e. it is intermediate), then make
@@ -3233,15 +3408,7 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
                 int code = rename(aliasee_filenames[j].c_str(), move_filename.c_str());
                 if (code) {
                     // moving failed (maybe because the files on separate drives?) fall back on copying
-                    ifstream aliasee(aliasee_filenames[j], std::ios::binary);
-                    ofstream aliasor(move_filename, std::ios::binary);
-                    if (!aliasee) {
-                        cerr << "error:[IndexRegistry] Couldn't open " << aliasee_filenames[j] << endl;
-                    }
-                    if (!aliasor) {
-                        cerr << "error:[IndexRegistry] Couldn't open " << move_filename << endl;
-                    }
-                    aliasor << aliasee.rdbuf();
+                    copy_file(aliasee_filenames[j], move_filename);
                 }
             }
         }

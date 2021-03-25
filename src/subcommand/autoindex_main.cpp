@@ -326,6 +326,14 @@ int main_autoindex(int argc, char** argv) {
         }
     }
     
+    if (IndexingParameters::verbose) {
+        cerr << "[vg autoindex] Excecuting command:";
+        for (int i = 0; i < argc; ++i) {
+            cerr << " " << argv[i];
+        }
+        cerr << endl;
+    }
+    
     assert(!(force_phased && force_unphased));
     
     // we have special logic for VCFs to make it friendly to both phased
@@ -353,14 +361,6 @@ int main_autoindex(int argc, char** argv) {
         // don't index, just visualize the plan
         cout << registry.to_dot(targets);
         return 0;
-    }
-    
-    if (IndexingParameters::verbose) {
-        cerr << "[vg autoindex] Excecuting command:";
-        for (int i = 0; i < argc; ++i) {
-            cerr << argv[i] << " ";
-        }
-        cerr << endl;
     }
     
     registry.set_target_memory_usage(target_mem_usage);
