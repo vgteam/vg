@@ -342,6 +342,10 @@ namespace vg {
                 }
             }
             
+            SECTION("Minimum distances are correct") {
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n1->id(), false, 0), make_pos_t(n8->id(), false, 0)) == 3);
+            }
             /*
              * TODO: SHould we allow a netgraph that respects internal connectivity?
             SECTION( "A connectivity-respecting net graph allows more traversals" ) {

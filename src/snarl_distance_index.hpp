@@ -1476,10 +1476,6 @@ private:
                      - std::get<2>(node1);
             } else if (!std::get<1>(node1) && !std::get<1>(node2)) {
                 //Right side of 1 and right side of 2
-                cerr << " returning: " << minus( sum({get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1)) , 
-                                   std::get<2>(node2), 
-                                   get_forward_loop_value(std::get<0>(node2))}), 
-                             std::get<2>(node1)) << endl;
 
                 return minus( sum({get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1)) , 
                                    std::get<2>(node2), 
@@ -1812,8 +1808,9 @@ private:
         } else if (type == SNARL_HANDLE) {
             result += "snarl ";        
         } else if (type == CHAIN_HANDLE && record_type == NODE_HANDLE) {
-            return  "node " + std::to_string( get_node_id_from_offset(get_record_offset(net))) + 
-                    " pretending to be a chain";
+            return  "node " + std::to_string( get_node_id_from_offset(get_record_offset(net))) 
+                   + std::to_string( get_node_id_from_offset(get_record_offset(net))) + (ends_at(net) == START ? "rev" : "fd")
+                   + " pretending to be a chain";
         } else if (type == CHAIN_HANDLE) {
             result += "chain ";
         } else if (type == SENTINEL_HANDLE) {
