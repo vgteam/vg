@@ -11,6 +11,7 @@
 // #define debug_mcmc
 // #define debug_make_snarl_graph
 // #define debug_karger_stein
+// #define debug_proposal_sample
 
 namespace vg {
 
@@ -42,11 +43,7 @@ namespace vg {
         //stores the sites we swapped alleles at - returned by alt_proposal
         unique_ptr<unordered_set<size_t>> to_swap_back(nullptr);
         int count =0;
-        enum sample_mode {PROPOSAL_ORIGINAL, PROPOSAL_KARGER_STEIN};
-#ifdef stdout_for_performance_script 
-        cerr << "PROPOSAL_ORIGINAL "<< PROPOSAL_ORIGINAL <<endl;
-        cerr << "PROPOSAL_KARGER_STEIN "<< PROPOSAL_KARGER_STEIN <<endl;
-#endif        
+        enum sample_mode {PROPOSAL_ORIGINAL, PROPOSAL_KARGER_STEIN};       
         // build markov chain using Metropolis-Hastings
         for(int i = 0; i< n_iterations; i++){ 
             
@@ -122,7 +119,10 @@ namespace vg {
             }
             if(random_num == PROPOSAL_ORIGINAL){ //otherwise choose original
 #ifdef stdout_for_performance_script 
-                cerr << "original proposal" <<endl;        
+                cerr << "original proposal" <<endl;
+                cerr << "phased genome: " <<endl;
+                genome->print_phased_genome(); 
+                cerr << "modified_haplo before "<< *modified_haplo <<endl;       
 #endif
                 to_receive = proposal_sample(genome);
                 modified_haplo = &get<0>(to_receive); 
@@ -228,8 +228,15 @@ namespace vg {
         
         // sample uniformly between snarls 
         random_snarl = snarls.discrete_uniform_sample(random_engine);
-
+#ifdef debug_proposal_sample
+        bool is_null =  (random_snarl== nullptr);
+        cerr << "is null " << is_null <<endl;
+        cerr << random_snarl <<endl;
+#endif
         if(random_snarl == nullptr){
+#ifdef debug_proposal_sample
+            cerr << "random snarl is null" << endl;
+#endif
             random_haplotype = -1;
             return to_return;
         }

@@ -796,6 +796,13 @@ const Snarl* SnarlManager::discrete_uniform_sample(minstd_rand0& random_engine)c
     int random_num = distribution(random_engine);
 #ifdef debug
     cerr << "modifying snarl num " << random_num << endl;  
+    if(unrecord(&snarls[random_num]) == nullptr){
+        cerr << "unrecorded snarl is null" <<endl;
+    }else{
+       const Snarl* snarl  = unrecord(&snarls[random_num]);
+       cerr << snarl->start() << endl;
+       cerr << snarl->end() <<endl;
+    }
 #endif
 
     return unrecord(&snarls[random_num]);
