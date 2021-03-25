@@ -2,6 +2,7 @@
 ///  
 /// unit tests for min_cut_graph construction and utility functions
 ///
+#include <algorithm>
 #include <random>
 #include <xg.hpp>
 #include <stdio.h>
@@ -13,7 +14,8 @@
 #include "sparse_union_find.hpp"
 #include <stdlib.h>     
 #include <time.h>
-#include <chrono>       
+#include <chrono>  
+#include <iterator>     
 // #define debug
 
 namespace vg {
@@ -99,39 +101,47 @@ namespace vg {
             graph.add_node(2,node2);
             graph.add_node(3,node3);
             
-        
+
             //Karger's min-cut
             pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, seed);
             vector<unordered_set<size_t>> disjoint_sets = to_recv.first;
             size_t mincut = to_recv.second;
 
-            
-          
-            //returns the number of minimum edge cuts required to devide graph into two disjoint connected subgraphs 
-            REQUIRE(mincut == 10);
-            REQUIRE(disjoint_sets.size() == 2);
+            //check for reasonable sizes
+            size_t max = graph.get_size();
+            REQUIRE(disjoint_sets[0].size() < max); // sets are a reasonable size not exceeding number of nodes
+            REQUIRE(disjoint_sets[1].size() < max);
 
-            
-            unordered_set<size_t> set1 = {2};
-            unordered_set<size_t> set2 = {0,1,3};
+            // compute-min-cut will always return 2 sets
+            // then min-graph-decomp will remove singleton sets
+            REQUIRE(mincut ==10);
+            REQUIRE(disjoint_sets.size() ==2); 
 
-            REQUIRE(disjoint_sets[0].size() == 1); 
-            for (auto& x:disjoint_sets[0] ) {
-
-                REQUIRE(set1.count(x)==1);
-#ifdef debug
-                cout << "set1 has" << x <<endl;
-#endif    
+           
+            //check for disjoint-ness
+            //check1: check that first two are disjoint - these are the sets from compute-min-cut
+            vector<size_t> v1(disjoint_sets[0].begin(), disjoint_sets[0].end());
+            vector<size_t> v2(disjoint_sets[1].begin(), disjoint_sets[1].end());
+            sort(v1.begin(),v1.end());
+            sort(v2.begin(),v2.end());
+            int i =0; 
+            int j =0;
+            bool is_disjoint = true;
+            while (i < v1.size() && j< v2.size() )
+            {
+                if (v1[i] < v2[j])
+                    i++;
+                else if (v2[j] < v1[i])
+                    j++;
+                else /* if *v1[i] == v2[j] */
+                    is_disjoint =  false;
             }
-            REQUIRE(disjoint_sets[1].size() == 3);
-            for (auto& x:disjoint_sets[1] ) {
+            REQUIRE(is_disjoint);
+            //check2: check that others are subsets of either the first two
+            // this unittest does not recurse (not using min-cut-decomposition yet)
 
-                REQUIRE(set2.count(x)==1);
-#ifdef debug
-                cout << "set2 has" << x <<endl;
-#endif       
-            }
 
+            
         }
 
         TEST_CASE("Can find a min-cut on a 9 node graph", "[Min-cut-graph][Test2]") {
@@ -259,30 +269,33 @@ namespace vg {
             //returns the number of minimum edge cuts required to devide graph into two disjoint connected subgraphs 
             REQUIRE(mincut == 5);
             REQUIRE(disjoint_sets.size() == 2);
+            REQUIRE(disjoint_sets[0].size() < graph.get_size());
+            REQUIRE(disjoint_sets[1].size() < graph.get_size());
 
-            
-            unordered_set<size_t> set1 = {8,7,6,5,4};
-            unordered_set<size_t> set2 = {0,1,2,3};
-
-            REQUIRE(disjoint_sets[0].size() == 5); 
-            for (auto& x:disjoint_sets[0] ) {
-
-                REQUIRE(set1.count(x)==1);
-#ifdef debug
-                cout << "set1 has" << x <<endl;
-#endif 
+            //check for disjoint-ness
+            //check1: check that first two are disjoint - these are the sets from compute-min-cut
+            vector<size_t> v1(disjoint_sets[0].begin(), disjoint_sets[0].end());
+            vector<size_t> v2(disjoint_sets[1].begin(), disjoint_sets[1].end());
+            sort(v1.begin(),v1.end());
+            sort(v2.begin(),v2.end());
+            int i =0; 
+            int j =0;
+            bool is_disjoint = true;
+            while (i < v1.size() && j< v2.size() )
+            {
+                if (v1[i] < v2[j])
+                    i++;
+                else if (v2[j] < v1[i])
+                    j++;
+                else /* if *v1[i] == v2[j] */
+                    is_disjoint =  false;
             }
-            REQUIRE(disjoint_sets[1].size() == 4);
-            for (auto& x:disjoint_sets[1] ) {
+            REQUIRE(is_disjoint);
+            //check2: check that others are subsets of either the first two
+            // this unittest does not recurse (not using min-cut-decomposition yet)
 
-                REQUIRE(set2.count(x)==1);
-#ifdef debug
-                cout << "set2 has" << x <<endl;
-#endif 
-            }
 
-            
- 
+
         }
         TEST_CASE("Can find a min-cut on a 2 node graph", "[Min-cut-graph][Test3]") {
             
@@ -318,14 +331,36 @@ namespace vg {
             pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, seed);
             vector<unordered_set<size_t>> disjoint_sets = to_recv.first;
             size_t mincut = to_recv.second;
-            
+
             //returns the number of minimum edge cuts required to devide graph into two disjoint connected subgraphs 
             REQUIRE(mincut == 10);
             REQUIRE(disjoint_sets.size() == 2);
-            REQUIRE(disjoint_sets[0].size() == 1); 
-            REQUIRE(disjoint_sets[1].size() == 1); 
-            REQUIRE(disjoint_sets[0].count(0) == 1); 
-            REQUIRE(disjoint_sets[1].count(1) == 1);
+            REQUIRE(disjoint_sets[0].size() < graph.get_size());
+            REQUIRE(disjoint_sets[1].size() < graph.get_size());
+
+            //check for disjoint-ness
+            //check1: check that first two are disjoint - these are the sets from compute-min-cut
+            vector<size_t> v1(disjoint_sets[0].begin(), disjoint_sets[0].end());
+            vector<size_t> v2(disjoint_sets[1].begin(), disjoint_sets[1].end());
+            sort(v1.begin(),v1.end());
+            sort(v2.begin(),v2.end());
+            int i =0; 
+            int j =0;
+            bool is_disjoint = true;
+            while (i < v1.size() && j< v2.size() )
+            {
+                if (v1[i] < v2[j])
+                    i++;
+                else if (v2[j] < v1[i])
+                    j++;
+                else /* if *v1[i] == v2[j] */
+                    is_disjoint =  false;
+            }
+            REQUIRE(is_disjoint);
+            //check2: check that others are subsets of either the first two
+            // this unittest does not recurse (not using min-cut-decomposition yet)
+
+
             
  
         }
@@ -343,6 +378,8 @@ namespace vg {
             REQUIRE(mincut == 0);
             REQUIRE(disjoint_sets.size() == 0);
             REQUIRE(disjoint_sets.empty() == true);
+
+
             
     
         }
@@ -478,31 +515,127 @@ namespace vg {
             graph.add_node(2,node2);
             graph.add_node(3,node3);
             
+            //Karger's min-cut
+            pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, seed);
+            vector<unordered_set<size_t>> disjoint_sets = to_recv.first;
+            size_t mincut = to_recv.second; 
+
+            //returns the number of minimum edge cuts required to devide graph into two disjoint connected subgraphs 
+            REQUIRE(disjoint_sets.size() == 2);
+            REQUIRE(disjoint_sets[0].size() < graph.get_size());
+            REQUIRE(disjoint_sets[1].size() < graph.get_size());
+
+            //check for disjoint-ness
+            //check1: check that first two are disjoint - these are the sets from compute-min-cut
+            vector<size_t> v1(disjoint_sets[0].begin(), disjoint_sets[0].end());
+            vector<size_t> v2(disjoint_sets[1].begin(), disjoint_sets[1].end());
+            sort(v1.begin(),v1.end());
+            sort(v2.begin(),v2.end());
+            int i =0; 
+            int j =0;
+            bool is_disjoint = true;
+            while (i < v1.size() && j< v2.size() )
+            {
+                if (v1[i] < v2[j])
+                    i++;
+                else if (v2[j] < v1[i])
+                    j++;
+                else /* if *v1[i] == v2[j] */
+                    is_disjoint =  false;
+            }
+            REQUIRE(is_disjoint);
+            //check2: check that others are subsets of either the first two
+            // this unittest does not recurse (not using min-cut-decomposition yet)
+
             //call min-cut-decomposition
-            vector<unordered_set<size_t>> to_recv =  min_cut_decomposition(graph, seed);
+            vector<unordered_set<size_t>> gamma =  min_cut_decomposition(graph, seed);
             
-            unordered_set<size_t> truth_set1 = {1,3,0};
-            unordered_set<size_t> truth_set2 = {1,3};
-            REQUIRE(to_recv.size()==2); // Gamma has 2 sets 
-            REQUIRE(to_recv[0].size()==3); // first set has 3 elements 
-            for (auto& x:to_recv[0] ) {
+            //convert unordered sets into vectors
+            for(unordered_set<size_t> set: gamma){
+                
+                // turn set into vector 
+                vector<size_t> vsub(set.begin(), set.end());
+                // sort 
+                sort(vsub.begin(), vsub.end());
 
-                REQUIRE(truth_set1.count(x)==1);
-#ifdef debug
-                cout << "set has" << x <<endl;
-#endif       
-            }
-    
-        
-            REQUIRE(to_recv[1].size()==2); //second set has 2 elements 
-            for (auto& x:to_recv[1] ) {
+                //check for equality with first two subsets
+                bool equal_to_v1 = equal(v1.begin(), v1.end(), vsub.begin());
+                bool equal_to_v2 = equal(v2.begin(), v2.end(), vsub.begin());
 
-                REQUIRE(truth_set2.count(x)==1);
+                bool pass_equal_to_either = true;
+                //if the subset is equal to either of the first two subsets, skip it
+                if(equal_to_v1 && equal_to_v2){
+                    //equal to both 
+                    pass_equal_to_either = false;
+                    REQUIRE(pass_equal_to_either);
+                }else if(equal_to_v1 || equal_to_v2){
+                    //equal to one
+                    continue;
+                }else{
+                    //only check if subset when not equal to first subsets
+                    vector<size_t> diff_result_v1(v1.size());
+                    vector<size_t> diff_result_v2(v2.size());
+                    bool subset_of_v1 = false;
+                    bool subset_of_v2 = false;
+                    vector<size_t>::iterator it1;
+                    vector<size_t>::iterator it2;
+                    //equal to neither, check if a subset of either
+                    //check subset against v1 & v2
+                    //has to be proper subset
+                    if(v1.size() > vsub.size()){
+                        it1 = set_difference(v1.begin(), v1.end(), vsub.begin(), vsub.end(), diff_result_v1.begin());
+                        diff_result_v1.resize(it1-diff_result_v1.begin()); //resize the results vector
+                        
+                        if(diff_result_v1.size() > 0 && diff_result_v1.size() < v1.size() ){
+                            subset_of_v1 = true;
 #ifdef debug
-                cout << "set has" << x <<endl;
-#endif       
+                            //check that there are differences between the set and subset
+                            //and subset is proper
+                            cerr <<"vsub.size() " << vsub.size() << endl;
+                            cerr <<"v1.size " << v1.size() << endl;
+                            cerr << "The v1 difference has " << (diff_result_v1.size()) << " elements:\n";
+                            for(size_t element: diff_result_v1){
+                                cerr << element << " ";
+                            }
+                            cerr << endl;
+#endif
+                        }
+                        
+                    }
+                    //has to be a proper subset
+                    if(v2.size() > vsub.size()){
+                        it2 = set_difference(v2.begin(), v2.end(), vsub.begin(), vsub.end(), diff_result_v2.begin());
+                        diff_result_v2.resize(it2-diff_result_v2.begin()); //resize the results vector
+                        if(diff_result_v2.size() > 0 && diff_result_v2.size() < v2.size()){
+                            subset_of_v2 = true;
+#ifdef debug
+                            cerr <<"vsub.size() " << vsub.size() << endl;
+                            cerr <<"v2.size " << v2.size() << endl;
+                            cerr << "The v2 difference has " << (diff_result_v2.size()) << " elements:\n";
+                            for(size_t element: diff_result_v2){
+                                cerr << element <<" ";
+                            }
+                            cerr << endl;
+#endif
+                         }
+                    }
+                    //check that is a subset of one set only
+                    bool pass_match_one_only = false;
+                    if(subset_of_v1 == false || subset_of_v2 == false){
+                        pass_match_one_only = true;
+                    }
+                    REQUIRE(pass_match_one_only);
+                    
+
+                    //require that the set is subset of either of the first two, but not both
+                    REQUIRE(subset_of_v1 != subset_of_v2);
+
+
+                }
+                
+                
             }
-    
+
         }
 
         TEST_CASE("SparseUnionFind can work with non-consecutive node ids", "[SparseUnionFind][MCG-Test8]") {
@@ -784,76 +917,125 @@ namespace vg {
             graph.add_node(7,node7);
             graph.add_node(8,node8);
         
+            //Karger's min-cut
+            pair<vector<unordered_set<size_t>>, size_t> to_recv= compute_min_cut(graph, seed);
+            vector<unordered_set<size_t>> disjoint_sets = to_recv.first;
+            size_t mincut = to_recv.second; 
+
+            //returns the number of minimum edge cuts required to devide graph into two disjoint connected subgraphs 
+            REQUIRE(disjoint_sets.size() == 2);
+            REQUIRE(disjoint_sets[0].size() < graph.get_size());
+            REQUIRE(disjoint_sets[1].size() < graph.get_size());
+
+            //check for disjoint-ness
+            //check1: check that first two are disjoint - these are the sets from compute-min-cut
+            vector<size_t> v1(disjoint_sets[0].begin(), disjoint_sets[0].end());
+            vector<size_t> v2(disjoint_sets[1].begin(), disjoint_sets[1].end());
+            sort(v1.begin(),v1.end());
+            sort(v2.begin(),v2.end());
+            int i =0; 
+            int j =0;
+            bool is_disjoint = true;
+            while (i < v1.size() && j< v2.size() )
+            {
+                if (v1[i] < v2[j])
+                    i++;
+                else if (v2[j] < v1[i])
+                    j++;
+                else /* if *v1[i] == v2[j] */
+                    is_disjoint =  false;
+            }
+            REQUIRE(is_disjoint);
+            //check2: check that others are subsets of either the first two
+            // this unittest does not recurse (not using min-cut-decomposition yet)
+
             //call min-cut-decomposition
-            vector<unordered_set<size_t>> to_recv =  min_cut_decomposition(graph, seed);
+            vector<unordered_set<size_t>> gamma =  min_cut_decomposition(graph, seed);
             
-            REQUIRE(to_recv.size() == 7); //Gamma has 7 sets 
-         
-            unordered_set<size_t> set1 = {8,7,6,5,4};
-            REQUIRE(to_recv[0].size()==5); 
-            for (auto& x:to_recv[0] ) {
+            //convert unordered sets into vectors
+            for(unordered_set<size_t> set: gamma){
+                
+                // turn set into vector 
+                vector<size_t> vsub(set.begin(), set.end());
+                // sort 
+                sort(vsub.begin(), vsub.end());
 
-                REQUIRE(set1.count(x)==1);
+                //check for equality with first two subsets
+                bool equal_to_v1 = equal(v1.begin(), v1.end(), vsub.begin());
+                bool equal_to_v2 = equal(v2.begin(), v2.end(), vsub.begin());
+
+                bool pass_equal_to_either = true;
+                //if the subset is equal to either of the first two subsets, skip it
+                if(equal_to_v1 && equal_to_v2){
+                    //equal to both 
+                    pass_equal_to_either = false;
+                    REQUIRE(pass_equal_to_either);
+                }else if(equal_to_v1 || equal_to_v2){
+                    //equal to one
+                    continue;
+                }else{
+                    //only check if subset when not equal to first subsets
+                    vector<size_t> diff_result_v1(v1.size());
+                    vector<size_t> diff_result_v2(v2.size());
+                    bool subset_of_v1 = false;
+                    bool subset_of_v2 = false;
+                    vector<size_t>::iterator it1;
+                    vector<size_t>::iterator it2;
+                    //equal to neither, check if a subset of either
+                    //check subset against v1 & v2
+                    //has to be proper subset
+                    if(v1.size() > vsub.size()){
+                        it1 = set_difference(v1.begin(), v1.end(), vsub.begin(), vsub.end(), diff_result_v1.begin());
+                        diff_result_v1.resize(it1-diff_result_v1.begin()); //resize the results vector
+                        
+                        if(diff_result_v1.size() > 0 && diff_result_v1.size() < v1.size() ){
+                            subset_of_v1 = true;
 #ifdef debug
-                cout << "set1 has" << x <<endl;
-#endif       
-            }
-
-            unordered_set<size_t> set2 = {0,1,2,3};
-            REQUIRE(to_recv[1].size()==4); 
-            for (auto& x:to_recv[1] ) {
-
-                REQUIRE(set2.count(x)==1);
+                            //check that there are differences between the set and subset
+                            //and subset is proper
+                            cerr <<"vsub.size() " << vsub.size() << endl;
+                            cerr <<"v1.size " << v1.size() << endl;
+                            cerr << "The v1 difference has " << (diff_result_v1.size()) << " elements:\n";
+                            for(size_t element: diff_result_v1){
+                                cerr << element << " ";
+                            }
+                            cerr << endl;
+#endif
+                        }
+                        
+                    }
+                    //has to be a proper subset
+                    if(v2.size() > vsub.size()){
+                        it2 = set_difference(v2.begin(), v2.end(), vsub.begin(), vsub.end(), diff_result_v2.begin());
+                        diff_result_v2.resize(it2-diff_result_v2.begin()); //resize the results vector
+                        if(diff_result_v2.size() > 0 && diff_result_v2.size() < v2.size()){
+                            subset_of_v2 = true;
 #ifdef debug
-                cout << "set2 has" << x <<endl;
-#endif       
-            }
+                            cerr <<"vsub.size() " << vsub.size() << endl;
+                            cerr <<"v2.size " << v2.size() << endl;
+                            cerr << "The v2 difference has " << (diff_result_v2.size()) << " elements:\n";
+                            for(size_t element: diff_result_v2){
+                                cerr << element <<" ";
+                            }
+                            cerr << endl;
+#endif
+                         }
+                    }
+                    //check that is a subset of one set only
+                    bool pass_match_one_only = false;
+                    if(subset_of_v1 == false || subset_of_v2 == false){
+                        pass_match_one_only = true;
+                    }
+                    REQUIRE(pass_match_one_only);
+                    
 
-            unordered_set<size_t> set3 = {7,6,5,4};
-            REQUIRE(to_recv[2].size()==4); 
-            for (auto& x:to_recv[2] ) {
+                    //require that the set is subset of either of the first two, but not both
+                    REQUIRE(subset_of_v1 != subset_of_v2);
 
-                REQUIRE(set3.count(x)==1);
-#ifdef debug
-                cout << "set3 has" << x <<endl;
-#endif       
-            }
-            unordered_set<size_t> set4 = {6,5,4};
-            REQUIRE(to_recv[3].size()==3); 
-            for (auto& x:to_recv[3] ) {
 
-                REQUIRE(set4.count(x)==1);
-#ifdef debug
-                cout << "set4 has" << x <<endl;
-#endif       
+                }
             }
-            unordered_set<size_t> set5 = {6,5};
-            REQUIRE(to_recv[4].size()==2); 
-            for (auto& x:to_recv[4] ) {
-
-                REQUIRE(set5.count(x)==1);
-#ifdef debug
-                cout << "set5 has" << x <<endl;
-#endif       
-            }
-            unordered_set<size_t> set6 = {1,2,3};
-            REQUIRE(to_recv[5].size()==3);  
-            for (auto& x:to_recv[5] ) {
-
-                REQUIRE(set6.count(x)==1);
-#ifdef debug
-                cout << "set6 has" << x <<endl;
-#endif       
-            }
-            unordered_set<size_t> set7 = {1,2};
-            REQUIRE(to_recv[6].size()==2); 
-            for (auto& x:to_recv[6] ) {
-
-                REQUIRE(set7.count(x)==1);
-#ifdef debug
-                cout << "set7 has" << x <<endl;
-#endif       
-            }
+            
 
         }
         TEST_CASE("min-cut-decompomposition works on a 1000 node graph", "[Min-cut-graph][MCG-Test10]") {
