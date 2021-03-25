@@ -86,11 +86,13 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
         //     skipped++;
         //     continue;
         // }
-            // if (num_snarls_touched == stop_size){
-            //     break;
-            // } else {
-            //     num_snarls_touched++;
-            // }
+        
+        // if (num_snarls_touched == stop_size){
+        //     break;
+        // } else {
+        //     num_snarls_touched++;
+        // }
+        
         // if (roots->start().node_id() == 3881494) {
             // cerr << "root backwards?" << roots->start().backward() << endl;
             // cerr << "disambiguating snarl #"

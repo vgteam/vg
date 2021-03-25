@@ -128,3 +128,6 @@
 [submodule "deps/atomic_queue"]
 	path = deps/atomic_queue
 	url = https://github.com/max0x7ba/atomic_queue.git
+[submodule "deps/seqan"]
+	path = deps/seqan
+	url = https://github.com/seqan/seqan.git
