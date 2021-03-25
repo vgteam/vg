@@ -266,8 +266,8 @@ vg convert tiny/tiny.gfa -p | vg convert -f - | sort > tiny.roundtrip2.gfa
 diff tiny.roundtrip.gfa tiny.roundtrip2.gfa
 is $? 0 "No difference roundtripping a GFA if it's loaded as a GFA or HandleGraph"
 
-grep -Pv "S\t6" tiny/tiny.gfa > tiny.unsort.gfa
-grep -P "S\t6" tiny/tiny.gfa >> tiny.unsort.gfa
+grep -v "S	6" tiny/tiny.gfa > tiny.unsort.gfa
+grep "S	6" tiny/tiny.gfa >> tiny.unsort.gfa
 cat tiny.unsort.gfa | vg convert -p - 2> tiny.roundtrip3.stderr | vg convert -f - | sort > tiny.roundtrip3.gfa
 cat tiny.roundtrip3.stderr
 diff tiny.roundtrip.gfa tiny.roundtrip3.gfa
