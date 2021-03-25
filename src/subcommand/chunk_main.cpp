@@ -72,7 +72,7 @@ void help_chunk(char** argv) {
          << "    -T, --trace              trace haplotype threads in chunks (and only expand forward from input coordinates)." << endl
          << "                             Produces a .annotate.txt file with haplotype frequencies for each chunk." << endl 
          << "    -f, --fully-contained    only return GAM alignments that are fully contained within chunk" << endl
-         << "    -O, --output-fmt         Specify output format (vg, pg, hg).  [VG]" << endl
+         << "    -O, --output-fmt         Specify output format (vg, pg, hg, gfa).  [VG]" << endl
          << "    -t, --threads N          for tasks that can be done in parallel, use this many threads [1]" << endl
          << "    -h, --help" << endl;
 }
