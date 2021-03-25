@@ -3,8 +3,12 @@
  */
 #include "job_schedule.hpp"
 
-#include <omp.h>
-#include <unistd.h>
+#include <thread>
+#include <chrono>
+#include <mutex>
+#include <atomic>
+
+#include "utility.hpp"
 
 namespace vg {
 
@@ -15,69 +19,68 @@ JobSchedule::JobSchedule(const vector<pair<int64_t, int64_t>>& job_requirements,
     : job_func(job_func)
 {
     for (int64_t i = 0; i < job_requirements.size(); ++i) {
-        queue.emplace(job_requirements[i].first,
-                      job_requirements[i].second, i);
+        queue.emplace_back(job_requirements[i].second, i);
         
     }
-    
+    // sort in decreasing order by time required
+    queue.sort([&](const pair<int64_t, int64_t>& a,
+                   const pair<int64_t, int64_t>& b) {
+        return job_requirements[a.second].first > job_requirements[b.second].first;
+    });
 }
 
 void JobSchedule::execute(int64_t target_memory_usage) {
     
-    int64_t jobs_ongoing = 0;
-    int64_t est_memory_usage = 0;
-    
-    auto do_job = [&](tuple<int64_t, int64_t, int64_t> job) {
-#pragma omp atomic update
-        ++jobs_ongoing;
-#pragma omp atomic update
-        est_memory_usage += get<1>(job);
-        this->job_func(get<2>(job));
-#pragma omp atomic update
-        est_memory_usage += get<1>(job);
-#pragma omp atomic update
-        --jobs_ongoing;
-    };
-    
-#pragma omp parallel default(none) shared(target_memory_usage, jobs_ongoing, est_memory_usage, do_job)
-#pragma omp single
-    {
-        
-        while (!queue.empty()) {
-            int64_t curr_mem, curr_jobs;
-#pragma omp atomic read
-            curr_mem = est_memory_usage;
-#pragma omp atomic read
-            curr_jobs = jobs_ongoing;
-            
-            // get the remaining job with the highest estimated run time
-            auto job = queue.top();
-            if (omp_get_num_threads() == 1) {
-                // single threaded, just do the job in the scheduler thread
-                queue.pop();
-                do_job(job);
-            }
-            else if (curr_jobs == 0 ||
-                     (curr_mem + get<1>(queue.top()) < target_memory_usage
-                      && curr_jobs + 1 < omp_get_num_threads())) {
-                // we have memory and threads available to do the next job
-                queue.pop();
-#pragma omp task default(none) firstprivate(job) shared(jobs_ongoing, est_memory_usage, do_job)
-                do_job(job);
-            }
-            else {
-                // TODO: it would be nice to do useful work with this thread, maybe
-                // with the smallest job?
-                // but performance could crater if this thread isn't available
-                // when other threads finish
+    atomic<int64_t> est_memory_usage(0);
+    mutex queue_lock;
+    int num_threads = get_thread_count();
+    vector<thread> workers;
+    for (int i = 0; i < num_threads; ++i) {
+        workers.emplace_back([&]() {
+            while (!queue.empty()) {
                 
-                // wait 1 sec and try again
-                usleep(1000000);
+                pair<int64_t, int64_t> job(-1, -1);
+                queue_lock.lock();
+                if (queue.empty()) {
+                    // the queue emptied out while we were waiting
+                    break;
+                }
+                if (est_memory_usage.load() == 0) {
+                    // even if we don't have the memory budget to do this job, we're
+                    // going to have to at some point and the memory situation will
+                    // never get any better than this
+                    job = queue.front();
+                    queue.pop_front();
+                    est_memory_usage.fetch_add(job.first);
+                }
+                else {
+                    // find the longest-running job that can be done with the available
+                    // memory budget
+                    for (auto it = queue.begin(); it != queue.end(); ++it) {
+                        if (it->first + est_memory_usage.load() <= target_memory_usage) {
+                            job = *it;
+                            queue.erase(it);
+                            est_memory_usage.fetch_add(job.first);
+                            break;
+                        }
+                    }
+                }
+                queue_lock.unlock();
+                
+                if (job.second == -1) {
+                    // there's nothing we can do right now, so back off a second
+                    // before trying again
+                    this_thread::sleep_for(chrono::seconds(1));
+                }
+                else {
+                    // we think we have enough memory available to attempt this job
+                    job_func(job.second);
+                    est_memory_usage.fetch_sub(job.first);
+                }
             }
-        }
+        });
     }
-    
-}
+    }
 
 }
 
