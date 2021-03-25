@@ -2,14 +2,20 @@
 
 #include "index_registry.hpp"
 
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <vector>
 #include <map>
+#include <random>
+#include <thread>
+#include <mutex>
+#include <chrono>
 #include <cctype>
 #include <cstdio>
 #include <cerrno>
-#include <unistd.h>
+#include <omp.h>
+#include <sys/stat.h>
 
 #include <bdsg/hash_graph.hpp>
 #include <bdsg/packed_graph.hpp>
@@ -22,6 +28,8 @@
 #include <vg/io/vpkg.hpp>
 #include <gcsa/gcsa.h>
 #include <gcsa/algorithms.h>
+#include <Fasta.h>
+#include <htslib/tbx.h>
 
 #include "vg.hpp"
 #include "vg_set.hpp"
@@ -38,6 +46,7 @@
 #include "min_distance.hpp"
 #include "gfa.hpp"
 #include "job_schedule.hpp"
+#include "path.hpp"
 
 #include "io/save_handle_graph.hpp"
 
@@ -90,7 +99,22 @@ int IndexingParameters::path_cover_depth = gbwtgraph::PATH_COVER_DEFAULT_N;
 int IndexingParameters::giraffe_gbwt_downsample = gbwtgraph::LOCAL_HAPLOTYPES_DEFAULT_N;
 int IndexingParameters::downsample_context_length = gbwtgraph::PATH_COVER_DEFAULT_K;
 double IndexingParameters::max_memory_proportion = 0.75;
+double IndexingParameters::thread_chunk_inflation_factor = 2.0;
 bool IndexingParameters::verbose = false;
+
+void copy_file(const string& from_fp, const string& to_fp) {
+    ifstream from_file(from_fp, std::ios::binary);
+    ofstream to_file(to_fp, std::ios::binary);
+    if (!from_file) {
+        cerr << "error:[IndexRegistry] Couldn't open " << from_fp << endl;
+        exit(1);
+    }
+    if (!to_file) {
+        cerr << "error:[IndexRegistry] Couldn't open " << to_fp << endl;
+        exit(1);
+    }
+    to_file << from_file.rdbuf();
+}
 
 // return file size in bytes
 int64_t get_file_size(const string& filename) {
@@ -100,28 +124,38 @@ int64_t get_file_size(const string& filename) {
     return infile.tellg();
 }
 
+bool is_gzipped(const string& filename) {
+    if (filename.size() > 2 && filename.substr(filename.size() - 3, 3) == ".gz") {
+        return true;
+    }
+    return false;
+}
+
+int64_t get_num_samples(const string& vcf_filename) {
+    htsFile* vcf_file = hts_open(vcf_filename.c_str(),"rb");
+    bcf_hdr_t* header = bcf_hdr_read(vcf_file);
+    int64_t num_samples = bcf_hdr_nsamples(header);
+    bcf_hdr_destroy(header);
+    hts_close(vcf_file);
+    return num_samples;
+}
+
 // quickly guess the number of variants in a VCF file based on the filesize
 double approx_num_vars(const string& vcf_filename) {
     
-    // read the file to get the number of samples
-    htsFile* vcf_file = hts_open(vcf_filename.c_str(),"rb");
-    bcf_hdr_t* header = bcf_hdr_read(vcf_file);
-    size_t num_samples = bcf_hdr_nsamples(header);
-    bcf_hdr_destroy(header);
-    hts_close(vcf_file);
-    
+    int64_t num_samples = get_num_samples(vcf_filename);
     int64_t file_size = get_file_size(vcf_filename);
-    
-    bool is_gzipped = false;
-    if (vcf_filename.size() > 2 && vcf_filename.substr(vcf_filename.size() - 3, 3) == ".gz") {
-        is_gzipped = true;
-    }
     
     // TODO: bcf coefficient
     // a shitty regression that Jordan fit on the human autosomes, gives a very rough
     // estimate of the number of variants contained in a VCF
-    double coef = is_gzipped ? 12.41 : 0.2448;
-    return (coef * file_size) / num_samples;
+    if (is_gzipped(vcf_filename)) {
+        // square root got a pretty good fit, for whatever reason
+        return 0.255293 * file_size / sqrt(num_samples);
+    }
+    else {
+        return 0.192505 * file_size / num_samples;
+    }
 }
 
 // the ratio to the HashGraph memory usage, as estimated by a couple of graphs
@@ -220,21 +254,20 @@ int64_t approx_graph_memory(const string& fasta_filename, const string& vcf_file
     return approx_graph_memory(vector<string>(1, fasta_filename), vector<string>(1, vcf_filename));
 }
 
-// estimate the amount of memory of a graph constructed GFAs
-int64_t approx_graph_memory(const vector<string>& gfa_filenames) {
-    
-    int64_t total_size = 0;
-    for (const auto& gfa : gfa_filenames) {
-        total_size += get_file_size(gfa);
-    }
-    
-    // factor estimated by regression on 1000GP graphs of human chromosomes
-    int64_t hash_graph_memory_usage = 13.17 * total_size;
-    return hash_graph_memory_usage * format_multiplier();
+// estimate the amount of memory of a GFA constructed graph
+int64_t approx_graph_memory(const string& gfa_filename) {
+    int64_t hash_graph_memory_usage = 13.17 * get_file_size(gfa_filename);
+    return hash_graph_memory_usage * format_multiplier();}
+
+int64_t approx_gbwt_memory(const string& vcf_filename) {
+    return 21.9724 * log(get_num_samples(vcf_filename)) * approx_num_vars(vcf_filename);
 }
 
-int64_t approx_graph_memory(const string& gfa_filename) {
-    return approx_graph_memory(vector<string>(1, gfa_filename));
+int64_t approx_graph_load_memory(const string& graph_filename) {
+    // TODO: separate regressions for different graph types
+    // this one was done on hash graphs, which probably have a larger expansion
+    int64_t hash_graph_memory_usage = 12.52059 * get_file_size(graph_filename);
+    return hash_graph_memory_usage * format_multiplier();
 }
 
 // returns true if the GTF/GFF has any non-header lines
@@ -255,15 +288,13 @@ bool transcript_file_nonempty(const string& transcripts) {
 // the whole damn thing (SQ lines are not required, unfortunately)
 vector<string> vcf_contigs(const string& filename) {
     
-    unordered_set<string> contigs;
-    
     htsFile* vcf = hts_open(filename.c_str(),"rb");
     if (vcf == nullptr) {
         cerr << "error:[IndexRegistry] Could not open VCF" << filename << endl;
     }
     
     bcf_hdr_t* header = bcf_hdr_read(vcf);
-    
+    unordered_set<string> contigs;
     bcf1_t* bcf_record = bcf_init();
     while (bcf_read(vcf, header, bcf_record) >= 0) {
         
@@ -271,15 +302,17 @@ vector<string> vcf_contigs(const string& filename) {
         
         contigs.emplace(chrom);
     }
-    
     bcf_destroy(bcf_record);
+    vector<string> return_val(contigs.begin(), contigs.end());
+    
+    
     bcf_hdr_destroy(header);
     hts_close(vcf);
     
-    vector<string> return_val(contigs.begin(), contigs.end());
     sort(return_val.begin(), return_val.end());
     return return_val;
 }
+
 
 IndexRegistry VGIndexes::get_vg_index_registry() {
     
@@ -298,6 +331,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("Insertion Sequence FASTA", "insertions.fasta");
     registry.register_index("Reference GFA", "gfa");
     registry.register_index("GTF/GFF", "gff");
+    
+    /// Chunked inputs
+    registry.register_index("Chunked Reference FASTA", "chunked.fasta");
+    registry.register_index("Chunked VCF", "chunked.vcf.gz");
+    registry.register_index("Chunked VCF w/ Phasing", "phased.chunked.vcf.gz");
+    registry.register_index("Chunked GTF/GFF", "chunked.gff");
     
     /// True indexes
     registry.register_index("VG", "vg");
@@ -411,6 +450,1000 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         alias_graph.register_alias(*constructing.begin(), inputs[0]);
         return vector<vector<string>>(1, inputs.front()->get_filenames());
     });
+    registry.register_recipe({"Chunked VCF"}, {"Chunked VCF w/ Phasing"},
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
+        alias_graph.register_alias(*constructing.begin(), inputs[0]);
+        return vector<vector<string>>(1, inputs.front()->get_filenames());
+    });
+    
+    ////////////////////////////////////
+    // Chunking Recipes
+    ////////////////////////////////////
+    
+#ifdef debug_index_registry_setup
+    cerr << "registering chunking recipes" << endl;
+#endif
+    
+    // meta recipe for with/out phasing and with/out transcripts
+    auto chunk_contigs = [&](const vector<const IndexFile*>& inputs,
+                             const IndexingPlan* plan,
+                             AliasGraph& alias_graph,
+                             const IndexGroup& constructing) {
+        
+        if (IndexingParameters::verbose) {
+            cerr << "[IndexRegistry]: Chunking inputs for parallelism." << endl;
+        }
+                        
+        // boilerplate
+        assert(inputs.size() == 2 || inputs.size() == 3);
+        assert(constructing.size() == 2 || constructing.size() == 3);
+        assert(constructing.size() == inputs.size());
+        bool chunking_tx = inputs.size() == 3;
+        vector<string> fasta_filenames, vcf_filenames, tx_filenames;
+        {
+            int i = 0;
+            if (chunking_tx) {
+                tx_filenames = inputs[i++]->get_filenames();
+            }
+            fasta_filenames = inputs[i++]->get_filenames();
+            vcf_filenames = inputs[i++]->get_filenames();
+        }
+        vector<vector<string>> all_outputs(constructing.size());
+        string output_fasta, output_vcf, output_tx;
+        {
+            auto it = constructing.begin();
+            if (chunking_tx) {
+                output_tx = *it;
+                ++it;
+            }
+            output_fasta = *it;
+            ++it;
+            output_vcf = *it;
+        }
+        auto& output_fasta_names = all_outputs[chunking_tx ? 1 : 0];
+        auto& output_vcf_names = all_outputs[chunking_tx ? 2 : 1];
+        
+        
+        // let's do this first, since it can detect data problems
+        
+        // i really hate to do two whole passes over the VCFs, but it's hard to see how to not
+        // do this to be able to distinguish when we need to wait for a contig to become available
+        // and when it simply doesn't have any variants in the VCFs (especially since it seems
+        // to be not uncommon for the header to have these sequences included, such as alt scaffolds)
+        vector<vector<string>> vcf_contigs_with_variants(vcf_filenames.size());
+        vector<set<string>> vcf_samples(vcf_filenames.size());
+        {
+            // do the bigger jobs first to reduce makespan
+            
+#pragma omp parallel for schedule(dynamic, 1)
+            for (int i = 0; i < vcf_filenames.size(); ++i) {
+                                
+                tbx_t* tabix_index = nullptr;
+                for (string tabix_name : {vcf_filenames[i] + ".tbi", vcf_filenames[i] + ".csi"}) {
+                    struct stat stat_tbi, stat_vcf;
+                    if (stat(tabix_name.c_str(), &stat_tbi) != 0) {
+                        // the tabix doesn't exist
+                        continue;
+                    }
+                    stat(vcf_filenames[i].c_str(), &stat_vcf);
+                    if (stat_vcf.st_mtime > stat_tbi.st_mtime) {
+                        cerr << "warning:[IndexRegistry] Tabix index " + tabix_name + " is older than VCF " + vcf_filenames[i] + " and will not be used. Consider recreating this tabix index to speed up index creation.\n";
+                        continue;
+                    }
+                    
+                    tabix_index = tbx_index_load(tabix_name.c_str());
+                    if (tabix_index == nullptr) {
+                        cerr << "error:[IndexRegistry] failed to load tabix index " << tabix_index << endl;
+                        exit(1);
+                    }
+                }
+                
+                // get the sample set
+                htsFile* vcf = bcf_open(vcf_filenames[i].c_str(), "r");
+                bcf_hdr_t* header = bcf_hdr_read(vcf);
+                for (int j = 0; j < bcf_hdr_nsamples(header); ++j) {
+                    vcf_samples[i].insert(header->samples[j]);
+                }
+                
+                if (tabix_index != nullptr) {
+                    // we have a tabix index, so we can make contigs query more efficiently
+                    int num_seq_names;
+                    const char** seq_names = tbx_seqnames(tabix_index, &num_seq_names);
+                    for (int j = 0; j < num_seq_names; ++j) {
+                        vcf_contigs_with_variants[i].push_back(seq_names[j]);
+                    }
+                    free(seq_names);
+                    bcf_hdr_destroy(header);
+                    int close_err_code = hts_close(vcf);
+                    if (close_err_code != 0) {
+                        cerr << "error:[IndexRegistry] encountered error closing VCF " << vcf_filenames[i] << endl;
+                        exit(1);
+                    }
+                    continue;
+                }
+                
+                // no tabix index, so we have to do the full scan
+                
+                bcf1_t* vcf_rec = bcf_init();
+                string curr_contig;
+                int err_code = bcf_read(vcf, header, vcf_rec);
+                while (err_code == 0) {
+                    const char* chrom = bcf_hdr_id2name(header, vcf_rec->rid);
+                    if (!curr_contig.empty()) {
+                        if (curr_contig < chrom) {
+                            curr_contig = chrom;
+                            vcf_contigs_with_variants[i].push_back(chrom);
+                        }
+                        else if (curr_contig > chrom) {
+                            cerr << "error:[IndexRegistry] Contigs in VCF must be in ASCII-lexicographic order. Encountered contig '" << chrom << "' after contig '" << curr_contig << "' in VCF file" << vcf_filenames[i] << "." << endl;
+                            exit(1);
+                        }
+                    }
+                    else {
+                        curr_contig = chrom;
+                        vcf_contigs_with_variants[i].push_back(chrom);
+                    }
+                    
+                    err_code = bcf_read(vcf, header, vcf_rec);
+                }
+                if (err_code != -1) {
+                    cerr << "error:[IndexRegistry] failed to read from VCF " << vcf_filenames[i] << endl;
+                    exit(1);
+                }
+                // we'll be moving on to a different file, so we won't demand that these
+                // be in order anymore
+                bcf_destroy(vcf_rec);
+                bcf_hdr_destroy(header);
+                err_code = hts_close(vcf);
+                if (err_code != 0) {
+                    cerr << "error:[IndexRegistry] encountered error closing VCF " << vcf_filenames[i] << endl;
+                    exit(1);
+                }
+            }
+        }
+        
+#ifdef debug_index_registry_recipes
+        cerr << "contigs that have variants in the VCFs:" << endl;
+        for (auto& vcf_contigs : vcf_contigs_with_variants) {
+            for (auto& contig : vcf_contigs) {
+                cerr << "\t" << contig << endl;
+            }
+        }
+#endif
+        
+        // consolidate this for easy look up later
+        unordered_set<string> contigs_with_variants;
+        for (auto& vcf_contigs : vcf_contigs_with_variants) {
+            for (auto& contig : vcf_contigs) {
+                contigs_with_variants.insert(contig);
+            }
+        }
+        
+        unordered_map<string, int64_t> seq_files;
+        unordered_map<string, int64_t> seq_lengths;
+        // records of (length, name)
+        priority_queue<pair<int64_t, string>> seq_queue;
+                
+        for (int64_t i = 0; i < fasta_filenames.size(); ++i) {
+            FastaReference ref;
+            ref.open(fasta_filenames[i]);
+            for (const auto& idx_entry : *ref.index) {
+                seq_files[idx_entry.second.name] = i;
+                seq_lengths[idx_entry.second.name] = idx_entry.second.length;
+                seq_queue.emplace(idx_entry.second.length, idx_entry.second.name);
+            }
+        }
+        
+        // we'll partition sequences that have the same samples (chunking the the VCFs
+        // ultimately requires that we do this)
+        map<set<string>, vector<string>> sample_set_contigs;
+        for (int i = 0; i < vcf_samples.size(); ++i) {
+            auto& contigs = sample_set_contigs[vcf_samples[i]];
+            for (auto& contig : vcf_contigs_with_variants[i]) {
+                contigs.push_back(contig);
+            }
+        }
+        // move these lists of contigs into more convenient data structures
+        vector<vector<string>> contig_groups;
+        unordered_map<string, int64_t> contig_to_group;
+        for (auto it = sample_set_contigs.begin(); it != sample_set_contigs.end(); ++it) {
+            for (const auto& contig : it->second) {
+                if (contig_to_group.count(contig)) {
+                    cerr << "error:[IndexRegistry] Contig " << contig << " is found in multiple VCFs with different samples" << endl;
+                    exit(1);
+                }
+                contig_to_group[contig] = contig_groups.size();
+            }
+            contig_groups.emplace_back(move(it->second));
+        }
+        
+#ifdef debug_index_registry_recipes
+        cerr << "contigs by sample group" << endl;
+        for (int i = 0; i < contig_groups.size(); ++i) {
+            cerr << "group " << i << endl;
+            for (auto contig : contig_groups[i]) {
+                cerr << "\t" << contig << endl;
+            }
+        }
+#endif
+                
+        // we'll greedily assign contigs to the smallest bucket (2-opt bin packing algorithm)
+        // modified to ensure that we can bucket contigs with the same sample sets together
+        
+        // one of the threads gets used up to do scheduling after this initial chunking
+        int num_threads = get_thread_count();
+        // we'll let it go a bit larger so we can take advantage of dynamic scheduling
+        int max_num_buckets = max<int>(contig_groups.size(),
+                                       ceil(IndexingParameters::thread_chunk_inflation_factor * num_threads));
+        int num_buckets = 0;
+        int groups_without_bucket = contig_groups.size();
+        // buckets of contigs, grouped by sample groups
+        vector<vector<vector<string>>> sample_group_buckets(contig_groups.size());
+        // records of (total length, bucket index), grouped by sample gorups
+        vector<priority_queue<pair<int64_t, int64_t>, vector<pair<int64_t, int64_t>>,
+                              greater<pair<int64_t, int64_t>>>> bucket_queues(contig_groups.size());
+        while (!seq_queue.empty()) {
+            int64_t length;
+            string seq_name;
+            tie(length, seq_name) = seq_queue.top();
+            seq_queue.pop();
+            
+            int64_t group = 0;
+            if (contig_to_group.count(seq_name)) {
+                // this contig has variant samples associated with it, so we need to
+                // group it in with them
+                group = contig_to_group[seq_name];
+            }
+            else {
+                // this contig has no variants associated, we can put it in whichever
+                // bucket is smallest
+                for (int64_t i = 0; i < bucket_queues.size(); ++i) {
+                    int64_t min_bucket_length = numeric_limits<int64_t>::max();
+                    if (bucket_queues[i].empty()) {
+                        min_bucket_length = 0;
+                        group = i;
+                    }
+                    else if (bucket_queues[i].top().first < min_bucket_length) {
+                        min_bucket_length = bucket_queues[i].top().first;
+                        group = i;
+                    }
+                    
+                }
+            }
+            
+            // always make sure there's enough room in our budget of buckets
+            // to make one for each sample group
+            if (bucket_queues[group].empty() || num_buckets < max_num_buckets - groups_without_bucket) {
+                // make a new bucket
+                if (bucket_queues[group].empty()) {
+                    groups_without_bucket--;
+                }
+                auto& group_buckets = sample_group_buckets[group];
+                bucket_queues[group].emplace(seq_lengths[seq_name], group_buckets.size());
+                group_buckets.emplace_back(1, seq_name);
+                num_buckets++;
+            }
+            else {
+                // add to the smallest bucket
+                int64_t total_length, b_idx;
+                tie(total_length, b_idx) = bucket_queues[group].top();
+                bucket_queues[group].pop();
+                sample_group_buckets[group][b_idx].emplace_back(seq_name);
+                bucket_queues[group].emplace(total_length + length, b_idx);
+            }
+        }
+        
+        // merge the list of sample group buckets and collate with their
+        // FASTA of origin
+        vector<vector<pair<string, int64_t>>> buckets;
+        for (auto& group_buckets : sample_group_buckets) {
+            for (auto& bucket : group_buckets) {
+                buckets.emplace_back();
+                auto& new_bucket = buckets.back();
+                for (auto& contig : bucket) {
+                    new_bucket.emplace_back(move(contig), seq_files[contig]);
+                }
+            }
+        }
+        
+        // sort the buckets in descending order by sequence length so that the
+        // biggest jobs get dynamically scheduled first
+        sort(buckets.begin(), buckets.end(),
+             [&](const vector<pair<string, int64_t>>& a, const vector<pair<string, int64_t>>& b) {
+            size_t len_a = 0, len_b = 0;
+            for (const auto& contig : a) {
+                len_a += seq_lengths.at(contig.first);
+            }
+            for (const auto& contig : b) {
+                len_b += seq_lengths.at(contig.first);
+            }
+            return len_a > len_b;
+        });
+                
+        // to look bucket index up from a contig
+        unordered_map<string, int64_t> contig_to_idx;
+        for (int64_t i = 0; i < buckets.size(); ++i) {
+            for (auto& bucket_item : buckets[i])  {
+                contig_to_idx[bucket_item.first] = i;
+            }
+        }
+        
+        // sort contigs of each bucket lexicographically so that they occur in the order
+        // we'll discover them in the VCF
+        for (auto& bucket : buckets) {
+            sort(bucket.begin(), bucket.end());
+        }
+        
+#ifdef debug_index_registry_recipes
+        cerr << "assigned contigs into buckets:" << endl;
+        for (int i = 0; i < buckets.size(); ++i) {
+            cerr << "bucket " << i << endl;
+            for (auto& contig : buckets[i]) {
+                cerr << "\t" << contig.first << ": " << seq_lengths[contig.first] << endl;
+            }
+        }
+#endif
+        
+        if (buckets.size() == fasta_filenames.size() && buckets.size() == vcf_filenames.size()
+            && (tx_filenames.empty() || buckets.size() == tx_filenames.size())) {
+            // it looks like we might have just recapitulated the original chunking, let's check to make sure
+            
+            // does each bucket come from exactly one FASTA file?
+            bool all_buckets_match = true;
+            for (int64_t i = 0; i < fasta_filenames.size() && all_buckets_match; ++i) {
+                FastaReference ref;
+                ref.open(fasta_filenames[i]);
+                int64_t bucket_idx = -1;
+                for (const auto& idx_entry : *ref.index) {
+                    if (bucket_idx == -1) {
+                        bucket_idx = contig_to_idx.at(idx_entry.second.name);
+                    }
+                    else if (contig_to_idx.at(idx_entry.second.name) != bucket_idx) {
+                        all_buckets_match = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (all_buckets_match) {
+                // there's no need for chunking, just alias them
+#ifdef debug_index_registry_recipes
+                cerr << "chunking matches input files, no need to re-chunk" << endl;
+#endif
+                
+                output_fasta_names = fasta_filenames;
+                output_vcf_names = vcf_filenames;
+                if (chunking_tx) {
+                    all_outputs[0] = tx_filenames;
+                    alias_graph.register_alias(output_tx, inputs[0]);
+                    alias_graph.register_alias(output_fasta, inputs[1]);
+                    alias_graph.register_alias(output_vcf, inputs[2]);
+                }
+                else {
+                    alias_graph.register_alias(output_fasta, inputs[0]);
+                    alias_graph.register_alias(output_vcf, inputs[1]);
+                }
+                return all_outputs;
+            }
+        }
+        
+        if (IndexingParameters::verbose) {
+            cerr << "[IndexRegistry]: Chunking FASTA(s)." << endl;
+        }
+        
+        output_fasta_names.resize(buckets.size());
+        output_vcf_names.resize(buckets.size());
+        
+        // make FASTA sequences for each bucket
+        // the threading here gets to be pretty simple because the fai allows random access
+#pragma omp parallel for schedule(dynamic, 1)
+        for (int64_t i = 0; i < buckets.size(); ++i) {
+            
+            auto chunk_fasta_name = plan->output_filepath(output_fasta, i, buckets.size());
+            auto chunk_fai_name = chunk_fasta_name + ".fai";
+            output_fasta_names[i] = chunk_fasta_name;
+                        
+            ofstream outfile_fasta, outfile_fai;
+            init_out(outfile_fasta, chunk_fasta_name);
+            init_out(outfile_fai, chunk_fai_name);
+            for (auto& assigned_seq : buckets[i]) {
+                string contig = assigned_seq.first;
+                int64_t ref_idx = assigned_seq.second;
+                FastaReference ref;
+                ref.open(fasta_filenames[ref_idx]);
+                
+                auto entry = ref.index->entry(contig);
+                int64_t length = entry.length;
+                int64_t line_length = entry.line_blen; // the base length
+                
+                // copy over the FASTA sequence
+                outfile_fasta << '>' << contig << '\n';
+                int64_t seq_start = outfile_fasta.tellp();
+                int64_t j = 0;
+                while (j < length) {
+                    int64_t end = min<int64_t>(j + line_length, length);
+                    outfile_fasta << ref.getSubSequence(contig, j, end - j) << '\n';
+                    j = end;
+                }
+                
+                // add an FAI entry
+                outfile_fai << contig << '\t' <<  length << '\t' << seq_start << '\t' << line_length << '\t' << line_length + 1 << endl;
+            }
+        }
+        
+        if (IndexingParameters::verbose) {
+            cerr << "[IndexRegistry]: Chunking VCF(s)." << endl;
+        }
+        
+        // open all of the input VCF files
+        vector<tuple<htsFile*, bcf_hdr_t*, bcf1_t*>> input_vcf_files(vcf_filenames.size());
+        vector<atomic<bool>> input_checked_out_or_finished(vcf_filenames.size());
+        for (int64_t i = 0; i < input_vcf_files.size(); ++i) {
+            htsFile* vcf = bcf_open(vcf_filenames[i].c_str(), "r");
+            bcf_hdr_t* header = bcf_hdr_read(vcf);
+            bcf1_t* vcf_rec = bcf_init();
+            int err_code = bcf_read(vcf, header, vcf_rec);
+            if (err_code == -1) {
+                // this vcf is empty, actually
+                input_checked_out_or_finished[i].store(true);
+            }
+            else if (err_code < 0) {
+                cerr << "error:[IndexRegistry] failed to read VCF " << vcf_filenames[i] << endl;
+                exit(1);
+            }
+            input_vcf_files[i] = make_tuple(vcf, header, vcf_rec);
+        }
+        
+        unordered_map<string, int64_t> contig_to_vcf_idx;
+        for (int64_t i = 0; i < vcf_contigs_with_variants.size(); ++i) {
+            for (const auto& contig : vcf_contigs_with_variants[i]) {
+                contig_to_vcf_idx[contig] = i;
+            }
+        }
+        
+        // see if we can identify any chunked VCFs that are identical to our input VCFs
+        // records of (input vcf index, bucket index)
+        vector<pair<int64_t, int64_t>> copiable_vcfs;
+        for (int64_t i = 0; i < buckets.size(); ++i) {
+            int64_t prev_vcf_idx = -1;
+            int64_t count = 0;
+            for (auto& contig : buckets[i]) {
+                if (contig_to_vcf_idx.count(contig.first)) {
+                    int64_t vcf_idx = contig_to_vcf_idx[contig.first];
+                    if (prev_vcf_idx == -1 || prev_vcf_idx == vcf_idx) {
+                        prev_vcf_idx = vcf_idx;
+                        count++;
+                    }
+                    else {
+                        // we've seen a second input VCF, mark a sentinel and stop looking
+                        count = -1;
+                        break;
+                    }
+                }
+            }
+            if (prev_vcf_idx >= 0 && count == vcf_contigs_with_variants[prev_vcf_idx].size()) {
+                // we saw all and only contigs from one VCF, we can just copy it
+                copiable_vcfs.emplace_back(prev_vcf_idx, i);
+            }
+        }
+        
+#ifdef debug_index_registry_recipes
+        cerr << "identified " << copiable_vcfs.size() << " copiable VCFs:" << endl;
+        for (const auto& copiable_vcf : copiable_vcfs) {
+            cerr << "\tinput " << copiable_vcf.first << " " << vcf_filenames[copiable_vcf.first] << " -> bucket " << copiable_vcf.second << endl;
+        }
+#endif
+        
+        output_vcf_names.resize(buckets.size());
+        
+        // check if we can do a sort-of-aliasing for VCFs, since they're the most time-
+        // consuming part of the chunking
+        if (copiable_vcfs.size() == vcf_filenames.size()) {
+            // all of the input VCFs could be copied to 1 bucket, so we'll just alias
+            // them and make dummies for the rest
+            for (auto vcf_copy : copiable_vcfs) {
+                int64_t input_idx, output_idx;
+                tie(input_idx, output_idx) = vcf_copy;
+                output_vcf_names[output_idx] = vcf_filenames[input_idx];
+            }
+            for (int64_t i = 0; i < output_vcf_names.size(); ++i) {
+                if (output_vcf_names[i].empty()) {
+                    // this bucket didn't receive a VCF chunk, let's make a dummy VCF for it
+                    auto output_vcf_name = plan->output_filepath(output_vcf, i, buckets.size());
+                    htsFile* vcf = bcf_open(output_vcf_name.c_str(), "wz");
+                    bcf_hdr_t* header = bcf_hdr_init("w");
+                    int hdr_write_err_code = bcf_hdr_write(vcf, header);
+                    if (hdr_write_err_code != 0) {
+                        cerr << "error:[IndexRegistry] error writing VCF header to " << output_vcf_name << endl;
+                        exit(1);
+                    }
+                    bcf_hdr_destroy(header);
+                    int close_err_code = hts_close(vcf);
+                    if (close_err_code != 0) {
+                        cerr << "error:[IndexRegistry] encountered error closing VCF " << output_vcf_name << endl;
+                        exit(1);
+                    }
+                    output_vcf_names[i] = output_vcf_name;
+                }
+            }
+            // register that this is an alias
+            alias_graph.register_alias(output_vcf, inputs[chunking_tx ? 2 : 1]);
+#ifdef debug_index_registry_recipes
+            cerr << "pseudo-aliased VCFs with filenames:" << endl;
+            for (const auto& filename : output_vcf_names) {
+                cerr << "\t" << filename << endl;
+            }
+#endif
+        }
+        else {
+            
+            // trackers for whether we can write to a bucket's vcf
+            vector<atomic<bool>> bucket_checked_out_or_finished(buckets.size());
+            for (int64_t i = 0; i < buckets.size(); ++i) {
+                bucket_checked_out_or_finished[i].store(false);
+            }
+            
+            // if we can copy over a vcf, we don't want to check it out for reading/writing
+            for (auto copiable_vcf : copiable_vcfs) {
+                input_checked_out_or_finished[copiable_vcf.first].store(true);
+                bucket_checked_out_or_finished[copiable_vcf.second].store(true);
+            }
+            
+            // the output files
+            vector<pair<htsFile*, bcf_hdr_t*>> bucket_vcfs(buckets.size());
+            for (int64_t i = 0; i < buckets.size(); ++i) {
+                auto output_vcf_name = plan->output_filepath(output_vcf, i, buckets.size());
+                output_vcf_names[i] = output_vcf_name;
+                
+                if (bucket_checked_out_or_finished[i].load()) {
+                    // we can copy to make this file, so we don't need to initialize
+                    // a file
+                    continue;
+                }
+                
+                // open to write in bgzipped format
+                htsFile* vcf_out = bcf_open(output_vcf_name.c_str(), "wz");
+                bcf_hdr_t* header_out = bcf_hdr_init("w");
+                
+                // identify which input VCFs we'll be pulling from
+                unordered_set<int64_t> vcf_indexes;
+                for (const auto& contig : buckets[i]) {
+                    if (contig_to_vcf_idx.count(contig.first)) {
+                        vcf_indexes.insert(contig_to_vcf_idx[contig.first]);
+                    }
+                }
+                // merge will all the input headers
+                unordered_set<string> samples_added;
+                for (auto vcf_idx : vcf_indexes) {
+                    
+                    auto input_vcf_file = input_vcf_files[vcf_idx];
+                    bcf_hdr_t* header_in = get<1>(input_vcf_file);
+                    header_out = bcf_hdr_merge(header_out, header_in);
+                    if (header_out == nullptr) {
+                        cerr << "error:[IndexRegistry] error merging VCF header" << endl;
+                        exit(1);
+                    }
+                    
+                    // add the samples from every header
+                    for (int64_t j = 0; j < bcf_hdr_nsamples(header_in); ++j) {
+                        const char* sample = header_in->samples[j];
+                        if (!samples_added.count(sample)) {
+                            // TODO: the header has its own dictionary, so this shouldn't be necessary,
+                            // but the khash_t isn't documented very well
+                            samples_added.insert(sample);
+                            // the sample hasn't been added yet
+                            int sample_err_code = bcf_hdr_add_sample(header_out, header_in->samples[j]);
+                            // returns a -1 if the sample is already included, which we expect
+                            if (sample_err_code != 0) {
+                                cerr << "error:[IndexRegistry] error adding samples to VCF header" << endl;
+                                exit(1);
+                            }
+                        }
+                    }
+                }
+                
+                // documentation in htslib/vcf.h says that this has to be called after addding samples
+                int sync_err_code = bcf_hdr_sync(header_out);
+                if (sync_err_code != 0) {
+                    cerr << "error:[IndexRegistry] error syncing VCF header" << endl;
+                    exit(1);
+                }
+                int hdr_write_err_code = bcf_hdr_write(vcf_out, header_out);
+                if (hdr_write_err_code != 0) {
+                    cerr << "error:[IndexRegistry] error writing VCF header to " << output_vcf_name << endl;
+                    exit(1);
+                }
+                
+                // remember these so that we can check them out later
+                bucket_vcfs[i] = make_pair(vcf_out, header_out);
+            }
+            
+            // the parallel iteration in here is pretty complicated because contigs from
+            // the input VCFs are being shuffled among the output bucket VCFs, and contigs
+            // need to be both read and written in lexicographic order. the mutexes here
+            // let the threads shift between reading and writing from different pairs of VCFs.
+            // hopefully this high-contention process won't cause too many problems since
+            // copying each contig takes up a relatively large amount of time
+            
+            // a mutex to lock the process of checking whether the next contig the thread
+            // needs is exposed
+            mutex input_vcf_mutex;
+            // a mutex to lock the process of switching to a new bucket
+            mutex output_vcf_mutex;
+            // to keep track of which contig in the bucket we're looking for next
+            vector<size_t> contig_idx(buckets.size(), 0);
+            // how many buckets we've finished so far
+            atomic<int64_t> buckets_finished(0);
+            vector<thread> workers;
+            for (int64_t i = 0; i < num_threads; ++i) {
+                workers.emplace_back([&]() {
+                    int64_t bucket_idx = -1;
+                    while (buckets_finished.load() < buckets.size()) {
+                        // select an output VCF corresponding to a bucket
+                        int64_t copy_from_idx = -1, copy_to_idx = -1;
+                        bool found_bucket = false;
+                        output_vcf_mutex.lock();
+                        if (!copiable_vcfs.empty()) {
+                            // there are copiable VCFs remaining, do these first
+                            tie(copy_from_idx, copy_to_idx) = copiable_vcfs.back();
+                            copiable_vcfs.pop_back();
+                        }
+                        else {
+                            // start iteration at 1 so we always advance to a new bucket if possible
+                            for (int64_t j = 1; j <= buckets.size(); ++j) {
+                                int64_t next_bucket_idx = (bucket_idx + j) % buckets.size();
+                                if (!bucket_checked_out_or_finished[next_bucket_idx].load()) {
+                                    bucket_checked_out_or_finished[next_bucket_idx].store(true);
+                                    bucket_idx = next_bucket_idx;
+                                    found_bucket = true;
+                                    break;
+                                }
+                            }
+                        }
+                        output_vcf_mutex.unlock();
+                        
+                        if (copy_from_idx >= 0) {
+#ifdef debug_index_registry_recipes
+                            cerr << "direct copying " + vcf_filenames[copy_from_idx] + " to " + output_vcf_names[copy_to_idx] + "\n";
+#endif
+                            // we can copy an entire file on this iteration instead of parsing
+                            copy_file(vcf_filenames[copy_from_idx], output_vcf_names[copy_to_idx]);
+                            if (file_exists(vcf_filenames[copy_from_idx] + ".tbi")) {
+                                // there's also a tabix, grab that as well
+                                copy_file(vcf_filenames[copy_from_idx] + ".tbi", output_vcf_names[copy_to_idx] + ".tbi");
+                            }
+                            // this bucket is now totally finished
+                            buckets_finished.fetch_add(1);
+                            continue;
+                        }
+                        
+                        if (!found_bucket) {
+                            // it's now possible for all buckets to be checked out simultaneously
+                            // by other threads, so there's no more need to have this thread running
+#ifdef debug_index_registry_recipes
+                            cerr << "thread exiting\n";
+#endif
+                            return;
+                        }
+                        
+                        auto& ctg_idx = contig_idx[bucket_idx];
+                        
+                        if (!contigs_with_variants.count(buckets[bucket_idx][ctg_idx].first)) {
+                            // this contig doesn't have variants in any of the VCFs, so we skip it
+                            ++ctg_idx;
+                            if (ctg_idx == buckets[bucket_idx].size()) {
+                                buckets_finished.fetch_add(1);
+                            }
+                            else {
+                                bucket_checked_out_or_finished[bucket_idx].store(false);
+                            }
+                            continue;
+                        }
+                        
+                        htsFile* vcf_out = bucket_vcfs[bucket_idx].first;
+                        bcf_hdr_t* header_out = bucket_vcfs[bucket_idx].second;
+                        
+                        // check if any of the VCFs' next contig is the next one we want for
+                        // this bucket (and lock other threads out from checking simultaneously)
+                        int64_t input_idx = -1;
+                        input_vcf_mutex.lock();
+                        for (int64_t j = 0; j < input_vcf_files.size(); ++j) {
+                            if (input_checked_out_or_finished[j].load()) {
+                                continue;
+                            }
+                            
+                            // what is the next contig in this VCF?
+                            const char* chrom = bcf_hdr_id2name(get<1>(input_vcf_files[j]),
+                                                                get<2>(input_vcf_files[j])->rid);
+                            if (buckets[bucket_idx][ctg_idx].first == chrom) {
+                                input_idx = j;
+                                input_checked_out_or_finished[j].store(true);
+                                break;
+                            }
+                        }
+                        input_vcf_mutex.unlock();
+                        
+                        if (input_idx < 0) {
+                            // other threads need to get through earlier contigs until this bucket's next
+                            // contig is exposed
+                            bucket_checked_out_or_finished[bucket_idx].store(false);
+                            continue;
+                        }
+                        
+                        // we've checked out one of the input vcfs, now we can read from it
+                        auto& input_vcf_file = input_vcf_files[input_idx];
+                        
+                        int read_err_code = 0;
+                        while (read_err_code >= 0) {
+                            
+                            const char* chrom = bcf_hdr_id2name(get<1>(input_vcf_file), get<2>(input_vcf_file)->rid);
+                            if (buckets[bucket_idx][ctg_idx].first != chrom) {
+                                break;
+                            }
+                            
+                            // FIXME: i'm not sure how important it is to handle these malformed VCFs it is
+//                            // read the "END" info field to see if we need to repair it (this seems to be a problem
+//                            // in the grch38 liftover variants from 1kg)
+//                            int32_t* end_dst = NULL;
+//                            int num_end;
+//                            int end_err_code = bcf_get_info_int32(get<1>(input_vcf_file), get<2>(input_vcf_file), "END",
+//                                                                  &end_dst, &num_end);
+//                            if (end_err_code >= 0) {
+//                                // there is an END tag to read
+//                                int64_t end = *end_dst;
+//                                // note: we can query alleles without bcf_unpack, because it will have already
+//                                // unpacked up to info fields
+//                                // calculate it the way the spec says to
+//                                int64_t calc_end = get<2>(input_vcf_file)->pos + strlen(get<2>(input_vcf_file)->d.allele[0]) - 1;
+//                                if (end != calc_end) {
+//                                    string msg = "warning:[IndexRegistry] fixing \"END\" of variant " + buckets[bucket_idx][ctg_idx].first + " " + to_string(get<2>(input_vcf_file)->pos) + " from " + to_string(end) + " to " + to_string(calc_end) + "\n";
+//#pragma omp critical
+//                                    cerr << msg;
+//
+//                                    int update_err_code = bcf_update_info_int32(get<1>(input_vcf_file), get<2>(input_vcf_file), "END",
+//                                                                                &calc_end, 1);
+//                                    if (update_err_code < 0) {
+//                                        cerr << "error:[IndexRegistry] failed to update \"END\"" << endl;
+//                                        exit(1);
+//                                    }
+//                                }
+//                                free(end_dst);
+//                            }
+                            
+                            bcf_translate(header_out, get<1>(input_vcf_file), get<2>(input_vcf_file));
+                            
+                            int write_err_code = bcf_write(vcf_out, header_out, get<2>(input_vcf_file));
+                            if (write_err_code != 0) {
+                                cerr << "error:[IndexRegistry] error writing VCF line to " << output_vcf_names[bucket_idx] << endl;
+                                exit(1);
+                            }
+                            
+                            read_err_code = bcf_read(get<0>(input_vcf_file), get<1>(input_vcf_file), get<2>(input_vcf_file));
+                        }
+                        
+                        if (read_err_code >= 0) {
+                            // there's still more to read, it's just on different contigs
+                            input_checked_out_or_finished[input_idx].store(false);
+                        }
+                        else if (read_err_code != -1) {
+                            // we encountered a real error
+                            cerr << "error:[IndexRegistry] error reading VCF file " << vcf_filenames[input_idx] << endl;
+                            exit(1);
+                        }
+                        
+                        // we finished this contig
+                        ++ctg_idx;
+                        if (ctg_idx == buckets[bucket_idx].size()) {
+                            buckets_finished.fetch_add(1);
+                        }
+                        else {
+                            bucket_checked_out_or_finished[bucket_idx].store(false);
+                        }
+                    }
+                });
+            }
+            
+            // barrier sync
+            for (auto& worker : workers) {
+                worker.join();
+            }
+            
+            // close out files
+            for (int64_t i = 0; i < input_vcf_files.size(); ++i) {
+                auto vcf_file = input_vcf_files[i];
+                bcf_destroy(get<2>(vcf_file));
+                bcf_hdr_destroy(get<1>(vcf_file));
+                int err_code = hts_close(get<0>(vcf_file));
+                if (err_code != 0) {
+                    cerr << "error:[IndexRegistry] encountered error closing VCF " << vcf_filenames[i] << endl;
+                    exit(1);
+                }
+            }
+            for (int64_t i = 0; i < bucket_vcfs.size(); ++i) {
+                if (!bucket_vcfs[i].second) {
+                    // we didn't open this VCF (probably because we just copied it)
+                    continue;
+                }
+                bcf_hdr_destroy(bucket_vcfs[i].second);
+                int close_err_code = hts_close(bucket_vcfs[i].first);
+                if (close_err_code != 0) {
+                    cerr << "error:[IndexRegistry] encountered error closing VCF " << output_vcf_names[i] << endl;
+                    exit(1);
+                }
+            }
+        }
+        
+        // TODO: move this into the same work queue as the rest of the VCF chunking?
+        // tabix index
+#pragma omp parallel for schedule(dynamic, 1)
+        for (int64_t i = 0; i < buckets.size(); ++i) {
+            // tabix-index the bgzipped VCF we just wrote
+            
+            if (file_exists(output_vcf_names[i] + ".tbi")) {
+                // the tabix already exists
+                continue;
+            }
+            
+            // parameters inferred from tabix main's sourcecode
+            int min_shift = 0;
+            tbx_conf_t conf = tbx_conf_vcf;
+            int tabix_err_code = tbx_index_build(output_vcf_names[i].c_str(), min_shift, &conf);
+            if (tabix_err_code == -2) {
+                cerr << "error:[IndexRegistry] output VCF is not bgzipped: " << output_vcf_names[i] << endl;
+                exit(1);
+            }
+            else if (tabix_err_code != 0) {
+                cerr << "warning:[IndexRegistry] could not tabix index VCF " + output_vcf_names[i] + "\n";
+            }
+        }
+        
+        if (chunking_tx) {
+            
+            if (IndexingParameters::verbose) {
+                cerr << "[IndexRegistry]: Chunking GTF/GFF(s)." << endl;
+            }
+            
+            auto& output_gff_names = all_outputs[0];
+            vector<ofstream> tx_files_out(buckets.size());
+            for (int64_t i = 0; i < buckets.size(); ++i) {
+                output_gff_names.emplace_back(plan->output_filepath(output_tx, i, buckets.size()));
+                init_out(tx_files_out[i], output_gff_names.back());
+            }
+            
+            // mutexes to lock the process of checking out for writing/reading
+            mutex gff_out_mutex;
+            
+            // we'll thread by input files in this case
+            vector<thread> tx_workers;
+            vector<atomic<bool>> chunk_gff_checked_out(buckets.size());
+            for (int64_t i = 0; i < chunk_gff_checked_out.size(); ++i) {
+                chunk_gff_checked_out[i].store(false);
+            }
+            
+            atomic<int64_t> input_gffs_read(0);
+            for (int64_t i = 0; i < num_threads; ++i) {
+                
+                tx_workers.emplace_back([&]() {
+                    while (input_gffs_read.load() < tx_filenames.size()) {
+                        
+                        int64_t idx = input_gffs_read.fetch_add(1);
+
+                        ifstream infile_tx;
+                        init_in(infile_tx, tx_filenames[idx]);
+                        
+                        ofstream tx_chunk_out;
+                        
+                        int64_t prev_chunk_idx = -1;
+                        while (infile_tx.good()) {
+                            
+                            string line;
+                            getline(infile_tx, line);
+                            
+                            stringstream line_strm(line);
+                            string chrom;
+                            getline(line_strm, chrom, '\t');
+                            if (chrom.empty() || chrom.front() == '#') {
+                                // skip header
+                                continue;
+                            }
+                            
+                            int64_t chunk_idx = contig_to_idx.at(chrom);
+                            if (chunk_idx != prev_chunk_idx) {
+                                // we're transitioning between chunks, so we need to check the chunk
+                                // out for writing
+                                
+                                // release the old chunk
+                                if (prev_chunk_idx >= 0) {
+                                    tx_chunk_out.close();
+                                    tx_chunk_out.clear();
+                                    chunk_gff_checked_out[prev_chunk_idx].store(false);
+                                }
+                                
+                                // keep trying to check the new chunk until succeeding
+                                bool success = false;
+                                while (!success) {
+                                    // only one thread can try to check out at a time
+                                    gff_out_mutex.lock();
+                                    if (!chunk_gff_checked_out[chunk_idx].load()) {
+                                        // the chunk is free to be written to
+                                        chunk_gff_checked_out[chunk_idx].store(true);
+                                        success = true;
+                                    }
+                                    gff_out_mutex.unlock();
+                                    if (!success) {
+                                        // wait for a couple seconds to check again if we can write
+                                        // to the file
+                                        this_thread::sleep_for(chrono::seconds(1));
+                                    }
+                                    else {
+                                        // open for writing, starting from the end
+                                        tx_chunk_out.open(output_gff_names[chunk_idx], ios_base::ate);
+                                        if (!tx_chunk_out) {
+                                            cerr << "error:[IndexRegistry] could not open " << output_gff_names[chunk_idx] << " for appending" << endl;
+                                            exit(1);
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // copy the line to the chunk
+                            tx_chunk_out << line << '\n';
+                            
+                            prev_chunk_idx = chunk_idx;
+                        }
+                        
+                        // release the last chunk we were writing to
+                        if (prev_chunk_idx >= 0) {
+                            tx_chunk_out.close();
+                            chunk_gff_checked_out[prev_chunk_idx].store(false);
+                        }
+                    }
+                });
+            }
+            
+            // barrier sync
+            for (auto& worker : tx_workers) {
+                worker.join();
+            }
+        }
+        
+        
+        return all_outputs;
+    };
+    
+    // call the meta recipe
+    registry.register_recipe({"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF w/ Phasing"}, {"GTF/GFF", "Reference FASTA", "VCF w/ Phasing"},
+                             [&](const vector<const IndexFile*>& inputs,
+                                 const IndexingPlan* plan,
+                                 AliasGraph& alias_graph,
+                                 const IndexGroup& constructing) {
+        return chunk_contigs(inputs, plan, alias_graph, constructing);
+    });
+    registry.register_recipe({"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF"}, {"GTF/GFF", "Reference FASTA", "VCF"},
+                             [&](const vector<const IndexFile*>& inputs,
+                                 const IndexingPlan* plan,
+                                 AliasGraph& alias_graph,
+                                 const IndexGroup& constructing) {
+        return chunk_contigs(inputs, plan, alias_graph, constructing);
+    });
+    registry.register_recipe({"Chunked Reference FASTA", "Chunked VCF w/ Phasing"}, {"Reference FASTA", "VCF w/ Phasing"},
+                             [&](const vector<const IndexFile*>& inputs,
+                                 const IndexingPlan* plan,
+                                 AliasGraph& alias_graph,
+                                 const IndexGroup& constructing) {
+        return chunk_contigs(inputs, plan, alias_graph, constructing);
+    });
+    registry.register_recipe({"Chunked Reference FASTA", "Chunked VCF"}, {"Reference FASTA", "VCF"},
+                             [&](const vector<const IndexFile*>& inputs,
+                                 const IndexingPlan* plan,
+                                 AliasGraph& alias_graph,
+                                 const IndexGroup& constructing) {
+        return chunk_contigs(inputs, plan, alias_graph, constructing);
+    });
+    
     
     ////////////////////////////////////
     // VG Recipes
@@ -430,10 +1463,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         auto chunk_filenames = inputs.at(0)->get_filenames();
         auto output_index = *constructing.begin();
-        
         vector<vector<string>> all_outputs(constructing.size());
-        vector<string>& output_names = all_outputs[0];
-        for (int i = 0; i < chunk_filenames.size(); ++i) {
+        
+        auto& output_names = all_outputs.front();
+        output_names.resize(chunk_filenames.size());
+        auto strip_chunk = [&](int64_t i) {
             // test streams for I/O
             ifstream infile;
             init_in(infile, chunk_filenames[i]);
@@ -450,8 +1484,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             // gather handles to the alt allele paths
             vector<path_handle_t> alt_paths;
             graph->for_each_path_handle([&](const path_handle_t& path) {
-                auto name = graph->get_path_name(path);
-                if (!name.empty() && name.substr(0, 5) == "_alt_") {
+                if (Paths::is_alt(graph->get_path_name(path))) {
                     alt_paths.push_back(path);
                 }
             });
@@ -464,8 +1497,18 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             // and save the graph
             vg::io::save_handle_graph(graph.get(), outfile);
             
-            output_names.push_back(output_name);
+            output_names[i] = output_name;
+        };
+        
+        // approximate the time and memory use for each chunk
+        vector<pair<int64_t, int64_t>> approx_job_requirements;
+        for (auto& chunk_filename : chunk_filenames) {
+            approx_job_requirements.emplace_back(get_file_size(chunk_filename),
+                                                 approx_graph_load_memory(chunk_filename));
         }
+        
+        JobSchedule schedule(approx_job_requirements, strip_chunk);
+        schedule.execute(plan->target_memory_usage());
         
         // return the filename(s)
         return all_outputs;
@@ -488,18 +1531,18 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // meta-recipe for creating a VG from a GFA
     auto construct_from_gfa = [&](const vector<const IndexFile*>& inputs,
                                   const IndexingPlan* plan,
-                                  const IndexGroup& constructing,
-                                  nid_t* max_node_id_out) {
+                                  const IndexGroup& constructing) {
         
         if (IndexingParameters::verbose) {
             cerr << "[IndexRegistry]: Constructing VG graph from GFA input." << endl;
         }
         
-        assert(constructing.size() == 1);
+        assert(constructing.size() == 2);
         vector<vector<string>> all_outputs(constructing.size());
         
         assert(inputs.size() == 1);
-        auto output_index = *constructing.begin();
+        auto output_max_id = *constructing.begin();
+        auto output_index = *constructing.rbegin();
         auto input_filenames = inputs.at(0)->get_filenames();
         if (input_filenames.size() > 1) {
             cerr << "error:[IndexRegistry] Graph construction does not support multiple GFAs at this time." << endl;
@@ -508,8 +1551,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto input_filename = input_filenames.front();
         
         string output_name = plan->output_filepath(output_index);
-        ofstream outfile;
+        string max_id_name = plan->output_filepath(output_max_id);
+        ofstream outfile, max_id_outfile;
         init_out(outfile, output_name);
+        init_out(max_id_outfile, max_id_name);
         auto graph = init_mutable_graph();
         
         // make the graph from GFA
@@ -523,25 +1568,16 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             exit(1);
         }
         
-        if (max_node_id_out) {
-            *max_node_id_out = graph->max_node_id();
-        }
-        
-        // save the file
+        // save the graph
         vg::io::save_handle_graph(graph.get(), outfile);
+        // and the max id
+        max_id_outfile << graph->max_node_id();
         
-        // return the filename
-        all_outputs[0].push_back(output_name);
+        // return the filenames
+        all_outputs[0].push_back(max_id_name);
+        all_outputs[1].push_back(output_name);
         return all_outputs;
     };
-    
-    registry.register_recipe({"VG"}, {"Reference GFA"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
-        return construct_from_gfa(inputs, plan, constructing, nullptr);
-    });
     
     // A meta-recipe to make VG and spliced VG files using the Constructor
     // Expects inputs to be ordered: FASTA, VCF[, GTF/GFF][, Insertion FASTA]
@@ -558,7 +1594,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
             cerr << " VG graph from FASTA and VCF input." << endl;
         }
-        
         
         assert(constructing.size() == 2);
         vector<vector<string>> all_outputs(constructing.size());
@@ -585,11 +1620,22 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             if (has_transcripts) {
                 transcripts = inputs[i++]->get_filenames();
             }
+            ref_filenames = inputs[i++]->get_filenames();
+            vcf_filenames = inputs[i++]->get_filenames();
             if (has_ins_fasta) {
                 insertions = inputs[i++]->get_filenames();
             }
-            ref_filenames = inputs[i++]->get_filenames();
-            vcf_filenames = inputs[i++]->get_filenames();
+        }
+        
+        if (has_ins_fasta) {
+            if (insertions.size() > 1) {
+                cerr << "error:[IndexRegistry] can only provide one FASTA for insertion sequences" << endl;
+                exit(1);
+            }
+            
+            // make sure this FASTA has an fai index before we get into all the parallel stuff
+            FastaReference ins_ref;
+            ins_ref.open(insertions.front());
         }
         
         if (ref_filenames.size() != 1 && vcf_filenames.size() != 1 &&
@@ -636,7 +1682,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
 #endif
         graph_names.resize(max(ref_filenames.size(), vcf_filenames.size()));
-        nid_t max_node_id = 0;
+        vector<pair<nid_t, nid_t>> node_id_ranges(graph_names.size());
         auto make_graph = [&](int64_t idx) {
 #ifdef debug_index_registry_recipes
             cerr << "making graph chunk " << idx << endl;
@@ -735,15 +1781,15 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     }
                 }
                 
-                // we don't need to worry about race conditions on this, because it will
-                // be fixed when the ID spaces are joined anyway
-                max_node_id = max(max_node_id, transcriptome.splice_graph().max_node_id());
+                node_id_ranges[idx] = make_pair(transcriptome.splice_graph().min_node_id(),
+                                                transcriptome.splice_graph().max_node_id());
                 
                 // save the file
                 transcriptome.write_splice_graph(&outfile);
             }
             else {
-                max_node_id = max(max_node_id, graph->max_node_id());
+                
+                node_id_ranges[idx] = make_pair(graph->min_node_id(), graph->max_node_id());
                 
                 // save the file
                 vg::io::save_handle_graph(graph.get(), outfile);
@@ -754,42 +1800,59 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         // TODO: allow contig renaming through Constructor::add_name_mapping
         
-        
-//        if (ref_filenames.size() == 1 && vcf_filenames.size() != 1) {
-//
-//            // we will have added components for all of the paths that are also
-//            // VCF sequences, but we may have FASTA sequences that don't
-//            // correspond to any VCF sequence (e.g. unlocalized contigs of
-//            // decoys)
-//
-//            // TODO: how can we keep track of all of the contigs seen in the Constructor
-//            // so that we know which ones to include in this component?
-//
-//            string output_name = (plan->prefix(constructing)
-//                                  + "." + to_string(inputs[1]->get_filenames().size())
-//                                  + "." + plan->suffix(constructing));
-//
-//            // FIXME: punting on this for now
-//            // FIXME: also need to add a dummy VCF, but how to add it to const index?
-//            // FIXME: also need to locate these contigs in the GTF/GFF
-//            // maybe i should add it as a second index, along with this graph...
-//        }
-        
         // construct the jobs in parallel, trying to use multithreading while also
         // restraining memory usage
         JobSchedule schedule(approx_job_requirements, make_graph);
         schedule.execute(plan->target_memory_usage());
         
-        if (graph_names.size() > 1) {
-            // join the ID spaces
-            VGset graph_set(graph_names);
-            max_node_id = graph_set.merge_id_space();
+        // merge the ID spaces if we need to
+        vector<nid_t> id_increment(1, 1 - node_id_ranges[0].first);
+        if (graph_names.size() > 1 || id_increment.front() != 0) {
+            // the increments we'll need to make each ID range non-overlapping
+            for (int i = 1; i < node_id_ranges.size(); ++i) {
+                id_increment.push_back(node_id_ranges[i - 1].second + id_increment[i - 1] - node_id_ranges[i].first + 1);
+            }
+            
+            vector<pair<int64_t, int64_t>> approx_job_requirements;
+            for (int i = 0; i < node_id_ranges.size(); ++i) {
+                approx_job_requirements.emplace_back(node_id_ranges[i].second - node_id_ranges[i].first,
+                                                     approx_graph_load_memory(graph_names[i]));
+            }
+            
+#ifdef debug_index_registry_recipes
+            cerr << "computed node ID increments for chunks:" << endl;
+            for (int i = 0; i < id_increment.size(); ++i) {
+                cerr << "\t[" << node_id_ranges[i].first << ", " << node_id_ranges[i].second  << "] + " << id_increment[i] << endl;
+            }
+#endif
+            
+            // do the incrementation in parallel
+            auto increment_node_ids = [&](int64_t idx) {
+                
+                // load the graph
+                ifstream infile;
+                init_in(infile, graph_names[idx]);
+                unique_ptr<MutablePathMutableHandleGraph> graph
+                    = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(infile);
+                
+                // adjust the IDs
+                graph->increment_node_ids(id_increment[idx]);
+                
+                // save back to the same file
+                ofstream outfile;
+                init_out(outfile, graph_names[idx]);
+                vg::io::save_handle_graph(graph.get(), outfile);
+            };
+            
+            JobSchedule schedule(approx_job_requirements, increment_node_ids);
+            schedule.execute(plan->target_memory_usage());
         }
         
         // save the max node id as a simple text file
         auto max_id_name = plan->output_filepath(output_max_id);
         ofstream max_id_outfile;
         init_out(max_id_outfile, max_id_name);
+        nid_t max_node_id = node_id_ranges.back().second + id_increment.back();
         max_id_outfile << max_node_id;
         
         max_id_names.push_back(max_id_name);
@@ -799,33 +1862,40 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     };
     
     // the specific instantiations of the meta-recipe above
-    registry.register_recipe({"MaxNodeID", "VG"}, {"Insertion Sequence FASTA", "Reference FASTA", "VCF"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
-        return construct_with_constructor(inputs, plan, constructing, false, false);
-    });
-    registry.register_recipe({"MaxNodeID", "VG"}, {"Reference FASTA", "VCF"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
-        return construct_with_constructor(inputs, plan, constructing, false, false);
-    });
-    registry.register_recipe({"MaxNodeID", "VG w/ Variant Paths"}, {"Insertion Sequence FASTA", "Reference FASTA", "VCF w/ Phasing"},
+    registry.register_recipe({"MaxNodeID", "VG w/ Variant Paths"}, {"Chunked Reference FASTA", "Chunked VCF w/ Phasing", "Insertion Sequence FASTA"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         return construct_with_constructor(inputs, plan, constructing, true, false);
     });
-    registry.register_recipe({"MaxNodeID", "VG w/ Variant Paths"}, {"Reference FASTA", "VCF w/ Phasing"},
+    registry.register_recipe({"MaxNodeID", "VG w/ Variant Paths"}, {"Chunked Reference FASTA", "Chunked VCF w/ Phasing"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         return construct_with_constructor(inputs, plan, constructing, true, false);
+    });
+    registry.register_recipe({"MaxNodeID", "VG"}, {"Reference GFA"},
+                             [&](const vector<const IndexFile*>& inputs,
+                                 const IndexingPlan* plan,
+                                 AliasGraph& alias_graph,
+                                 const IndexGroup& constructing) {
+        return construct_from_gfa(inputs, plan, constructing);
+    });
+    registry.register_recipe({"MaxNodeID", "VG"}, {"Chunked Reference FASTA", "Chunked VCF", "Insertion Sequence FASTA"},
+                             [&](const vector<const IndexFile*>& inputs,
+                                 const IndexingPlan* plan,
+                                 AliasGraph& alias_graph,
+                                 const IndexGroup& constructing) {
+        return construct_with_constructor(inputs, plan, constructing, false, false);
+    });
+    registry.register_recipe({"MaxNodeID", "VG"}, {"Chunked Reference FASTA", "Chunked VCF"},
+                             [&](const vector<const IndexFile*>& inputs,
+                                 const IndexingPlan* plan,
+                                 AliasGraph& alias_graph,
+                                 const IndexGroup& constructing) {
+        return construct_with_constructor(inputs, plan, constructing, false, false);
     });
     
 #ifdef debug_index_registry_setup
@@ -852,7 +1922,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // TODO: spliced vg from GFA input
     
     registry.register_recipe({"Spliced MaxNodeID", "Spliced VG"},
-                             {"GTF/GFF", "Insertion Sequence FASTA", "Reference FASTA", "VCF"},
+                             {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF", "Insertion Sequence FASTA"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -861,7 +1931,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     
     registry.register_recipe({"Spliced MaxNodeID", "Spliced VG"},
-                             {"GTF/GFF", "Reference FASTA", "VCF"},
+                             {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -869,7 +1939,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         return construct_with_constructor(inputs, plan, constructing, false, true);
     });
     registry.register_recipe({"Spliced MaxNodeID", "Spliced VG w/ Variant Paths"},
-                             {"GTF/GFF", "Insertion Sequence FASTA", "Reference FASTA", "VCF w/ Phasing"},
+                             {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF w/ Phasing", "Insertion Sequence FASTA"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -878,7 +1948,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     
     registry.register_recipe({"Spliced MaxNodeID", "Spliced VG w/ Variant Paths"},
-                             {"GTF/GFF", "Reference FASTA", "VCF w/ Phasing"},
+                             {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF w/ Phasing"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -1005,61 +2075,64 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // MaxNodeID Recipes
     ////////////////////////////////////
     
-#ifdef debug_index_registry_setup
-    cerr << "registering MaxNodeID recipes" << endl;
-#endif
+    // these recipes actually kinda mess up everything now that we just make the max node id
+    // alongside the graphs during construction
     
-    // meta-recipe to write max node id down to a file
-    auto write_max_node_id = [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 const IndexGroup& constructing) {
-        
-        if (IndexingParameters::verbose) {
-            cerr << "[IndexRegistry]: Determining node ID interval." << endl;
-        }
-        
-        // TODO: this is pretty unoptimized in that we have to load the whole graph just
-        // to read the max node id
-        
-        assert(constructing.size() == 1);
-        assert(inputs.size() == 1);
-        vector<vector<string>> all_outputs(constructing.size());
-        auto output_index = *constructing.begin();
-        auto graph_files = inputs.at(0)->get_filenames();
-        
-        // test I/O
-        for (const string& graph_file : graph_files) {
-            ifstream infile;
-            init_in(infile, graph_file);
-        }
-        string output_name = plan->output_filepath(output_index);
-        ofstream outfile;
-        init_out(outfile, output_name);
-        
-        VGset graph_set(graph_files);
-        nid_t max_node_id = graph_set.max_node_id();
-        
-        outfile << max_node_id;
-        
-        all_outputs[0].push_back(output_name);
-        return all_outputs;
-    };
-    
-    registry.register_recipe({"MaxNodeID"}, {"VG"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
-        return write_max_node_id(inputs, plan, constructing);
-    });
-    
-    registry.register_recipe({"Spliced MaxNodeID"}, {"Spliced VG w/ Transcript Paths"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
-        return write_max_node_id(inputs, plan, constructing);
-    });
+//#ifdef debug_index_registry_setup
+//    cerr << "registering MaxNodeID recipes" << endl;
+//#endif
+//
+//    // meta-recipe to write max node id down to a file
+//    auto write_max_node_id = [&](const vector<const IndexFile*>& inputs,
+//                                 const IndexingPlan* plan,
+//                                 const IndexGroup& constructing) {
+//
+//        if (IndexingParameters::verbose) {
+//            cerr << "[IndexRegistry]: Determining node ID interval." << endl;
+//        }
+//
+//        // TODO: this is pretty unoptimized in that we have to load the whole graph just
+//        // to read the max node id
+//
+//        assert(constructing.size() == 1);
+//        assert(inputs.size() == 1);
+//        vector<vector<string>> all_outputs(constructing.size());
+//        auto output_index = *constructing.begin();
+//        auto graph_files = inputs.at(0)->get_filenames();
+//
+//        // test I/O
+//        for (const string& graph_file : graph_files) {
+//            ifstream infile;
+//            init_in(infile, graph_file);
+//        }
+//        string output_name = plan->output_filepath(output_index);
+//        ofstream outfile;
+//        init_out(outfile, output_name);
+//
+//        VGset graph_set(graph_files);
+//        nid_t max_node_id = graph_set.max_node_id();
+//
+//        outfile << max_node_id;
+//
+//        all_outputs[0].push_back(output_name);
+//        return all_outputs;
+//    };
+//
+//    registry.register_recipe({"MaxNodeID"}, {"VG"},
+//                             [&](const vector<const IndexFile*>& inputs,
+//                                 const IndexingPlan* plan,
+//                                 AliasGraph& alias_graph,
+//                                 const IndexGroup& constructing) {
+//        return write_max_node_id(inputs, plan, constructing);
+//    });
+//
+//    registry.register_recipe({"Spliced MaxNodeID"}, {"Spliced VG w/ Transcript Paths"},
+//                             [&](const vector<const IndexFile*>& inputs,
+//                                 const IndexingPlan* plan,
+//                                 AliasGraph& alias_graph,
+//                                 const IndexGroup& constructing) {
+//        return write_max_node_id(inputs, plan, constructing);
+//    });
     
     ////////////////////////////////////
     // GBWT Recipes
@@ -1098,7 +2171,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         }
     };
     
-    // TODO: add Jouni's parallel chunked workflow here
     // meta-recipe to make GBWTs
     auto make_gbwt = [&](const vector<const IndexFile*>& inputs,
                          const IndexingPlan* plan,
@@ -1106,17 +2178,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         assert(inputs.size() == 2);
         
-        vector<string> graph_filenames, vcf_filenames;
-        // the two recipes that use this meta-recipe have the alphabetical order
-        // of their inputs swapped relative to each other
-        if (*constructing.begin() == "GBWT") {
-            graph_filenames = inputs[1]->get_filenames();
-            vcf_filenames = inputs[0]->get_filenames();
-        }
-        else {
-            graph_filenames = inputs[0]->get_filenames();
-            vcf_filenames = inputs[1]->get_filenames();
-        }
+        auto vcf_filenames = inputs[0]->get_filenames();
+        auto graph_filenames = inputs[1]->get_filenames();
         
         assert(constructing.size() == 1);
         vector<vector<string>> all_outputs(constructing.size());
@@ -1129,6 +2192,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             cerr << "[IndexRegistry]: When constructing GBWT from multiple graphs and multiple VCFs, the graphs and VCFs must be matched 1-to-1, but input contains " <<  graph_filenames.size() << " graphs and " << vcf_filenames.size() << " VCF files." << endl;
             exit(1);
         }
+        if (vcf_filenames.size() == 1 && graph_filenames.size() != 1) {
+            // FIXME: it should at least try to join the graph chunks together
+            cerr << "[IndexRegistry]: GBWT construction currently does not support broadcasting 1 VCF to multiple graph chunks." << endl;
+            exit(1);
+        }
         
         if (IndexingParameters::verbose) {
             gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
@@ -1137,10 +2205,41 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
         }
         
-        vector<string> gbwt_names;
+        int64_t target_memory_usage = plan->target_memory_usage();
+        vector<pair<int64_t, int64_t>> approx_job_requirements;
+        
+        vector<string> gbwt_names(vcf_filenames.size());
+        unique_ptr<PathHandleGraph> broadcast_graph;
+        if (graph_filenames.size() == 1) {
+            // we only have one graph, so we can save time by loading it only one time
+            // test streams for I/O
+            ifstream infile;
+            init_in(infile, graph_filenames.front());
+            
+            // we don't want to double-count the graph's contribution to memory in separate jobs, so we
+            // subtract it once from the target memory use
+            target_memory_usage = max<int64_t>(0, target_memory_usage - approx_graph_load_memory(graph_filenames.front()));
+            
+            // estimate the time and memory requirements
+            for (auto vcf_filename : vcf_filenames) {
+                approx_job_requirements.emplace_back(get_file_size(vcf_filename), approx_gbwt_memory(vcf_filename));
+            }
+            
+            // load the graph
+            broadcast_graph = vg::io::VPKG::load_one<PathHandleGraph>(infile);
+            
+        }
+        else {
+            // estimate the time and memory requirements
+            for (int64_t i = 0; i < vcf_filenames.size(); ++i) {
+                approx_job_requirements.emplace_back(get_file_size(vcf_filenames[i]),
+                                                     approx_gbwt_memory(vcf_filenames[i]) + approx_graph_load_memory(graph_filenames[i]));
+            }
+            
+        }
         
         // construct a GBWT from the i-th VCF
-        auto gbwt_job = [&](size_t i, const PathHandleGraph& graph) {
+        auto gbwt_job = [&](size_t i) {
             string gbwt_name;
             if (vcf_filenames.size() != 1) {
                 // multiple components, so make a temp file that we will merge later
@@ -1150,6 +2249,16 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 // one component, so we will actually save the output
                 gbwt_name = plan->output_filepath(output_index);
             }
+            
+            // load the contig graph if necessary
+            unique_ptr<PathHandleGraph> contig_graph;
+            if (graph_filenames.size() != 1) {
+                ifstream infile;
+                init_in(infile, graph_filenames[i]);
+                contig_graph = vg::io::VPKG::load_one<PathHandleGraph>(infile);
+            }
+            
+            auto graph = graph_filenames.size() == 1 ? broadcast_graph.get() : contig_graph.get();
             
             // make this critical so we don't end up with a race on the verbosity
             unique_ptr<HaplotypeIndexer> haplotype_indexer;
@@ -1167,36 +2276,18 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             haplotype_indexer->show_progress = IndexingParameters::verbose;
             
             vector<string> parse_files = haplotype_indexer->parse_vcf(vcf_filenames[i],
-                                                                      graph);
+                                                                      *graph);
             
             unique_ptr<gbwt::DynamicGBWT> gbwt_index = haplotype_indexer->build_gbwt(parse_files);
             
             vg::io::VPKG::save(*gbwt_index, gbwt_name);
             
-            gbwt_names.push_back(gbwt_name);
+            gbwt_names[i] = gbwt_name;
         };
         
-        if (graph_filenames.size() == 1) {
-            // we only have one graph, so we can save time by loading it only one time
-            // test streams for I/O
-            ifstream infile;
-            init_in(infile, graph_filenames.front());
-            
-            unique_ptr<PathHandleGraph> graph = vg::io::VPKG::load_one<PathHandleGraph>(infile);
-            
-            for (size_t i = 0; i < vcf_filenames.size(); ++i) {
-                gbwt_job(i, *graph);
-            }
-        }
-        else {
-            // FIXME: it doesn't seem possible to do many component graphs with 1 VCF
-            for (size_t i = 0; i < graph_filenames.size(); ++i) {
-                ifstream infile;
-                init_in(infile, graph_filenames[i]);
-                unique_ptr<PathHandleGraph> graph = vg::io::VPKG::load_one<PathHandleGraph>(infile);
-                gbwt_job(i, *graph);
-            }
-        }
+        
+        JobSchedule schedule(approx_job_requirements, gbwt_job);
+        schedule.execute(target_memory_usage);
         
         // merge GBWTs if necessary
         output_names.push_back(merge_gbwts(gbwt_names, plan, output_index));
@@ -1204,7 +2295,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         return all_outputs;
     };
     
-    registry.register_recipe({"GBWT"}, {"VCF w/ Phasing", "VG w/ Variant Paths"},
+    registry.register_recipe({"GBWT"}, {"Chunked VCF w/ Phasing", "VG w/ Variant Paths"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -1219,7 +2310,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         return make_gbwt(inputs, plan, constructing);
     });
     
-    registry.register_recipe({"Spliced GBWT"}, {"Spliced VG w/ Variant Paths", "VCF w/ Phasing"},
+    registry.register_recipe({"Spliced GBWT"}, {"Chunked VCF w/ Phasing", "Spliced VG w/ Variant Paths"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -1325,7 +2416,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     
     registry.register_recipe({"Haplotype-Transcript GBWT", "Spliced VG w/ Transcript Paths", "Unjoined Transcript Origin Table", },
-                             {"GTF/GFF", "Spliced GBWT", "Spliced VG"},
+                             {"Chunked GTF/GFF", "Spliced GBWT", "Spliced VG"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -1373,10 +2464,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // TODO: i can't find where in the building code you actually ensure this...
         assert(haplotype_index->bidirectional());
         
-        // TODO: repetitive with original spliced VG construction...
-        
-        vector<string> gbwt_chunk_names;
-        for (size_t i = 0, j = 0; i < graph_filenames.size(); ++i) {
+        tx_graph_names.resize(graph_filenames.size());
+        tx_table_names.resize(graph_filenames.size());
+        vector<string> gbwt_chunk_names(graph_filenames.size());
+        auto haplo_tx_job = [&](int64_t i) {
+            
             string tx_graph_name = plan->output_filepath(output_tx_graph, i, graph_filenames.size());
             ofstream tx_graph_outfile;
             init_out(tx_graph_outfile, tx_graph_name);
@@ -1391,6 +2483,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 gbwt_name = plan->output_filepath(output_haplo_tx, i, graph_filenames.size());
             }
             
+            int64_t j = tx_filenames.size() > 1 ? i : 0;
+            
             string info_table_name = plan->output_filepath(output_tx_table, i, graph_filenames.size());
             ofstream info_outfile;
             init_out(info_outfile, info_table_name);
@@ -1401,7 +2495,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             // are we using 1 transcript file for multiple graphs?
             bool broadcasting_txs = (graph_filenames.size() != tx_filenames.size());
-                        
+            
             unique_ptr<MutablePathDeletableHandleGraph> graph
                 = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(infile_graph);
             
@@ -1433,7 +2527,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             infile_tx.clear();
             infile_tx.seekg(0);
             
-            // add egdes on other haplotypes
+            // add edges on other haplotypes
             size_t num_transcripts_projected = transcriptome.add_transcripts(infile_tx, *haplotype_index);
             
             // init the haplotype transcript GBWT
@@ -1456,15 +2550,26 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             // save the graph with the transcript paths added
             transcriptome.write_splice_graph(&tx_graph_outfile);
             
-            tx_graph_names.push_back(tx_graph_name);
-            tx_table_names.push_back(info_table_name);
-            gbwt_chunk_names.push_back(gbwt_name);
-            
-            if (tx_filenames.size() > 1) {
-                ++j;
-            }
+            tx_graph_names[i] = tx_graph_name;
+            tx_table_names[i] = info_table_name;
+            gbwt_chunk_names[i] = gbwt_name;
+        };
+        
+        // we'll hold the gbwt in memory, so take it out of our memory budget
+        int64_t target_memory_usage = plan->target_memory_usage();
+        target_memory_usage = max<int64_t>(0, target_memory_usage - get_file_size(gbwt_filename));
+        
+        vector<pair<int64_t, int64_t>> approx_job_requirements;
+        for (int64_t i = 0; i < graph_filenames.size(); ++i) {
+            // FIXME: this should also include the approximate memory of the haplotype transcript
+            approx_job_requirements.emplace_back(get_file_size(graph_filenames[i]),
+                                                 approx_graph_load_memory(graph_filenames[i]));
         }
         
+        JobSchedule schedule(approx_job_requirements, haplo_tx_job);
+        schedule.execute(target_memory_usage);
+        
+        // merge the GBWT chunks
         haplo_tx_gbwt_names.push_back(merge_gbwts(gbwt_chunk_names, plan, output_haplo_tx));
         
         return all_outputs;
@@ -1511,7 +2616,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             while (infile.good()) {
                 getline(infile, line);
                 if (!line.empty()) {
-                    outfile << line << endl;
+                    outfile << line << '\n';
                 }
             }
         }
@@ -1591,11 +2696,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             all_outputs[1].push_back(mapping_name);
         }
         
-        // TODO: is it possible to do this in parallel? i'm worried about races
-        // on the node mapping, and it seems like it definitely wouldn't work
-        // for haplotype unfolding, which needs to modify the NodeMapping
-        for (size_t i = 0; i < graph_names.size(); ++i) {
-            
+        pruned_graph_names.resize(graph_names.size());
+        
+        auto prune_job = [&](int64_t i) {
             ifstream infile_vg;
             init_in(infile_vg, graph_names[i]);
             
@@ -1623,7 +2726,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 removed_high_degree = algorithms::remove_high_degree_nodes(*graph, IndexingParameters::pruning_max_node_degree);
             }
             removed_complex = algorithms::prune_complex_with_head_tail(*graph, IndexingParameters::pruning_walk_length,
-                                                               IndexingParameters::pruning_max_edge_count);
+                                                                       IndexingParameters::pruning_max_edge_count);
             removed_subgraph = algorithms::prune_short_subgraphs(*graph, IndexingParameters::pruning_min_component_size);
             
             if ((removed_high_degree != 0 || removed_complex != 0 || removed_subgraph != 0)
@@ -1649,19 +2752,41 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 }
                 else {
                     // we can expand out complex regions using haplotypes as well as paths
-                    // TODO: it's a bit inelegant that i keep overwriting the mapping...
                     
+                    // TODO: can't do this fully in parallel because each chunk needs to modify
+                    // the same mapping
+                    // TODO: it's a bit inelegant that i keep overwriting the mapping...
                     PhaseUnfolder unfolder(*unpruned_graph, *gbwt_index, max_node_id + 1);
-                    unfolder.read_mapping(mapping_name);
-                    unfolder.unfold(*graph, IndexingParameters::verbose);
-                    unfolder.write_mapping(mapping_name);
+#pragma omp critical
+                    {
+                        unfolder.read_mapping(mapping_name);
+                        unfolder.unfold(*graph, IndexingParameters::verbose);
+                        unfolder.write_mapping(mapping_name);
+                    }
                 }
             }
             
             vg::io::save_handle_graph(graph.get(), outfile_vg);
             
-            pruned_graph_names.push_back(vg_output_name);
+            pruned_graph_names[i] = vg_output_name;
+        };
+        
+        int64_t target_memory_usage = plan->target_memory_usage();
+        
+        if (using_haplotypes) {
+            // we only need to load the GBWT once, so we take it out of the shared budget
+            target_memory_usage -= get_file_size(gbwt_name);
         }
+        
+        vector<pair<int64_t, int64_t>> approx_job_requirements;
+        for (int64_t i = 0; i < graph_names.size(); ++i) {
+            // for paths, double the memory because we'll probably need to re-load the graph to restore paths
+            approx_job_requirements.emplace_back(get_file_size(graph_names[i]),
+                                                 (using_haplotypes ? 1 : 2) * approx_graph_load_memory(graph_names[i]));
+        }
+        
+        JobSchedule schedule(approx_job_requirements, prune_job);
+        schedule.execute(target_memory_usage);
         
         return all_outputs;
     };
@@ -2049,7 +3174,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             cerr << "[IndexRegistry]: Constructing minimizer index." << endl;
         }
         
-        // TODO: should the distance index input be a joint simplification
+        // TODO: should the distance index input be a joint simplification to avoid serializing it?
         
         assert(inputs.size() == 3);
         auto dist_filenames = inputs[0]->get_filenames();
@@ -2255,10 +3380,10 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
         }
 #endif
         
-        // if the index it itself non-intermediate, it will be in the list of aliases.
+        // if the index is itself non-intermediate, it will be in the list of aliases.
         // otherwise, we can alias one index by moving instead of copying
         auto f = find(aliasors.begin(), aliasors.end(), aliasee);
-        bool can_move = f == aliasors.end();
+        bool can_move = f == aliasors.end() && !get_index(aliasee)->was_provided_directly();
         if (!can_move) {
             // just remove the "alias" so we don't need to deal with it
             std::swap(*f, aliasors.back());
@@ -2272,15 +3397,7 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
             for (size_t j = 0; j < aliasee_filenames.size(); ++j) {
                 
                 auto copy_filename = plan.output_filepath(aliasors[i], j, aliasee_filenames.size());
-                ifstream aliasee(aliasee_filenames[j], std::ios::binary);
-                ofstream aliasor(copy_filename, std::ios::binary);
-                if (!aliasee) {
-                    cerr << "error:[IndexRegistry] Couldn't open " << aliasee_filenames[j] << endl;
-                }
-                if (!aliasor) {
-                    cerr << "error:[IndexRegistry] Couldn't open " << copy_filename << endl;
-                }
-                aliasor << aliasee.rdbuf();
+                copy_file(aliasee_filenames[j], copy_filename);
             }
         }
         // if we can move the aliasee (i.e. it is intermediate), then make
@@ -2291,15 +3408,7 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
                 int code = rename(aliasee_filenames[j].c_str(), move_filename.c_str());
                 if (code) {
                     // moving failed (maybe because the files on separate drives?) fall back on copying
-                    ifstream aliasee(aliasee_filenames[j], std::ios::binary);
-                    ofstream aliasor(move_filename, std::ios::binary);
-                    if (!aliasee) {
-                        cerr << "error:[IndexRegistry] Couldn't open " << aliasee_filenames[j] << endl;
-                    }
-                    if (!aliasor) {
-                        cerr << "error:[IndexRegistry] Couldn't open " << move_filename << endl;
-                    }
-                    aliasor << aliasee.rdbuf();
+                    copy_file(aliasee_filenames[j], move_filename);
                 }
             }
         }
@@ -2380,9 +3489,11 @@ RecipeName IndexRegistry::register_recipe(const vector<IndexName>& identifiers,
     }
     
     // test that the input identifiers are in alphabetical order
-    // this is an easy-to-troubleshoot check that lets us use IndexGroup's internally and
-    // still provide the vector<IndexFile*> in the same order as the input identifiers to
-    // the RecipeFunc and in the recipe declaration
+    // this is an easy-to-troubleshoot check that lets us use IndexGroup's (which are ordered set)
+    // internally and still provide the vector<IndexFile*> in the same order as the input identifiers to
+    // the RecipeFunc and in the recipe declaration.
+    // i.e. this helps ensure that the order of the indexes that you code in the recipe declaration
+    // is the order that they will continue to be given throughout the registry
     IndexGroup input_group(input_identifiers.begin(), input_identifiers.end());
     IndexGroup output_group(identifiers.begin(), identifiers.end());
     {
@@ -2726,28 +3837,22 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
         // make a singleton group for the recipe graph
         IndexGroup product_group{product};
         
-        // records of (identifier, lowest level requester, ordinal index of recipe selected)
-        vector<tuple<size_t, size_t, size_t>> plan_path;
+        // records of (identifier, requesters, ordinal index of recipe selected)
+        vector<tuple<size_t, set<size_t>, size_t>> plan_path;
         
-        // map dependency priority to lowest level priority that requested this and
-        // the number of requesters
-        map<size_t, pair<size_t, size_t>, greater<size_t>> queue;
+        // map dependency priority to requesters
+        map<size_t, set<size_t>, greater<size_t>> queue;
+        
+        auto num_recipes = [&](const IndexGroup& indexes) {
+            int64_t num = 0;
+            if (recipe_registry.count(indexes)) {
+                num = recipe_registry.at(indexes).size();
+            }
+            return num;
+        };
         
         // update the queue to request the inputs of a recipe from the final index on the plan path
         auto request_from_back = [&]() {
-            auto make_request = [&](const IndexGroup& inputs) {
-                size_t dep_order = dep_order_of_identifier[inputs];
-                auto f = queue.find(dep_order);
-                if (f == queue.end()) {
-                    // no lower-level index has requested this one yet
-                    queue[dep_order] = pair<size_t, size_t>(get<0>(plan_path.back()), 1);
-                }
-                else {
-                    // record that one more index is requesting this one
-                    f->second.second++;
-                }
-                
-            };
             
             // the index at the back of the plan path is making the request
             auto& requester = identifier_order[get<0>(plan_path.back())];
@@ -2760,88 +3865,127 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
             
             if (requester.size() == 1 && inputs.count(*requester.begin())) {
                 // this is an unboxing recipe, request the whole previous group
-                make_request(inputs);
+                queue[dep_order_of_identifier[inputs]].insert(get<0>(plan_path.back()));
             }
             else {
                 // this is not an unboxing recipe, request all of the recipe inputs separately
                 for (auto& input_index : inputs) {
                     IndexGroup singleton_input{input_index};
-                    make_request(singleton_input);
+                    queue[dep_order_of_identifier[singleton_input]].insert(get<0>(plan_path.back()));
                 }
             }
         };
         
+        // place the final step in the plan path back in the queue
+        auto requeue_back = [&]() {
+#ifdef debug_index_registry
+            cerr << "requeueing " << to_string(identifier_order[get<0>(plan_path.back())]) << ", requested by:" << endl;
+            for (auto d : get<1>(plan_path.back())) {
+                cerr << "\t" << to_string(identifier_order[d]) << endl;
+            }
+#endif
+            // TODO: is this check necessary?
+            if (!get<1>(plan_path.back()).empty()) {
+                queue[get<0>(plan_path.back())] = get<1>(plan_path.back());
+            }
+            plan_path.pop_back();
+        };
+        
         // update the queue to remove requests to the inputs of a recipe from the final index on the plan path
         auto unrequest_from_back = [&]() {
+            
             auto make_unrequest = [&](const IndexGroup& inputs) {
-                size_t input_dep_order = dep_order_of_identifier[inputs];
-                auto q = queue.find(input_dep_order);
-                if (q != queue.end()) {
-                    // there is now one fewer index requesting this index as input
-                    --q->second.second;
-                    if (q->second.second == 0) {
-                        // this is the only index that's requesting this queued index,
-                        // so we can remove it from the queue
-                        queue.erase(q);
-                    }
+                auto it = queue.find(dep_order_of_identifier[inputs]);
+                it->second.erase(get<0>(plan_path.back()));
+                if (it->second.empty()) {
+#ifdef debug_index_registry
+                    cerr << "\t\tremoved final request to " << to_string(identifier_order[it->first]) << ", dequeuing" << endl;
+#endif
+                    queue.erase(it);
                 }
             };
             
             auto& requester = identifier_order[get<0>(plan_path.back())];
             
-#ifdef debug_index_registry
-            cerr << "retracting request from " << to_string(requester) << endl;
-#endif
-            
             if (!all_finished(requester) && recipe_registry.count(requester)) {
                 // this index was using a recipe, we need to update its dependencies
                 // that are currently in the queue
                 
-                if (get<2>(plan_path.back()) < recipe_registry.at(requester).size()) {
-                    // there's a recipe left
-                    auto inputs = recipe_registry.at(requester).at(get<2>(plan_path.back())).input_group();
-                    
 #ifdef debug_index_registry
-                    cerr << to_string(requester) << " made requests from recipe requiring " << to_string(inputs) << endl;
+                cerr << "retracting requests from " << to_string(requester) << ", recipe " << get<2>(plan_path.back()) << endl;
 #endif
-                    
-                    if (requester.size() == 1 && inputs.count(*requester.begin())) {
-                        // this is an unboxing recipe, unrequest the whole previous group
-                        make_unrequest(inputs);
-                    }
-                    else {
-                        // this is not an unboxing recipe, unrequest all of the recipe inputs separately
-                        for (auto& input_index : inputs) {
-                            IndexGroup singleton_input{input_index};
-                            make_unrequest(singleton_input);
-                        }
+                auto inputs = recipe_registry.at(requester).at(get<2>(plan_path.back())).input_group();
+                
+#ifdef debug_index_registry
+                cerr << "\tmade requests from recipe requiring " << to_string(inputs) << endl;
+#endif
+                
+                if (requester.size() == 1 && inputs.count(*requester.begin())) {
+                    // this is an unboxing recipe, unrequest the whole previous group
+                    make_unrequest(inputs);
+                }
+                else {
+                    // this is not an unboxing recipe, unrequest all of the recipe inputs separately
+                    for (auto& input_index : inputs) {
+                        IndexGroup singleton_input{input_index};
+                        make_unrequest(singleton_input);
                     }
                 }
             }
+#ifdef debug_index_registry
+            else {
+                cerr << "no need to retract requests from " << to_string(requester) << endl;
+            }
+#endif
         };
         
         // init the queue
-        queue[dep_order_of_identifier[product_group]] = pair<size_t, size_t>(identifier_order.size(), 1);
+        queue[dep_order_of_identifier[product_group]] = set<size_t>();
         
         while (!queue.empty()) {
 #ifdef debug_index_registry_path_state
             cerr << "new iteration, path:" << endl;
             for (auto pe : plan_path) {
-                cerr << "\t" << to_string(identifier_order[get<0>(pe)]) << ", requester: " << (get<1>(pe) == identifier_order.size() ? string("PLAN TARGET") : to_string(identifier_order[get<1>(pe)])) << ", recipe " << get<2>(pe) << endl;
+                cerr << "\t" << to_string(identifier_order[get<0>(pe)]) << ", requesters:";
+                if (get<1>(pe).empty())  {
+                    cerr << " PLAN TARGET";
+                }
+                else {
+                    for (auto d : get<1>(pe)) {
+                        cerr << " " << to_string(identifier_order[d]);
+                    }
+                }
+                cerr << ", recipe " << get<2>(pe) << endl;
             }
             cerr << "state of queue:" << endl;
             for (auto q : queue) {
-                cerr << "\t" << to_string(identifier_order[q.first]) << ", requester: " << (q.second.first == identifier_order.size() ? string("PLAN TARGET") : to_string(identifier_order[q.second.first])) << ", num requesters " << q.second.second << endl;
+                cerr << "\t" << to_string(identifier_order[q.first]) << ", requesters:";
+                if (q.second.empty())  {
+                    cerr << " PLAN TARGET";
+                }
+                else {
+                    for (auto d : q.second) {
+                        cerr << " " << to_string(identifier_order[d]);
+                    }
+                }
+                cerr << endl;
             }
 #endif
             
-            // get the latest file in the dependency order
-            // that we have left to build
+            // get the latest file in the dependency order that we have left to build
             auto it = queue.begin();
-            plan_path.emplace_back(it->first, it->second.first, 0);
+            plan_path.emplace_back(it->first, it->second, 0);
             
 #ifdef debug_index_registry
-            cerr << "dequeue " << to_string(identifier_order[it->first]) << " requested from " << (it->second.first == identifier_order.size() ? string("PLAN TARGET") : to_string(identifier_order[it->second.first])) << " and " << (it->second.second - 1) << " other indexes" << endl;
+            cerr << "dequeue " << to_string(identifier_order[it->first]) << " requested from:" << endl;
+            if (it->second.empty()) {
+                cerr << "\tPLAN TARGET" << endl;
+            }
+            else {
+                for (auto requester : it->second) {
+                    cerr << "\t" << to_string(identifier_order[requester]) << endl;
+                }
+            }
 #endif
             queue.erase(it);
             auto index_group = identifier_order[get<0>(plan_path.back())];
@@ -2864,38 +4008,46 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
                 // so now we backtrack until hitting something that has remaining
                 // lower priority recipes
 #ifdef debug_index_registry
-                cerr << "index " << to_string(index_group) << " cannot be made from existing inputs, need to back prune" << endl;
+                cerr << "index " << to_string(index_group) << " cannot be made from existing inputs, need to backtrack" << endl;
 #endif
                 
                 // prune to requester and advance to its next recipe, as many times as necessary until
                 // requester has remaining un-tried recipes
-                while (!plan_path.empty() &&
-                       (recipe_registry.count(identifier_order[get<0>(plan_path.back())]) ?
-                        get<2>(plan_path.back()) >= recipe_registry.at(identifier_order[get<0>(plan_path.back())]).size() : true)) {
+                // note: if we're backtracking from a data file it might not have recipes
+                while (get<2>(plan_path.back()) >= num_recipes(identifier_order[get<0>(plan_path.back())])) {
                     // there are no remaining recipes to build the last index in the plan
                     
-                    // remove items off the plan path until we get to the index that requested
-                    // this one
-                    size_t requester = get<1>(plan_path.back());
-#ifdef debug_index_registry
-                    cerr << "pruning path to previous requester: " << (requester == identifier_order.size() ? "PLAN TARGET" : to_string(identifier_order[requester])) << endl;
-#endif
-                    while (!plan_path.empty() && get<0>(plan_path.back()) != requester) {
-                        unrequest_from_back();
-                        plan_path.pop_back();
+                    if (get<1>(plan_path.back()).empty()) {
+                        // this is the product of the plan path, and we're out of recipes for it
+                        throw InsufficientInputException(product, *this);
                     }
                     
-                    if (!plan_path.empty()) {
-                        // the requester should now use its next highest priority recipe
+                    // remove items off the plan path until we get to the first index that requested
+                    // this one
+                    size_t requester = *get<1>(plan_path.back()).rbegin();
+                    
+#ifdef debug_index_registry
+                    cerr << "no remaining recipes for " << to_string(identifier_order[get<0>(plan_path.back())]) << ", pruning to earliest requester: " << to_string(identifier_order[requester]) << endl;
+#endif
+                    
+                    requeue_back(); // nothing to unrequest from the first one, which is past its last recipe
+                    while (get<0>(plan_path.back()) != requester) {
                         unrequest_from_back();
-                        // advance to the next recipe
-                        ++get<2>(plan_path.back());
+                        requeue_back();
                     }
+                    
+                    // advance to the next recipe
+                    unrequest_from_back();
+                    ++get<2>(plan_path.back());
+                    
+#ifdef debug_index_registry
+                    cerr << "advance to recipe " << get<2>(plan_path.back()) << " for " << to_string(identifier_order[get<0>(plan_path.back())]) << endl;
+#endif
                 }
                 
-                if (!plan_path.empty()) {
-                    request_from_back();
-                }
+                // we pulled back far enough that we found an index with a lower-priority recipe
+                // remaining
+                request_from_back();
             }
             
         }
@@ -2903,14 +4055,12 @@ IndexingPlan IndexRegistry::make_plan(const IndexGroup& end_products) const {
 #ifdef debug_index_registry
         cerr << "final plan path for index " << product << ":" << endl;
         for (auto path_elem : plan_path) {
-            cerr << "\t" << to_string(identifier_order[get<0>(path_elem)]) << ", from " << (get<1>(path_elem) == identifier_order.size() ? "PLAN START" : to_string(identifier_order[get<1>(path_elem)])) << ", recipe " << get<2>(path_elem) << endl;
+            cerr << "\t" << to_string(identifier_order[get<0>(path_elem)]) << ", recipe " << get<2>(path_elem) << ", from:" << endl;
+            for (auto d : get<1>(path_elem)) {
+                cerr << "\t\t" << to_string(identifier_order[d]) << endl;
+            }
         }
 #endif
-        
-        if (plan_path.empty()) {
-            // we don't have enough of the inputs to create this index
-            throw InsufficientInputException(product, *this);
-        }
         
         // record the elements of this plan
         for (size_t i = 0; i < plan_path.size(); ++i) {
