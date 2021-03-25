@@ -73,10 +73,12 @@ $(function() {
 <div class="title">autoindex_main.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &lt;getopt.h&gt;</code><br />
-<code>#include &lt;iostream&gt;</code><br />
+<div class="textblock"><code>#include &lt;iostream&gt;</code><br />
 <code>#include &lt;sstream&gt;</code><br />
 <code>#include &lt;algorithm&gt;</code><br />
+<code>#include &lt;cctype&gt;</code><br />
+<code>#include &lt;unistd.h&gt;</code><br />
+<code>#include &lt;getopt.h&gt;</code><br />
 <code>#include &lt;htslib/hts.h&gt;</code><br />
 <code>#include &lt;htslib/vcf.h&gt;</code><br />
 <code>#include &lt;omp.h&gt;</code><br />
@@ -95,8 +97,14 @@ Macros</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
+<tr class="memitem:a09cd5ceea080703c447a8e5638a22dd5"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="autoindex__main_8cpp.html#a09cd5ceea080703c447a8e5638a22dd5">get_system_memory</a> ()</td></tr>
+<tr class="separator:a09cd5ceea080703c447a8e5638a22dd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0fb3b6f3a1ad8bc5ce311d7a82b1759c"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="autoindex__main_8cpp.html#a0fb3b6f3a1ad8bc5ce311d7a82b1759c">vcf_is_phased</a> (const string &amp;filepath)</td></tr>
 <tr class="separator:a0fb3b6f3a1ad8bc5ce311d7a82b1759c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad25ab5b852b7a1bc223505f7a2e23853"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="autoindex__main_8cpp.html#ad25ab5b852b7a1bc223505f7a2e23853">parse_memory_usage</a> (const string &amp;mem_arg)</td></tr>
+<tr class="separator:ad25ab5b852b7a1bc223505f7a2e23853"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a95ea1f250ba974749a30b213bede7969"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="autoindex__main_8cpp.html#a95ea1f250ba974749a30b213bede7969">mem_usage_string</a> (int64_t mem)</td></tr>
+<tr class="separator:a95ea1f250ba974749a30b213bede7969"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4a3c7ba0d785194a42444bdedac4db50"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="autoindex__main_8cpp.html#a4a3c7ba0d785194a42444bdedac4db50">help_autoindex</a> (char **argv)</td></tr>
 <tr class="separator:a4a3c7ba0d785194a42444bdedac4db50"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0c5af200c1937f0b3c5723ce0220a7bf"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="autoindex__main_8cpp.html#a0c5af200c1937f0b3c5723ce0220a7bf">main_autoindex</a> (int argc, char **argv)</td></tr>
@@ -148,6 +156,23 @@ Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Function Documentation</h2>
+<a id="a09cd5ceea080703c447a8e5638a22dd5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a09cd5ceea080703c447a8e5638a22dd5">&#9670;&nbsp;</a></span>get_system_memory()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t get_system_memory </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a4a3c7ba0d785194a42444bdedac4db50"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a4a3c7ba0d785194a42444bdedac4db50">&#9670;&nbsp;</a></span>help_autoindex()</h2>
 
@@ -188,6 +213,42 @@ Functions</h2></td></tr>
           <td></td>
           <td>)</td>
           <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a95ea1f250ba974749a30b213bede7969"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a95ea1f250ba974749a30b213bede7969">&#9670;&nbsp;</a></span>mem_usage_string()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">string mem_usage_string </td>
+          <td>(</td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>mem</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ad25ab5b852b7a1bc223505f7a2e23853"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad25ab5b852b7a1bc223505f7a2e23853">&#9670;&nbsp;</a></span>parse_memory_usage()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t parse_memory_usage </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>mem_arg</em></td><td>)</td>
+          <td></td>
         </tr>
       </table>
 </div><div class="memdoc">

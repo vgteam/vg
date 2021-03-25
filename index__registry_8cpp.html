@@ -74,14 +74,20 @@ $(function() {
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &quot;<a class="el" href="index__registry_8hpp.html">index_registry.hpp</a>&quot;</code><br />
+<code>#include &lt;algorithm&gt;</code><br />
 <code>#include &lt;iostream&gt;</code><br />
 <code>#include &lt;sstream&gt;</code><br />
 <code>#include &lt;vector&gt;</code><br />
 <code>#include &lt;map&gt;</code><br />
+<code>#include &lt;random&gt;</code><br />
+<code>#include &lt;thread&gt;</code><br />
+<code>#include &lt;mutex&gt;</code><br />
+<code>#include &lt;chrono&gt;</code><br />
 <code>#include &lt;cctype&gt;</code><br />
 <code>#include &lt;cstdio&gt;</code><br />
 <code>#include &lt;cerrno&gt;</code><br />
-<code>#include &lt;unistd.h&gt;</code><br />
+<code>#include &lt;omp.h&gt;</code><br />
+<code>#include &lt;sys/stat.h&gt;</code><br />
 <code>#include &lt;bdsg/hash_graph.hpp&gt;</code><br />
 <code>#include &lt;bdsg/packed_graph.hpp&gt;</code><br />
 <code>#include &lt;bdsg/odgi.hpp&gt;</code><br />
@@ -93,6 +99,8 @@ $(function() {
 <code>#include &lt;<a class="el" href="vpkg_8hpp.html">vg/io/vpkg.hpp</a>&gt;</code><br />
 <code>#include &lt;gcsa/gcsa.h&gt;</code><br />
 <code>#include &lt;gcsa/algorithms.h&gt;</code><br />
+<code>#include &lt;Fasta.h&gt;</code><br />
+<code>#include &lt;htslib/tbx.h&gt;</code><br />
 <code>#include &quot;<a class="el" href="vg_8hpp.html">vg.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="vg__set_8hpp.html">vg_set.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br />
@@ -108,6 +116,7 @@ $(function() {
 <code>#include &quot;<a class="el" href="min__distance_8hpp.html">min_distance.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="gfa_8hpp.html">gfa.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="job__schedule_8hpp.html">job_schedule.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="path_8hpp.html">path.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="save__handle__graph_8hpp.html">io/save_handle_graph.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="gfa__to__handle_8hpp.html">algorithms/gfa_to_handle.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="prune_8hpp.html">algorithms/prune.hpp</a>&quot;</code><br />
@@ -122,8 +131,14 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
+<tr class="memitem:a1c2f1e37da37dda61d25e9d8bb6552d6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1c2f1e37da37dda61d25e9d8bb6552d6">vg::copy_file</a> (const string &amp;from_fp, const string &amp;to_fp)</td></tr>
+<tr class="separator:a1c2f1e37da37dda61d25e9d8bb6552d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a53098c7c826c3d8d2aab804ba5500fd5"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a53098c7c826c3d8d2aab804ba5500fd5">vg::get_file_size</a> (const string &amp;filename)</td></tr>
 <tr class="separator:a53098c7c826c3d8d2aab804ba5500fd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8f065676bdbe54b44e45961d7d40d8a5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8f065676bdbe54b44e45961d7d40d8a5">vg::is_gzipped</a> (const string &amp;filename)</td></tr>
+<tr class="separator:a8f065676bdbe54b44e45961d7d40d8a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afe9d79548464e7842327275008447299"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afe9d79548464e7842327275008447299">vg::get_num_samples</a> (const string &amp;vcf_filename)</td></tr>
+<tr class="separator:afe9d79548464e7842327275008447299"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a665fe802cdb44d2dba6052fc9063513d"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a665fe802cdb44d2dba6052fc9063513d">vg::approx_num_vars</a> (const string &amp;vcf_filename)</td></tr>
 <tr class="separator:a665fe802cdb44d2dba6052fc9063513d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3ae70effc22331b3e4667ed48808602c"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3ae70effc22331b3e4667ed48808602c">vg::format_multiplier</a> ()</td></tr>
@@ -134,10 +149,12 @@ Functions</h2></td></tr>
 <tr class="separator:a104aaf42bb3f44518626b9417a4db2d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4a16cd88bceed4db044decd94211833d"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4a16cd88bceed4db044decd94211833d">vg::approx_graph_memory</a> (const string &amp;fasta_filename, const string &amp;vcf_filename)</td></tr>
 <tr class="separator:a4a16cd88bceed4db044decd94211833d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a636047a8292ef4b9f7bfe188d2bf47dc"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a636047a8292ef4b9f7bfe188d2bf47dc">vg::approx_graph_memory</a> (const vector&lt; string &gt; &amp;gfa_filenames)</td></tr>
-<tr class="separator:a636047a8292ef4b9f7bfe188d2bf47dc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa588389795ea8613480df1c7eeeafaf8"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa588389795ea8613480df1c7eeeafaf8">vg::approx_graph_memory</a> (const string &amp;gfa_filename)</td></tr>
 <tr class="separator:aa588389795ea8613480df1c7eeeafaf8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a745a31f5e7853868dbf903f33a986480"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a745a31f5e7853868dbf903f33a986480">vg::approx_gbwt_memory</a> (const string &amp;vcf_filename)</td></tr>
+<tr class="separator:a745a31f5e7853868dbf903f33a986480"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0d0300b12116a047d137e134eebe2e1d"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0d0300b12116a047d137e134eebe2e1d">vg::approx_graph_load_memory</a> (const string &amp;graph_filename)</td></tr>
+<tr class="separator:a0d0300b12116a047d137e134eebe2e1d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa44c63a293d251b1bffbbeee59d2b7fe"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa44c63a293d251b1bffbbeee59d2b7fe">vg::transcript_file_nonempty</a> (const string &amp;transcripts)</td></tr>
 <tr class="separator:aa44c63a293d251b1bffbbeee59d2b7fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a691144860bc63559aaf088d2e052af62"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a691144860bc63559aaf088d2e052af62">vg::vcf_contigs</a> (const string &amp;filename)</td></tr>
