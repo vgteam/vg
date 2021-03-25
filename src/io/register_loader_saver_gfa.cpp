@@ -9,7 +9,7 @@
 
 #include "handle.hpp"
 #include "bdsg/packed_graph.hpp"
-
+#include "save_handle_graph.hpp"
 
 namespace vg {
 
@@ -91,19 +91,24 @@ static bool sniff_gfa(istream& stream) {
 }
 
 void register_loader_saver_gfa() {
-    Registry::register_bare_loader_saver_with_header_check<bdsg::PackedGraph, MutablePathDeletableHandleGraph, MutablePathMutableHandleGraph, MutableHandleGraph, PathHandleGraph, HandleGraph>("GFA", sniff_gfa, [](istream& input) -> void* {
+    Registry::register_bare_loader_saver_with_header_check<GFAHandleGraph, MutablePathDeletableHandleGraph, MutablePathMutableHandleGraph, MutableHandleGraph, PathHandleGraph, HandleGraph>("GFA", sniff_gfa, [](istream& input, const string& filename) -> void* {
         // Allocate a PackedGraph
-        bdsg::PackedGraph* packed_graph = new bdsg::PackedGraph();
-        
-        // Load it
-        algorithms::gfa_to_path_handle_graph_stream(input, packed_graph);
+        GFAHandleGraph* gfa_graph = new GFAHandleGraph();
+
+        if (!filename.empty() && filename != "-") {
+            // Load it from a file
+            algorithms::gfa_to_path_handle_graph(filename, gfa_graph);
+        } else {
+            // Load it from the stream, falling back to temp file if necessary
+            algorithms::gfa_to_path_handle_graph_stream(input, gfa_graph);
+        }
         
         // Return it so the caller owns it.
-        return (void*) packed_graph;
-    }, [](const void* packed_graph_void, ostream& output) {
-        // Cast to PackedGraph and serialize to the stream.
-        assert(packed_graph_void != nullptr);
-        graph_to_gfa((const bdsg::PackedGraph*)packed_graph_void, output);
+        return (void*) gfa_graph;
+    }, [](const void* gfa_graph_void, ostream& output) {
+        // Cast to GFAHandleGraph and serialize to the stream.
+        assert(gfa_graph_void != nullptr);
+        graph_to_gfa((const GFAHandleGraph*)gfa_graph_void, output);
     });
 }
 

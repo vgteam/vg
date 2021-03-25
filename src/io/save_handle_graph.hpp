@@ -19,6 +19,13 @@
 
 namespace vg {
 
+/// Use to load in GFAs and remember where they came from
+class GFAHandleGraph : public bdsg::PackedGraph {
+public:
+   GFAHandleGraph() : bdsg::PackedGraph() {}
+   virtual ~GFAHandleGraph() = default;
+};
+
 namespace io {
 
 using namespace std;
@@ -29,8 +36,11 @@ using namespace std;
  * Todo: should this be somewhere else (ie in vgio with new types registered?)
  */
 inline void save_handle_graph(HandleGraph* graph, ostream& os) {
-    
-    if (dynamic_cast<SerializableHandleGraph*>(graph) != nullptr) {
+
+    if (dynamic_cast<GFAHandleGraph*>(graph) != nullptr) {
+        // We loaded a GFA into a handle graph, want to write back to GFA
+        vg::io::VPKG::save(*dynamic_cast<GFAHandleGraph*>(graph), os);
+    } else if (dynamic_cast<SerializableHandleGraph*>(graph) != nullptr) {
         // SerializableHandleGraphs are all serialized bare, without VPKG framing, for libbdsg compatibility.
         dynamic_cast<SerializableHandleGraph*>(graph)->serialize(os);
     } else if (dynamic_cast<VG*>(graph) != nullptr) {
@@ -42,7 +52,10 @@ inline void save_handle_graph(HandleGraph* graph, ostream& os) {
 }
 
 inline void save_handle_graph(HandleGraph* graph, const string& dest_path) {
-    if (dynamic_cast<SerializableHandleGraph*>(graph) != nullptr) {
+    if (dynamic_cast<GFAHandleGraph*>(graph) != nullptr) {
+        // We loaded a GFA into a handle graph, want to write back to GFA
+        vg::io::VPKG::save(*dynamic_cast<GFAHandleGraph*>(graph), dest_path);
+    } else if (dynamic_cast<SerializableHandleGraph*>(graph) != nullptr) {
         // SerializableHandleGraphs are all serialized bare, without VPKG framing, for libbdsg compatibility.
         dynamic_cast<SerializableHandleGraph*>(graph)->serialize(dest_path);
     } else if (dynamic_cast<VG*>(graph) != nullptr) {
