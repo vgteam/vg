@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 56
+plan tests 57
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -299,6 +299,11 @@ rm -f tiny.roundtrip3.stderr tiny.roundtrip4.stderr
 rm -f tiny.unsort.gfa
 rm -f tiny.chop3.gfa tiny.chop3.1.gfa  tiny.chop3.2.gfa  tiny.chop3.3.gfa tiny.chop3.4.gfa
 rm -f tiny.chop3.3.stderr tiny.chop3.4.stderr
+
+vg view tiny/tiny.gfa | sort > tiny.rgfa.1
+cat tiny/tiny.gfa | vg view - | sort > tiny.rgfa.2
+diff tiny.rgfa.1 tiny.rgfa.2
+is $? 0 "rGFA handled consistently when streaming as when loaded from file"
 
 
 

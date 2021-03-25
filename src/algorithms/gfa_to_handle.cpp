@@ -119,10 +119,6 @@ static bool gfa_sequence_parse_rgfa_tags(const gfak::sequence_elem& s,
     return has_sn && has_so && has_sr;
 }
 
-static bool gfa_sequence_parse_rgfa_tags(const vector<string>& toks) {
-    return false;
-}
-
 static bool gfa_to_handle_graph_in_memory(istream& in, MutableHandleGraph* graph,
                                           gfak::GFAKluge& gg, IDMapInfo& id_map_info) {
     if (!in) {
@@ -274,7 +270,8 @@ static void gfa_to_handle_graph_add_paths(const string& filename, istream* unsee
 
 /// add paths from the optional rgfa tags on sequence nodes (SN: name SO: offset SR: rank)
 /// max_rank selects which ranks to consider. Usually, only rank-0 paths are full paths while rank > 0 are subpaths
-static void gfa_to_handle_graph_add_rgfa_paths(const string filename, istream* unseekable, MutablePathHandleGraph* graph,
+static void gfa_to_handle_graph_add_rgfa_paths(const string filename, istream* unseekable, vector<gfak::sequence_elem>* rgfa_seq_elems,
+                                               MutablePathHandleGraph* graph,
                                                gfak::GFAKluge& gg, IDMapInfo& id_map_info,
                                                int64_t max_rank) {
 
@@ -303,13 +300,18 @@ static void gfa_to_handle_graph_add_rgfa_paths(const string filename, istream* u
             val.second.push_back(make_pair(seq_id, rgfa_offset));
         }
     };
-    
-    if (!unseekable) {
+
+    if (rgfa_seq_elems != nullptr) {
+        // Input is a list
+        for (const auto& rgfa_seq_elem : *rgfa_seq_elems) {
+            update_rgfa_path(rgfa_seq_elem);
+        }
+    } else if (!unseekable) {
         // Input is from a seekable file on disk.
         gg.for_each_sequence_line_in_file(filename.c_str(), [&](gfak::sequence_elem s) {
                 update_rgfa_path(s);
             });
-    } else {        
+    } else {
         // gg will have parsed the GFA file in the non-path part of the algorithm
         // No reading to do.
         for (const auto& seq_record : gg.get_name_to_seq()) {
@@ -347,14 +349,19 @@ static void gfa_to_handle_graph_add_rgfa_paths(const string filename, istream* u
     }    
 }
 
-static bool gfa_to_path_handle_graph_stream(istream& in, MutablePathMutableHandleGraph* graph,
-                                            IDMapInfo& id_map_info) {
+static vector<gfak::sequence_elem> gfa_to_path_handle_graph_stream(istream& in, MutablePathMutableHandleGraph* graph,
+                                                              IDMapInfo& id_map_info,
+                                                              int64_t max_rank) {
     if (!in) {
         throw std::ios_base::failure("error:[gfa_to_handle_graph] Couldn't open input stream");
     }
 
     bool has_rgfa_tags = false;
     string line_buffer; // can be quite big
+
+    // store up rgfa nodes (without sequence), as there's no current way to avoid a second pass
+    // to support them
+    vector<gfak::sequence_elem> rgfa_seq_elems;
 
     function<void()> fall_back_to_disk = [&]() {
         string fb_name = temp_file::create();
@@ -383,8 +390,29 @@ static bool gfa_to_path_handle_graph_stream(istream& in, MutablePathMutableHandl
             if (line_buffer[0] == 'S') {
                 tuple<string, string, vector<string>> s_parse = parse_gfa_s_line(line_buffer);
                 graph->create_handle(get<1>(s_parse), parse_gfa_sequence_id(get<0>(s_parse), id_map_info));
-                has_rgfa_tags = has_rgfa_tags || gfa_sequence_parse_rgfa_tags(get<2>(s_parse));
-                // todo: handle rgfa paths
+                if (get<2>(s_parse).size() >= 3) {
+                    // We'll check for the 3 rGFA optional tags.  For now that means
+                    // re-using some code based on gfakluge structures, unfortunately
+                    // note: we only copy the name and tags, not the sequence
+                    gfak::sequence_elem seq_elem;
+                    seq_elem.name = get<0>(s_parse);
+                    seq_elem.length = get<1>(s_parse).length();
+                    for (const string& opt_tag : get<2>(s_parse)) {
+                        vector<string> toks = split_delims(opt_tag, ":");
+                        if (toks.size() == 3) {
+                            gfak::opt_elem opt;
+                            opt.key = toks[0];
+                            opt.type = toks[1];
+                            opt.val = toks[2];
+                            seq_elem.opt_fields.push_back(opt);
+                        }
+                    }
+                    int64_t rgfa_rank;
+                    if (gfa_sequence_parse_rgfa_tags(seq_elem, nullptr, &rgfa_rank, nullptr) &&
+                        rgfa_rank <= max_rank) {
+                        rgfa_seq_elems.push_back(seq_elem);
+                    }
+                }                    
             } else if (line_buffer[0] == 'L') {
                 tuple<string, bool, string, bool, vector<string>> l_parse = parse_gfa_l_line(line_buffer);
                 nid_t n1 = parse_gfa_sequence_id(get<0>(l_parse), id_map_info);
@@ -434,7 +462,7 @@ static bool gfa_to_path_handle_graph_stream(istream& in, MutablePathMutableHandl
             }
         }
     }
-    return has_rgfa_tags;
+    return rgfa_seq_elems;
 }
 
 void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
@@ -500,7 +528,7 @@ void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGr
     gfa_to_handle_graph_add_paths(filename, unseekable, graph, gg, id_map_info);
 
     if (has_rgfa_tags) {
-        gfa_to_handle_graph_add_rgfa_paths(filename, unseekable, graph, gg, id_map_info, max_rgfa_rank);
+        gfa_to_handle_graph_add_rgfa_paths(filename, unseekable, nullptr, graph, gg, id_map_info, max_rgfa_rank);
     }
 
     write_gfa_translation(id_map_info, translation_filename);
@@ -514,7 +542,7 @@ void gfa_to_path_handle_graph_in_memory(istream& in,
     bool has_rgfa_tags = gfa_to_handle_graph_load_graph("", &in, graph, false, gg, id_map_info);
     gfa_to_handle_graph_add_paths("", &in, graph, gg, id_map_info);
     if (has_rgfa_tags) {
-        gfa_to_handle_graph_add_rgfa_paths("", &in, graph, gg, id_map_info, max_rgfa_rank);
+        gfa_to_handle_graph_add_rgfa_paths("", &in, nullptr, graph, gg, id_map_info, max_rgfa_rank);
     }
     
 }
@@ -524,9 +552,10 @@ void gfa_to_path_handle_graph_stream(istream& in,
                                      int64_t max_rgfa_rank) {
     gfak::GFAKluge gg;
     IDMapInfo id_map_info;
-    bool has_rgfa_tags = gfa_to_path_handle_graph_stream(in, graph, id_map_info);
-    if (has_rgfa_tags) {
-        //todo
+    vector<gfak::sequence_elem> rgfa_seq_elems = gfa_to_path_handle_graph_stream(in, graph, id_map_info, max_rgfa_rank);
+    if (!rgfa_seq_elems.empty()) {
+        gfak::GFAKluge gg; // not used
+        gfa_to_handle_graph_add_rgfa_paths("", nullptr, &rgfa_seq_elems, graph, gg, id_map_info, max_rgfa_rank);
     }        
 }
 
