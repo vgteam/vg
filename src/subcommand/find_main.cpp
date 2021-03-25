@@ -6,6 +6,7 @@
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <vg/io/protobuf_emitter.hpp>
+#include "../io/save_handle_graph.hpp"
 #include <gbwt/gbwt.h>
 #include "../region.hpp"
 #include "../stream_index.hpp"
@@ -329,10 +330,19 @@ int main_find(int argc, char** argv) {
     PathPositionHandleGraph* xindex = nullptr;
     unique_ptr<PathHandleGraph> path_handle_graph;
     bdsg::PathPositionOverlayHelper overlay_helper;
+    bool input_gfa = false;
     if (!xg_name.empty()) {
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
+        input_gfa = dynamic_cast<GFAHandleGraph*>(path_handle_graph.get()) != nullptr;
         xindex = overlay_helper.apply(path_handle_graph.get());
     }
+    function<unique_ptr<MutablePathMutableHandleGraph>()> get_output_graph = [&]() {
+        if (input_gfa) {
+            return unique_ptr<MutablePathMutableHandleGraph>(new GFAHandleGraph());
+        }
+        // todo: move away from VG here
+        return unique_ptr<MutablePathMutableHandleGraph>(new VG());
+    };
 
     unique_ptr<gbwt::GBWT> gbwt_index;
     if (!gbwt_name.empty()) {
@@ -389,8 +399,7 @@ int main_find(int argc, char** argv) {
         // Find alignments touching a graph
         
         // Load up the graph
-        ifstream tgi(to_graph_file);
-        unique_ptr<VG> graph = unique_ptr<VG>(new VG(tgi));
+        auto graph = vg::io::VPKG::load_one<PathHandleGraph>(to_graph_file);
         if (gam_index.get() != nullptr) {
             // Find in sorted GAM
             
@@ -416,7 +425,8 @@ int main_find(int argc, char** argv) {
 
     if (!xg_name.empty()) {
         if (!node_ids.empty() && path_name.empty() && !pairwise_distance) {
-            VG graph;
+            auto output_graph = get_output_graph();
+            auto& graph = *output_graph;
             for (auto node_id : node_ids) {
                 graph.create_handle(xindex->get_sequence(xindex->get_handle(node_id)), node_id);
             }
@@ -431,14 +441,17 @@ int main_find(int argc, char** argv) {
             }
             algorithms::add_subpaths_to_subgraph(*xindex, graph);
 
-            graph.remove_orphan_edges();
+            VG* vg_graph = dynamic_cast<VG*>(&graph);
+            if (vg_graph) {
+                vg_graph->remove_orphan_edges();
             
-            // Order the mappings by rank. TODO: how do we handle breaks between
-            // different sections of a path with a single name?
-            graph.paths.sort_by_mapping_rank();
+                // Order the mappings by rank. TODO: how do we handle breaks between
+                // different sections of a path with a single name?
+                vg_graph->paths.sort_by_mapping_rank();
+            }
             
             // return it
-            graph.serialize_to_ostream(cout);
+            vg::io::save_handle_graph(&graph, cout);
             // TODO: We're serializing graphs all with their own redundant EOF markers if we use multiple functions simultaneously.
         } else if (end_id != 0) {
             xindex->follow_edges(xindex->get_handle(end_id), false, [&](handle_t next) {
@@ -500,7 +513,8 @@ int main_find(int argc, char** argv) {
             targets.push_back(region);
         }
         if (!targets.empty()) {
-            VG graph;
+            auto output_graph = get_output_graph();
+            auto& graph = *output_graph;
             auto prep_graph = [&](void) {
                 if (context_size > 0) {
                     if (use_length) {
@@ -512,10 +526,14 @@ int main_find(int argc, char** argv) {
                     algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
                 }
                 algorithms::add_subpaths_to_subgraph(*xindex, graph);
-                graph.remove_orphan_edges();
-                // Order the mappings by rank. TODO: how do we handle breaks between
-                // different sections of a path with a single name?
-                graph.paths.sort_by_mapping_rank();
+                VG* vg_graph = dynamic_cast<VG*>(&graph);
+                if (vg_graph) {
+                    vg_graph->remove_orphan_edges();
+                    
+                    // Order the mappings by rank. TODO: how do we handle breaks between
+                    // different sections of a path with a single name?
+                    vg_graph->paths.sort_by_mapping_rank();
+                }
             };
             for (auto& target : targets) {
                 // Grab each target region
@@ -550,11 +568,10 @@ int main_find(int argc, char** argv) {
                     if (target.end >= 0) s << ":" << target.start << ":" << target.end;
                     s << ".vg";
                     ofstream out(s.str().c_str());
-                    graph.serialize_to_ostream(out);
+                    vg::io::save_handle_graph(&graph, out);
                     out.close();
                     // reset our graph
-                    VG empty;
-                    graph = empty;
+                    dynamic_cast<DeletableHandleGraph&>(graph).clear();
                 }
                 if (subgraph_k) {
                     prep_graph(); // don't forget to prep the graph, or the kmer set will be wrong[
@@ -619,11 +636,12 @@ int main_find(int argc, char** argv) {
             }
             if (save_to_prefix.empty() && !subgraph_k) {
                 prep_graph();
-                graph.serialize_to_ostream(cout);
+                vg::io::save_handle_graph(&graph, cout);
             }
         }
         if (!range.empty()) {
-            VG graph;
+            auto output_graph = get_output_graph();
+            auto& graph = *output_graph;
             nid_t id_start=0, id_end=0;
             vector<string> parts = split_delims(range, ":");
             if (parts.size() == 1) {
@@ -658,8 +676,11 @@ int main_find(int argc, char** argv) {
             }
             algorithms::add_subpaths_to_subgraph(*xindex, graph);
 
-            graph.remove_orphan_edges();
-            graph.serialize_to_ostream(cout);
+            VG* vg_graph = dynamic_cast<VG*>(&graph);
+            if (vg_graph) {
+                vg_graph->remove_orphan_edges();
+            }
+            vg::io::save_handle_graph(&graph, cout);
         }
         if (extract_paths) {
             for (auto& pattern : extract_path_patterns) {
@@ -706,14 +727,15 @@ int main_find(int argc, char** argv) {
                 vg::io::for_each(in, lambda);
             }
             // now we have the nodes to get
-            VG graph;
+            auto output_graph = get_output_graph();
+            auto& graph = *output_graph;
             for (auto& node : nodes) {
                 handle_t node_handle = xindex->get_handle(node);
                 graph.create_handle(xindex->get_sequence(node_handle), xindex->get_id(node_handle));
             }
             algorithms::expand_subgraph_by_steps(*xindex, graph, max(1, context_size)); // get connected edges
             algorithms::add_connecting_edges_to_subgraph(*xindex, graph);
-            graph.serialize_to_ostream(cout);
+            vg::io::save_handle_graph(&graph, cout);
         }
     }
 
