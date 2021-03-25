@@ -119,25 +119,23 @@ struct CompletedTranscriptPath : public TranscriptPath {
     CompletedTranscriptPath(const string & transcript_origin_in) : TranscriptPath(transcript_origin_in) {}
 };
 
-
-
 /**
  * Class that defines a transcriptome represented by a set of transcript paths.
  */
 class Transcriptome {
 
     public:
-
-        Transcriptome(const string &, const bool);   
+    
+        Transcriptome(unique_ptr<MutablePathDeletableHandleGraph>&& splice_graph_in); 
 
         /// Number of threads used for transcript path construction. 
         int32_t num_threads = 1;
 
         /// Feature type to parse in the gtf/gff file. Parse all types if empty. 
-        string feature_type; 
+        string feature_type = "exon";
 
         /// Attribute tag used to parse the transcript id/name in the gtf/gff file. 
-        string transcript_tag;
+        string transcript_tag = "transcript_id";
 
         /// Use all paths embedded in the graph for transcript path construction. 
         bool use_all_paths = false;
@@ -147,6 +145,9 @@ class Transcriptome {
 
         /// Collapse identical transcript paths.
         bool collapse_transcript_paths = true;
+    
+        /// Treat a missing path in the transcripts/introns as a data error
+        bool error_on_missing_path = true;
 
         /// Add splice-junstions from a intron BED file. 
         /// Returns number of parsed introns. 
@@ -200,7 +201,7 @@ class Transcriptome {
 
         /// Writes spliced variation graph to vg file
         void write_splice_graph(ostream * graph_ostream) const;
-
+    
     private:
 
         /// Transcriptome represented by a set of transcript paths. 

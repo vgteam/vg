@@ -4,12 +4,6 @@
 
 #include "min_distance.hpp"
 
-#include "algorithms/dagify.hpp"
-#include "algorithms/is_acyclic.hpp"
-#include "algorithms/is_single_stranded.hpp"
-#include "algorithms/split_strands.hpp"
-#include "algorithms/topological_sort.hpp"
-
 using namespace std;
 namespace vg {
 
@@ -114,6 +108,39 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
 
         }
     }
+
+    auto add_single_nodes = [&](const handle_t& h)-> bool {
+        id_t id = graph->get_id(h); 
+        if (primary_snarl_assignments[id - min_node_id] == 0) {
+            //If this node hasn't already been added to the distance index, make a fake snarl for it
+            handle_t handle = graph->get_handle(id, false);
+            int64_t node_len = graph->get_length(handle);
+
+            //TODO: Do components properly
+
+            //Make a new connected component for this one node
+            size_t component_num = component_to_chain_index.size()+1;
+            component_to_chain_index.resize(curr_component);
+            component_to_chain_length.resize(curr_component);
+            //Assign it to a chain that doesn't exist?
+            component_to_chain_index[curr_component-1] = chain_indexes.size();
+            component_to_chain_length[curr_component-1] = node_len;
+            //Also assign this node to a connected component
+            node_to_component[id - min_node_id] = component_num;
+            
+
+            //Make a snarl index for it
+            size_t snarl_assignment = snarl_indexes.size();
+            primary_snarl_assignments[id-min_node_id] = snarl_assignment+1;
+            primary_snarl_ranks[id - min_node_id] = 1;
+
+            snarl_indexes.emplace_back(0, false, id, id, false, 0, 1, false);
+            snarl_indexes.back().distances[0]  = node_len + 1; 
+        }
+        return true;
+               
+    };
+    graph->for_each_handle(add_single_nodes);
 
     #ifdef debugIndex
     //Every node should be assigned to a snarl
@@ -2164,7 +2191,7 @@ void MinimumDistanceIndex::calculate_max_index(const HandleGraph* graph, int64_t
     StrandSplitGraph split_graph (graph);
 
     unordered_map<id_t, id_t> acyclic_to_id;
-    bool is_acyclic = algorithms::is_directed_acyclic(&split_graph);
+    bool is_acyclic = handlealgs::is_directed_acyclic(&split_graph);
 
     //If the graph has directed cycles, dagify it
     VG dagified; 
@@ -2173,7 +2200,7 @@ void MinimumDistanceIndex::calculate_max_index(const HandleGraph* graph, int64_t
 #ifdef debugIndex
 cerr << "Making graph acyclic" << endl;
 #endif
-        acyclic_to_id = algorithms::dagify(&split_graph, &dagified, cap);
+        acyclic_to_id = handlealgs::dagify(&split_graph, &dagified, cap);
         dag = &dagified;
     } else {
         dag = &split_graph;
@@ -2181,12 +2208,21 @@ cerr << "Making graph acyclic" << endl;
 
      */
     bdsg::HashGraph split;
-    split_to_id = algorithms::split_strands(graph, &split);
+    {
+        // TODO: hack to avoid recoding this with the new return type
+        auto split_to_id_tmp = handlealgs::split_strands(graph, &split);
+        
+        split_to_id.reserve(split_to_id_tmp.size());
+        for (const auto& trans : split_to_id_tmp) {
+            split_to_id[split.get_id(trans.first)] = make_pair(graph->get_id(trans.second),
+                                                               graph->get_is_reverse(trans.second));
+        }
+    }
     graph = &split;
 
 
     unordered_map<id_t, id_t> acyclic_to_id;
-    bool is_acyclic = algorithms::is_directed_acyclic(&split);
+    bool is_acyclic = handlealgs::is_directed_acyclic(&split);
 
     //If the graph has directed cycles, dagify it
     HandleGraph* dag;
@@ -2195,21 +2231,21 @@ cerr << "Making graph acyclic" << endl;
 #ifdef debugIndex
 cerr << "Making graph acyclic" << endl;
 #endif
-        acyclic_to_id = algorithms::dagify(&split, &dagified, cap);
+        acyclic_to_id = handlealgs::dagify(&split, &dagified, cap);
         dag = &dagified;
     } else {
         dag = &split;
     }
 
 #ifdef debugIndex
-    assert(algorithms::is_single_stranded(dag));
-    assert(algorithms::is_directed_acyclic(dag));
+    assert(handlealgs::is_single_stranded(dag));
+    assert(handlealgs::is_directed_acyclic(dag));
 #endif
 
     //In DAGified graph, go through graph in topological order and get the 
     //minimum and maximum distances to tips 
 
-    vector<handle_t> order = algorithms::topological_order(dag);
+    vector<handle_t> order = handlealgs::topological_order(dag);
 
     for (handle_t curr_handle : order) {
 

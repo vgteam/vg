@@ -28,16 +28,44 @@ using namespace std;
 using namespace vg::io;
 
 /// Get an AlignmentEmitter that can emit to the given file (or "-") in the
-/// given format. A table of contig lengths is required for HTSlib formats.
+/// given format. When writing HTSlib formats (SAM, BAM, CRAM), paths should
+/// contain the paths in the linear reference in sequence dictionary order (see
+/// get_sequence_dictionary), and a PathPositionHandleGraph must be provided.
+/// When writing GAF, a HandleGraph must be provided for obtaining node lengths
+/// and sequences. Other formats do not need a graph.
+///
+/// If hts_raw is set, skips surjection, and expects pre-surjected alignments.
+///
+/// If hts_spliced is set, uses splicing-aware conversion to HTSlib formats:
+/// alignments are spliced at known splice sites (i.e. edges in the graph), so
+/// form spliced CIGAR strings
+///
 /// Automatically applies per-thread buffering, but needs to know how many OMP
 /// threads will be in use.
-/// If the alignments are spliced at known splice sites (i.e. edges in the graph),
-/// the graph can be provided in order to form spliced CIGAR strings for the HTSlib
-/// formats. Note: it must be castable to PathPositionHandleGraph to be used for splicing
-/// Other output formats except GAF (for which it's required) ignore the graph.
 unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, 
-                                                   const map<string, int64_t>& path_length, size_t max_threads,
-                                                   const HandleGraph* graph = nullptr);
+                                                   const vector<path_handle_t>& paths, size_t max_threads,
+                                                   const HandleGraph* graph = nullptr, bool hts_raw = false,
+                                                   bool hts_spliced = false);
+                                                   
+/**
+ * Produce a list of path handles in a fixed order, suitable for use with
+ * get_alignment_emitter_with_surjection(), by parsing a file. The file may be
+ * an HTSlib-style "sequence dictionary" (consisting of SAM @SQ header lines),
+ * or a plain list of sequence names (which do not start with "@SQ"). If the
+ * file is not openable or contains no entries, reports an error and quits. If
+ * the filename is itself an empty string, all non-alt-allele paths from the
+ * graph will be collected in arbitrary order.
+ *
+ * TODO: Be able to generate the autosomes human-sort, X, Y, MT order typical
+ * of references.
+ */
+vector<path_handle_t> get_sequence_dictionary(const string& filename, const PathPositionHandleGraph& graph);
+                                                   
+                                                   
+/**
+ * Given a list of path handles, extract the names and lengths of all of them in order.
+ */
+vector<pair<string, int64_t>> extract_path_metadata(const vector<path_handle_t>& paths, const PathPositionHandleGraph& graph);
 
 /*
  * A class that can write SAM/BAM/CRAM files from parallel threads
@@ -45,12 +73,12 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
 class HTSWriter {
 public:
     /// Create an HTSWriter writing to the given file (or "-") in the
-    /// given HTS format ("SAM", "BAM", "CRAM"). path_length must map from
-    /// contig name to length to include in the header. Sample names and read
+    /// given HTS format ("SAM", "BAM", "CRAM"). path_order_and_length must give each
+    /// contig name and length to include in the header. Sample names and read
     /// groups for the header will be guessed from the first reads. HTSlib
     /// positions will be read from the alignments' refpos, and the alignments
     /// must be surjected.
-    HTSWriter(const string& filename, const string& format, const map<string, int64_t>& path_length, size_t max_threads);
+    HTSWriter(const string& filename, const string& format, const vector<pair<string, int64_t>>& path_order_and_length, size_t max_threads);
     
     /// Tear down an HTSWriter and destroy HTSlib structures.
     ~HTSWriter();
@@ -75,8 +103,10 @@ protected:
     /// This holds our format name, for later error messages.
     string format;
     
-    /// Store the path length map until the header can be made.
-    map<string, int64_t> path_length;
+    /// Store the path names and lengths in the order to put them in the header.
+    vector<pair<string, int64_t>> path_order_and_length;
+    /// Index into that by path name
+    map<string, vector<pair<string, int64_t>>::iterator> path_index;
     
     /// To back our samFile*s, we need the hFILE* objects wrapping our C++
     /// streams. We need to manually flush these after HTS headers are written,
@@ -140,13 +170,13 @@ protected:
 class HTSAlignmentEmitter : public AlignmentEmitter, public HTSWriter {
 public:
     /// Create an HTSAlignmentEmitter writing to the given file (or "-") in the
-    /// given HTS format ("SAM", "BAM", "CRAM"). path_length must map from
-    /// contig name to length to include in the header. Sample names and read
-    /// groups for the header will be guessed from the first reads. HTSlib
-    /// positions will be read from the alignments' refpos, and the alignments
-    /// must be surjected.
+    /// given HTS format ("SAM", "BAM", "CRAM"). path_order_and_length must give
+    /// contig names and lengths to include in the header, in order. Sample
+    /// names and read groups for the header will be guessed from the first
+    /// reads. HTSlib positions will be read from the alignments' refpos, and
+    /// the alignments must be surjected.
     HTSAlignmentEmitter(const string& filename, const string& format,
-                        const map<string, int64_t>& path_length, size_t max_threads);
+                        const vector<pair<string, int64_t>>& path_order_and_length, size_t max_threads);
     
     /// Tear down an HTSAlignmentEmitter and destroy HTSlib structures.
     ~HTSAlignmentEmitter() = default;
@@ -194,7 +224,7 @@ class SplicedHTSAlignmentEmitter : public HTSAlignmentEmitter {
 public:
     
     SplicedHTSAlignmentEmitter(const string& filename, const string& format,
-                               const map<string, int64_t>& path_length,
+                               const vector<pair<string, int64_t>>& path_order_and_length,
                                const PathPositionHandleGraph& graph,
                                size_t max_threads);
     

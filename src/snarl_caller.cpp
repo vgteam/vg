@@ -35,7 +35,7 @@ void SupportBasedSnarlCaller::update_vcf_info(const Snarl& snarl,
     
 }
 
-const TraversalSupportFinder& SupportBasedSnarlCaller::get_support_finder() const {
+TraversalSupportFinder& SupportBasedSnarlCaller::get_support_finder() const {
     return support_finder;
 }
 

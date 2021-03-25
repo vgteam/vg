@@ -17,8 +17,8 @@
 #include "subcommand.hpp"
 
 #include "../handle.hpp"
-#include "../algorithms/copy_graph.hpp"
 #include "../vg.hpp"
+#include "../io/save_handle_graph.hpp"
 
 using namespace std;
 using namespace vg;
@@ -26,9 +26,18 @@ using namespace vg::subcommand;
 
 void help_combine(char** argv) {
     cerr << "usage: " << argv[0] << " combine [options] <graph1.vg> [graph2.vg ...] >merged.vg" << endl
-        << "Combines one or more graphs into a single file, regardless of input format." << endl
-        << "Handling of duplicate nodes or edges is undefined. Graphs must be normal, seekable files." << endl;
+         << "Combines one or more graphs into a single file, regardless of input format." << endl
+         << "Node IDs will be modified as needed to resolve conflicts (in same manner as vg ids -j)." << endl
+         << endl
+         << "Options:" << endl
+         << "    -c, --cat-proto       Merge graphs by converting each to Protobuf (if not already) and catting the results."
+         << "                          Node IDs not modified [DEPRECATED]" << endl
+         << "    -p, --connect-paths   Add edges necessary to connect paths with the same name present in different graphs." << endl
+         << "                          ex: If path x is present in graphs N-1 and N, then an edge connecting the last node of x in N-1 " << endl
+         << "                          and the first node of x in N will be added." << endl;
 }
+
+static int cat_proto_graphs(int argc, char** argv);
 
 int main_combine(int argc, char** argv) {
 
@@ -37,17 +46,22 @@ int main_combine(int argc, char** argv) {
         return 1;
     }
 
+    bool connect_paths = false;
+    bool cat_proto = false;
+    
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
         {
             {"help", no_argument, 0, 'h'},
+            {"connect-paths", no_argument, 0, 'p'},
+            {"cat-proto", no_argument, 0, 'c'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "h",
+        c = getopt_long (argc, argv, "hpc",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -56,17 +70,79 @@ int main_combine(int argc, char** argv) {
 
         switch (c)
         {
-            case 'h':
-            case '?':
-                help_combine(argv);
-                exit(1);
-                break;
+        case 'p':
+            connect_paths = true;
+            break;
+        case 'c':
+            cat_proto = true;
+            break;
+        case 'h':
+        case '?':
+            help_combine(argv);
+            exit(1);
+            break;
 
-            default:
-                abort ();
+        default:
+            abort ();
         }
     }
 
+    if (cat_proto) {
+        if (connect_paths) 
+        cerr << "warning [vg combine]: --cat-proto/-c option is deprecated and will be removed in a future version of vg." << endl;
+        return cat_proto_graphs(argc, argv);
+    }
+    
+    unique_ptr<MutablePathMutableHandleGraph> first_graph;
+    get_input_file(optind, argc, argv, [&](istream& in) {
+            first_graph = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(in);
+        });
+    int64_t max_node_id = first_graph->max_node_id();
+
+    while (optind < argc) {
+
+        unique_ptr<MutablePathMutableHandleGraph> graph;
+        get_input_file(optind, argc, argv, [&](istream& in) {
+                graph = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(in);
+            });
+
+        // join the id spaces if necessary
+        int64_t delta = max_node_id - graph->min_node_id();
+        if (delta >= 0) {
+            graph->increment_node_ids(delta + 1);
+        }
+        max_node_id = graph->max_node_id();
+
+        if (connect_paths) {
+            handlealgs::append_path_handle_graph(graph.get(), first_graph.get(), true);
+        } else {
+            graph->for_each_path_handle([&](path_handle_t path_handle) {
+                    string path_name = graph->get_path_name(path_handle);
+                    if (first_graph->has_path(path_name)) {
+                        cerr << "error [vg combine]: Paths with name \"" << path_name << "\" found in multiple input graphs. If they are consecutive subpath ranges, they can be connected by using the -p option." << endl;
+                        exit(1);
+                    }
+                });
+            handlealgs::copy_path_handle_graph(graph.get(), first_graph.get());
+        }        
+    }
+
+    // Serialize the graph using VPKG.
+    vg::io::save_handle_graph(first_graph.get(), cout);
+
+    return 0;
+}
+
+// Register subcommand
+static Subcommand vg_combine("combine", "merge multiple graph files together", main_combine);
+
+
+// This is the original vg combine logic, which itself mimics using "cat" to join up protobuf files
+// Since it relies on the Protobuf format itself, particular the ability to stream together chunks that
+// would otherwise be invalid individually, it is probably never going to be ported to the handle graph
+// api, which is why it's been relegated to the deprecated bin
+int cat_proto_graphs(int argc, char** argv) {
+    
     while (optind < argc) {
         get_input_file(optind, argc, argv, [&](istream& in) {
             // We're producing output in uncompressed, "VG"-type-tagged, VPKG Protobuf format.
@@ -132,7 +208,7 @@ int main_combine(int argc, char** argv) {
             VG* vg_graph = dynamic_cast<vg::VG*>(graph.get());
             if (vg_graph == nullptr) {
                 vg_graph = new vg::VG();
-                algorithms::copy_path_handle_graph(graph.get(), vg_graph);
+                handlealgs::copy_path_handle_graph(graph.get(), vg_graph);
                 // Give the unique_ptr ownership and delete the graph we loaded.
                 graph.reset(vg_graph);
                 // Make sure the paths are all synced up
@@ -153,10 +229,5 @@ int main_combine(int argc, char** argv) {
             
         });
     }
-
     return 0;
 }
-
-// Register subcommand
-static Subcommand vg_combine("combine", "merge multiple graph files together", main_combine);
-

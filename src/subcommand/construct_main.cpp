@@ -24,8 +24,8 @@ void help_construct(char** argv) {
          << "    -v, --vcf FILE         input VCF (may repeat)" << endl
          << "    -n, --rename V=F       match contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
          << "    -a, --alt-paths        save paths for alts of variants by variant ID" << endl
-         << "    -R, --region REGION    specify a VCF contig name or 1-based inclusive region" << endl
-         << "    -C, --region-is-chrom  don't attempt to parse the region (use when the reference" << endl
+         << "    -R, --region REGION    specify a VCF contig name or 1-based inclusive region (may repeat, if on different contigs)" << endl
+         << "    -C, --region-is-chrom  don't attempt to parse the regions (use when the reference" << endl
          << "                           sequence name could be inadvertently parsed as a region)" << endl
          << "    -z, --region-size N    variants per region to parallelize (default: 1024)" << endl
          << "    -t, --threads N        use N threads to construct graph (defaults to numCPUs)" << endl
@@ -33,13 +33,14 @@ void help_construct(char** argv) {
          << "    -I, --insertions FILE  a FASTA file containing insertion sequences "<< endl
          << "                           (referred to in VCF) to add to graph." << endl
          << "    -f, --flat-alts N      don't chop up alternate alleles from input VCF" << endl
+         << "    -l, --parse-max N      don't chop up alternate alleles from input VCF longer than N (default: 100)" << endl
          << "    -i, --no-trim-indels   don't remove the 1bp reference base from alt alleles of indels." << endl
          << "construct from a multiple sequence alignment:" << endl
          << "    -M, --msa FILE         input multiple sequence alignment" << endl
          << "    -F, --msa-format       format of the MSA file (options: fasta, clustal; default fasta)" << endl
          << "    -d, --drop-msa-paths   don't add paths for the MSA sequences into the graph" << endl
          << "shared construction options:" << endl
-         << "    -m, --node-max N       limit the maximum allowable node sequence size (defaults to 32)" << endl
+         << "    -m, --node-max N       limit the maximum allowable node sequence size (default: 32)" << endl
          << "                           nodes greater than this threshold will be divided" << endl
          << "                           Note: nodes larger than ~1024 bp can't be GCSA2-indexed" << endl
          << "    -p, --progress         show progress" << endl;
@@ -60,7 +61,7 @@ int main_construct(int argc, char** argv) {
     vector<string> fasta_filenames;
     vector<string> vcf_filenames;
     vector<string> insertion_filenames;
-    string region;
+    vector<string> regions;
     bool region_is_chrom = false;
     string msa_filename;
     int max_node_size = 32;
@@ -89,14 +90,15 @@ int main_construct(int argc, char** argv) {
                 {"threads", required_argument, 0, 't'},
                 {"region", required_argument, 0, 'R'},
                 {"region-is-chrom", no_argument, 0, 'C'},
-                {"node-max", required_argument, 0, 'm'},\
+                {"node-max", required_argument, 0, 'm'},
                 {"flat-alts", no_argument, 0, 'f'},
+                {"parse-max", required_argument, 0, 'l'},
                 {"no-trim-indels", no_argument, 0, 'i'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:as:CfSI:M:dF:i",
+        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:aCfl:SI:M:dF:i",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -168,7 +170,7 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 'R':
-            region = optarg;
+            regions.push_back(optarg);
             break;
 
         case 'C':
@@ -186,6 +188,10 @@ int main_construct(int argc, char** argv) {
         case 'f':
             constructor.flat = true;
             break;
+            
+        case 'l':
+            constructor.max_parsed_variant_size = parse<size_t>(optarg);
+            break;
 
         case 'h':
         case '?':
@@ -195,8 +201,7 @@ int main_construct(int argc, char** argv) {
             break;
 
         default:
-            abort ();
-
+            throw runtime_error("Not implemented: " + to_string(c));
         }
     }
     
@@ -244,9 +249,9 @@ int main_construct(int argc, char** argv) {
         constructor.max_node_size = max_node_size;
         constructor.show_progress = show_progress;
 
-        
-        if (!region.empty()) {
-            // We want to limit to a certain region
+        unordered_set<string> used_region_contigs; 
+        for (auto& region : regions) {
+            // We want to limit to one or more region
             if (!region_is_chrom) {
                 // We are allowed to parse the region.
                 // Break out sequence name and region bounds
@@ -256,6 +261,12 @@ int main_construct(int argc, char** argv) {
                              seq_name,
                              start_pos,
                              stop_pos);
+                             
+                if (used_region_contigs.count(seq_name)) {
+                    cerr << "error:[vg construct] cannot construct multiple regions of " << seq_name << endl;
+                    exit(1);
+                }
+                used_region_contigs.insert(seq_name);
                 
                 if (start_pos > 0 && stop_pos > 0) {
                     // These are 0-based, so if both are nonzero we got a real set of coordinates
@@ -327,5 +338,5 @@ int main_construct(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_construct("construct", "graph construction", PIPELINE, 1, main_construct);
+static Subcommand vg_construct("construct", "graph construction", PIPELINE, 2, main_construct);
 

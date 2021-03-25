@@ -24,7 +24,7 @@
 	url = https://github.com/jltsiren/gcsa2.git
 [submodule "sdsl-lite"]
 	path = deps/sdsl-lite
-    url = https://github.com/simongog/sdsl-lite
+    url = https://github.com/vgteam/sdsl-lite.git
 [submodule "deps/libVCFH"]
 	path = deps/libVCFH
 	url = https://github.com/edawson/libVCFH.git
@@ -54,10 +54,7 @@
 	url = https://github.com/benedictpaten/sonLib.git
 [submodule "deps/fermi-lite"]
 	path = deps/fermi-lite
-    url = https://github.com/edawson/fermi-lite.git
-[submodule "deps/rocksdb"]
-    path = deps/rocksdb
-    url = https://github.com/facebook/rocksdb.git
+    url = https://github.com/vgteam/fermi-lite.git
 [submodule "deps/gbwt"]
 	path = deps/gbwt
 	url = https://github.com/jltsiren/gbwt.git
@@ -78,10 +75,7 @@
 	url = https://github.com/greg7mdp/sparsepp.git
 [submodule "deps/vowpal_wabbit"]
 	path = deps/vowpal_wabbit
-	url = https://github.com/JohnLangford/vowpal_wabbit.git
-[submodule "deps/boost-subset"]
-	path = deps/boost-subset
-	url = https://github.com/vgteam/boost-subset.git
+	url = https://github.com/vgteam/vowpal_wabbit.git
 [submodule "deps/libdeflate"]
 	path = deps/libdeflate
 	url = https://github.com/ebiggers/libdeflate.git
@@ -122,3 +116,15 @@
 [submodule "vgteam_bbhash"]
 	path = deps/BBHash
 	url = https://github.com/vgteam/BBHash.git
+[submodule "src/simde"]
+	path = src/simde
+	url = https://github.com/nemequ/simde-no-tests
+[submodule "doc/wiki"]
+	path = doc/wiki
+	url = https://github.com/vgteam/vg.wiki.git
+[submodule "deps/mio"]
+	path = deps/mio
+	url = https://github.com/mandreyel/mio.git
+[submodule "deps/atomic_queue"]
+	path = deps/atomic_queue
+	url = https://github.com/max0x7ba/atomic_queue.git

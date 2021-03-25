@@ -210,7 +210,7 @@ int main_pack(int argc, char** argv) {
     size_t bin_count = Packer::estimate_bin_count(num_threads);
 
     // create our packer
-    Packer packer(graph, bin_size, bin_count, data_width, true, true, record_edits);
+    Packer packer(graph, true, true, record_edits, true, bin_size, bin_count, data_width);
     
     // todo one packer per thread and merge
     if (packs_in.size() == 1) {
@@ -263,4 +263,4 @@ int main_pack(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_pack("pack", "convert alignments to a compact coverage index", PIPELINE, 6, main_pack);
+static Subcommand vg_pack("pack", "convert alignments to a compact coverage index", PIPELINE, 9, main_pack);

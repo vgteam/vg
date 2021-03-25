@@ -14,6 +14,8 @@
 //#define debug_trace
 //#define debug_verbose_validation
 //#define debug_cigar
+//#define debug_find_match
+//#define debug_remove_empty
 
 using namespace std;
 using namespace structures;
@@ -227,49 +229,132 @@ namespace vg {
         }
     }
 
-    void remove_empty_subpaths(multipath_alignment_t& multipath_aln) {
+    void remove_empty_alignment_sections(multipath_alignment_t& multipath_aln) {
         
         vector<bool> is_empty(multipath_aln.subpath_size(), false);
-        bool any_empty = false;
+        bool any_empty_subpaths = false;
         
         // find subpaths that don't have any aligned bases
         for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
-            const subpath_t& subpath = multipath_aln.subpath(i);
-            if (path_from_length(subpath.path()) == 0 &&
-                path_to_length(subpath.path()) == 0) {
-                is_empty[i] = true;
-                any_empty = true;
+            auto path = multipath_aln.mutable_subpath(i)->mutable_path();
+            size_t mappings_removed = 0;
+            for (size_t j = 0; j < path->mapping_size(); ++j) {
+                auto mapping = path->mutable_mapping(j);
+                size_t edits_removed = 0;
+                for (size_t k = 0; k < mapping->edit_size(); ++k) {
+                    auto edit = mapping->mutable_edit(k);
+                    if (edit->from_length() == 0 && edit->to_length() == 0) {
+                        ++edits_removed;
+                    }
+                    else if (edits_removed != 0) {
+                        *mapping->mutable_edit(k - edits_removed) = move(*edit);
+                    }
+                }
+                mapping->mutable_edit()->resize(mapping->edit_size() - edits_removed);
+                if (mapping->edit().empty()) {
+                    ++mappings_removed;
+                }
+                else if (mappings_removed != 0) {
+                    *path->mutable_mapping(j - mappings_removed) = move(*mapping);
+                }
             }
+            path->mutable_mapping()->resize(path->mapping_size() - mappings_removed);
+            is_empty[i] = path->mapping().empty();
+            any_empty_subpaths = any_empty_subpaths || path->mapping().empty();
         }
         
-        if (any_empty) {
+#ifdef debug_remove_empty
+        cerr << "subpaths empty:" << endl;
+        for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+            cerr << "\t" << i << " " << is_empty[i] << endl;
+        }
+#endif
+        
+        if (any_empty_subpaths) {
             // there's at least one empty subpath
             
+            // compute the transitive edges through empty subpaths
             for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+                if (is_empty[i]) {
+                    continue;
+                }
                 // check if any of this subpaths nexts are empty
-                vector<size_t> transitive_nexts;
                 subpath_t& subpath = *multipath_aln.mutable_subpath(i);
-                for (size_t j = 0; j < subpath.next_size(); ++j) {
-                    if (is_empty[subpath.next(j)]) {
-                        // traverse to all nexts that can be reached by only empty subpaths
-                        //
-                        // technically this implementation can be exponential, but i don't
-                        // think it will ever come up
-                        vector<size_t> stack(1, subpath.next(j));
-                        while (!stack.empty()) {
-                            auto k = stack.back();
-                            stack.pop_back();
-                            for (auto n : multipath_aln.subpath(k).next()) {
-                                if (is_empty[n]) {
-                                    stack.push_back(n);
-                                }
-                                else {
-                                    transitive_nexts.push_back(n);
-                                }
+                
+                set<size_t> transitive_nexts;
+                map<size_t, int32_t> transitive_connections;
+                
+                unordered_set<size_t> dequeued;
+                // records of (index, no connections, score)
+                priority_queue<tuple<int32_t, bool, size_t>> queue;
+                for (auto n : subpath.next()) {
+                    if (is_empty[n]) {
+                        queue.emplace(0, true, n);
+                    }
+                }
+                for (const auto& connection : subpath.connection()) {
+                    if (is_empty[connection.next()]) {
+                        queue.emplace(connection.score(), false, connection.next());
+                    }
+                }
+                // dijkstra works to compute max here because it's a DAG
+                while (!queue.empty()) {
+                    
+                    int32_t score;
+                    bool not_connection;
+                    size_t idx;
+                    tie(score, not_connection, idx) = queue.top();
+                    queue.pop();
+                    
+                    if (dequeued.count(idx)) {
+                        continue;
+                    }
+                    dequeued.insert(idx);
+                    
+                    const auto& subpath_here = multipath_aln.subpath(idx);
+                    for (auto next : subpath_here.next()) {
+                        if (is_empty[next]) {
+                            queue.emplace(score, not_connection, next);
+                        }
+                        else if (not_connection) {
+                            transitive_nexts.insert(next);
+                        }
+                        else {
+                            auto it = transitive_connections.find(next);
+                            if (it == transitive_connections.end()) {
+                                transitive_connections[next] = score;
+                            }
+                            else {
+                                it->second = max(score, it->second);
+                            }
+                        }
+                    }
+                    for (const auto& connection : subpath_here.connection()) {
+                        int32_t score_thru = connection.score() + score;
+                        if (is_empty[connection.next()]) {
+                            queue.emplace(score_thru, false, connection.next());
+                        }
+                        else {
+                            auto it = transitive_connections.find(connection.next());
+                            if (it == transitive_connections.end()) {
+                                transitive_connections[connection.next()] = score_thru;
+                            }
+                            else {
+                                it->second = max(score_thru, it->second);
                             }
                         }
                     }
                 }
+#ifdef debug_remove_empty
+                cerr << "transitive nexts for subpath " << i << endl;
+                for (size_t j : transitive_nexts) {
+                    cerr << "\t" << j << endl;
+                }
+                cerr << "transitive connections for subpath " << i << endl;
+                for (auto c : transitive_connections) {
+                    cerr << "\t" << c.first << " " << c.second << endl;
+                }
+#endif
                 
                 // add edges for the nexts reachable through empty subpaths
                 for (size_t j : transitive_nexts) {
@@ -281,7 +366,28 @@ namespace vg {
                         subpath.add_next(j);
                     }
                 }
+                
+                for (const pair<size_t, int32_t>& cnxn : transitive_connections) {
+                    bool found = false;
+                    size_t k = 0;
+                    for (; k < subpath.connection_size() && !found; ++k) {
+                        found = (subpath.connection(k).next() == cnxn.first);
+                    }
+                    if (!found) {
+                        auto connection = subpath.add_connection();
+                        connection->set_next(cnxn.first);
+                        connection->set_score(cnxn.second);
+                    }
+                    else {
+                        subpath.mutable_connection(k - 1)->set_score(max(subpath.connection(k - 1).score(), cnxn.second));
+                    }
+                }
             }
+            
+#ifdef debug_remove_empty
+            cerr << "before removing subpaths" << endl;
+            cerr << debug_string(multipath_aln) << endl;
+#endif
             
             // relocate the subpaths we're keeping at the front of the vector
             vector<size_t> removed_so_far(multipath_aln.subpath_size() + 1, 0);
@@ -302,48 +408,70 @@ namespace vg {
             // delete the end of the subpaths
             multipath_aln.mutable_subpath()->resize(multipath_aln.subpath_size() - removed_so_far.back());
             
+#ifdef debug_remove_empty
+            cerr << "before updating edges" << endl;
+            cerr << debug_string(multipath_aln) << endl;
+#endif
+            
             // reassign the next and connection indexes
             for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+                
                 subpath_t& subpath = *multipath_aln.mutable_subpath(i);
+                
                 size_t nexts_removed_so_far = 0;
+                unordered_set<int64_t> nexts_seen;
                 for (size_t j = 0; j < subpath.next_size(); ++j) {
-                    if (is_empty[subpath.next(j)]) {
+                    int64_t updated_next = subpath.next(j) - removed_so_far[subpath.next(j)];
+                    if (is_empty[subpath.next(j)] || nexts_seen.count(updated_next)) {
                         ++nexts_removed_so_far;
                     }
                     else {
-                        subpath.set_next(j - nexts_removed_so_far, subpath.next(j) - removed_so_far[subpath.next(j)]);
+                        subpath.set_next(j - nexts_removed_so_far, updated_next);
+                        nexts_seen.insert(updated_next);
                     }
                 }
                 if (nexts_removed_so_far) {
                     subpath.mutable_next()->resize(subpath.next_size() - nexts_removed_so_far);
                 }
+                
                 size_t connections_removed_so_far = 0;
+                unordered_set<pair<size_t, int64_t>> connections_seen;
                 for (size_t j = 0; j < subpath.connection_size(); ++j) {
-                    if (is_empty[subpath.connection(j).next()]) {
+                    auto connection = subpath.mutable_connection(j);
+                    auto updated_connection = pair<size_t, int64_t>(connection->next() - removed_so_far[connection->next()],
+                                                                    connection->score());
+
+                    if (is_empty[connection->next()] || connections_seen.count(updated_connection)) {
                         ++connections_removed_so_far;
                     }
                     else {
-                        connection_t* connection = subpath.mutable_connection(j);
-                        connection->set_next(connection->next() - removed_so_far[connection->next()]);
+                        connection->set_next(updated_connection.first);
                         if (connections_removed_so_far) {
                             *subpath.mutable_connection(j - connections_removed_so_far) = *connection;
                         }
+                        connections_seen.insert(updated_connection);
                     }
                 }
                 if (connections_removed_so_far) {
-                    subpath.mutable_next()->resize(subpath.connection_size() - connections_removed_so_far);
+                    subpath.mutable_connection()->resize(subpath.connection_size() - connections_removed_so_far);
                 }
             }
             
-            // maybe recompute the starts
+#ifdef debug_remove_empty
+            cerr << "before updating starts" << endl;
+            cerr << debug_string(multipath_aln) << endl;
+#endif
+            
+            // update the starts
             bool found_deleted_start = false;
             for (size_t i = 0; !found_deleted_start && i < multipath_aln.start_size(); ++i) {
                 found_deleted_start = is_empty[multipath_aln.start(i)];
+                multipath_aln.set_start(i, multipath_aln.start(i) - removed_so_far[multipath_aln.start(i)]);
             }
             
             if (found_deleted_start) {
                 // recompute the edges from scratch (could be done faster, but
-                // this is easy)
+                // this is easy);
                 identify_start_subpaths(multipath_aln);
             }
         }
@@ -1553,6 +1681,10 @@ namespace vg {
 
     pair<int64_t, int64_t> aligned_interval(const multipath_alignment_t& multipath_aln) {
         
+        if (multipath_aln.subpath().empty()) {
+            return pair<int64_t, int64_t>(0, 0);
+        }
+        
         int64_t min_softclip_left = numeric_limits<int64_t>::max();
         int64_t min_softclip_right = numeric_limits<int64_t>::max();
         
@@ -1604,7 +1736,7 @@ namespace vg {
     ///                      if not empty)
     ///
     inline void rev_comp_subpath(const subpath_t& subpath, const function<int64_t(int64_t)>& node_length,
-                          subpath_t& rev_comp_out) {
+                                 subpath_t& rev_comp_out) {
         
         *(rev_comp_out.mutable_path()) = reverse_complement_path(subpath.path(), node_length);
         rev_comp_out.set_score(subpath.score());
@@ -2289,6 +2421,14 @@ namespace vg {
         }
     }
 
+    bool contains_connection(const multipath_alignment_t& multipath_aln) {
+        bool no_connection = true;
+        for (size_t i = 0; i < multipath_aln.subpath_size() && no_connection; ++i) {
+            no_connection = multipath_aln.subpath(i).connection().empty();
+        }
+        return !no_connection;
+    }
+
     vector<tuple<int64_t, int64_t, int64_t, int64_t>>
     search_multipath_alignment(const multipath_alignment_t& multipath_aln,
                                const pos_t& graph_pos, int64_t seq_pos) {
@@ -2428,33 +2568,96 @@ namespace vg {
         return return_val;
     }
 
-    pair<tuple<int64_t, int64_t, int64_t, int64_t>, tuple<int64_t, int64_t, int64_t>>
+    pair<tuple<int64_t, int64_t, int64_t>, vector<tuple<int64_t, int64_t, int64_t, int64_t>>>
     trace_path(const multipath_alignment_t& multipath_aln, const Path& path,
-               int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx) {
+               int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx,
+               bool search_left, int64_t search_limit) {
         
 #ifdef debug_trace
-        cerr << "entering trace path algorithm" << endl;
+        cerr << "entering trace path algorithm, searching left? " << search_left << endl;
+        cerr << "tracing path " << pb2json(path) << endl;
+        cerr << "start coordinate: " << subpath_idx << ", " << mapping_idx << ", " << edit_idx << ", " << base_idx << endl;
+        cerr << "search limit " << search_limit << endl;
 #endif
+        pair<tuple<int64_t, int64_t, int64_t>, vector<tuple<int64_t, int64_t, int64_t, int64_t>>> return_val;
+        auto& pfarthest = return_val.first;
+        auto& mfarthest = return_val.second;
+        
+        if (search_left) {
+            // we like to index the base as if it's from the left even though it's from the right
+            // to simplify some conditions later, so we have to reverse it now
+            const auto& start_path = multipath_aln.subpath(subpath_idx).path();
+            if (mapping_idx < start_path.mapping_size()) {
+                const auto& start_mapping = start_path.mapping(mapping_idx);
+                if (edit_idx < start_mapping.edit_size()) {
+                    const auto& start_edit = start_mapping.edit(edit_idx);
+                    base_idx = max(start_edit.from_length(), start_edit.to_length()) - base_idx;
+#ifdef debug_trace
+                    cerr << "flip leftward base index on edit " << debug_string(start_edit) << " to " << base_idx << endl;
+#endif
+                }
+            }
+        }
         
         // the farthest match along the path
-        tuple<int64_t, int64_t, int64_t> pfarthest(-1, -1, -1);
+        pfarthest = search_left ? tuple<int64_t, int64_t, int64_t>(path.mapping_size(), 0, 0)
+                                : tuple<int64_t, int64_t, int64_t>(-1, 0, 0);
+        
         // the position on the mp aln that corresponds to this match
-        tuple<int64_t, int64_t, int64_t, int64_t> mfarthest(subpath_idx, mapping_idx,
-                                                            edit_idx, base_idx);
+        
+        mfarthest.emplace_back(subpath_idx, mapping_idx, edit_idx, base_idx);
         
         // DFS stack
         vector<bool> stacked(multipath_aln.subpath_size(), false);
         vector<tuple<int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t>> stack;
         
+        int64_t incr = search_left ? -1 : 1;
+        
+        // which end of the path are we starting on?
+        int64_t p_start_mapping_idx = 0, p_start_edit_idx = 0;
+        if (search_left) {
+            p_start_mapping_idx = path.mapping_size() - 1;
+            if (p_start_mapping_idx >= 0) {
+                const auto& start_mapping = path.mapping(p_start_mapping_idx);
+                p_start_edit_idx = start_mapping.edit_size() - 1;
+            }
+        }
+        
+        // we may need reverse adjacencies if we're searching leftwards
+        vector<vector<int64_t>> reverse_adjacencies;
+        if (search_left) {
+            reverse_adjacencies.resize(multipath_aln.subpath_size());
+            for (int64_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+                const auto& subpath = multipath_aln.subpath(i);
+                for (auto n : subpath.next()) {
+                    reverse_adjacencies[n].push_back(i);
+                }
+                for (const auto& c : subpath.connection()) {
+                    reverse_adjacencies[c.next()].push_back(i);
+                }
+            }
+        }
+        
         // start at the indicated location on the mp aln and the beginning of the path
-        stack.emplace_back(subpath_idx, mapping_idx, edit_idx, base_idx, 0, 0, 0);
+        // note: the logic is simpler if we treat base indexes from 0 regardless of which
+        // direction w
+        stack.emplace_back(subpath_idx, mapping_idx, edit_idx, base_idx,
+                           p_start_mapping_idx, p_start_edit_idx, 0);
         stacked[subpath_idx] = true;
+        bool first_iter = true;
         while (!stack.empty()) {
             // load up the indexes of where we're going to look for a match
             int64_t i, j, k, l, pj, pk, pl;
             tie(i, j, k, l, pj, pk, pl) = stack.back();
             stack.pop_back();
             
+            
+            // the indexes of the last non-empty match for each index
+            int64_t ni, nj, nk, nl, npj, npk, npl;
+            tie(ni, nj, nk, nl, npj, npk, npl) = tie(i, j, k, l, pj, pk, pl);
+            bool any_new_matches = first_iter;
+            first_iter = false;
+                        
 #ifdef debug_trace
             cerr << "destack (" << i << " " << j << " " << k << " " << l << ") (" << pj << " " << pk << " " << pl << ")" << endl;
 #endif
@@ -2462,12 +2665,13 @@ namespace vg {
             const subpath_t& subpath = multipath_aln.subpath(i);
             const path_t& mpath = subpath.path();
             bool reached_mismatch = false;
-            while (j < mpath.mapping_size() && pj < path.mapping_size() && !reached_mismatch) {
+            while (j < mpath.mapping_size() && pj < path.mapping_size() && j >= 0 && pj >= 0 &&
+                   (search_left || pj < search_limit) && (!search_left || pj >= search_limit) && !reached_mismatch) {
                 
 #ifdef debug_trace
                 cerr << "mp mapping " << j << ", p mapping " << pj << endl;
 #endif
-                
+                                
                 const auto& mmapping = mpath.mapping(j);
                 const auto& pmapping = path.mapping(pj);
                 
@@ -2477,9 +2681,9 @@ namespace vg {
                 
                 // skip over the subpath mapping if it's empty
                 bool mnonempty = false;
-                for (int64_t m = k, n = l; m < mmapping.edit_size() && !mnonempty; ++m) {
+                for (int64_t m = k, n = l; m < mmapping.edit_size() && m >= 0 && !mnonempty; m += incr) {
                     const auto& edit = mmapping.edit(m);
-                    int64_t rem = max<int64_t>(max(edit.from_length() - n, edit.to_length() - n), 0);
+                    int64_t rem = max(edit.from_length(), edit.to_length()) - n;
                     if (rem) {
                         mnonempty = true;
                     }
@@ -2489,15 +2693,21 @@ namespace vg {
 #ifdef debug_trace
                     cerr << "mp mapping is empty" << endl;
 #endif
-                    l = k = 0;
-                    ++j;
+                    l = 0;
+                    j += incr;
+                    if (search_left && j >= 0) {
+                        k = mpath.mapping(j).edit_size() - 1;
+                    }
+                    else {
+                        k = 0;
+                    }
                     continue;
                 }
                 // skip over the path mapping if it's empty
                 bool pnonempty = false;
-                for (int64_t m = pk, n = pl; m < pmapping.edit_size() && !pnonempty; ++m) {
+                for (int64_t m = pk, n = pl; m < pmapping.edit_size() && m >= 0 && !pnonempty; m += incr) {
                     const auto& edit = pmapping.edit(m);
-                    int64_t rem = max<int64_t>(max(edit.from_length() - n, edit.to_length() - n), 0);
+                    int64_t rem = max(edit.from_length(), edit.to_length()) - n;
                     if (rem) {
                         pnonempty = true;
                     }
@@ -2507,12 +2717,20 @@ namespace vg {
 #ifdef debug_trace
                     cerr << "p mapping is empty" << endl;
 #endif
-                    pl = pk = 0;
-                    ++pj;
+                    pl = 0;
+                    pj += incr;
+                    if (search_left && pj >= 0) {
+                        pk = path.mapping(pj).edit_size() - 1;
+                    }
+                    else {
+                        pk = 0;
+                    }
                     continue;
                 }
                 
                 // now that we know we're looking at non-empty mappings, the positions need to match
+                
+                // TODO: it would be nice if we didn't need to iterate over the entire mapping
                 
                 // find the graph position on the subpath
                 const auto& mpos = mmapping.position();
@@ -2520,8 +2738,11 @@ namespace vg {
                 for (int64_t m = 0; m < k; ++m) {
                     moffset += mmapping.edit(m).from_length();
                 }
+                if (search_left) {
+                    moffset += mmapping.edit(k).from_length();
+                }
                 if (l > 0 && mmapping.edit(k).from_length() > 0) {
-                    moffset += l;
+                    moffset += l * incr;
                 }
                 
                 // find the graph position on the path
@@ -2530,8 +2751,11 @@ namespace vg {
                 for (int64_t m = 0; m < pk; ++m) {
                     poffset += pmapping.edit(m).from_length();
                 }
+                if (search_left) {
+                    poffset += pmapping.edit(pk).from_length();
+                }
                 if (pl > 0 && pmapping.edit(pk).from_length() > 0) {
-                    poffset += pl;
+                    poffset += pl * incr;
                 }
                 
 #ifdef debug_trace
@@ -2544,10 +2768,9 @@ namespace vg {
                     reached_mismatch = true;
                 }
                 
-                bool extended_by_nonempty_edits = false;
                 
                 // try to match edits
-                while (k < mmapping.edit_size() && pk < pmapping.edit_size() && !reached_mismatch) {
+                while (k < mmapping.edit_size() && k >= 0 && pk < pmapping.edit_size() && pk >= 0 && !reached_mismatch) {
 #ifdef debug_trace
                     cerr << "mp edit " << k << " " << l << ", p edit " << pk << " " << pl << endl;
 #endif
@@ -2556,7 +2779,7 @@ namespace vg {
                     if (medit.from_length() == 0 && medit.to_length() == 0) {
                         // skip over an empty edit
                         l = 0;
-                        ++k;
+                        k += incr;
 #ifdef debug_trace
                         cerr << "mp edit empty" << endl;
 #endif
@@ -2564,65 +2787,62 @@ namespace vg {
                     else if (pedit.from_length() == 0 && pedit.to_length() == 0) {
                         // skip over an empty edit
                         pl = 0;
-                        ++pk;
+                        pk += incr;
 #ifdef debug_trace
                         cerr << "p edit empty" << endl;
 #endif
                     }
-                    else if (((medit.from_length() == 0 && pedit.from_length() == 0)
-                              || medit.from_length() - l == pedit.from_length() - pl) &&
-                             ((medit.to_length() == 0 && pedit.to_length() == 0)
-                              || medit.to_length() - l == pedit.to_length() - pl) &&
-                             ((medit.sequence().empty() && pedit.sequence().empty())
-                              || (medit.sequence().substr(l, medit.to_length())
-                                  == pedit.sequence().substr(pl, pedit.to_length())))) {
-                        // follow a matching edit
-                        l = 0;
-                        ++k;
-                        pl = 0;
-                        ++pk;
+                    else if ((medit.from_length() == 0) == (pedit.from_length() == 0) &&
+                             (medit.to_length() == 0) == (pedit.to_length() == 0) &&
+                             medit.sequence().empty() == pedit.sequence().empty()) {
                         
-#ifdef debug_trace
-                        cerr << "edits match" << endl;
-#endif
-                    }
-                    else if (((medit.from_length() == 0 && pedit.from_length() == 0)
-                              || medit.from_length() - l <= pedit.from_length() - pl) &&
-                             ((medit.to_length() == 0 && pedit.to_length() == 0)
-                              || medit.to_length() - l <= pedit.to_length() - pl) &&
-                             ((medit.sequence().empty() && pedit.sequence().empty())
-                              || (medit.sequence().substr(l, medit.to_length() - l)
-                                  == pedit.sequence().substr(pl, medit.to_length() - l)))) {
-                        // subpath edit is a prefix of path edit
-                        l = 0;
-                        ++k;
-                        pl += max(medit.from_length() - l, medit.to_length() - l);
-                        if (pl == max(pedit.from_length(), pedit.to_length())) {
-                            pl = 0;
-                            ++pk;
-                        }
-#ifdef debug_trace
-                        cerr << "mp edit is prefix" << endl;
-#endif
-                    }
-                    else if (((medit.from_length() == 0 && pedit.from_length() == 0)
-                              || medit.from_length() - l >= pedit.from_length() - pl) &&
-                             ((medit.to_length() == 0 && pedit.to_length() == 0)
-                              || medit.to_length() - l >= pedit.to_length() - pl) &&
-                             ((medit.sequence().empty() && pedit.sequence().empty())
-                              || (medit.sequence().substr(l, pedit.to_length() - pl)
-                                  == pedit.sequence().substr(pl, pedit.to_length() - pl)))) {
-                        // path edit is a prefix of subpath edit
-                        l += max(pedit.from_length() - pl, pedit.to_length() - pl);
-                        if (l == max(medit.from_length(), medit.to_length())) {
+                        // the type of edit matches
+                        
+                        if ((medit.from_length() == 0 || medit.from_length() - l == pedit.from_length() - pl) &&
+                            (medit.to_length() == 0 || medit.to_length() - l == pedit.to_length() - pl)) {
+                            // the size of edit matches
                             l = 0;
-                            ++k;
-                        }
-                        pl = 0;
-                        ++pk;
+                            k += incr;
+                            pl = 0;
+                            pk += incr;
+                            
 #ifdef debug_trace
-                        cerr << "p edit is prefix" << endl;
+                            cerr << "edits match" << endl;
 #endif
+                        }
+                        else if ((medit.from_length() == 0 || medit.from_length() - l < pedit.from_length() - pl) &&
+                                 (medit.to_length() == 0 || medit.to_length() - l < pedit.to_length() - pl)) {
+                            
+                            // subpath edit is a prefix of path edit
+                            pl += max(medit.from_length(), medit.to_length()) - l;
+                            if (pl == max(pedit.from_length(), pedit.to_length())) {
+                                // TODO: won't this never happen because of the earlier condition?
+                                pl = 0;
+                                pk += incr;
+                            }
+                            l = 0;
+                            k += incr;
+#ifdef debug_trace
+                            cerr << "mp edit is prefix" << endl;
+#endif
+                        }
+                        else {
+                            // path edit is a prefix of subpath edit
+                            l += max(pedit.from_length(), pedit.to_length()) - pl;
+                            if (l == max(medit.from_length(), medit.to_length())) {
+                                // TODO: won't this never happen because of the earlier condition?
+                                l = 0;
+                                k += incr;
+                            }
+                            pl = 0;
+                            pk += incr;
+#ifdef debug_trace
+                            cerr << "p edit is prefix" << endl;
+#endif
+                        }
+                        // we made a non-empty match, update the non-empty index trackers
+                        tie(ni, nj, nk, nl, npj, npk, npl) = tie(i, j, k, l, pj, pk, pl);
+                        any_new_matches = true;
                     }
                     else {
                         // the edits do not match
@@ -2634,52 +2854,273 @@ namespace vg {
                 }
                 
                 // did we finish off either mapping?
-                if (k == mmapping.edit_size()) {
-                    l = k = 0;
-                    ++j;
+                if (k == mmapping.edit_size() || k < 0) {
 #ifdef debug_trace
                     cerr << "finished mp mapping" << endl;
 #endif
+                    j += incr;
+                    k = 0;
+                    if (search_left && j >= 0) {
+                        k = mpath.mapping(j).edit_size() - 1;
+                    }
+                    l = 0;
                 }
-                if (pk == pmapping.edit_size()) {
-                    pl = pk = 0;
-                    ++pj;
+                if (pk == pmapping.edit_size() || pk < 0) {
 #ifdef debug_trace
                     cerr << "finished p mapping" << endl;
 #endif
+                    pj += incr;
+                    pk = 0;
+                    if (search_left && pj >= 0) {
+                        pk = path.mapping(pj).edit_size() - 1;
+                    }
+                    pl = 0;
                 }
             }
-            // how far did we get along the path by walking this subpath?
-            if (pj > get<0>(pfarthest) ||
-                (pj == get<0>(pfarthest) && pk > get<1>(pfarthest)) ||
-                (pj == get<0>(pfarthest) && pk == get<1>(pfarthest) && pl > get<2>(pfarthest))) {
-                // we've traversed more of the path than on any previous subpath
-                
-                pfarthest = make_tuple(pj, pk, pl);
-                mfarthest = make_tuple(i, j, k, l);
+            // how far did we get along the path by walking this subpath (looking at non-empty matches only)?
+            if (any_new_matches) {
+                if ((search_left && (npj < get<0>(pfarthest) ||
+                                     (npj == get<0>(pfarthest) && npk < get<1>(pfarthest)) ||
+                                     (npj == get<0>(pfarthest) && npk == get<1>(pfarthest) && npl < get<2>(pfarthest)))) ||
+                    (!search_left && (npj > get<0>(pfarthest) ||
+                                      (npj == get<0>(pfarthest) && npk > get<1>(pfarthest)) ||
+                                      (npj == get<0>(pfarthest) && npk == get<1>(pfarthest) && npl > get<2>(pfarthest))))) {
+                    // we've traversed more of the path than on any previous subpath
+#ifdef debug_trace
+                    cerr << "new farthest at subpath index " << ni << ", " << nj << ", " << nk << ", " << nl << " and path index " << npj << ", " << npk << ", " << npl << endl;
+#endif
+                    pfarthest = make_tuple(npj, npk, npl);
+                    mfarthest.clear();
+                    mfarthest.emplace_back(ni, nj, nk, nl);
+                }
+                else if (npj == get<0>(pfarthest) && npk == get<1>(pfarthest) && npl == get<2>(pfarthest)) {
+                    // we've tied the farthest we've gone along the path previously
+#ifdef debug_trace
+                    cerr << "tied existing farthest at subpath index " << ni << ", " << nj << ", " << nk << ", " << nl << endl;
+#endif
+                    mfarthest.emplace_back(ni, nj, nk, nl);
+                }
             }
             
-            if (pj == path.mapping_size()) {
+            if (pj == path.mapping_size() || pj < 0) {
                 // we've found the farthest point possible
                 break;
             }
-            if (j == mpath.mapping_size() && !reached_mismatch) {
+            if ((j == mpath.mapping_size() || j < 0) && !reached_mismatch) {
                 // we got to the end of the subpath without exhausting our match
-                for (auto n : subpath.next()) {
-                    if (!stacked[n]) {
-                        stacked[n] = true;
-                        stack.emplace_back(n, 0, 0, 0, pj, pk, pl);
+                if (search_left) {
+                    for (auto n : reverse_adjacencies[i]) {
+                        if (!stacked[n]) {
+                            stacked[n] = true;
+                            const auto& next_path = multipath_aln.subpath(n).path();
+                            int64_t next_mapping_idx = next_path.mapping_size() - 1;
+                            int64_t next_edit_idx = 0;
+                            if (next_mapping_idx >= 0) {
+                                const auto& next_mapping = next_path.mapping(next_mapping_idx);
+                                next_edit_idx = next_mapping.edit_size() - 1;
+                            }
+                            stack.emplace_back(n, next_mapping_idx, next_edit_idx, 0, pj, pk, pl);
+#ifdef debug_trace
+                            cerr << "stack up (" << n << " " << next_mapping_idx << " " << next_edit_idx << " " << 0 << ") (" << pj << " " << pk << " " << pl << ")" << endl;
+#endif
+                        }
                     }
                 }
-                for (const auto& c : subpath.connection()) {
-                    if (!stacked[c.next()]) {
-                        stacked[c.next()] = true;
-                        stack.emplace_back(c.next(), 0, 0, 0, pj, pk, pl);
+                else {
+                    for (auto n : subpath.next()) {
+                        if (!stacked[n]) {
+                            stacked[n] = true;
+                            stack.emplace_back(n, 0, 0, 0, pj, pk, pl);
+#ifdef debug_trace
+                            cerr << "stack up (" << n << " " << 0 << " " << 0 << " " << 0 << ") (" << pj << " " << pk << " " << pl << ")" << endl;
+#endif
+                        }
+                    }
+                    for (const auto& c : subpath.connection()) {
+                        if (!stacked[c.next()]) {
+                            stacked[c.next()] = true;
+                            stack.emplace_back(c.next(), 0, 0, 0, pj, pk, pl);
+#ifdef debug_trace
+                            cerr << "stack up (" << c.next() << " " << 0 << " " << 0 << " " << 0 << ") (" << pj << " " << pk << " " << pl << ")" << endl;
+#endif
+                        }
                     }
                 }
             }
         }
-        return make_pair(mfarthest, pfarthest);
+        
+        if (search_left) {
+            // we're set up to find past-the-first coordinates, but if we're going leftward
+            // what we want is actually the final coordinates
+            
+#ifdef debug_trace
+            cerr << "converting past-the-first coordinates to at-the-first" << endl;
+            cerr << "p farthest (" << get<0>(pfarthest) << " " << get<1>(pfarthest) << " " << get<2>(pfarthest) << ") -> ";
+#endif
+            if (get<0>(pfarthest) < 0) {
+                get<0>(pfarthest) = 0;
+            }
+            else if (get<1>(pfarthest) < 0) {
+                get<1>(pfarthest) = 0;
+                // even though we interpreted the base index of 0 differently before, it's already what we want here
+            }
+            else {
+                // switch index of the base to from-the-end
+                const auto& final_edit = path.mapping(get<0>(pfarthest)).edit(get<1>(pfarthest));
+                get<2>(pfarthest) = max(final_edit.from_length(), final_edit.to_length()) - get<2>(pfarthest);
+            }
+#ifdef debug_trace
+            cerr << "(" << get<0>(pfarthest) << " " << get<1>(pfarthest) << " " << get<2>(pfarthest) << ")" << endl;
+#endif
+            
+            for (auto& coord : mfarthest) {
+#ifdef debug_trace
+                cerr << "m farthest (" << get<0>(coord) << " " << get<1>(coord) << " " << get<2>(coord) << " " << get<3>(coord) << ") -> ";
+#endif
+                if (get<1>(coord) < 0) {
+                    get<1>(coord) = 0;
+                }
+                else if (get<2>(coord) < 0) {
+                    get<2>(coord) = 0;
+                    // even though we interpreted the base index of 0 differently before, it's already what we want here
+                }
+                else {
+                    // switch index of the base to from-the-end
+                    const auto& final_edit =  multipath_aln.subpath(get<0>(coord)).path().mapping(get<1>(coord)).edit(get<2>(coord));
+                    get<3>(coord) = max(final_edit.from_length(), final_edit.to_length()) - get<3>(coord);
+                }
+#ifdef debug_trace
+                cerr << "(" << get<0>(coord) << " " << get<1>(coord) << " " << get<2>(coord) << " " << get<3>(coord) << ")" << endl;
+#endif
+            }
+        }
+        
+        return return_val;
+    }
+
+    bool contains_match(const multipath_alignment_t& multipath_aln, const pos_t& pos,
+                        int64_t read_pos, int64_t match_length) {
+        
+#ifdef debug_find_match
+        cerr << "starting search for match at graph pos " << pos << ", read pos " << read_pos << ", length " << match_length << endl;
+        cerr << debug_string(multipath_aln) << endl;
+#endif
+        
+        // to keep track of the read interval corresponding to each subpath
+        vector<int64_t> to_length(multipath_aln.subpath_size(), 0);
+        for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+            const subpath_t& subpath = multipath_aln.subpath(i);
+            const path_t& path = subpath.path();
+            
+            int64_t to_length_here = to_length[i];
+            
+#ifdef debug_find_match
+            cerr << "at subpath " << i << " at read pos " << to_length_here << endl;
+#endif
+            
+            for (size_t j = 0; j < path.mapping_size(); ++j) {
+                
+                const path_mapping_t& mapping = path.mapping(j);
+                const position_t& position = mapping.position();
+                
+#ifdef debug_find_match
+                cerr << "at mapping " << j << ", graph pos " << make_pos_t(position) << ", read pos " << to_length_here << endl;
+#endif
+                
+                if (id(pos) == position.node_id() && is_rev(pos) == position.is_reverse()) {
+                    // we're on the node with the position we're looking for
+                    int64_t offset_here = position.offset();
+                    for (size_t k = 0; k < mapping.edit_size(); ++k) {
+                        const edit_t& edit = mapping.edit(k);
+#ifdef debug_find_match
+                        cerr << "at edit " << k << ", offset " << offset_here << ", read pos " << to_length_here << endl;
+#endif
+                        if (offset_here <= offset(pos) && offset_here + edit.from_length() > offset(pos) &&
+                            to_length_here <= read_pos && to_length_here + edit.to_length() > read_pos
+                            && (offset(pos) - offset_here) == (read_pos - to_length_here)
+                            && edit.sequence().empty()) {
+                            // we're going to pass a place where we might find a match
+                            
+                            
+#ifdef debug_find_match
+                            cerr << "starting a DFS for the match on edit " << k << ", offset " << offset_here << ", read pos " << to_length_here << ", initial walked " << offset(pos) - offset_here << endl;
+#endif
+                            
+                            // do DFS to find the match
+                            // records of (remaining, subpath idx, mapping idx, edit idx, which next)
+                            vector<tuple<int64_t, size_t, size_t, size_t>> stack;
+                            stack.emplace_back(offset(pos) - offset_here, i, j, k);
+                            while (!stack.empty()) {
+                                
+                                int64_t walked;
+                                size_t di, dj, dk;
+                                tie(walked, di, dj, dk) = stack.back();
+                                stack.pop_back();
+
+                                
+                                const subpath_t& subpath_here = multipath_aln.subpath(di);
+                                const path_t& path_here = subpath_here.path();
+                                const path_mapping_t& mapping_here = path_here.mapping(dj);
+                                const edit_t& edit_here = mapping_here.edit(dk);
+                                
+#ifdef debug_find_match
+                                cerr << "DFS location " << di << ", " << dj << ", " << dk << ", walked " << walked << ", edit " << debug_string(edit_here) <<  endl;
+#endif
+                                
+                                if (edit_here.to_length() && edit_here.from_length() && edit_here.sequence().empty()) {
+                                    // this edit can continue the match
+                                    walked += edit_here.to_length();
+                                    if (walked >= match_length) {
+                                        // we found the match
+                                        return true;
+                                    }
+                                    // advance by one edit
+                                    ++dk;
+                                    if (dk == mapping_here.edit_size()) {
+                                        // we're to the next mapping
+                                        dk = 0;
+                                        ++dj;
+                                    }
+                                    if (dj == path_here.mapping_size()) {
+                                        // we're at the boundary to the next subpaths
+                                        for (auto n : subpath_here.next()) {
+                                            stack.emplace_back(walked, n, 0, 0);
+#ifdef debug_find_match
+                                            cerr << "queue up next subpath " << n << ", walked " << walked << endl;
+#endif
+                                        }
+                                    }
+                                    else {
+                                        stack.emplace_back(walked, di, dj, dk);
+#ifdef debug_find_match
+                                        cerr << "queue up next edit " << di << ", " << dj << ", " << dk << ", walked " << walked << endl;
+#endif
+                                    }
+                                }
+                            }
+                            
+                        }
+                        offset_here += edit.from_length();
+                        to_length_here += edit.to_length();
+                    }
+                }
+                else {
+                    // we're not on the node we want, just record the read interval of this mapping
+                    to_length_here += mapping_to_length(mapping);
+                }
+            }
+            
+            // record the read interval of the successors
+            for (auto n : subpath.next()) {
+                to_length[n] = to_length_here;
+            }
+            for (const auto& connection : subpath.connection()) {
+                to_length[connection.next()] = to_length_here;
+            }
+        }
+        
+        // we never found the match
+        return false;
     }
 
     // TODO: does it really make sense to split this algorithm into a separate surject
@@ -3102,6 +3543,17 @@ namespace vg {
         }
         
 #ifdef debug_cigar
+        cerr << "got cigar: ";
+        for (auto& cigar_record : cigar) {
+            cerr << cigar_record.first << cigar_record.second;
+        }
+        cerr << endl;
+        cerr << "coalescing runs of I/D..." << endl;
+#endif
+
+        consolidate_ID_runs(cigar);
+        
+#ifdef debug_cigar
         cerr << "final cigar: ";
         for (auto& cigar_record : cigar) {
             cerr << cigar_record.first << cigar_record.second;
@@ -3232,7 +3684,6 @@ namespace vg {
                         }
                     }
                     else {
-                        cerr << "\textending subseq end to " << connection.next() << endl;
                         subpath_read_interval[connection.next()].first = subpath_read_interval[i].second;
                     }
                 }

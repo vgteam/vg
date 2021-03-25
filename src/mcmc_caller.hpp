@@ -24,9 +24,9 @@ namespace vg{
     public:    
         PhasedGenome& genome;
         SnarlManager& snarl_manager;
-        const string& sample_name = "SAMPLE";
-        const vector<size_t>& ref_path_offsets = {};
-        const vector<size_t>& ref_path_lengths = {};
+        const string sample_name = "SAMPLE";
+        const vector<size_t> ref_path_offsets = {};
+        const vector<size_t> ref_path_lengths = {};
         ostream& out_stream; 
         const SnarlTraversal trav;
         
@@ -35,9 +35,9 @@ namespace vg{
                     PhasedGenome& genome,
                     SnarlManager& snarl_manager,
                     const string& sample_name,
-                    const vector<string>& ref_paths = {},
-                    const vector<size_t>& ref_path_offsets = {},
-                    const vector<size_t>& ref_path_lengths = {},
+                    const vector<string>& ref_paths,
+                    const vector<size_t>& ref_path_offsets,
+                    const vector<size_t>& ref_path_lengths,
                     ostream& out_stream = cout );
 
         virtual ~MCMCCaller(); 

@@ -27,9 +27,9 @@ size_t Packer::estimate_bin_count(size_t num_threads) {
     return pow(2, log2(num_threads) + 14);
 }
 
-Packer::Packer(void) : graph(nullptr), data_width(8), cov_bin_size(0), edge_cov_bin_size(0), num_bases_dynamic(0), base_locks(nullptr), num_edges_dynamic(0), edge_locks(nullptr), node_quality_locks(nullptr), tmpfstream_locks(nullptr) { }
+Packer::Packer(const HandleGraph* graph) : graph(graph), data_width(8), cov_bin_size(0), edge_cov_bin_size(0), num_bases_dynamic(0), base_locks(nullptr), num_edges_dynamic(0), edge_locks(nullptr), node_quality_locks(nullptr), tmpfstream_locks(nullptr) { }
 
-Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t coverage_bins, size_t data_width, bool record_bases, bool record_edges, bool record_edits, bool record_qualities) :
+Packer::Packer(const HandleGraph* graph, bool record_bases, bool record_edges, bool record_edits, bool record_qualities, size_t bin_size, size_t coverage_bins, size_t data_width) :
     graph(graph), data_width(data_width), bin_size(bin_size), record_bases(record_bases), record_edges(record_edges), record_edits(record_edits), record_qualities(record_qualities) {
     // get the size of the base coverage counter
     num_bases_dynamic = 0;
@@ -39,9 +39,9 @@ Packer::Packer(const HandleGraph* graph, size_t bin_size, size_t coverage_bins, 
     // get the size of the edge coverage counter
     num_edges_dynamic = 0;
     if (record_edges) {
+        const VectorizableHandleGraph* vec_graph = dynamic_cast<const VectorizableHandleGraph*>(graph);
+        assert(vec_graph != nullptr);      
         graph->for_each_edge([&](const edge_t& edge) {
-                const VectorizableHandleGraph* vec_graph = dynamic_cast<const VectorizableHandleGraph*>(graph);
-                assert(vec_graph != nullptr);
                 auto edge_index = vec_graph->edge_index(edge);
 #ifdef debug
                 cerr << "Observed edge at index " << edge_index << endl;

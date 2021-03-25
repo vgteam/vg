@@ -34,6 +34,8 @@ public:
     inline void set_offset(int64_t o);
     inline bool is_reverse() const;
     inline void set_is_reverse(bool r);
+    inline bool operator==(const position_t& other) const;
+    inline bool operator!=(const position_t& other) const;
 private:
     int64_t _node_id;
     int64_t _offset;
@@ -81,6 +83,16 @@ inline bool position_t::is_reverse() const {
 }
 inline void position_t::set_is_reverse(bool r) {
     _is_reverse = r;
+}
+
+inline bool position_t::operator==(const position_t& other) const {
+    return (_node_id == other._node_id
+            && _is_reverse == other._is_reverse
+            && _offset == other._offset);
+}
+
+inline bool position_t::operator!=(const position_t& other) const {
+    return !(*this == other);
 }
 }
 

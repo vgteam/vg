@@ -14,8 +14,6 @@
 #include "../handle.hpp"
 #include "../hash_map.hpp"
 
-#include "find_shortest_paths.hpp"
-
 namespace vg {
 namespace algorithms {
     
@@ -45,8 +43,6 @@ namespace algorithms {
                                                        DeletableHandleGraph* into,
                                                        int64_t max_len,
                                                        pos_t pos_1, pos_t pos_2,
-                                                       bool detect_terminal_cycles = false,
-                                                       bool only_walks = false,
                                                        bool strict_max_len = false);
 
 }

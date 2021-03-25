@@ -59,7 +59,9 @@ enum CommandCategory {
     /// Some commands are less important but potentially useful widgets that let you do a thing you might need
     WIDGET,
     /// Some commands are useful really only for developers
-    DEVELOPMENT  
+    DEVELOPMENT,
+    /// Some commands we're trying to move away from
+    DEPRECATED
 };
 
 /// Define a way to print the titles of the different categories

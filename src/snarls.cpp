@@ -9,9 +9,6 @@
 
 #include "snarls.hpp"
 #include "vg/io/json2pb.h"
-#include "algorithms/find_tips.hpp"
-#include "algorithms/is_acyclic.hpp"
-#include "algorithms/weakly_connected_components.hpp"
 #include "subgraph_overlay.hpp"
 
 namespace vg {
@@ -210,7 +207,7 @@ SnarlManager HandleGraphSnarlFinder::find_snarls_unindexed() {
         NetGraph flat_net_graph(snarl.start(), snarl.end(), managed_child_chains, graph);
         
         // Having internal tips in the net graph disqualifies a snarl from being an ultrabubble
-        auto tips = algorithms::find_tips(&flat_net_graph);
+        auto tips = handlealgs::find_tips(&flat_net_graph);
 
 #ifdef debug
         cerr << "Tips: " << endl;
@@ -228,7 +225,7 @@ SnarlManager HandleGraphSnarlFinder::find_snarls_unindexed() {
         /////
     
         // This definitely should be calculated based on the internal-connectivity-ignoring net graph.
-        snarl.set_directed_acyclic_net_graph(algorithms::is_directed_acyclic(&flat_net_graph));
+        snarl.set_directed_acyclic_net_graph(handlealgs::is_directed_acyclic(&flat_net_graph));
 
         /////
         // Determine classification

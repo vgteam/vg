@@ -6,7 +6,6 @@
 #include "integrated_snarl_finder.hpp"
 
 #include "algorithms/three_edge_connected_components.hpp"
-#include "algorithms/weakly_connected_components.hpp"
 #include "subgraph_overlay.hpp"
 
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -1729,13 +1728,13 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
                             
                                 // This edge is the incoming edge for a cycle. Queue it up.
                                 frame.todo.push_back(inbound);
-                            } else if (cactus.find(graph->flip(inbound)) == cactus.find(inbound)) {
+                            } else if (cactus.find(graph->flip(inbound)) == cactus.find(inbound) && !graph->get_is_reverse(inbound)) {
                             
 #ifdef debug
                                 cerr << "\t\tInherit contained edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
 #endif
                             
-                                // Count all self edges as empty chains.
+                                // Count all self edges as empty chains, but only from one side.
                                 begin_chain(inbound);
                                 end_chain(inbound);
                                 
@@ -1801,7 +1800,7 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
 
 SnarlManager IntegratedSnarlFinder::find_snarls_parallel() {
 
-    vector<unordered_set<id_t>> weak_components = algorithms::weakly_connected_components(graph);    
+    vector<unordered_set<id_t>> weak_components = handlealgs::weakly_connected_components(graph);
     vector<SnarlManager> snarl_managers(weak_components.size());
 
     #pragma omp parallel for schedule(dynamic, 1)

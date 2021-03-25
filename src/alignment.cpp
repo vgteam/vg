@@ -2,7 +2,6 @@
 #include "vg/io/gafkluge.hpp"
 
 #include <sstream>
-#include <regex>
 
 using namespace vg::io;
 
@@ -94,11 +93,22 @@ bam_hdr_t* hts_file_header(string& filename, string& header) {
 }
 
 bam_hdr_t* hts_string_header(string& header,
-                             map<string, int64_t>& path_length,
-                             map<string, string>& rg_sample) {
+                             const map<string, int64_t>& path_length,
+                             const map<string, string>& rg_sample) {
+    
+    // Copy the map into a vecotr in its own order
+    vector<pair<string, int64_t>> path_order_and_length(path_length.begin(), path_length.end());
+    
+    // Make header in that order.
+    return hts_string_header(header, path_order_and_length, rg_sample);
+}
+
+bam_hdr_t* hts_string_header(string& header,
+                             const vector<pair<string, int64_t>>& path_order_and_length,
+                             const map<string, string>& rg_sample) {
     stringstream hdr;
     hdr << "@HD\tVN:1.5\tSO:unknown\n";
-    for (auto& p : path_length) {
+    for (auto& p : path_order_and_length) {
         hdr << "@SQ\tSN:" << p.first << "\t" << "LN:" << p.second << "\n";
     }
     for (auto& s : rg_sample) {
@@ -558,13 +568,14 @@ bam1_t* alignment_to_bam_internal(bam_hdr_t* header,
     bam1_t* bam = bam_init1();
     
     // strip the pair order identifiers
-    string alignment_name;
-    if (paired) {
+    string alignment_name = alignment.name();
+    if (paired && alignment_name.size() >= 2) {
         // We need to strip the /1 and /2 or _1 and _2 from paired reads so the two ends have the same name.
-        alignment_name = regex_replace(alignment.name(), regex("[/_][12]$"), "");
-    } else {
-        // Keep the alignment name as is because even if the name looks paired, the reads are semantically unpaired.
-        alignment_name = alignment.name();
+        char c1 = alignment_name[alignment_name.size() - 2];
+        char c2 = alignment_name[alignment_name.size() - 1];
+        if ((c1 == '_' || c1 == '/') && (c2 == '1' || c2 == '2')) {
+            alignment_name = alignment_name.substr(0, alignment_name.size() - 2);
+        }
     }
     
     // calculate the size in bytes of the variable length fields (which are all concatenated in memory)
@@ -804,15 +815,6 @@ string mapping_string(const string& source, const Mapping& mapping) {
     return result;
 }
 
-inline void append_cigar_operation(const int length, const char operation, vector<pair<int, char>>& cigar) {
-    if (cigar.empty() || operation != cigar.back().second) {
-        cigar.emplace_back(length, operation);
-    }
-    else {
-        cigar.back().first += length;
-    }
-}
-
 void mapping_cigar(const Mapping& mapping, vector<pair<int, char>>& cigar) {
     for (const auto& edit : mapping.edit()) {
         if (edit.from_length() && edit.from_length() == edit.to_length()) {
@@ -914,6 +916,12 @@ vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_r
 
     // handle soft clips, which are just insertions at the start or end
     // back
+    if (cigar.size() > 1 && cigar.back().second == 'D' && cigar[cigar.size() - 2].second == 'I') {
+        // Swap insert to the outside so it can be a softclip.
+        // When making the CIGAR we should put D before I but when flipping the
+        // strand they may switch.
+        std::swap(cigar.back(), cigar[cigar.size() - 2]);
+    }
     if (cigar.back().second == 'I') {
         // make sure we stay in the reference sequence when suppressing the softclips
         if (cigar.back().first <= softclip_suppress
@@ -924,6 +932,10 @@ vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_r
         }
     }
     // front
+    if (cigar.size() > 1 && cigar.front().second == 'D' && cigar[1].second == 'I') {
+        // Swap insert to the outside so it can be a softclip
+        std::swap(cigar.front(), cigar[1]);
+    }
     if (cigar.front().second == 'I') {
         // make sure we stay in the reference sequence when suppressing the softclips
         if (cigar.front().first <= softclip_suppress
@@ -936,6 +948,41 @@ vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_r
     }
 
     return cigar;
+}
+
+void consolidate_ID_runs(vector<pair<int, char>>& cigar) {
+    
+    size_t removed = 0;
+    for (size_t i = 0, j = 0; i < cigar.size(); ++j) {
+        if (j == cigar.size() || (cigar[j].second != 'I' && cigar[j].second != 'D')) {
+            // this is the end boundary of a runs of I/D operations
+            if (j - i >= 3) {
+                // we have at least 3 adjacent I/D operations, which means they should
+                // be re-consolidated
+                int d_total = 0, i_total = 0;
+                for (size_t k = i - removed, end = j - removed; k < end; ++k) {
+                    if (cigar[k].second == 'D') {
+                        d_total += cigar[k].first;
+                    }
+                    else {
+                        i_total += cigar[k].first;
+                    }
+                }
+                
+                cigar[i - removed] = make_pair(d_total, 'D');
+                cigar[i - removed + 1] = make_pair(i_total, 'I');
+                
+                // mark that we've
+                removed += j - i - 2;
+            }
+            // move the start of the next I/D run beyond the current operation
+            i = j + 1;
+        }
+        if (j < cigar.size()) {
+            cigar[j - removed] = cigar[j];
+        }
+    }
+    cigar.resize(cigar.size() - removed);
 }
 
 pair<int32_t, int32_t> compute_template_lengths(const int64_t& pos1, const vector<pair<int, char>>& cigar1,
@@ -961,7 +1008,7 @@ pair<int32_t, int32_t> compute_template_lengths(const int64_t& pos1, const vecto
                 // Bases are matched. Count them in the bounds and execute the operation
                 low = min(low, here);
                 here += item.first;
-                high = max(high, here - 1);
+                high = max(high, here);
             } else if (item.second == 'D') {
                 // Only other way to advance in the reference
                 here += item.first;

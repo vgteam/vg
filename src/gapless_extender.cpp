@@ -145,11 +145,13 @@ Path GaplessExtension::to_path(const HandleGraph& graph, const std::string& sequ
 GaplessExtender::GaplessExtender() :
     graph(nullptr), aligner(nullptr)
 {
+    this->init_mask();
 }
 
 GaplessExtender::GaplessExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner) :
     graph(&graph), aligner(&aligner)
 {
+    this->init_mask();
 }
 
 //------------------------------------------------------------------------------
@@ -181,7 +183,7 @@ void set_score(GaplessExtension& extension, const Aligner* aligner) {
 
 // Match the initial node, assuming that read_offset or node_offset is 0.
 // Updates internal_score and old_score; use set_score() to compute score.
-void match_initial(GaplessExtension& match, const std::string& seq, gbwtgraph::GBWTGraph::view_type target) {
+void match_initial(GaplessExtension& match, const std::string& seq, gbwtgraph::view_type target) {
     size_t node_offset = match.offset;
     size_t left = std::min(seq.length() - match.read_interval.second, target.second - node_offset);
     while (left > 0) {
@@ -209,7 +211,7 @@ void match_initial(GaplessExtension& match, const std::string& seq, gbwtgraph::G
 // Match forward but stop before the mismatch count reaches the limit.
 // Updates internal_score; use set_score() to recompute score.
 // Returns the tail offset (the number of characters matched).
-size_t match_forward(GaplessExtension& match, const std::string& seq, gbwtgraph::GBWTGraph::view_type target, uint32_t mismatch_limit) {
+size_t match_forward(GaplessExtension& match, const std::string& seq, gbwtgraph::view_type target, uint32_t mismatch_limit) {
     size_t node_offset = 0;
     size_t left = std::min(seq.length() - match.read_interval.second, target.second - node_offset);
     while (left > 0) {
@@ -240,7 +242,7 @@ size_t match_forward(GaplessExtension& match, const std::string& seq, gbwtgraph:
 // Match forward but stop before the mismatch count reaches the limit.
 // Starts from the offset in the match and updates it.
 // Updates internal_score; use set_score() to recompute score.
-void match_backward(GaplessExtension& match, const std::string& seq, gbwtgraph::GBWTGraph::view_type target, uint32_t mismatch_limit) {
+void match_backward(GaplessExtension& match, const std::string& seq, gbwtgraph::view_type target, uint32_t mismatch_limit) {
     size_t left = std::min(match.read_interval.first, match.offset);
     while (left > 0) {
         size_t len = std::min(left, sizeof(std::uint64_t));
@@ -344,7 +346,7 @@ void find_mismatches(const std::string& seq, const gbwtgraph::CachedGBWTGraph& g
         extension.mismatch_positions.reserve(extension.internal_score);
         size_t node_offset = extension.offset, read_offset = extension.read_interval.first;
         for (const handle_t& handle : extension.path) {
-            gbwtgraph::GBWTGraph::view_type target = graph.get_sequence_view(handle);
+            gbwtgraph::view_type target = graph.get_sequence_view(handle);
             while (node_offset < target.second && read_offset < extension.read_interval.second) {
                 if (target.first[node_offset] != seq[read_offset]) {
                     extension.mismatch_positions.push_back(read_offset);
@@ -501,13 +503,14 @@ bool trim_mismatches(GaplessExtension& extension, const gbwtgraph::CachedGBWTGra
 
 //------------------------------------------------------------------------------
 
-std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, const std::string& sequence, const gbwtgraph::CachedGBWTGraph* cache, size_t max_mismatches, double overlap_threshold) const {
+std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, std::string sequence, const gbwtgraph::CachedGBWTGraph* cache, size_t max_mismatches, double overlap_threshold) const {
 
     std::vector<GaplessExtension> result;
     if (this->graph == nullptr || this->aligner == nullptr || cluster.empty() || sequence.empty()) {
         return result;
     }
     result.reserve(cluster.size());
+    this->mask_sequence(sequence);
 
     // Allocate a cache if we were not provided with one.
     bool free_cache = (cache == nullptr);
@@ -794,7 +797,7 @@ void GaplessExtender::unfold_haplotypes(const std::unordered_set<nid_t>& subgrap
                 std::string sequence;
                 sequence.reserve(result_size);
                 for (handle_t handle : path) {
-                    gbwtgraph::GBWTGraph::view_type view = cache->get_sequence_view(handle);
+                    gbwtgraph::view_type view = cache->get_sequence_view(handle);
                     sequence.insert(sequence.size(), view.first, view.second);
                 }
                 unfolded.create_handle(sequence, 2 * haplotype_paths.size() - 1);
@@ -899,6 +902,22 @@ void GaplessExtender::transform_alignment(Alignment& aln, const std::vector<std:
     }
 
     *(aln.mutable_path()) = std::move(result);
+}
+
+//------------------------------------------------------------------------------
+
+void GaplessExtender::init_mask() {
+    this->mask = std::vector<char>(256, 'X');
+    this->mask[static_cast<size_t>('A')] = 'A';
+    this->mask[static_cast<size_t>('C')] = 'C';
+    this->mask[static_cast<size_t>('G')] = 'G';
+    this->mask[static_cast<size_t>('T')] = 'T';
+}
+
+void GaplessExtender::mask_sequence(std::string& sequence) const {
+    for (char& c : sequence) {
+        c = this->mask[static_cast<size_t>(c)];
+    }
 }
 
 //------------------------------------------------------------------------------

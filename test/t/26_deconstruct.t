@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 19
+plan tests 21
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > tiny.vg
 vg index tiny.vg -x tiny.xg
@@ -124,4 +124,20 @@ diff tiny_names_decon.vcf tiny_names_decon_vg.vcf
 is "$?" 0 "deconstructing vg graph gives same output as xg graph"
 
 rm -f tiny_names.gfa tiny_names.vg tiny_names.xg tiny_names_decon.vcf tiny_names_decon_vg.vcf
+
+vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
+vg index -x x.xg -G x.gbwt -v small/x.vcf.gz x.vg
+vg deconstruct x.xg -g x.gbwt | bgzip > x.decon.vcf.gz
+tabix -f -p vcf  x.decon.vcf.gz
+cat small/x.fa |  bcftools consensus small/x.vcf.gz -s 1 -H 1 > small.s1.h1.fa
+cat small/x.fa |  bcftools consensus small/x.vcf.gz -s 1 -H 2 > small.s1.h2.fa
+cat small/x.fa |  bcftools consensus x.decon.vcf.gz -s 1 -H 1 > decon.s1.h1.fa
+cat small/x.fa |  bcftools consensus x.decon.vcf.gz -s 1 -H 2 > decon.s1.h2.fa
+diff small.s1.h1.fa decon.s1.h1.fa
+is "$?" 0 "haplotype 1 preserved when deconstructing small test with gbwt"
+diff small.s1.h2.fa decon.s1.h2.fa
+is "$?" 0 "haplotype 2 preserved when deconstructing small test with gbwt"
+
+rm -f x.vg x.xg x.gbwt x.decon.vcf.gz x.decon.vcf.gz.tbi small.s1.h1.fa small.s1.h2.fa decon.s1.h1.fa decon.s1.h2.fa
+
 

@@ -12,6 +12,7 @@
 #include "path.hpp"
 #include "catch.hpp"
 #include "vg/io/json2pb.h"
+#include "bdsg/hash_graph.hpp"
 
 using namespace google::protobuf;
 using namespace vg::io;
@@ -2529,6 +2530,32 @@ namespace vg {
                     alns_seen.insert(aln_string);
                 }
             }
+        }
+        
+        TEST_CASE("Quality adjusted alignment scores full length bonuses correctly",
+                  "[alignment][pinned][mapping]" ) {
+            
+            bdsg::HashGraph graph;
+            
+            handle_t h = graph.create_handle("ACGTAGTCTGAA");
+            
+            Alignment aln1;
+            aln1.set_sequence("ACGT");
+            aln1.set_quality("HHH#");
+            alignment_quality_char_to_short(aln1);
+            
+            Alignment aln2;
+            aln2.set_sequence("TGAA");
+            aln2.set_quality("#HHH");
+            alignment_quality_char_to_short(aln2);
+            
+            TestAligner aligner_source;
+            const QualAdjAligner& aligner = *aligner_source.get_qual_adj_aligner();
+            aligner.align_pinned(aln1, graph, true, false);
+            aligner.align_pinned(aln2, graph, false, false);
+            
+            REQUIRE(aln1.score() == 3);
+            REQUIRE(aln2.score() == 3);
         }
     }
 }

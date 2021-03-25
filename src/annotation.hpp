@@ -20,6 +20,10 @@ using namespace std;
 // API
 ////////////////////////////////////////////////////////////////////////
 
+/// Returns true if the Protobuf object has an annotation with this name
+template<typename Annotated>
+bool has_annotation(const Annotated& annotated, const string& name);
+
 /// Get the annotation with the given name and return it.
 /// If not present, returns the Protobuf default value for the annotation type.
 /// The value may be a primitive type or an entire Protobuf object.
@@ -190,6 +194,14 @@ inline google::protobuf::Value value_cast(const Container& wrap) {
     // Hand it off
     to_return.set_allocated_list_value(list);
     return to_return;
+}
+
+template<typename Annotated>
+inline bool has_annotation(const Annotated& annotated, const string& name) {
+    // Grab the whole annotation struct
+    auto annotation_struct = Annotation<Annotated>::get(annotated);
+    // Check for the annotation
+    return annotation_struct.fields().count(name);
 }
 
 // TODO: more value casts for e.g. ints and embedded messages.

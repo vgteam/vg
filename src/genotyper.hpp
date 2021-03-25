@@ -17,7 +17,6 @@
 #include <vg/vg.pb.h>
 #include "vg.hpp"
 #include "translator.hpp"
-#include "deconstructor.hpp"
 #include "srpe.hpp"
 #include "hash_map.hpp"
 #include "utility.hpp"
@@ -25,7 +24,6 @@
 #include "genotypekit.hpp"
 #include "srpe.hpp"
 #include "path_index.hpp"
-#include "index.hpp"
 #include "statistics.hpp"
 
 namespace vg {

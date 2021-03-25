@@ -20,8 +20,6 @@
 #include <vg/io/stream.hpp>
 #include <vg/io/alignment_emitter.hpp>
 
-#include "../algorithms/copy_graph.hpp"
-
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -43,7 +41,9 @@ void help_paths(char** argv) {
          << "    -A, --extract-gaf        print (as GAF alignments) the stored paths in the graph" << endl
          << "    -L, --list               print (as a list of names, one per line) the path (or thread) names" << endl
          << "    -E, --lengths            print a list of path names (as with -L) but paired with their lengths" << endl
+         << "    -C, --cyclicity          print a list of path names (as with -L) but paired with flag denoting the cyclicity" << endl
          << "    -F, --extract-fasta      print the paths in FASTA format" << endl
+         << "    -c, --coverage           print the coverage stats for selected paths (not including cylces)" << endl
          << "  path selection:" << endl
          << "    -p, --paths-file FILE    select the paths named in a file (one per line)" << endl
          << "    -Q, --paths-by STR       select the paths with the given name prefix" << endl
@@ -98,6 +98,10 @@ int main_paths(int argc, char** argv) {
     bool select_alt_paths = false;
     bool list_lengths = false;
     size_t output_formats = 0, selection_criteria = 0;
+    size_t input_formats = 0;
+    bool list_cyclicity = false;
+    bool coverage = false;
+    const size_t coverage_bins = 10;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -120,6 +124,8 @@ int main_paths(int argc, char** argv) {
             {"paths-by", required_argument, 0, 'Q'},
             {"sample", required_argument, 0, 'S'},
             {"variant-paths", no_argument, 0, 'a'},
+            {"cyclicity", no_argument, 0, 'C'},
+            {"coverage", no_argument, 0, 'c'},            
 
             // Hidden options for backward compatibility.
             {"threads", no_argument, 0, 'T'},
@@ -129,7 +135,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEFAS:Tq:drap:",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEFAS:Tq:drap:Cc",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -141,14 +147,17 @@ int main_paths(int argc, char** argv) {
 
         case 'v':
             vg_file = optarg;
+            ++input_formats;
             break;
 
         case 'x':
             xg_file = optarg;
+            ++input_formats;
             break;
 
         case 'g':
             gbwt_file = optarg;
+            ++input_formats;
             break;
 
         case 'V':
@@ -212,6 +221,17 @@ int main_paths(int argc, char** argv) {
             selection_criteria++;
             break;
 
+        case 'C':
+            list_names = true;          
+            list_cyclicity = true;
+            output_formats++;
+            break;
+
+        case 'c':
+            coverage = true;
+            output_formats++;
+            break;
+
         case 'T':
             std::cerr << "warning: [vg paths] option --threads is obsolete and unnecessary" << std::endl;
             break;
@@ -237,10 +257,14 @@ int main_paths(int argc, char** argv) {
         std::cerr << "error: [vg paths] cannot read input from multiple sources" << std::endl;
         std::exit(EXIT_FAILURE);
     }
+    if (input_formats != 1 && input_formats != 2) {
+        std::cerr << "error: [vg paths] at least one input format (-v, -x, -g) must be specified" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
     if (!gbwt_file.empty()) {
-        bool need_graph = (extract_as_gam || extract_as_gaf || extract_as_vg || list_lengths || extract_as_fasta);
+        bool need_graph = (extract_as_gam || extract_as_gaf || extract_as_vg || drop_paths || retain_paths || extract_as_fasta);
         if (need_graph && xg_file.empty() && vg_file.empty()) {
-            std::cerr << "error: [vg paths] an XG index or vg graph needed for extracting threads in -X, -A, -V, -d, -r, -E or -F format" << std::endl;
+            std::cerr << "error: [vg paths] an XG index or vg graph needed for extracting threads in -X, -A, -V, -d, -r or -F format" << std::endl;
             std::exit(EXIT_FAILURE);
         }
         if (!need_graph && (!xg_file.empty() || !vg_file.empty())) {
@@ -249,9 +273,9 @@ int main_paths(int argc, char** argv) {
             //std::exit(EXIT_FAILURE);
             std::cerr << "warning: [vg paths] XG index and/or vg graph  unnecessary for listing GBWT threads" << std::endl;
         }
-    }
+    } 
     if (output_formats != 1) {
-        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -L, -F, or -E) must be specified" << std::endl;
+        std::cerr << "error: [vg paths] one output format (-X, -A, -V, -d, -r, -L, -F, -E, -C or -c) must be specified" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (selection_criteria > 1) {
@@ -268,6 +292,10 @@ int main_paths(int argc, char** argv) {
     }
     if ((drop_paths || retain_paths) && !gbwt_file.empty()) {
         std::cerr << "error: [vg paths] dropping or retaining paths only works on embedded VG/XG paths, not GBWT threads" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    if (coverage && !gbwt_file.empty()) {
+        std::cerr << "error: [vg paths] coverage option -c only works on embedded VG/XG paths, not GBWT threads" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     
@@ -324,7 +352,7 @@ int main_paths(int argc, char** argv) {
         // Open up a GAM/GAF output stream
         aln_emitter = vg::io::get_non_hts_alignment_emitter("-", extract_as_gaf ? "GAF" : "GAM", {}, get_thread_count(),
                                                             graph.get());
-    } else if (extract_as_vg || drop_paths || retain_paths) {
+    } else if (extract_as_vg) {
         // Open up a VG Graph chunk output stream
         graph_emitter = unique_ptr<vg::io::ProtobufEmitter<Graph>>(new vg::io::ProtobufEmitter<Graph>(cout));
     }
@@ -339,14 +367,7 @@ int main_paths(int argc, char** argv) {
         // Select the threads we are interested in.
         std::vector<gbwt::size_type> thread_ids;
         if (!sample_name.empty()) {
-            if (!gbwt_index->metadata.hasSampleNames()) {
-                std::cerr << "error: [vg paths] the GBWT index does not contain sample names" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            gbwt::size_type sample_id = gbwt_index->metadata.sample(sample_name);
-            if (sample_id < gbwt_index->metadata.samples()) {
-                thread_ids = gbwt_index->metadata.pathsForSample(sample_id);
-            }
+            thread_ids = threads_for_sample(*gbwt_index, sample_name);
         } else if(!path_prefix.empty()) {
             for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
                 std::string name = thread_name(*gbwt_index, i);
@@ -398,6 +419,19 @@ int main_paths(int argc, char** argv) {
             if (list_lengths) {
                 cout << path.name() << "\t" << path_to_length(path) << endl;
             }
+            if (list_cyclicity) {
+                bool cyclic = false;
+                unordered_set<pair<nid_t, bool>> visits;
+                for (size_t i = 0; i < path.mapping_size() && !cyclic; ++i) {
+                    const Mapping& mapping = path.mapping(i);
+                    pair<unordered_set<pair<nid_t, bool>>::iterator, bool> ret =
+                        visits.insert(make_pair(mapping.position().node_id(), mapping.position().is_reverse()));
+                    if (ret.second == false) {
+                        cyclic = true;
+                    }
+                }
+                cout << path.name() << "\t" << (cyclic ? "cyclic" : "acyclic") << endl;
+            }
         }
     } else if (graph.get() != nullptr) {
         
@@ -416,24 +450,111 @@ int main_paths(int argc, char** argv) {
         };
 
         if (drop_paths || retain_paths) {
-            
-            VG new_graph;
-            
-            // copy the nodes and edges
-            algorithms::copy_handle_graph(&(*graph), &new_graph);
-            
-            // copy the indicated paths
+
+            vector<string> to_destroy;
             graph->for_each_path_handle([&](const path_handle_t& path_handle) {
-                string name = graph->get_path_name(path_handle);
-                if (check_path_name(name) != drop_paths) {
-                    algorithms::copy_path(&(*graph), path_handle, &new_graph);
+                    string name = graph->get_path_name(path_handle);
+                    if (check_path_name(name) == drop_paths) {
+                        to_destroy.push_back(name);
                 }
             });
+            for (string& path_name : to_destroy) {
+                dynamic_cast<MutablePathMutableHandleGraph*>(graph.get())->destroy_path(graph->get_path_handle(path_name));
+            }
             
             // output the graph
-            new_graph.serialize(cout);
+            dynamic_cast<SerializableHandleGraph*>(graph.get())->serialize(cout);
         }
-        else {
+        else if (coverage) {
+            // for every node, count the number of unique paths.  then add the coverage count to each one
+            // (we're doing the whole graph here, which could be inefficient in the case the user is selecting
+            //  a small path)
+            unordered_map<path_handle_t, vector<int64_t>> coverage_map;
+            // big speedup
+            unordered_map<path_handle_t, string> path_to_name;
+            size_t max_coverage = 0;
+            graph->for_each_handle([&](handle_t handle) {
+                    vector<step_handle_t> steps = graph->steps_of_handle(handle);
+                    unordered_set<string> unique_names;
+                    unordered_set<path_handle_t> unique_paths;
+                    for (auto step_handle : steps) {
+                        path_handle_t step_path_handle = graph->get_path_handle_of_step(step_handle);
+                        auto it = path_to_name.find(step_path_handle);
+                        if (it == path_to_name.end()) {
+                            string step_path_name = graph->get_path_name(step_path_handle);
+                            // disregard subpath tags when counting (but not displaying)
+                            auto subpath = Paths::parse_subpath_name(step_path_name);
+                            string& parsed_name = get<0>(subpath) ? get<1>(subpath) : step_path_name;
+                            it = path_to_name.insert(make_pair(step_path_handle, parsed_name)).first;
+                        }
+                        unique_names.insert(it->second);
+                        unique_paths.insert(step_path_handle);
+                    }
+                    for (auto path : unique_paths) {
+                        vector<int64_t>& cov = coverage_map[path];
+                        if (cov.size() < unique_paths.size()) {
+                            cov.resize(unique_paths.size(), 0);
+                        }
+                        cov[unique_paths.size() - 1] += graph->get_length(graph->get_handle_of_step(steps[0]));
+                        max_coverage = std::max(max_coverage, unique_names.size() - 1);
+                    }
+                });
+            // figure out the bin size
+            int64_t bin_size = 1;
+            if (max_coverage > coverage_bins) {
+                // reserve the first 2 bins for coverage = 0 and 1 no matter 1
+                bin_size = (max_coverage - 2) / (coverage_bins - 2);
+                if ((max_coverage - 2) % (coverage_bins - 2)) {
+                    ++bin_size;
+                }
+            }
+            // compute cumulative coverage
+            for (auto& path_cov : coverage_map) {
+                int64_t cum_cov = 0;
+                vector<int64_t>& cov = path_cov.second;
+                cov.resize(max_coverage + 1, 0);
+                // bin it up if necessary
+                if (cov.size() > coverage_bins) {
+                    vector<int64_t> binned_cov(coverage_bins, 0);
+                    // reserve the first 2 bins for coverage = 0 and 1 no matter 1
+                    binned_cov[0] = cov[0];
+                    binned_cov[1] = cov[1];
+                    // remaining bins
+                    for (size_t bin = 0; bin < coverage_bins - 2; ++bin) {
+                        for (size_t i = 0; i < bin_size && (2 + bin * bin_size + i < cov.size()); ++i) {
+                            binned_cov[2 + bin] += cov[2 + bin * bin_size + i];
+                        }
+                    }
+                    swap(cov, binned_cov);
+                }
+                // accumulate
+                for (auto cov_it = path_cov.second.rbegin(); cov_it != path_cov.second.rend(); ++cov_it) {
+                    cum_cov += *cov_it;
+                    *cov_it = cum_cov;
+                }
+            }
+            cout << "PathName";
+            for (size_t cov = 0; cov <= min(max_coverage, coverage_bins); ++cov) {
+                cout << "\t";
+                if (cov < 2 || bin_size == 1) {
+                    cout << cov << "-" << cov;
+                } else {
+                    cout << (2 + (cov - 2) * bin_size) << "-" << (2 + (cov - 2) * bin_size + bin_size - 1);
+                } 
+            }
+            cout << endl;
+            graph->for_each_path_handle([&](path_handle_t path_handle) {
+                    string path_name = graph->get_path_name(path_handle);
+                    if (check_path_name(path_name)) {
+                        cout << path_name;
+                        auto& path_cov = coverage_map[path_handle];
+                        for (size_t cov = 0; cov < path_cov.size(); ++cov) {
+                            cout << "\t" << path_cov[cov];
+                        }
+                        cout << endl;
+                    }
+                });
+        } else {            
             graph->for_each_path_handle([&](path_handle_t path_handle) {
                 string path_name = graph->get_path_name(path_handle);
                 if (check_path_name(path_name)) {
@@ -445,6 +566,18 @@ int main_paths(int argc, char** argv) {
                                 path_length += graph->get_length(handle);
                             }
                             cout << "\t" << path_length;
+                        }
+                        if (list_cyclicity) {
+                            bool cyclic = false;
+                            unordered_set<handle_t> visits;
+                            graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
+                                    pair<unordered_set<handle_t>::iterator, bool> ret = visits.insert(graph->get_handle_of_step(step_handle));
+                                    if (ret.second == false) {
+                                        cyclic = true;
+                                    }
+                                    return !cyclic;
+                                });
+                            cout << "\t" << (cyclic ? "cyclic" : "acyclic");
                         }
                         cout << endl;
                     } else {

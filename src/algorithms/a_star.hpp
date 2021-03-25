@@ -8,7 +8,6 @@
  */
 
 #include "../handle.hpp"
-#include "topological_sort.hpp"
 
 #include <unordered_map>
 #include <vector>

@@ -16,13 +16,10 @@
 #include <vg/io/vpkg.hpp>
 #include <handlegraph/mutable_path_deletable_handle_graph.hpp>
 #include "../handle.hpp"
-#include "../algorithms/copy_graph.hpp"
 #include "../utility.hpp"
-#include "../algorithms/topological_sort.hpp"
-#include "../algorithms/remove_high_degree.hpp"
 #include "../algorithms/simplify_siblings.hpp"
-#include "../algorithms/unchop.hpp"
 #include "../algorithms/normalize.hpp"
+#include "../algorithms/prune.hpp"
 #include "../io/save_handle_graph.hpp"
 
 using namespace std;
@@ -160,7 +157,6 @@ int main_mod(int argc, char** argv) {
             {"dagify-to", required_argument, 0, 'w'},
             {"dagify-len-max", required_argument, 0, 'L'},
             {"break-cycles", no_argument, 0, 'b'},
-            {"orient-forward", no_argument, 0, 'O'},
             {"destroy-node", required_argument, 0, 'y'},
             {"translation", required_argument, 0, 'Z'},
             {"unreverse-edges", required_argument, 0, 'E'},
@@ -607,7 +603,7 @@ int main_mod(int argc, char** argv) {
         if (vg_graph == nullptr) {
             // Copy instead.
             vg_graph = new vg::VG();
-            algorithms::copy_path_handle_graph(graph.get(), vg_graph);
+            handlealgs::copy_path_handle_graph(graph.get(), vg_graph);
             // Give the unique_ptr ownership and delete the graph we loaded.
             graph.reset(vg_graph);
             // Make sure the paths are all synced up
@@ -623,7 +619,7 @@ int main_mod(int argc, char** argv) {
     }
 
     if (unchop) {
-        algorithms::unchop(graph.get());
+        handlealgs::unchop(graph.get());
     }
 
     if (simplify_graph) {
@@ -658,7 +654,7 @@ int main_mod(int argc, char** argv) {
     }
 
     if (orient_forward) {
-        algorithms::orient_nodes_forward(graph.get());
+        handlealgs::apply_orientations(graph.get(), handlealgs::topological_order(graph.get()));
     }
 
     if (flip_doubly_reversed_edges) {
@@ -715,16 +711,15 @@ int main_mod(int argc, char** argv) {
     if (compact_ids) {
         // Sort and compact IDs.
         // TODO: This differs from vg ids! Make an alforithm.
-        graph->apply_ordering(algorithms::topological_order(graph.get()), true);
+        graph->apply_ordering(handlealgs::topological_order(graph.get()), true);
     }
 
     if (prune_complex) {
         if (!(path_length > 0 && edge_max > 0)) {
-            cerr << "[vg mod]: when pruning complex regions you must specify a --path-length and --edge-max" << endl;
+            cerr << "[vg mod]: when pruning complex regions you must specify a --length and --edge-max" << endl;
             return 1;
         }
-        // TODO: turn into an algorithm
-        ensure_vg()->prune_complex_with_head_tail(path_length, edge_max);
+        algorithms::prune_complex_with_head_tail(*graph, path_length, edge_max);
     }
 
     if (max_degree) {
@@ -733,7 +728,7 @@ int main_mod(int argc, char** argv) {
 
     if (prune_subgraphs) {
         // TODO: turn into an algorithm
-        ensure_vg()->prune_short_subgraphs(path_length);
+        algorithms::prune_short_subgraphs(*graph, path_length);
     }
 
     if (chop_to) {
@@ -741,7 +736,7 @@ int main_mod(int argc, char** argv) {
             vg_graph->dice_nodes(chop_to);
             vg_graph->paths.compact_ranks();
         } else {
-            algorithms::chop(graph.get(), chop_to);
+            handlealgs::chop(graph.get(), chop_to);
         }
     }
 
@@ -752,7 +747,7 @@ int main_mod(int argc, char** argv) {
 
     if (add_start_and_end_markers) {
         if (!(path_length > 0)) {
-            cerr << "[vg mod]: when adding start and end markers you must provide a --path-length" << endl;
+            cerr << "[vg mod]: when adding start and end markers you must provide a --length" << endl;
             return 1;
         }
         // TODO: replace this with the SourceSinkOverlay, accounting somehow for its immutability.

@@ -9,10 +9,10 @@
 #include "position.hpp"
 #include <vg/vg.pb.h>
 #include "vg/io/edit.hpp"
-#include "htslib/hfile.h"
-#include "htslib/hts.h"
-#include "htslib/sam.h"
-#include "htslib/vcf.h"
+#include <htslib/hfile.h>
+#include <htslib/hts.h>
+#include <htslib/sam.h>
+#include <htslib/vcf.h>
 #include "handle.hpp"
 #include "vg/io/alignment_io.hpp"
 
@@ -56,8 +56,11 @@ size_t fastq_paired_two_files_for_each_parallel_after_wait(const string& file1, 
 
 bam_hdr_t* hts_file_header(string& filename, string& header);
 bam_hdr_t* hts_string_header(string& header,
-                             map<string, int64_t>& path_length,
-                             map<string, string>& rg_sample);
+                             const map<string, int64_t>& path_length,
+                             const map<string, string>& rg_sample);
+bam_hdr_t* hts_string_header(string& header,
+                             const vector<pair<string, int64_t>>& path_order_and_length,
+                             const map<string, string>& rg_sample);
 void write_alignment_to_file(const Alignment& aln, const string& filename);
 
 void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
@@ -69,6 +72,38 @@ void cigar_mapping(const bam1_t *b, Mapping& mapping);
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, const bam_hdr_t *bh,
                            const PathPositionHandleGraph* graph);
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample);
+
+/**
+ * Add a CIGAR operation to a vector representing the parsed CIGAR string.
+ *
+ * Coalesces adjacent operations of the same type. Coalesces runs of inserts
+ * and deletes into a signle delete followed by a single insert.
+ */
+inline void append_cigar_operation(const int length, const char operation, vector<pair<int, char>>& cigar) {
+    if (cigar.empty()) {
+        // Always append to an empty CIGAR
+        cigar.emplace_back(length, operation);
+    } else if (operation != cigar.back().second) {
+        // We have changed operations
+        if (operation == 'D' && cigar.back().second == 'I') {
+            // This deletion needs to come before the adjacent insertion
+            if (cigar.size() > 1 && cigar[cigar.size() - 2].second == 'D') {
+                // Add to the deletion that laready exists before the insertion
+                cigar[cigar.size() - 2].first += length;
+            } else {
+                // Create a new deletion
+                cigar.emplace_back(length, operation);
+                // Put it under the insertion
+                std::swap(cigar[cigar.size() - 2], cigar.back());
+            }
+        } else {
+            // This is an ordinary change of operations.
+            cigar.emplace_back(length, operation);
+        }
+    } else {
+        cigar.back().first += length;
+    }
+}
 
 /**
  * Convert a paired Alignment to a BAM record. If the alignment is unmapped,
@@ -157,6 +192,9 @@ int32_t determine_flag(const Alignment& alignment,
 /// suppress softclips up to that length. This will necessitate adjusting pos,
 /// which is why it is passed by reference.
 vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress);
+
+/// Merge runs of successive I/D operations into a single I and D
+void consolidate_ID_runs(vector<pair<int, char>>& cigar);
 
 void mapping_against_path(Alignment& alignment, const bam1_t *b,
                           const PathPositionHandleGraph* graph, bool on_reverse_strand);

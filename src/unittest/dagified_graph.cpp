@@ -5,9 +5,8 @@
 
 #include <iostream>
 #include "vg/io/json2pb.h"
-#include "../split_strand_graph.hpp"
 #include "../dagified_graph.hpp"
-#include "../algorithms/is_acyclic.hpp"
+#include "../split_strand_graph.hpp"
 #include "random_graph.hpp"
 #include "catch.hpp"
 
@@ -36,7 +35,7 @@ namespace unittest {
             
             DagifiedGraph dagified(&graph, preserved_length);
             
-            REQUIRE(algorithms::is_acyclic(&dagified));
+            REQUIRE(handlealgs::is_acyclic(&dagified));
             REQUIRE(dagified.get_node_count() == 6);
             
             id_t min_id = numeric_limits<id_t>::max(), max_id = numeric_limits<id_t>::min();
@@ -164,7 +163,7 @@ namespace unittest {
             
             DagifiedGraph dagified(&graph, preserved_length);
             
-            REQUIRE(algorithms::is_acyclic(&dagified));
+            REQUIRE(handlealgs::is_acyclic(&dagified));
             REQUIRE(dagified.get_node_count() == 8);
             
             id_t min_id = numeric_limits<id_t>::max(), max_id = numeric_limits<id_t>::min();
@@ -303,7 +302,7 @@ namespace unittest {
             
             DagifiedGraph dagified(&graph, preserved_length);
             
-            REQUIRE(algorithms::is_acyclic(&dagified));
+            REQUIRE(handlealgs::is_acyclic(&dagified));
             REQUIRE(dagified.get_node_count() == 6);
             
             id_t min_id = numeric_limits<id_t>::max(), max_id = numeric_limits<id_t>::min();
@@ -453,7 +452,7 @@ namespace unittest {
             REQUIRE(max_id == dagified.max_node_id());
             REQUIRE(count == dagified.get_node_count());
             
-            REQUIRE(algorithms::is_acyclic(&dagified));
+            REQUIRE(handlealgs::is_acyclic(&dagified));
         }
     }
 }

@@ -321,9 +321,9 @@ namespace vg {
     /// Merges non-branching paths in a multipath alignment in place
     void merge_non_branching_subpaths(multipath_alignment_t& multipath_aln);
 
-    /// Removes subpaths that have no aligned bases and adds in any implied edges crossing through them
-    /// Note: not updated for connections yet
-    void remove_empty_subpaths(multipath_alignment_t& multipath_aln);
+    /// Removes all edit, mappings, and subpaths that have no aligned bases, and introduces transitive edges
+    /// to preserve connectivity through any completely removed subpaths
+    void remove_empty_alignment_sections(multipath_alignment_t& multipath_aln);
     
     /// Returns a vector whose elements are vectors with the indexes of the Subpaths in
     /// each connected component. An unmapped multipath_alignment_t with no subpaths produces an empty vector.
@@ -339,6 +339,9 @@ namespace vg {
     void append_multipath_alignment(multipath_alignment_t& multipath_aln,
                                     const multipath_alignment_t& to_append);
 
+    /// Returns true if any subpath has a connection adjacency
+    bool contains_connection(const multipath_alignment_t& multipath_aln);
+
     /// Returns all of the positions where a given sequence index occurs at a given graph
     /// graph position (if any), where positions are represented as tuples of
     /// (subpath index, mapping index, edit index, index within edit)
@@ -346,9 +349,19 @@ namespace vg {
     search_multipath_alignment(const multipath_alignment_t& multipath_aln,
                                const pos_t& graph_pos, int64_t seq_pos);
 
-    pair<tuple<int64_t, int64_t, int64_t, int64_t>, tuple<int64_t, int64_t, int64_t>>
+    /// Returns a pair of (mapping, edit, base) and possibly multiple (subpath, mapping, edit, base),of the furthest position
+    /// that can be traced through the multipath alignment along the pathstarting the indicated position in the multipath
+    /// alignment. The path can be traced rightward starting at the beginning, or leftward starting.
+    /// Search is limited to not passing a given mapping on the path.
+    pair<tuple<int64_t, int64_t, int64_t>, vector<tuple<int64_t, int64_t, int64_t, int64_t>>>
     trace_path(const multipath_alignment_t& multipath_aln, const Path& path,
-               int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx);
+               int64_t subpath_idx, int64_t mapping_idx, int64_t edit_idx, int64_t base_idx, bool search_left,
+               int64_t search_limit);
+
+    /// Returns true if the multipath alignment contains a match of a given length starting at the graph and
+    /// read position
+    bool contains_match(const multipath_alignment_t& multipath_aln, const pos_t& pos,
+                        int64_t read_pos, int64_t match_length);
 
     /// Convert a surjected multipath alignment into a CIGAR sequence against a path. Splicing will be allowed
     /// at connections and at any silent deletions of path sequence. Surjected multipath alignment graph must

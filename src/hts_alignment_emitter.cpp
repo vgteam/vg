@@ -5,6 +5,7 @@
  */
 
 #include "hts_alignment_emitter.hpp"
+#include "surjecting_alignment_emitter.hpp"
 #include "alignment.hpp"
 #include "vg/io/json2pb.h"
 #include <vg/io/hfile_cppstream.hpp>
@@ -17,38 +18,179 @@
 namespace vg {
 using namespace std;
 
-unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format,
-    const map<string, int64_t>& path_length, size_t max_threads, const HandleGraph* graph) {
+unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, 
+                                                   const vector<path_handle_t>& paths, size_t max_threads,
+                                                   const HandleGraph* graph, bool hts_raw,
+                                                   bool hts_spliced) {
 
+    
+    unique_ptr<AlignmentEmitter> emitter;
+    
     if (format == "SAM" || format == "BAM" || format == "CRAM") {
-        // Make the backing, non-buffered emitter
-        AlignmentEmitter* backing = nullptr;
+        // We are doing linear HTSLib output
         
-        // Make an emitter that supports HTSlib formats
-        if (graph) {
-            const PathPositionHandleGraph* splicing_graph = dynamic_cast<const PathPositionHandleGraph*>(graph);
-            assert(splicing_graph != nullptr);
-            // Use the graph to look for spliced alignments
-            backing = new SplicedHTSAlignmentEmitter(filename, format, path_length, *splicing_graph, max_threads);
+        // Make sure we actually have a PathPositionalHandleGraph
+        const PathPositionHandleGraph* path_graph = dynamic_cast<const PathPositionHandleGraph*>(graph);
+        if (path_graph == nullptr) {
+            cerr << "error[vg::get_alignment_emitter]: No graph available supporting path length queries needed for " << format << " output." << endl;
+            exit(1);
         }
-        else {
-            // Assume alignments are contiguous
-            backing = new HTSAlignmentEmitter(filename, format, path_length, max_threads);
+        
+        // Build a path name and length list from the handles
+        vector<pair<string, int64_t>> path_names_and_lengths = extract_path_metadata(paths, *path_graph);
+    
+        if (hts_spliced) {
+            // Use a splicing emitter as the final emitter
+            emitter = make_unique<SplicedHTSAlignmentEmitter>(filename, format, path_names_and_lengths, *path_graph, max_threads);
+        } else {
+            // Use a normal emitter
+            emitter = make_unique<HTSAlignmentEmitter>(filename, format, path_names_and_lengths, max_threads);
         }
-        return unique_ptr<AlignmentEmitter>(backing);
+        
+        if (!hts_raw) {
+            // Need to surject
+            
+            // Make a set of the path handles to surject into
+            unordered_set<path_handle_t> target_paths(paths.begin(), paths.end());
+            // Interpose a surjecting AlignmentEmitter
+            emitter = make_unique<SurjectingAlignmentEmitter>(path_graph, target_paths, std::move(emitter));
+        }
+    
     } else {
-        return get_non_hts_alignment_emitter(filename, format, path_length, max_threads, graph);
+        // The non-HTSlib formats don't actually use the path name and length info.
+        // See https://github.com/vgteam/libvgio/issues/34
+        emitter = get_non_hts_alignment_emitter(filename, format, {}, max_threads, graph);
     }
+    
+    return emitter;
+}
+
+vector<pair<string, int64_t>> extract_path_metadata(const vector<path_handle_t>& paths, const PathPositionHandleGraph& graph) {
+    
+    vector<pair<string, int64_t>> extracted;
+    
+    for (auto path_handle : paths) {
+        // Get the name and length of each path.
+        extracted.emplace_back(graph.get_path_name(path_handle), graph.get_path_length(path_handle));
+    }
+    
+    return extracted;
+}
+
+vector<path_handle_t> get_sequence_dictionary(const string& filename, const PathPositionHandleGraph& graph) {
+    
+    // We fill in the "dictionary" (which is what SAM calls it; it's not a mapping for us)
+    vector<path_handle_t> dictionary;
+    
+    if (!filename.empty()) {
+        // TODO: As of right now HTSLib doesn't really let you iterate the sequence dictionary when you use its parser. So we use our own parser.
+        get_input_file(filename, [&](istream& in) {
+            for (string line; getline(in, line);) {
+                // Each line will produce a sequence name and a handle
+                string sequence_name = "";
+                path_handle_t path;
+            
+                // Trim leading and trailing whitespace
+                line.erase(line.begin(), find_if(line.begin(), line.end(), [](char ch) {return !isspace(ch);}));
+                line.erase(find_if(line.rbegin(), line.rend(), [](char ch) {return !isspace(ch);}).base(), line.end());
+            
+                if (line.empty()) {
+                    // Unless it is empty
+                    continue;
+                }
+            
+                // See if each line starts with @SQ and we have to parse it, or @HD and we have to drop it, or if we have to handle it as a name.
+                if (starts_with(line, "@SQ")) {
+                    // If it is SAM, split on tabs
+                    auto parts = split_delims(line, "\t");
+                    
+                    // We want to find the length in addition to the name
+                    int64_t length = -1;
+                    
+                    for (size_t i = 1; i < parts.size(); i++) {
+                        if (starts_with(parts[i], "SN:")) {
+                            // The rest of this field is the name
+                            sequence_name = parts[i].substr(3);
+                        } else if (starts_with(parts[i], "LN:")) {
+                            // The rest of this field is a length number
+                            length = stoll(parts[i].substr(3));
+                        }
+                    }
+                    
+                    if (sequence_name == "") {
+                        cerr << "error:[vg::get_sequence_dictionary] No sequence name for @SQ line " << line << endl;
+                        exit(1);
+                    }
+                    if (length < 0) {
+                        cerr << "error:[vg::get_sequence_dictionary] Unacceptable sequence length " << length << " for sequence " << sequence_name << endl;
+                        exit(1);
+                    }
+                    
+                    // Check the sequence against the graph
+                    if (!graph.has_path(sequence_name)) {
+                        // Name doesn't exist
+                        cerr << "error:[vg mpmap] Graph does not have a path named " << line << ", which was indicated in " << filename << endl;
+                        exit(1);
+                    }
+                    path = graph.get_path_handle(sequence_name);
+                    size_t graph_path_length = graph.get_path_length(path);
+                    if (graph_path_length != length) {
+                        // Length doesn't match
+                        cerr << "error:[vg mpmap] Graph contains a path " << sequence_name << " of length " << graph_path_length
+                            << " but sequence dictionary in " << filename << " indicates a length of " << length << endl;
+                        exit(1);
+                    }
+                    
+                } else if (starts_with(line, "@HD")) {
+                    // SAM header line also found in dict files. Drop it.
+                    // TODO: Hope nobody named a sequence "@HD"-something
+                    continue;
+                } else {
+                    // Get the name from the line and the sequence from the graph
+                    sequence_name = line;
+                    if (!graph.has_path(sequence_name)) {
+                        cerr << "error:[vg mpmap] Graph does not have a path named " << line << ", which was indicated in " << filename << endl;
+                        exit(1);
+                    }
+                    path = graph.get_path_handle(sequence_name);
+                }
+                
+                // Save the path handle
+                dictionary.push_back(path);
+            }
+        });
+        
+        if (dictionary.empty()) {
+            // There were no entries in the file
+            cerr << "error:[vg::get_sequence_dictionary] No sequence dictionary available in file: " << filename << endl;
+            exit(1);
+        }
+    } else {
+        graph.for_each_path_handle([&](const path_handle_t& path_handle) {
+            string sequence_name = graph.get_path_name(path_handle);
+            if (!Paths::is_alt(sequence_name)) {
+                // This isn't an alt allele path, so we want it.
+                dictionary.push_back(path_handle);
+            }
+        });
+        
+        if (dictionary.empty()) {
+            cerr << "error:[vg::get_sequence_dictionary] No non-alt-allele paths available in the graph!" << endl;
+            exit(1);
+        }
+    }
+    
+    return dictionary;
 }
 
 // Give the footer length for rewriting BGZF EOF markers.
 const size_t HTSWriter::BGZF_FOOTER_LENGTH = 28;
 
 HTSWriter::HTSWriter(const string& filename, const string& format,
-    const map<string, int64_t>& path_length, size_t max_threads) :
+    const vector<pair<string, int64_t>>& path_order_and_length, size_t max_threads) :
     out_file(filename == "-" ? nullptr : new ofstream(filename)),
     multiplexer(out_file.get() != nullptr ? *out_file : cout, max_threads),
-    format(format), path_length(path_length),
+    format(format), path_order_and_length(path_order_and_length), path_index(),
     backing_files(max_threads, nullptr), sam_files(max_threads, nullptr),
     atomic_header(nullptr), sam_header(), header_mutex(), output_is_bgzf(format != "SAM"),
     hts_mode() {
@@ -87,7 +229,12 @@ HTSWriter::HTSWriter(const string& filename, const string& format,
     }
     // Save to a C++ string that we will use later.
     hts_mode = out_mode;
-   
+    
+    for (auto it = this->path_order_and_length.begin(); it != this->path_order_and_length.end(); ++it) {
+        // Compute the index to look up path lengths in the ordered path list.
+        path_index.emplace(it->first, it);
+    }
+    
     // Each thread will lazily open its samFile*, once it has a header ready
 }
 
@@ -150,7 +297,7 @@ bam_hdr_t* HTSWriter::ensure_header(const string& read_group,
             }
             
             // Make the header
-            header = hts_string_header(sam_header, path_length, rg_sample);
+            header = hts_string_header(sam_header, path_order_and_length, rg_sample);
             
             // Initialize the SAM file for this thread and actually keep the header
             // we write, since we are the first thread.
@@ -257,8 +404,8 @@ void HTSWriter::initialize_sam_file(bam_hdr_t* header, size_t thread_number, boo
 }
 
 HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& format,
-                                         const map<string, int64_t>& path_length, size_t max_threads)
-    : HTSWriter(filename, format, path_length, max_threads)
+                                         const vector<pair<string, int64_t>>& path_order_and_length, size_t max_threads)
+    : HTSWriter(filename, format, path_order_and_length, max_threads)
 {
     // nothing else to do
 }
@@ -270,7 +417,7 @@ void HTSAlignmentEmitter::convert_alignment(const Alignment& aln, vector<pair<in
     path_name = aln.refpos(0).name();
     size_t path_len = 0;
     if (path_name != "") {
-        path_len = path_length.at(path_name);
+        path_len = path_index.at(path_name)->second;
     }
     // Extract the position so that it could be adjusted by cigar_against_path if we decided to supperss softclips. Which we don't.
     // TODO: Separate out softclip suppression.
@@ -492,10 +639,10 @@ void HTSAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_ba
 }
 
 SplicedHTSAlignmentEmitter::SplicedHTSAlignmentEmitter(const string& filename, const string& format,
-                                                       const map<string, int64_t>& path_length,
+                                                       const vector<pair<string, int64_t>>& path_order_and_length,
                                                        const PathPositionHandleGraph& graph,
                                                        size_t max_threads) :
-    HTSAlignmentEmitter(filename, format, path_length, max_threads), graph(graph) {
+    HTSAlignmentEmitter(filename, format, path_order_and_length, max_threads), graph(graph) {
     
     // nothing else to do
 }
@@ -543,12 +690,7 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
                     // we may still be searching through an initial softclip to find
                     // the edit that corresponds to the BAM position
                     if (edit.to_length() > 0 && edit.from_length() == 0) {
-                        if (cigar.empty()) {
-                            cigar.emplace_back(edit.to_length(), 'S');
-                        }
-                        else {
-                            cigar.back().first += edit.to_length();
-                        }
+                        append_cigar_operation(edit.to_length(), 'S', cigar);
                         // skip the main block where we assign cigar operations
                         continue;
                     }
@@ -576,14 +718,7 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
                     throw std::runtime_error("Spliced CIGAR construction can only convert simple edits");
                 }
                 
-                if (!cigar.empty() && cigar.back().second == cigar_code) {
-                    // extend the previous cigar operation
-                    cigar.back().first += length;
-                }
-                else {
-                    // create a new cigar operation
-                    cigar.emplace_back(length, cigar_code);
-                }
+                append_cigar_operation(length, cigar_code, cigar);
             } // close loop over edits
             
             if (found_pos && i + 1 < path.mapping_size()) {
@@ -627,15 +762,11 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
                     // add to the cigar
                     if (deletion_length >= min_splice_length) {
                         // long enough to be a splice
-                        cigar.emplace_back(deletion_length, 'N');
-                    }
-                    else if (cigar.back().second == 'D') {
-                        // extend a deletion
-                        cigar.back().first += deletion_length;
+                        append_cigar_operation(deletion_length, 'N', cigar);
                     }
                     else if (deletion_length) {
-                        // create a new deletion
-                        cigar.emplace_back(deletion_length, 'D');
+                        // create or extend a deletion
+                        append_cigar_operation(deletion_length, 'D', cigar);
                     }
                 }
                 
@@ -649,6 +780,9 @@ vector<pair<int, char>> SplicedHTSAlignmentEmitter::spliced_cigar_against_path(c
             cigar.back().second = 'S';
         }
     }
+    
+    consolidate_ID_runs(cigar);
+    
     return cigar;
 }
 

@@ -511,10 +511,10 @@ namespace vg {
                 int64_t first_edit_start = numeric_limits<int64_t>::max();
                 int64_t last_edit_end = -1;
 
-                // We'll fill this with any duplicate variants that should be
-                // ignored, out of the clump. This is better than erasing out of a
+                // We'll fill this with any variants that should be ignored,
+                // out of the clump. This is better than erasing out of a
                 // vector.
-                set<vcflib::Variant*> duplicates;
+                set<vcflib::Variant*> skipped;
                 
                 for (size_t var_num = 0; var_num < clump.size(); var_num++) {
                     // For each variant in the clump
@@ -529,7 +529,10 @@ namespace vg {
                     // If variants have SVTYPE set, though, we will still use that info instead of the base-level sequence.
 
                     // Since we make the fasta reference uppercase, we do the VCF too (otherwise vcflib get mad)
+                    // We set this if we modify the variant and vcflib needs to reindex it.
                     bool reindex = false;
+                    // We set this if we skipped the variant
+                    bool skip_variant = false;
                     for (auto& alt : variant->alt) {
                         string upper_case_alt = toUppercase(alt);
                         if (alt != upper_case_alt) {
@@ -544,6 +547,18 @@ namespace vg {
                             swap(alt, upper_case_alt);
                             reindex = true;
                         }
+                        if (alt == "*") {
+                            // This is a newer VCF feature we don't support,
+                            // but not a broken file.
+                            #pragma omp critical (cerr)
+                            {
+                                cerr << "warning:[vg::Constructor] Unsupported allele \"*\" found in "
+                                     << "variant, skipping variant:\n" << *variant << endl;
+                            }
+                            skipped.insert(variant);
+                            skip_variant = true;
+                            break;
+                        }
                         if (!allATGCN(alt)) {
                             // We don't know what to do with gaps or IUPAC ambiguity codes, and
                             // we want to catch complete garbage.
@@ -554,6 +569,10 @@ namespace vg {
                                 exit(1);
                             }
                         }
+                    }
+                    if (skip_variant) {
+                        // Move to the next variant
+                        continue;
                     }
                     for (auto& allele : variant->alleles) {
                         allele = toUppercase(allele);
@@ -589,7 +608,7 @@ namespace vg {
                         #pragma omp critical (cerr)
                         cerr << "warning:[vg::Constructor] Skipping duplicate variant with hash " << variant_name
                             << " at " << variant->sequenceName << ":" << variant->position << endl;
-                        duplicates.insert(variant);
+                        skipped.insert(variant);
                         continue;
                     }
 
@@ -603,7 +622,44 @@ namespace vg {
                     // reference allele of the variant won't appear here.
 
                     map<string, vector<vcflib::VariantAllele>> alternates;
-                    if (flat) {
+                    
+                    // Decide if we should parse (i.e. align) the variant alts.
+                    // We don';t want to do it if the alignment would be too big.
+                    bool can_parse = !flat;
+                    if (can_parse) {
+                        if (variant->isSymbolicSV()) {
+                            // All the variants are probably canonicalized by now and
+                            // probably should not look like SVs. And vcflib is
+                            // smart enough to give us flat alts when we ask to
+                            // parse something that still does look like an SV.
+                            // But we still probably want the flat alt
+                            // postprocessing, so go with flat alts here.
+                            can_parse = false;
+                        } else {
+                            // We (no longer?) have symbolic alleles, so just
+                            // bail if any allele is too long. Only ref and alt
+                            // fields will be filled in with sequence; alleles
+                            // field may still be symbolic.
+                            if (variant->ref.size() > max_parsed_variant_size) {
+                                // Ref is too long. Handle as flat.
+                                can_parse = false;
+                            } else {
+                                for (auto& a : variant->alt) {
+                                    if (a.size() > max_parsed_variant_size) {
+                                        // This alt is too long. Handle as flat.
+                                        can_parse = false;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    
+                    if (can_parse) {
+                        // Do alignments to parse the alleles
+                        alternates = variant->parsedAlternates();
+                    } else {
                         alternates = variant->flatAlternates();
                         // if we can, remove the 1bp "standard" base that's added at the beginning of indels
                         if (this->trim_indels){
@@ -617,9 +673,6 @@ namespace vg {
                                 }
                             }
                         }
-                        
-                    } else {
-                        alternates = variant->parsedAlternates();
                     }
                     
                     // Get the variable bounds in VCF space for all the trimmed alts of this variant
@@ -714,9 +767,17 @@ namespace vg {
                         last_edit_end = max(last_edit_end, bounds.second);
                     }
                 }
+                
+                if (skipped.size() == clump.size()) {
+                    // We skipped all the variants in the clump. Kick back up
+                    // to clump building.
+                    clump.clear();
+                    clump_end = 0;
+                    continue;
+                }
 
-                // We have to have some non-ref material in the clump, even if it
-                // occupies 0 reference space.
+                // Otherwise, we have to have some non-ref material in the
+                // clump, even if it occupies 0 reference space.
                 assert(last_edit_end != -1);
                 assert(first_edit_start != numeric_limits<int64_t>::max());
 
@@ -1158,7 +1219,7 @@ namespace vg {
                         if (alt_paths) {
                             for (vcflib::Variant* variant : clump) {
                                 // For each variant we might also be part of the ref allele of
-                                if (!duplicates.count(variant) &&
+                                if (!skipped.count(variant) &&
                                         variable_bounds.count(variant) &&
                                         reference_cursor >= variable_bounds[variant].first &&
                                         reference_cursor <= variable_bounds[variant].second) {

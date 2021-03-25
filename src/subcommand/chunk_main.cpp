@@ -21,10 +21,8 @@
 #include "../region.hpp"
 #include "../haplotype_extracter.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
-#include "../algorithms/weakly_connected_components.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 #include "../io/save_handle_graph.hpp"
-#include "../algorithms/copy_graph.hpp"
 
 using namespace std;
 using namespace vg;
@@ -285,18 +283,6 @@ int main_chunk(int argc, char** argv) {
         cerr << "error:[vg chunk] context cannot be specified (-c) when splitting into components (-C)" << endl;
         return 1;
     }
-    // context steps default to 1 if using id_ranges.  otherwise, force user to specify to avoid
-    // misunderstandings
-    if (context_steps < 0 && gam_split_size == 0) {
-        if (id_range) {
-            if (!context_length) {
-                context_steps = 1;
-            }
-        } else if (!components){
-            cerr << "error:[vg chunk] context expansion steps must be specified with -c/--context when chunking on paths" << endl;
-            return 1;
-        }
-    }
 
     // check the output format
     std::transform(output_format.begin(), output_format.end(), output_format.begin(), ::tolower);
@@ -473,6 +459,24 @@ int main_chunk(int argc, char** argv) {
                 }
             });
     }
+    
+    if (context_steps >= 0 && regions.empty()) {
+        cerr << "error:[vg chunk] extracting context (-c) requires a region to take context around" << endl;
+        return 1;
+    }
+    
+    // context steps default to 1 if using id_ranges.  otherwise, force user to specify to avoid
+    // misunderstandings
+    if (context_steps < 0 && gam_split_size == 0) {
+        if (id_range) {
+            if (!context_length) {
+                context_steps = 1;
+            }
+        } else if (!components){
+            cerr << "error:[vg chunk] context expansion steps must be specified with -c/--context when chunking on paths" << endl;
+            return 1;
+        }
+    }
 
     // validate and fill in sizes for regions that span entire path
     function<size_t(const string&)> get_path_length = [&](const string& path_name) {
@@ -524,7 +528,7 @@ int main_chunk(int argc, char** argv) {
     vector<unordered_set<nid_t>> component_ids; 
     if (components == true && regions.empty()) {
         // no regions given, we find our components from scratch and make some dummy regions
-        component_ids = algorithms::weakly_connected_components(graph);
+        component_ids = handlealgs::weakly_connected_components(graph);
         for (int i = 0; i < component_ids.size(); ++i) {
             Region region;
             region.seq = "";
@@ -655,11 +659,11 @@ int main_chunk(int argc, char** argv) {
                 // our graph is not in vg format.  covert it, extend it, convert it back
                 // this can eventually be avoided by handlifying the haplotype tracer
                 VG vg;
-                algorithms::copy_path_handle_graph(subgraph.get(), &vg);
+                handlealgs::copy_path_handle_graph(subgraph.get(), &vg);
                 subgraph.reset();
                 vg.extend(g);
                 subgraph = vg::io::new_output_graph<MutablePathMutableHandleGraph>(output_format);
-                algorithms::copy_path_handle_graph(&vg, subgraph.get());
+                handlealgs::copy_path_handle_graph(&vg, subgraph.get());
             }
         }
 

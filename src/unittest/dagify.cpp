@@ -7,9 +7,6 @@
 #include "vg/io/json2pb.h"
 #include "../vg.hpp"
 #include "../split_strand_graph.hpp"
-#include "../algorithms/dagify.hpp"
-#include "../algorithms/is_acyclic.hpp"
-#include "../algorithms/split_strands.hpp"
 #include "random_graph.hpp"
 #include "catch.hpp"
 
@@ -38,9 +35,9 @@ namespace unittest {
             
             size_t preserved_length = 1;
             
-            unordered_map<id_t, id_t> trans = algorithms::dagify(&graph, &dagified, preserved_length);
+            unordered_map<id_t, id_t> trans = handlealgs::dagify(&graph, &dagified, preserved_length);
             
-            REQUIRE(algorithms::is_acyclic(&dagified));
+            REQUIRE(handlealgs::is_acyclic(&dagified));
             REQUIRE(dagified.get_node_count() == 6);
             
             handle_t d1, d2, d3, d4, d5, d6;
@@ -156,9 +153,9 @@ namespace unittest {
 
             size_t preserved_length = 5;
 
-            unordered_map<id_t, id_t> trans = algorithms::dagify(&graph, &dagified, preserved_length);
+            unordered_map<id_t, id_t> trans = handlealgs::dagify(&graph, &dagified, preserved_length);
             
-            REQUIRE(algorithms::is_acyclic(&dagified));
+            REQUIRE(handlealgs::is_acyclic(&dagified));
             REQUIRE(dagified.get_node_count() == 8);
 
             handle_t d1, d2, d3, d4, d5, d6, d7, d8;
@@ -285,9 +282,9 @@ namespace unittest {
             
             size_t preserved_length = 1;
             
-            unordered_map<id_t, id_t> trans = algorithms::dagify(&graph, &dagified, preserved_length);
+            unordered_map<id_t, id_t> trans = handlealgs::dagify(&graph, &dagified, preserved_length);
             
-            REQUIRE(algorithms::is_acyclic(&dagified));
+            REQUIRE(handlealgs::is_acyclic(&dagified));
             REQUIRE(dagified.get_node_count() == 6);
             
             handle_t d1, d2, d3, d4, d5, d6;
@@ -408,17 +405,17 @@ namespace unittest {
             random_graph(seq_size, variant_len, variant_count, &graph);
             
             bdsg::HashGraph direct_split;
-            algorithms::split_strands(&graph, &direct_split);
+            handlealgs::split_strands(&graph, &direct_split);
             bdsg::HashGraph direct_dagified;
-            algorithms::dagify(&direct_split, &direct_dagified, preserved_length);
+            handlealgs::dagify(&direct_split, &direct_dagified, preserved_length);
 
             StrandSplitGraph split(&graph);
             
             bdsg::HashGraph dagified;
-            algorithms::dagify(&split, &dagified, preserved_length);
+            handlealgs::dagify(&split, &dagified, preserved_length);
             
-            REQUIRE(algorithms::is_acyclic(&direct_dagified));
-            REQUIRE(algorithms::is_acyclic(&dagified));
+            REQUIRE(handlealgs::is_acyclic(&direct_dagified));
+            REQUIRE(handlealgs::is_acyclic(&dagified));
         }
     }
 }

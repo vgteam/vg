@@ -28,10 +28,14 @@ void help_deconstruct(char** argv){
          << "Outputs VCF records for Snarls present in a graph (relative to a chosen reference path)." << endl
          << "options: " << endl
          << "    -p, --path NAME          A reference path to deconstruct against (multiple allowed)." << endl
-         << "    -P, --path-prefix NAME   All paths beginning with NAME used as reference (multiple allowed)." << endl
-         << "    -A, --alt-prefix NAME    Non-reference paths beginning with NAME get lumped together to same sample in VCF (multiple allowed).  Other non-ref paths not considered as samples." << endl
+         << "    -P, --path-prefix NAME   All paths (and/or GBWT threads) beginning with NAME used as reference (multiple allowed)." << endl
+         << "    -A, --alt-prefix NAME    Non-reference paths (and/or GBWT threads) beginning with NAME get lumped together to same sample in VCF (multiple allowed)." << endl
+         << "                             Other non-ref paths not considered as samples.  When using a GBWT, select only samples with given prefix." << endl
          << "    -r, --snarls FILE        Snarls file (from vg snarls) to avoid recomputing." << endl
-         << "    -e, --path-traversals    Only consider traversals that correspond to paths in the grpah." << endl
+         << "    -g, --gbwt FILE          only consider alt traversals that correspond to GBWT threads FILE." << endl
+         << "    -T, --translation FILE   Node ID translation (as created by vg gbwt --translation) to apply to snarl names in output" << endl
+         << "    -e, --path-traversals    Only consider traversals that correspond to paths in the graph." << endl
+         << "    -a, --all-snarls         Process all snarls, including nested snarls (by default only top-level snarls reported)." << endl
          << "    -d, --ploidy N           Expected ploidy.  If more traversals found, they will be flagged as conflicts (default: 2)" << endl
          << "    -t, --threads N          Use N threads" << endl
          << "    -v, --verbose            Print some status messages" << endl
@@ -49,9 +53,13 @@ int main_deconstruct(int argc, char** argv){
     vector<string> altpath_prefixes;
     string graphname;
     string snarl_file_name;
+    string gbwt_file_name;
+    string translation_file_name;
     bool path_restricted_traversals = false;
     bool show_progress = false;
     int ploidy = 2;
+    bool set_ploidy = false;
+    bool all_snarls = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -63,8 +71,11 @@ int main_deconstruct(int argc, char** argv){
                 {"path-prefix", required_argument, 0, 'P'},
                 {"alt-prefix", required_argument, 0, 'A'},
                 {"snarls", required_argument, 0, 'r'},
+                {"gbwt", required_argument, 0, 'g'},
+                {"translation", required_argument, 0, 'T'},
                 {"path-traversals", no_argument, 0, 'e'},
-                {"ploidy", required_argument, 0, 'd'},                
+                {"ploidy", required_argument, 0, 'd'},
+                {"all-snarls", no_argument, 0, 'a'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
@@ -72,7 +83,7 @@ int main_deconstruct(int argc, char** argv){
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:P:A:r:ed:t:v",
+        c = getopt_long (argc, argv, "hp:P:A:r:g:T:ed:at:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -93,12 +104,22 @@ int main_deconstruct(int argc, char** argv){
         case 'r':
             snarl_file_name = optarg;
             break;
+        case 'g':
+            gbwt_file_name = optarg;
+            break;
+        case 'T':
+            translation_file_name = optarg;
+            break;
         case 'e':
             path_restricted_traversals = true;
             break;
         case 'd':
             ploidy = parse<int>(optarg);
-            break;            
+            set_ploidy = true;
+            break;
+        case 'a':
+            all_snarls = true;
+            break;
         case 't':
             omp_set_num_threads(parse<int>(optarg));
             break;
@@ -116,13 +137,14 @@ int main_deconstruct(int argc, char** argv){
 
     }
 
-    if (refpaths.empty() && refpath_prefixes.empty()) {
-        cerr << "Error [vg deconstruct]: Reference path(s) and/or prefix(es) must be given with -p and/or -P" << endl;
+    if ((!altpath_prefixes.empty() || set_ploidy) && !path_restricted_traversals && gbwt_file_name.empty()) {
+        cerr << "Error [vg deconstruct]: -A and -d can only be used with -e or -g" << endl;
         return 1;
     }
 
-    if (!altpath_prefixes.empty() && !path_restricted_traversals) {
-        cerr << "Error [vg decontruct]: -A can only be used with -e" << endl;
+    if (!gbwt_file_name.empty() && path_restricted_traversals) {
+        cerr << "Error [vg deconstruct]: -e cannot be used with -g" << endl;
+        return 1;
     }
 
     // Read the graph
@@ -133,6 +155,60 @@ int main_deconstruct(int argc, char** argv){
 
     bdsg::PathPositionOverlayHelper overlay_helper;
     PathPositionHandleGraph* graph = overlay_helper.apply(path_handle_graph.get());
+
+    // Read the GBWT
+    unique_ptr<gbwt::GBWT> gbwt_index;
+    if (!gbwt_file_name.empty()) {
+        gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file_name);
+        if (gbwt_index.get() == nullptr) {
+            cerr << "Error [vg deconstruct]: Unable to load gbwt index file: " << gbwt_file_name << endl;
+            return 1;
+        }
+    }
+
+    if (!refpaths.empty()) {
+        unordered_set<string> gbwt_paths;
+        if (gbwt_index.get()) {
+            for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
+                gbwt_paths.insert(thread_name(*gbwt_index, i));
+            }
+        }
+        // Check our paths
+        for (const string& ref_path : refpaths) {
+            if (!graph->has_path(ref_path) && !gbwt_paths.count(ref_path)) {
+                cerr << "error [vg deconstruct]: Reference path \"" << ref_path << "\" not found in graph/gbwt" << endl;
+                return 1;
+            }
+        }
+    }
+    
+    if (refpaths.empty() && refpath_prefixes.empty()) {
+        // No paths specified: use them all
+        graph->for_each_path_handle([&](path_handle_t path_handle) {
+                const string& name = graph->get_path_name(path_handle);
+                if (!Paths::is_alt(name)) {
+                    refpaths.push_back(name);
+                }
+            });
+        // Add GBWT threads if no reference paths found or we're running with -a
+        if (gbwt_index.get() && (all_snarls || refpaths.empty())) {
+            for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
+                refpaths.push_back(thread_name(*gbwt_index, i));
+            }            
+        }
+    }
+
+    // Read the translation
+    unique_ptr<unordered_map<nid_t, pair<nid_t, size_t>>> translation;
+    if (!translation_file_name.empty()) {
+        ifstream translation_file(translation_file_name.c_str());
+        if (!translation_file) {
+            cerr << "Error [vg deconstruct]: Unable to load translation file: " << translation_file_name << endl;
+            return 1;
+        }
+        translation = make_unique<unordered_map<nid_t, pair<nid_t, size_t>>>();
+        *translation = load_translation_back_map(*graph, translation_file);
+    }
     
     // Load or compute the snarls
     unique_ptr<SnarlManager> snarl_manager;    
@@ -177,15 +253,31 @@ int main_deconstruct(int argc, char** argv){
                     }
                 }
             });
+        if (gbwt_index.get()) {
+            for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
+                std::string path_name = thread_name(*gbwt_index, i);
+                for (auto& prefix : refpath_prefixes) {
+                    if (path_name.compare(0, prefix.size(), prefix) == 0) {
+                        refpaths.push_back(path_name);
+                        break;
+                    }
+                }
+            }
+        }            
+
+        if (gbwt_index.get() && !altpath_prefixes.empty()) {
+            for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
+                string sample_name = thread_sample(*gbwt_index.get(), i);
+                for (auto& prefix : altpath_prefixes) {
+                    if (sample_name.compare(0, prefix.size(), prefix) == 0) {
+                        alt_path_to_prefix[sample_name] = sample_name;
+                    }
+                }
+            }
+        }
     }
 
-    // make sure we have at least one reference
-    bool found_refpath = false;
-    for (size_t i = 0; i < refpaths.size() && !found_refpath; ++i) {
-        found_refpath = found_refpath || graph->has_path(refpaths[i]);
-    }
-
-    if (!found_refpath) {
+    if (refpaths.empty()) {
         cerr << "Error [vg deconstruct]: No specified reference path or prefix found in graph" << endl;
         return 1;
     }
@@ -195,8 +287,8 @@ int main_deconstruct(int argc, char** argv){
     if (show_progress) {
         cerr << "Decsontructing top-level snarls" << endl;
     }
-    dd.deconstruct(refpaths, graph, snarl_manager.get(), path_restricted_traversals, ploidy,
-                   !alt_path_to_prefix.empty() ? &alt_path_to_prefix : nullptr);
+    dd.deconstruct(refpaths, graph, snarl_manager.get(), path_restricted_traversals, ploidy, all_snarls,
+                   !alt_path_to_prefix.empty() ? &alt_path_to_prefix : nullptr, gbwt_index.get(), translation.get());
     return 0;
 }
 

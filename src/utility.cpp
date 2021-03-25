@@ -148,20 +148,39 @@ void choose_good_thread_count() {
 }
 
 std::vector<std::string> &split_delims(const std::string &s, const std::string& delims, std::vector<std::string> &elems) {
-    char* tok;
-    char cchars [s.size()+1];
-    char* cstr = &cchars[0];
-    strcpy(cstr, s.c_str());
-    tok = strtok(cstr, delims.c_str());
-    while (tok != NULL) {
-        elems.push_back(tok);
-        tok = strtok(NULL, delims.c_str());
+    size_t start = string::npos;
+    for (size_t i = 0; i < s.size(); ++i) {
+        if (delims.find(s[i]) != string::npos) {
+            if (start != string::npos && i > start) {
+                elems.push_back(s.substr(start, i - start));
+            }
+            start = string::npos;
+        } else if (start == string::npos) {
+            start = i;
+        }
+    }
+    if (start != string::npos && start < s.size()) {
+        elems.push_back(s.substr(start, s.size() - start));
     }
     return elems;
 }
+
 std::vector<std::string> split_delims(const std::string &s, const std::string& delims) {
     std::vector<std::string> elems;
     return split_delims(s, delims, elems);
+}
+
+bool starts_with(const std::string& value, const std::string& prefix) {
+#if __cplusplus > 201703L
+    // C++20 provides this
+    return value.starts_with(prefix);
+#else
+    // Before then, C++ is terrible and we have to do it ourselves.
+    if (value.size() < prefix.size()) {
+        return false;
+    }
+    return std::equal(prefix.begin(), prefix.end(), value.begin());
+#endif
 }
 
 const std::string sha1sum(const std::string& data) {
@@ -275,27 +294,81 @@ string temp_dir;
 /// Because the names are in a static object, we can delete them when
 /// std::exit() is called.
 struct Handler {
-    set<string> filenames;
+    /// What temp files have we handed out?
+    unordered_set<string> filenames;
+    
+    /// What temp directories have we handed out
+    unordered_set<string> dirnames;
+    
+    /// Place where all temporary files for this vg invocation live.
     string parent_directory;
+    
+    /// Make sure the parent directory for all our temporary files and
+    /// directories exists.
+    void ensure_parent_directory() {
+        if (parent_directory.empty()) {
+            // Make a parent directory for our temp files
+            string tmpdirname = get_dir() + "/vg-XXXXXX";
+            auto got = mkdtemp(&tmpdirname[0]);
+            if (got != nullptr) {
+                // Save the directory we got
+                parent_directory = got;
+            } else {
+                cerr << "[vg utility.cpp]: couldn't create temp directory: " << tmpdirname << endl;
+                exit(1);
+            }
+        }
+    }
+    
+    /// Delete a directory and all files in it.
+    static void remove_directory(const string& name) {
+        // Open it up to get the files
+        auto directory = opendir(name.c_str());
+        
+        dirent* dp;
+        while ((dp = readdir(directory)) != nullptr) {
+            // For every item still in it
+            
+            if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0) {
+                // This is a special here or up entry, so skip it.
+                continue;
+            }
+            
+            // Compute the full path
+            string path = name + "/" + dp->d_name;
+            
+            struct stat dp_stat;
+            stat(path.c_str(), &dp_stat);
+            if (S_ISDIR(dp_stat.st_mode) && !S_ISLNK(dp_stat.st_mode)) {
+                // It's a directory and may have stuff in it.
+                // It isn't a link to some other random place (unless the
+                // current user is tampering with their own temp files to
+                // delete their own stuff).
+                // Clear it out.
+                remove_directory(path);
+            } else {
+                // Normal file or symlink.
+                // Delete just it.
+                std::remove(path.c_str());
+            }
+        }
+        closedir(directory);
+        
+        // Delete the directory itself
+        std::remove(name.c_str());
+    }
+    
     ~Handler() {
         // No need to lock in static destructor
         for (auto& filename : filenames) {
             std::remove(filename.c_str());
         }
+        for (auto& dirname : dirnames) {
+            remove_directory(dirname);
+        }
         if (!parent_directory.empty()) {
             // There may be extraneous files in the directory still (like .fai files)
-            auto directory = opendir(parent_directory.c_str());
-            
-            dirent* dp;
-            while ((dp = readdir(directory)) != nullptr) {
-                // For every item still in it, delete it.
-                // TODO: Maybe eventually recursively delete?
-                std::remove((parent_directory + "/" + dp->d_name).c_str());
-            }
-            closedir(directory);
-            
-            // Delete the directory itself
-            std::remove(parent_directory.c_str());
+            remove_directory(parent_directory);
         }
     }
 } handler;
@@ -303,18 +376,7 @@ struct Handler {
 string create(const string& base) {
     lock_guard<recursive_mutex> lock(monitor);
 
-    if (handler.parent_directory.empty()) {
-        // Make a parent directory for our temp files
-        string tmpdirname = get_dir() + "/vg-XXXXXX";
-        auto got = mkdtemp(&tmpdirname[0]);
-        if (got != nullptr) {
-            // Save the directory we got
-            handler.parent_directory = got;
-        } else {
-            cerr << "[vg utility.cpp]: couldn't create temp directory: " << tmpdirname << endl;
-            exit(1);
-        }
-    }
+    handler.ensure_parent_directory(); 
 
     string tmpname = handler.parent_directory + "/" + base + "XXXXXX";
     // hack to use mkstemp to get us a safe temporary file name
@@ -336,11 +398,37 @@ string create() {
     return create("vg-");
 }
 
+string create_directory() {
+    lock_guard<recursive_mutex> lock(monitor);
+    
+    handler.ensure_parent_directory(); 
+
+    string tmpname = handler.parent_directory + "/dir-XXXXXX";
+    auto got = mkdtemp(&tmpname[0]);
+    if (got != nullptr) {
+        // Save the directory we got
+        handler.dirnames.insert(got);
+        return got;
+    } else {
+        cerr << "[vg utility.cpp]: couldn't create temp directory: " << tmpname << endl;
+        exit(1);
+    }
+}
+
 void remove(const string& filename) {
     lock_guard<recursive_mutex> lock(monitor);
     
-    std::remove(filename.c_str());
-    handler.filenames.erase(filename);
+    if (handler.dirnames.count(filename)) {
+        handler.remove_directory(filename);
+        handler.dirnames.erase(filename);
+    } else if (handler.filenames.count(filename)) {
+        std::remove(filename.c_str());
+        handler.filenames.erase(filename);
+    } else {
+        // Probably e.g. a .fai file. Just remove it and fail if it's a
+        // nonempty directory.
+        std::remove(filename.c_str());
+    }
 }
 
 void set_dir(const string& new_temp_dir) {
