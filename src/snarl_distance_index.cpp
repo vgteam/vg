@@ -633,6 +633,19 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
                         queue.push(make_pair(current_distance + next_node_len, 
                                        make_pair(next_index, next_rev)));
                     }
+                    if (next_index.first == TEMP_CHAIN) {
+                        int64_t loop_distance = next_rev ? temp_chain_records[next_index.second].backward_loops.back() 
+                                                         : temp_chain_records[next_index.second].forward_loops.front();
+                        if (loop_distance != std::numeric_limits<int64_t>::max() &&
+                            seen_nodes.count(make_pair(next_index, !next_rev)) == 0 &&
+                            graph->get_id(next_handle) != temp_snarl_record.start_node_id &&
+                            graph->get_id(next_handle) != temp_snarl_record.end_node_id) {
+                            //If the next node can loop back on itself, then add the next node in the opposite direction
+                            int64_t next_node_len = loop_distance + 2 * graph->get_length(next_handle);
+                            queue.push(make_pair(current_distance + next_node_len, 
+                                           make_pair(next_index, !next_rev)));
+                        }
+                    }
 #ifdef debug_distance_indexing
                     cerr << "        reached child " << structure_start_end_as_string(next_index) << "going " 
                          << (next_rev ? "rev" : "fd") << " with distance " << current_distance << " for ranks " << start_rank << " " << next_rank << endl;
@@ -1885,12 +1898,14 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
      * Keep track of the distances to the ends of the net handles as we go
      */
  
-    if (canonical(net1) == canonical(net2) && 
-        get_connectivity(net1) != get_connectivity(net1) && 
-        sum({distance_to_start1 , distance_to_start2}) > node_length(net1)) {
-        //If the positions are on the same node and are pointing towards each other, then
-        //check the distance between them in the node
-        minimum_distance = minus(sum({distance_to_start1 , distance_to_start2}), node_length(net1));
+    if (canonical(net1) == canonical(net2)){
+        if (get_connectivity(net1) != get_connectivity(net1) && 
+            sum({distance_to_start1 , distance_to_start2}) > node_length(net1)) {
+            //If the positions are on the same node and are pointing towards each other, then
+            //check the distance between them in the node
+            minimum_distance = minus(sum({distance_to_start1 , distance_to_start2}), node_length(net1));
+        }
+        common_ancestor = get_parent(net1);
     } else {
 
         //Get the distance from position 1 up to the ends of a child of the common ancestor
