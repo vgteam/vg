@@ -717,7 +717,7 @@ int main_mod(int argc, char** argv) {
 
     if (prune_complex) {
         if (!(path_length > 0 && edge_max > 0)) {
-            cerr << "[vg mod]: when pruning complex regions you must specify a --path-length and --edge-max" << endl;
+            cerr << "[vg mod]: when pruning complex regions you must specify a --length and --edge-max" << endl;
             return 1;
         }
         algorithms::prune_complex_with_head_tail(*graph, path_length, edge_max);
@@ -748,7 +748,7 @@ int main_mod(int argc, char** argv) {
 
     if (add_start_and_end_markers) {
         if (!(path_length > 0)) {
-            cerr << "[vg mod]: when adding start and end markers you must provide a --path-length" << endl;
+            cerr << "[vg mod]: when adding start and end markers you must provide a --length" << endl;
             return 1;
         }
         // TODO: replace this with the SourceSinkOverlay, accounting somehow for its immutability.

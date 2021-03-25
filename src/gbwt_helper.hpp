@@ -151,6 +151,10 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
 /// NOTE: id is a gbwt path id, not a gbwt sequence id.
 std::string thread_sample(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
 
+/// Get phase of a thread stored in GBWT metadata.
+/// NOTE: id is a gbwt path id, not a gbwt sequence id.
+int thread_phase(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
+
 //------------------------------------------------------------------------------
 
 /// Transform the paths into a GBWT index. Primarily for testing.

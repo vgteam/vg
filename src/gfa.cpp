@@ -9,7 +9,9 @@ namespace vg {
 using namespace std;
 using namespace gfak;
 
-static bool write_w_line(const PathHandleGraph* graph, ostream& out, const string& wline_sep,
+static bool is_w_line(const PathHandleGraph* graph, const string& wline_sep,
+                      path_handle_t path_handle);
+static void write_w_line(const PathHandleGraph* graph, ostream& out, const string& wline_sep,
                          path_handle_t path_handle);
 
 void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>& rgfa_paths,
@@ -67,13 +69,40 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
         return true;
     });
     
-    //Go through each path
+    // Sort the paths by name, making sure to treat subpath coordinates numerically
+    vector<path_handle_t> path_handles;
     graph->for_each_path_handle([&](const path_handle_t& h) {
+            path_handles.push_back(h);
+        });
+    std::sort(path_handles.begin(), path_handles.end(), [&](const path_handle_t& p1, const path_handle_t& p2) {
+            string n1 = graph->get_path_name(p1);
+            string n2 = graph->get_path_name(p2);
+            auto s1 = Paths::parse_subpath_name(n1);
+            auto s2 = Paths::parse_subpath_name(n2);
+            if (!get<0>(s1) || !get<0>(s2)) {
+                return n1 < n2;
+            } else if (get<1>(s1) < get<1>(s2)) {
+                return true;
+            } else if (get<1>(s1) == get<1>(s2)) {
+                if (get<2>(s1) < get<2>(s2)) {
+                    return true;
+                } else if (get<2>(s1) == get<2>(s2)) {
+                    return get<3>(s1) < get<3>(s2);
+                }
+            }
+            return false;
+        });
+
+    vector<path_handle_t> w_line_paths;
+
+    // Paths as P-lines
+    for (const path_handle_t& h : path_handles) {
         path_elem p_elem;
         p_elem.name = graph->get_path_name(h);
         if (rgfa_pline || !rgfa_paths.count(p_elem.name)) {
-            bool wrote_w_line = write_w_line(graph, out, wline_sep, h);
-            if (!wrote_w_line) {
+            if (is_w_line(graph, wline_sep, h)) {
+                w_line_paths.push_back(h);
+            } else {
                 graph->for_each_step_in_path(h, [&](const step_handle_t& ph) {
             
                     handle_t step_handle = graph->get_handle_of_step(ph);
@@ -87,7 +116,12 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
                 out << p_elem.to_string_1() << "\n";
             }
         }
-    });
+    }
+    
+    // Paths as W-lines
+    for (const path_handle_t& h : w_line_paths) {
+        write_w_line(graph, out, wline_sep, h);
+    }
 
     graph->for_each_edge([&](const edge_t& h) {
         edge_elem ee;
@@ -128,8 +162,8 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     //gg.output_to_stream(cout);
 }
 
-bool write_w_line(const PathHandleGraph* graph, ostream& out, const string& wline_sep,
-                  path_handle_t path_handle) {
+bool is_w_line(const PathHandleGraph* graph, const string& wline_sep,
+               path_handle_t path_handle) {
     if (wline_sep.empty()) {
         return false;
     }
@@ -145,6 +179,15 @@ bool write_w_line(const PathHandleGraph* graph, ostream& out, const string& wlin
     } catch(...) {
         return false;
     }
+    return true;
+}
+
+void write_w_line(const PathHandleGraph* graph, ostream& out, const string& wline_sep,
+                  path_handle_t path_handle) {
+    string path_name = graph->get_path_name(path_handle);
+    vector<string> toks = split_delims(path_name, wline_sep);
+    string& sample = toks[0];
+    size_t hap_index = stol(toks[1]);
     auto subpath_parse = Paths::parse_subpath_name(toks[2]);
     string contig;
     size_t start_offset = 0;
@@ -174,7 +217,6 @@ bool write_w_line(const PathHandleGraph* graph, ostream& out, const string& wlin
             out << (graph->get_is_reverse(handle) ? "<" : ">") << graph->get_id(handle);
         });
     out << "\n";
-    return true;
 }
 
 }
