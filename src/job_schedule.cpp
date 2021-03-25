@@ -4,7 +4,9 @@
 #include "job_schedule.hpp"
 
 #include <omp.h>
-#include <unistd.h>
+#include <thread>
+#include <chrono>
+
 
 namespace vg {
 
@@ -16,7 +18,8 @@ JobSchedule::JobSchedule(const vector<pair<int64_t, int64_t>>& job_requirements,
 {
     for (int64_t i = 0; i < job_requirements.size(); ++i) {
         queue.emplace(job_requirements[i].first,
-                      job_requirements[i].second, i);
+                      job_requirements[i].second,
+                      i);
         
     }
     
@@ -34,7 +37,7 @@ void JobSchedule::execute(int64_t target_memory_usage) {
         est_memory_usage += get<1>(job);
         this->job_func(get<2>(job));
 #pragma omp atomic update
-        est_memory_usage += get<1>(job);
+        est_memory_usage -= get<1>(job);
 #pragma omp atomic update
         --jobs_ongoing;
     };
@@ -59,7 +62,7 @@ void JobSchedule::execute(int64_t target_memory_usage) {
             }
             else if (curr_jobs == 0 ||
                      (curr_mem + get<1>(queue.top()) < target_memory_usage
-                      && curr_jobs + 1 < omp_get_num_threads())) {
+                      && curr_jobs < omp_get_num_threads())) {
                 // we have memory and threads available to do the next job
                 queue.pop();
 #pragma omp task default(none) firstprivate(job) shared(jobs_ongoing, est_memory_usage, do_job)
@@ -72,7 +75,7 @@ void JobSchedule::execute(int64_t target_memory_usage) {
                 // when other threads finish
                 
                 // wait 1 sec and try again
-                usleep(1000000);
+                this_thread::sleep_for(chrono::seconds(1));
             }
         }
     }
