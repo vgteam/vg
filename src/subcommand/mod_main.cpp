@@ -167,11 +167,12 @@ int main_mod(int argc, char** argv) {
             {"drop-paths", no_argument, 0, 'D'},
             {"retain-path", required_argument, 0, 'r'},
             {"retain-complement", no_argument, 0, 'I'},
+            {"demo_0", required_argument, 0, 'F'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNAf:Cg:x:RTU:Bbd:Ow:L:y:Z:Eav:G:M:Dr:I",
+        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNAf:Cg:x:RTU:Bbd:Ow:L:y:Z:Eav:G:M:Dr:IF:",
                 long_options, &option_index);
 
 

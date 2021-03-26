@@ -43,7 +43,7 @@ using namespace std;
         
         /// Look up the handle for the node with the given ID in the given orientation
         virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
-        
+
         /// Get the ID from a handle
         virtual id_t get_id(const handle_t& handle) const;
         
@@ -64,7 +64,7 @@ using namespace std;
         /// them to a callback which returns false to stop iterating and true to
         /// continue. Returns true if we finished and false if we stopped early.
         virtual bool follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
-        
+
         /// Loop over all the nodes in the graph in their local forward
         /// orientations, in their internal stored order. Stop if the iteratee
         /// returns false. Can be told to run in parallel, in which case stopping
