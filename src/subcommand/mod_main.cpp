@@ -364,9 +364,8 @@ int main_mod(int argc, char** argv) {
     }
 
     unique_ptr<handlegraph::MutablePathDeletableHandleGraph> graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-        graph = vg::io::VPKG::load_one<handlegraph::MutablePathDeletableHandleGraph>(in);
-    });
+    string graph_filename = get_input_file_name(optind, argc, argv);
+    graph = vg::io::VPKG::load_one<handlegraph::MutablePathDeletableHandleGraph>(graph_filename);
 
     if (!vcf_filename.empty()) {
         // We need to throw out the parts of the graph that are on alt paths,

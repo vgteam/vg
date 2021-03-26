@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 45
+plan tests 57
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -259,3 +259,55 @@ rm -f direct.hg correct_paths.gaf
 rm -f components.hg hg_paths.gaf
 rm -f components.xg xg_paths.gaf
 rm -f extracted.gfa
+
+# GFA Streaming
+vg convert -g tiny/tiny.gfa -p | vg convert -f - | sort > tiny.roundtrip.gfa
+vg convert tiny/tiny.gfa -p | vg convert -f - | sort > tiny.roundtrip2.gfa
+diff tiny.roundtrip.gfa tiny.roundtrip2.gfa
+is $? 0 "No difference roundtripping a GFA if it's loaded as a GFA or HandleGraph"
+
+grep -v "S	6" tiny/tiny.gfa > tiny.unsort.gfa
+grep "S	6" tiny/tiny.gfa >> tiny.unsort.gfa
+cat tiny.unsort.gfa | vg convert -p - 2> tiny.roundtrip3.stderr | vg convert -f - | sort > tiny.roundtrip3.gfa
+cat tiny.roundtrip3.stderr
+diff tiny.roundtrip.gfa tiny.roundtrip3.gfa
+is $? 0 "Streaming an unsorted GFA gives same output as sorted"
+is $(grep "warning:\[gfa\]" tiny.roundtrip3.stderr | wc -l) 1 "Warning given when falling back to temp GFA buffer file"
+
+cat tiny/tiny.gfa | vg convert -p - 2> tiny.roundtrip4.stderr | vg convert -f - | sort > tiny.roundtrip4.gfa
+cat tiny.roundtrip4.stderr
+diff tiny.roundtrip.gfa tiny.roundtrip4.gfa
+is $? 0 "Streaming an sorted GFA gives same output as reading from file"
+is $(cat tiny.roundtrip4.stderr | wc -l) 0 "No warnings given when streamed GFA is sorted"
+
+vg convert -g tiny/tiny.gfa | vg mod - -X 3 | vg convert -f - | vg ids -s - | sort > tiny.chop3.gfa
+vg mod -X 3 tiny/tiny.gfa | vg ids -s - | sort > tiny.chop3.1.gfa
+diff tiny.chop3.gfa tiny.chop3.1.gfa
+is $? 0 "Modding GFA directly produces same output as going through convert"
+cat tiny/tiny.gfa | vg mod -X 3 - | vg ids -s - | sort > tiny.chop3.2.gfa
+diff tiny.chop3.gfa tiny.chop3.2.gfa
+is $? 0 "Modding sorted GFA stream produces same output as going through convert"
+cat tiny.unsort.gfa | vg mod -X 3 - 2> tiny.chop3.3.stderr | vg ids -s - | sort > tiny.chop3.3.gfa
+cat tiny.chop3.3.stderr
+diff tiny.chop3.gfa tiny.chop3.3.gfa
+is $? 0 "Modding unsorted GFA stream produces same output as going through convert"
+is $(grep "warning:\[gfa\]" tiny.chop3.3.stderr | wc -l) 1 "Warning given when falling back to temp GFA buffer file in mod"
+vg mod -X 3 tiny.unsort.gfa 2> tiny.chop3.4.stderr | vg ids -s - | sort > tiny.chop3.4.gfa
+cat tiny.chop3.4.stderr
+diff tiny.chop3.gfa tiny.chop3.4.gfa
+is $? 0 "Modding unsorted GFA file produces same output as going through convert"
+is $(cat tiny.chop3.4.stderr | wc -l) 0 "No warnings given when input GFA file is unsorted"
+
+rm -f tiny.roundtrip.gfa tiny.roundtrip2.gfa tiny.roundtrip3.gfa tiny.roundtrip4.gfa
+rm -f tiny.roundtrip3.stderr tiny.roundtrip4.stderr
+rm -f tiny.unsort.gfa
+rm -f tiny.chop3.gfa tiny.chop3.1.gfa  tiny.chop3.2.gfa  tiny.chop3.3.gfa tiny.chop3.4.gfa
+rm -f tiny.chop3.3.stderr tiny.chop3.4.stderr
+
+vg view tiny/tiny.gfa | sort > tiny.rgfa.1
+cat tiny/tiny.gfa | vg view - | sort > tiny.rgfa.2
+diff tiny.rgfa.1 tiny.rgfa.2
+is $? 0 "rGFA handled consistently when streaming as when loaded from file"
+
+
+

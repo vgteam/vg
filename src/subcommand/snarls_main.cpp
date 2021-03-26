@@ -184,9 +184,8 @@ int main_snarl(int argc, char** argv) {
 
     // Read the graph
     unique_ptr<PathHandleGraph> graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-        graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
-    });
+    string graph_filename = get_input_file_name(optind, argc, argv);
+    graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_filename);
     
     // The only implemented snarl finder:
     unique_ptr<SnarlFinder> snarl_finder;
