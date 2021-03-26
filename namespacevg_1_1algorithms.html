@@ -185,6 +185,14 @@ Functions</h2></td></tr>
 <tr class="separator:ad60bda72f70d8544f916e3ebedf96de7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad53437397e1ccba4504154840e34e6d3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad53437397e1ccba4504154840e34e6d3">gfa_to_path_handle_graph_in_memory</a> (istream &amp;in, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, int64_t max_rgfa_rank)</td></tr>
 <tr class="separator:ad53437397e1ccba4504154840e34e6d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4036f0114f73e3c20e42778467f2aec1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a4036f0114f73e3c20e42778467f2aec1">gfa_to_path_handle_graph_stream</a> (istream &amp;in, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, int64_t max_rgfa_rank)</td></tr>
+<tr class="separator:a4036f0114f73e3c20e42778467f2aec1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3cecfd58955c9e344188230416c931d0"><td class="memItemLeft" align="right" valign="top">tuple&lt; string, string, vector&lt; string &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a3cecfd58955c9e344188230416c931d0">parse_gfa_s_line</a> (const string &amp;s_line)</td></tr>
+<tr class="separator:a3cecfd58955c9e344188230416c931d0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab2b4e19a60812ec060d1efed0e8bd687"><td class="memItemLeft" align="right" valign="top">tuple&lt; string, bool, string, bool, vector&lt; string &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ab2b4e19a60812ec060d1efed0e8bd687">parse_gfa_l_line</a> (const string &amp;l_line)</td></tr>
+<tr class="separator:ab2b4e19a60812ec060d1efed0e8bd687"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae08d36e06cd3a86b81cacdf34f50ec08"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ae08d36e06cd3a86b81cacdf34f50ec08">parse_gfa_p_line</a> (const string &amp;p_line, function&lt; bool(const string &amp;, int64_t, const string &amp;, bool)&gt; visit_step)</td></tr>
+<tr class="separator:ae08d36e06cd3a86b81cacdf34f50ec08"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a54730e9452c2609633da201ba85a8bca"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a54730e9452c2609633da201ba85a8bca">id_order</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g)</td></tr>
 <tr class="separator:a54730e9452c2609633da201ba85a8bca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a633a1600c6a7e447c040fefb1432e508"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a633a1600c6a7e447c040fefb1432e508">jump_along_closest_path</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos, int64_t jump_dist, size_t max_search_dist)</td></tr>
@@ -2314,6 +2322,41 @@ template&lt;class DistHeuristic &gt; </div>
 
 </div>
 </div>
+<a id="a4036f0114f73e3c20e42778467f2aec1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4036f0114f73e3c20e42778467f2aec1">&#9670;&nbsp;</a></span>gfa_to_path_handle_graph_stream()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::gfa_to_path_handle_graph_stream </td>
+          <td>(</td>
+          <td class="paramtype">istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>max_rgfa_rank</em> = <code>numeric_limits&lt;&#160;int64_t&#160;&gt;::max()</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Operate on a stream line by line. This can only work if the GFA is sorted. If the GFA isn't sorted, dump it to a temp file, and fall back on <a class="el" href="namespacevg_1_1algorithms.html#ad60bda72f70d8544f916e3ebedf96de7" title="Same as gfa_to_handle_graph but also adds path elements from the GFA to the graph.">gfa_to_path_handle_graph()</a> </p>
+
+</div>
+</div>
 <a id="a54730e9452c2609633da201ba85a8bca"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a54730e9452c2609633da201ba85a8bca">&#9670;&nbsp;</a></span>id_order()</h2>
 
@@ -2808,6 +2851,73 @@ template&lt;class DistHeuristic &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>print path-name offset base-coverage for every base on a path (just like samtools depth) ignoring things below min_coverage. offsets are 1-based in output stream </p>
+
+</div>
+</div>
+<a id="ab2b4e19a60812ec060d1efed0e8bd687"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab2b4e19a60812ec060d1efed0e8bd687">&#9670;&nbsp;</a></span>parse_gfa_l_line()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">tuple&lt; string, bool, string, bool, vector&lt; string &gt; &gt; vg::algorithms::parse_gfa_l_line </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>l_line</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ae08d36e06cd3a86b81cacdf34f50ec08"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae08d36e06cd3a86b81cacdf34f50ec08">&#9670;&nbsp;</a></span>parse_gfa_p_line()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::parse_gfa_p_line </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>p_line</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">function&lt; bool(const string &amp;, int64_t, const string &amp;, bool)&gt;&#160;</td>
+          <td class="paramname"><em>visit_step</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>visit_step takes {path-name, rank (-1 if path empty), step id, step reversed} and returns true if it wants to keep iterating (false means stop) </p>
+
+</div>
+</div>
+<a id="a3cecfd58955c9e344188230416c931d0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3cecfd58955c9e344188230416c931d0">&#9670;&nbsp;</a></span>parse_gfa_s_line()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">tuple&lt; string, string, vector&lt; string &gt; &gt; vg::algorithms::parse_gfa_s_line </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>s_line</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>gfakluge can't parse line by line, which we need for streaming ideally, it needs to be entirely replaced. here's a bare minimum for parsing lines in the meantime. they return the fields as strings, don't support overlaps, and optional tags get read as strings in the vectors. <br  />
+ </p>
 
 </div>
 </div>

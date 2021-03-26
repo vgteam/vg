@@ -86,15 +86,15 @@ Static Public Member Functions</h2></td></tr>
 <tr class="memitem:ae85c3a51f8b8ca2383f064e1c280d26a"><td class="memTemplParams" colspan="2">template&lt;typename... Wanted&gt; </td></tr>
 <tr class="memitem:ae85c3a51f8b8ca2383f064e1c280d26a"><td class="memTemplItemLeft" align="right" valign="top">static tuple&lt; unique_ptr&lt; Wanted &gt;... &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#ae85c3a51f8b8ca2383f064e1c280d26a">load_all</a> (const string &amp;filename)</td></tr>
 <tr class="separator:ae85c3a51f8b8ca2383f064e1c280d26a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aeeac79f6760560223f9ffdc34da527e2"><td class="memTemplParams" colspan="2">template&lt;typename Wanted &gt; </td></tr>
-<tr class="memitem:aeeac79f6760560223f9ffdc34da527e2"><td class="memTemplItemLeft" align="right" valign="top">static unique_ptr&lt; Wanted &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#aeeac79f6760560223f9ffdc34da527e2">try_load_one</a> (istream &amp;in)</td></tr>
-<tr class="separator:aeeac79f6760560223f9ffdc34da527e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0d7f96d4dd7fe5b1fe47b330ca617623"><td class="memTemplParams" colspan="2">template&lt;typename Wanted &gt; </td></tr>
+<tr class="memitem:a0d7f96d4dd7fe5b1fe47b330ca617623"><td class="memTemplItemLeft" align="right" valign="top">static unique_ptr&lt; Wanted &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a0d7f96d4dd7fe5b1fe47b330ca617623">try_load_one</a> (istream &amp;in, const string &amp;filename=&quot;&quot;)</td></tr>
+<tr class="separator:a0d7f96d4dd7fe5b1fe47b330ca617623"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab3a2026ac79ee1539271ba1791108c66"><td class="memTemplParams" colspan="2">template&lt;typename Wanted &gt; </td></tr>
 <tr class="memitem:ab3a2026ac79ee1539271ba1791108c66"><td class="memTemplItemLeft" align="right" valign="top">static unique_ptr&lt; Wanted &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#ab3a2026ac79ee1539271ba1791108c66">try_load_one</a> (const string &amp;filename)</td></tr>
 <tr class="separator:ab3a2026ac79ee1539271ba1791108c66"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aae9030bf4195ca81ed30228d875175ef"><td class="memTemplParams" colspan="2">template&lt;typename Wanted &gt; </td></tr>
-<tr class="memitem:aae9030bf4195ca81ed30228d875175ef"><td class="memTemplItemLeft" align="right" valign="top">static unique_ptr&lt; Wanted &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#aae9030bf4195ca81ed30228d875175ef">load_one</a> (istream &amp;in)</td></tr>
-<tr class="separator:aae9030bf4195ca81ed30228d875175ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:affd67a72df658a50228c6cae7efe7753"><td class="memTemplParams" colspan="2">template&lt;typename Wanted &gt; </td></tr>
+<tr class="memitem:affd67a72df658a50228c6cae7efe7753"><td class="memTemplItemLeft" align="right" valign="top">static unique_ptr&lt; Wanted &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#affd67a72df658a50228c6cae7efe7753">load_one</a> (istream &amp;in, const string &amp;filename=&quot;&quot;)</td></tr>
+<tr class="separator:affd67a72df658a50228c6cae7efe7753"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a60cacf98de761eab29ed168ee56e8e39"><td class="memTemplParams" colspan="2">template&lt;typename Wanted &gt; </td></tr>
 <tr class="memitem:a60cacf98de761eab29ed168ee56e8e39"><td class="memTemplItemLeft" align="right" valign="top">static unique_ptr&lt; Wanted &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a60cacf98de761eab29ed168ee56e8e39">load_one</a> (const string &amp;filename)</td></tr>
 <tr class="separator:a60cacf98de761eab29ed168ee56e8e39"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -135,8 +135,6 @@ Static Private Member Functions</h2></td></tr>
 <tr class="memitem:a843dc5afd6bef8eab9a11e5c6291fd54"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:a843dc5afd6bef8eab9a11e5c6291fd54"><td class="memTemplItemLeft" align="right" valign="top">static std::enable_if&lt;!std::is_default_constructible&lt; T &gt;::value, unique_ptr&lt; T &gt; &gt;::type&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a843dc5afd6bef8eab9a11e5c6291fd54">make_default_or_null</a> ()</td></tr>
 <tr class="separator:a843dc5afd6bef8eab9a11e5c6291fd54"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afa8e994cf10b1916c3d32081bdd545dd"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#afa8e994cf10b1916c3d32081bdd545dd">sniff_magic</a> (istream &amp;stream, const string &amp;magic)</td></tr>
-<tr class="separator:afa8e994cf10b1916c3d32081bdd545dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Interface for reading/writing type-tagged files.</p>
@@ -363,8 +361,8 @@ template&lt;typename Wanted &gt; </div>
 
 </div>
 </div>
-<a id="aae9030bf4195ca81ed30228d875175ef"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aae9030bf4195ca81ed30228d875175ef">&#9670;&nbsp;</a></span>load_one() <span class="overload">[2/2]</span></h2>
+<a id="affd67a72df658a50228c6cae7efe7753"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#affd67a72df658a50228c6cae7efe7753">&#9670;&nbsp;</a></span>load_one() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -378,8 +376,18 @@ template&lt;typename Wanted &gt; </div>
           <td class="memname">static unique_ptr&lt;Wanted&gt; vg::io::VPKG::load_one </td>
           <td>(</td>
           <td class="paramtype">istream &amp;&#160;</td>
-          <td class="paramname"><em>in</em></td><td>)</td>
+          <td class="paramname"><em>in</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em> = <code>&quot;&quot;</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -528,43 +536,6 @@ template&lt;typename Have &gt; </div>
 
 </div>
 </div>
-<a id="afa8e994cf10b1916c3d32081bdd545dd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afa8e994cf10b1916c3d32081bdd545dd">&#9670;&nbsp;</a></span>sniff_magic()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool vg::io::VPKG::sniff_magic </td>
-          <td>(</td>
-          <td class="paramtype">istream &amp;&#160;</td>
-          <td class="paramname"><em>stream</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>magic</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Return true of the given stream starts with the given magic number prefix, and false otherwise. Returns the stream to its initial position regardless of the result. </p>
-
-</div>
-</div>
 <a id="a4f8777ceafb9a052440bdd39b3b6627d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a4f8777ceafb9a052440bdd39b3b6627d">&#9670;&nbsp;</a></span>to_tuple()</h2>
 
@@ -623,8 +594,8 @@ template&lt;typename Wanted &gt; </div>
 
 </div>
 </div>
-<a id="aeeac79f6760560223f9ffdc34da527e2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aeeac79f6760560223f9ffdc34da527e2">&#9670;&nbsp;</a></span>try_load_one() <span class="overload">[2/2]</span></h2>
+<a id="a0d7f96d4dd7fe5b1fe47b330ca617623"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0d7f96d4dd7fe5b1fe47b330ca617623">&#9670;&nbsp;</a></span>try_load_one() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -638,8 +609,18 @@ template&lt;typename Wanted &gt; </div>
           <td class="memname">static unique_ptr&lt;Wanted&gt; vg::io::VPKG::try_load_one </td>
           <td>(</td>
           <td class="paramtype">istream &amp;&#160;</td>
-          <td class="paramname"><em>in</em></td><td>)</td>
+          <td class="paramname"><em>in</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em> = <code>&quot;&quot;</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -648,7 +629,7 @@ template&lt;typename Wanted &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Load an object of the given type from a stream. The stream may be <a class="el" href="classvg_1_1io_1_1VPKG.html">VPKG</a> with the appropriate tag, or a bare non-VPKG stream understood by the loader. Tagged messages that can't be used to load the thing we are looking for are skipped. This doesn't work for Protobuf messages directly, but it will work for e.g. <a class="el" href="classvg_1_1VG.html">vg::VG</a>. </p>
+<p>Load an object of the given type from a stream. The stream may be <a class="el" href="classvg_1_1io_1_1VPKG.html">VPKG</a> with the appropriate tag, or a bare non-VPKG stream understood by the loader. Tagged messages that can't be used to load the thing we are looking for are skipped. This doesn't work for Protobuf messages directly, but it will work for e.g. <a class="el" href="classvg_1_1VG.html">vg::VG</a>. filename is optional, and can be used by callback code that may, for some reason, want to link the stream back to a path (cough cough GFA loader cough cough) </p>
 
 </div>
 </div>

@@ -87,8 +87,8 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:af3921832709101fdc87cfca00da3f2bf"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; type_index, pair&lt; string, <a class="el" href="namespacevg_1_1io.html#a161bd20a13c1fd9993bcddd7ea3cbe57">save_function_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1io_1_1Registry_1_1Tables.html#af3921832709101fdc87cfca00da3f2bf">type_to_saver</a></td></tr>
 <tr class="memdesc:af3921832709101fdc87cfca00da3f2bf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maps from type to a single tag and save function pair to use when outputting that type.  <a href="structvg_1_1io_1_1Registry_1_1Tables.html#af3921832709101fdc87cfca00da3f2bf">More...</a><br /></td></tr>
 <tr class="separator:af3921832709101fdc87cfca00da3f2bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad4c4147e455c6f3b54a1dea294fc6d03"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; type_index, vector&lt; pair&lt; <a class="el" href="namespacevg_1_1io.html#a53e90871d34e2a1d10329d419f809cea">bare_load_function_t</a>, string &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1io_1_1Registry_1_1Tables.html#ad4c4147e455c6f3b54a1dea294fc6d03">type_to_bare_loaders</a></td></tr>
-<tr class="separator:ad4c4147e455c6f3b54a1dea294fc6d03"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6330f82f362346c61bdb1607773e812a"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; type_index, vector&lt; pair&lt; <a class="el" href="namespacevg_1_1io.html#a659a48880b52fc28b36e8cc51eb1ffd0">bare_load_function_with_filename_t</a>, function&lt; bool(istream &amp;)&gt; &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1io_1_1Registry_1_1Tables.html#a6330f82f362346c61bdb1607773e812a">type_to_bare_loaders</a></td></tr>
+<tr class="separator:a6330f82f362346c61bdb1607773e812a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Holds the actual singleton registry tables. </p>
@@ -140,18 +140,18 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ad4c4147e455c6f3b54a1dea294fc6d03"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad4c4147e455c6f3b54a1dea294fc6d03">&#9670;&nbsp;</a></span>type_to_bare_loaders</h2>
+<a id="a6330f82f362346c61bdb1607773e812a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6330f82f362346c61bdb1607773e812a">&#9670;&nbsp;</a></span>type_to_bare_loaders</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">unordered_map&lt;type_index, vector&lt;pair&lt;<a class="el" href="namespacevg_1_1io.html#a53e90871d34e2a1d10329d419f809cea">bare_load_function_t</a>, string&gt; &gt; &gt; vg::io::Registry::Tables::type_to_bare_loaders</td>
+          <td class="memname">unordered_map&lt;type_index, vector&lt;pair&lt;<a class="el" href="namespacevg_1_1io.html#a659a48880b52fc28b36e8cc51eb1ffd0">bare_load_function_with_filename_t</a>, function&lt;bool(istream&amp;)&gt; &gt; &gt; &gt; vg::io::Registry::Tables::type_to_bare_loaders</td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Maps from type_index we want to load from a old, non-tagged-message-format file to a list of "bare" loaders that can load the desired thing from an istream, and their possibly empty required prefixes. </p>
+<p>Maps from type_index we want to load from a old, non-tagged-message-format file to a list of "bare" loaders that can load the desired thing from an istream, and their possibly empty required-prefix-sniffer-functions. </p>
 
 </div>
 </div>

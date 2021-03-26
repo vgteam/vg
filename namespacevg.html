@@ -237,6 +237,9 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Genotyper.html">Genotyper</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GFAHandleGraph.html">GFAHandleGraph</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use to load in GFAs and remember where they came from.  <a href="classvg_1_1GFAHandleGraph.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GFFReader.html">GFFReader</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GFFRecord.html">GFFRecord</a></td></tr>
@@ -2117,8 +2120,8 @@ Functions</h2></td></tr>
 <tr class="separator:a7c950dca7cd25a5ce9846be2a6b93e13"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab1b8b686ef6eca09515be1abe566c013"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab1b8b686ef6eca09515be1abe566c013">get_input_file</a> (int &amp;optind, int argc, char **argv, function&lt; void(istream &amp;)&gt; callback)</td></tr>
 <tr class="separator:ab1b8b686ef6eca09515be1abe566c013"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a511d30ecf4d39aaa944c2f59f6821fad"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a511d30ecf4d39aaa944c2f59f6821fad">get_input_file_name</a> (int &amp;optind, int argc, char **argv)</td></tr>
-<tr class="separator:a511d30ecf4d39aaa944c2f59f6821fad"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5026b599b1094a6c8e157f23b204b09b"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5026b599b1094a6c8e157f23b204b09b">get_input_file_name</a> (int &amp;optind, int argc, char **argv, bool test_open)</td></tr>
+<tr class="separator:a5026b599b1094a6c8e157f23b204b09b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae2a0425675c4a85289b230eef2c985b8"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae2a0425675c4a85289b230eef2c985b8">get_output_file_name</a> (int &amp;optind, int argc, char **argv)</td></tr>
 <tr class="separator:ae2a0425675c4a85289b230eef2c985b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a09969fef23098c7729a2f190cecb4694"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a09969fef23098c7729a2f190cecb4694">get_input_file</a> (const string &amp;file_name, function&lt; void(istream &amp;)&gt; callback)</td></tr>
@@ -9296,12 +9299,13 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Get a callback with an istream&amp; to an open file if a file name argument is present after the parsed options, or print an error message and exit if one is not. Handles "-" as a filename as indicating standard input. The reference passed is guaranteed to be valid only until the callback returns. Bumps up optind to the next argument if a filename is found. </p>
+<p>Get a callback with an istream&amp; to an open file if a file name argument is present after the parsed options, or print an error message and exit if one is not. Handles "-" as a filename as indicating standard input. The reference passed is guaranteed to be valid only until the callback returns. Bumps up optind to the next argument if a filename is found.</p>
+<p>Warning: If you're reading a HandleGraph via <a class="el" href="classvg_1_1io_1_1VPKG.html#affd67a72df658a50228c6cae7efe7753">VPKG::load_one</a> (as is the pattern in vg) it is best to use <a class="el" href="namespacevg.html#a5026b599b1094a6c8e157f23b204b09b">get_input_file_name()</a> below instead, and run load_one on that. This allows better GFA support because it allows memmapping the file directly </p>
 
 </div>
 </div>
-<a id="a511d30ecf4d39aaa944c2f59f6821fad"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a511d30ecf4d39aaa944c2f59f6821fad">&#9670;&nbsp;</a></span>get_input_file_name()</h2>
+<a id="a5026b599b1094a6c8e157f23b204b09b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5026b599b1094a6c8e157f23b204b09b">&#9670;&nbsp;</a></span>get_input_file_name()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -9322,7 +9326,13 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">char **&#160;</td>
-          <td class="paramname"><em>argv</em>&#160;</td>
+          <td class="paramname"><em>argv</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>test_open</em> = <code>true</code>&#160;</td>
         </tr>
         <tr>
           <td></td>

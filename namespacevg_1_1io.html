@@ -154,6 +154,9 @@ Typedefs</h2></td></tr>
 <tr class="memitem:a53e90871d34e2a1d10329d419f809cea"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a53e90871d34e2a1d10329d419f809cea">bare_load_function_t</a> = function&lt; void *(istream &amp;)&gt;</td></tr>
 <tr class="memdesc:a53e90871d34e2a1d10329d419f809cea"><td class="mdescLeft">&#160;</td><td class="mdescRight">This is the type of a function that can load an object of unspecified type from a bare input stream.  <a href="namespacevg_1_1io.html#a53e90871d34e2a1d10329d419f809cea">More...</a><br /></td></tr>
 <tr class="separator:a53e90871d34e2a1d10329d419f809cea"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a659a48880b52fc28b36e8cc51eb1ffd0"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a659a48880b52fc28b36e8cc51eb1ffd0">bare_load_function_with_filename_t</a> = function&lt; void *(istream &amp;, const string &amp;)&gt;</td></tr>
+<tr class="memdesc:a659a48880b52fc28b36e8cc51eb1ffd0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Like above, but keep track of an optional (can be empty) filename (ie where stream comes from)  <a href="namespacevg_1_1io.html#a659a48880b52fc28b36e8cc51eb1ffd0">More...</a><br /></td></tr>
+<tr class="separator:a659a48880b52fc28b36e8cc51eb1ffd0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af8c1fde642062992c5179d67196ee4f2"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#af8c1fde642062992c5179d67196ee4f2">bare_save_function_t</a> = function&lt; void(const void *, ostream &amp;)&gt;</td></tr>
 <tr class="memdesc:af8c1fde642062992c5179d67196ee4f2"><td class="mdescLeft">&#160;</td><td class="mdescRight">This is the type of a function that can save an object of unspecified type to a bare output stream.  <a href="namespacevg_1_1io.html#af8c1fde642062992c5179d67196ee4f2">More...</a><br /></td></tr>
 <tr class="separator:af8c1fde642062992c5179d67196ee4f2"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -174,6 +177,8 @@ Functions</h2></td></tr>
 <tr class="separator:a6143362abf3060042589f1ffb22ff498"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:affca170910f12393eb1381c4d72e4e73"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#affca170910f12393eb1381c4d72e4e73">register_loader_saver_gcsa</a> ()</td></tr>
 <tr class="separator:affca170910f12393eb1381c4d72e4e73"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1fadf5a0f7d91d61c9d2c27d35987c6a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a1fadf5a0f7d91d61c9d2c27d35987c6a">register_loader_saver_gfa</a> ()</td></tr>
+<tr class="separator:a1fadf5a0f7d91d61c9d2c27d35987c6a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a49d41e6f52ad981f96d772396fd4eee5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a49d41e6f52ad981f96d772396fd4eee5">register_loader_saver_hash_graph</a> ()</td></tr>
 <tr class="separator:a49d41e6f52ad981f96d772396fd4eee5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af7df97a78891ada683647c88c6393eb9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#af7df97a78891ada683647c88c6393eb9">register_loader_saver_lcp</a> ()</td></tr>
@@ -350,6 +355,22 @@ Variables</h2></td></tr>
 </div><div class="memdoc">
 
 <p>This is the type of a function that can load an object of unspecified type from a bare input stream. </p>
+
+</div>
+</div>
+<a id="a659a48880b52fc28b36e8cc51eb1ffd0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a659a48880b52fc28b36e8cc51eb1ffd0">&#9670;&nbsp;</a></span>bare_load_function_with_filename_t</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="namespacevg_1_1io.html#a659a48880b52fc28b36e8cc51eb1ffd0">vg::io::bare_load_function_with_filename_t</a> = typedef function&lt;void*(istream&amp;, const string&amp;)&gt;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Like above, but keep track of an optional (can be empty) filename (ie where stream comes from) </p>
 
 </div>
 </div>
@@ -2136,6 +2157,23 @@ template&lt;typename T &gt; </div>
       <table class="memname">
         <tr>
           <td class="memname">void vg::io::register_loader_saver_gcsa </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1fadf5a0f7d91d61c9d2c27d35987c6a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1fadf5a0f7d91d61c9d2c27d35987c6a">&#9670;&nbsp;</a></span>register_loader_saver_gfa()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::register_loader_saver_gfa </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td></td>
