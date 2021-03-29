@@ -150,9 +150,7 @@ std::vector<std::string> walk_haplotype_names(const HandleGraph& graph,
     }
     assert(haplotypes.hasMetadata() && haplotypes.metadata.hasSampleNames());
     for (auto& thread : haplotypes.locate(search_state)) {
-        // not clear why we have to do this, but it's necessary
-        // perhaps due to fwd/reverse threads
-        auto id = (thread-1)/2; // convert thread id returned by locat to gbwt metadata compatible one
+        auto id = gbwt::Path::id(thread);
         std::stringstream ss;
         ss << thread_sample(haplotypes, id) << "#" << thread_phase(haplotypes, id);
         names.push_back(ss.str());
