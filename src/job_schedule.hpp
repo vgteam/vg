@@ -8,6 +8,7 @@
 #include <utility>
 #include <functional>
 #include <queue>
+#include <cstdint>
 
 namespace vg {
 
