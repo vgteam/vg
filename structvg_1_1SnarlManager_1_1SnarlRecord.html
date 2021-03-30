@@ -98,6 +98,8 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a7f98f1f84ba0d39301f1adc3333e6dfb"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1SnarlManager_1_1SnarlRecord.html#a7f98f1f84ba0d39301f1adc3333e6dfb">parent_chain_index</a> = 0</td></tr>
 <tr class="memdesc:a7f98f1f84ba0d39301f1adc3333e6dfb"><td class="mdescLeft">&#160;</td><td class="mdescRight">And this is what index we are at in the chain;.  <a href="structvg_1_1SnarlManager_1_1SnarlRecord.html#a7f98f1f84ba0d39301f1adc3333e6dfb">More...</a><br /></td></tr>
 <tr class="separator:a7f98f1f84ba0d39301f1adc3333e6dfb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:add50ce54457a4031ed0d8fd0b3b34e9f"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1SnarlManager_1_1SnarlRecord.html#add50ce54457a4031ed0d8fd0b3b34e9f">snarl_number</a></td></tr>
+<tr class="separator:add50ce54457a4031ed0d8fd0b3b34e9f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>To support the Snarl*-driven API, we use a struct that lays out a snarl followed by indexing metadata, one after the other in memory. We can just cast a Snarl* to a pointer to one of these to get access to all the metadata. </p>
@@ -221,6 +223,22 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>With recent Protobuf, we can't inherit from Protobuf generated classes, so we rely on the first member here being at offset 0. This is achieved by making sure <a class="el" href="structvg_1_1SnarlManager_1_1SnarlRecord.html">SnarlRecord</a> is aligned like <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes.">Snarl</a>. <br  />
+ </p>
+
+</div>
+</div>
+<a id="add50ce54457a4031ed0d8fd0b3b34e9f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#add50ce54457a4031ed0d8fd0b3b34e9f">&#9670;&nbsp;</a></span>snarl_number</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::SnarlManager::SnarlRecord::snarl_number</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>This holds the index of the SnarlRecord* in the deque We are doing this because a deque is not contiguous and the index lookup using a SnarlRecord* isn't easily derivable <br  />
  </p>
 
 </div>

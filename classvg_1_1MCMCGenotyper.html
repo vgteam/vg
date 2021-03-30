@@ -79,8 +79,8 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:ab53c26538256f91bf496fb2587a96511"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#ab53c26538256f91bf496fb2587a96511">MCMCGenotyper</a> (<a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1MCMCGenotyper.html#a23913225e8b2d0d4dfbdb713ccf495c3">snarls</a>, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;<a class="el" href="classvg_1_1MCMCGenotyper.html#a63ef4fabc83c478b9ac7933ba16c5adc">graph</a>, const int <a class="el" href="classvg_1_1MCMCGenotyper.html#a1d5684e63858e5362578bc85d638a870">n_iterations</a>, const int <a class="el" href="classvg_1_1MCMCGenotyper.html#aa2399e6a45d2595e08053cdb66207b37">seed</a>)</td></tr>
-<tr class="separator:ab53c26538256f91bf496fb2587a96511"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abb6ddf1a8e99fc5c183ec188ae87bb22"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#abb6ddf1a8e99fc5c183ec188ae87bb22">MCMCGenotyper</a> (<a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1MCMCGenotyper.html#a23913225e8b2d0d4dfbdb713ccf495c3">snarls</a>, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;<a class="el" href="classvg_1_1MCMCGenotyper.html#a63ef4fabc83c478b9ac7933ba16c5adc">graph</a>, const int <a class="el" href="classvg_1_1MCMCGenotyper.html#a1d5684e63858e5362578bc85d638a870">n_iterations</a>, const int <a class="el" href="classvg_1_1MCMCGenotyper.html#aa2399e6a45d2595e08053cdb66207b37">seed</a>, const int <a class="el" href="classvg_1_1MCMCGenotyper.html#a90b861c9698794a805c9276064f9551c">burn_in</a>, const int <a class="el" href="classvg_1_1MCMCGenotyper.html#a4f8407692d3a6657442269ab9356952c">frequency</a>)</td></tr>
+<tr class="separator:abb6ddf1a8e99fc5c183ec188ae87bb22"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3bae6f8b2947e030935d5e9cf46fb324"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#a3bae6f8b2947e030935d5e9cf46fb324">run_genotype</a> (const vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;reads, const double log_base) const</td></tr>
 <tr class="separator:a3bae6f8b2947e030935d5e9cf46fb324"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4622c5efee68d8f148b961a92a1abc62"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#a4622c5efee68d8f148b961a92a1abc62">log_target</a> (unique_ptr&lt; <a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &gt; &amp;phased_genome, const vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;reads) const</td></tr>
@@ -93,6 +93,14 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a5ebeff817c6548c32c5377ed00c041c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aac263c28f16acd3eb17d1f6013b5709e"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#aac263c28f16acd3eb17d1f6013b5709e">generate_initial_guess</a> () const</td></tr>
 <tr class="separator:aac263c28f16acd3eb17d1f6013b5709e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5e31dd64fad5dfb14d38be487fc14e59"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; pair&lt; const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> * &gt;, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#a5e31dd64fad5dfb14d38be487fc14e59">make_snarl_map</a> (const vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;reads, <a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &amp;phased_genome) const</td></tr>
+<tr class="separator:a5e31dd64fad5dfb14d38be487fc14e59"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abbbf0c2625e4039f5a79b8b360515b41"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1algorithms_1_1Graph.html">algorithms::Graph</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#abbbf0c2625e4039f5a79b8b360515b41">make_snarl_graph</a> (unordered_map&lt; pair&lt; const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> * &gt;, int32_t &gt; map) const</td></tr>
+<tr class="separator:abbbf0c2625e4039f5a79b8b360515b41"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae04571da16e2129ef7d56aea9cc899b5"><td class="memItemLeft" align="right" valign="top">vector&lt; unordered_set&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#ae04571da16e2129ef7d56aea9cc899b5">karger_stein</a> (const vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;reads, <a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &amp;genome) const</td></tr>
+<tr class="separator:ae04571da16e2129ef7d56aea9cc899b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a26dfe5be824755df69d533e98304f5be"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#a26dfe5be824755df69d533e98304f5be">alt_proposal_sample</a> (vector&lt; unordered_set&lt; size_t &gt;&gt; &amp;gamma, <a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &amp;genome) const</td></tr>
+<tr class="separator:a26dfe5be824755df69d533e98304f5be"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
@@ -104,14 +112,18 @@ Private Attributes</h2></td></tr>
 <tr class="separator:a1d5684e63858e5362578bc85d638a870"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa2399e6a45d2595e08053cdb66207b37"><td class="memItemLeft" align="right" valign="top">const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#aa2399e6a45d2595e08053cdb66207b37">seed</a></td></tr>
 <tr class="separator:aa2399e6a45d2595e08053cdb66207b37"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a90b861c9698794a805c9276064f9551c"><td class="memItemLeft" align="right" valign="top">const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#a90b861c9698794a805c9276064f9551c">burn_in</a></td></tr>
+<tr class="separator:a90b861c9698794a805c9276064f9551c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4f8407692d3a6657442269ab9356952c"><td class="memItemLeft" align="right" valign="top">const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#a4f8407692d3a6657442269ab9356952c">frequency</a></td></tr>
+<tr class="separator:a4f8407692d3a6657442269ab9356952c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a742e3fb0ca54f531f23d1a8f18cb4da5"><td class="memItemLeft" align="right" valign="top">minstd_rand0&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MCMCGenotyper.html#a742e3fb0ca54f531f23d1a8f18cb4da5">random_engine</a></td></tr>
 <tr class="separator:a742e3fb0ca54f531f23d1a8f18cb4da5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>This class is a genotyper that uses MCMC to find two optimal paths through the graph given a set of aligned reads. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="ab53c26538256f91bf496fb2587a96511"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab53c26538256f91bf496fb2587a96511">&#9670;&nbsp;</a></span>MCMCGenotyper()</h2>
+<a id="abb6ddf1a8e99fc5c183ec188ae87bb22"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abb6ddf1a8e99fc5c183ec188ae87bb22">&#9670;&nbsp;</a></span>MCMCGenotyper()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -138,7 +150,19 @@ Private Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const int&#160;</td>
-          <td class="paramname"><em>seed</em>&#160;</td>
+          <td class="paramname"><em>seed</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const int&#160;</td>
+          <td class="paramname"><em>burn_in</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const int&#160;</td>
+          <td class="paramname"><em>frequency</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -151,6 +175,34 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a26dfe5be824755df69d533e98304f5be"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a26dfe5be824755df69d533e98304f5be">&#9670;&nbsp;</a></span>alt_proposal_sample()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">unordered_set&lt; size_t &gt; vg::MCMCGenotyper::alt_proposal_sample </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; unordered_set&lt; size_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>gamma</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &amp;&#160;</td>
+          <td class="paramname"><em>genome</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a5ebeff817c6548c32c5377ed00c041c6"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a5ebeff817c6548c32c5377ed00c041c6">&#9670;&nbsp;</a></span>generate_continuous_uniform()</h2>
 
@@ -233,6 +285,35 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="ae04571da16e2129ef7d56aea9cc899b5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae04571da16e2129ef7d56aea9cc899b5">&#9670;&nbsp;</a></span>karger_stein()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; unordered_set&lt; size_t &gt; &gt; vg::MCMCGenotyper::karger_stein </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>reads</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &amp;&#160;</td>
+          <td class="paramname"><em>genome</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Make a snarl graph with edge weights scored by how well mapped reads support phasing of snarl Use an alternative proposal distribution using sets generated from karger-stein min cut algorithm to escape bottlenecks leading to rapid convergence </p>
+
+</div>
+</div>
 <a id="a4622c5efee68d8f148b961a92a1abc62"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a4622c5efee68d8f148b961a92a1abc62">&#9670;&nbsp;</a></span>log_target()</h2>
 
@@ -259,6 +340,54 @@ Private Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Represents the poseterior distribution function returns the posterir probability </p>
+
+</div>
+</div>
+<a id="abbbf0c2625e4039f5a79b8b360515b41"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abbbf0c2625e4039f5a79b8b360515b41">&#9670;&nbsp;</a></span>make_snarl_graph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1algorithms_1_1Graph.html">algorithms::Graph</a> vg::MCMCGenotyper::make_snarl_graph </td>
+          <td>(</td>
+          <td class="paramtype">unordered_map&lt; pair&lt; const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> * &gt;, int32_t &gt;&#160;</td>
+          <td class="paramname"><em>map</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Generate a graph using the snarl map </p>
+
+</div>
+</div>
+<a id="a5e31dd64fad5dfb14d38be487fc14e59"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5e31dd64fad5dfb14d38be487fc14e59">&#9670;&nbsp;</a></span>make_snarl_map()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">unordered_map&lt; pair&lt; const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> * &gt;, int32_t &gt; vg::MCMCGenotyper::make_snarl_map </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>reads</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1PhasedGenome.html">PhasedGenome</a> &amp;&#160;</td>
+          <td class="paramname"><em>phased_genome</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Generate a map from a pair of snarls to an edge weight Uses snarls read API, reads and the optimal_score_on pahsed genome as a scoring scheme for the edge weight overlapping the snarl pair. </p>
 
 </div>
 </div>
@@ -311,6 +440,50 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a id="a90b861c9698794a805c9276064f9551c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a90b861c9698794a805c9276064f9551c">&#9670;&nbsp;</a></span>burn_in</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const int vg::MCMCGenotyper::burn_in</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a4f8407692d3a6657442269ab9356952c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4f8407692d3a6657442269ab9356952c">&#9670;&nbsp;</a></span>frequency</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const int vg::MCMCGenotyper::frequency</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a63ef4fabc83c478b9ac7933ba16c5adc"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a63ef4fabc83c478b9ac7933ba16c5adc">&#9670;&nbsp;</a></span>graph</h2>
 

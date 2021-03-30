@@ -198,7 +198,7 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a8a520b4d648c566f4297418025051784"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Paths.html#a8a520b4d648c566f4297418025051784">write</a> (ostream &amp;out)</td></tr>
 <tr class="memdesc:a8a520b4d648c566f4297418025051784"><td class="mdescLeft">&#160;</td><td class="mdescRight">Write paths to the given stream, ending with an EOF marker.  <a href="classvg_1_1Paths.html#a8a520b4d648c566f4297418025051784">More...</a><br /></td></tr>
 <tr class="separator:a8a520b4d648c566f4297418025051784"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad215b2c7475b7048a073ce6fa805e709"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Paths.html#ad215b2c7475b7048a073ce6fa805e709">to_graph</a> (<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;g)</td></tr>
+<tr class="memitem:ad215b2c7475b7048a073ce6fa805e709"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Paths.html#ad215b2c7475b7048a073ce6fa805e709">to_graph</a> (<a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> &amp;g)</td></tr>
 <tr class="memdesc:ad215b2c7475b7048a073ce6fa805e709"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add all paths into the given Protobuf graph. Creates a new path for every path.  <a href="classvg_1_1Paths.html#ad215b2c7475b7048a073ce6fa805e709">More...</a><br /></td></tr>
 <tr class="separator:ad215b2c7475b7048a073ce6fa805e709"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a218a01d5d53bf945ef4f0acafd18d6bc"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Path.html">Path</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Paths.html#a218a01d5d53bf945ef4f0acafd18d6bc">path</a> (const string &amp;name)</td></tr>
@@ -215,7 +215,7 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aad2977756f0166a341fb488cd5c6a9b0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0c8569eae84b41c65291b76f0ae4da6c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Paths.html#a0c8569eae84b41c65291b76f0ae4da6c">append</a> (const <a class="el" href="classvg_1_1Paths.html">Paths</a> &amp;paths, bool warn_on_duplicates=false, bool rebuild_indexes=true)</td></tr>
 <tr class="separator:a0c8569eae84b41c65291b76f0ae4da6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4b25b15a87b59847a3ef5384aaed856c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Paths.html#a4b25b15a87b59847a3ef5384aaed856c">append</a> (const <a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;g, bool warn_on_duplicates=false, bool rebuild_indexes=true)</td></tr>
+<tr class="memitem:a4b25b15a87b59847a3ef5384aaed856c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Paths.html#a4b25b15a87b59847a3ef5384aaed856c">append</a> (const <a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> &amp;g, bool warn_on_duplicates=false, bool rebuild_indexes=true)</td></tr>
 <tr class="separator:a4b25b15a87b59847a3ef5384aaed856c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1b630067f63b3e4e1ef143902bbdcca1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Paths.html#a1b630067f63b3e4e1ef143902bbdcca1">extend</a> (const <a class="el" href="classvg_1_1Paths.html">Paths</a> &amp;paths, bool warn_on_duplicates=false, bool rebuild_indexes=true)</td></tr>
 <tr class="separator:a1b630067f63b3e4e1ef143902bbdcca1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -377,7 +377,7 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Paths::append </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> &amp;&#160;</td>
           <td class="paramname"><em>g</em>, </td>
         </tr>
         <tr>
@@ -2039,7 +2039,7 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::Paths::to_graph </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> &amp;&#160;</td>
           <td class="paramname"><em>g</em></td><td>)</td>
           <td></td>
         </tr>

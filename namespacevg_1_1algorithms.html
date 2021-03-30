@@ -78,13 +78,19 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1Edge.html">Edge</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html">GFAFormatError</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">This exception will be thrown if the GFA data is not acceptable.  <a href="structvg_1_1algorithms_1_1GFAFormatError.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1IDMapInfo.html">IDMapInfo</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1kmer__t.html">kmer_t</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Stores a kmer in the context of a graph.  <a href="structvg_1_1algorithms_1_1kmer__t.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1Node.html">Node</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1walk__t.html">walk_t</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Record a &lt;=k-length walk in the context of a graph.  <a href="structvg_1_1algorithms_1_1walk__t.html#details">More...</a><br /></td></tr>
@@ -210,6 +216,12 @@ Functions</h2></td></tr>
 <tr class="separator:a3961418e3f3af94c4275118e4693a2fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a91a6bbd822f6380421a973f75036c3d3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a91a6bbd822f6380421a973f75036c3d3">merge</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> *graph, const vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt;&gt; &amp;start, size_t length)</td></tr>
 <tr class="separator:a91a6bbd822f6380421a973f75036c3d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0820d23864c46dc1bc71ec68aee4e55e"><td class="memItemLeft" align="right" valign="top">pair&lt; vector&lt; unordered_set&lt; size_t &gt; &gt;, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a0820d23864c46dc1bc71ec68aee4e55e">kargers_min_cut</a> (<a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> graph, const int seed)</td></tr>
+<tr class="separator:a0820d23864c46dc1bc71ec68aee4e55e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7ae1eba2313c3ce068851c85b8d019e2"><td class="memItemLeft" align="right" valign="top">pair&lt; vector&lt; unordered_set&lt; size_t &gt; &gt;, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a7ae1eba2313c3ce068851c85b8d019e2">compute_min_cut</a> (<a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> graph, const int seed)</td></tr>
+<tr class="separator:a7ae1eba2313c3ce068851c85b8d019e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5cd4d23b1a702613134895c2d5618154"><td class="memItemLeft" align="right" valign="top">vector&lt; unordered_set&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a5cd4d23b1a702613134895c2d5618154">min_cut_decomposition</a> (<a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> graph, const int seed)</td></tr>
+<tr class="separator:a5cd4d23b1a702613134895c2d5618154"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2a7a23da8d7ef96e1e81caa75ccd2d40"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a2a7a23da8d7ef96e1e81caa75ccd2d40">nearest_offsets_in_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos, int64_t max_search)</td></tr>
 <tr class="separator:a2a7a23da8d7ef96e1e81caa75ccd2d40"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aef24fa77dadb09d5920ec94b88af2128"><td class="memItemLeft" align="right" valign="top">map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aef24fa77dadb09d5920ec94b88af2128">offsets_in_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos)</td></tr>
@@ -879,6 +891,34 @@ template&lt;class DistHeuristic &gt; </div>
 
 </div>
 </div>
+<a id="a7ae1eba2313c3ce068851c85b8d019e2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7ae1eba2313c3ce068851c85b8d019e2">&#9670;&nbsp;</a></span>compute_min_cut()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">pair&lt; vector&lt; unordered_set&lt; size_t &gt; &gt;, size_t &gt; vg::algorithms::compute_min_cut </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a>&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const int&#160;</td>
+          <td class="paramname"><em>seed</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="ac89d8d2356483ef348082609dc310b80"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac89d8d2356483ef348082609dc310b80">&#9670;&nbsp;</a></span>dfs() <span class="overload">[1/3]</span></h2>
 
@@ -1086,7 +1126,7 @@ template&lt;class DistHeuristic &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Return a list of graphs, one for each connected component in the original graph. <a class="el" href="structvg_1_1Node.html" title="Nodes store sequence data.">Node</a> IDs are preserved from the original graph. </p>
+<p>Return a list of graphs, one for each connected component in the original graph. <a class="el" href="structvg_1_1algorithms_1_1Node.html">Node</a> IDs are preserved from the original graph. </p>
 
 </div>
 </div>
@@ -1815,7 +1855,7 @@ template&lt;class DistHeuristic &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Fills graph 'into' with the subgraph of the handle graph 'source' that contains all of the positions in the positions vector and all other nodes and edges that can be reached within a maximum distance from any of these positions. Optionally also finds nodes and edges that can be reached within some distance from the previously mentioned nodes, except along non- proper bidirected walks. <a class="el" href="structvg_1_1Node.html" title="Nodes store sequence data.">Node</a> IDs in the subgraph are retained from the source graph.</p>
+<p>Fills graph 'into' with the subgraph of the handle graph 'source' that contains all of the positions in the positions vector and all other nodes and edges that can be reached within a maximum distance from any of these positions. Optionally also finds nodes and edges that can be reached within some distance from the previously mentioned nodes, except along non- proper bidirected walks. <a class="el" href="structvg_1_1algorithms_1_1Node.html">Node</a> IDs in the subgraph are retained from the source graph.</p>
 <p>Args: source graph to extract subgraph from into graph to extract into positions search outward from these positions max_dist include all nodes and edges that can be reached in at most this distance reversing_walk_length also find graph material that can be reached </p>
 
 </div>
@@ -1929,7 +1969,7 @@ template&lt;class DistHeuristic &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Fills graph 'into' with the subgraph of the handle graph 'source' that extends in one direction from a given position, up to a maximum distance. The node containing the position will be "cut" so that only the portion that is forward in the search direction remains. <a class="el" href="structvg_1_1Node.html" title="Nodes store sequence data.">Node</a> IDs may be changed in the extracted graph, but they can be translated back to node IDs in the original graph with the returned map, although that translation procedure MUST handle the node that pos is on specially, as it may be cut. translate_node_ids from <a class="el" href="path_8hpp.html">path.hpp</a> can do this as long as you pass along what part of the node was removed. The node containing the source position may optionally be duplicated to preserve cycles on it after its cut, but no other nodes will will duplicated.</p>
+<p>Fills graph 'into' with the subgraph of the handle graph 'source' that extends in one direction from a given position, up to a maximum distance. The node containing the position will be "cut" so that only the portion that is forward in the search direction remains. <a class="el" href="structvg_1_1algorithms_1_1Node.html">Node</a> IDs may be changed in the extracted graph, but they can be translated back to node IDs in the original graph with the returned map, although that translation procedure MUST handle the node that pos is on specially, as it may be cut. translate_node_ids from <a class="el" href="path_8hpp.html">path.hpp</a> can do this as long as you pass along what part of the node was removed. The node containing the source position may optionally be duplicated to preserve cycles on it after its cut, but no other nodes will will duplicated.</p>
 <p>Args: source graph to extract subgraph from into graph to extract into max_dist include all nodes and edges that can be reached in at most this distance pos extend from this position backward extend in this direction preserve_cycles_on_src if necessary, duplicate starting node to preserve cycles after cutting it </p>
 
 </div>
@@ -2473,6 +2513,34 @@ template&lt;class DistHeuristic &gt; </div>
 
 </div>
 </div>
+<a id="a0820d23864c46dc1bc71ec68aee4e55e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0820d23864c46dc1bc71ec68aee4e55e">&#9670;&nbsp;</a></span>kargers_min_cut()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">pair&lt; vector&lt; unordered_set&lt; size_t &gt; &gt;, size_t &gt; vg::algorithms::kargers_min_cut </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a>&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const int&#160;</td>
+          <td class="paramname"><em>seed</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a91a6bbd822f6380421a973f75036c3d3"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a91a6bbd822f6380421a973f75036c3d3">&#9670;&nbsp;</a></span>merge()</h2>
 
@@ -2547,6 +2615,34 @@ template&lt;class DistHeuristic &gt; </div>
 </div><div class="memdoc">
 
 <p>use the embedded paths to get an estimated minimum distance between the positions </p>
+
+</div>
+</div>
+<a id="a5cd4d23b1a702613134895c2d5618154"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5cd4d23b1a702613134895c2d5618154">&#9670;&nbsp;</a></span>min_cut_decomposition()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; unordered_set&lt; size_t &gt; &gt; vg::algorithms::min_cut_decomposition </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a>&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const int&#160;</td>
+          <td class="paramname"><em>seed</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
