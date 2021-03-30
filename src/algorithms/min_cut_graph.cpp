@@ -293,7 +293,7 @@ namespace vg {
 
             // compute min-cut twice and choose the min-cut with least total graph weights
             //the minimum total edge weight of graph will give us the min-cut
-            const int seed2 = 3;
+            const int seed2 = seed+1;
 
             //TODO: generate seeds in here or send two seeds
             pair<vector<unordered_set<size_t>>, size_t> to_return;

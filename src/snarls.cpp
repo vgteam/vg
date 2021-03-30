@@ -780,6 +780,10 @@ const Snarl* SnarlManager::discrete_uniform_sample(minstd_rand0& random_engine)c
     int number_of_snarls = num_snarls();
 #ifdef debug
     cerr << "number_of_snarls "<< number_of_snarls <<endl;
+    for (int i =0; i< snarls.size(); i++){
+        const Snarl* snarl  = unrecord(&snarls[i]);
+        cerr << snarl->start().node_id() << " -> "<<snarl->end().node_id() <<endl;
+    }
 #endif
 
     // if we have no snarls we return a flag 

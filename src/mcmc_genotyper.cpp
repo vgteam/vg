@@ -131,7 +131,7 @@ namespace vg {
 #ifdef stdout_for_performance_script 
                     cerr << "modified haplo is empty" <<endl;        
 #endif
-                    break;
+                    continue;
                 }else{
                     modified_site = get<1>(to_receive); 
                     old_allele = &get<2>(to_receive); 
@@ -246,7 +246,9 @@ namespace vg {
 
 
         if(matched_haplotypes.empty()){
-            // cerr << "looking for snarl starting with " << random_snarl->start() << " and snarl ending with " << random_snarl->end() <<endl;
+#ifdef debug_proposal_sample
+            cerr << "looking for snarl starting with " << random_snarl->start() << " and snarl ending with " << random_snarl->end() <<endl;
+#endif
             random_haplotype = -1;
             return to_return;
             
