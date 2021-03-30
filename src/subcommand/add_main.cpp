@@ -164,11 +164,10 @@ int main_add(int argc, char** argv) {
     }
     
     // Load the graph
-    
+
     unique_ptr<handlegraph::MutablePathDeletableHandleGraph> graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-        graph = vg::io::VPKG::load_one<handlegraph::MutablePathDeletableHandleGraph>(in);
-    });
+    string graph_filename = get_input_file_name(optind, argc, argv);
+    graph = vg::io::VPKG::load_one<handlegraph::MutablePathDeletableHandleGraph>(graph_filename);
     
     VG* vg_graph = dynamic_cast<vg::VG*>(graph.get());
     

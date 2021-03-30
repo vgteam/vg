@@ -280,9 +280,7 @@ int main_augment(int argc, char** argv) {
 
     // Read the graph
     unique_ptr<MutablePathMutableHandleGraph> graph;
-    get_input_file(graph_file_name, [&](istream& in) {
-            graph = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(in);
-        });
+    graph = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(graph_file_name);
     VG* vg_graph = dynamic_cast<VG*>(graph.get());
     HandleGraph* vectorizable_graph = nullptr;
     unique_ptr<Packer> packer;

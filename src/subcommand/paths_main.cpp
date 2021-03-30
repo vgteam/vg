@@ -311,9 +311,7 @@ int main_paths(int argc, char** argv) {
         assert(vg_file.empty() || xg_file.empty());
         const string& graph_file = vg_file.empty() ? xg_file : vg_file;
         // Load the vg or xg
-        get_input_file(graph_file, [&](istream& in) {
-                graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
-            });
+        graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_file);
     }
     unique_ptr<gbwt::GBWT> gbwt_index;
     if (!gbwt_file.empty()) {

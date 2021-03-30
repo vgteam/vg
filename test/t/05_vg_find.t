@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 27
+plan tests 28
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -115,3 +115,8 @@ vg index -x x.xg x.vg
 vg index -G x.gbwt -v small/xy2.vcf.gz x.vg
 is $(vg find -p x -x x.xg -K 16 -H x.gbwt | cut -f 5 | sort | uniq -c  | tail -n 1 | awk '{ print $1 }') 1510 "we find the expected number of kmers with haplotype frequency equal to 2"
 rm -f x.vg x.xg x.gbwt
+
+vg convert -gp tiny/tiny.gfa | vg find -x - -n 1 -c 2 | vg convert -f - | vg ids -s - | sort > found1.gfa
+vg find -x tiny/tiny.gfa -n 1 -c 2| vg ids -s - | sort > found2.gfa
+diff found1.gfa found2.gfa
+is $? 0 "GFA i/o for find -n consistent with converting both ways"

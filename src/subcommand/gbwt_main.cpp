@@ -578,7 +578,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             config.segment_translation = optarg;
             break;
 
-        // Input GBWT construction: paths
+        // Input GBWT construction: Paths
         case 'E':
             assert(config.build == GBWTConfig::build_none);
             config.build = GBWTConfig::build_paths;

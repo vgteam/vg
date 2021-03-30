@@ -94,17 +94,15 @@ int main_combine(int argc, char** argv) {
     }
     
     unique_ptr<MutablePathMutableHandleGraph> first_graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-            first_graph = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(in);
-        });
+    string first_graph_filename = get_input_file_name(optind, argc, argv);
+    first_graph = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(first_graph_filename);
     int64_t max_node_id = first_graph->max_node_id();
 
     while (optind < argc) {
 
         unique_ptr<MutablePathMutableHandleGraph> graph;
-        get_input_file(optind, argc, argv, [&](istream& in) {
-                graph = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(in);
-            });
+        string graph_filename = get_input_file_name(optind, argc, argv);
+        graph = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(graph_filename);
 
         // join the id spaces if necessary
         int64_t delta = max_node_id - graph->min_node_id();

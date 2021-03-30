@@ -525,7 +525,7 @@ void get_input_file(int& optind, int argc, char** argv, function<void(istream&)>
 
 }
 
-string get_input_file_name(int& optind, int argc, char** argv) {
+string get_input_file_name(int& optind, int argc, char** argv, bool test_open) {
 
     if (optind >= argc) {
         // Complain that the user didn't specify a filename
@@ -538,6 +538,13 @@ string get_input_file_name(int& optind, int argc, char** argv) {
     if (file_name.empty()) {
         cerr << "error:[get_input_file_name] specify a non-empty input filename" << endl;
         exit(1);
+    }
+
+    if (test_open && file_name != "-") {
+        ifstream file_stream(file_name);
+        if (!file_stream) {
+            cerr << "error:[get_input_file_name] unable to open input file: " << file_name << endl;
+        }
     }
     
     return file_name;

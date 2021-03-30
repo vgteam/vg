@@ -331,9 +331,7 @@ int main_prune(int argc, char** argv) {
 
     // Handle the input.
     std::unique_ptr<MutablePathDeletableHandleGraph> graph;
-    get_input_file(vg_name, [&](std::istream& in) {
-        graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
-    });
+    graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(vg_name);
     xg::XG xg_index;
     std::unique_ptr<gbwt::GBWT> gbwt_index;
     
