@@ -42,6 +42,7 @@ void JobSchedule::execute(int64_t target_memory_usage) {
                 queue_lock.lock();
                 if (queue.empty()) {
                     // the queue emptied out while we were waiting
+                    queue_lock.unlock();
                     break;
                 }
                 if (est_memory_usage.load() == 0) {
