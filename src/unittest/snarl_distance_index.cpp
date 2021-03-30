@@ -227,6 +227,12 @@ namespace vg {
                          make_pos_t(n5->id(), true, 0), make_pos_t(n2->id(), false, 0)) == std::numeric_limits<int64_t>::max());
                 REQUIRE(distance_index.minimum_distance(
                          make_pos_t(n6->id(), false, 0), make_pos_t(n5->id(), false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n5->id(), false, 0), make_pos_t(n6->id(), false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n5->id(), true, 0), make_pos_t(n6->id(), true, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n5->id(), false, 0), make_pos_t(n6->id(), true, 0)) == std::numeric_limits<int64_t>::max());
             }
         
         }
@@ -342,9 +348,78 @@ namespace vg {
                 }
             }
             
+            SECTION("Distances within snarl 3,5 are correct") {
+                net_handle_t chain4 = distance_index.get_parent(distance_index.get_net(graph.get_handle(4, false), &graph));
+                REQUIRE(distance_index.is_trivial_chain(chain4));
+                REQUIRE(distance_index.is_chain(chain4));
+                net_handle_t snarl_3_5 = distance_index.get_parent(chain4);
+                REQUIRE(distance_index.is_snarl(snarl_3_5));
+                net_handle_t start_in = distance_index.get_bound(snarl_3_5, false, true);
+                net_handle_t end_in = distance_index.get_bound(snarl_3_5, true, true);
+                if (distance_index.node_id(start_in) == n5->id()) {
+                    net_handle_t tmp = start_in;
+                    start_in = end_in;
+                    end_in = tmp;
+                }
+
+                REQUIRE(distance_index.distance_in_parent(snarl_3_5, start_in, start_in) == 0);
+                REQUIRE(distance_index.distance_in_parent(snarl_3_5, end_in, end_in) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.distance_in_parent(snarl_3_5, start_in, end_in) == 0);
+                REQUIRE(distance_index.distance_in_parent(snarl_3_5, end_in, start_in) == 0);
+            }
+
+            SECTION("Distances within snarl 2,7 are correct") {
+                net_handle_t chain6 = distance_index.get_parent(distance_index.get_net(graph.get_handle(6, false), &graph));
+                REQUIRE(distance_index.is_trivial_chain(chain6));
+                REQUIRE(distance_index.is_chain(chain6));
+                net_handle_t snarl_2_7 = distance_index.get_parent(chain6);
+                REQUIRE(distance_index.is_snarl(snarl_2_7));
+                net_handle_t start_in = distance_index.get_bound(snarl_2_7, false, true);
+                net_handle_t end_in = distance_index.get_bound(snarl_2_7, true, true);
+                REQUIRE((distance_index.node_id(start_in) == 2 || distance_index.node_id(start_in) == 7));
+                REQUIRE((distance_index.node_id(end_in) == 2 || distance_index.node_id(end_in) == 7));
+                if (distance_index.node_id(start_in) == n7->id()) {
+                    net_handle_t tmp = start_in;
+                    start_in = end_in;
+                    end_in = tmp;
+                }
+
+                REQUIRE(distance_index.distance_in_parent(snarl_2_7, start_in, start_in) == 2);
+                REQUIRE(distance_index.distance_in_parent(snarl_2_7, end_in, end_in) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.distance_in_parent(snarl_2_7, start_in, end_in) == 1);
+                REQUIRE(distance_index.distance_in_parent(snarl_2_7, end_in, start_in) == 1);
+            }
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
                          make_pos_t(n1->id(), false, 0), make_pos_t(n8->id(), false, 0)) == 3);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n1->id(), false, 0), make_pos_t(n7->id(), false, 0)) == 5);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n3->id(), false, 0), make_pos_t(n7->id(), false, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n7->id(), true, 0), make_pos_t(n3->id(), true, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n2->id(), false, 0), make_pos_t(n5->id(), false, 0)) == 2);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n6->id(), false, 0), make_pos_t(n8->id(), false, 1)) == 3);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n2->id(), false, 0), make_pos_t(n6->id(), false, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n7->id(), true, 0), make_pos_t(n4->id(), true, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n5->id(), true, 0), make_pos_t(n2->id(), true, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n3->id(), false, 0), make_pos_t(n3->id(), true, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n2->id(), false, 0), make_pos_t(n2->id(), true, 0)) == 3);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n1->id(), false, 0), make_pos_t(n1->id(), true, 0)) == 7);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n1->id(), false, 0), make_pos_t(n3->id(), true, 0)) == 5);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n5->id(), true, 0), make_pos_t(n2->id(), false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n6->id(), false, 0), make_pos_t(n5->id(), false, 0)) == std::numeric_limits<int64_t>::max());
             }
             /*
              * TODO: SHould we allow a netgraph that respects internal connectivity?
@@ -518,63 +593,70 @@ namespace vg {
                 }
             }
             
-            /*
-            SECTION( "A connectivity-respecting net graph allows more traversals" ) {
-            
-                // Make a connectivity-respecting graph
-                NetGraph net_graph(top_snarl.start(), top_snarl.end(), top_chains, top_unary_snarls, &graph, true);
-                
-                SECTION( "The top-level NetGraph has 3 nodes" ) {
-                    unordered_set<handle_t> nodes;
-                    size_t node_count = 0;
-                    net_graph.for_each_handle([&](const handle_t& handle) {
-                        nodes.insert(handle);
-                        node_count++;
-                    });
-                    REQUIRE(nodes.size() == node_count);
-                    
-                    REQUIRE(nodes.size() == 3);
-                    
-                    SECTION( "The nodes are numbered 1, 2, and 8" ) {
-                        REQUIRE(nodes.count(net_graph.get_handle(1, false)) == 1);
-                        REQUIRE(nodes.count(net_graph.get_handle(2, false)) == 1);
-                        REQUIRE(nodes.count(net_graph.get_handle(8, false)) == 1);
-                    }
+            SECTION("Distances in snarl 3 5 are correct") {
+                net_handle_t chain_4 = distance_index.get_parent(distance_index.get_net(graph.get_handle(4, false), &graph));
+                REQUIRE(distance_index.is_chain(chain_4));
+                REQUIRE(distance_index.is_trivial_chain(chain_4));
+                net_handle_t snarl_3_5 = distance_index.get_parent(chain_4);
+                REQUIRE(distance_index.is_snarl(snarl_3_5));
+                net_handle_t start_in = distance_index.get_bound(snarl_3_5, false, true);
+                net_handle_t end_in = distance_index.get_bound(snarl_3_5, true, true);
+                if (distance_index.node_id(start_in) == n5->id()) {
+                    net_handle_t temp = start_in;
+                    start_in = end_in;
+                    end_in = temp;
                 }
-                
-                SECTION( "The top-level NetGraph has 4 edges" ) {
-                    unordered_set<pair<handle_t, handle_t>> edges;
-                    for (auto& id : {1, 2, 8}) {
-                        // Go through the nodes we should have manually.
-                        handle_t handle = net_graph.get_handle(id, false);
-                    
-                        // Save all the edges off of each node
-                        net_graph.follow_edges(handle, false, [&](const handle_t& other) {
-                            edges.insert(net_graph.edge_handle(handle, other));
-                        });
-                        net_graph.follow_edges(handle, true, [&](const handle_t& other) {
-                            edges.insert(net_graph.edge_handle(other, handle));
-                        });
-                    }
-                    
-                    REQUIRE(edges.size() == 4);
-             
-#ifdef debug
-                    for (auto& edge : edges) {
-                        cerr << net_graph.get_id(edge.first) << " " << net_graph.get_is_reverse(edge.first) << " -> "
-                            << net_graph.get_id(edge.second) << " " << net_graph.get_is_reverse(edge.second) << endl;
-                    }
-#endif
-                    
-                    SECTION( "One edge is from node 2 in reverse to node 8" ) {
-                        REQUIRE(edges.count(net_graph.edge_handle(net_graph.get_handle(2, true),
-                            net_graph.get_handle(8, false))) == 1);
-                    }
-                }
-            
+                REQUIRE(distance_index.distance_in_parent(snarl_3_5, distance_index.flip(chain_4), distance_index.flip(chain_4)) == 0);
+                REQUIRE(distance_index.distance_in_parent(snarl_3_5, end_in, end_in) == 8);
+                REQUIRE(distance_index.distance_in_parent(snarl_3_5, start_in, start_in) == std::numeric_limits<int64_t>::max());
+
+
             }
-            */
-        
+            SECTION("Distances in chain 2 7 are correct") {
+                net_handle_t chain_6 = distance_index.get_parent(distance_index.get_net(graph.get_handle(6, false), &graph));
+                REQUIRE(distance_index.is_chain(chain_6));
+                REQUIRE(distance_index.is_trivial_chain(chain_6));
+                net_handle_t snarl_2_7 = distance_index.get_parent(chain_6);
+                REQUIRE(distance_index.is_snarl(snarl_2_7));
+                net_handle_t chain_2_7 = distance_index.get_parent(snarl_2_7);
+                net_handle_t start_in = distance_index.get_bound(chain_2_7, false, true);
+                net_handle_t end_in = distance_index.get_bound(chain_2_7, true, true);
+                if (distance_index.node_id(start_in) == n7->id()) {
+                    net_handle_t temp = start_in;
+                    start_in = end_in;
+                    end_in = temp;
+                }
+                REQUIRE (distance_index.distance_in_parent(chain_2_7, end_in, end_in) == 14);
+
+
+            }
+            SECTION("Minimum distances are correct") {
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n1->id(), false, 0), make_pos_t(n8->id(), false, 0)) == 3);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n1->id(), false, 0), make_pos_t(n7->id(), false, 0)) == 5);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n3->id(), false, 0), make_pos_t(n7->id(), false, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n7->id(), true, 0), make_pos_t(n3->id(), true, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n2->id(), false, 0), make_pos_t(n5->id(), false, 0)) == 2);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n6->id(), false, 0), make_pos_t(n8->id(), false, 1)) == 3);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n5->id(), true, 0), make_pos_t(n2->id(), true, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n5->id(), true, 0), make_pos_t(n2->id(), false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n6->id(), false, 0), make_pos_t(n5->id(), false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n4->id(), true, 0), make_pos_t(n4->id(), false, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n5->id(), true, 0), make_pos_t(n4->id(), false, 0)) == 7);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(n7->id(), true, 0), make_pos_t(n8->id(), false, 0)) == 16);
+            }
+                   
         } 
         
         /*TOOD: This had a weird snarl decomposition
@@ -1314,7 +1396,7 @@ namespace vg {
         */
     
         TEST_CASE( "Distance index's snarl functions return expected answers",
-                  "[snarl_distance]" ) {
+                  "[snarl_distance][bug]" ) {
             
             SECTION( "SnarlManager can be constructed with cactus ultrabubbles") {
                 
@@ -1874,6 +1956,26 @@ namespace vg {
                 });
                 REQUIRE(edge_count == 2);
 
+                SECTION("Minimum distances are correct") {
+                    REQUIRE(distance_index.minimum_distance(
+                             make_pos_t(n1->id(), false, 0), make_pos_t(n8->id(), false, 0)) == 5);
+                    REQUIRE(distance_index.minimum_distance(
+                             make_pos_t(n3->id(), false, 0), make_pos_t(n8->id(), false, 0)) == 7);
+                    REQUIRE(distance_index.minimum_distance(
+                             make_pos_t(n8->id(), true, 0), make_pos_t(n3->id(), true, 0)) == 10);
+                    REQUIRE(distance_index.minimum_distance(
+                             make_pos_t(n2->id(), false, 0), make_pos_t(n6->id(), true, 0)) == 1);
+                    REQUIRE(distance_index.minimum_distance(
+                             make_pos_t(n4->id(), false, 0), make_pos_t(n7->id(), false, 0)) == 5);
+                    REQUIRE(distance_index.minimum_distance(
+                             make_pos_t(n1->id(), false, 0), make_pos_t(n7->id(), false, 0)) == 4);
+                    REQUIRE(distance_index.minimum_distance(
+                             make_pos_t(n5->id(), false, 0), make_pos_t(n1->id(), true, 0)) == 5);
+                    REQUIRE(distance_index.minimum_distance(
+                             make_pos_t(n5->id(), false, 0), make_pos_t(n5->id(), false, 0)) == 1);
+                    REQUIRE(distance_index.minimum_distance(
+                             make_pos_t(n5->id(), false, 0), make_pos_t(n5->id(), true, 0)) == std::numeric_limits<int64_t>::max());
+                }
                 
             }
             

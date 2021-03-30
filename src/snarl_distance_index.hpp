@@ -328,6 +328,12 @@ public:
      */
     int64_t node_length(const net_handle_t& net) const ;
 
+    /**
+     * What is the node id of the node represented by this net handle
+     * net must be a node or a sentinel
+     */
+    int64_t node_id(const net_handle_t& net) const ;
+
 
     /**
      * Get the minimum distance between two positions in the graph

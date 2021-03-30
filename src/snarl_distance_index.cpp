@@ -1,4 +1,4 @@
-//#define debug_distance_indexing
+#define debug_distance_indexing
 //#define debug_snarl_traversal
 #define debug_distances
 
@@ -1580,11 +1580,10 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
          << "      " << net_handle_as_string(child1) << " and " <<  net_handle_as_string(child2) << endl;
 #endif
 
-    net_handle_record_t parent_handle_type = get_handle_type(parent);
     assert(canonical(parent) == canonical(get_parent(child1)));
     assert(canonical(parent) == canonical(get_parent(child2)));
 
-    if (parent_handle_type == ROOT_HANDLE) {
+    if (is_root(parent)) {
         //If the parent is the root, then the children must be in the same root snarl for them to be
         //connected
         RootRecord root_record(parent, &snarl_tree_records);
@@ -1620,10 +1619,14 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
         }
 
 
-    } else if (parent_handle_type == CHAIN_HANDLE) {
+    } else if (is_chain(parent)) {
         ChainRecord chain_record(get_parent(child1), &snarl_tree_records);
         assert(is_node(child1) || is_snarl(child1));
         assert(is_node(child2) || is_snarl(child2));
+
+        if (is_trivial_chain(parent)) {
+            return std::numeric_limits<int64_t>::max();
+        }
 
         if (is_node(child1) && is_node(child2)) {
             //The distance between two nodes
@@ -1716,7 +1719,7 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
             }
         }
 
-    } else if (parent_handle_type == SNARL_HANDLE) {
+    } else if (is_snarl(parent)) {
         SnarlRecord snarl_record(get_parent(child1), &snarl_tree_records);
         SnarlTreeRecord child_record1 (child1, &snarl_tree_records);
         SnarlTreeRecord child_record2 (child2, &snarl_tree_records);
@@ -1899,11 +1902,17 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
      */
  
     if (canonical(net1) == canonical(net2)){
-        if (get_connectivity(net1) != get_connectivity(net1) && 
-            sum({distance_to_start1 , distance_to_start2}) > node_length(net1)) {
+        cerr << "SAME NODE" << endl;
+        if (sum({distance_to_end1 , distance_to_start2}) >= node_length(net1)) {
             //If the positions are on the same node and are pointing towards each other, then
             //check the distance between them in the node
-            minimum_distance = minus(sum({distance_to_start1 , distance_to_start2}), node_length(net1));
+            //Add 1 to be consistent
+            minimum_distance = minus(sum({distance_to_end1 , distance_to_start2, 1}), node_length(net1));
+            cerr << " Distance: " << minimum_distance << endl;
+        }
+        if (sum({distance_to_start1 , distance_to_end2}) >= node_length(net1)) {
+            minimum_distance = std::min(minus(sum({distance_to_start1 , distance_to_end2, 1}), node_length(net1)), minimum_distance);
+            cerr << " Distance: " << minimum_distance << endl;
         }
         common_ancestor = get_parent(net1);
     } else {
@@ -1952,7 +1961,6 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
         int64_t distance_start_end = distance_in_parent(common_ancestor, flip(net1), net2);
         int64_t distance_end_start = distance_in_parent(common_ancestor, net1, flip(net2));
         int64_t distance_end_end = distance_in_parent(common_ancestor, net1, net2);
-        cerr << "Distances: " << distance_start_start << " " << distance_start_end << " " << distance_end_start << " " << distance_end_end << endl;
 
         //And add those to the distances we've found to get the minimum distance between the positions
         minimum_distance = std::min(minimum_distance, 
@@ -1989,7 +1997,7 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
 }
 
 int64_t SnarlDistanceIndex::node_length(const net_handle_t& net) const {
-    assert(is_node(net));
+    assert(is_node(net) || is_sentinel(net));
     if (is_node(net)) {
         return NodeRecord(net, &snarl_tree_records).get_node_length();
     } else if (is_sentinel(net)) {
@@ -2006,6 +2014,23 @@ int64_t SnarlDistanceIndex::node_length(const net_handle_t& net) const {
             node_record = NodeRecord(get_offset_from_node_id(snarl_record.get_end_id()), &snarl_tree_records);
         }
         return node_record.get_node_length();
+    } else {
+        throw runtime_error("error: Looking for the node length of a non-node net_handle_t");
+    }
+
+}
+int64_t SnarlDistanceIndex::node_id(const net_handle_t& net) const {
+    assert(is_node(net) || is_sentinel(net));
+    if (is_node(net)) {
+        return NodeRecord(net, &snarl_tree_records).get_node_id();
+    } else if (is_sentinel(net)) {
+        SnarlRecord snarl_record(net, &snarl_tree_records);
+        NodeRecord node_record;
+        if (get_start_endpoint(net) == START) {
+            return snarl_record.get_start_id();
+        } else {
+            return snarl_record.get_end_id();
+        }
     } else {
         throw runtime_error("error: Looking for the node length of a non-node net_handle_t");
     }
