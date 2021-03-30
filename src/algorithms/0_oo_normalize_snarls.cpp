@@ -76,8 +76,8 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
     pair<int, int> snarl_sequence_change;
 
     // // //todo: debug_code
-    int stop_size = 1;
-    int num_snarls_touched = 0;
+    // int stop_size = 1;
+    // int num_snarls_touched = 0;
 
     // int skip_first_few = 2; //#1, node 3702578 is a cyclic snarl. Don't recall about #0. #2 also cyclic. Looks like cyclic snarls weren't buggy?
     // int skipped = 0;
@@ -90,11 +90,11 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
         //     continue;
         // }
         
-        if (num_snarls_touched == stop_size){
-            break;
-        } else {
-            num_snarls_touched++;
-        }
+        // if (num_snarls_touched == stop_size){
+        //     break;
+        // } else {
+        //     num_snarls_touched++;
+        // }
         
         // if (roots->start().node_id() == 3881494) {
             // cerr << "root backwards?" << roots->start().backward() << endl;
@@ -776,7 +776,7 @@ void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl,
         path_spans_left_right.first = (_graph.get_id(_graph.get_handle_of_step(embedded_paths[i].first)) == source_id);
         path_spans_left_right.second = (_graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(embedded_paths[i].second))) == sink_id);
 
-        embedded_paths[i] = move_path_to_new_snarl(embedded_paths[i], temp_snarl_leftmost_id, temp_snarl_rightmost_id, path_spans_left_right, !backwards);
+        embedded_paths[i] = move_path_to_new_snarl(embedded_paths[i], temp_snarl_leftmost_id, temp_snarl_rightmost_id, path_spans_left_right, !backwards, make_pair(source_id, sink_id));
     }
 
     // Destroy the old snarl.

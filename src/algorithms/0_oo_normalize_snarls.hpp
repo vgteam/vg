@@ -65,9 +65,9 @@ class SnarlNormalizer {
     // moving paths to new graph (new draft functions)
     vector<pair<vector<handle_t>, int> > find_possible_path_starts (const handle_t& leftmost_handle, const handle_t& rightmost_handle, const pair<bool, bool>& path_spans_left_right);
 
-    vector<handle_t> extend_possible_paths(vector<pair<vector<handle_t>, int>> &possible_path_starts, const string &path_str, const handle_t &leftmost_handle, const handle_t &rightmost_handle, const pair<bool, bool> &path_spans_left_right);
+    vector<handle_t> extend_possible_paths(vector<pair<vector<handle_t>, int>> &possible_path_starts, const string &path_str, const handle_t &leftmost_handle, const handle_t &rightmost_handle, const pair<bool, bool> &path_spans_left_right, const pair<id_t, id_t> &main_graph_source_and_sink);
 
-    pair<step_handle_t, step_handle_t> move_path_to_new_snarl(const pair<step_handle_t, step_handle_t> & old_path, const id_t &source, const id_t &sink, const pair<bool, bool> &path_spans_left_right, const bool &path_directed_left_to_right);
+    pair<step_handle_t, step_handle_t> move_path_to_new_snarl(const pair<step_handle_t, step_handle_t> & old_path, const id_t &source, const id_t &sink, const pair<bool, bool> &path_spans_left_right, const bool &path_directed_left_to_right, const pair<id_t, id_t> &main_graph_source_and_sink);
 
     //////////////////////////////////////////////////////////////////////////////////////
     // format-type switching:
