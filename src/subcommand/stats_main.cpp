@@ -43,6 +43,7 @@ void help_stats(char** argv) {
          << "    -N, --node-count      number of nodes in graph" << endl
          << "    -E, --edge-count      number of edges in graph" << endl
          << "    -l, --length          length of sequences in graph" << endl
+         << "    -L, --self-loops      number of nodes with a self-loop" << endl
          << "    -s, --subgraphs       describe subgraphs of graph" << endl
          << "    -H, --heads           list the head nodes of the graph" << endl
          << "    -T, --tails           list the tail nodes of the graph" << endl
@@ -74,6 +75,7 @@ int main_stats(int argc, char** argv) {
 
     bool stats_size = false;
     bool stats_length = false;
+    bool stats_self_loops = false;
     bool stats_subgraphs = false;
     bool stats_heads = false;
     bool stats_tails = false;
@@ -105,6 +107,7 @@ int main_stats(int argc, char** argv) {
             {"node-count", no_argument, 0, 'N'},
             {"edge-count", no_argument, 0, 'E'},
             {"length", no_argument, 0, 'l'},
+            {"self-loops", no_argument, 0, 'L'},
             {"subgraphs", no_argument, 0, 's'},
             {"heads", no_argument, 0, 'H'},
             {"tails", no_argument, 0, 'T'},
@@ -126,7 +129,7 @@ int main_stats(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTcdtn:NEa:vAro:ORFD",
+        c = getopt_long (argc, argv, "hzlLsHTcdtn:NEa:vAro:ORFD",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -149,6 +152,10 @@ int main_stats(int argc, char** argv) {
 
         case 'l':
             stats_length = true;
+            break;
+
+        case 'L':
+            stats_self_loops = true;
             break;
 
         case 's':
@@ -268,6 +275,17 @@ int main_stats(int argc, char** argv) {
     if (stats_length) {
         require_graph();
         cout << "length" << "\t" << graph->get_total_length() << endl;
+    }
+
+    if (stats_self_loops) {
+        require_graph();
+        std::unordered_set<nid_t> loops;
+        graph->for_each_edge([&](const edge_t& edge) {
+            if (graph->get_id(edge.first) == graph->get_id(edge.second)) {
+                loops.insert(graph->get_id(edge.first));
+            }
+        });
+        cout << "self-loops" << "\t" << loops.size() << endl;
     }
 
     if (stats_heads) {
