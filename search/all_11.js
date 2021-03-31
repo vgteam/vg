@@ -25,6 +25,6 @@ var searchData=
   ['query_5foverlap_3863',['query_overlap',['../namespacevg.html#acffe466a3ca83097eceac30a09b9a010',1,'vg']]],
   ['query_5fposition_3864',['query_position',['../structvg_1_1Alignment.html#a17a81788105d3cb6a777ed6a202cd36f',1,'vg::Alignment']]],
   ['query_5fstart_3865',['query_start',['../structgafkluge_1_1GafRecord.html#a7a92ff5f2dcd4035bfcc661f64d863cd',1,'gafkluge::GafRecord']]],
-  ['queue_3866',['queue',['../classvg_1_1JobSchedule.html#ae8e4aad923789e1dd7fd53b2cf905641',1,'vg::JobSchedule']]],
+  ['queue_3866',['queue',['../classvg_1_1JobSchedule.html#ad9c195bda4329dcf7f90e1135388a2bd',1,'vg::JobSchedule']]],
   ['quote_3867',['QUOTE',['../version_8cpp.html#a1e7841038b1293b9a250d8999f6c8ac8',1,'version.cpp']]]
 ];

@@ -14,5 +14,5 @@ var searchData=
   ['query_5foffset_10569',['query_offset',['../structvg_1_1DozeuInterface_1_1graph__pos__s.html#a97a6361d1ab730d37f88d27b92218d83',1,'vg::DozeuInterface::graph_pos_s']]],
   ['query_5fposition_10570',['query_position',['../structvg_1_1Alignment.html#a17a81788105d3cb6a777ed6a202cd36f',1,'vg::Alignment']]],
   ['query_5fstart_10571',['query_start',['../structgafkluge_1_1GafRecord.html#a7a92ff5f2dcd4035bfcc661f64d863cd',1,'gafkluge::GafRecord']]],
-  ['queue_10572',['queue',['../classvg_1_1JobSchedule.html#ae8e4aad923789e1dd7fd53b2cf905641',1,'vg::JobSchedule']]]
+  ['queue_10572',['queue',['../classvg_1_1JobSchedule.html#ad9c195bda4329dcf7f90e1135388a2bd',1,'vg::JobSchedule']]]
 ];
