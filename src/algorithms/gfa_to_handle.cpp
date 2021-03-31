@@ -621,6 +621,10 @@ void parse_gfa_p_line(const string& p_line,
         if (c == ',') c = p_line[++j];
         while (c != ',' && c != '\t' && c != '\n' && c != ' ' && j < p_line.length()) {
             overlap.push_back(c);
+            // don't scan overlap list if it's just a *
+            if (c == '*' && j == p_line.length() - 1) {
+                break;
+            }
             c = p_line[++j];
         }
         bool ret = visit_step(path_name, rank++, id, is_rev);
