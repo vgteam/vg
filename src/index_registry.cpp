@@ -843,12 +843,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         for (int64_t i = 0; i < buckets.size(); ++i) {
             
             auto chunk_fasta_name = plan->output_filepath(output_fasta, i, buckets.size());
-            //auto chunk_fai_name = chunk_fasta_name + ".fai";
+            auto chunk_fai_name = chunk_fasta_name + ".fai";
             output_fasta_names[i] = chunk_fasta_name;
                         
             ofstream outfile_fasta, outfile_fai;
             init_out(outfile_fasta, chunk_fasta_name);
-            //init_out(outfile_fai, chunk_fai_name);
+            init_out(outfile_fai, chunk_fai_name);
             for (auto& assigned_seq : buckets[i]) {
                 string contig = assigned_seq.first;
                 int64_t ref_idx = assigned_seq.second;
@@ -870,7 +870,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 }
                 
                 // add an FAI entry
-                //outfile_fai << contig << '\t' <<  length << '\t' << seq_start << '\t' << line_length << '\t' << line_length + 1 << endl;
+                outfile_fai << contig << '\t' <<  length << '\t' << seq_start << '\t' << line_length << '\t' << line_length + 1 << endl;
             }
         }
         

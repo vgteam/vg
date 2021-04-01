@@ -4,6 +4,9 @@
 #include <cstring>
 
 #include "cluster.hpp"
+#include "algorithms/subgraph.hpp"
+#include "algorithms/extract_containing_graph.hpp"
+#include "utility.hpp"
 
 //#define debug_mem_clusterer
 

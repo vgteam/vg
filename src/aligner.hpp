@@ -11,20 +11,11 @@
 #include <vg/vg.pb.h>
 
 #include "gssw.h"
-#include "vg.hpp"
 #include "Variant.h"
 #include "Fasta.h"
-#include "path.hpp"
-#include "utility.hpp"
-#include "statistics.hpp"
-#include "banded_global_aligner.hpp"
-#include "deletion_aligner.hpp"
-#include "dozeu_interface.hpp"
 #include "handle.hpp"
-#include "reverse_graph.hpp"
-#include "null_masking_graph.hpp"
-#include "dozeu_pinning_overlay.hpp"
-#include "algorithms/distance_to_tail.hpp"
+#include "dozeu_interface.hpp"
+#include "deletion_aligner.hpp"
 
 // #define BENCH
 // #include "bench.h"

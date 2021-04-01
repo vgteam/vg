@@ -3,13 +3,10 @@
 
 #include <vg/vg.pb.h>
 #include <iostream>
-#include "vg/io/json2pb.h"
 #include "handle.hpp"
-#include "utility.hpp"
 #include "gcsa/gcsa.h"
 #include "gcsa/lcp.h"
 #include "kmer.hpp"
-#include "vg.hpp"
 
 /** \file 
  * Functions for building GCSA2/LCP indexes from HandleGraphs

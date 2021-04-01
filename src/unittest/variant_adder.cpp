@@ -5,6 +5,7 @@
 
 #include "catch.hpp"
 #include "../variant_adder.hpp"
+#include "../handle.hpp"
 
 #include "../utility.hpp"
 #include "../path.hpp"
@@ -240,7 +241,7 @@ ref	5	rs1337	AAAAAAAAAAAAAAAAAAAAA	A	29	PASS	.	GT	0/1
     
     SECTION ("should work when the graph is atomized") {
     
-        graph.dice_nodes(1);
+        handlealgs::chop(&graph, 1);
     
         // Make a VariantAdder
         VariantAdder adder(graph);

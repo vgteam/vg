@@ -1,6 +1,4 @@
 #include "subcommand.hpp"
-#include "../vg.hpp"
-#include "../xg.hpp"
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include <vg/io/stream.hpp>
@@ -10,6 +8,7 @@
 #include <gbwt/gbwt.h>
 #include "../region.hpp"
 #include "../stream_index.hpp"
+#include "../algorithms/subgraph.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
 #include "../algorithms/approx_path_distance.hpp"
 #include "../algorithms/walk.hpp"
