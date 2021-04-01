@@ -8,7 +8,7 @@
 #include "../utility.hpp"
 #include "../algorithms/normalize.hpp"
 #include "../algorithms/disjoint_components.hpp"
-#include "handle.cpp"
+#include "handle.hpp"
 
 namespace vg {
 namespace unittest {
