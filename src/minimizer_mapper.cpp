@@ -10,6 +10,7 @@
 #include "multipath_alignment.hpp"
 #include "split_strand_graph.hpp"
 #include "subgraph.hpp"
+#include "statistics.hpp"
 
 #include <bdsg/overlays/strand_split_overlay.hpp>
 #include <gbwtgraph/algorithms.h>

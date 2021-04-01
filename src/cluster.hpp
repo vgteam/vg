@@ -6,15 +6,12 @@
 #include <structures/union_find.hpp>
 #include "position.hpp"
 #include "aligner.hpp"
-#include "utility.hpp"
 #include "mem.hpp"
 #include "handle.hpp"
 #include "min_distance.hpp"
 #include "seed_clusterer.hpp"
 #include "path_component_index.hpp"
 #include "bdsg/hash_graph.hpp"
-#include "algorithms/subgraph.hpp"
-#include "algorithms/extract_containing_graph.hpp"
 
 #include <functional>
 #include <string>

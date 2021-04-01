@@ -1,5 +1,6 @@
 #include "build_index.hpp"
 #include "source_sink_overlay.hpp"
+#include "utility.hpp"
 
 namespace vg {
 

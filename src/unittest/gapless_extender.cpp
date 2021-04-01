@@ -7,6 +7,7 @@
 #include "../gbwt_helper.hpp"
 #include "vg/io/json2pb.h"
 #include "../utility.hpp"
+#include "../vg.hpp"
 
 #include "catch.hpp"
 
