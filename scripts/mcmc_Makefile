@@ -52,8 +52,8 @@ $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_0).vg: $(TOIL_OS)/$(BASENAME)_$(HA
 $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_0).xg: $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_0).vg
 	vg index -x $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_0).xg $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_0).vg	
 
-$(TOIL_OS)/$(BASENAME)_$(HAPLO_0).gam: $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_0).xg
-	toil-vg sim --gam --sim_opts '--sub-rate 0.1 --indel-rate 0.1 --read-length 100' --container None --out_name $(BASENAME)_$(HAPLO_0) $(TOIL_JS) $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_0).xg $(READS) $(TOIL_OS)
+$(TOIL_OS)/$(BASENAME)_$(HAPLO_0).gam: $(TOIL_OS)/$(BASENAME).xg $(TOIL_OS)/$(BASENAME).gbwt
+	vg sim -x $(TOIL_OS)/$(BASENAME).xg -g $(TOIL_OS)/$(BASENAME).gbwt -m $(SAMP) -n 300 --sub-rate 0.05 --indel-rate 0.05 --read-length 100 -a > $(TOIL_OS)/$(BASENAME)_$(HAPLO_0).gam
 	
 $(TOIL_OS)/$(BASENAME)_$(HAPLO_1)_thread.merge.vg: $(TOIL_OS)/$(BASENAME).vg $(TOIL_OS)/$(BASENAME).gbwt $(TOIL_OS)/$(BASENAME).xg
 	vg paths -d -v $(TOIL_OS)/$(BASENAME).vg > $(TOIL_OS)/$(BASENAME)_$(HAPLO_1)_thread.merge.vg
@@ -65,8 +65,8 @@ $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_1).vg: $(TOIL_OS)/$(BASENAME)_$(HA
 $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_1).xg: $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_1).vg
 	vg index -x $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_1).xg $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_1).vg	
 
-$(TOIL_OS)/$(BASENAME)_$(HAPLO_1).gam: $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_1).xg
-	toil-vg sim --gam --sim_opts '--sub-rate 0.1 --indel-rate 0.1 --read-length 100' --container None --out_name $(BASENAME)_$(HAPLO_1) $(TOIL_JS) $(TOIL_OS)/$(BASENAME)_thread_$(SAMP)_$(HAPLO_1).xg $(READS) $(TOIL_OS)
+$(TOIL_OS)/$(BASENAME)_$(HAPLO_1).gam: $(TOIL_OS)/$(BASENAME).xg $(TOIL_OS)/$(BASENAME).gbwt
+	vg sim -x $(TOIL_OS)/$(BASENAME).xg -g $(TOIL_OS)/$(BASENAME).gbwt -m $(SAMP) -n 300 --sub-rate 0.05 --indel-rate 0.05 --read-length 100 -a > $(TOIL_OS)/$(BASENAME)_$(HAPLO_1).gam
 	
 $(TOIL_OS)/$(BASENAME)_merged.gam: $(TOIL_OS)/$(BASENAME)_$(HAPLO_0).gam $(TOIL_OS)/$(BASENAME)_$(HAPLO_1).gam
 	cat $(TOIL_OS)/$(BASENAME)_$(HAPLO_0).gam $(TOIL_OS)/$(BASENAME)_$(HAPLO_1).gam > $(TOIL_OS)/$(BASENAME)_merged.gam
