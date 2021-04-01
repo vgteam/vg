@@ -1082,6 +1082,53 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 workers.emplace_back([&]() {
                     int64_t bucket_idx = -1;
                     while (buckets_finished.load() < buckets.size()) {
+                        // check if any of the input VCFs need to be moved past a contig that isn't
+                        // in our reference
+                        input_vcf_mutex.lock();
+                        int64_t contig_skip_idx = -1;
+                        for (int64_t j = 0; j < input_vcf_files.size(); ++j) {
+                            if (input_checked_out_or_finished[j].load()) {
+                                continue;
+                            }
+                            
+                            const char* chrom = bcf_hdr_id2name(get<1>(input_vcf_files[j]),
+                                                                get<2>(input_vcf_files[j])->rid);
+                            // check this index over the FASTA sequence lengths for the chromosome
+                            if (!seq_lengths.count(chrom)) {
+                                contig_skip_idx = j;
+                                input_checked_out_or_finished[j].store(true);
+                            }
+                        }
+                        input_vcf_mutex.unlock();
+                        
+                        if (contig_skip_idx != -1) {
+                            // we found a contig in the VCF that isn't present in the FASTA, we'll have to skip it
+                            
+                            auto& input_vcf_file = input_vcf_files[contig_skip_idx];
+                            string skip_contig = bcf_hdr_id2name(get<1>(input_vcf_file),
+                                                                 get<2>(input_vcf_file)->rid);
+                            cerr << "warning:[IndexRegistry] Skipping contig " + skip_contig + ", which is found in VCF(s) but not reference.\n";
+                            
+                            
+                            // keep reading until end of file or a different contig
+                            int read_err_code = 0;
+                            while (read_err_code >= 0) {
+                                string contig = bcf_hdr_id2name(get<1>(input_vcf_file),
+                                                                get<2>(input_vcf_file)->rid);
+                                if (contig != skip_contig) {
+                                    break;
+                                }
+                                
+                                read_err_code = bcf_read(get<0>(input_vcf_file), get<1>(input_vcf_file), get<2>(input_vcf_file));
+                            }
+                            
+                            // check the input back out unless we've finished it
+                            if (read_err_code >= 0) {
+                                input_checked_out_or_finished[contig_skip_idx].store(false);
+                            }
+                            continue;
+                        }
+                        
                         // select an output VCF corresponding to a bucket
                         int64_t copy_from_idx = -1, copy_to_idx = -1;
                         bool found_bucket = false;
@@ -3102,7 +3149,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Making distance index." << endl;
+            cerr << "[IndexRegistry]: Constructing distance index." << endl;
         }
         return make_distance_index(inputs, plan, constructing);
     });
@@ -3113,7 +3160,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Making distance index for a spliced graph." << endl;
+            cerr << "[IndexRegistry]: Constructing distance index for a spliced graph." << endl;
         }
         return make_distance_index(inputs, plan, constructing);
     });
