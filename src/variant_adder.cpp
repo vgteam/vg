@@ -13,6 +13,7 @@ using namespace vg::io;
 VariantAdder::VariantAdder(VG& graph) : graph(graph), sync([&](VG& g) -> VG& {
         // Dice nodes in the graph for GCSA indexing *before* constructing the synchronizer.
         handlealgs::chop(&g, max_node_size);
+        g.paths.compact_ranks();
         return g;
     }(this->graph)) {
     
