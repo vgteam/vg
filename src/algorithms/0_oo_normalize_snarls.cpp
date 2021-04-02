@@ -212,9 +212,12 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
     }
 
     // extract threads
+    // haplotypes is of format:
+    // 0: a set of all the haplotypes which stretch from source to sink, in string format.
+    //   - it's a set, so doesn't contain duplicates
+    // 1: a vector of all the other haps in the snarl (in vector<handle_t> format)
+    // 2: a vector of all the handles ever touched by the SnarlSequenceFinder.
     tuple<unordered_set<string>, vector<vector<handle_t>>, unordered_set<handle_t>> haplotypes;
-    // //todo: debug_statement: determining whether cyclic problem in yeast graph goes away when I swapo source and sink. 
-    // SnarlSequenceFinder sequence_finder = SnarlSequenceFinder(_graph, snarl, _haploGraph, sink_id, source_id);
     SnarlSequenceFinder sequence_finder = SnarlSequenceFinder(_graph, snarl, _haploGraph, source_id, sink_id, backwards);
     
     if (_path_finder == "GBWT") {
@@ -263,12 +266,19 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
         //     cerr << seq << endl;
         // }
 
+        cerr << "strings in path_seq before adding haplotypes: " << endl;
+        for (auto path : get<0>(haplotypes))
+        {
+            cerr << path << endl;
+        }
+
         // TODO: once haplotypes that begin/end in the middle of the snarl have been
         // TODO:    accounted for in the code, remove next chunk of code that finds 
         // TODO: source-to-sink paths.
         // find the paths that stretch from source to sink:
         // cerr << "~~~~~~~~~~source: " << source_id << "sink: " << sink_id << endl;
-        for (auto path : embedded_paths) {
+        for (auto path : embedded_paths) 
+        {
 
             // cerr << "checking path of name " << _graph.get_path_name(_graph.get_path_handle_of_step(path.first)) << " with source " << _graph.get_id(_graph.get_handle_of_step(path.first)) << " and sink " << _graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) << endl;
             // cerr << "SOURCE info: prev step: " << _graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(path.second))) << "prev prev step: " << _graph.get_id(_graph.get_handle_of_step(_graph.get_previous_step(_graph.get_previous_step(path.second)))) << " source: " << _graph.get_id(_graph.get_handle_of_step(path.second)) << " next step: " << _graph.get_id(_graph.get_handle_of_step(_graph.get_next_step(path.second))) << endl;
@@ -276,6 +286,7 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
             if (_graph.get_id(_graph.get_handle_of_step(path.first)) == source_id &&
                 _graph.get_id(_graph.get_handle_of_step(
                     _graph.get_previous_step(path.second))) == sink_id)  {
+                cerr << "path_seq added to haplotypes." << _graph.get_path_name(_graph.get_path_handle_of_step(path.first)) << endl;
 
                 // cerr << "******************************************\nadding path of name " <<
                 // _graph.get_path_name(_graph.get_path_handle_of_step(path.first)) <<
@@ -289,14 +300,26 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
                     path_seq += _graph.get_sequence(_graph.get_handle_of_step(cur_step));
                     cur_step = _graph.get_next_step(cur_step);
                 }
+                // cerr << "path seq:" << path_seq << endl;
                 if (backwards) {
+                    cerr << "path seq emplaced (in reverse):" << reverse_complement(path_seq)  << endl;
+                    int init_hap_size = get<0>(haplotypes).size(); // Note: just for debug purposes.
                     get<0>(haplotypes).emplace(reverse_complement(path_seq));
+                    cerr << "was path_seq a new string? " << get<0>(haplotypes).size() - init_hap_size << endl;
                 }
                 else {
+                    cerr << "path seq emplaced (in forward):" << path_seq  << endl;
+                    int init_hap_size = get<0>(haplotypes).size(); // Note: just for debug purposes.
                     get<0>(haplotypes).emplace(path_seq);
+                    cerr << "was path_seq a copy? " << get<0>(haplotypes).size() - init_hap_size << endl;
 
                 }
             }
+        }
+        cerr << "haps in haplotypes: " << endl;
+        for (string hap : get<0>(haplotypes))
+        {
+            cerr << hap << endl;
         }
         // Align the new snarl:
         VG new_snarl = align_source_to_sink_haplotypes(get<0>(haplotypes));
@@ -392,7 +415,7 @@ unordered_set<string> SnarlNormalizer::format_handle_haplotypes_to_strings(
 // Returns:
 //      VG object representing the newly realigned snarl.
 VG SnarlNormalizer::align_source_to_sink_haplotypes(
-    unordered_set<string> source_to_sink_haplotypes) {
+    const unordered_set<string>& source_to_sink_haplotypes) {
     // cerr << "align_source_to_sink_haplotypes" << endl;
     // cerr << " haplotypes in source_to_sink_haplotypes: " << endl;
     // for (string hap : source_to_sink_haplotypes) {
@@ -416,10 +439,22 @@ VG SnarlNormalizer::align_source_to_sink_haplotypes(
     string source_char(1, random_element.front());
     string sink_char(1, random_element.back());
 
+    // cerr << "strings in path_seq before replacing final character: " << endl;
+    // for (auto path : get<0>(haplotypes))
+    // {
+    //     cerr << path << endl;f
+    // }
+
     // replace the source and sink chars with X, to force match at source and sink.
-    for (auto hap : source_to_sink_haplotypes) {
+    unordered_set<string> edited_source_to_sink_haplotypes;
+    // for (auto it = source_to_sink_haplotypes.begin(); it != source_to_sink_haplotypes.end(); it++)
+    for (auto hap : source_to_sink_haplotypes)
+    {
+        cerr << "hap before replace: " << hap << endl;
         hap.replace(0, 1, "X");
         hap.replace(hap.size() - 1, 1, "X");
+        cerr << "hap after replace: " << hap << endl;
+        edited_source_to_sink_haplotypes.emplace(hap);
     }
 
     // //todo: debug_statement
@@ -451,9 +486,11 @@ VG SnarlNormalizer::align_source_to_sink_haplotypes(
     //// seqan::Align<seqan::DnaString>   align;
     seqan::Align<seqan::CharString> align;
 
-    seqan::resize(rows(align), source_to_sink_haplotypes.size());
+    seqan::resize(rows(align), edited_source_to_sink_haplotypes.size());
     int i = 0;
-    for (auto hap : source_to_sink_haplotypes) {
+    for (auto hap : edited_source_to_sink_haplotypes) {
+        cerr << "hap as added to align: " << hap << endl;
+        cerr << "hap.c_str as added to align: " << hap.c_str() << endl;
         assignSource(row(align, i), hap.c_str());
         i++;
     }
@@ -473,15 +510,17 @@ VG SnarlNormalizer::align_source_to_sink_haplotypes(
         // edit the row so that the proper source and sink chars are added to the
         // haplotype instead of the special characters added to ensure correct alignment
         // of source and sink.
+        cerr << "row_string before: " << row_string << endl;
         row_string.replace(0, 1, source_char);
         row_string.replace(row_string.size() - 1, 1, sink_char);
         row_strings.push_back(row_string);
+        cerr << "row_string after: " << row_string << endl;
     }
 
     stringstream ss;
     for (string seq : row_strings) {
         // todo: debug_statement
-        // cerr << "seq in alignment:" << seq << endl;
+        cerr << "seq in alignment:" << seq << endl;
         ss << endl << seq;
     }
     // ss << align;
