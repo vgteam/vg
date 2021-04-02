@@ -157,6 +157,19 @@ public:
 
     /// For paired end mapping, how many times should we attempt rescue (per read)?
     size_t max_rescue_attempts = 15;
+    
+    /// How big of an alignment in POA cells should we ever try to do with Dozeu?
+    /// TODO: Lift this when Dozeu's allocator is able to work with >4 MB of memory.
+    /// Each cell is 16 bits in Dozeu, and we leave some room for the query and
+    /// padding to full SSE registers. Note that a very chopped graph might
+    /// still break this!
+    size_t max_dozeu_cells = (size_t)(1.5 * 1024 * 1024);
+    
+    /// And have we complained about hitting it for rescue?
+    atomic_flag warned_about_rescue_size = ATOMIC_FLAG_INIT;
+    
+    /// And have we complained about hitting it for tails?
+    mutable atomic_flag warned_about_tail_size = ATOMIC_FLAG_INIT;
 
     ///What is the maximum fragment length that we accept as valid for paired-end reads?
     size_t max_fragment_length = 2000;

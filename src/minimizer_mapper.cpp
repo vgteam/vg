@@ -814,6 +814,13 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             mapped_pair.second.emplace_back(std::move(alns2.front()));
             pair_all(mapped_pair);
 
+            //TODO: This is "properly paired" if there is a path between the reads. Since we
+            //haven't finalized the distribution we can't compare it
+            bool properly_paired = dist != std::numeric_limits<int64_t>::max();
+            set_annotation(mapped_pair.first.back(), "proper_pair", properly_paired);
+            set_annotation(mapped_pair.second.back(), "proper_pair", properly_paired);
+
+
 #ifdef debug_fragment_distr
             //Print stats about finalizing the fragment length distribution, copied from mpmap
             if (fragment_length_distr.is_finalized()) {
@@ -1732,6 +1739,10 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     set_annotation(rescued_aln, "rescued", true);
                     set_annotation(mapped_aln,  "fragment_length", (double)fragment_dist);
                     set_annotation(rescued_aln, "fragment_length", (double)fragment_dist);
+                    bool properly_paired = fragment_dist == std::numeric_limits<int64_t>::max() ? false :
+                        (std::abs(fragment_dist-fragment_length_distr.mean()) <= 6.0*fragment_length_distr.std_dev()) ;
+                    set_annotation(mapped_aln, "proper_pair", properly_paired);
+                    set_annotation(rescued_aln, "proper_pair", properly_paired);
 
                     //Since we're still accumulating a list of indexes of pairs of alignments,
                     //add the new alignment to the list of alignments 
@@ -2086,6 +2097,11 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         //Annotate top pair with its fragment distance, fragment length distrubution, and secondary scores
         set_annotation(mappings.first.front(), "fragment_length", (double) distances.front());
         set_annotation(mappings.second.front(), "fragment_length", (double) distances.front());
+        bool properly_paired = distances.front() == std::numeric_limits<int64_t>::max() ? false :
+            (std::abs(distances.front()-fragment_length_distr.mean()) <= 6.0*fragment_length_distr.std_dev()) ;
+        set_annotation(mappings.first.front(), "proper_pair", properly_paired);
+        set_annotation(mappings.second.front(), "proper_pair", properly_paired);
+
         string distribution = "-I " + to_string(fragment_length_distr.mean()) + " -D " + to_string(fragment_length_distr.std_dev());
         set_annotation(mappings.first.front(),"fragment_length_distribution", distribution);
         set_annotation(mappings.second.front(),"fragment_length_distribution", distribution);
@@ -2503,7 +2519,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         //If the rescue subgraph is empty
         return;
     }
-
+    
     // Remove node ids that do not exist in the GBWTGraph from the subgraph.
     // We may be using the distance index of the original graph, and nodes
     // not visited by any thread are missing from the GBWTGraph.
@@ -2534,6 +2550,18 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         std::vector<std::vector<handle_t>> haplotype_paths;
         bdsg::HashGraph align_graph;
         this->extender.unfold_haplotypes(rescue_nodes, haplotype_paths, align_graph);
+        
+        size_t rescue_subgraph_bases = align_graph.get_total_length();
+        if (rescue_subgraph_bases * rescued_alignment.sequence().size() > max_dozeu_cells) {
+            if (!warned_about_rescue_size.test_and_set()) {
+                cerr << "warning[vg::giraffe]: Refusing to perform too-large rescue alignment of "
+                    << rescued_alignment.sequence().size() << " bp against "
+                    << rescue_subgraph_bases << " bp haplotype subgraph for read " << rescued_alignment.name()
+                    << " which would use more than " << max_dozeu_cells
+                    << " cells and might exhaust Dozeu's allocator; suppressing further warnings." << endl;
+            }
+            return; 
+        }
 
         // Align to the subgraph.
         size_t gap_limit = this->get_regular_aligner()->longest_detectable_gap(rescued_alignment);
@@ -2574,6 +2602,22 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     // GSSW and dozeu assume that the graph is a DAG.
     std::vector<handle_t> topological_order = gbwtgraph::topological_order(cached_graph, rescue_nodes);
     if (!topological_order.empty()) {
+        
+        size_t rescue_subgraph_bases = 0;
+        for (auto& h : topological_order) {
+            rescue_subgraph_bases += cached_graph.get_length(h);
+        }
+        if (rescue_subgraph_bases * rescued_alignment.sequence().size() > max_dozeu_cells) {
+            if (!warned_about_rescue_size.test_and_set()) {
+                cerr << "warning[vg::giraffe]: Refusing to perform too-large rescue alignment of "
+                    << rescued_alignment.sequence().size() << " bp against "
+                    << rescue_subgraph_bases << " bp ordered subgraph for read " << rescued_alignment.name()
+                    << " which would use more than " << max_dozeu_cells
+                    << " cells and might exhaust Dozeu's allocator; suppressing further warnings." << endl;
+            }
+            return; 
+        }
+    
         if (rescue_algorithm == rescue_dozeu) {
             size_t gap_limit = this->get_regular_aligner()->longest_detectable_gap(rescued_alignment);
             get_regular_aligner()->align_xdrop(rescued_alignment, cached_graph, topological_order,
@@ -2599,6 +2643,18 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     std::unordered_map<id_t, id_t> dagify_trans =
         handlealgs::dagify(&split_graph, &dagified, rescued_alignment.sequence().size());
 
+    size_t rescue_subgraph_bases = dagified.get_total_length();
+    if (rescue_subgraph_bases * rescued_alignment.sequence().size() > max_dozeu_cells) {
+        if (!warned_about_rescue_size.test_and_set()) {
+            cerr << "warning[vg::giraffe]: Refusing to perform too-large rescue alignment of "
+                << rescued_alignment.sequence().size() << " bp against "
+                << rescue_subgraph_bases << " bp dagified subgraph for read " << rescued_alignment.name()
+                << " which would use more than " << max_dozeu_cells
+                << " cells and might exhaust Dozeu's allocator; suppressing further warnings." << endl;
+        }
+        return; 
+    }
+    
     // Align to the subgraph.
     // TODO: Map the seed to the dagified subgraph.
     if (this->rescue_algorithm == rescue_dozeu) {
@@ -3614,10 +3670,20 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
                 }
             }
             
-            // X-drop align, accounting for full length bonus.
-            // We *always* do left-pinned alignment internally, since that's the shape of trees we get.
-            // Make sure to pass through the gap length limit so we don't just get the default.
-            get_regular_aligner()->align_pinned(current_alignment, subgraph, true, true, longest_detectable_gap);
+            size_t tail_subgraph_bases = subgraph.get_total_length();
+            if (tail_subgraph_bases * sequence.size() > max_dozeu_cells) {
+                if (!warned_about_tail_size.test_and_set()) {
+                    cerr << "warning[vg::giraffe]: Refusing to perform too-large tail alignment of "
+                        << sequence.size() << " bp against "
+                        << tail_subgraph_bases << " bp tree which would use more than " << max_dozeu_cells
+                        << " cells and might exhaust Dozeu's allocator; suppressing further warnings." << endl;
+                }
+            } else {
+                // X-drop align, accounting for full length bonus.
+                // We *always* do left-pinned alignment internally, since that's the shape of trees we get.
+                // Make sure to pass through the gap length limit so we don't just get the default.
+                get_regular_aligner()->align_pinned(current_alignment, subgraph, true, true, longest_detectable_gap);
+            }
             
             if (show_work) {
                 #pragma omp critical (cerr)

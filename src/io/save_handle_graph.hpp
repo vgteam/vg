@@ -14,10 +14,17 @@
 #include "xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
-
+#include "gfa.hpp"
 #include <memory>
 
 namespace vg {
+
+/// Use to load in GFAs and remember where they came from
+class GFAHandleGraph : public bdsg::PackedGraph {
+public:
+   GFAHandleGraph() : bdsg::PackedGraph() {}
+   virtual ~GFAHandleGraph() = default;
+};
 
 namespace io {
 
@@ -29,8 +36,11 @@ using namespace std;
  * Todo: should this be somewhere else (ie in vgio with new types registered?)
  */
 inline void save_handle_graph(HandleGraph* graph, ostream& os) {
-    
-    if (dynamic_cast<SerializableHandleGraph*>(graph) != nullptr) {
+
+    if (dynamic_cast<GFAHandleGraph*>(graph) != nullptr) {
+        // We loaded a GFA into a handle graph, want to write back to GFA
+        graph_to_gfa(dynamic_cast<GFAHandleGraph*>(graph), os);
+    } else if (dynamic_cast<SerializableHandleGraph*>(graph) != nullptr) {
         // SerializableHandleGraphs are all serialized bare, without VPKG framing, for libbdsg compatibility.
         dynamic_cast<SerializableHandleGraph*>(graph)->serialize(os);
     } else if (dynamic_cast<VG*>(graph) != nullptr) {
@@ -42,7 +52,14 @@ inline void save_handle_graph(HandleGraph* graph, ostream& os) {
 }
 
 inline void save_handle_graph(HandleGraph* graph, const string& dest_path) {
-    if (dynamic_cast<SerializableHandleGraph*>(graph) != nullptr) {
+    if (dynamic_cast<GFAHandleGraph*>(graph) != nullptr) {
+        // We loaded a GFA into a handle graph, want to write back to GFA
+        ofstream os(dest_path);
+        if (!os) {
+            throw runtime_error("error[save_handle_graph]: Unable to write to: " + dest_path);
+        }
+        graph_to_gfa(dynamic_cast<GFAHandleGraph*>(graph), os);
+    } else if (dynamic_cast<SerializableHandleGraph*>(graph) != nullptr) {
         // SerializableHandleGraphs are all serialized bare, without VPKG framing, for libbdsg compatibility.
         dynamic_cast<SerializableHandleGraph*>(graph)->serialize(dest_path);
     } else if (dynamic_cast<VG*>(graph) != nullptr) {
@@ -55,7 +72,7 @@ inline void save_handle_graph(HandleGraph* graph, const string& dest_path) {
 
 // Check that output format specifier is a valid graph type
 inline bool valid_output_format(const string& fmt_string) {
-    return fmt_string == "vg" || fmt_string == "pg" || fmt_string == "hg";
+    return fmt_string == "vg" || fmt_string == "pg" || fmt_string == "hg" || fmt_string == "gfa";
 }
 
 // Create a new graph (of handle graph type T) where the implementation is chosen using the format string
@@ -67,6 +84,8 @@ unique_ptr<T> new_output_graph(const string& fmt_string) {
         return make_unique<bdsg::PackedGraph>();
     } else if (fmt_string == "hg") {
         return make_unique<bdsg::HashGraph>();
+    } else if (fmt_string == "gfa") {
+        return make_unique<GFAHandleGraph>();
     } else {
         return unique_ptr<T>();
     }

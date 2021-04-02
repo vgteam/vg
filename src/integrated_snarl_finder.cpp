@@ -1728,13 +1728,13 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
                             
                                 // This edge is the incoming edge for a cycle. Queue it up.
                                 frame.todo.push_back(inbound);
-                            } else if (cactus.find(graph->flip(inbound)) == cactus.find(inbound)) {
+                            } else if (cactus.find(graph->flip(inbound)) == cactus.find(inbound) && !graph->get_is_reverse(inbound)) {
                             
 #ifdef debug
                                 cerr << "\t\tInherit contained edge " << graph->get_id(inbound) << (graph->get_is_reverse(inbound) ? "-" : "+") << endl;
 #endif
                             
-                                // Count all self edges as empty chains.
+                                // Count all self edges as empty chains, but only from one side.
                                 begin_chain(inbound);
                                 end_chain(inbound);
                                 

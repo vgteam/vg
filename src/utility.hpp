@@ -426,11 +426,15 @@ bool have_input_file(int& optind, int argc, char** argv);
 /// is not. Handles "-" as a filename as indicating standard input. The reference
 /// passed is guaranteed to be valid only until the callback returns. Bumps up
 /// optind to the next argument if a filename is found.
+///
+/// Warning: If you're reading a HandleGraph via VPKG::load_one (as is the pattern in vg)
+///          it is best to use get_input_file_name() below instead, and run load_one on that.
+///          This allows better GFA support because it allows memmapping the file directly
 void get_input_file(int& optind, int argc, char** argv, function<void(istream&)> callback);
 
 /// Parse out the name of an input file (i.e. the next positional argument), or
 /// throw an error. File name must be nonempty, but may be "-" or may not exist.
-string get_input_file_name(int& optind, int argc, char** argv);
+string get_input_file_name(int& optind, int argc, char** argv, bool test_open = true);
 
 /// Parse out the name of an output file (i.e. the next positional argument), or
 /// throw an error. File name must be nonempty.

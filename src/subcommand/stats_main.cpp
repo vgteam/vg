@@ -30,6 +30,7 @@
 #include "bdsg/hash_graph.hpp"
 #include "bdsg/odgi.hpp"
 #include "../io/converted_hash_graph.hpp"
+#include "../io/save_handle_graph.hpp"
 
 using namespace std;
 using namespace vg;
@@ -379,6 +380,9 @@ int main_stats(int argc, char** argv) {
         string format_string;
         if (dynamic_cast<xg::XG*>(graph.get()) != nullptr) {
             format_string = "XG";
+        } else if (dynamic_cast<GFAHandleGraph*>(graph.get()) != nullptr) {
+            // important this check comes before PackedGraph
+            format_string = "GFA";
         } else if (dynamic_cast<bdsg::PackedGraph*>(graph.get()) != nullptr) {
             format_string = "PackedGraph";
         } else if (dynamic_cast<vg::io::ConvertedHashGraph*>(graph.get()) != nullptr) {

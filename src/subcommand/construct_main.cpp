@@ -24,8 +24,8 @@ void help_construct(char** argv) {
          << "    -v, --vcf FILE         input VCF (may repeat)" << endl
          << "    -n, --rename V=F       match contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
          << "    -a, --alt-paths        save paths for alts of variants by variant ID" << endl
-         << "    -R, --region REGION    specify a VCF contig name or 1-based inclusive region" << endl
-         << "    -C, --region-is-chrom  don't attempt to parse the region (use when the reference" << endl
+         << "    -R, --region REGION    specify a VCF contig name or 1-based inclusive region (may repeat, if on different contigs)" << endl
+         << "    -C, --region-is-chrom  don't attempt to parse the regions (use when the reference" << endl
          << "                           sequence name could be inadvertently parsed as a region)" << endl
          << "    -z, --region-size N    variants per region to parallelize (default: 1024)" << endl
          << "    -t, --threads N        use N threads to construct graph (defaults to numCPUs)" << endl
@@ -61,7 +61,7 @@ int main_construct(int argc, char** argv) {
     vector<string> fasta_filenames;
     vector<string> vcf_filenames;
     vector<string> insertion_filenames;
-    string region;
+    vector<string> regions;
     bool region_is_chrom = false;
     string msa_filename;
     int max_node_size = 32;
@@ -170,7 +170,7 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 'R':
-            region = optarg;
+            regions.push_back(optarg);
             break;
 
         case 'C':
@@ -249,9 +249,9 @@ int main_construct(int argc, char** argv) {
         constructor.max_node_size = max_node_size;
         constructor.show_progress = show_progress;
 
-        
-        if (!region.empty()) {
-            // We want to limit to a certain region
+        unordered_set<string> used_region_contigs; 
+        for (auto& region : regions) {
+            // We want to limit to one or more region
             if (!region_is_chrom) {
                 // We are allowed to parse the region.
                 // Break out sequence name and region bounds
@@ -261,6 +261,12 @@ int main_construct(int argc, char** argv) {
                              seq_name,
                              start_pos,
                              stop_pos);
+                             
+                if (used_region_contigs.count(seq_name)) {
+                    cerr << "error:[vg construct] cannot construct multiple regions of " << seq_name << endl;
+                    exit(1);
+                }
+                used_region_contigs.insert(seq_name);
                 
                 if (start_pos > 0 && stop_pos > 0) {
                     // These are 0-based, so if both are nonzero we got a real set of coordinates
@@ -332,5 +338,5 @@ int main_construct(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_construct("construct", "graph construction", PIPELINE, 1, main_construct);
+static Subcommand vg_construct("construct", "graph construction", PIPELINE, 2, main_construct);
 

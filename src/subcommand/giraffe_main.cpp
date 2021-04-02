@@ -8,6 +8,7 @@
 #include <iostream>
 #include <cassert>
 #include <cstring>
+#include <ctime>
 #include <map>
 #include <vector>
 #include <unordered_set>
@@ -33,6 +34,17 @@
 
 #ifdef USE_CALLGRIND
 #include <valgrind/callgrind.h>
+#endif
+
+#include <sys/ioctl.h>
+#ifdef __linux__
+#include <linux/perf_event.h>
+#include <asm/unistd.h>
+/// Bind perf_event_open for counting instructions.
+/// See <https://stackoverflow.com/a/64863392/402891>
+static long perf_event_open(struct perf_event_attr* hw_event, pid_t pid, int cpu, int group_fd, unsigned long flags) {
+    return syscall(__NR_perf_event_open, hw_event, pid, cpu, group_fd, flags);
+}
 #endif
 
 using namespace std;
@@ -1191,6 +1203,56 @@ int main_giraffe(int argc, char** argv) {
         std::chrono::time_point<std::chrono::system_clock> first_thread_start;
         std::chrono::time_point<std::chrono::system_clock> all_threads_start;
         
+        // We also time in terms of CPU time
+        clock_t cpu_time_before;
+        
+        // We may also have access to perf stats.
+        vector<int> perf_fds;
+        
+#ifdef __linux__
+        // Set up a counter for executed instructions.
+        // See <https://stackoverflow.com/a/64863392/402891>
+        struct perf_event_attr perf_config;
+        memset(&perf_config, 0, sizeof(struct perf_event_attr));
+        perf_config.type = PERF_TYPE_HARDWARE;
+        perf_config.size = sizeof(struct perf_event_attr);
+        perf_config.config = PERF_COUNT_HW_INSTRUCTIONS;
+        perf_config.exclude_kernel = 1;
+        perf_config.exclude_hv = 1;
+        
+        perf_fds.resize(thread_count);
+        
+        perf_fds[omp_get_thread_num()] = perf_event_open(&perf_config, 0, -1, -1, 0);
+        if (show_progress && perf_fds[omp_get_thread_num()] == -1) {
+            int problem = errno;
+            cerr << "Not counting CPU instructions because perf events are unavailable: " << strerror(problem) << endl;
+            perf_fds.clear();
+        }
+        
+        // Each OMP thread will call this to make sure perf is on.
+        auto ensure_perf_for_thread = [&]() {
+            if (!perf_fds.empty() && perf_fds[omp_get_thread_num()] == 0) {
+                perf_fds[omp_get_thread_num()] = perf_event_open(&perf_config, 0, -1, -1, 0);
+            }
+        };
+        
+        // Main thread will call this to turn it off
+        auto stop_perf_for_thread = [&]() {
+            if (!perf_fds.empty() && perf_fds[omp_get_thread_num()] != 0) {
+                ioctl(perf_fds[omp_get_thread_num()], PERF_EVENT_IOC_DISABLE, 0);
+            }
+        };
+        
+        // Main thread will call this when mapping starts to reset the counter.
+        auto reset_perf_for_thread = [&]() {
+            if (!perf_fds.empty() && perf_fds[omp_get_thread_num()] != 0) {
+                ioctl(perf_fds[omp_get_thread_num()], PERF_EVENT_IOC_RESET, 0);
+            }
+        };
+        
+        // TODO: we won't count the output thread, but it will appear in CPU time!
+#endif
+
         {
         
             // Look up all the paths we might need to surject to.
@@ -1215,6 +1277,11 @@ int main_giraffe(int argc, char** argv) {
 
             // Start timing overall mapping time now that indexes are loaded.
             first_thread_start = std::chrono::system_clock::now();
+            cpu_time_before = clock();
+            
+#ifdef __linux__
+            reset_perf_for_thread();
+#endif
 
             if (interleaved || !fastq_filename_2.empty()) {
                 //Map paired end from either one gam or fastq file or two fastq files
@@ -1254,6 +1321,9 @@ int main_giraffe(int argc, char** argv) {
                 
                 // Define how to align and output a read pair, in a thread.
                 auto map_read_pair = [&](Alignment& aln1, Alignment& aln2) {
+#ifdef __linux__
+                    ensure_perf_for_thread();
+#endif
                     
                     pair<vector<Alignment>, vector<Alignment>> mapped_pairs = minimizer_mapper.map_paired(aln1, aln2, ambiguous_pair_buffer);
                     if (!mapped_pairs.first.empty() && !mapped_pairs.second.empty()) {
@@ -1326,6 +1396,10 @@ int main_giraffe(int argc, char** argv) {
             
                 // Define how to align and output a read, in a thread.
                 auto map_read = [&](Alignment& aln) {
+#ifdef __linux__
+                    ensure_perf_for_thread();
+#endif
+                
                     // Map the read with the MinimizerMapper.
                     minimizer_mapper.map(aln, *alignment_emitter);
                     // Record that we mapped a read.
@@ -1350,8 +1424,35 @@ int main_giraffe(int argc, char** argv) {
         
         // Now mapping is done
         std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+        clock_t cpu_time_after = clock();
+#ifdef __linux__
+        stop_perf_for_thread();
+#endif
+        
+        // Compute wall clock elapsed
         std::chrono::duration<double> all_threads_seconds = end - all_threads_start;
         std::chrono::duration<double> first_thread_additional_seconds = all_threads_start - first_thread_start;
+        
+        // Compute CPU time elapsed
+        double cpu_seconds = (cpu_time_after - cpu_time_before) / (double)CLOCKS_PER_SEC;
+        
+        // Compute instructions used
+        long long total_instructions = 0;
+        for (auto& perf_fd : perf_fds) {
+            if (perf_fd > 0) {
+                long long thread_instructions;
+                if (read(perf_fd, &thread_instructions, sizeof(long long)) != sizeof(long long)) {
+                    // Read failed for some reason.
+                    cerr << "warning:[vg giraffe] Could not count CPU instructions executed" << endl;
+                    thread_instructions = 0;
+                }
+                if (close(perf_fd)) {
+                    int problem = errno;
+                    cerr << "warning:[vg giraffe] Error closing perf event instruction counter: " << strerror(problem) << endl;
+                }
+                total_instructions += thread_instructions;
+            }
+        }
         
         // How many reads did we map?
         size_t total_reads_mapped = 0;
@@ -1361,6 +1462,10 @@ int main_giraffe(int argc, char** argv) {
         
         // Compute speed (as reads per thread-second)
         double reads_per_second_per_thread = total_reads_mapped / (all_threads_seconds.count() * thread_count + first_thread_additional_seconds.count());
+        // And per CPU second (including any IO threads)
+        double reads_per_cpu_second = total_reads_mapped / cpu_seconds;
+        double mega_instructions_per_read = total_instructions / (double)total_reads_mapped / 1E6;
+        double mega_instructions_per_second = total_instructions / cpu_seconds / 1E6;
         
         if (show_progress) {
             // Log to standard error
@@ -1368,9 +1473,19 @@ int main_giraffe(int argc, char** argv) {
                 << thread_count << " threads in "
                 << all_threads_seconds.count() << " seconds with " 
                 << first_thread_additional_seconds.count() << " additional single-threaded seconds." << endl;
-            
             cerr << "Mapping speed: " << reads_per_second_per_thread
                 << " reads per second per thread" << endl;
+            
+            cerr << "Used " << cpu_seconds << " CPU-seconds (including output)." << endl;
+            cerr << "Achieved " << reads_per_cpu_second
+                << " reads per CPU-second (including output)" << endl;
+            
+            if (total_instructions != 0) {
+                cerr << "Used " << total_instructions << " CPU instructions (not including output)." << endl;
+                cerr << "Mapping slowness: " << mega_instructions_per_read
+                    << " M instructions per read at " << mega_instructions_per_second
+                    << " M mapping instructions per inclusive CPU-second" << endl;
+            }
 
             cerr << "Memory footprint: " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GB" << endl;
         }
@@ -1387,4 +1502,4 @@ int main_giraffe(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_giraffe("giraffe", "fast haplotype-aware short read alignment", PIPELINE, 4, main_giraffe);
+static Subcommand vg_giraffe("giraffe", "fast haplotype-aware short read alignment", PIPELINE, 6, main_giraffe);

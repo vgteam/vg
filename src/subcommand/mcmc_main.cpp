@@ -37,7 +37,9 @@ void help_mcmc(char** argv) {
     << "  -p  --ref-path NAME               reference path to call on (multipile allowed.  defaults to all paths)"<< endl
     << "  -o, --ref-offset N                offset in reference path (multiple allowed, 1 per path)" << endl
     << "  -l, --ref-length N                override length of reference in the contig field of output VCF" << endl
-    << "  -v, --vcf-out FILE                write VCF output to this file" << endl;
+    << "  -v, --vcf-out FILE                write VCF output to this file" << endl
+    << "  -b, --burn-in INT                 number of iterations to run original sample proposal only" <<endl
+    << "  -g, --gamma-freq INT              the frequency (every n iterations) for which to re-make the gamma set (starts after burn-in)" <<endl;
 }
 
 int main_mcmc(int argc, char** argv) {
@@ -45,9 +47,12 @@ int main_mcmc(int argc, char** argv) {
     vector<string> ref_paths;
     vector<size_t> ref_path_offsets;
     vector<size_t> ref_path_lengths;
+    
     string vcf_out;
+    int burn_in;
+    int gamma_freq;
 
-    if (argc < 5) {
+    if (argc < 7) {
         help_mcmc(argv);
         return 1;
     }
@@ -71,11 +76,13 @@ int main_mcmc(int argc, char** argv) {
             {"ref-offset", required_argument, 0, 'o'},
             {"ref-length", required_argument, 0, 'l'}, 
             {"vcf-out", required_argument, 0, 'v'},
+            {"burn-in", required_argument, 0, 'b'},
+            {"gamma-freq", required_argument, 0, 'g'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hi:s:p:o:l:r:v:",
+        c = getopt_long (argc, argv, "hi:s:p:o:l:r:v:b:g:",
                          long_options, &option_index);
 
 
@@ -105,6 +112,12 @@ int main_mcmc(int argc, char** argv) {
                 break;  
             case 'v':
                 vcf_out = optarg;
+                break;
+            case 'b':
+                burn_in = parse<int>(optarg);
+                break;
+            case 'g':
+                gamma_freq = parse<int>(optarg);
                 break;
             case 'h':
             case '?':
@@ -188,8 +201,8 @@ int main_mcmc(int argc, char** argv) {
     });
     double log_base = gssw_dna_recover_log_base(1,4,.5,1e-12);
     // invoke run genotyper 
-    MCMCGenotyper mcmc_genotyper(*snarls, *vg_graph, n_iterations, seed);
-    unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(reads, log_base );
+    MCMCGenotyper mcmc_genotyper(*snarls, *vg_graph, n_iterations, seed, burn_in, gamma_freq);
+    unique_ptr<PhasedGenome> genome = mcmc_genotyper.run_genotype(reads, log_base);
     
     // genome->print_phased_genome();
 

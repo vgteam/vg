@@ -8,7 +8,10 @@ TOIL_JS="$(WORKDIR)/my-jobstore"
 #TOIL_OS="$(WORKDIR)/my-output"
 TOIL_OS="$(WORKDIR)/my-output-small"
 
+
 MCMC_ITERATIONS = 1000
+BURN_IN = 500
+GAMMA_FREQUENCY = 100
 READS= 300
 
 #FASTA = CHR21.fa
@@ -73,7 +76,7 @@ $(TOIL_OS)/$(BASENAME).mgam: $(TOIL_OS)/$(BASENAME).xg $(TOIL_OS)/$(BASENAME).gc
 	
     
 $(TOIL_OS)/$(BASENAME)_paths.vg: $(TOIL_OS)/$(BASENAME).mgam $(TOIL_OS)/$(BASENAME).snarls $(TOIL_OS)/$(BASENAME).vg
-	vg mcmc -i $(MCMC_ITERATIONS) --vcf-out $(TOIL_OS)/$(BASENAME).vcf $(TOIL_OS)/$(BASENAME).mgam $(TOIL_OS)/$(BASENAME).vg $(TOIL_OS)/$(BASENAME).snarls > $(TOIL_OS)/$(BASENAME)_paths.vg
+	vg mcmc -i $(MCMC_ITERATIONS) -b $(BURN_IN) -g $(GAMMA_FREQUENCY) --vcf-out $(TOIL_OS)/$(BASENAME).vcf $(TOIL_OS)/$(BASENAME).mgam $(TOIL_OS)/$(BASENAME).vg $(TOIL_OS)/$(BASENAME).snarls > $(TOIL_OS)/$(BASENAME)_paths.vg
 
 $(TOIL_OS)/$(BASENAME).svg: $(TOIL_OS)/$(BASENAME)_paths.vg
 	vg view -d -n $(TOIL_OS)/$(BASENAME)_paths.vg | dot -Tsvg -o $(TOIL_OS)/$(BASENAME).svg

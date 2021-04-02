@@ -498,9 +498,7 @@ int main_index(int argc, char** argv) {
 
         // Load the only input graph.
         unique_ptr<PathHandleGraph> path_handle_graph;
-        get_input_file(file_names[0], [&](istream& in) {
-                path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
-            });
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(file_names[0]);
 
         std::unique_ptr<gbwt::DynamicGBWT> gbwt_index(nullptr);
         if (thread_source == thread_source_vcf) {
@@ -549,27 +547,25 @@ int main_index(int argc, char** argv) {
             } else if (!xg_name.empty()) {
                 // Get the kmers from an XG
                 
-                get_input_file(xg_name, [&](istream& xg_stream) {
-                    // Load the XG
-                    auto xg = vg::io::VPKG::load_one<xg::XG>(xg_stream);
+              // Load the XG
+              auto xg = vg::io::VPKG::load_one<xg::XG>(xg_name);
                 
-                    // Make an overlay on it to add source and sink nodes
-                    // TODO: Don't use this directly; unify this code with VGset's code.
-                    SourceSinkOverlay overlay(xg.get(), kmer_size);
+              // Make an overlay on it to add source and sink nodes
+              // TODO: Don't use this directly; unify this code with VGset's code.
+              SourceSinkOverlay overlay(xg.get(), kmer_size);
                     
-                    // Get the size limit
-                    size_t kmer_bytes = params.getLimitBytes();
+              // Get the size limit
+              size_t kmer_bytes = params.getLimitBytes();
                     
-                    // Write just the one kmer temp file
-                    dbg_names.push_back(write_gcsa_kmers_to_tmpfile(overlay, kmer_size, kmer_bytes,
-                        overlay.get_id(overlay.get_source_handle()),
-                        overlay.get_id(overlay.get_sink_handle())));
+              // Write just the one kmer temp file
+              dbg_names.push_back(write_gcsa_kmers_to_tmpfile(overlay, kmer_size, kmer_bytes,
+                                                              overlay.get_id(overlay.get_source_handle()),
+                                                              overlay.get_id(overlay.get_sink_handle())));
                         
-                    // Feed back into the size limit
-                    params.reduceLimit(kmer_bytes);
-                    delete_kmer_files = true;
+              // Feed back into the size limit
+              params.reduceLimit(kmer_bytes);
+              delete_kmer_files = true;
                 
-                });
             } else {
                 cerr << "error: [vg index] cannot generate GCSA index without either a vg or an xg" << endl;
                 exit(1);
@@ -688,8 +684,7 @@ int main_index(int argc, char** argv) {
             if (file_names.empty() && !xg_name.empty()) {
                 // We were given a -x specifically to read as XG
                 
-                ifstream xg_stream(xg_name);
-                auto xg = vg::io::VPKG::load_one<xg::XG>(xg_stream);
+                auto xg = vg::io::VPKG::load_one<xg::XG>(xg_name);
 
                 // Create the MinimumDistanceIndex
                 MinimumDistanceIndex di(xg.get(), snarl_manager);
@@ -716,4 +711,4 @@ int main_index(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_construct("index", "index graphs or alignments for random access or mapping", PIPELINE, 2, main_index);
+static Subcommand vg_construct("index", "index graphs or alignments for random access or mapping", PIPELINE, 4, main_index);

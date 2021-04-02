@@ -15,6 +15,7 @@
 #include "bdsg/odgi.hpp"
 
 #include <gbwtgraph/gbwtgraph.h>
+#include <gbwtgraph/gfa.h>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -168,8 +169,18 @@ int main_convert(int argc, char** argv) {
         return 1;
     }
     if (output_format != "gfa" && (!rgfa_paths.empty() || !rgfa_prefixes.empty() || !wline_sep.empty())) {
-        cerr << "error [vg convert]: -P, -Q, -w and -H can only be used with -f" << endl;
+        cerr << "error [vg convert]: -P, -Q, and -w can only be used with -f" << endl;
         return 1;
+    }
+    if (!gbwt_name.empty()) {
+        if (input_gfa) {
+            cerr << "error [vg convert]: GFA input (-g) cannot be used with GBWT input (-b)" << endl;
+            return 1;
+        }
+        if (output_format == "gfa" && (!rgfa_paths.empty() || !rgfa_prefixes.empty() || !wline_sep.empty())) {
+            cerr << "error [vg convert]: GFA output options (-P, -Q, -w) cannot be used with GBWT input (-b)" << endl;
+            return 1;
+        }
     }
 
     // with -F or -G we convert an alignment and not a graph
@@ -185,9 +196,8 @@ int main_convert(int argc, char** argv) {
         assert(gam_to_gaf || gaf_to_gam);
 
         unique_ptr<HandleGraph> input_graph;
-        get_input_file(optind, argc, argv, [&](istream& in) {
-            input_graph = vg::io::VPKG::load_one<HandleGraph>(in);
-        });
+        string input_graph_filename = get_input_file_name(optind, argc, argv);
+        input_graph = vg::io::VPKG::load_one<HandleGraph>(input_graph_filename);
 
         unique_ptr<AlignmentEmitter> emitter = get_non_hts_alignment_emitter("-", gam_to_gaf ? "GAF" : "GAM", {}, get_thread_count(),
                                                                              input_graph.get());
@@ -227,6 +237,7 @@ int main_convert(int argc, char** argv) {
     }
 
     unique_ptr<HandleGraph> input_graph;
+    unique_ptr<gbwt::GBWT> input_gbwt;
     PathHandleGraph* output_path_graph = dynamic_cast<PathHandleGraph*>(output_graph.get());
     
     if (input_gfa) {
@@ -276,7 +287,6 @@ int main_convert(int argc, char** argv) {
     }
     else {
         // Load a GBWTGraph or another HandleGraph.
-        unique_ptr<gbwt::GBWT> input_gbwt;
         if (!gbwt_name.empty()) {
             get_input_file(optind, argc, argv, [&](istream& in) {
                 input_graph = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(in);
@@ -289,9 +299,8 @@ int main_convert(int argc, char** argv) {
             input_gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
             gbwt_graph->set_gbwt(*input_gbwt);
         } else {
-            get_input_file(optind, argc, argv, [&](istream& in) {
-                input_graph = vg::io::VPKG::load_one<HandleGraph>(in);
-            });
+            string input_graph_filename = get_input_file_name(optind, argc, argv);
+            input_graph = vg::io::VPKG::load_one<HandleGraph>(input_graph_filename);
         }
         
         PathHandleGraph* input_path_graph = dynamic_cast<PathHandleGraph*>(input_graph.get());
@@ -341,30 +350,34 @@ int main_convert(int argc, char** argv) {
     }
 
     // GFA output.
-    // TODO: GBWTGraph to GFA once GBWTGraph implements it.
     if (output_format == "gfa") {
-        const PathHandleGraph* graph_to_write;
-        if (input_gfa) {
-            graph_to_write = dynamic_cast<const PathHandleGraph*>(output_graph.get());
-        } else {
-            graph_to_write = dynamic_cast<const PathHandleGraph*>(input_graph.get());
+        if (!gbwt_name.empty()) {
+            gbwtgraph::gbwt_to_gfa(*dynamic_cast<const gbwtgraph::GBWTGraph*>(input_graph.get()), std::cout, false);
         }
-        for (const string& path_name : rgfa_paths) {
-            if (!graph_to_write->has_path(path_name)) {
-                cerr << "error [vg convert]: specified path, " << " not found in graph" << path_name << endl;
-                return 1;
+        else {
+            const PathHandleGraph* graph_to_write;
+            if (input_gfa) {
+                graph_to_write = dynamic_cast<const PathHandleGraph*>(output_graph.get());
+            } else {
+                graph_to_write = dynamic_cast<const PathHandleGraph*>(input_graph.get());
             }
-        }
-        graph_to_write->for_each_path_handle([&](path_handle_t path_handle) {
-                string path_name = graph_to_write->get_path_name(path_handle);
-                for (const string& prefix : rgfa_prefixes) {
-                    if (path_name.substr(0, prefix.length()) == prefix) {
-                        rgfa_paths.insert(path_name);
-                        continue;
-                    }
+            for (const string& path_name : rgfa_paths) {
+                if (!graph_to_write->has_path(path_name)) {
+                    cerr << "error [vg convert]: specified path, " << " not found in graph" << path_name << endl;
+                    return 1;
                 }
-            });
-        graph_to_gfa(graph_to_write, std::cout, rgfa_paths, rgfa_pline, wline_sep);
+            }
+            graph_to_write->for_each_path_handle([&](path_handle_t path_handle) {
+                    string path_name = graph_to_write->get_path_name(path_handle);
+                    for (const string& prefix : rgfa_prefixes) {
+                        if (path_name.substr(0, prefix.length()) == prefix) {
+                            rgfa_paths.insert(path_name);
+                            continue;
+                        }
+                    }
+                });
+            graph_to_gfa(graph_to_write, std::cout, rgfa_paths, rgfa_pline, wline_sep);
+        }
     }
     // Serialize the output graph.
     else {
@@ -407,12 +420,25 @@ void help_convert(char** argv) {
 }
 //------------------------------------------------------------------------------
 
+void check_duplicate_contigs(const gbwt::GBWT& index, const std::vector<gbwt::size_type>& thread_ids, const std::string& ref_sample) {
+    std::unordered_set<gbwt::size_type> found_contigs;
+    for (auto thread_id : thread_ids) {
+        gbwt::size_type contig = index.metadata.path(thread_id).contig;
+        if (found_contigs.find(contig) != found_contigs.end()) {
+            std::cerr << "error [vg convert]: duplicate reference path name " << index.metadata.contig(contig) << " in the GBWT index" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        found_contigs.insert(contig);
+    }
+}
+
 void gbwtgraph_to_xg(const gbwtgraph::GBWTGraph* input, xg::XG* output, const std::string& ref_sample) {
     const gbwt::GBWT& index = *(input->index);
     std::vector<gbwt::size_type> thread_ids = threads_for_sample(index, ref_sample);
     if (thread_ids.empty()) {
         std::cerr << "warning [vg convert]: no threads for reference sample " << ref_sample << " in the GBWT index" << std::endl;
     }
+    check_duplicate_contigs(index, thread_ids, ref_sample);
 
     // Enumerate nodes.
     auto for_each_sequence = [&](const std::function<void(const std::string& seq, const nid_t& node_id)>& lambda) {
@@ -448,7 +474,6 @@ void gbwtgraph_to_xg(const gbwtgraph::GBWTGraph* input, xg::XG* output, const st
     // Build XG.
     output->from_enumerators(for_each_sequence, for_each_edge, for_each_path_element, false);
 }
-//------------------------------------------------------------------------------
 
 void add_paths(const gbwtgraph::GBWTGraph* input, MutablePathHandleGraph* output, const std::string& ref_sample) {
     const gbwt::GBWT& index = *(input->index);
@@ -456,6 +481,7 @@ void add_paths(const gbwtgraph::GBWTGraph* input, MutablePathHandleGraph* output
     if (thread_ids.empty()) {
         std::cerr << "warning [vg convert]: no threads for reference sample " << ref_sample << " in the GBWT index" << std::endl;
     }
+    check_duplicate_contigs(index, thread_ids, ref_sample);
 
     for (gbwt::size_type thread_id : thread_ids) {
         std::string path_name = index.metadata.contig(index.metadata.path(thread_id).contig);

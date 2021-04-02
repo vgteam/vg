@@ -181,9 +181,8 @@ int main_align(int argc, char** argv) {
     if (ref_seq.empty()) {
         // Only look at a filename if we don't have an explicit reference
         // sequence.
-        get_input_file(optind, argc, argv, [&](istream& in) {
-            graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
-        });
+        string graph_filename = get_input_file_name(optind, argc, argv);
+        graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_filename);
     }
 
     ifstream matrix_stream;

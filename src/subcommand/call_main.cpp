@@ -303,9 +303,8 @@ int main_call(int argc, char** argv) {
     
     // Read the graph
     unique_ptr<PathHandleGraph> path_handle_graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-            path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
-        });
+    string graph_filename = get_input_file_name(optind, argc, argv);
+    path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_filename);
     PathHandleGraph* graph = path_handle_graph.get();
 
     // Apply overlays as necessary
@@ -571,6 +570,14 @@ int main_call(int argc, char** argv) {
         }
     }
 
+    string header;
+    if (!gaf_output) {
+        // Init The VCF       
+        VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
+        assert(vcf_caller != nullptr);
+        header = vcf_caller->vcf_header(*graph, ref_paths, ref_path_lengths);
+    }
+
     // Call the graph
     if (!traversals_only) {
 
@@ -587,7 +594,7 @@ int main_call(int argc, char** argv) {
         // Output VCF
         VCFOutputCaller* vcf_caller = dynamic_cast<VCFOutputCaller*>(graph_caller.get());
         assert(vcf_caller != nullptr);
-        cout << vcf_caller->vcf_header(*graph, ref_paths, ref_path_lengths) << flush;
+        cout << header << flush;
         vcf_caller->write_variants(cout);
     }
     
@@ -595,5 +602,5 @@ int main_call(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_call("call", "call or genotype VCF variants", PIPELINE, 7, main_call);
+static Subcommand vg_call("call", "call or genotype VCF variants", PIPELINE, 10, main_call);
 

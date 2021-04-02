@@ -578,7 +578,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             config.segment_translation = optarg;
             break;
 
-        // Input GBWT construction: paths
+        // Input GBWT construction: Paths
         case 'E':
             assert(config.build == GBWTConfig::build_none);
             config.build = GBWTConfig::build_paths;
@@ -1395,8 +1395,6 @@ void GraphHandler::serialize_segment_translation(const GBWTConfig& config) const
         std::cerr << "Serializing segment to node translation to " << config.segment_translation << std::endl;
     }
 
-    // FIXME This is a temporary format. Once the format is finalized,
-    // GBWTGraph can handle the serialization.
     std::ofstream out(config.segment_translation, std::ios_base::binary);
     if (this->sequence_source->uses_translation()) {
         auto& translation = this->sequence_source->segment_translation;

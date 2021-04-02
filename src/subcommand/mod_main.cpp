@@ -364,9 +364,8 @@ int main_mod(int argc, char** argv) {
     }
 
     unique_ptr<handlegraph::MutablePathDeletableHandleGraph> graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-        graph = vg::io::VPKG::load_one<handlegraph::MutablePathDeletableHandleGraph>(in);
-    });
+    string graph_filename = get_input_file_name(optind, argc, argv);
+    graph = vg::io::VPKG::load_one<handlegraph::MutablePathDeletableHandleGraph>(graph_filename);
 
     if (!vcf_filename.empty()) {
         // We need to throw out the parts of the graph that are on alt paths,
@@ -716,7 +715,7 @@ int main_mod(int argc, char** argv) {
 
     if (prune_complex) {
         if (!(path_length > 0 && edge_max > 0)) {
-            cerr << "[vg mod]: when pruning complex regions you must specify a --path-length and --edge-max" << endl;
+            cerr << "[vg mod]: when pruning complex regions you must specify a --length and --edge-max" << endl;
             return 1;
         }
         algorithms::prune_complex_with_head_tail(*graph, path_length, edge_max);
@@ -747,7 +746,7 @@ int main_mod(int argc, char** argv) {
 
     if (add_start_and_end_markers) {
         if (!(path_length > 0)) {
-            cerr << "[vg mod]: when adding start and end markers you must provide a --path-length" << endl;
+            cerr << "[vg mod]: when adding start and end markers you must provide a --length" << endl;
             return 1;
         }
         // TODO: replace this with the SourceSinkOverlay, accounting somehow for its immutability.

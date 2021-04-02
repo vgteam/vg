@@ -147,12 +147,33 @@ Path extract_gbwt_path(const HandleGraph& graph, const gbwt::GBWT& gbwt_index, g
 /// NOTE: id is a gbwt path id, not a gbwt sequence id.
 std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
 
+/// Get a sample name of a thread stored in GBWT metadata.
+/// NOTE: id is a gbwt path id, not a gbwt sequence id.
+std::string thread_sample(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
+
+/// Get phase of a thread stored in GBWT metadata.
+/// NOTE: id is a gbwt path id, not a gbwt sequence id.
+int thread_phase(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
+
 //------------------------------------------------------------------------------
 
 /// Transform the paths into a GBWT index. Primarily for testing.
 gbwt::GBWT get_gbwt(const std::vector<gbwt::vector_type>& paths);
 
 //------------------------------------------------------------------------------
+
+/// Load a translation file (created with vg gbwt --translation) and return a mapping
+/// original segment ids to a list of chopped node ids
+unordered_map<nid_t, vector<nid_t>> load_translation_map(ifstream& input_stream);
+
+/// Load a translation file (created with vg gbwt --translation) and return a backwards mapping
+/// of chopped node to original segment position (id,offset pair)
+/// NOTE: hopefully this is just a short-term hack, and we get a general interface baked into
+//        the handlegraphs themselves
+unordered_map<nid_t, pair<nid_t, size_t>> load_translation_back_map(HandleGraph& graph, ifstream& input_stream);
+
+//------------------------------------------------------------------------------
+
 
 } // namespace vg
 

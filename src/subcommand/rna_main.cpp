@@ -232,9 +232,8 @@ int32_t main_rna(int32_t argc, char** argv) {
     unique_ptr<MutablePathDeletableHandleGraph> splice_graph(nullptr);
 
     // Load variation graph.
-    get_input_file(optind, argc, argv, [&](istream& in) {
-        splice_graph = move(vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in));
-    });
+    string splice_graph_filename = get_input_file_name(optind, argc, argv);
+    splice_graph = move(vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(splice_graph_filename));
 
     if (splice_graph == nullptr) {
         cerr << "[transcriptome] ERROR: Could not load graph." << endl;
@@ -420,5 +419,5 @@ int32_t main_rna(int32_t argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_rna("rna", "construct spliced variation graphs and transcript paths", main_rna);
+static Subcommand vg_rna("rna", "construct spliced variation graphs and transcript paths", PIPELINE, 3, main_rna);
 
