@@ -1906,12 +1906,11 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
         if (sum({distance_to_end1 , distance_to_start2}) >= node_length(net1)) {
             //If the positions are on the same node and are pointing towards each other, then
             //check the distance between them in the node
-            //Add 1 to be consistent
-            minimum_distance = minus(sum({distance_to_end1 , distance_to_start2, 1}), node_length(net1));
+            minimum_distance = minus(sum({distance_to_end1 , distance_to_start2}), node_length(net1));
             cerr << " Distance: " << minimum_distance << endl;
         }
         if (sum({distance_to_start1 , distance_to_end2}) >= node_length(net1)) {
-            minimum_distance = std::min(minus(sum({distance_to_start1 , distance_to_end2, 1}), node_length(net1)), minimum_distance);
+            minimum_distance = std::min(minus(sum({distance_to_start1 , distance_to_end2}), node_length(net1)), minimum_distance);
             cerr << " Distance: " << minimum_distance << endl;
         }
         common_ancestor = get_parent(net1);
