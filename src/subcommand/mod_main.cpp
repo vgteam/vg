@@ -42,7 +42,6 @@ void help_mod(char** argv) {
          << "    -E, --unreverse-edges   flip doubly-reversing edges so that they are represented on the" << endl
          << "                            forward strand of the graph" << endl
          << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
-         << "    -T, --strong-connect    outputs the strongly-connected components of the graph" << endl
          << "    -d, --dagify-step N     copy strongly connected components of the graph N times, forwarding" << endl
          << "                            edges from old to new copies to convert the graph into a DAG" << endl
          << "    -w, --dagify-to N       copy strongly connected components of the graph forwarding" << endl
@@ -65,7 +64,6 @@ void help_mod(char** argv) {
          << "    -X, --chop N            chop nodes in the graph so they are not more than N bp long" << endl
          << "    -u, --unchop            where two nodes are only connected to each other and by one edge" << endl
          << "                            replace the pair with a single node that is the concatenation of their labels" << endl
-         << "    -K, --kill-labels       delete the labels from the graph, resulting in empty nodes" << endl
          << "    -e, --edge-max N        only consider paths which make edge choices at <= this many points" << endl
          << "    -M, --max-degree N      unlink nodes that have edge degree greater than N" << endl
          << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
@@ -93,7 +91,6 @@ int main_mod(int argc, char** argv) {
     int chop_to = 0;
     bool add_start_and_end_markers = false;
     bool prune_subgraphs = false;
-    bool kill_labels = false;
     bool simplify_graph = false;
     bool unchop = false;
     bool normalize_graph = false;
@@ -103,7 +100,6 @@ int main_mod(int argc, char** argv) {
     vector<nid_t> root_nodes;
     int32_t context_steps;
     bool remove_null = false;
-    bool strong_connect = false;
     uint32_t unfold_to = 0;
     bool break_cycles = false;
     uint32_t dagify_steps = 0;
@@ -137,7 +133,6 @@ int main_mod(int argc, char** argv) {
             {"length", required_argument, 0, 'l'},
             {"edge-max", required_argument, 0, 'e'},
             {"chop", required_argument, 0, 'X'},
-            {"kill-labels", no_argument, 0, 'K'},
             {"markers", no_argument, 0, 'm'},
             {"threads", no_argument, 0, 't'},
             {"label-paths", no_argument, 0, 'P'},
@@ -152,7 +147,6 @@ int main_mod(int argc, char** argv) {
             {"subgraph", required_argument, 0, 'g'},
             {"context", required_argument, 0, 'x'},
             {"remove-null", no_argument, 0, 'R'},
-            {"strong-connect", no_argument, 0, 'T'},
             {"dagify-steps", required_argument, 0, 'd'},
             {"dagify-to", required_argument, 0, 'w'},
             {"dagify-len-max", required_argument, 0, 'L'},
@@ -251,10 +245,6 @@ int main_mod(int argc, char** argv) {
             flip_doubly_reversed_edges = true;
             break;
 
-        case 'K':
-            kill_labels = true;
-            break;
-
         case 'e':
             edge_max = parse<int>(optarg);
             break;
@@ -294,10 +284,6 @@ int main_mod(int argc, char** argv) {
             
         case 'A':
             remove_path = true;
-            break;
-
-        case 'T':
-            strong_connect = true;
             break;
 
         case 'U':
@@ -364,9 +350,8 @@ int main_mod(int argc, char** argv) {
     }
 
     unique_ptr<handlegraph::MutablePathDeletableHandleGraph> graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-        graph = vg::io::VPKG::load_one<handlegraph::MutablePathDeletableHandleGraph>(in);
-    });
+    string graph_filename = get_input_file_name(optind, argc, argv);
+    graph = vg::io::VPKG::load_one<handlegraph::MutablePathDeletableHandleGraph>(graph_filename);
 
     if (!vcf_filename.empty()) {
         // We need to throw out the parts of the graph that are on alt paths,
@@ -592,9 +577,6 @@ int main_mod(int argc, char** argv) {
         }
     }
     
-    // We can't bluntify anymore because we discarded overlap information when we loaded the graph as a handle graph.
-    // TODO: Write a good bluntifying GFA importer.
-    
     // Some stuff below here needs a vg graph.
     VG* vg_graph = dynamic_cast<vg::VG*>(graph.get());
     
@@ -636,11 +618,6 @@ int main_mod(int argc, char** argv) {
         // TODO: This doesn't work with vg::VG due to its paths needing re-syncing
         assert(vg_graph == nullptr);
         algorithms::normalize(graph.get(), until_normal_iter, true);
-    }
-
-    if (strong_connect) {
-        // TODO: turn into an algorithm
-        ensure_vg()->keep_multinode_strongly_connected_components();
     }
 
     if (remove_non_path) {
@@ -727,22 +704,20 @@ int main_mod(int argc, char** argv) {
     }
 
     if (prune_subgraphs) {
-        // TODO: turn into an algorithm
         algorithms::prune_short_subgraphs(*graph, path_length);
     }
 
     if (chop_to) {
+        MutablePathDeletableHandleGraph* chop_graph = graph.get();
         if (vg_graph != nullptr) {
-            vg_graph->dice_nodes(chop_to);
-            vg_graph->paths.compact_ranks();
-        } else {
-            handlealgs::chop(graph.get(), chop_to);
+            chop_graph = vg_graph;
         }
-    }
-
-    if (kill_labels) {
-        // TODO: Only vg graphs can really have empty nodes...
-        ensure_vg()->for_each_node([](Node* n) { n->clear_sequence(); });
+        
+        handlealgs::chop(chop_graph, chop_to);
+        
+        if (chop_graph == vg_graph) {
+            vg_graph->paths.compact_ranks();
+        }
     }
 
     if (add_start_and_end_markers) {

@@ -149,9 +149,8 @@ int main_deconstruct(int argc, char** argv){
 
     // Read the graph
     unique_ptr<PathHandleGraph> path_handle_graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-            path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
-        });
+    string path_handle_graph_filename = get_input_file_name(optind, argc, argv);
+    path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(path_handle_graph_filename);
 
     bdsg::PathPositionOverlayHelper overlay_helper;
     PathPositionHandleGraph* graph = overlay_helper.apply(path_handle_graph.get());

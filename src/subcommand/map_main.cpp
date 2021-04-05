@@ -686,13 +686,14 @@ int main_map(int argc, char** argv) {
             cerr << "Error[vg map]: Unable to open xg file \"" << xg_name << "\"" << endl;
             exit(1);
         }
+        xg_stream.close();
         
         // TODO: tell when the user asked for an XG vs. when we guessed one,
         // and error when the user asked for one and we can't find it.
         if(debug) {
             cerr << "Loading xg index " << xg_name << "..." << endl;
         }
-        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_stream);
+        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
     }
 

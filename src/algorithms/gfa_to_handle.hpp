@@ -54,6 +54,24 @@ void gfa_to_path_handle_graph_in_memory(istream& in,
                                         MutablePathMutableHandleGraph* graph,
                                         int64_t max_rgfa_rank = numeric_limits<int64_t>::max());
 
+/// Operate on a stream line by line.  This can only work if the GFA is sorted.  If the GFA isn't
+/// sorted, dump it to a temp file, and fall back on gfa_to_path_handle_graph()
+void gfa_to_path_handle_graph_stream(istream& in,
+                                     MutablePathMutableHandleGraph* graph,
+                                     int64_t max_rgfa_rank = numeric_limits<int64_t>::max());
+
+
+/// gfakluge can't parse line by line, which we need for streaming
+/// ideally, it needs to be entirely replaced.  here's a bare minimum for parsing lines
+/// in the meantime.  they return the fields as strings, don't support overlaps, and
+/// optional tags get read as strings in the vectors. 
+tuple<string, string, vector<string>> parse_gfa_s_line(const string& s_line);
+tuple<string, bool, string, bool, vector<string>> parse_gfa_l_line(const string& l_line);
+/// visit_step takes {path-name, rank (-1 if path empty), step id, step reversed}
+/// and returns true if it wants to keep iterating (false means stop)
+void parse_gfa_p_line(const string& p_line,
+                      function<bool(const string&, int64_t, const string&, bool)> visit_step);
+
 
 }
 }

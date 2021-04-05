@@ -196,9 +196,8 @@ int main_convert(int argc, char** argv) {
         assert(gam_to_gaf || gaf_to_gam);
 
         unique_ptr<HandleGraph> input_graph;
-        get_input_file(optind, argc, argv, [&](istream& in) {
-            input_graph = vg::io::VPKG::load_one<HandleGraph>(in);
-        });
+        string input_graph_filename = get_input_file_name(optind, argc, argv);
+        input_graph = vg::io::VPKG::load_one<HandleGraph>(input_graph_filename);
 
         unique_ptr<AlignmentEmitter> emitter = get_non_hts_alignment_emitter("-", gam_to_gaf ? "GAF" : "GAM", {}, get_thread_count(),
                                                                              input_graph.get());
@@ -300,9 +299,8 @@ int main_convert(int argc, char** argv) {
             input_gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
             gbwt_graph->set_gbwt(*input_gbwt);
         } else {
-            get_input_file(optind, argc, argv, [&](istream& in) {
-                input_graph = vg::io::VPKG::load_one<HandleGraph>(in);
-            });
+            string input_graph_filename = get_input_file_name(optind, argc, argv);
+            input_graph = vg::io::VPKG::load_one<HandleGraph>(input_graph_filename);
         }
         
         PathHandleGraph* input_path_graph = dynamic_cast<PathHandleGraph*>(input_graph.get());
