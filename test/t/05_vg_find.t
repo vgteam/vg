@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 27
+plan tests 28
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -115,3 +115,23 @@ vg index -x x.xg x.vg
 vg index -G x.gbwt -v small/xy2.vcf.gz x.vg
 is $(vg find -p x -x x.xg -K 16 -H x.gbwt | cut -f 5 | sort | uniq -c  | tail -n 1 | awk '{ print $1 }') 1510 "we find the expected number of kmers with haplotype frequency equal to 2"
 rm -f x.vg x.xg x.gbwt
+
+
+# Find nodes that map to the provided ids
+vg construct -m 32 -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
+vg index -G x.gbwt -v small/xy2.vcf.gz x.vg
+vg prune -u -m x.mapping -g x.gbwt -e 1 x.vg > x.unfolded.vg
+
+rm -f expected.gfa
+printf "H\tVN:Z:1.0\n" >> expected.gfa
+printf "S\t72\tTGGAGTTCTATTATATTCC\n" >> expected.gfa
+printf "S\t76\tTGGAGTTCTATTATATTCC\n" >> expected.gfa
+printf "S\t97\tTCT\n" >> expected.gfa
+printf "S\t98\tTCT\n" >> expected.gfa
+printf "S\t82\tTGGAGTTCTATTATATTCC\n" >> expected.gfa
+vg find -n 5 -n 23 --mapping x.mapping -x x.unfolded.vg 2> /dev/null | vg view -g - > found.gfa
+cmp found.gfa expected.gfa
+is $? 0 "find nodes that map to the provided node ids"
+
+rm -f x.vg x.gbwt x.mapping x.unfolded.vg
+rm -f expected.gfa found.gfa

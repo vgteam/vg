@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 18
+plan tests 20
 
 vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 #is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"
@@ -71,3 +71,20 @@ diff tiny.deg tiny.true.deg
 is "$?" 0 "vg stats -D found correct degree distribution of tiny graph"
 rm -f tiny.def tiny.true.deg
 
+# List self-loops and nondeterministic edge sets.
+vg convert -g -a graphs/special_cases.gfa > weird.vg
+
+printf "self-loops\t3\n" > expected.txt
+vg stats -L weird.vg > loops.txt
+cmp loops.txt expected.txt
+is $? 0 "vg stats -L counts self-loops correctly"
+
+rm -f expected.txt
+printf "nondeterministic\t1+\t2+\t3+\n" >> expected.txt
+printf "nondeterministic\t4-\t2-\t3-\n" >> expected.txt
+vg stats -e weird.vg > nondeterministic.txt
+cmp nondeterministic.txt expected.txt
+is $? 0 "vg stats -e finds the right nondeterministic edge sets"
+
+rm -f weird.vg
+rm -f expected.txt loops.txt nondeterministic.txt

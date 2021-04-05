@@ -43,10 +43,11 @@ void help_stats(char** argv) {
          << "    -N, --node-count      number of nodes in graph" << endl
          << "    -E, --edge-count      number of edges in graph" << endl
          << "    -l, --length          length of sequences in graph" << endl
-         << "    -L, --self-loops      number of nodes with a self-loop" << endl
+         << "    -L, --self-loops      number of self-loops" << endl
          << "    -s, --subgraphs       describe subgraphs of graph" << endl
          << "    -H, --heads           list the head nodes of the graph" << endl
          << "    -T, --tails           list the tail nodes of the graph" << endl
+         << "    -e, --nondeterm       list the nondeterministic edge sets" << endl
          << "    -c, --components      print the strongly connected components of the graph" << endl
          << "    -A, --is-acyclic      print if the graph is acyclic or not" << endl
          << "    -n, --node ID         consider node with the given id" << endl
@@ -79,6 +80,7 @@ int main_stats(int argc, char** argv) {
     bool stats_subgraphs = false;
     bool stats_heads = false;
     bool stats_tails = false;
+    bool stats_nondeterm = false;
     bool show_sibs = false;
     bool show_components = false;
     bool head_distance = false;
@@ -111,6 +113,7 @@ int main_stats(int argc, char** argv) {
             {"subgraphs", no_argument, 0, 's'},
             {"heads", no_argument, 0, 'H'},
             {"tails", no_argument, 0, 'T'},
+            {"nondeterm", no_argument, 0, 'e'},
             {"help", no_argument, 0, 'h'},
             {"components", no_argument, 0, 'c'},
             {"to-head", no_argument, 0, 'd'},
@@ -129,7 +132,7 @@ int main_stats(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlLsHTcdtn:NEa:vAro:ORFD",
+        c = getopt_long (argc, argv, "hzlLsHTecdtn:NEa:vAro:ORFD",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -168,6 +171,10 @@ int main_stats(int argc, char** argv) {
 
         case 'T':
             stats_tails = true;
+            break;
+
+        case 'e':
+            stats_nondeterm = true;
             break;
 
         case 'S':
@@ -279,13 +286,13 @@ int main_stats(int argc, char** argv) {
 
     if (stats_self_loops) {
         require_graph();
-        std::unordered_set<nid_t> loops;
+        size_t total = 0;
         graph->for_each_edge([&](const edge_t& edge) {
             if (graph->get_id(edge.first) == graph->get_id(edge.second)) {
-                loops.insert(graph->get_id(edge.first));
+                total++;
             }
         });
-        cout << "self-loops" << "\t" << loops.size() << endl;
+        cout << "self-loops" << "\t" << total << endl;
     }
 
     if (stats_heads) {
@@ -306,6 +313,28 @@ int main_stats(int argc, char** argv) {
             cout << graph->get_id(t) << " ";
         }
         cout << endl;
+    }
+
+    if (stats_nondeterm) {
+        require_graph();
+        graph->for_each_handle([&](const handle_t& handle) {
+            nid_t id = graph->get_id(handle);
+            for (bool is_reverse : { false, true }) {
+                std::map<char, std::vector<handle_t>> edges;
+                graph->follow_edges(graph->get_handle(id, is_reverse), false, [&](const handle_t& to) {
+                    edges[graph->get_base(to, 0)].push_back(to);
+                });
+                for (auto iter = edges.begin(); iter != edges.end(); ++iter) {
+                    if (iter->second.size() > 1) {
+                        std::cout << "nondeterministic\t" << id << (is_reverse ? "-" : "+");
+                        for (const handle_t& to : iter->second) {
+                            std::cout << "\t" << graph->get_id(to) << (graph->get_is_reverse(to) ? "-" : "+");
+                        }
+                        std::cout << std::endl;
+                    }
+                }
+            }
+        });
     }
 
     if (stats_subgraphs) {
