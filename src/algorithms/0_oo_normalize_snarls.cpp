@@ -332,7 +332,7 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
         integrate_snarl(snarl, new_snarl, embedded_paths, source_id, sink_id, backwards);
     } else {
         if (!get<1>(haplotypes).empty()) {
-            cerr << "found a snarl starting at " << source_id << " and ending at "
+            cerr << "found a snarl with source " << source_id << " and sink "
                  << sink_id
                  << " with haplotypes that start or end in the middle. Skipping." << endl;
             cerr << "There are " << sizeof(get<1>(haplotypes)) << " haplotypes of that description." << endl;
@@ -341,14 +341,14 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
             error_record[1] = true;
         }
         if (get<0>(haplotypes).size() > _max_alignment_size) {
-            cerr << "found a snarl starting at " << source_id << " and ending at "
+            cerr << "found a snarl with source " << source_id << " and sink "
                  << sink_id << " with too many haplotypes (" << get<0>(haplotypes).size()
                  << ") to efficiently align. Skipping." << endl;
             error_record[0] = true;
         }
         if (get<2>(haplotypes).size() != handles_in_snarl.size()) {
-            cerr << "some handles in the snarl starting at " << source_id
-                 << " and ending at " << sink_id
+            cerr << "some handles in the snarl with source " << source_id
+                 << " and sink " << sink_id
                  << " aren't accounted for by the gbwt_graph. "
                     "Skipping."
                  << endl;
@@ -367,7 +367,7 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
     if (error_record[5] > error_record[4]) {
         cerr << "**************************in UNIT-TEST for normalize_snarl: **************************" << endl;
         cerr << "NOTE: normalized a snarl which *increased* in sequence quantity, "
-                "starting at "
+                "with source "
              << source_id << endl
              << "\tsize before: " << error_record[4] << " size after: " << error_record[5]
              << endl;
@@ -704,7 +704,7 @@ void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl,
 
     if (to_insert_snarl_defining_handles.first.size() > 1 ||
         to_insert_snarl_defining_handles.second.size() > 1) {
-        cerr << "ERROR: newly made snarl from a snarl starting at " << source_id
+        cerr << "ERROR: newly made snarl from a snarl with source " << source_id
              << " has more than one start or end. # of starts: "
              << to_insert_snarl_defining_handles.first.size()
              << " # of ends: " << to_insert_snarl_defining_handles.second.size() << endl;
