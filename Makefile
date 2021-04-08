@@ -280,6 +280,7 @@ IPS4O_DIR=deps/ips4o
 BBHASH_DIR=deps/BBHash
 MIO_DIR=deps/mio
 ATOMIC_QUEUE_DIR=deps/atomic_queue
+SEQAN_DIR=deps/seqan
 
 # Dependencies that go into libvg's archive
 # These go in libvg but come from dependencies
@@ -347,6 +348,7 @@ DEPS += $(INC_DIR)/raptor2/raptor2.h
 DEPS += $(INC_DIR)/BooPHF.h
 DEPS += $(INC_DIR)/mio/mmap.hpp
 DEPS += $(INC_DIR)/atomic_queue.h
+DEPS += $(INC_DIR)/seqan.h
 
 # Only depend on these files for the final linking stage.	
 # These libraries provide no headers to affect the vg build.	
@@ -685,6 +687,13 @@ $(INC_DIR)/mmmultimap.hpp: $(MMMULTIMAP_DIR)/src/mmmultimap.hpp $(MMMULTIMAP_DIR
 
 $(INC_DIR)/ips4o.hpp: $(IPS4O_DIR)/ips4o.hpp $(IPS4O_DIR)/ips4o/*
 	+. ./source_me.sh && cp -r $(IPS4O_DIR)/ips4o* $(CWD)/$(INC_DIR)/
+
+$(INC_DIR)/seqan.h: $(SEQAN_DIR)/include/*
+	+. ./source_me.sh && cp -r $(SEQAN_DIR)/include/seqan/ $(CWD)/$(INC_DIR)/
+
+# mkdir -p $(SEQAN_DIR)/release_clang37
+# cd $(SEQAN_DIR)/release_clang37
+# cmake ../../my_project -DCMAKE_CXX_COMPILER=clang++-3.7
 
 # The xg repo has a cmake build system based all around external projects, and
 # we need it to use our installed versions of everything instead.

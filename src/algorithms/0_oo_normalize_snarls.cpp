@@ -367,8 +367,8 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
     if (error_record[5] > error_record[4]) {
         cerr << "**************************in UNIT-TEST for normalize_snarl: **************************" << endl;
         cerr << "NOTE: normalized a snarl which *increased* in sequence quantity, "
-                "with source "
-             << source_id << endl
+                "with source: "
+             << source_id << " and sink: " << sink_id << endl
              << "\tsize before: " << error_record[4] << " size after: " << error_record[5]
              << endl;
     } else if (error_record[5] <= 0) {
