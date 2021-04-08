@@ -348,7 +348,7 @@ DEPS += $(INC_DIR)/raptor2/raptor2.h
 DEPS += $(INC_DIR)/BooPHF.h
 DEPS += $(INC_DIR)/mio/mmap.hpp
 DEPS += $(INC_DIR)/atomic_queue.h
-DEPS += $(INC_DIR)/seqan.h
+DEPS += $(INC_DIR)/seqan/align.h
 
 # Only depend on these files for the final linking stage.	
 # These libraries provide no headers to affect the vg build.	
@@ -688,7 +688,8 @@ $(INC_DIR)/mmmultimap.hpp: $(MMMULTIMAP_DIR)/src/mmmultimap.hpp $(MMMULTIMAP_DIR
 $(INC_DIR)/ips4o.hpp: $(IPS4O_DIR)/ips4o.hpp $(IPS4O_DIR)/ips4o/*
 	+. ./source_me.sh && cp -r $(IPS4O_DIR)/ips4o* $(CWD)/$(INC_DIR)/
 
-$(INC_DIR)/seqan.h: $(SEQAN_DIR)/include/*
+# seqan
+$(INC_DIR)/seqan/align.h: $(SEQAN_DIR)/include/*
 	+. ./source_me.sh && cp -r $(SEQAN_DIR)/include/seqan/ $(CWD)/$(INC_DIR)/
 
 # mkdir -p $(SEQAN_DIR)/release_clang37
