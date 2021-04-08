@@ -11,27 +11,14 @@
 #include <gcsa/gcsa.h>
 #include <gcsa/lcp.h>
 #include <gbwt/gbwt.h>
-#include "alignment.hpp"
-#include "path.hpp"
 #include "position.hpp"
-#include "lru_cache.h"
 #include "vg/io/json2pb.h"
-#include "entropy.hpp"
 #include "aligner.hpp"
 #include "mem.hpp"
-#include "cluster.hpp"
-#include "graph.hpp"
-#include "translator.hpp"
 #include "mem_accelerator.hpp"
+#include "cluster.hpp"
 // TODO: pull out ScoreProvider into its own file
 #include "haplotypes.hpp"
-#include "algorithms/subgraph.hpp"
-#include "algorithms/nearest_offsets_in_paths.hpp"
-#include "algorithms/jump_along_path.hpp"
-#include "algorithms/approx_path_distance.hpp"
-#include "algorithms/path_string.hpp"
-#include "algorithms/alignment_path_offsets.hpp"
-#include "algorithms/extract_containing_graph.hpp"
 
 // #define BENCH
 // #include "bench.h"

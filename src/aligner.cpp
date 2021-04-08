@@ -1,6 +1,15 @@
 #include "aligner.hpp"
 
 #include "hash_map.hpp"
+#include "alignment.hpp"
+#include "path.hpp"
+#include "utility.hpp"
+#include "statistics.hpp"
+#include "banded_global_aligner.hpp"
+#include "reverse_graph.hpp"
+#include "null_masking_graph.hpp"
+#include "dozeu_pinning_overlay.hpp"
+#include "algorithms/distance_to_tail.hpp"
 
 //#define debug_print_score_matrices
 

@@ -11,6 +11,7 @@
 
 #include "../alignment.hpp"
 #include "../vg.hpp"
+#include "../statistics.hpp"
 #include <vg/io/stream.hpp>
 
 #include <vowpalwabbit/vw.h>

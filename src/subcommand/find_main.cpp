@@ -1,6 +1,4 @@
 #include "subcommand.hpp"
-#include "../vg.hpp"
-#include "../xg.hpp"
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include <vg/io/stream.hpp>
@@ -8,8 +6,10 @@
 #include <vg/io/protobuf_emitter.hpp>
 #include "../io/save_handle_graph.hpp"
 #include <gbwt/gbwt.h>
+#include <gcsa/support.h>
 #include "../region.hpp"
 #include "../stream_index.hpp"
+#include "../algorithms/subgraph.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
 #include "../algorithms/approx_path_distance.hpp"
 #include "../algorithms/walk.hpp"
@@ -29,6 +29,7 @@ void help_find(char** argv) {
          << "    -x, --xg-name FILE     use this xg index or graph (instead of rocksdb db)" << endl
          << "    -n, --node ID          find node(s), return 1-hop context as graph" << endl
          << "    -N, --node-list FILE   a white space or line delimited list of nodes to collect" << endl
+         << "        --mapping FILE     also include nodes that map to the selected node ids" << endl
          << "    -e, --edges-end ID     return edges on end of node with ID" << endl
          << "    -s, --edges-start ID   return edges on start of node with ID" << endl
          << "    -c, --context STEPS    expand the context of the subgraph this many steps" << endl
@@ -72,7 +73,7 @@ int main_find(int argc, char** argv) {
     string sequence;
     vector<string> kmers;
     vector<vg::id_t> node_ids;
-    string node_list_file;
+    string node_list_file, node_mapping_file;
     int context_size=0;
     bool use_length = false;
     bool kmer_table = false;
@@ -107,6 +108,8 @@ int main_find(int argc, char** argv) {
     int subgraph_k = 0;
     string gbwt_name;
 
+    constexpr int OPT_MAPPING = 1000;
+
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -117,6 +120,7 @@ int main_find(int argc, char** argv) {
                 {"gcsa", required_argument, 0, 'g'},
                 {"node", required_argument, 0, 'n'},
                 {"node-list", required_argument, 0, 'N'},
+                {"mapping", required_argument, 0, OPT_MAPPING},
                 {"edges-end", required_argument, 0, 'e'},
                 {"edges-start", required_argument, 0, 's'},
                 {"sequence", required_argument, 0, 'S'},
@@ -227,6 +231,10 @@ int main_find(int argc, char** argv) {
             node_list_file = optarg;
             break;
 
+        case OPT_MAPPING:
+            node_mapping_file = optarg;
+            break;
+
         case 'e':
             end_id = parse<int>(optarg);
             break;
@@ -327,6 +335,19 @@ int main_find(int argc, char** argv) {
         nli.close();
     }
 
+    // Add the duplicate nodes that map to the original node ids according to the
+    // provided node mapping.
+    if (!node_mapping_file.empty() && !node_ids.empty()) {
+        gcsa::NodeMapping mapping;
+        sdsl::load_from_file(mapping, node_mapping_file);
+        std::unordered_set<nid_t> original_ids(node_ids.begin(), node_ids.end());
+        for (gcsa::size_type id = mapping.begin(); id < mapping.end(); id++) {
+            if (original_ids.find(mapping(id)) != original_ids.end()) {
+                node_ids.push_back(id);
+            }
+        }
+    }
+
     PathPositionHandleGraph* xindex = nullptr;
     unique_ptr<PathHandleGraph> path_handle_graph;
     bdsg::PathPositionOverlayHelper overlay_helper;
@@ -335,6 +356,17 @@ int main_find(int argc, char** argv) {
         path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(xg_name);
         input_gfa = dynamic_cast<GFAHandleGraph*>(path_handle_graph.get()) != nullptr;
         xindex = overlay_helper.apply(path_handle_graph.get());
+
+        // Remove node ids that do not exist in the graph.
+        std::vector<nid_t> final_ids;
+        for (nid_t id : node_ids) {
+            if (xindex->has_node(id)) {
+                final_ids.push_back(id);
+            } else {
+                std::cerr << "warning: [vg find] no node with id " << id << " in the graph" << std::endl;
+            }
+        }
+        node_ids = final_ids;
     }
     function<unique_ptr<MutablePathMutableHandleGraph>()> get_output_graph = [&]() {
         if (input_gfa) {
