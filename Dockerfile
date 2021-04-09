@@ -35,7 +35,7 @@ RUN apt-get -qq -y update && apt-get -qq -y upgrade && apt-get -qq -y install \
     unzip redland-utils librdf-dev cmake pkg-config wget gtk-doc-tools raptor2-utils \
     rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev \
     libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev libboost-all-dev \
-    tabix bcftools
+    libhts-dev tabix libtabixpp-dev bcftools
 ###DEPS_END###
 
 # Prepare to build submodule dependencies
