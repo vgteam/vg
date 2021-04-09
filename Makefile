@@ -157,8 +157,11 @@ ifeq ($(shell uname -s),Darwin)
 
     # We care about building only for the current machine. If we do something
     # more restrictive we can have trouble inlining parts of the standard
-    # library that were built for something less restrictive.
-    CXXFLAGS += -march=native
+    # library that were built for something less restrictive. However,
+    # Apple Clang does not recognize -march=native on ARM.
+	ifeq ($(shell uname -m), x86_64)
+		CXXFLAGS += -march=native
+	endif
     
     # Note shared libraries are dylibs
     SHARED_SUFFIX = dylib
@@ -494,7 +497,8 @@ $(LIB_DIR)/cleaned_old_protobuf_v003: $(wildcard $(LIB_DIR)/libproto*) $(wildcar
 	+rm -f $(LIB_DIR)/libproto* $(LIB_DIR)/pkgconfig/protobuf* $(BIN_DIR)/protoc
 	+rm -Rf $(INC_DIR)/google/protobuf deps/protobuf
 	+touch $(LIB_DIR)/cleaned_old_protobuf_v003
-    
+
+# We used to ship our own version of boost, but now we use the system version instead.
 $(LIB_DIR)/cleaned_old_boost: $(wildcard $(LIB_DIR)/libboost_*) $(wildcard $(INC_DIR)/boost/*)
 	+rm -f $(LIB_DIR)/libboost_*
 	+rm -Rf $(INC_DIR)/boost
@@ -601,28 +605,11 @@ $(INC_DIR)/raptor2/raptor2.h: $(LIB_DIR)/libraptor2.a $(RAPTOR_DIR)/build/*
 $(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STRUCTURES_DIR)/src/*.cpp $(STRUCTURES_DIR)/Makefile 
 	+. ./source_me.sh && cd $(STRUCTURES_DIR) && $(MAKE) clean && $(MAKE) lib/libstructures.a $(FILTER) && cp lib/libstructures.a $(CWD)/$(LIB_DIR)/ && cp -r src/include/structures $(CWD)/$(INC_DIR)/
 
-# To build libvw we need to point it at our Boost, but then configure decides
-# it needs to build vwdll, which depends on codecvt, which isn't actually
-# shipped in the GCC 4.9 STL. So we hack vwdll AKA libvw_c_wrapper out of the
-# build.
-# Also, autogen.sh looks for Boost in the system, and who knows what it will do
-# if it doesn't find it, so let it fail.
-# Also, we need to make sure nothing about -fopenmp makes it into the build, in case we are on Clang.
-# vw doesn't need OpenMP
+# We need to make sure nothing about -fopenmp makes it into the build, in case we are on Apple Clang.
 $(LIB_DIR)/libvw.a: $(VOWPALWABBIT_DIR)/* $(VOWPALWABBIT_DIR)/vowpalwabbit/* $(LIB_DIR)/cleaned_old_boost
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && rm -Rf $(CWD)/$(LIB_DIR)/libvw.* $(CWD)/$(INC_DIR)/vowpalwabbit
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e 's/libvw_c_wrapper\.pc//g' Makefile.am
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e 's/libvw_c_wrapper\.la//g' vowpalwabbit/Makefile.am
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/libvw_c_wrapper\.pc/d' configure.ac
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/vwdll/d' Makefile.am
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && sed -i -e '/libvw_c_wrapper/d' vowpalwabbit/Makefile.am
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && rm -Rf vowpalwabbit/*.la vowpalwabbit/.libs
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" ./autogen.sh || true
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" ./configure --with-boost=no --with-boost-program-options=boost_program_options$(BOOST_SUFFIX) 
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && $(MAKE) clean && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" $(MAKE) $(FILTER)
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cp vowpalwabbit/.libs/libvw.a vowpalwabbit/.libs/liballreduce.a $(CWD)/$(LIB_DIR)/
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && mkdir -p $(CWD)/$(INC_DIR)/vowpalwabbit
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cp vowpalwabbit/*.h $(CWD)/$(INC_DIR)/vowpalwabbit/
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && rm -Rf build && mkdir build
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cd build && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" cmake -DCMAKE_INSTALL_PREFIX=$(CWD) ..
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cd build && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" $(MAKE) && $(MAKE) install
 
 $(LIB_DIR)/liballreduce.a: $(LIB_DIR)/libvw.a
 
