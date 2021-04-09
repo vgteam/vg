@@ -31,6 +31,7 @@ TODO: allow normalization of multiple adjacent snarls in one combined realignmen
 TODO: test that extract_gbwt haplotypes successfully extracts any haplotypes that start/end in the middle of
 TODO:    the snarl.
 */
+
 namespace vg {
 namespace algorithms{
 /**
