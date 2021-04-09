@@ -5,12 +5,12 @@
 // #include <algorithm>
 #include <string>
 
-#include <deps/seqan/include/seqan/align.h>
-#include <deps/seqan/include/seqan/graph_align.h>
-#include <deps/seqan/include/seqan/graph_msa.h>
-// #include <seqan/align.h>
-// #include <seqan/graph_align.h>
-// #include <seqan/graph_msa.h>
+// #include <deps/seqan/include/seqan/align.h>
+// #include <deps/seqan/include/seqan/graph_align.h>
+// #include <deps/seqan/include/seqan/graph_msa.h>
+#include <seqan/align.h>
+#include <seqan/graph_align.h>
+#include <seqan/graph_msa.h>
 
 #include <gbwtgraph/gbwtgraph.h>
 
