@@ -609,7 +609,7 @@ $(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STR
 $(LIB_DIR)/libvw.a: $(VOWPALWABBIT_DIR)/* $(VOWPALWABBIT_DIR)/vowpalwabbit/* $(LIB_DIR)/cleaned_old_boost
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && rm -Rf build && mkdir build
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cd build && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" cmake -DCMAKE_INSTALL_PREFIX=$(CWD) ..
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cd build && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" $(MAKE) && $(MAKE) install
+	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cd build && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" $(MAKE) vw-bin $(FILTER) && $(MAKE) install
 
 $(LIB_DIR)/liballreduce.a: $(LIB_DIR)/libvw.a
 
