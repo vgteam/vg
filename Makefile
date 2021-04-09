@@ -118,6 +118,16 @@ ifeq ($(shell uname -s),Darwin)
         # The compiler only needs to do the preprocessing
         CXXFLAGS += -Xpreprocessor -fopenmp
 
+        # If HOMEBREW_PREFIX is specified, libomp probably cannot be found automatically.
+        ifdef HOMEBREW_PREFIX
+            CXXFLAGS += -I$(HOMEBREW_PREFIX)/include
+            LD_LIB_DIR_FLAGS += -L$(HOMEBREW_PREFIX)/lib
+        # Macports installs libomp to /opt/local/lib/libomp
+        else ifeq ($(shell if [ -d /opt/local/lib/libomp ]; then echo 1; else echo 0; fi), 1)
+            CXXFLAGS += -I/opt/local/include/libomp
+            LD_LIB_DIR_FLAGS += -L/opt/local/lib/libomp
+        endif
+
         # We also need to link it
         LD_LIB_FLAGS += -lomp
     else
@@ -141,19 +151,6 @@ ifeq ($(shell uname -s),Darwin)
         # Make sure to use the right libgomp to go with libomp
         LD_LIB_FLAGS += -lomp -lgomp.1
     endif
-	
-    ifeq ($(shell if [ -d /opt/local/lib/libomp ];then echo 1;else echo 0;fi), 1)
-        # Use /opt/local/lib/libomp if present, because Macports installs libomp there.
-        # Brew is supposed to put it somewhere the compiler can find it by default.
-        LD_LIB_DIR_FLAGS += -L/opt/local/lib/libomp
-        # And we need to find the includes. Homebrew puts them in the normal place
-        # but Macports hides them in "libomp"
-        INCLUDE_FLAGS += -isystem /opt/local/include/libomp
-    endif
-
-    # And we need to find the includes for OMP. Homebrew puts them in the
-    # normal place but macports hides them in "libomp"
-    INCLUDE_FLAGS += -isystem /opt/local/include/libomp
 
     # We care about building only for the current machine. If we do something
     # more restrictive we can have trouble inlining parts of the standard
