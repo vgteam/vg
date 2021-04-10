@@ -2014,36 +2014,40 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     cerr << "registering XG recipes" << endl;
 #endif
     
-    registry.register_recipe({"XG"}, {"Reference GFA"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
-        if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing XG graph from GFA input." << endl;
-        }
-        assert(constructing.size() == 1);
-        vector<vector<string>> all_outputs(constructing.size());
-        auto output_index = *constructing.begin();
-        auto gfa_names = inputs.front()->get_filenames();
-        if (gfa_names.size() > 1) {
-            cerr << "error:[IndexRegistry] Graph construction does not support multiple GFAs at this time." << endl;
-            exit(1);
-        }
-        
-        string output_name = plan->output_filepath(output_index);
-        ofstream outfile;
-        init_out(outfile, output_name);
-        
-        xg::XG xg_index;
-        xg_index.from_gfa(gfa_names.front());
-        
-        vg::io::save_handle_graph(&xg_index, outfile);
-        
-        // return the filename
-        all_outputs[0].emplace_back(output_name);
-        return all_outputs;
-    });
+    // TODO: currently disabling this to ensure, but I'd prefer to make a separate
+    // semantic XG for a node-chopped variety and handle the pipeline differences
+    // with simplifications
+    
+//    registry.register_recipe({"XG"}, {"Reference GFA"},
+//                             [&](const vector<const IndexFile*>& inputs,
+//                                 const IndexingPlan* plan,
+//                                 AliasGraph& alias_graph,
+//                                 const IndexGroup& constructing) {
+//        if (IndexingParameters::verbosity != IndexingParameters::None) {
+//            cerr << "[IndexRegistry]: Constructing XG graph from GFA input." << endl;
+//        }
+//        assert(constructing.size() == 1);
+//        vector<vector<string>> all_outputs(constructing.size());
+//        auto output_index = *constructing.begin();
+//        auto gfa_names = inputs.front()->get_filenames();
+//        if (gfa_names.size() > 1) {
+//            cerr << "error:[IndexRegistry] Graph construction does not support multiple GFAs at this time." << endl;
+//            exit(1);
+//        }
+//
+//        string output_name = plan->output_filepath(output_index);
+//        ofstream outfile;
+//        init_out(outfile, output_name);
+//
+//        xg::XG xg_index;
+//        xg_index.from_gfa(gfa_names.front());
+//
+//        vg::io::save_handle_graph(&xg_index, outfile);
+//
+//        // return the filename
+//        all_outputs[0].emplace_back(output_name);
+//        return all_outputs;
+//    });
     
     auto make_xg_from_graph = [&](const vector<const IndexFile*>& inputs,
                                   const IndexingPlan* plan,
