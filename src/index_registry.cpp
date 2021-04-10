@@ -1615,6 +1615,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             exit(1);
         }
         
+        handlealgs::chop(graph.get(), IndexingParameters::max_node_size);
+        
         // save the graph
         vg::io::save_handle_graph(graph.get(), outfile);
         // and the max id
