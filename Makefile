@@ -603,10 +603,12 @@ $(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STR
 	+. ./source_me.sh && cd $(STRUCTURES_DIR) && $(MAKE) clean && $(MAKE) lib/libstructures.a $(FILTER) && cp lib/libstructures.a $(CWD)/$(LIB_DIR)/ && cp -r src/include/structures $(CWD)/$(INC_DIR)/
 
 # We need to make sure nothing about -fopenmp makes it into the build, in case we are on Apple Clang.
+# TODO: make install is currently broken, so we have to copy debug_log.h separately.
 $(LIB_DIR)/libvw.a: $(VOWPALWABBIT_DIR)/* $(VOWPALWABBIT_DIR)/vowpalwabbit/* $(LIB_DIR)/cleaned_old_boost
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && rm -Rf build && mkdir build
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cd build && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" cmake -DCMAKE_INSTALL_PREFIX=$(CWD) ..
 	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cd build && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" $(MAKE) vw-bin $(FILTER) && $(MAKE) install
+	+cp $(VOWPALWABBIT_DIR)/vowpalwabbit/debug_log.h $(INC_DIR)/vowpalwabbit
 
 $(LIB_DIR)/liballreduce.a: $(LIB_DIR)/libvw.a
 
