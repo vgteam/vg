@@ -53,7 +53,7 @@ INCLUDE_FLAGS :=-I$(CWD)/$(INC_DIR) -isystem $(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SR
 
 # Define libraries to link against.
 LD_LIB_DIR_FLAGS := -L$(CWD)/$(LIB_DIR)
-LD_LIB_FLAGS := $(CWD)/$(LIB_DIR)/libvgio.a -lvcflib -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lvw -lallreduce -lbdsg -lxg -lsdsl -lhandlegraph
+LD_LIB_FLAGS := $(CWD)/$(LIB_DIR)/libvgio.a -lvcflib -lgssw -lssw -lsublinearLS -lpthread -lncurses -lgcsa2 -lgbwtgraph -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lraptor2 -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -lstructures -lallreduce -lbdsg -lxg -lsdsl -lhandlegraph
 # We omit Boost Program Options for now; we find it in a platform-dependent way.
 # By default it has no suffix
 BOOST_SUFFIX=""
@@ -269,7 +269,6 @@ STRUCTURES_DIR:=deps/structures
 BACKWARD_CPP_DIR:=deps/backward-cpp
 DOZEU_DIR:=deps/dozeu
 ELFUTILS_DIR:=deps/elfutils
-VOWPALWABBIT_DIR:=deps/vowpal_wabbit
 LIBDEFLATE_DIR:=deps/libdeflate
 LIBVGIO_DIR:=deps/libvgio
 LIBHANDLEGRAPH_DIR:=deps/libhandlegraph
@@ -310,8 +309,6 @@ LIB_DEPS += $(LIB_DIR)/libraptor2.a
 LIB_DEPS += $(LIB_DIR)/libfml.a
 LIB_DEPS += $(LIB_DIR)/libsublinearLS.a
 LIB_DEPS += $(LIB_DIR)/libstructures.a
-LIB_DEPS += $(LIB_DIR)/libvw.a
-LIB_DEPS += $(LIB_DIR)/liballreduce.a
 LIB_DEPS += $(LIB_DIR)/libdeflate.a
 LIB_DEPS += $(LIB_DIR)/libvgio.a
 LIB_DEPS += $(LIB_DIR)/libhandlegraph.a
@@ -601,16 +598,6 @@ $(INC_DIR)/raptor2/raptor2.h: $(LIB_DIR)/libraptor2.a $(RAPTOR_DIR)/build/*
 
 $(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STRUCTURES_DIR)/src/*.cpp $(STRUCTURES_DIR)/Makefile 
 	+. ./source_me.sh && cd $(STRUCTURES_DIR) && $(MAKE) clean && $(MAKE) lib/libstructures.a $(FILTER) && cp lib/libstructures.a $(CWD)/$(LIB_DIR)/ && cp -r src/include/structures $(CWD)/$(INC_DIR)/
-
-# We need to make sure nothing about -fopenmp makes it into the build, in case we are on Apple Clang.
-# TODO: make install is currently broken, so we have to copy debug_log.h separately.
-$(LIB_DIR)/libvw.a: $(VOWPALWABBIT_DIR)/* $(VOWPALWABBIT_DIR)/vowpalwabbit/* $(LIB_DIR)/cleaned_old_boost
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && rm -Rf build && mkdir build
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cd build && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" cmake -DCMAKE_INSTALL_PREFIX=$(CWD) ..
-	+. ./source_me.sh && cd $(VOWPALWABBIT_DIR) && cd build && CXXFLAGS="$(filter-out -Xpreprocessor -fopenmp,$(CXXFLAGS)) $(INCLUDE_FLAGS)" LDFLAGS="$(LD_LIB_DIR_FLAGS)" $(MAKE) vw-bin $(FILTER) && $(MAKE) install
-	+cp $(VOWPALWABBIT_DIR)/vowpalwabbit/debug_log.h $(INC_DIR)/vowpalwabbit
-
-$(LIB_DIR)/liballreduce.a: $(LIB_DIR)/libvw.a
 
 $(INC_DIR)/sha1.hpp: $(SHA1_DIR)/sha1.hpp
 	+cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
