@@ -31,6 +31,10 @@ VariantAdder::VariantAdder(VG& graph) : graph(graph), sync([&](VG& g) -> VG& {
     aligner.full_length_bonus = 5;
 }
 
+const VG& VariantAdder::get_graph() const {
+    return graph;
+}
+
 void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
     
 #ifdef debug
