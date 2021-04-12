@@ -241,7 +241,7 @@ ref	5	rs1337	AAAAAAAAAAAAAAAAAAAAA	A	29	PASS	.	GT	0/1
     
     SECTION ("should work when the graph is atomized") {
     
-        handlealgs::chop(&graph, 1);
+        handlealgs::chop(graph, 1);
         graph.paths.compact_ranks();
     
         // Make a VariantAdder
