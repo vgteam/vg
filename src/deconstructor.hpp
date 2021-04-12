@@ -7,7 +7,6 @@
 #include "genotypekit.hpp"
 #include "Variant.h"
 #include "handle.hpp"
-#include "genotypekit.hpp"
 #include "traversal_finder.hpp"
 #include "graph_caller.hpp"
 #include "lru_cache.h"

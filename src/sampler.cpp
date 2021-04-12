@@ -1,5 +1,14 @@
 #include "sampler.hpp"
 
+#include "path.hpp"
+#include "utility.hpp"
+#include "position.hpp"
+#include "alignment.hpp"
+#include "algorithms/path_string.hpp"
+#include "algorithms/subgraph.hpp"
+#include "algorithms/alignment_path_offsets.hpp"
+#include "algorithms/next_pos_chars.hpp"
+
 //#define debug_ngs_sim
 
 using namespace vg::io;
@@ -343,17 +352,7 @@ Alignment Sampler::mutate(const Alignment& aln,
 }
 
 string Sampler::alignment_seq(const Alignment& aln) {
-    // get the graph corresponding to the alignment path
-    VG g;
-    for (int i = 0; i < aln.path().mapping_size(); ++ i) {
-        auto& m = aln.path().mapping(i);
-        if (m.has_position() && m.position().node_id()) {
-            auto id = aln.path().mapping(i).position().node_id();
-            algorithms::extract_id_range(*xgidx, id, id, g);
-        }
-    }
-    algorithms::expand_subgraph_by_steps(*xgidx, g, 2);
-    return g.path_string(aln.path());
+    return algorithms::path_string(*xgidx, aln.path());
 }
 
 vector<Alignment> Sampler::alignment_pair(size_t read_length, size_t fragment_length, double fragment_std_dev, double base_error, double indel_error) {

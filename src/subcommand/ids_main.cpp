@@ -117,10 +117,8 @@ int main_ids(int argc, char** argv) {
 
     if (!join && mapping_name.empty()) {
         unique_ptr<MutablePathMutableHandleGraph> graph;
-        get_input_file(optind, argc, argv, [&](istream& in) {
-                graph = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(in);
-            });
-            
+        string graph_filename = get_input_file_name(optind, argc, argv);
+        graph = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(graph_filename);            
             
         if (sort || compact) {
             // We need to reassign IDs

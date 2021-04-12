@@ -1,6 +1,7 @@
 #include <thread>
 #include <vg/io/protobuf_iterator.hpp>
 #include "packer.hpp"
+#include "statistics.hpp"
 #include "../vg.hpp"
 
 //#define debug

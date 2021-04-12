@@ -507,9 +507,7 @@ int main_view(int argc, char** argv) {
             cerr << "[vg view] error: Cannot stream a generic HandleGraph to JSON" << endl;
             exit(1);
         } else {
-            get_input_file(file_name, [&](istream& in) {
-                graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
-            });
+            graph = vg::io::VPKG::load_one<PathHandleGraph>(file_name);
         }
     } else if (input_type == "gfa") {
         graph = make_unique<bdsg::HashGraph>();

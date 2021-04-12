@@ -8,6 +8,7 @@
 #ifndef VG_SNARLS_HPP_INCLUDED
 #define VG_SNARLS_HPP_INCLUDED
 
+#include <iostream>
 #include <cstdint>
 #include <stdio.h>
 #include <unordered_map>
@@ -603,6 +604,16 @@ public:
     /// Count snarls in deque<SnarlRecords>, a master list of snarls in graph
     int num_snarls()const;
 
+    ///Get the snarl number from the SnarlRecord* member with given snarl
+    inline size_t snarl_number(const Snarl* snarl) const{
+        const SnarlRecord* record = SnarlManager::record(snarl);
+        return record->snarl_number;
+    }
+    //use the snarl number to access the Snarl*
+    inline const Snarl* translate_snarl_num(size_t snarl_num){
+        return unrecord(&snarls.at(snarl_num));
+    }
+
         
 private:
     
@@ -633,7 +644,10 @@ private:
         /// And this is what index we are at in the chain;
         size_t parent_chain_index = 0;
 
-        
+        /// This holds the index of the SnarlRecord* in the deque
+        /// We are doing this because a deque is not contiguous and the index lookup using a SnarlRecord* isn't easily derivable 
+        size_t snarl_number;
+
         /// Allow assignment from a Snarl object, fluffing it up into a full SnarlRecord
         SnarlRecord& operator=(const Snarl& other) {
             // Just call the base assignment operator
@@ -662,6 +676,7 @@ private:
         return (Snarl*) record;
     }
     
+
     /// Master list of the snarls in the graph.
     /// Use a deque so pointers never get invalidated but we still have some locality.
     deque<SnarlRecord> snarls;
