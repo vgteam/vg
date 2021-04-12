@@ -30,7 +30,7 @@ int64_t get_system_memory() {
 
 bool vcf_is_phased(const string& filepath) {
     
-    if (IndexingParameters::verbose) {
+    if (IndexingParameters::verbosity >= IndexingParameters::Basic) {
         cerr << "[IndexRegistry]: Checking for phasing in VCF(s)." << endl;
     }
     
@@ -166,6 +166,29 @@ string mem_usage_string(int64_t mem) {
     return strm.str();
 };
 
+// expects a string of form "Index Registry Name:filepath1,filepath2,filepath3"
+pair<string, vector<string>> parse_provide_string(const string& str) {
+    
+    pair<string, vector<string>> return_val;
+    
+    size_t i = str.find(':');
+    if (i >= str.size()) {
+        cerr << "error: Couldn't parse index provide string: " << str << endl;
+        exit(1);
+    }
+    return_val.first = str.substr(0, i);
+    while (i < str.size()) {
+        size_t end = str.find(',', i + 1);
+        return_val.second.emplace_back(str.substr(i + 1, end - i - 1));
+        i = end;
+    }
+    if (return_val.second.empty()) {
+        cerr << "error: Couldn't parse index provide string: " << str << endl;
+        exit(1);
+    }
+    return return_val;
+}
+
 void help_autoindex(char** argv) {
     cerr
     << "usage: " << argv[0] << " autoindex [options]" << endl
@@ -188,7 +211,7 @@ void help_autoindex(char** argv) {
     << "    -M, --target-mem MEM   target max memory usage (not exact, formatted INT[kMG])" << endl
     << "                           (default: 1/2 of available)" << endl
     << "    -t, --threads NUM      number of threads (default: all available)" << endl
-    << "    -V, --verbose          log progress to stderr" << endl
+    << "    -V, --verbosity NUM    log to stderr (0 = none, 1 = basic, 2 = debug; default " << (int) IndexingParameters::verbosity << ")" << endl
     //<< "    -d, --dot              print the dot-formatted graph of index recipes and exit" << endl
     << "    -h, --help             print this help message to stderr and exit" << endl;
 }
@@ -227,10 +250,12 @@ int main_autoindex(int argc, char** argv) {
             {"tx-gff", required_argument, 0, 'x'},
             {"gff-feature", required_argument, 0, 'f'},
             {"gff-tx-tag", required_argument, 0, 'a'},
+            {"provide", required_argument, 0, 'P'},
+            {"request", required_argument, 0, 'R'},
             {"target-mem", required_argument, 0, 'M'},
             {"tmp-dir", required_argument, 0, 'T'},
             {"threads", required_argument, 0, 't'},
-            {"verbose", no_argument, 0, 'V'},
+            {"verbosity", required_argument, 0, 'V'},
             {"dot", no_argument, 0, 'd'},
             {"help", no_argument, 0, 'h'},
             {"keep-intermediate", no_argument, 0, OPT_KEEP_INTERMEDIATE},
@@ -240,7 +265,7 @@ int main_autoindex(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "p:w:r:v:i:g:x:a:f:M:T:t:dVh",
+        c = getopt_long (argc, argv, "p:w:r:v:i:g:x:a:P:R:f:M:T:t:dVh",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -294,6 +319,15 @@ int main_autoindex(int argc, char** argv) {
             case 'a':
                 IndexingParameters::gff_transcript_tag = optarg;
                 break;
+            case 'P':
+            {
+                auto parsed = parse_provide_string(optarg);
+                registry.provide(parsed.first, parsed.second);
+                break;
+            }
+            case 'R':
+                targets.emplace_back(optarg);
+                break;
             case 'M':
                 target_mem_usage = parse_memory_usage(optarg);
                 break;
@@ -304,8 +338,15 @@ int main_autoindex(int argc, char** argv) {
                 omp_set_num_threads(parse<int>(optarg));
                 break;
             case 'V':
-                IndexingParameters::verbose = true;
+            {
+                int verbosity = parse<int>(optarg);
+                if (verbosity < IndexingParameters::None || verbosity > IndexingParameters::Debug) {
+                    cerr << "error: Verbosity (-V) must be integer in {0, 1, 2}: " << optarg << endl;
+                    return 1;
+                }
+                IndexingParameters::verbosity = (IndexingParameters::Verbosity) verbosity;
                 break;
+            }
             case 'd':
                 print_dot = true;
                 break;
@@ -326,7 +367,7 @@ int main_autoindex(int argc, char** argv) {
         }
     }
     
-    if (IndexingParameters::verbose) {
+    if (IndexingParameters::verbosity >= IndexingParameters::Basic) {
         cerr << "[vg autoindex] Excecuting command:";
         for (int i = 0; i < argc; ++i) {
             cerr << " " << argv[i];

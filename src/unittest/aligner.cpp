@@ -9,6 +9,8 @@
 
 #include "vg/io/json2pb.h"
 #include <vg/vg.pb.h>
+#include "vg.hpp"
+#include "path.hpp"
 #include "test_aligner.hpp"
 #include "catch.hpp"
 

@@ -3,8 +3,8 @@
  * constructor.cpp: contains implementations for vg construction functions.
  */
  
-#include "vg.hpp"
 #include "constructor.hpp"
+#include "utility.hpp"
 #include "io/load_proto_to_graph.hpp"
 
 #include <cstdlib>

@@ -460,27 +460,14 @@ public:
     // that flank the variant nodes and variant paths containing no nodes (e.g. deletion edges).
     // The SnarlTraversals are named identically to alt_paths (_alt_[a-z0-9]*_[0-9]*).
     map<string, SnarlTraversal> variant_to_traversal;
-                       
-                       
-    /// Chop up the nodes.
-    void dice_nodes(int max_node_size);
-    /// Get the strongly connected components of the graph.
-    set<set<nid_t> > strongly_connected_components(void);
-    /// Get only multi-node strongly connected components.
-    set<set<nid_t> > multinode_strongly_connected_components(void);
-    /// Returns true if the graph does not contain cycles.
-    bool is_acyclic(void);
-    /// Remove all elements which are not in a strongly connected component.
-    void keep_multinode_strongly_connected_components(void);
+    
+private:
     /// Does the specified node have any self-loops?
     bool is_self_looping(Node* node);
-    /// Get simple cycles following Johnson's elementary cycles algorithm.
-    set<list<NodeTraversal> > elementary_cycles(void);
-    /// Merge the nodes into a single node, preserving external linkages.
     /// Use the orientation of the first node as the basis.
     Node* merge_nodes(const list<Node*>& nodes);
-    /// Remove redundant overlaps.
-    void bluntify(void);
+public:
+    
     /// Turn the graph into a dag by copying strongly connected components expand_scc_steps times
     /// and translating the edges in the component to flow through the copies in one direction.
     /// Assumes that all nodes in the graph are articulated on one consistent strand.
@@ -489,9 +476,6 @@ public:
               unordered_map<nid_t, pair<nid_t, bool> >& node_translation,
               size_t target_min_walk_length = 0,
               size_t component_length_max = 0);
-    /// Generate a new graph that unrolls the current one using backtracking. Caution: exponential in branching.
-    VG backtracking_unroll(uint32_t max_length, uint32_t max_depth,
-                           unordered_map<nid_t, pair<nid_t, bool> >& node_translation);
     /// Ensure that all traversals up to max_length are represented as a path on one strand or the other
     /// without taking an inverting edge. All inverting edges are converted to non-inverting edges to
     /// reverse complement nodes. If no inverting edges are present, the strandedness of all nodes is
@@ -1180,11 +1164,6 @@ public:
     Path create_path(const list<NodeTraversal>& nodes);
     /// Create a path.
     Path create_path(const vector<NodeTraversal>& nodes);
-    /// Get the string sequence for all the NodeTraversals on the given path.
-    string path_string(const list<NodeTraversal>& nodes);
-    /// Get the string sequence for traversing the given path.
-    /// Assumes the path covers the entirety of any nodes visited. Handles backward nodes.
-    string path_string(const Path& path);
     /// Expand a path. TODO: what does that mean?
     void expand_path(const list<NodeTraversal>& path, vector<NodeTraversal>& expanded);
     /// Fill in the node_start map with the first index along the path at which each node appears.

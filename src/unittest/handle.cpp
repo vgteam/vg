@@ -669,7 +669,7 @@ TEST_CASE("divide_handle and destroy_handle work together on both strands", "[ha
             REQUIRE(steps.size() == 9);
             int i = 0;
             vector<handle_t> to_delete;
-            g->append_step(g->create_path_handle(to_string(i)), steps[i++]);            
+            g->append_step(g->create_path_handle(to_string(i)), steps[i++]);
             to_delete.push_back(steps[i++]);
             g->append_step(g->create_path_handle(to_string(i)), steps[i++]);
             to_delete.push_back(steps[i++]);
@@ -677,7 +677,7 @@ TEST_CASE("divide_handle and destroy_handle work together on both strands", "[ha
             to_delete.push_back(steps[i++]);
             g->append_step(g->create_path_handle(to_string(i)), steps[i++]);
             to_delete.push_back(steps[i++]);
-            g->append_step(g->create_path_handle(to_string(i)), steps[i++]);            
+            g->append_step(g->create_path_handle(to_string(i)), steps[i++]);
                                 
             g->destroy_path(path_handle);
 

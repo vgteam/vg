@@ -5,11 +5,9 @@
 #include <map>
 #include <chrono>
 #include <ctime>
-#include "lru_cache.h"
-#include "vg.hpp"
-#include "xg.hpp"
 #include "vg/io/json2pb.h"
 #include "region.hpp"
+#include "handle.hpp"
 
 namespace vg {
 
