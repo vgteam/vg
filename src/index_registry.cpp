@@ -4559,7 +4559,8 @@ const char* InsufficientInputException::what() const throw () {
         ss << "\t" << input << endl;
     }
     ss << "are insufficient to create target index " << target << endl;
-    return ss.str().c_str();
+    string msg = ss.str();
+    return msg.c_str();
 }
 
 }
