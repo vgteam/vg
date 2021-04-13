@@ -4785,7 +4785,7 @@ TEST_CASE("simplify_siblings() can actually merge some siblings", "[algorithms][
     REQUIRE(!worked);
     
     // Unchop to normalize
-    handlealgs::unchop(&graph);
+    handlealgs::unchop(graph);
     
     // Make sure we have the right shape (just a SNP left).
     REQUIRE(graph.get_node_count() == 4);

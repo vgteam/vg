@@ -35,7 +35,7 @@
 #include <handlegraph/algorithms/split_strands.hpp>
 #include <handlegraph/algorithms/strongly_connected_components.hpp>
 #include <handlegraph/algorithms/topological_sort.hpp>
-#include <handlegraph/algorithms/unchop.hpp>
+#include <handlegraph/algorithms/chop.hpp>
 #include <handlegraph/algorithms/weakly_connected_components.hpp>
 
 
