@@ -9,6 +9,7 @@
 
 #include "subcommand.hpp"
 
+//todo: should be able to remove '../../include/...' and replace with e.g. <bdsg/hash...> 
 #include "../../include/bdsg/hash_graph.hpp"
 #include "../../include/vg/io/vpkg.hpp"
 // #include "../algorithms/0_draft_haplotype_realignment.hpp"

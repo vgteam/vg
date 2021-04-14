@@ -82,9 +82,8 @@ int main_validate(int argc, char** argv) {
 
     // load the graph
     unique_ptr<PathHandleGraph> graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-            graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
-        });
+    string graph_filename = get_input_file_name(optind, argc, argv);
+    graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_filename);
 
     // validate the alignment if given
     bool valid_aln = true;
