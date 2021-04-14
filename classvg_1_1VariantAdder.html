@@ -100,6 +100,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ad3c7e7030142e70f27bc9f0bc42c2cce"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a65c5a0e7b649a97f68a4f2ab573f17d0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VariantAdder.html#a65c5a0e7b649a97f68a4f2ab573f17d0">align_ns</a> (<a class="el" href="classvg_1_1VG.html">vg::VG</a> &amp;<a class="el" href="classvg_1_1VariantAdder.html#a149b01f65cc10625177011221dfef354">graph</a>, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
 <tr class="separator:a65c5a0e7b649a97f68a4f2ab573f17d0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1271c6d39e6387bac452d9bf80689ed5"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VariantAdder.html#a1271c6d39e6387bac452d9bf80689ed5">get_graph</a> () const</td></tr>
+<tr class="separator:a1271c6d39e6387bac452d9bf80689ed5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1NameMapper"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1NameMapper')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1NameMapper.html">vg::NameMapper</a></td></tr>
 <tr class="memitem:ac2e2d25ef0f36649f33bb3386f0150b5 inherit pub_methods_classvg_1_1NameMapper"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NameMapper.html#ac2e2d25ef0f36649f33bb3386f0150b5">add_name_mapping</a> (const string &amp;vcf_name, const string &amp;fasta_name)</td></tr>
 <tr class="separator:ac2e2d25ef0f36649f33bb3386f0150b5 inherit pub_methods_classvg_1_1NameMapper"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -371,6 +373,23 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a1271c6d39e6387bac452d9bf80689ed5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1271c6d39e6387bac452d9bf80689ed5">&#9670;&nbsp;</a></span>get_graph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="classvg_1_1VG.html">VG</a> &amp; vg::VariantAdder::get_graph </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="ae974fd5d06287893b0b1f8690624d18f"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ae974fd5d06287893b0b1f8690624d18f">&#9670;&nbsp;</a></span>get_radius()</h2>
 
@@ -513,7 +532,7 @@ Protected Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Align the given string to the given graph, wetween the given endpoints, using the most appropriate alignment method, depending on the relative sizes involved and whether a good alignment exists. max_span gives the maximum length in the graph that we expect our string to possibly align over (for cases of large deletions, where we might want to follow a long path in the graph).</p>
+<p>Align the given string to the given graph, between the given endpoints, using the most appropriate alignment method, depending on the relative sizes involved and whether a good alignment exists. max_span gives the maximum length in the graph that we expect our string to possibly align over (for cases of large deletions, where we might want to follow a long path in the graph).</p>
 <p>The endpoints have to be heads/tails of the graph.</p>
 <p>Treats N/N substitutions as matches.</p>
 <p>TODO: now that we have a smart aligner that can synthesize deletions without finding them with the banded global aligner, do we need max_span anymore?</p>

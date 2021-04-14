@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.17"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: deps/libhandlegraph/src/unchop.cpp File Reference</title>
+<title>vg: deps/libhandlegraph/src/chop.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -70,16 +70,19 @@ $(function() {
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
-<div class="title">unchop.cpp File Reference</div>  </div>
+<div class="title">chop.cpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;handlegraph/algorithms/unchop.hpp&quot;</code><br />
+<div class="textblock"><code>#include &quot;handlegraph/algorithms/chop.hpp&quot;</code><br />
+<code>#include &quot;<a class="el" href="util_8hpp.html">handlegraph/util.hpp</a>&quot;</code><br />
 <code>#include &lt;unordered_set&gt;</code><br />
+<code>#include &lt;unordered_map&gt;</code><br />
 <code>#include &lt;deque&gt;</code><br />
 <code>#include &lt;set&gt;</code><br />
 <code>#include &lt;sstream&gt;</code><br />
 <code>#include &lt;utility&gt;</code><br />
 <code>#include &lt;cassert&gt;</code><br />
+<code>#include &lt;algorithm&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
@@ -90,14 +93,20 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a0fa8f1f5e1d7b3f520fa676cd1dc6aa4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a0fa8f1f5e1d7b3f520fa676cd1dc6aa4">handlegraph::algorithms::unchop</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> *graph)</td></tr>
-<tr class="separator:a0fa8f1f5e1d7b3f520fa676cd1dc6aa4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8433023fa5c3747d6d1123a886ccbce1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a8433023fa5c3747d6d1123a886ccbce1">handlegraph::algorithms::chop</a> (<a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">handlegraph::MutableHandleGraph</a> *graph, size_t max_node_length)</td></tr>
-<tr class="separator:a8433023fa5c3747d6d1123a886ccbce1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9c46c9dde150b8a2e2bbe785b1889534"><td class="memItemLeft" align="right" valign="top">handle_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a9c46c9dde150b8a2e2bbe785b1889534">handlegraph::algorithms::concat_nodes</a> (MutablePathDeletableHandleGraph &amp;graph, const std::vector&lt; handle_t &gt; &amp;nodes)</td></tr>
+<tr class="separator:a9c46c9dde150b8a2e2bbe785b1889534"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a843ff1c62aa75e4c3ec1b7a5d0ea88d3"><td class="memItemLeft" align="right" valign="top">handle_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a843ff1c62aa75e4c3ec1b7a5d0ea88d3">handlegraph::algorithms::combine_handles</a> (MutablePathDeletableHandleGraph &amp;graph, const std::vector&lt; handle_t &gt; &amp;handles)</td></tr>
+<tr class="separator:a843ff1c62aa75e4c3ec1b7a5d0ea88d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afbf906cc6a283954093403396ee5ce0e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#afbf906cc6a283954093403396ee5ce0e">handlegraph::algorithms::nodes_are_perfect_path_neighbors</a> (const PathHandleGraph &amp;graph, handle_t left_handle, handle_t right_handle)</td></tr>
+<tr class="separator:afbf906cc6a283954093403396ee5ce0e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acc16afc14f0a9dd0a34a4c173b229a4b"><td class="memItemLeft" align="right" valign="top">vector&lt; deque&lt; handle_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#acc16afc14f0a9dd0a34a4c173b229a4b">handlegraph::algorithms::simple_components</a> (const PathHandleGraph &amp;graph, int min_size=1)</td></tr>
+<tr class="separator:acc16afc14f0a9dd0a34a4c173b229a4b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a407196811333767aa7f89b7ecc231564"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a407196811333767aa7f89b7ecc231564">handlegraph::algorithms::unchop</a> (MutablePathDeletableHandleGraph &amp;graph)</td></tr>
+<tr class="separator:a407196811333767aa7f89b7ecc231564"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a56d58f1abfff84945de95e7fc6c72a12"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a56d58f1abfff84945de95e7fc6c72a12">handlegraph::algorithms::chop</a> (MutablePathDeletableHandleGraph &amp;graph, size_t max_node_length)</td></tr>
+<tr class="separator:a56d58f1abfff84945de95e7fc6c72a12"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Defines an algorithm to join adjacent handles. </p>
-</div></div><!-- contents -->
+</div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
