@@ -1,3 +1,9 @@
+[submodule "htslib"]
+	path = deps/htslib
+	url = https://github.com/samtools/htslib.git
+[submodule "tabixpp"]
+	path = deps/tabixpp
+	url = https://github.com/ekg/tabixpp.git
 [submodule "vcflib"]
 	path = deps/vcflib
 	url = https://github.com/vcflib/vcflib.git
@@ -125,3 +131,11 @@
 [submodule "deps/atomic_queue"]
 	path = deps/atomic_queue
 	url = https://github.com/max0x7ba/atomic_queue.git
+[submodule "deps/htslib"]
+	path = deps/htslib
+	url = https://github.com/samtools/htslib.git
+	branch = master
+[submodule "deps/tabixpp"]
+	path = deps/tabixpp
+	url = https://github.com/ekg/tabixpp.git
+	branch = master
