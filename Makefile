@@ -544,12 +544,17 @@ $(LIB_DIR)/libhts%a $(LIB_DIR)/pkgconfig/htslib%pc: $(LIB_DIR)/libdeflate.a $(LI
 
 # Build and install tabixpp for vcflib.
 $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)/*.hpp
-	+. ./source_me.sh && cd $(TABIXPP_DIR) && rm -f tabix.o libtabixpp.a && INCLUDES=-I$(CWD)/$(INC_DIR) HTS_HEADERS="" $(MAKE) tabix.o $(FILTER) && ar rcs libtabixpp.a tabix.o
+	+. ./source_me.sh && cd $(TABIXPP_DIR) && rm -f tabix.o libtabixpp.a && INCLUDES="-I$(CWD)/$(INC_DIR)" HTS_HEADERS="" $(MAKE) tabix.o $(FILTER) && ar rcs libtabixpp.a tabix.o
 	+cp $(TABIXPP_DIR)/libtabixpp.a $(LIB_DIR) && cp $(TABIXPP_DIR)/tabix.hpp $(INC_DIR)
+	+echo "Name: tabixpp" > $(LIB_DIR)/pkgconfig/tabixpp.pc
+	+echo "Description: Self-packaged tabixpp" >> $(LIB_DIR)/pkgconfig/tabixpp.pc
+	+echo "Version: 1.0" >> $(LIB_DIR)/pkgconfig/tabixpp.pc
+	+echo "Cflags: -I$(CWD)/$(INC_DIR)" >> $(LIB_DIR)/pkgconfig/tabixpp.pc
+	+echo "Libs: -L$(CWD)/$(LIB_DIR) -ltabixpp" >> $(LIB_DIR)/pkgconfig/tabixpp.pc
 
 # Build vcflib. Install the library and headers but not binaries or man pages.
 $(LIB_DIR)/libvcflib.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libtabixpp.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/intervaltree/*.cpp $(VCFLIB_DIR)/intervaltree/*.h
-	+. ./source_me.sh && cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && cmake .. && cmake --build .
+	+. ./source_me.sh && cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && PKG_CONFIG_PATH="$(CWD)/$(LIB_DIR)/pkgconfig" cmake .. && cmake --build .
 	+cp $(VCFLIB_DIR)/filevercmp/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/fastahack/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/smithwaterman/*.h* $(INC_DIR)
