@@ -58,7 +58,7 @@ LD_LIB_FLAGS := $(CWD)/$(LIB_DIR)/libvgio.a -lvcflib -ltabixpp -lgssw -lssw -lsu
 # By default it has no suffix
 BOOST_SUFFIX=""
 # We define some more libraries to link against at the end, in static linking mode if possible, so we can use faster non-PIC code.
-LD_STATIC_LIB_FLAGS := $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lz -lbz2 -llzma
+LD_STATIC_LIB_FLAGS := $(CWD)/$(LIB_DIR)/libtabixpp.a $(CWD)/$(LIB_DIR)/libhts.a $(CWD)/$(LIB_DIR)/libdeflate.a -lz -lbz2 -llzma
 # Some of our static libraries depend on libraries that may not always be avilable in static form.
 LD_STATIC_LIB_DEPS := -lpthread -lm
 # Use pkg-config to find dependencies.
@@ -544,12 +544,12 @@ $(LIB_DIR)/libhts%a $(LIB_DIR)/pkgconfig/htslib%pc: $(LIB_DIR)/libdeflate.a $(LI
 
 # Build and install tabixpp for vcflib.
 $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)/*.hpp
-	+. ./source_me.sh && cd $(TABIXPP_DIR) && rm -f tabix.o libtabixpp.a && INCLUDES=-I$(INC_DIR) HTS_HEADERS="" $(MAKE) tabix.o $(FILTER) && ar rcs libtabixpp.a tabix.o
+	+. ./source_me.sh && cd $(TABIXPP_DIR) && rm -f tabix.o libtabixpp.a && INCLUDES=-I$(CWD)/$(INC_DIR) HTS_HEADERS="" $(MAKE) tabix.o $(FILTER) && ar rcs libtabixpp.a tabix.o
 	+cp $(TABIXPP_DIR)/libtabixpp.a $(LIB_DIR) && cp $(TABIXPP_DIR)/tabix.hpp $(INC_DIR)
 
 # Build vcflib. Install the library and headers but not binaries or man pages.
 $(LIB_DIR)/libvcflib.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libtabixpp.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/intervaltree/*.cpp $(VCFLIB_DIR)/intervaltree/*.h
-	+. ./source_me.sh && cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX=$(CWD) .. && cmake --build .
+	+. ./source_me.sh && cd $(VCFLIB_DIR) && rm -Rf build && mkdir build && cd build && cmake .. && cmake --build .
 	+cp $(VCFLIB_DIR)/filevercmp/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/fastahack/*.h* $(INC_DIR)
 	+cp $(VCFLIB_DIR)/smithwaterman/*.h* $(INC_DIR)
