@@ -1,9 +1,3 @@
-[submodule "htslib"]
-	path = deps/htslib
-	url = https://github.com/samtools/htslib.git
-[submodule "tabixpp"]
-	path = deps/tabixpp
-	url = https://github.com/ekg/tabixpp.git
 [submodule "vcflib"]
 	path = deps/vcflib
 	url = https://github.com/vcflib/vcflib.git
