@@ -815,7 +815,7 @@ void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl,
     old_snarl.for_each_handle([&](const handle_t &handle) 
     {
         // //todo: debug_statement these are the handles in old_snarl:
-        // cerr << old_snarl.get_id(handle) << old_snarl.get_sequence(handle) << endl;
+        cerr << "destroying old_snarl handle: " << old_snarl.get_id(handle) << " with sequence: " << old_snarl.get_sequence(handle) << endl;
         _graph.destroy_handle(handle);
     });
 
@@ -827,12 +827,16 @@ void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl,
     handle_t new_rightmost_handle;
     if (!backwards) 
     {
+        cerr << "overwriting node id " << temp_snarl_leftmost_id << " with sequence " << _graph.get_sequence(_graph.get_handle(source_id)) << " with " << source_id << " (which is source_id)." << endl;
         new_leftmost_handle = overwrite_node_id(temp_snarl_leftmost_id, source_id);
+        cerr << "overwriting node id " << temp_snarl_rightmost_id << " with sequence " << _graph.get_sequence(_graph.get_handle(sink_id)) << " with " << sink_id << " (which is sink_id)." << endl;
         new_rightmost_handle = overwrite_node_id(temp_snarl_rightmost_id, sink_id);
     }
     else
     {
+        cerr << "overwriting node id " << temp_snarl_leftmost_id << " with sequence " << _graph.get_sequence(_graph.get_handle(sink_id)) << " with " << sink_id << " (which is sink_id)." << endl;
         new_leftmost_handle = overwrite_node_id(temp_snarl_leftmost_id, sink_id);
+        cerr << "overwriting node id " << temp_snarl_rightmost_id << " with sequence " << _graph.get_sequence(_graph.get_handle(source_id)) << " with " << source_id << " (which is source_id)." << endl;
         new_rightmost_handle = overwrite_node_id(temp_snarl_rightmost_id, source_id);
     }    
 }
