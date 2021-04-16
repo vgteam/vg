@@ -734,8 +734,8 @@ void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl,
         handle_t graph_handle =
             _graph.create_handle(to_insert_snarl.get_sequence(to_insert_snarl_handle));
         cerr << "here is the new snarl handle: " 
-             << to_insert_snarl.get_id(graph_handle) << " "
-             << to_insert_snarl.get_sequence(graph_handle) << endl;
+             << _graph.get_id(graph_handle) << " "
+             << _graph.get_sequence(graph_handle) << endl;
         new_snarl_topo_order.push_back(graph_handle);
         // cerr << "graph handle being inserted into new_snarl_topo_order:" << _graph.get_id(graph_handle) << endl;
     }
