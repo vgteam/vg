@@ -840,8 +840,8 @@ void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl,
     else
     {
         cerr << "backwards" << endl;
-        cerr << "overwriting node id " << temp_snarl_leftmost_id <<  " with " << sink_id << " (which is sink_id)." << " has sequence " << _graph.get_sequence(_graph.get_handle(sink_id)) << endl;
-        new_leftmost_handle = overwrite_node_id(temp_snarl_leftmost_id, sink_id);
+        // cerr << "overwriting node id " << temp_snarl_leftmost_id <<  " with " << sink_id << " (which is sink_id)." << " has sequence " << _graph.get_sequence(_graph.get_handle(sink_id)) << endl;
+        // new_leftmost_handle = overwrite_node_id(temp_snarl_leftmost_id, sink_id);
         cerr << "overwriting node id " << temp_snarl_rightmost_id <<  " with " << source_id << " (which is source_id)." << " has sequence " << _graph.get_sequence(_graph.get_handle(source_id)) << endl;
         new_rightmost_handle = overwrite_node_id(temp_snarl_rightmost_id, source_id);
     }    
