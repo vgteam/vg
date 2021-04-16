@@ -162,12 +162,16 @@ void emit_stacktrace(int signalNumber, siginfo_t *signalInfo, void *signalContex
     void** bp;
    
     #ifdef __APPLE__
-        // OS X 64 bit does it this way
-        ip = (void*)context->uc_mcontext->__ss.__rip;
-        bp = (void**)context->uc_mcontext->__ss.__rbp;
-        *out << "Caught signal " << signalNumber << " raised at address " << ip << endl;
-        // Do our own tracing because backtrace doesn't really work on all platforms.
-        stacktrace_manually(*out, signalNumber, ip, bp);
+        #if (defined(__arm64__) || defined(__aarch64__))
+            *out << "Stack traces are not supported on ARM Macs yet" << endl;
+        #else
+            // macOS does it this way on x86-64
+            ip = (void*)context->uc_mcontext->__ss.__rip;
+            bp = (void**)context->uc_mcontext->__ss.__rbp;
+            *out << "Caught signal " << signalNumber << " raised at address " << ip << endl;
+            // Do our own tracing because backtrace doesn't really work on all platforms.
+            stacktrace_manually(*out, signalNumber, ip, bp);
+        #endif
     #elif __x86_64__
         // Linux 64 bit does it this way
         ip = (void*)context->uc_mcontext.gregs[REG_RIP];
