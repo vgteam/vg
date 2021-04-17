@@ -17,6 +17,8 @@
 #include "../algorithms/0_oo_normalize_snarls.hpp"
 #include "../gbwt_helper.hpp"
 
+#include "../io/save_handle_graph.hpp"
+
 #include <chrono> // for high_resolution_clock
 
 using namespace std;
@@ -151,8 +153,11 @@ int main_normalize(int argc, char **argv) {
     }
 
     if (normalize) {
+        // Save the modified graph
+        vg::io::save_handle_graph(graph.get(), std::cout);
+        
         //todo: maybe rewrite to mimic mod_main.
-        vg::io::VPKG::save(*dynamic_cast<bdsg::HashGraph *>(graph.get()), cout);
+        // vg::io::VPKG::save(*dynamic_cast<bdsg::HashGraph *>(graph.get()), cout);
 
         // graph->serialize(std::cout);
     }

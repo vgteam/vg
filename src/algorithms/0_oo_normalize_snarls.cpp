@@ -69,18 +69,20 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
      * There are two additional ints for tracking the snarl size. Ints:
      *      4) number of bases in the snarl before normalization
      *      5) number of bases in the snarl after normalization.
+     * Further error records:
+     *      6) snarl is trivial (either one or two nodes only), so we skipped normalizing them.
     */ 
-    int error_record_size = 6;
+    int error_record_size = 7;
     vector<int> one_snarl_error_record(error_record_size, 0);
     vector<int> full_error_record(error_record_size, 0);
 
     pair<int, int> snarl_sequence_change;
 
     // //todo: debug_code
-    // int stop_size = 1;
-    // int num_snarls_touched = 0;
+    int stop_size = 0;
+    int num_snarls_touched = 0;
 
-    // int skip_first_few = 39;
+    // int skip_first_few = 7;
     // int skipped = 0;
     int snarl_num = 0;
     for (auto roots : snarl_roots) {
@@ -90,12 +92,12 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
         //     continue;
         // }
         
-        // if (num_snarls_touched == stop_size){
-        //     break;
-        // } else {
-        //     num_snarls_touched++;
-        // }
-        cerr << "normalizing snarl number " << snarl_num << " that starts at: " << roots->start().node_id() << " and ends at: " << roots->end().node_id() << endl;
+        if (num_snarls_touched == stop_size){
+            break;
+        } else {
+            num_snarls_touched++;
+        }
+        cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
         
         // if (roots->start().node_id() == 3881494) {
             // cerr << "root backwards?" << roots->start().backward() << endl;
@@ -105,8 +107,9 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
             //         << " sink: " << roots->end().node_id() << endl;
 
             one_snarl_error_record = normalize_snarl(roots->start().node_id(), roots->end().node_id(), roots->start().backward());
-            if (!((one_snarl_error_record[0]) || (one_snarl_error_record[1]) ||
-                    (one_snarl_error_record[2]) || (one_snarl_error_record[3]))) {
+            if (!(one_snarl_error_record[0] || one_snarl_error_record[1] ||
+                    one_snarl_error_record[2] || one_snarl_error_record[3] ||
+                    one_snarl_error_record[6])) {
                 // if there are no errors, then we've successfully normalized a snarl.
                 num_snarls_normalized += 1;
                 // track the change in size of the snarl.
@@ -116,10 +119,13 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
             } else {
                 // else, there was an error. Track which errors caused the snarl to not
                 // normalize.
-                // note: the last two ints are ignored here b/c they're for
+                // note: the ints 4 and 5 are ignored here b/c they're for
                 // recording the changing size of snarls that are successfully normalized.
-                for (int i = 0; i < error_record_size - 2; i++) {
-                    full_error_record[i] += one_snarl_error_record[i];
+                for (int i = 0; i < error_record_size; i++) {
+                    if ( i != 4 && i != 5)
+                    {
+                        full_error_record[i] += one_snarl_error_record[i];
+                    }
                 }
                 num_snarls_skipped += 1;
             }
@@ -136,14 +142,19 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
 
     }
     cerr << endl
-         << "normalized " << num_snarls_normalized << " snarl(s), skipped "
+         << "normalized " << num_snarls_normalized << " snarls, skipped "
          << num_snarls_skipped << " snarls because. . .\nthey exceeded the size limit ("
-         << full_error_record[0]
-         << "snarls),\nhad haplotypes starting/ending in the middle of the snarl ("
-         << full_error_record[1] << "),\nthe snarl was cyclic (" << full_error_record[3]
-         << " snarls),\nor there "
-            "were handles not connected by the gbwt info ("
-         << full_error_record[2] << " snarls)." << endl;
+         << full_error_record[0] << " snarls),\n"
+         << "had haplotypes starting/ending in the middle of the snarl ("
+         << full_error_record[1] << "),\n"
+         << "the snarl was cyclic (" 
+         << full_error_record[3] << " snarls),\n"
+         << " there were handles not connected by the gbwt info ("
+         << full_error_record[2] << " snarls),\n" 
+         << "the snarl was cyclic (" << full_error_record[3] << " snarls),\n"
+         << "or the snarl was trivial - composed of only one or two nodes ("
+         << full_error_record[6] << " snarls)."
+         << endl;
     cerr << "amount of sequence in normalized snarls before normalization: "
          << snarl_sequence_change.first << endl;
     cerr << "amount of sequence in normalized snarls after normalization: "
@@ -211,6 +222,25 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
         error_record[3] = true;
         return error_record;
     }
+
+    // only normalize non-trivial snarls (i.e. not composed of just a source and sink.):
+    int num_handles_in_snarl = 0;
+    snarl.for_each_handle([&](const handle_t handle){
+        num_handles_in_snarl++;
+        if (num_handles_in_snarl >= 3)
+        {
+            return;
+        }
+    });
+    if (num_handles_in_snarl <= 2)
+    {
+        cerr << "snarl with source " << source_id << " and sink " << sink_id << " has"
+             << " only " << num_handles_in_snarl << " nodes. Skipping normalization of"
+             << " trivial snarl." << endl;
+        error_record[6] += 1;
+        return error_record;
+    }
+
 
     // extract threads
     // haplotypes is of format:
@@ -763,8 +793,8 @@ void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl,
     // on.
     id_t temp_snarl_leftmost_id = _graph.get_id(new_snarl_topo_order.front());
     id_t temp_snarl_rightmost_id = _graph.get_id(new_snarl_topo_order.back());
-    // cerr << "the temp source id: " << temp_snarl_leftmost_id << endl;
-    // cerr << "the temp sink id: " << temp_snarl_rightmost_id << endl;
+    cerr << "the temp source id: " << temp_snarl_leftmost_id << endl;
+    cerr << "the temp sink id: " << temp_snarl_rightmost_id << endl;
 
     // Add the neighbors of the source and sink of the original snarl to the new_snarl's
     // source and sink.
