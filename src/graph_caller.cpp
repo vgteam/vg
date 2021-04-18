@@ -456,7 +456,7 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     int64_t flatten_len_s = 0;
     int64_t flatten_len_e = 0;
     if (genotype_snarls) {
-        flatten_len_s = graph.get_length(graph.get_handle(snarl.start().node_id())) - 1;
+        flatten_len_s = graph.get_length(graph.get_handle(snarl.start().node_id()));
         assert(flatten_len_s >= 0);
         flatten_len_e = graph.get_length(graph.get_handle(snarl.end().node_id()));
     }
@@ -544,23 +544,24 @@ void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool 
     if (variant.alt.size() == 0) {
         return;
     }
-    size_t min_len = variant.alleles[0].length();
+
+    // find the minimum allele length to make sure we don't delete an entire allele
+    size_t min_allele_len = variant.alleles[0].length();
     for (int i = 1; i < variant.alleles.size(); ++i) {
-        min_len = std::min(min_len, variant.alleles[i].length());
+        min_allele_len = std::min(min_allele_len, variant.alleles[i].length());
     }
+
+    // the maximum number of bases we want ot zip up, applying override if provided
+    size_t max_flatten_len = len_override > 0 ? len_override : min_allele_len;
+    
     // want to leave at least one in the reference position
-    if (min_len > 0) {
-        --min_len;
+    if (max_flatten_len == min_allele_len) {
+        --max_flatten_len;
     }
-
-    // apply the override
-    if (len_override > 0) {
-        min_len = len_override;
-    }
-
+    
     bool match = true;
     int shared_prefix_len = 0;
-    for (int i = 0; i < min_len && match; ++i) {
+    for (int i = 0; i < max_flatten_len && match; ++i) {
         char c1 = std::toupper(variant.alleles[0][!backward ? i : variant.alleles[0].length() - 1 - i]);
         for (int j = 1; j < variant.alleles.size() && match; ++j) {
             char c2 = std::toupper(variant.alleles[j][!backward ? i : variant.alleles[j].length() - 1 - i]);

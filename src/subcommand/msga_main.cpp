@@ -518,7 +518,7 @@ int main_msga(int argc, char** argv) {
     if (graph->empty()) {
         auto build_graph = [&graph,&node_max](const string& seq, const string& name) {
             graph->create_node(seq);
-            handlealgs::chop(graph, node_max);
+            handlealgs::chop(*graph, node_max);
             graph->sort();
             graph->compact_ids();
             // the graph will have a single embedded path in it
@@ -766,7 +766,7 @@ int main_msga(int argc, char** argv) {
             //if (!graph->is_valid()) cerr << "invalid after edit" << endl;
             //graph->serialize_to_file(name + "-immed-post-edit.vg");
             if (normalize) algorithms::normalize(graph, 10, debug);
-            handlealgs::chop(graph, node_max);
+            handlealgs::chop(*graph, node_max);
             //if (!graph->is_valid()) cerr << "invalid after dice" << endl;
             //graph->serialize_to_file(name + "-post-dice.vg");
             if (debug) cerr << name << ": sorting and compacting ids" << endl;
@@ -853,7 +853,7 @@ int main_msga(int argc, char** argv) {
             graph->remove_non_path();
         }
         algorithms::normalize(graph);
-        handlealgs::chop(graph, node_max);
+        handlealgs::chop(*graph, node_max);
         graph->sort();
         graph->compact_ids();
         if (!graph->is_valid()) {
