@@ -110,7 +110,7 @@ is "$?" 0 "vg convert gam -> gaf -> gam -> gaf makes same gaf twice in presence 
   
 #hand-code some cg example
 printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	101	71	79	60	AS:i:47	cs:Z::13*GA*GA:8+TTT:16*GA*TA:18-AC-T-AG:16\n" > mut.cs.gaf
-printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	101	71	79	60	AS:i:47	cg:Z:13M1X1X8M3I16M1X1X18M2D1D2D16M\n" > mut.cg.gaf
+printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	101	71	79	60	AS:i:47	cg:Z:13M1X1X8M3I16M1X1X18M5D16M\n" > mut.cg.gaf
 printf "*	78	0	78	+	>20>21>23>24>26>27>29>30>32>33>35	102	22	101	75	79	60	AS:i:47	cs:Z::23+NNN:36-AC-T-AG:16\n" > mut.cs.exp.gaf
 vg convert x.vg -F mut.cg.gaf -t 1 | vg convert x.vg -G - -t 1 > mut.cs.back.gaf
 diff mut.cs.back.gaf mut.cs.exp.gaf
