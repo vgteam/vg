@@ -7,6 +7,8 @@
 #include <vector>
 #include <utility>
 #include <functional>
+#include <queue>
+#include <cstdint>
 #include <list>
 
 namespace vg {
