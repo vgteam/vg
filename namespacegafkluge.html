@@ -91,12 +91,88 @@ Functions</h2></td></tr>
 <tr class="separator:ab8a6f72dddac182a6d8d74a52a6fc92d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a97dfb71592c41879c5d3a5abdd4f3276"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegafkluge.html#a97dfb71592c41879c5d3a5abdd4f3276">for_each_cs</a> (const <a class="el" href="structgafkluge_1_1GafRecord.html">GafRecord</a> &amp;gaf_record, std::function&lt; void(const std::string &amp;)&gt; fn)</td></tr>
 <tr class="separator:a97dfb71592c41879c5d3a5abdd4f3276"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad32038d9fe60950ec4ba0ee6c05040b3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegafkluge.html#ad32038d9fe60950ec4ba0ee6c05040b3">for_each_cg</a> (const <a class="el" href="structgafkluge_1_1GafRecord.html">GafRecord</a> &amp;gaf_record, std::function&lt; void(const char &amp;, const size_t &amp;)&gt; fn)</td></tr>
+<tr class="separator:ad32038d9fe60950ec4ba0ee6c05040b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad34ac0b7ed3c066acbc4fb6c82f42475"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegafkluge.html#ad34ac0b7ed3c066acbc4fb6c82f42475">for_each_cigar</a> (const <a class="el" href="structgafkluge_1_1GafRecord.html">GafRecord</a> &amp;gaf_record, std::function&lt; void(const char &amp;, const size_t &amp;, const std::string &amp;, const std::string &amp;)&gt; fn)</td></tr>
+<tr class="separator:ad34ac0b7ed3c066acbc4fb6c82f42475"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a226812c098c373a50d825916b4c92a7c"><td class="memItemLeft" align="right" valign="top">std::ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegafkluge.html#a226812c098c373a50d825916b4c92a7c">operator&lt;&lt;</a> (std::ostream &amp;os, const <a class="el" href="structgafkluge_1_1GafStep.html">gafkluge::GafStep</a> &amp;gaf_step)</td></tr>
 <tr class="separator:a226812c098c373a50d825916b4c92a7c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a098de1edfb3f22da8638f01e76d9ae2a"><td class="memItemLeft" align="right" valign="top">std::ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacegafkluge.html#a098de1edfb3f22da8638f01e76d9ae2a">operator&lt;&lt;</a> (std::ostream &amp;os, const <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;gaf_record)</td></tr>
 <tr class="separator:a098de1edfb3f22da8638f01e76d9ae2a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Function Documentation</h2>
+<a id="ad32038d9fe60950ec4ba0ee6c05040b3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad32038d9fe60950ec4ba0ee6c05040b3">&#9670;&nbsp;</a></span>for_each_cg()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void gafkluge::for_each_cg </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structgafkluge_1_1GafRecord.html">GafRecord</a> &amp;&#160;</td>
+          <td class="paramname"><em>gaf_record</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::function&lt; void(const char &amp;, const size_t &amp;)&gt;&#160;</td>
+          <td class="paramname"><em>fn</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ad34ac0b7ed3c066acbc4fb6c82f42475"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad34ac0b7ed3c066acbc4fb6c82f42475">&#9670;&nbsp;</a></span>for_each_cigar()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void gafkluge::for_each_cigar </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structgafkluge_1_1GafRecord.html">GafRecord</a> &amp;&#160;</td>
+          <td class="paramname"><em>gaf_record</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::function&lt; void(const char &amp;, const size_t &amp;, const std::string &amp;, const std::string &amp;)&gt;&#160;</td>
+          <td class="paramname"><em>fn</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a97dfb71592c41879c5d3a5abdd4f3276"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a97dfb71592c41879c5d3a5abdd4f3276">&#9670;&nbsp;</a></span>for_each_cs()</h2>
 
