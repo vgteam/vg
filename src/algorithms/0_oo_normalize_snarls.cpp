@@ -787,12 +787,21 @@ void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl,
             });
     }
 
+
     // save the source and sink values of new_snarl_topo_order, since topological order is
     // not necessarily preserved by move_path_to_snarl. Is temporary b/c we need to
     // replace the handles with ones with the right id_t label for source and sink later
     // on.
     id_t temp_snarl_leftmost_id = _graph.get_id(new_snarl_topo_order.front());
     id_t temp_snarl_rightmost_id = _graph.get_id(new_snarl_topo_order.back());
+    if (new_snarl_topo_order.size() == 1)
+    {
+        // in case the normalized snarl is only one handle in size, split it into two.
+        // This allows the front to be renamed after the source, and the end after the sink.
+        std::pair<handle_t, handle_t> split_handle = _graph.divide_handle(new_snarl_topo_order.back(), 1);
+        temp_snarl_leftmost_id = _graph.get_id(split_handle.first);
+        temp_snarl_rightmost_id = _graph.get_id(split_handle.second);
+    }
     cerr << "the temp source id: " << temp_snarl_leftmost_id << endl;
     cerr << "the temp sink id: " << temp_snarl_rightmost_id << endl;
 
