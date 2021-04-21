@@ -46,11 +46,15 @@ int main_normalize(int argc, char **argv) {
         return 1;
     }
 
-    bool evaluate = false;
-    bool normalize = false;
     int max_alignment_size = 200; // default cutoff is 200 threads in a snarl.
     string gbwt;
     string snarls;
+    string normalize_type = "all";
+    int source = NULL;
+    int sink = NULL;
+    bool paths_right_to_left = false;
+    bool evaluate = false;
+
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -60,12 +64,16 @@ int main_normalize(int argc, char **argv) {
             {{"help", no_argument, 0, 'h'},
              {"gbwt", required_argument, 0, 'g'},
              {"snarls", required_argument, 0, 's'},
-             {"max_alignment_size", optional_argument, 0, 'm'},
+             {"normalize_type", required_argument, 0, 'n'},
+             {"source", required_argument, 0, 'a'},
+             {"sink", required_argument, 0, 'b'},
+             {"paths_right_to_left", no_argument, 0, 'p'},
+             {"max_alignment_size", required_argument, 0, 'm'},
              {"evaluate", no_argument, 0, 'e'},
              {0, 0, 0, 0}};
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "hg:s:m:e", long_options, &option_index);
+        c = getopt_long(argc, argv, "hg:s:n:a:b:pm:e", long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -75,13 +83,29 @@ int main_normalize(int argc, char **argv) {
 
         case 'g':
             gbwt = optarg;
-            normalize = true;
             break;
 
-        case 'e':
-            evaluate = true;
+        case 's':
+            snarls = optarg;
+            break;
+            
+        case 'n':
+            // can be "all" (default), "one", or "none" (latter for if you just want to run evaluate) //todo: make better!
+            normalize_type = optarg;
+            break;
+            
+        case 'a':
+            source = parse<int>(optarg);
             break;
 
+        case 'b':
+            sink = parse<int>(optarg);
+            break;
+            
+        case 'p':
+            paths_right_to_left = true;
+            break;
+            
         case 'm':
             max_alignment_size = parse<int>(optarg);
             // if max_alignment_size is 0, then that signifies that it should actually be
@@ -90,10 +114,10 @@ int main_normalize(int argc, char **argv) {
                 max_alignment_size = INT_MAX;
             }
 
-        case 's':
-            snarls = optarg;
+        case 'e':
+            evaluate = true;
             break;
-
+            
         default:
             abort();
         }
@@ -105,7 +129,12 @@ int main_normalize(int argc, char **argv) {
         graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
     });
 
-    if (normalize) {
+    if (normalize_type!="all" && normalize_type!="one" && normalize_type != "none") 
+    {
+        cerr << "please enter a valid normalize_type: all, one, or none." << endl;
+    }
+
+    if (normalize_type == "all" || normalize_type == "one") {
         cerr << "running normalize!" << endl;
 
         /// Build the gbwt:
@@ -131,9 +160,45 @@ int main_normalize(int argc, char **argv) {
         algorithms::SnarlNormalizer normalizer =
             algorithms::SnarlNormalizer(*graph, haploGraph, max_alignment_size);
 
-        // run test code on all snarls in graph.
-        normalizer.normalize_top_level_snarls(snarl_stream);
+        if (normalize_type == "all")
+        {
+            normalizer.normalize_top_level_snarls(snarl_stream);
+        }
+        else if (normalize_type == "one")
+        {
+            if (source == NULL && sink == NULL)
+            {
+                cerr << "ERROR: please provide a source and sink for the snarl you want to normalize." << endl;
+                return 0;
+            }
+            vector<int> error_record = normalizer.normalize_snarl(source, sink, paths_right_to_left);
+            if (!(error_record[0] || error_record[1] ||
+                    error_record[2] || error_record[3] ||
+                    error_record[6]))
+            {
+                cerr << "snarl starting at " << source << " and ending at " << sink << " normalized." << endl;
+                cerr << "amount of sequence in normalized snarl before normalization: "
+                    << error_record[4] << endl;
+                cerr << "amount of sequence in normalized snarl after normalization: "
+                    << error_record[5] << endl;            }
+            else
+            {
+                //todo: make it so it only prints the relevant message:
+                cerr << "snarl skipped because...\nthey exceeded the size limit ("
+                    << error_record[0] << " snarls),\n"
+                    << "had haplotypes starting/ending in the middle of the snarl ("
+                    << error_record[1] << "),\n"
+                    << "the snarl was cyclic (" 
+                    << error_record[3] << " snarls),\n"
+                    << " there were handles not connected by the gbwt info ("
+                    << error_record[2] << " snarls),\n" 
+                    << "the snarl was cyclic (" << error_record[3] << " snarls),\n"
+                    << "or the snarl was trivial - composed of only one or two nodes ("
+                    << error_record[6] << " snarls)."
+                    << endl;
+            }
 
+        }
         // // run test code on all snarls in graph. (non obj-oriented code)
         // disambiguate_top_level_snarls(*graph, haploGraph, snarl_stream,
         // max_alignment_size);
@@ -152,7 +217,7 @@ int main_normalize(int argc, char **argv) {
         vg::evaluate_normalized_snarls(snarl_stream);
     }
 
-    if (normalize) {
+    if (normalize_type!="none") {
         // Save the modified graph
         vg::io::save_handle_graph(graph.get(), std::cout);
         
