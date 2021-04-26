@@ -7,9 +7,9 @@
 #include "genotypekit.hpp"
 #include "Variant.h"
 #include "handle.hpp"
-#include "genotypekit.hpp"
 #include "traversal_finder.hpp"
 #include "graph_caller.hpp"
+#include "lru_cache.h"
 
 /** \file
 * Deconstruct is getting rewritten.
@@ -52,14 +52,16 @@ private:
                             char prev_char, bool use_start);
 
     // write traversal path names as genotypes
-    void get_genotypes(vcflib::Variant& v, const vector<string>& names, const vector<int>& trav_to_allele);
+    void get_genotypes(vcflib::Variant& v, const vector<string>& names, const vector<int>& trav_to_allele,
+                       const vector<gbwt::size_type>& trav_thread_ids);
 
     // given a set of traversals associated with a particular sample, select a set of size <ploidy> for the VCF
     // the highest-frequency ALT traversal is chosen
     // the bool returned is true if multiple traversals map to different alleles, more than ploidy.
-    pair<vector<int>, bool> choose_traversals(const vector<int>& travs, const vector<int>& trav_to_allele,
-                                              const vector<string>& trav_to_name);
-
+    pair<vector<int>, bool> choose_traversals(const string& sample_name,
+                                              const vector<int>& travs, const vector<int>& trav_to_allele,
+                                              const vector<string>& trav_to_name,
+                                              const vector<int>& gbwt_phases);
 
     // check to see if a snarl is too big to exhaustively traverse
     bool check_max_nodes(const Snarl* snarl);
@@ -67,6 +69,11 @@ private:
     // get traversals from the exhaustive finder.  if they have nested visits, fill them in (exhaustively)
     // with node visits
     vector<SnarlTraversal> explicit_exhaustive_traversals(const Snarl* snarl);
+
+    // get the path location of a given traversal out of the gbwt
+    // this will be much slower than doing the same using the PathPositionGraph interface as there's no
+    // underlying index. 
+    tuple<bool, handle_t, size_t> get_gbwt_path_position(const SnarlTraversal& trav, const gbwt::size_type& thread);
 
     // get a snarl name, using trnaslation if availabe
     string snarl_name(const Snarl* snarl);
@@ -89,6 +96,14 @@ private:
     unique_ptr<TraversalFinder> trav_finder;
     // we can also use a gbwt for traversals
     unique_ptr<GBWTTraversalFinder> gbwt_trav_finder;
+    // hacky path position index for alts in the gbwt
+    // we map from gbwt path id -> { map of handle -> offset } for every handle in the path
+    // because child snarls are done in series, we often hit the same non-ref path consecutively
+    // which makes the lru cache fairly effective
+    size_t lru_size = 10; 
+    vector<LRUCache<gbwt::size_type, shared_ptr<unordered_map<handle_t, size_t>>>*> gbwt_pos_caches;
+    // infer ploidys from gbwt when possible
+    unordered_map<string, pair<int, int>> gbwt_sample_to_phase_range;
 
     // the ref paths
     set<string> ref_paths;

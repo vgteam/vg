@@ -28,8 +28,8 @@ void help_deconstruct(char** argv){
          << "Outputs VCF records for Snarls present in a graph (relative to a chosen reference path)." << endl
          << "options: " << endl
          << "    -p, --path NAME          A reference path to deconstruct against (multiple allowed)." << endl
-         << "    -P, --path-prefix NAME   All paths beginning with NAME used as reference (multiple allowed)." << endl
-         << "    -A, --alt-prefix NAME    Non-reference paths beginning with NAME get lumped together to same sample in VCF (multiple allowed)." << endl
+         << "    -P, --path-prefix NAME   All paths (and/or GBWT threads) beginning with NAME used as reference (multiple allowed)." << endl
+         << "    -A, --alt-prefix NAME    Non-reference paths (and/or GBWT threads) beginning with NAME get lumped together to same sample in VCF (multiple allowed)." << endl
          << "                             Other non-ref paths not considered as samples.  When using a GBWT, select only samples with given prefix." << endl
          << "    -r, --snarls FILE        Snarls file (from vg snarls) to avoid recomputing." << endl
          << "    -g, --gbwt FILE          only consider alt traversals that correspond to GBWT threads FILE." << endl
@@ -149,18 +149,35 @@ int main_deconstruct(int argc, char** argv){
 
     // Read the graph
     unique_ptr<PathHandleGraph> path_handle_graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-            path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(in);
-        });
+    string path_handle_graph_filename = get_input_file_name(optind, argc, argv);
+    path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(path_handle_graph_filename);
 
     bdsg::PathPositionOverlayHelper overlay_helper;
     PathPositionHandleGraph* graph = overlay_helper.apply(path_handle_graph.get());
 
-    // Check our paths
-    for (const string& ref_path : refpaths) {
-        if (!graph->has_path(ref_path)) {
-            cerr << "error [vg call]: Reference path \"" << ref_path << "\" not found in graph" << endl;
+    // Read the GBWT
+    unique_ptr<gbwt::GBWT> gbwt_index;
+    if (!gbwt_file_name.empty()) {
+        gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file_name);
+        if (gbwt_index.get() == nullptr) {
+            cerr << "Error [vg deconstruct]: Unable to load gbwt index file: " << gbwt_file_name << endl;
             return 1;
+        }
+    }
+
+    if (!refpaths.empty()) {
+        unordered_set<string> gbwt_paths;
+        if (gbwt_index.get()) {
+            for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
+                gbwt_paths.insert(thread_name(*gbwt_index, i));
+            }
+        }
+        // Check our paths
+        for (const string& ref_path : refpaths) {
+            if (!graph->has_path(ref_path) && !gbwt_paths.count(ref_path)) {
+                cerr << "error [vg deconstruct]: Reference path \"" << ref_path << "\" not found in graph/gbwt" << endl;
+                return 1;
+            }
         }
     }
     
@@ -172,6 +189,12 @@ int main_deconstruct(int argc, char** argv){
                     refpaths.push_back(name);
                 }
             });
+        // Add GBWT threads if no reference paths found or we're running with -a
+        if (gbwt_index.get() && (all_snarls || refpaths.empty())) {
+            for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
+                refpaths.push_back(thread_name(*gbwt_index, i));
+            }            
+        }
     }
 
     // Read the translation
@@ -206,15 +229,6 @@ int main_deconstruct(int argc, char** argv){
         snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
     }
 
-    unique_ptr<gbwt::GBWT> gbwt_index;
-    if (!gbwt_file_name.empty()) {
-        gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file_name);
-        if (gbwt_index.get() == nullptr) {
-            cerr << "Error [vg deconstruct]: Unable to load gbwt index file: " << gbwt_file_name << endl;
-            return 1;
-        }
-    }
-
     // We use this to map, for example, from chromosome to genome (eg S288C.chrXVI --> S288C)
     unordered_map<string, string> alt_path_to_prefix;
     
@@ -238,6 +252,18 @@ int main_deconstruct(int argc, char** argv){
                     }
                 }
             });
+        if (gbwt_index.get()) {
+            for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
+                std::string path_name = thread_name(*gbwt_index, i);
+                for (auto& prefix : refpath_prefixes) {
+                    if (path_name.compare(0, prefix.size(), prefix) == 0) {
+                        refpaths.push_back(path_name);
+                        break;
+                    }
+                }
+            }
+        }            
+
         if (gbwt_index.get() && !altpath_prefixes.empty()) {
             for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
                 string sample_name = thread_sample(*gbwt_index.get(), i);
@@ -250,13 +276,7 @@ int main_deconstruct(int argc, char** argv){
         }
     }
 
-    // make sure we have at least one reference
-    bool found_refpath = false;
-    for (size_t i = 0; i < refpaths.size() && !found_refpath; ++i) {
-        found_refpath = found_refpath || graph->has_path(refpaths[i]);
-    }
-
-    if (!found_refpath) {
+    if (refpaths.empty()) {
         cerr << "Error [vg deconstruct]: No specified reference path or prefix found in graph" << endl;
         return 1;
     }

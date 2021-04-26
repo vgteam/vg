@@ -1356,6 +1356,7 @@ int main_mpmap(int argc, char** argv) {
         cerr << "error:[vg mpmap] Cannot open graph file " << graph_name << endl;
         exit(1);
     }
+    graph_stream.close();
     
     ifstream gcsa_stream(gcsa_name);
     if (!gcsa_stream) {
@@ -1489,7 +1490,7 @@ int main_mpmap(int argc, char** argv) {
     if (!suppress_progress) {
         cerr << progress_boilerplate() << "Loading graph from " << graph_name << endl;
     }
-    unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_stream);
+    unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_name);
     
     if (!suppress_progress) {
         // let's be a friendly guide to selecting a graph

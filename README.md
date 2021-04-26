@@ -161,6 +161,12 @@ cp small/x-s1337-n1.gam x.gam
 vg view -a x.gam >x.json
 ```
 
+`vg convert` provides further graph and alignment conversion options.
+
+Note that `vg` tools can generally read all supported graph formats (VG, uncompressed GFA, XG, PackedGraph, HashGraph) interchangeably, so conversion is not required.  One exception is tools that modify graphs (ex `vg mod`) will not accept the read-only XG format. Tools that ask for XG input specifically with `-x` (ex `vg map`, `vg find`) will run on any graph type, but will be faster on XG.
+
+The format of a given graph file can be retrieved with `vg stats -F`. 
+
 ### Alignment
 
 As this is a small graph, you could align to it using a full-length partial order alignment:

@@ -7,6 +7,7 @@
 #include <string>
 #include "vg/io/json2pb.h"
 #include "../alignment.hpp"
+#include "../vg.hpp"
 #include <vg/vg.pb.h>
 #include "test_aligner.hpp"
 #include "catch.hpp"

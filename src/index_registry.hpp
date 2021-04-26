@@ -63,6 +63,7 @@ using JointRecipeFunc = function<vector<vector<vector<string>>>(const vector<con
 struct IndexingParameters {
     // enums for categorical options
     enum MutableGraphImplementation {HashGraph, PackedGraph, ODGI, VG};
+    enum Verbosity {None = 0, Basic = 1, Debug = 2};
     
     // the actual parameters
     
@@ -108,8 +109,10 @@ struct IndexingParameters {
     static int downsample_context_length;
     // actually use this fraction of the maximum memory to give slosh for bad estmates [0.75]
     static double max_memory_proportion;
-    // whether indexing algorithms will log progress (if available) [false]
-    static bool verbose;
+    // aim to have X timese as many chunks as threads [2]
+    static double thread_chunk_inflation_factor;
+    // whether indexing algorithms will log progress (if available) [Basic]
+    static Verbosity verbosity;
 };
 
 /**

@@ -1,7 +1,19 @@
 #include <unordered_set>
 #include "mapper.hpp"
-#include "haplotypes.hpp"
+#include "graph.hpp"
 #include "annotation.hpp"
+#include "statistics.hpp"
+#include "path.hpp"
+#include "entropy.hpp"
+#include "alignment.hpp"
+#include "translator.hpp"
+#include "algorithms/subgraph.hpp"
+#include "algorithms/nearest_offsets_in_paths.hpp"
+#include "algorithms/jump_along_path.hpp"
+#include "algorithms/approx_path_distance.hpp"
+#include "algorithms/path_string.hpp"
+#include "algorithms/alignment_path_offsets.hpp"
+#include "algorithms/extract_containing_graph.hpp"
 
 //#define debug_mapper
 

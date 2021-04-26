@@ -8,6 +8,7 @@
 
 #include "vcf_buffer.hpp"
 #include "path_index.hpp"
+#include "handle.hpp"
 #include "vg.hpp"
 #include "xg.hpp"
 #include "progressive.hpp"
@@ -43,7 +44,7 @@ public:
     void add_variants(vcflib::VariantCallFile* vcf);
     
     /**
-     * Align the given string to the given graph, wetween the given endpoints,
+     * Align the given string to the given graph, between the given endpoints,
      * using the most appropriate alignment method, depending on the relative
      * sizes involved and whether a good alignment exists. max_span gives the
      * maximum length in the graph that we expect our string to possibly align
@@ -141,6 +142,8 @@ public:
     /// Should we print out periodic updates about the variants we have
     /// processed?
     bool print_updates = false;
+    
+    const VG& get_graph() const;
     
 protected:
     /// The graph we are modifying
