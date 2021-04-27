@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 113
+plan tests 118
 
 
 # Build vg graphs for two chromosomes
@@ -214,6 +214,20 @@ is $? 0 "samples can be removed from a GBWT index"
 is $(vg gbwt -c xy.removed.gbwt) 4 "haplotypes only: 4 threads"
 
 rm -f xy.gbwt xy.ref.gbwt xy.both.gbwt xy.removed.gbwt
+
+
+# Build a three-sample GBWT from a simple GFA
+vg gbwt -o all.gbwt -G graphs/three_samples.gfa
+is $(vg gbwt -c all.gbwt) 12 "all samples: 12 threads"
+is $(vg gbwt -H all.gbwt) 6 "all samples: 6 haplotypes"
+
+# Remove samples 1 and 3
+vg gbwt -R sample1 -R sample3 -o removed.gbwt all.gbwt
+is $? 0 "multiple samples can be removed from a GBWT index"
+is $(vg gbwt -c removed.gbwt) 4 "sample 2: 4 threads"
+is $(vg gbwt -H removed.gbwt) 2 "sample 2: 2 haplotypes"
+
+rm -f all.gbwt removed.gbwt
 
 
 # Extract threads from GBWT
