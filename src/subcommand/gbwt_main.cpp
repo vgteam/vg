@@ -1155,27 +1155,23 @@ void step_3_remove_samples(GBWTHandler& gbwts, GBWTConfig& config) {
         std::cerr << "error: [vg gbwt] the index does not contain metadata with thread and sample names" << std::endl;
         std::exit(EXIT_FAILURE);
     }
-    std::set<gbwt::size_type> sample_ids;
+
+    // Remove the samples one at a time, because old sample/path ids may be invalidated.
     for (const std::string& sample_name : config.to_remove) {
         gbwt::size_type sample_id = gbwts.dynamic.metadata.sample(sample_name);
         if (sample_id >= gbwts.dynamic.metadata.samples()) {
             std::cerr << "warning: [vg gbwt] the index does not contain sample " << sample_name << std::endl;
-        } else {
-            sample_ids.insert(sample_id);
+            continue;
         }
-    }
-    std::vector<gbwt::size_type> path_ids;
-    for (gbwt::size_type sample_id : sample_ids) {
-        std::vector<gbwt::size_type> current_paths = gbwts.dynamic.metadata.removeSample(sample_id);
-        path_ids.insert(path_ids.end(), current_paths.begin(), current_paths.end());
-    }
-    if (path_ids.empty()) {
-        std::cerr << "warning: [vg gbwt] no threads associated with the removed samples" << std::endl;
-    } else {
+        std::vector<gbwt::size_type> path_ids = gbwts.dynamic.metadata.removeSample(sample_id);
+        if (path_ids.empty()) {
+            std::cerr << "warning: [vg gbwt] no threads associated with sample " << sample_name << std::endl;
+            continue;
+        }
         if (config.show_progress) {
-            std::cerr << "Removing " << path_ids.size() << " threads" << std::endl;
+            std::cerr << "Removing " << path_ids.size() << " threads for sample " << sample_name << std::endl;
         }
-        size_t foo = gbwts.dynamic.remove(path_ids);
+        gbwts.dynamic.remove(path_ids);
     }
     gbwts.unbacked(); // We modified the GBWT.
 
