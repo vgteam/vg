@@ -27,6 +27,8 @@
 #include <gcsa/gcsa.h>
 #include <gcsa/algorithms.h>
 #include <gbwt/variants.h>
+#include <bdsg/overlays/packed_subgraph_overlay.hpp>
+#include <handlegraph/algorithms/weakly_connected_components.hpp>
 
 using namespace std;
 using namespace vg;
@@ -545,27 +547,66 @@ int main_index(int argc, char** argv) {
                 params.reduceLimit(kmer_bytes);
                 delete_kmer_files = true;
             } else if (!xg_name.empty()) {
-                // Get the kmers from an XG
+                // Get the kmers from an XG or other single graph
                 
-              // Load the XG
-              auto xg = vg::io::VPKG::load_one<xg::XG>(xg_name);
+                // Load the graph
+                auto single_graph = vg::io::VPKG::load_one<HandleGraph>(xg_name);
                 
-              // Make an overlay on it to add source and sink nodes
-              // TODO: Don't use this directly; unify this code with VGset's code.
-              SourceSinkOverlay overlay(xg.get(), kmer_size);
+                auto make_kmers_for_component = [&](const HandleGraph* g) {
+                    // Make an overlay on it to add source and sink nodes
+                    // TODO: Don't use this directly; unify this code with VGset's code.
+                    SourceSinkOverlay overlay(g, kmer_size);
                     
-              // Get the size limit
-              size_t kmer_bytes = params.getLimitBytes();
+                    // Get the size limit
+                    size_t kmer_bytes = params.getLimitBytes();
                     
-              // Write just the one kmer temp file
-              dbg_names.push_back(write_gcsa_kmers_to_tmpfile(overlay, kmer_size, kmer_bytes,
-                                                              overlay.get_id(overlay.get_source_handle()),
-                                                              overlay.get_id(overlay.get_sink_handle())));
+                    // Write the kmer temp file
+                    dbg_names.push_back(write_gcsa_kmers_to_tmpfile(overlay, kmer_size, kmer_bytes,
+                        overlay.get_id(overlay.get_source_handle()),
+                        overlay.get_id(overlay.get_sink_handle())));
                         
-              // Feed back into the size limit
-              params.reduceLimit(kmer_bytes);
-              delete_kmer_files = true;
+                    // Feed back into the size limit
+                    params.reduceLimit(kmer_bytes);
+                    delete_kmer_files = true;
+                };
                 
+                if (show_progress) {
+                    cerr << "Finding connected components..." << endl;
+                }
+                
+                // Get all the components in the graph, which we can process separately to save memory.
+                std::vector<std::unordered_set<nid_t>> components = handlealgs::weakly_connected_components(single_graph.get());
+                
+                if (components.size() == 1) {
+                    // Only one component
+                    if (show_progress) {
+                        cerr << "Processing single component graph..." << endl;
+                    }
+                    make_kmers_for_component(single_graph.get());
+                } else {
+                    for (size_t i = 0; i < components.size(); i++) {
+                        // Run separately on each component.
+                        // Don't run in parallel or size limit tracking won't work.
+                
+                        if (show_progress) {
+                            cerr << "Selecting component " << i << "/" << components.size() << "..." << endl;
+                        }
+                        
+                        bdsg::PackedSubgraphOverlay component_graph(single_graph.get());
+                        for (auto& id : components[i]) {
+                            // Add each node to the subgraph.
+                            // TODO: use a handle-returning component
+                            // finder so we don't need to get_handle here.
+                            component_graph.add_node(single_graph->get_handle(id, false));
+                        }
+                        
+                        if (show_progress) {
+                            cerr << "Processing component " << i << "/" << components.size() << "..." << endl;
+                        }
+                        
+                        make_kmers_for_component(&component_graph);
+                    }
+                }
             } else {
                 cerr << "error: [vg index] cannot generate GCSA index without either a vg or an xg" << endl;
                 exit(1);
