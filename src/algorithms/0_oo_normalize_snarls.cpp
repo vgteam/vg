@@ -356,7 +356,8 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
             error_record[5] += new_snarl.get_sequence(handle).size();
         });
 
-        force_maximum_handle_size(new_snarl, _max_alignment_size);
+        //todo: profile_debug commented out:
+        // force_maximum_handle_size(new_snarl, _max_alignment_size);
 
         // integrate the new_snarl into the _graph, removing the old snarl as you go.
         // //todo: debug_statement
