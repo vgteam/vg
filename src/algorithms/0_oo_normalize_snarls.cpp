@@ -40,6 +40,7 @@ namespace algorithms{
  * This process hopefully results in a snarl with less redundant sequence, and with 
  * duplicate variation combined into a single variant.
 */
+
 SnarlNormalizer::SnarlNormalizer(MutablePathDeletableHandleGraph &graph,
                                  const gbwtgraph::GBWTGraph &haploGraph,
                                  const int &max_alignment_size, const string &path_finder)
@@ -355,10 +356,8 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
         new_snarl.for_each_handle([&](const handle_t handle) {
             error_record[5] += new_snarl.get_sequence(handle).size();
         });
-
-        //todo: profile_debug commented out:
-        // force_maximum_handle_size(new_snarl, _max_alignment_size);
-
+        force_maximum_handle_size(new_snarl, _max_alignment_size);
+        
         // integrate the new_snarl into the _graph, removing the old snarl as you go.
         // //todo: debug_statement
         // integrate_snarl(new_snarl, embedded_paths, sink_id, source_id);
@@ -582,11 +581,11 @@ VG SnarlNormalizer::align_source_to_sink_haplotypes(
 void SnarlNormalizer::force_maximum_handle_size(MutableHandleGraph &graph,
                                                 const size_t &max_size) {
     // forcing each handle in the _graph to have a maximum sequence length of max_size:
-    _graph.for_each_handle([&](handle_t handle) {
+    graph.for_each_handle([&](handle_t handle) {
         // all the positions we want to make in the handle are in offsets.
         vector<size_t> offsets;
 
-        size_t sequence_len = _graph.get_sequence(handle).size();
+        size_t sequence_len = graph.get_sequence(handle).size();
         int number_of_divisions = floor(sequence_len / max_size);
 
         // if the handle divides evenly into subhandles of size max_size, we don't need to
@@ -602,7 +601,7 @@ void SnarlNormalizer::force_maximum_handle_size(MutableHandleGraph &graph,
         }
 
         // divide the handle into parts.
-        _graph.divide_handle(handle, offsets);
+        graph.divide_handle(handle, offsets);
     });
 }
 
