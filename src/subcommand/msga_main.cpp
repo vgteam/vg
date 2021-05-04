@@ -8,6 +8,7 @@
 #include "../build_index.hpp"
 #include "../algorithms/normalize.hpp"
 #include "../algorithms/prune.hpp"
+#include "../algorithms/path_string.hpp"
 #include "../chunker.hpp"
 #include "xg.hpp"
 
@@ -517,7 +518,7 @@ int main_msga(int argc, char** argv) {
     if (graph->empty()) {
         auto build_graph = [&graph,&node_max](const string& seq, const string& name) {
             graph->create_node(seq);
-            graph->dice_nodes(node_max);
+            handlealgs::chop(*graph, node_max);
             graph->sort();
             graph->compact_ids();
             // the graph will have a single embedded path in it
@@ -727,7 +728,7 @@ int main_msga(int argc, char** argv) {
             Alignment aln = mapper->align(seq, 0, 0, 0, band_width, band_overlap, xdrop_alignment);
             aln.set_name(name);
             if (aln.path().mapping_size()) {
-                auto aln_seq = graph->path_string(aln.path());
+                auto aln_seq = algorithms::path_string(*graph, aln.path());
                 if (aln_seq != seq) {
                     cerr << "[vg msga] alignment corrupted, failed to obtain correct banded alignment (alignment seq != input seq)" << endl;
                     cerr << "expected " << seq << endl;
@@ -765,7 +766,7 @@ int main_msga(int argc, char** argv) {
             //if (!graph->is_valid()) cerr << "invalid after edit" << endl;
             //graph->serialize_to_file(name + "-immed-post-edit.vg");
             if (normalize) algorithms::normalize(graph, 10, debug);
-            graph->dice_nodes(node_max);
+            handlealgs::chop(*graph, node_max);
             //if (!graph->is_valid()) cerr << "invalid after dice" << endl;
             //graph->serialize_to_file(name + "-post-dice.vg");
             if (debug) cerr << name << ": sorting and compacting ids" << endl;
@@ -793,7 +794,7 @@ int main_msga(int argc, char** argv) {
 
             // verfy validity of path
             bool is_valid = graph->is_valid();
-            auto path_seq = graph->path_string(graph->paths.path(name));
+            auto path_seq = algorithms::path_string(*graph, graph->paths.path(name));
             incomplete = !(path_seq == seq) || !is_valid;
             if (incomplete) {
                 cerr << "[vg msga] failed to include alignment, retrying " << endl
@@ -852,7 +853,7 @@ int main_msga(int argc, char** argv) {
             graph->remove_non_path();
         }
         algorithms::normalize(graph);
-        graph->dice_nodes(node_max);
+        handlealgs::chop(*graph, node_max);
         graph->sort();
         graph->compact_ids();
         if (!graph->is_valid()) {
@@ -865,7 +866,7 @@ int main_msga(int argc, char** argv) {
     for (auto& sp : strings) {
         auto& name = sp.first;
         auto& seq = sp.second;
-        if (seq != graph->path_string(graph->paths.path(name))) {
+        if (seq != algorithms::path_string(*graph, graph->paths.path(name))) {
             /*
                cerr << "failed inclusion" << endl
                << "expected " << graph->path_string(graph->paths.path(name)) << endl

@@ -5,6 +5,7 @@
 
 #include "catch.hpp"
 #include "../variant_adder.hpp"
+#include "../handle.hpp"
 
 #include "../utility.hpp"
 #include "../path.hpp"
@@ -240,7 +241,8 @@ ref	5	rs1337	AAAAAAAAAAAAAAAAAAAAA	A	29	PASS	.	GT	0/1
     
     SECTION ("should work when the graph is atomized") {
     
-        graph.dice_nodes(1);
+        handlealgs::chop(graph, 1);
+        graph.paths.compact_ranks();
     
         // Make a VariantAdder
         VariantAdder adder(graph);
@@ -332,6 +334,9 @@ TEST_CASE( "The smart aligner works on very large inserts", "[variantadder]" ) {
     
     // Make a VariantAdder
     VariantAdder adder(graph);
+    vector<handle_t> order = handlealgs::topological_order(&adder.get_graph());
+    NodeSide front(adder.get_graph().get_id(order.front()), false);
+    NodeSide back(adder.get_graph().get_id(order.back()), true);
     
     // Make a really long insert
     stringstream s;
@@ -341,8 +346,7 @@ TEST_CASE( "The smart aligner works on very large inserts", "[variantadder]" ) {
     }
     s << "AAAAAAAAAAGCGC";
     
-    auto endpoints = make_pair(NodeSide(1, false), NodeSide(1, true));
-    Alignment aligned = adder.smart_align(graph, endpoints, s.str(), 10000 + graph.length());
+    Alignment aligned = adder.smart_align(graph, make_pair(front, back), s.str(), 10000 + graph.length());
     
     SECTION("the resulting alignment should have the input string") {
         REQUIRE(aligned.sequence() == s.str());
@@ -410,12 +414,15 @@ TEST_CASE( "The smart aligner should use mapping offsets on huge deletions", "[v
     
     // Make a VariantAdder
     VariantAdder adder(graph);
+    vector<handle_t> order = handlealgs::topological_order(&adder.get_graph());
+    NodeSide front(adder.get_graph().get_id(order.front()), false);
+    NodeSide back(adder.get_graph().get_id(order.back()), true);
     
     // Make a deleted version (only 21 As)
     string deleted = "GCGCAAAAAAAAAAAAAAAAAAAAAGCGC";
     
     // Align between 1 and 3
-    auto endpoints = make_pair(NodeSide(1, false), NodeSide(3, true));
+    auto endpoints = make_pair(front, back);
     Alignment aligned = adder.smart_align(graph, endpoints, deleted, graph.length());
     
     SECTION("the resulting alignment should have the input string") {
@@ -449,14 +456,14 @@ TEST_CASE( "The smart aligner should use mapping offsets on huge deletions", "[v
             }
             
             SECTION("the first mapping should be at the start of the first node") {
-                REQUIRE(m1.position().node_id() == 1);
+                REQUIRE(m1.position().node_id() == front.node);
                 REQUIRE(m1.position().offset() == 0);
                 REQUIRE(m1.position().is_reverse() == false);
             }
             
             SECTION("the second mapping should be at the end of the last node") {
-                REQUIRE(m2.position().node_id() == 3);
-                REQUIRE(m2.position().offset() == graph.get_node(3)->sequence().size() - match2.from_length());
+                REQUIRE(m2.position().node_id() == back.node);
+                REQUIRE(m2.position().offset() == adder.get_graph().get_length(order.back()) - mapping_from_length(m2));
                 REQUIRE(m2.position().is_reverse() == false);
             }
         }
@@ -495,12 +502,15 @@ TEST_CASE( "The smart aligner should find existing huge deletions", "[variantadd
     
     // Make a VariantAdder
     VariantAdder adder(graph);
+    vector<handle_t> order = handlealgs::topological_order(&adder.get_graph());
+    NodeSide front(adder.get_graph().get_id(order.front()), false);
+    NodeSide back(adder.get_graph().get_id(order.back()), true);
     
     // Make a deleted version (only 21 As)
     string deleted = "GCGCAAAAAAAAAAAAAAAAAAAAAGCGC";
     
     // Align it between 1 and 3
-    auto endpoints = make_pair(NodeSide(1, false), NodeSide(3, true));
+    auto endpoints = make_pair(front, back);
     Alignment aligned = adder.smart_align(graph, endpoints, deleted, graph.length());
     
     SECTION("the resulting alignment should have the input string") {
@@ -533,15 +543,15 @@ TEST_CASE( "The smart aligner should find existing huge deletions", "[variantadd
                 REQUIRE(match1.from_length() + match2.from_length() == deleted.size());
             }
             
-            SECTION("the first mapping should be at the start of node 1") {
-                REQUIRE(m1.position().node_id() == 1);
+            SECTION("the first mapping should be at the start of the first node") {
+                REQUIRE(m1.position().node_id() == front.node);
                 REQUIRE(m1.position().offset() == 0);
                 REQUIRE(m1.position().is_reverse() == false);
             }
             
-            SECTION("the second mapping should be at the end of node 3") {
-                REQUIRE(m2.position().node_id() == 3);
-                REQUIRE(m2.position().offset() == graph.get_node(3)->sequence().size() - match2.from_length());
+            SECTION("the second mapping should be at the end of the last node") {
+                REQUIRE(m2.position().node_id() == back.node);
+                REQUIRE(m2.position().offset() == adder.get_graph().get_length(order.back()) - mapping_from_length(m2));
                 REQUIRE(m2.position().is_reverse() == false);
             }
         }
@@ -590,43 +600,49 @@ TEST_CASE( "The smart aligner should use deletion edits on medium deletions", "[
         auto& mFirst = aligned.path().mapping(0);
         auto& mLast = aligned.path().mapping(aligned.path().mapping_size() - 1);
         
-        vector<Edit> middles;
-        for (size_t i = 0; i < aligned.path().mapping_size(); i++) {
-            for(size_t j = 0; j < aligned.path().mapping(i).edit_size(); j++) {
-                if ((i != 0 || j != 0) && (i != aligned.path().mapping_size() - 1 || j != aligned.path().mapping(i).edit_size() - 1)) {
-                    // Collect all the non-end mappings
-                    middles.push_back(aligned.path().mapping(i).edit(j));
-                }
-            }
+        SECTION("the first and last edit should be a match") {
+            REQUIRE(edit_is_match(mFirst.edit(0)));
+            REQUIRE(edit_is_match(mLast.edit(mLast.edit_size() - 1)));
         }
         
-        SECTION("the mappings should ahve leading and trailing match edits and itnernal deletions") {
-            REQUIRE(mFirst.edit_size() >= 1);
-            REQUIRE(mLast.edit_size() >= 1);
-            
-            auto& match1 = mFirst.edit(0);
-            auto& match2 = mLast.edit(mLast.edit_size() - 1);
-            
-            SECTION("the first edit should be a match of the leading ref part") {
-                REQUIRE(edit_is_match(match1));
-            }
-            
-            SECTION("the middle edits should be a deletion of the deleted sequence") {
-                size_t total_deleted = 0;
-                for (auto& del : middles) {
-                    REQUIRE(edit_is_deletion(del));
-                    total_deleted += del.from_length();
+        int64_t total_matches = 0, total_deleted = 0;
+        
+        SECTION("the mappings should have leading and trailing match edits and internal deletions") {
+            bool in_lead_match = true;
+            bool in_middle_deletion = false;
+            for (size_t i = 0; i < aligned.path().mapping_size(); i++) {
+                const auto& mapping = aligned.path().mapping(i);
+                for(size_t j = 0; j < aligned.path().mapping(i).edit_size(); j++) {
+                    const auto& edit = mapping.edit(j);
+                    if (in_lead_match) {
+                        if (edit_is_match(edit)) {
+                            total_matches += edit.from_length();
+                        }
+                        else {
+                            REQUIRE(edit_is_deletion(edit));
+                            total_deleted += edit.from_length();
+                            in_lead_match = false;
+                            in_middle_deletion = true;
+                        }
+                    }
+                    else if (in_middle_deletion) {
+                        if (edit_is_deletion(edit)) {
+                            total_deleted += edit.from_length();
+                        }
+                        else {
+                            REQUIRE(edit_is_match(edit));
+                            total_matches += edit.from_length();
+                            in_middle_deletion = false;
+                        }
+                    }
+                    else {
+                        REQUIRE(edit_is_match(edit));
+                        total_matches += edit.from_length();
+                    }
                 }
-                REQUIRE(total_deleted == 100 - 21);
             }
-            
-            SECTION("the last edit should be a match of the trailing ref part") {
-                REQUIRE(edit_is_match(match2));
-            }
-            
-            SECTION("the first and last edits together should add up to the aligned sequence's length") {
-                REQUIRE(match1.from_length() + match2.from_length() == deleted.size());
-            }
+            REQUIRE(total_deleted == 100 - 21);
+            REQUIRE(total_matches == deleted.size());
         }
     }
 

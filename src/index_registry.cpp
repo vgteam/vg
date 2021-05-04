@@ -100,7 +100,7 @@ int IndexingParameters::giraffe_gbwt_downsample = gbwtgraph::LOCAL_HAPLOTYPES_DE
 int IndexingParameters::downsample_context_length = gbwtgraph::PATH_COVER_DEFAULT_K;
 double IndexingParameters::max_memory_proportion = 0.75;
 double IndexingParameters::thread_chunk_inflation_factor = 2.0;
-bool IndexingParameters::verbose = false;
+IndexingParameters::Verbosity IndexingParameters::verbosity = IndexingParameters::Basic;
 
 void copy_file(const string& from_fp, const string& to_fp) {
     ifstream from_file(from_fp, std::ios::binary);
@@ -473,7 +473,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                              AliasGraph& alias_graph,
                              const IndexGroup& constructing) {
         
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Chunking inputs for parallelism." << endl;
         }
                         
@@ -830,7 +830,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
         }
         
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Chunking FASTA(s)." << endl;
         }
         
@@ -874,7 +874,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
         }
         
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Chunking VCF(s)." << endl;
         }
         
@@ -1082,6 +1082,53 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 workers.emplace_back([&]() {
                     int64_t bucket_idx = -1;
                     while (buckets_finished.load() < buckets.size()) {
+                        // check if any of the input VCFs need to be moved past a contig that isn't
+                        // in our reference
+                        input_vcf_mutex.lock();
+                        int64_t contig_skip_idx = -1;
+                        for (int64_t j = 0; j < input_vcf_files.size(); ++j) {
+                            if (input_checked_out_or_finished[j].load()) {
+                                continue;
+                            }
+                            
+                            const char* chrom = bcf_hdr_id2name(get<1>(input_vcf_files[j]),
+                                                                get<2>(input_vcf_files[j])->rid);
+                            // check this index over the FASTA sequence lengths for the chromosome
+                            if (!seq_lengths.count(chrom)) {
+                                contig_skip_idx = j;
+                                input_checked_out_or_finished[j].store(true);
+                            }
+                        }
+                        input_vcf_mutex.unlock();
+                        
+                        if (contig_skip_idx != -1) {
+                            // we found a contig in the VCF that isn't present in the FASTA, we'll have to skip it
+                            
+                            auto& input_vcf_file = input_vcf_files[contig_skip_idx];
+                            string skip_contig = bcf_hdr_id2name(get<1>(input_vcf_file),
+                                                                 get<2>(input_vcf_file)->rid);
+                            cerr << "warning:[IndexRegistry] Skipping contig " + skip_contig + ", which is found in VCF(s) but not reference.\n";
+                            
+                            
+                            // keep reading until end of file or a different contig
+                            int read_err_code = 0;
+                            while (read_err_code >= 0) {
+                                string contig = bcf_hdr_id2name(get<1>(input_vcf_file),
+                                                                get<2>(input_vcf_file)->rid);
+                                if (contig != skip_contig) {
+                                    break;
+                                }
+                                
+                                read_err_code = bcf_read(get<0>(input_vcf_file), get<1>(input_vcf_file), get<2>(input_vcf_file));
+                            }
+                            
+                            // check the input back out unless we've finished it
+                            if (read_err_code >= 0) {
+                                input_checked_out_or_finished[contig_skip_idx].store(false);
+                            }
+                            continue;
+                        }
+                        
                         // select an output VCF corresponding to a bucket
                         int64_t copy_from_idx = -1, copy_to_idx = -1;
                         bool found_bucket = false;
@@ -1302,7 +1349,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         if (chunking_tx) {
             
-            if (IndexingParameters::verbose) {
+            if (IndexingParameters::verbosity != IndexingParameters::None) {
                 cerr << "[IndexRegistry]: Chunking GTF/GFF(s)." << endl;
             }
             
@@ -1521,7 +1568,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Stripping allele paths from VG." << endl;
         }
         
@@ -1533,7 +1580,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                   const IndexingPlan* plan,
                                   const IndexGroup& constructing) {
         
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing VG graph from GFA input." << endl;
         }
         
@@ -1568,6 +1615,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             exit(1);
         }
         
+        handlealgs::chop(*graph, IndexingParameters::max_node_size);
+        
         // save the graph
         vg::io::save_handle_graph(graph.get(), outfile);
         // and the max id
@@ -1587,7 +1636,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                           bool alt_paths,
                                           bool has_transcripts) {
         
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing";
             if (has_transcripts) {
                 cerr << " spliced";
@@ -1700,7 +1749,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             constructor.do_svs = true;
             constructor.alt_paths = alt_paths;
             constructor.max_node_size = IndexingParameters::max_node_size;
-            constructor.show_progress = IndexingParameters::verbose;
+            constructor.show_progress = IndexingParameters::verbosity >= IndexingParameters::Debug;
             if (ref_filenames.size() != 1 && vcf_filenames.size() == 1) {
                 // we have multiple FASTA but only 1 VCF, so we'll limit the
                 // constructor to the contigs of this FASTA for this run
@@ -1912,7 +1961,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Stripping allele paths from spliced VG." << endl;
         }
         
@@ -1965,36 +2014,40 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     cerr << "registering XG recipes" << endl;
 #endif
     
-    registry.register_recipe({"XG"}, {"Reference GFA"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
-        if (IndexingParameters::verbose) {
-            cerr << "[IndexRegistry]: Constructing XG graph from GFA input." << endl;
-        }
-        assert(constructing.size() == 1);
-        vector<vector<string>> all_outputs(constructing.size());
-        auto output_index = *constructing.begin();
-        auto gfa_names = inputs.front()->get_filenames();
-        if (gfa_names.size() > 1) {
-            cerr << "error:[IndexRegistry] Graph construction does not support multiple GFAs at this time." << endl;
-            exit(1);
-        }
-        
-        string output_name = plan->output_filepath(output_index);
-        ofstream outfile;
-        init_out(outfile, output_name);
-        
-        xg::XG xg_index;
-        xg_index.from_gfa(gfa_names.front());
-        
-        vg::io::save_handle_graph(&xg_index, outfile);
-        
-        // return the filename
-        all_outputs[0].emplace_back(output_name);
-        return all_outputs;
-    });
+    // TODO: currently disabling this to ensure, but I'd prefer to make a separate
+    // semantic XG for a node-chopped variety and handle the pipeline differences
+    // with simplifications
+    
+//    registry.register_recipe({"XG"}, {"Reference GFA"},
+//                             [&](const vector<const IndexFile*>& inputs,
+//                                 const IndexingPlan* plan,
+//                                 AliasGraph& alias_graph,
+//                                 const IndexGroup& constructing) {
+//        if (IndexingParameters::verbosity != IndexingParameters::None) {
+//            cerr << "[IndexRegistry]: Constructing XG graph from GFA input." << endl;
+//        }
+//        assert(constructing.size() == 1);
+//        vector<vector<string>> all_outputs(constructing.size());
+//        auto output_index = *constructing.begin();
+//        auto gfa_names = inputs.front()->get_filenames();
+//        if (gfa_names.size() > 1) {
+//            cerr << "error:[IndexRegistry] Graph construction does not support multiple GFAs at this time." << endl;
+//            exit(1);
+//        }
+//
+//        string output_name = plan->output_filepath(output_index);
+//        ofstream outfile;
+//        init_out(outfile, output_name);
+//
+//        xg::XG xg_index;
+//        xg_index.from_gfa(gfa_names.front());
+//
+//        vg::io::save_handle_graph(&xg_index, outfile);
+//
+//        // return the filename
+//        all_outputs[0].emplace_back(output_name);
+//        return all_outputs;
+//    });
     
     auto make_xg_from_graph = [&](const vector<const IndexFile*>& inputs,
                                   const IndexingPlan* plan,
@@ -2054,7 +2107,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing XG graph from VG graph." << endl;
         }
         return make_xg_from_graph(inputs, plan, constructing);
@@ -2065,7 +2118,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing spliced XG graph from spliced VG graph." << endl;
         }
         return make_xg_from_graph(inputs, plan, constructing);
@@ -2087,7 +2140,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 //                                 const IndexingPlan* plan,
 //                                 const IndexGroup& constructing) {
 //
-//        if (IndexingParameters::verbose) {
+//        if (IndexingParameters::verbosity != IndexingParameters::None) {
 //            cerr << "[IndexRegistry]: Determining node ID interval." << endl;
 //        }
 //
@@ -2147,7 +2200,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                            const IndexingPlan* plan,
                            const IndexName& constructing_name) {
         if (gbwt_names.size() > 1) {
-            if (IndexingParameters::verbose) {
+            if (IndexingParameters::verbosity != IndexingParameters::None) {
                 cerr << "[IndexRegistry]: Merging contig GBWTs." << endl;
             }
             // we also need to merge the GBWTs
@@ -2158,7 +2211,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             vector<gbwt::GBWT> gbwt_indexes(gbwt_names.size());
             for (size_t i = 0; i < gbwt_names.size(); ++i) {
-                load_gbwt(gbwt_names[i], gbwt_indexes[i], IndexingParameters::verbose);
+                load_gbwt(gbwt_names[i], gbwt_indexes[i], IndexingParameters::verbosity >= IndexingParameters::Debug);
             }
             gbwt::GBWT merged(gbwt_indexes);
             merged.serialize(outfile);
@@ -2198,7 +2251,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             exit(1);
         }
         
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
             gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
         }
         else {
@@ -2266,14 +2319,14 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             {
                 haplotype_indexer = unique_ptr<HaplotypeIndexer>(new HaplotypeIndexer());
                 // HaplotypeIndexer resets this in its constructor
-                if (IndexingParameters::verbose) {
+                if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
                     gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
                 }
                 else {
                     gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
                 }
             }
-            haplotype_indexer->show_progress = IndexingParameters::verbose;
+            haplotype_indexer->show_progress = IndexingParameters::verbosity >= IndexingParameters::Debug;
             
             vector<string> parse_files = haplotype_indexer->parse_vcf(vcf_filenames[i],
                                                                       *graph);
@@ -2300,7 +2353,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing GBWT from VG graph and phased VCF input." << endl;
             gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
         }
@@ -2315,7 +2368,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing GBWT from spliced VG graph and phased VCF input." << endl;
             gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
         }
@@ -2331,7 +2384,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Downsampling full GBWT." << endl;
         }
         
@@ -2365,7 +2418,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                        IndexingParameters::downsample_context_length,
                                                        200 * gbwt::MILLION, // buffer size
                                                        IndexingParameters::gbwt_sampling_interval,
-                                                       IndexingParameters::verbose);
+                                                       IndexingParameters::verbosity >= IndexingParameters::Debug);
         
         vg::io::VPKG::save(cover, output_name);
         output_names.push_back(output_name);
@@ -2379,7 +2432,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing a greedy path cover GBWT" << endl;
         }
         
@@ -2408,7 +2461,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                       IndexingParameters::downsample_context_length,
                                                       200 * gbwt::MILLION, // buffer size
                                                       IndexingParameters::gbwt_sampling_interval,
-                                                      IndexingParameters::verbose);
+                                                      IndexingParameters::verbosity >= IndexingParameters::Debug);
         
         vg::io::VPKG::save(cover, output_name);
         output_names.push_back(output_name);
@@ -2422,9 +2475,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing haplotype-transcript GBWT and finishing spliced VG." << endl;
-            gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
+            if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+                gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
+            }
         }
         else {
             gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
@@ -2585,7 +2640,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Joining transcript origin table." << endl;
         }
         
@@ -2748,7 +2803,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     // Make an empty GBWT index to pass along
                     gbwt::GBWT empty_gbwt;
                     PhaseUnfolder unfolder(*unpruned_graph, empty_gbwt, max_node_id + 1);
-                    unfolder.restore_paths(*graph, IndexingParameters::verbose);
+                    unfolder.restore_paths(*graph, IndexingParameters::verbosity >= IndexingParameters::Debug);
                 }
                 else {
                     // we can expand out complex regions using haplotypes as well as paths
@@ -2760,7 +2815,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 #pragma omp critical
                     {
                         unfolder.read_mapping(mapping_name);
-                        unfolder.unfold(*graph, IndexingParameters::verbose);
+                        unfolder.unfold(*graph, IndexingParameters::verbosity >= IndexingParameters::Debug);
                         unfolder.write_mapping(mapping_name);
                     }
                 }
@@ -2796,7 +2851,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Pruning complex regions of VG to prepare for GCSA indexing." << endl;
         }
         // call the meta-recipe
@@ -2808,7 +2863,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Pruning complex regions of VG to prepare for GCSA indexing with GBWT unfolding." << endl;
         }
         // call the meta-recipe
@@ -2820,7 +2875,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Pruning complex regions of spliced VG to prepare for GCSA indexing." << endl;
         }
         // call the meta-recipe
@@ -2835,7 +2890,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Pruning complex regions of spliced VG to prepare for GCSA indexing with GBWT unfolding." << endl;
         }
         // call the meta-recipe
@@ -2855,7 +2910,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                               const IndexingPlan* plan,
                               const IndexGroup& constructing) {
         
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing GCSA/LCP indexes." << endl;
         }
         
@@ -2891,7 +2946,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         // configure GCSA to use scratch in the general temp directory
         gcsa::TempFile::setDirectory(temp_file::get_dir());
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
             gcsa::Verbosity::set(gcsa::Verbosity::BASIC);
         }
         else {
@@ -3037,7 +3092,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Finding snarls in graph." << endl;
         }
         return find_snarls(inputs, plan, constructing);
@@ -3048,7 +3103,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Finding snarls in spliced graph." << endl;
         }
         return find_snarls(inputs, plan, constructing);
@@ -3099,8 +3154,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        if (IndexingParameters::verbose) {
-            cerr << "[IndexRegistry]: Making distance index." << endl;
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            cerr << "[IndexRegistry]: Constructing distance index." << endl;
         }
         return make_distance_index(inputs, plan, constructing);
     });
@@ -3110,8 +3165,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        if (IndexingParameters::verbose) {
-            cerr << "[IndexRegistry]: Making distance index for a spliced graph." << endl;
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            cerr << "[IndexRegistry]: Constructing distance index for a spliced graph." << endl;
         }
         return make_distance_index(inputs, plan, constructing);
     });
@@ -3125,7 +3180,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing GBWTGraph." << endl;
         }
         
@@ -3170,7 +3225,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
-        if (IndexingParameters::verbose) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing minimizer index." << endl;
         }
         
@@ -4504,7 +4559,8 @@ const char* InsufficientInputException::what() const throw () {
         ss << "\t" << input << endl;
     }
     ss << "are insufficient to create target index " << target << endl;
-    return ss.str().c_str();
+    string msg = ss.str();
+    return msg.c_str();
 }
 
 }

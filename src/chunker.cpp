@@ -3,7 +3,7 @@
 #include <vg/io/stream.hpp>
 #include "chunker.hpp"
 #include "algorithms/subgraph.hpp"
-#include "handle.hpp"
+#include "vg.hpp"
 
 //#define debug
 

@@ -1641,11 +1641,12 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
             if (ends_at(child2) == START) {
                 go_left2 = !go_left2;
             }
-//#ifdef debug_distances
-//            cerr << "            => " << chain_record.get_distance(
-//                make_tuple(child_record1.get_rank_in_parent(), go_left1, child_record1.get_node_length()), 
-//                make_tuple(child_record2.get_rank_in_parent(), go_left2, child_record2.get_node_length())) << endl;
-//#endif
+#ifdef debug_distances
+            cerr << "Finding distances between ranks " << child_record1.get_rank_in_parent() << " " << go_left1 << " " << child_record1.get_node_length() << " and " << endl << child_record2.get_rank_in_parent() << " " << go_left2 << " " << child_record2.get_node_length() << endl;
+            cerr << "            => " << chain_record.get_distance(
+                make_tuple(child_record1.get_rank_in_parent(), go_left1, child_record1.get_node_length()), 
+                make_tuple(child_record2.get_rank_in_parent(), go_left2, child_record2.get_node_length())) << endl;
+#endif
 
             return chain_record.get_distance(
                 make_tuple(child_record1.get_rank_in_parent(), go_left1, child_record1.get_node_length()), 
@@ -1823,17 +1824,18 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
         int64_t start_node_length = 0;
         int64_t end_node_length = 0;
 
+        int64_t start_length = is_chain(parent) ? node_length(start_bound) : 0;
+        int64_t end_length = is_chain(parent) ? node_length(end_bound) : 0;
+
         //Get the distances from the bounds of the parent to the node we're looking at
-        int64_t distance_start_start = distance_in_parent(parent, start_bound, flip(net));
-        int64_t distance_start_end = distance_in_parent(parent, start_bound, net);
-        int64_t distance_end_start = distance_in_parent(parent, end_bound, flip(net));
-        int64_t distance_end_end = distance_in_parent(parent, end_bound, net);
+        int64_t distance_start_start = start_bound == net ? -start_length : distance_in_parent(parent, start_bound, flip(net));
+        int64_t distance_start_end = start_bound == flip(net) ? -start_length : distance_in_parent(parent, start_bound, net);
+        int64_t distance_end_start = end_bound == net ? -end_length : distance_in_parent(parent, end_bound, flip(net));
+        int64_t distance_end_end = end_bound == flip(net) ? -end_length : distance_in_parent(parent, end_bound, net);
 
         int64_t distance_start = dist_start;
         int64_t distance_end = dist_end; 
 
-        int64_t start_length = is_chain(parent) ? node_length(start_bound) : 0;
-        int64_t end_length = is_chain(parent) ? node_length(end_bound) : 0;
 
         dist_start = sum({std::min( sum({distance_start_start, distance_start}), 
                                     sum({distance_start_end , distance_end})) , 

@@ -63,8 +63,8 @@ static void write_gfa_translation(const IDMapInfo& id_map_info, const string& tr
 }
 
 static void validate_gfa_edge(const gfak::edge_elem& e) {
-    string not_blunt = ("error:[gfa_to_handle_graph] Can only load blunt-ended GFAs. "
-        "Try \"bluntifying\" your graph with a tool like <https://github.com/hnikaein/stark>, or "
+    static const string not_blunt = ("error:[gfa_to_handle_graph] Can only load blunt-ended GFAs. "
+        "Try \"bluntifying\" your graph with a tool like <https://github.com/vgteam/GetBlunted>, or "
         "transitively merge overlaps with a pipeline of <https://github.com/ekg/gimbricate> and "
         "<https://github.com/ekg/seqwish>.");
     if (e.source_begin != e.source_end || e.sink_begin != 0 || e.sink_end != 0) {
@@ -621,6 +621,10 @@ void parse_gfa_p_line(const string& p_line,
         if (c == ',') c = p_line[++j];
         while (c != ',' && c != '\t' && c != '\n' && c != ' ' && j < p_line.length()) {
             overlap.push_back(c);
+            // don't scan overlap list if it's just a *
+            if (c == '*' && j == p_line.length() - 1) {
+                break;
+            }
             c = p_line[++j];
         }
         bool ret = visit_step(path_name, rank++, id, is_rev);

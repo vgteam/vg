@@ -8,11 +8,18 @@
 #include <utility>
 #include <functional>
 #include <queue>
+#include <cstdint>
+#include <list>
 
 namespace vg {
 
 using namespace std;
 
+/*
+ * A parallel job scheduler that tries to (if possible) respect a
+ * cap on memory usage. Works best with a moderate number of
+ * relatively large jobs.
+ */
 class JobSchedule {
 public:
     
@@ -24,12 +31,13 @@ public:
                 const function<void(int64_t)>& job_func);
     ~JobSchedule() = default;
     
+    // execute the job schedule with a target maximum memory usage
     void execute(int64_t target_memory_usage);
     
 private:
     
     function<void(int64_t)> job_func;
-    priority_queue<tuple<int64_t, int64_t, int64_t>> queue;
+    list<pair<int64_t, int64_t>> queue;
     
 };
 

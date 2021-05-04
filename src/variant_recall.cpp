@@ -3,7 +3,12 @@
 #include "cactus_snarl_finder.hpp"
 #include "traversal_finder.hpp"
 #include "augment.hpp"
+#include "translator.hpp"
 #include "xg.hpp"
+#include "utility.hpp"
+#include "filter.hpp"
+#include "statistics.hpp"
+#include "path_index.hpp"
 
 using namespace xg;
 
@@ -38,7 +43,7 @@ void genotype_svs(VG* graph,
         cerr << "GAM file is no good" << endl;
         exit(2);
     }
-    SRPE srrp;
+    Filter filt;
 
     //DepthMap dm(graph);
     vector<pair<Alignment, Alignment> > sv_reads;
@@ -57,11 +62,11 @@ void genotype_svs(VG* graph,
         bool toss_into_sv_map = false;
 
 
-        if (srrp.ff.mark_sv_alignments(a,b)){
+        if (filt.mark_sv_alignments(a,b)){
             sv_reads.push_back(make_pair(a, b));
         }
                                 
-        else if (srrp.ff.mark_smallVariant_alignments(a, b)){
+        else if (filt.mark_smallVariant_alignments(a, b)){
             direct_ins.push_back(a.path());
             direct_ins.push_back(b.path());
         }

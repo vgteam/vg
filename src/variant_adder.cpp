@@ -1,4 +1,5 @@
 #include "variant_adder.hpp"
+#include "banded_global_aligner.hpp"
 #include "mapper.hpp"
 #include "algorithms/prune.hpp"
 
@@ -11,7 +12,8 @@ using namespace vg::io;
 
 VariantAdder::VariantAdder(VG& graph) : graph(graph), sync([&](VG& g) -> VG& {
         // Dice nodes in the graph for GCSA indexing *before* constructing the synchronizer.
-        g.dice_nodes(max_node_size);
+        handlealgs::chop(g, max_node_size);
+        g.paths.compact_ranks();
         return g;
     }(this->graph)) {
     
@@ -27,6 +29,10 @@ VariantAdder::VariantAdder(VG& graph) : graph(graph), sync([&](VG& g) -> VG& {
     
     // Configure the aligner to use a full length bonus
     aligner.full_length_bonus = 5;
+}
+
+const VG& VariantAdder::get_graph() const {
+    return graph;
 }
 
 void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {

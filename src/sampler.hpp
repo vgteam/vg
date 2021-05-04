@@ -10,16 +10,10 @@
 #include <algorithm>
 #include <chrono>
 #include <ctime>
-#include "vg.hpp"
-#include "alignment.hpp"
-#include "path.hpp"
-#include "position.hpp"
-#include "statistics.hpp"
 #include "lru_cache.h"
+#include "statistics.hpp"
+#include "position.hpp"
 #include "vg/io/json2pb.h"
-#include "algorithms/subgraph.hpp"
-#include "algorithms/alignment_path_offsets.hpp"
-#include "algorithms/next_pos_chars.hpp"
 
 namespace vg {
 
