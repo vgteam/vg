@@ -384,7 +384,7 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
                  << " aren't accounted for by the gbwt_graph. "
                     "Skipping."
                  << endl;
-            cerr << "size of snarl:" << handles_in_snarl.size() << "number of handles touched by gbwt graph: " << get<2>(haplotypes).size() << endl;
+            cerr << "handles in snarl:" << handles_in_snarl.size() << "number of handles touched by gbwt graph: " << get<2>(haplotypes).size() << endl;
             cerr << "these handles are:" << endl << "\t";
             for (auto handle : handles_in_snarl) {
                 if (get<2>(haplotypes).find(handle) == get<2>(haplotypes).end()) {

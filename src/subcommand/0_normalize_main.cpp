@@ -19,6 +19,8 @@
 
 #include "../io/save_handle_graph.hpp"
 
+#include "../algorithms/0_snarl_analyzer.hpp"
+
 #include <chrono> // for high_resolution_clock
 
 using namespace std;
@@ -54,6 +56,7 @@ int main_normalize(int argc, char **argv) {
     int sink = NULL;
     bool paths_right_to_left = false;
     bool evaluate = false;
+    string snarl_sizes;
 
 
     int c;
@@ -70,10 +73,11 @@ int main_normalize(int argc, char **argv) {
              {"paths_right_to_left", no_argument, 0, 'p'},
              {"max_alignment_size", required_argument, 0, 'm'},
              {"evaluate", no_argument, 0, 'e'},
+             {"snarl_sizes", required_argument, 0, 'i'},
              {0, 0, 0, 0}};
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "hg:s:n:a:b:pm:e", long_options, &option_index);
+        c = getopt_long(argc, argv, "hg:s:n:a:b:pm:ei:", long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -113,12 +117,19 @@ int main_normalize(int argc, char **argv) {
             if (max_alignment_size == 0) {
                 max_alignment_size = INT_MAX;
             }
+            break;
 
         case 'e':
             evaluate = true;
             break;
+        
+        case 'i':
+            snarl_sizes = optarg;
+            normalize_type = "none";
+            break;
             
         default:
+            cerr << "error:[vg normalize] abort" << endl;
             abort();
         }
     }
@@ -151,7 +162,7 @@ int main_normalize(int argc, char **argv) {
         snarl_stream.open(snarl_file);
 
         if (!snarl_stream) {
-            cerr << "error:[vg mod] Cannot open Snarls file " << snarl_file << endl;
+            cerr << "error:[vg normalize] Cannot open Snarls file " << snarl_file << endl;
             exit(1);
         }
         // Record start time
@@ -215,6 +226,22 @@ int main_normalize(int argc, char **argv) {
         snarl_stream.open(snarl_file);
         cerr << "about to evaluate normalized snarls" << endl;
         vg::evaluate_normalized_snarls(snarl_stream);
+    }
+
+    // snarl_sizes identifies the size of every snarl, outputs in a document specified with format "source\tsink\tsize\n"
+    if (snarl_sizes.size() != 0) 
+    { //todo: add "evaluate" functions to snarl_analyzer; rename snarl_sizes doc as snarl_analyzer.hpp,etc
+        std::ifstream snarl_stream;
+        snarl_stream.open(snarls);
+        if (!snarl_stream) {
+            cerr << "error:[vg normalize] Cannot open Snarls file " << snarls << endl;
+            exit(1);
+        }
+
+        algorithms::SnarlAnalyzer sizes = algorithms::SnarlAnalyzer(*graph, snarl_stream);
+
+        sizes.output_snarl_sizes(snarl_sizes);
+
     }
 
     if (normalize_type!="none") {
