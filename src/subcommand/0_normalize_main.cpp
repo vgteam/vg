@@ -57,7 +57,7 @@ int main_normalize(int argc, char **argv) {
     bool paths_right_to_left = false;
     bool evaluate = false;
     string snarl_sizes;
-
+    bool snarl_sizes_skip_source_sink;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -74,10 +74,11 @@ int main_normalize(int argc, char **argv) {
              {"max_alignment_size", required_argument, 0, 'm'},
              {"evaluate", no_argument, 0, 'e'},
              {"snarl_sizes", required_argument, 0, 'i'},
+             {"snarl_sizes_skip_source_sink", no_argument, 0, 'k'},
              {0, 0, 0, 0}};
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "hg:s:n:a:b:pm:ei:", long_options, &option_index);
+        c = getopt_long(argc, argv, "hg:s:n:a:b:pm:ei:k", long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -126,6 +127,10 @@ int main_normalize(int argc, char **argv) {
         case 'i':
             snarl_sizes = optarg;
             normalize_type = "none";
+            break;
+
+        case 'k':
+            snarl_sizes_skip_source_sink = true;
             break;
             
         default:
@@ -238,7 +243,7 @@ int main_normalize(int argc, char **argv) {
             exit(1);
         }
 
-        algorithms::SnarlAnalyzer sizes = algorithms::SnarlAnalyzer(*graph, snarl_stream);
+        algorithms::SnarlAnalyzer sizes = algorithms::SnarlAnalyzer(*graph, snarl_stream, snarl_sizes_skip_source_sink);
 
         sizes.output_snarl_sizes(snarl_sizes);
 

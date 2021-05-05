@@ -13,7 +13,7 @@ class SnarlAnalyzer {
   public:
     /// destructor/constructer
     virtual ~SnarlAnalyzer() = default;
-    SnarlAnalyzer(const HandleGraph& graph, ifstream &snarl_stream, bool skip_source_sink = true);
+    SnarlAnalyzer(const HandleGraph& graph, ifstream &snarl_stream, bool skip_source_sink);
 
     /// data on snarls:
 
