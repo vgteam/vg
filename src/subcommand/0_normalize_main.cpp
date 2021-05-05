@@ -57,7 +57,7 @@ int main_normalize(int argc, char **argv) {
     bool paths_right_to_left = false;
     bool evaluate = false;
     string snarl_sizes;
-    bool snarl_sizes_skip_source_sink;
+    bool snarl_sizes_skip_source_sink = false;
 
     int c;
     optind = 2; // force optind past command positional argument
