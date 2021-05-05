@@ -17,6 +17,10 @@
 #include "../algorithms/0_oo_normalize_snarls.hpp"
 #include "../gbwt_helper.hpp"
 
+#include "../io/save_handle_graph.hpp"
+
+#include "../algorithms/0_snarl_analyzer.hpp"
+
 #include <chrono> // for high_resolution_clock
 
 using namespace std;
@@ -44,11 +48,16 @@ int main_normalize(int argc, char **argv) {
         return 1;
     }
 
-    bool evaluate = false;
-    bool normalize = false;
     int max_alignment_size = 200; // default cutoff is 200 threads in a snarl.
     string gbwt;
     string snarls;
+    string normalize_type = "all";
+    int source = NULL;
+    int sink = NULL;
+    bool paths_right_to_left = false;
+    bool evaluate = false;
+    string snarl_sizes;
+    bool snarl_sizes_skip_source_sink = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -58,12 +67,18 @@ int main_normalize(int argc, char **argv) {
             {{"help", no_argument, 0, 'h'},
              {"gbwt", required_argument, 0, 'g'},
              {"snarls", required_argument, 0, 's'},
-             {"max_alignment_size", optional_argument, 0, 'm'},
+             {"normalize_type", required_argument, 0, 'n'},
+             {"source", required_argument, 0, 'a'},
+             {"sink", required_argument, 0, 'b'},
+             {"paths_right_to_left", no_argument, 0, 'p'},
+             {"max_alignment_size", required_argument, 0, 'm'},
              {"evaluate", no_argument, 0, 'e'},
+             {"snarl_sizes", required_argument, 0, 'i'},
+             {"snarl_sizes_skip_source_sink", no_argument, 0, 'k'},
              {0, 0, 0, 0}};
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "hg:s:m:e", long_options, &option_index);
+        c = getopt_long(argc, argv, "hg:s:n:a:b:pm:ei:k", long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -73,13 +88,29 @@ int main_normalize(int argc, char **argv) {
 
         case 'g':
             gbwt = optarg;
-            normalize = true;
             break;
 
-        case 'e':
-            evaluate = true;
+        case 's':
+            snarls = optarg;
+            break;
+            
+        case 'n':
+            // can be "all" (default), "one", or "none" (latter for if you just want to run evaluate) //todo: make better!
+            normalize_type = optarg;
+            break;
+            
+        case 'a':
+            source = parse<int>(optarg);
             break;
 
+        case 'b':
+            sink = parse<int>(optarg);
+            break;
+            
+        case 'p':
+            paths_right_to_left = true;
+            break;
+            
         case 'm':
             max_alignment_size = parse<int>(optarg);
             // if max_alignment_size is 0, then that signifies that it should actually be
@@ -87,43 +118,39 @@ int main_normalize(int argc, char **argv) {
             if (max_alignment_size == 0) {
                 max_alignment_size = INT_MAX;
             }
-
-        case 's':
-            snarls = optarg;
             break;
 
+        case 'e':
+            evaluate = true;
+            break;
+        
+        case 'i':
+            snarl_sizes = optarg;
+            normalize_type = "none";
+            break;
+
+        case 'k':
+            snarl_sizes_skip_source_sink = true;
+            break;
+            
         default:
+            cerr << "error:[vg normalize] abort" << endl;
             abort();
         }
     }
 
-    // //get a VG graph:
-    // cerr << "getting a vg graph" << endl;
-    // unique_ptr<VG> graph;
-    // get_input_file(optind, argc, argv, [&](istream &in) {
-    //     graph = vg::io::VPKG::load_one<VG>(in);
-    // });
-    // cerr << "got a vg graph" << endl;
-
-    // //using vpkg for just HashGraph:
-    // unique_ptr<MutablePathDeletableHandleGraph> graph;
-    // get_input_file(optind, argc, argv, [&](istream &in) {
-    //     graph = vg::io::VPKG::load_one<bdsg::HashGraph>(in);
-    // });
-
-    //getting graph of any type, requires vpkg wrapping:
+    //getting graph of any type, except non-mutable graphs (e.g., xg)
     unique_ptr<MutablePathDeletableHandleGraph> graph;
     get_input_file(optind, argc, argv, [&](istream &in) {
         graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
     });
 
-    // cerr << "getting hashgraph" << endl;
-    // bdsg::HashGraph *graph;
-    // get_input_file(optind, argc, argv,
-    //                [&](istream &in) { graph = new bdsg::HashGraph(in); });
-    // cerr << "got hashgraph" << endl;
+    if (normalize_type!="all" && normalize_type!="one" && normalize_type != "none") 
+    {
+        cerr << "please enter a valid normalize_type: all, one, or none." << endl;
+    }
 
-    if (normalize) {
+    if (normalize_type == "all" || normalize_type == "one") {
         cerr << "running normalize!" << endl;
 
         /// Build the gbwt:
@@ -140,7 +167,7 @@ int main_normalize(int argc, char **argv) {
         snarl_stream.open(snarl_file);
 
         if (!snarl_stream) {
-            cerr << "error:[vg mod] Cannot open Snarls file " << snarl_file << endl;
+            cerr << "error:[vg normalize] Cannot open Snarls file " << snarl_file << endl;
             exit(1);
         }
         // Record start time
@@ -149,9 +176,45 @@ int main_normalize(int argc, char **argv) {
         algorithms::SnarlNormalizer normalizer =
             algorithms::SnarlNormalizer(*graph, haploGraph, max_alignment_size);
 
-        // run test code on all snarls in graph.
-        normalizer.normalize_top_level_snarls(snarl_stream);
+        if (normalize_type == "all")
+        {
+            normalizer.normalize_top_level_snarls(snarl_stream);
+        }
+        else if (normalize_type == "one")
+        {
+            if (source == NULL && sink == NULL)
+            {
+                cerr << "ERROR: please provide a source and sink for the snarl you want to normalize." << endl;
+                return 0;
+            }
+            vector<int> error_record = normalizer.normalize_snarl(source, sink, paths_right_to_left);
+            if (!(error_record[0] || error_record[1] ||
+                    error_record[2] || error_record[3] ||
+                    error_record[6]))
+            {
+                cerr << "snarl starting at " << source << " and ending at " << sink << " normalized." << endl;
+                cerr << "amount of sequence in normalized snarl before normalization: "
+                    << error_record[4] << endl;
+                cerr << "amount of sequence in normalized snarl after normalization: "
+                    << error_record[5] << endl;            }
+            else
+            {
+                //todo: make it so it only prints the relevant message:
+                cerr << "snarl skipped because...\nthey exceeded the size limit ("
+                    << error_record[0] << " snarls),\n"
+                    << "had haplotypes starting/ending in the middle of the snarl ("
+                    << error_record[1] << "),\n"
+                    << "the snarl was cyclic (" 
+                    << error_record[3] << " snarls),\n"
+                    << " there were handles not connected by the gbwt info ("
+                    << error_record[2] << " snarls),\n" 
+                    << "the snarl was cyclic (" << error_record[3] << " snarls),\n"
+                    << "or the snarl was trivial - composed of only one or two nodes ("
+                    << error_record[6] << " snarls)."
+                    << endl;
+            }
 
+        }
         // // run test code on all snarls in graph. (non obj-oriented code)
         // disambiguate_top_level_snarls(*graph, haploGraph, snarl_stream,
         // max_alignment_size);
@@ -170,9 +233,28 @@ int main_normalize(int argc, char **argv) {
         vg::evaluate_normalized_snarls(snarl_stream);
     }
 
-    if (normalize) {
+    // snarl_sizes identifies the size of every snarl, outputs in a document specified with format "source\tsink\tsize\n"
+    if (snarl_sizes.size() != 0) 
+    { //todo: add "evaluate" functions to snarl_analyzer; rename snarl_sizes doc as snarl_analyzer.hpp,etc
+        std::ifstream snarl_stream;
+        snarl_stream.open(snarls);
+        if (!snarl_stream) {
+            cerr << "error:[vg normalize] Cannot open Snarls file " << snarls << endl;
+            exit(1);
+        }
+
+        algorithms::SnarlAnalyzer sizes = algorithms::SnarlAnalyzer(*graph, snarl_stream, snarl_sizes_skip_source_sink);
+
+        sizes.output_snarl_sizes(snarl_sizes);
+
+    }
+
+    if (normalize_type!="none") {
+        // Save the modified graph
+        vg::io::save_handle_graph(graph.get(), std::cout);
+        
         //todo: maybe rewrite to mimic mod_main.
-        vg::io::VPKG::save(*dynamic_cast<bdsg::HashGraph *>(graph.get()), cout);
+        // vg::io::VPKG::save(*dynamic_cast<bdsg::HashGraph *>(graph.get()), cout);
 
         // graph->serialize(std::cout);
     }

@@ -40,6 +40,7 @@ namespace algorithms{
  * This process hopefully results in a snarl with less redundant sequence, and with 
  * duplicate variation combined into a single variant.
 */
+
 SnarlNormalizer::SnarlNormalizer(MutablePathDeletableHandleGraph &graph,
                                  const gbwtgraph::GBWTGraph &haploGraph,
                                  const int &max_alignment_size, const string &path_finder)
@@ -69,8 +70,10 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
      * There are two additional ints for tracking the snarl size. Ints:
      *      4) number of bases in the snarl before normalization
      *      5) number of bases in the snarl after normalization.
+     * Further error records:
+     *      6) snarl is trivial (either one or two nodes only), so we skipped normalizing them.
     */ 
-    int error_record_size = 6;
+    int error_record_size = 7;
     vector<int> one_snarl_error_record(error_record_size, 0);
     vector<int> full_error_record(error_record_size, 0);
 
@@ -80,7 +83,7 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
     // int stop_size = 1;
     // int num_snarls_touched = 0;
 
-    // int skip_first_few = 39;
+    // int skip_first_few = 7;
     // int skipped = 0;
     int snarl_num = 0;
     for (auto roots : snarl_roots) {
@@ -95,7 +98,7 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
         // } else {
         //     num_snarls_touched++;
         // }
-        cerr << "normalizing snarl number " << snarl_num << " that starts at: " << roots->start().node_id() << " and ends at: " << roots->end().node_id() << endl;
+        cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
         
         // if (roots->start().node_id() == 3881494) {
             // cerr << "root backwards?" << roots->start().backward() << endl;
@@ -105,8 +108,9 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
             //         << " sink: " << roots->end().node_id() << endl;
 
             one_snarl_error_record = normalize_snarl(roots->start().node_id(), roots->end().node_id(), roots->start().backward());
-            if (!((one_snarl_error_record[0]) || (one_snarl_error_record[1]) ||
-                    (one_snarl_error_record[2]) || (one_snarl_error_record[3]))) {
+            if (!(one_snarl_error_record[0] || one_snarl_error_record[1] ||
+                    one_snarl_error_record[2] || one_snarl_error_record[3] ||
+                    one_snarl_error_record[6])) {
                 // if there are no errors, then we've successfully normalized a snarl.
                 num_snarls_normalized += 1;
                 // track the change in size of the snarl.
@@ -116,10 +120,13 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
             } else {
                 // else, there was an error. Track which errors caused the snarl to not
                 // normalize.
-                // note: the last two ints are ignored here b/c they're for
+                // note: the ints 4 and 5 are ignored here b/c they're for
                 // recording the changing size of snarls that are successfully normalized.
-                for (int i = 0; i < error_record_size - 2; i++) {
-                    full_error_record[i] += one_snarl_error_record[i];
+                for (int i = 0; i < error_record_size; i++) {
+                    if ( i != 4 && i != 5)
+                    {
+                        full_error_record[i] += one_snarl_error_record[i];
+                    }
                 }
                 num_snarls_skipped += 1;
             }
@@ -136,14 +143,19 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
 
     }
     cerr << endl
-         << "normalized " << num_snarls_normalized << " snarl(s), skipped "
+         << "normalized " << num_snarls_normalized << " snarls, skipped "
          << num_snarls_skipped << " snarls because. . .\nthey exceeded the size limit ("
-         << full_error_record[0]
-         << "snarls),\nhad haplotypes starting/ending in the middle of the snarl ("
-         << full_error_record[1] << "),\nthe snarl was cyclic (" << full_error_record[3]
-         << " snarls),\nor there "
-            "were handles not connected by the gbwt info ("
-         << full_error_record[2] << " snarls)." << endl;
+         << full_error_record[0] << " snarls),\n"
+         << "had haplotypes starting/ending in the middle of the snarl ("
+         << full_error_record[1] << "),\n"
+         << "the snarl was cyclic (" 
+         << full_error_record[3] << " snarls),\n"
+         << " there were handles not connected by the gbwt info ("
+         << full_error_record[2] << " snarls),\n" 
+         << "the snarl was cyclic (" << full_error_record[3] << " snarls),\n"
+         << "or the snarl was trivial - composed of only one or two nodes ("
+         << full_error_record[6] << " snarls)."
+         << endl;
     cerr << "amount of sequence in normalized snarls before normalization: "
          << snarl_sequence_change.first << endl;
     cerr << "amount of sequence in normalized snarls after normalization: "
@@ -192,8 +204,9 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
      * There are two additional ints for tracking the snarl size. Ints:
      *      4) number of bases in the snarl before normalization
      *      5) number of bases in the snarl after normalization.
+     *      6) snarl is trivial (either one or two nodes only), so we skipped normalizing them.
     */ 
-    vector<int> error_record(6, 0);
+    vector<int> error_record(7, 0);
     // //todo: debug_statement: determining whether cyclic problem in yeast graph goes away when I swapo source and sink. 
     // SubHandleGraph snarl = extract_subgraph(_graph, sink_id, source_id);
     SubHandleGraph snarl = extract_subgraph(_graph, source_id, sink_id, backwards);
@@ -211,6 +224,25 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
         error_record[3] = true;
         return error_record;
     }
+
+    // only normalize non-trivial snarls (i.e. not composed of just a source and sink.):
+    int num_handles_in_snarl = 0;
+    snarl.for_each_handle([&](const handle_t handle){
+        num_handles_in_snarl++;
+        if (num_handles_in_snarl >= 3)
+        {
+            return;
+        }
+    });
+    if (num_handles_in_snarl <= 2)
+    {
+        cerr << "snarl with source " << source_id << " and sink " << sink_id << " has"
+             << " only " << num_handles_in_snarl << " nodes. Skipping normalization of"
+             << " trivial snarl." << endl;
+        error_record[6] += 1;
+        return error_record;
+    }
+
 
     // extract threads
     // haplotypes is of format:
@@ -324,9 +356,8 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
         new_snarl.for_each_handle([&](const handle_t handle) {
             error_record[5] += new_snarl.get_sequence(handle).size();
         });
-
         force_maximum_handle_size(new_snarl, _max_alignment_size);
-
+        
         // integrate the new_snarl into the _graph, removing the old snarl as you go.
         // //todo: debug_statement
         // integrate_snarl(new_snarl, embedded_paths, sink_id, source_id);
@@ -353,7 +384,7 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
                  << " aren't accounted for by the gbwt_graph. "
                     "Skipping."
                  << endl;
-            cerr << "size of snarl:" << handles_in_snarl.size() << "number of handles touched by gbwt graph: " << get<2>(haplotypes).size() << endl;
+            cerr << "handles in snarl:" << handles_in_snarl.size() << "number of handles touched by gbwt graph: " << get<2>(haplotypes).size() << endl;
             cerr << "these handles are:" << endl << "\t";
             for (auto handle : handles_in_snarl) {
                 if (get<2>(haplotypes).find(handle) == get<2>(haplotypes).end()) {
@@ -550,11 +581,11 @@ VG SnarlNormalizer::align_source_to_sink_haplotypes(
 void SnarlNormalizer::force_maximum_handle_size(MutableHandleGraph &graph,
                                                 const size_t &max_size) {
     // forcing each handle in the _graph to have a maximum sequence length of max_size:
-    _graph.for_each_handle([&](handle_t handle) {
+    graph.for_each_handle([&](handle_t handle) {
         // all the positions we want to make in the handle are in offsets.
         vector<size_t> offsets;
 
-        size_t sequence_len = _graph.get_sequence(handle).size();
+        size_t sequence_len = graph.get_sequence(handle).size();
         int number_of_divisions = floor(sequence_len / max_size);
 
         // if the handle divides evenly into subhandles of size max_size, we don't need to
@@ -570,7 +601,7 @@ void SnarlNormalizer::force_maximum_handle_size(MutableHandleGraph &graph,
         }
 
         // divide the handle into parts.
-        _graph.divide_handle(handle, offsets);
+        graph.divide_handle(handle, offsets);
     });
 }
 
@@ -727,19 +758,18 @@ void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl,
     // identities by adding them to new_snarl_topo_order.
     for (handle_t to_insert_snarl_handle : to_insert_snarl_topo_order) {
         // //todo: debug_statement:
-        cerr << "About to insert snarl handle from normalized graph of id, seq: "
-             << to_insert_snarl.get_id(to_insert_snarl_handle) << " "
-             << to_insert_snarl.get_sequence(to_insert_snarl_handle) << endl;
+        // cerr << "About to insert snarl handle from normalized graph of id, seq: "
+        //      << to_insert_snarl.get_id(to_insert_snarl_handle) << " "
+        //      << to_insert_snarl.get_sequence(to_insert_snarl_handle) << endl;
 
         handle_t graph_handle =
             _graph.create_handle(to_insert_snarl.get_sequence(to_insert_snarl_handle));
-        cerr << "here is the new snarl handle: " 
-             << to_insert_snarl.get_id(graph_handle) << " "
-             << to_insert_snarl.get_sequence(graph_handle) << endl;
+        // cerr << "here is the new snarl handle: " 
+        //      << _graph.get_id(graph_handle) << " "
+        //      << _graph.get_sequence(graph_handle) << endl;
         new_snarl_topo_order.push_back(graph_handle);
-        // cerr << "graph handle being inserted into new_snarl_topo_order:" << _graph.get_id(graph_handle) << endl;
     }
-    cerr << "finished inserting the snarls from to_insert_snarl into normalized graph." << endl;
+    // cerr << "finished inserting the snarls from to_insert_snarl into normalized graph." << endl;
 
     // Connect the newly made handles in the _graph together the way they were connected
     // in to_insert_snarl:
@@ -757,12 +787,21 @@ void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl,
             });
     }
 
+
     // save the source and sink values of new_snarl_topo_order, since topological order is
     // not necessarily preserved by move_path_to_snarl. Is temporary b/c we need to
     // replace the handles with ones with the right id_t label for source and sink later
     // on.
     id_t temp_snarl_leftmost_id = _graph.get_id(new_snarl_topo_order.front());
     id_t temp_snarl_rightmost_id = _graph.get_id(new_snarl_topo_order.back());
+    if (new_snarl_topo_order.size() == 1)
+    {
+        // in case the normalized snarl is only one handle in size, split it into two.
+        // This allows the front to be renamed after the source, and the end after the sink.
+        std::pair<handle_t, handle_t> split_handle = _graph.divide_handle(new_snarl_topo_order.back(), 1);
+        temp_snarl_leftmost_id = _graph.get_id(split_handle.first);
+        temp_snarl_rightmost_id = _graph.get_id(split_handle.second);
+    }
     // cerr << "the temp source id: " << temp_snarl_leftmost_id << endl;
     // cerr << "the temp sink id: " << temp_snarl_rightmost_id << endl;
 
@@ -819,7 +858,7 @@ void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl,
     old_snarl.for_each_handle([&](const handle_t &handle) 
     {
         // //todo: debug_statement these are the handles in old_snarl:
-        cerr << "destroying old_snarl handle: " << old_snarl.get_id(handle) << " with sequence: " << old_snarl.get_sequence(handle) << endl;
+        // cerr << "destroying old_snarl handle: " << old_snarl.get_id(handle) << " with sequence: " << old_snarl.get_sequence(handle) << endl;
         _graph.destroy_handle(handle);
     });
 
@@ -831,18 +870,18 @@ void SnarlNormalizer::integrate_snarl(SubHandleGraph &old_snarl,
     handle_t new_rightmost_handle;
     if (!backwards) 
     {
-        cerr << "!backwards" << endl;
-        cerr << "overwriting node id " << temp_snarl_leftmost_id <<  " with " << source_id << " (which is source_id)." << " has sequence " << _graph.get_sequence(_graph.get_handle(source_id)) << endl;
+        // cerr << "!backwards" << endl;
+        // cerr << "overwriting node id " << temp_snarl_leftmost_id <<  " with " << source_id << " (which is source_id)." << " has sequence " << _graph.get_sequence(_graph.get_handle(temp_snarl_leftmost_id)) << endl;
         new_leftmost_handle = overwrite_node_id(temp_snarl_leftmost_id, source_id);
-        cerr << "overwriting node id " << temp_snarl_rightmost_id <<  " with " << sink_id << " (which is sink_id)." << " has sequence " << _graph.get_sequence(_graph.get_handle(sink_id)) << endl;
+        // cerr << "overwriting node id " << temp_snarl_rightmost_id <<  " with " << sink_id << " (which is sink_id)." << " has sequence " << _graph.get_sequence(_graph.get_handle(temp_snarl_rightmost_id)) << endl;
         new_rightmost_handle = overwrite_node_id(temp_snarl_rightmost_id, sink_id);
     }
     else
     {
-        cerr << "backwards" << endl;
-        cerr << "overwriting node id " << temp_snarl_leftmost_id <<  " with " << sink_id << " (which is sink_id)." << " has sequence " << _graph.get_sequence(_graph.get_handle(sink_id)) << endl;
+        // cerr << "backwards" << endl;
+        // cerr << "overwriting node id " << temp_snarl_leftmost_id <<  " with " << sink_id << " (which is sink_id)." << " has sequence " << _graph.get_sequence(_graph.get_handle(temp_snarl_leftmost_id)) << endl;
         new_leftmost_handle = overwrite_node_id(temp_snarl_leftmost_id, sink_id);
-        cerr << "overwriting node id " << temp_snarl_rightmost_id <<  " with " << source_id << " (which is source_id)." << " has sequence " << _graph.get_sequence(_graph.get_handle(source_id)) << endl;
+        // cerr << "overwriting node id " << temp_snarl_rightmost_id <<  " with " << source_id << " (which is source_id)." << " has sequence " << _graph.get_sequence(_graph.get_handle(temp_snarl_rightmost_id)) << endl;
         new_rightmost_handle = overwrite_node_id(temp_snarl_rightmost_id, source_id);
     }    
 }
