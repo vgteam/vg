@@ -32,6 +32,10 @@ TODO: test that extract_gbwt haplotypes successfully extracts any haplotypes tha
 TODO:    the snarl.
 */
 
+// todo: add cyclic snarls to the ones to skip, if cyclic snarls turns out to be frequent. Right now, I want to know when I have a cyclic snarl.
+
+int _big_snarl_alignment_job = 200;
+
 namespace vg {
 namespace algorithms{
 /**
@@ -43,9 +47,11 @@ namespace algorithms{
 
 SnarlNormalizer::SnarlNormalizer(MutablePathDeletableHandleGraph &graph,
                                  const gbwtgraph::GBWTGraph &haploGraph,
-                                 const int &max_alignment_size, const string &path_finder)
+                                 const int& max_handle_size, 
+                                 const int &max_alignment_size /*= MAX_INT*/,
+                                 const string &path_finder /*= "GBWT"*/)
     : _haploGraph(haploGraph), _graph(graph), _max_alignment_size(max_alignment_size),
-      _path_finder(path_finder) {}
+      _max_handle_size(max_handle_size), _path_finder(path_finder) {}
 
 
 /**
@@ -98,7 +104,14 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
         // } else {
         //     num_snarls_touched++;
         // }
-        cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
+        if (_full_log_print)
+        {
+            cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
+        }
+        else if (snarl_num%10000 == 0)
+        {
+            cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
+        }
         
         // if (roots->start().node_id() == 3881494) {
             // cerr << "root backwards?" << roots->start().backward() << endl;
@@ -150,8 +163,8 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
          << full_error_record[1] << "),\n"
          << "the snarl was cyclic (" 
          << full_error_record[3] << " snarls),\n"
-         << " there were handles not connected by the gbwt info ("
-         << full_error_record[2] << " snarls),\n" 
+        //  << " there were handles not connected by the gbwt info ("
+        //  << full_error_record[2] << " snarls),\n" 
          << "the snarl was cyclic (" << full_error_record[3] << " snarls),\n"
          << "or the snarl was trivial - composed of only one or two nodes ("
          << full_error_record[6] << " snarls)."
@@ -236,9 +249,12 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
     });
     if (num_handles_in_snarl <= 2)
     {
-        cerr << "snarl with source " << source_id << " and sink " << sink_id << " has"
-             << " only " << num_handles_in_snarl << " nodes. Skipping normalization of"
-             << " trivial snarl." << endl;
+        if (_full_log_print)
+        {
+            cerr << "snarl with source " << source_id << " and sink " << sink_id << " has"
+                << " only " << num_handles_in_snarl << " nodes. Skipping normalization of"
+                << " trivial snarl." << endl;
+        }
         error_record[6] += 1;
         return error_record;
     }
@@ -281,13 +297,28 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
         error_record[4] += snarl.get_sequence(handle).size();
     });
 
+    // Print a heads-up about snarls that require an alignment with a greater number of 
+    // threads than _big_snarl_alignment_job, so the user knows if they are hung up on a 
+    // large job.
+    if (get<0>(haplotypes).size() > _big_snarl_alignment_job)
+    {
+        cerr << "WARNING: aligning a snarl requiring a large number (> " << _big_snarl_alignment_job <<") of threads. Number of threads: " << get<0>(haplotypes).size() << endl;
+    }
+    // Record start time, for measuring alignment time for a big snarls:
+    //todo: also add compute time (vs wall clock) measure.
+    auto _big_snarl_time_start = chrono::high_resolution_clock::now();    
+
     // TODO: this if statement only permits snarls that satsify requirements, i.e.
     // TODO:    there are no haplotype begins/ends in the middle
     // TODO:    of the snarl. Get rid of this once alignment issue is addressed!
     // TODO: also, limits the number of haplotypes to be aligned, since snarl starting at
     // TODO:    2049699 with 258 haplotypes is taking many minutes.
-    if (get<1>(haplotypes).empty() && get<0>(haplotypes).size() < _max_alignment_size &&
-        get<2>(haplotypes).size() == handles_in_snarl.size()) {
+    if (get<1>(haplotypes).empty() && get<0>(haplotypes).size() < _max_alignment_size)
+        // the following bool check was to ensure that all the handles in the handlegraph 
+        // are touched by the gbwt. Turns out, though, that this isn't necessary. If we 
+        // assume that all seq info is in gbwt, the gbwt is all we need to worry about.:
+        // && get<2>(haplotypes).size() == handles_in_snarl.size()) {
+        {
         // Get the embedded paths in the snarl from _graph, to move them to new_snarl.
         // Any embedded paths not in gbwt are aligned in the new snarl.
         vector<pair<step_handle_t, step_handle_t>> embedded_paths =
@@ -356,12 +387,24 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
         new_snarl.for_each_handle([&](const handle_t handle) {
             error_record[5] += new_snarl.get_sequence(handle).size();
         });
-        force_maximum_handle_size(new_snarl, _max_alignment_size);
+        force_maximum_handle_size(new_snarl);
         
         // integrate the new_snarl into the _graph, removing the old snarl as you go.
         // //todo: debug_statement
         // integrate_snarl(new_snarl, embedded_paths, sink_id, source_id);
         integrate_snarl(snarl, new_snarl, embedded_paths, source_id, sink_id, backwards);
+
+        // Print a heads-up about snarls that require an alignment with a greater number of 
+        // threads than _big_snarl_alignment_job, so the user knows if they are hung up on a 
+        // large job.
+        if (get<0>(haplotypes).size() > _big_snarl_alignment_job)
+        {
+            // Record end time
+            auto _big_snarl_time_finish = std::chrono::high_resolution_clock::now();
+            chrono::duration<double> elapsed = _big_snarl_time_finish - _big_snarl_time_start;
+            cerr << "big snarl with " << get<0>(haplotypes).size() << " threads for alignment finished normalization." << endl;
+            cerr << "Elapsed time normalizing snarl after sequence extraction: " << elapsed.count() << " s\n";
+        }
     } else {
         if (!get<1>(haplotypes).empty()) {
             cerr << "found a snarl with source " << source_id << " and sink "
@@ -375,33 +418,36 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
         if (get<0>(haplotypes).size() > _max_alignment_size) {
             cerr << "found a snarl with source " << source_id << " and sink "
                  << sink_id << " with too many haplotypes (" << get<0>(haplotypes).size()
-                 << ") to efficiently align. Skipping." << endl;
+                 << "). Is greater than max, " << _max_alignment_size <<" Skipping." << endl;
             error_record[0] = true;
         }
-        if (get<2>(haplotypes).size() != handles_in_snarl.size()) {
-            cerr << "some handles in the snarl with source " << source_id
-                 << " and sink " << sink_id
-                 << " aren't accounted for by the gbwt_graph. "
-                    "Skipping."
-                 << endl;
-            cerr << "handles in snarl:" << handles_in_snarl.size() << "number of handles touched by gbwt graph: " << get<2>(haplotypes).size() << endl;
-            cerr << "these handles are:" << endl << "\t";
-            for (auto handle : handles_in_snarl) {
-                if (get<2>(haplotypes).find(handle) == get<2>(haplotypes).end()) {
-                    cerr << _graph.get_id(handle) << " ";
-                }
-            }
-            cerr << endl;
-            error_record[2] = true;
-        }
+        // if (get<2>(haplotypes).size() != handles_in_snarl.size()) {
+        //     cerr << "some handles in the snarl with source " << source_id
+        //          << " and sink " << sink_id
+        //          << " aren't accounted for by the gbwt_graph. "
+        //             "Skipping."
+        //          << endl;
+        //     cerr << "handles in snarl:" << handles_in_snarl.size() << "number of handles touched by gbwt graph: " << get<2>(haplotypes).size() << endl;
+        //     cerr << "these handles are:" << endl << "\t";
+        //     for (auto handle : handles_in_snarl) {
+        //         if (get<2>(haplotypes).find(handle) == get<2>(haplotypes).end()) {
+        //             cerr << _graph.get_id(handle) << " ";
+        //         }
+        //     }
+        //     cerr << endl;
+        //     error_record[2] = true;
+        // }
     }
     // todo: decide if we should only normalize snarls that decrease in size.
     if (error_record[5] > error_record[4]) {
-        cerr << "**************************in UNIT-TEST for normalize_snarl: **************************" << endl;
-        cerr << "NOTE: normalized a snarl which *increased* in sequence quantity, "
-                "with source: " << source_id << " and sink: " << sink_id << endl
-             << "\tsize before: " << error_record[4] << " size after: " << error_record[5]
-             << endl;
+        if (_full_log_print)
+        {
+            cerr << "**************************in UNIT-TEST for normalize_snarl: **************************" << endl;
+            cerr << "NOTE: normalized a snarl which *increased* in sequence quantity, "
+                    "with source: " << source_id << " and sink: " << sink_id << endl
+                << "\tsize before: " << error_record[4] << " size after: " << error_record[5]
+                << endl;
+        }
     } else if (error_record[5] <= 0) {
         cerr << "normalized snarl size is <= zero: " << error_record[5] << endl;
     }
@@ -578,26 +624,25 @@ VG SnarlNormalizer::align_source_to_sink_haplotypes(
  * handle size for all handles.
  * @param  {size_t} max_size          : the maximum size we want a handle to be.
  */
-void SnarlNormalizer::force_maximum_handle_size(MutableHandleGraph &graph,
-                                                const size_t &max_size) {
+void SnarlNormalizer::force_maximum_handle_size(MutableHandleGraph &graph) {
     // forcing each handle in the _graph to have a maximum sequence length of max_size:
     graph.for_each_handle([&](handle_t handle) {
         // all the positions we want to make in the handle are in offsets.
         vector<size_t> offsets;
 
         size_t sequence_len = graph.get_sequence(handle).size();
-        int number_of_divisions = floor(sequence_len / max_size);
+        int number_of_divisions = floor(sequence_len / _max_handle_size);
 
-        // if the handle divides evenly into subhandles of size max_size, we don't need to
+        // if the handle divides evenly into subhandles of size _max_handle_size, we don't need to
         // make the last cut (which would be at the very end of the handle - cutting off
         // no sequence).
-        if (sequence_len % max_size == 0) {
+        if (sequence_len % _max_handle_size == 0) {
             number_of_divisions--;
         }
 
         // calculate the position of all the divisions we want to make.
         for (int i = 1; i <= number_of_divisions; i++) {
-            offsets.push_back(i * max_size);
+            offsets.push_back(i * _max_handle_size);
         }
 
         // divide the handle into parts.

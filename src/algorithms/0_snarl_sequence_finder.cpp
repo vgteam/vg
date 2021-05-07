@@ -132,35 +132,32 @@ SnarlSequenceFinder::find_gbwt_haps() {
             // the other_haplotypes if haplotype ends before reaching sink.
             for (gbwt::SearchState next_search : next_searches) {
                 handle_t next_handle = _haploGraph.node_to_handle(next_search.node);
-                // if (!snarl.has_node(snarl.get_id(next_handle)) &&
-                // make_pair(_haploGraph.get_id(cur_haplotype.first.back()),_haploGraph.get_id(next_handle)))
-                // {
-                if (!_snarl.has_edge(cur_haplotype.first.back(), next_handle)) {
-                    if (incorrect_connections.find(
-                            _snarl.edge_handle(cur_haplotype.first.back(), next_handle)) ==
-                        incorrect_connections.end()) {
-                        cerr << "_snarl with source " << _source_id
-                            << " and sink " << _sink_id
-                            << " has a thread that incorrectly connects two nodes that "
-                               "don't have any edge connecting them. These two nodes are "
-                            << _haploGraph.get_id(cur_haplotype.first.back()) << " and "
-                            << _haploGraph.get_id(next_handle)
-                            << ". This thread connection will be ignored." << endl;
-                        incorrect_connections.emplace(
-                            _snarl.edge_handle(cur_haplotype.first.back(), next_handle));
+                // if (!_snarl.has_edge(cur_haplotype.first.back(), next_handle)) {
+                //     if (incorrect_connections.find(
+                //             _snarl.edge_handle(cur_haplotype.first.back(), next_handle)) ==
+                //         incorrect_connections.end()) {
+                //         cerr << "_snarl with source " << _source_id
+                //             << " and sink " << _sink_id
+                //             << " has a thread that incorrectly connects two nodes that "
+                //                "don't have any edge connecting them. These two nodes are "
+                //             << _haploGraph.get_id(cur_haplotype.first.back()) << " and "
+                //             << _haploGraph.get_id(next_handle)
+                //             << ". This thread connection will be ignored." << endl;
+                //         incorrect_connections.emplace(
+                //             _snarl.edge_handle(cur_haplotype.first.back(), next_handle));
 
-                        // todo: debug_statement
-                        // cerr << "next handle(s) of handle "
-                        //      << _snarl.get_id(cur_haplotype.first.back())
-                        //      << " according to _snarl:" << endl;
-                        // _snarl.follow_edges(cur_haplotype.first.back(), false,
-                        //                    [&](const handle_t handle) {
-                        //                        cerr << "\t" << _snarl.get_id(handle);
-                        //                    });
-                        // cerr << endl;
-                    }
-                    continue;
-                }
+                //         // todo: debug_statement
+                //         // cerr << "next handle(s) of handle "
+                //         //      << _snarl.get_id(cur_haplotype.first.back())
+                //         //      << " according to _snarl:" << endl;
+                //         // _snarl.follow_edges(cur_haplotype.first.back(), false,
+                //         //                    [&](const handle_t handle) {
+                //         //                        cerr << "\t" << _snarl.get_id(handle);
+                //         //                    });
+                //         // cerr << endl;
+                //     }
+                //     continue;
+                // }
                 // copy over the vector<handle_t> of cur_haplotype:
                 vector<handle_t> next_handle_vec(cur_haplotype.first);
 
@@ -545,9 +542,12 @@ SnarlSequenceFinder::find_embedded_paths() {
         path_names.emplace(_graph.get_path_name(_graph.get_path_handle_of_step(path.first)));
     } 
     if ((path_names.size() == 0)) {
-        cerr << "************in UNIT_TEST for find_embedded_paths************" << endl;
-        cerr << "in snarl with source: " << _source_id << " and sink " << _sink_id << ":" << endl;
-        cerr << "no embedded paths found in find_embedded_paths." << endl;
+        if (_full_log_print)
+        {
+            cerr << "************in UNIT_TEST for find_embedded_paths************" << endl;
+            cerr << "in snarl with source: " << _source_id << " and sink " << _sink_id << ":" << endl;
+            cerr << "no embedded paths found in find_embedded_paths." << endl;
+        }
     }
     // for (auto path : paths_in_snarl) {
     //     cerr << "path starts at source? " << (_graph.get_id(_graph.get_handle_of_step(path.first)) == _source_id) << endl;

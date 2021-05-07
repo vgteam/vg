@@ -14,7 +14,7 @@ class SnarlNormalizer {
     virtual ~SnarlNormalizer() = default;
 
     SnarlNormalizer(MutablePathDeletableHandleGraph &graph, const gbwtgraph::GBWTGraph &haploGraph,
-                    const int &max_alignment_size = 200,
+                    const int& _max_handle_size, const int &max_alignment_size = INT_MAX, //TODO: add a _max_handle_length default length
                     const string &path_finder = "GBWT" /*alternative is "exhaustive"*/);
 
     virtual void normalize_top_level_snarls(ifstream &snarl_stream);
@@ -31,7 +31,10 @@ class SnarlNormalizer {
     // the maximum number of threads allowed to align in a given snarl. If the number of
     // threads exceeds this threshold, the snarl is skipped.
     int _max_alignment_size;
+    int _max_handle_size;
     const string &_path_finder;
+    //todo: either make this an optional argument for the class, or remove as a debug var.
+    bool _full_log_print = false; // for printing info that isn't necessarily something gone wrong.
 
     //////////////////////////////////////////////////////////////////////////////////////
     // finding information on original graph:
@@ -60,7 +63,7 @@ class SnarlNormalizer {
         const bool &touching_source, const bool &touching_sink,
         const handle_t &potential_source, const handle_t &potential_sink);
 
-    void force_maximum_handle_size(MutableHandleGraph &graph, const size_t &max_size);
+    void force_maximum_handle_size(MutableHandleGraph &graph);
 
     // moving paths to new graph (new draft functions)
     vector<pair<vector<handle_t>, int> > find_possible_path_starts (const handle_t& leftmost_handle, const handle_t& rightmost_handle, const pair<bool, bool>& path_spans_left_right);

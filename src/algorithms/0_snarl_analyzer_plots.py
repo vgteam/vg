@@ -17,11 +17,11 @@ names = ["source", "sink", "size"]
 ## the following snarl size calculations include the sources and sinks of each snarl. This 
 ## allows significant double-counting of sequence in handles that are shared in the
 ## source/sink of two adjacent snarls.
-# before_norm = pd.read_csv("~/paten_lab/vg/robin-graphs/yeast_subset/yeast_subset.snarl_new_sizes.txt", sep="\t", names=names) #using updated snarl calculation, since vg snarls output has changed in past year.
-# after_norm = pd.read_csv("~/paten_lab/vg/robin-graphs/yeast_subset/yeast_subset.normalized.snarl_sizes.txt", sep="\t", names=names)
+before_norm = pd.read_csv("~/paten_lab/vg/robin-graphs/yeast_subset/yeast_subset.snarl_new_sizes.txt", sep="\t", names=names) #using updated snarl calculation, since vg snarls output has changed in past year.
+after_norm = pd.read_csv("~/paten_lab/vg/robin-graphs/yeast_subset/yeast_subset.normalized.snarl_sizes.txt", sep="\t", names=names)
 ## the following snarl size calculations ignore sequence in source and sink:
-before_norm = pd.read_csv("~/paten_lab/vg/robin-graphs/yeast_subset/yeast_subset.snarls_new.skip_source_sink_seq.snarl_sizes.txt", sep="\t", names=names) #using updated snarl calculation, since vg snarls output has changed in past year.
-after_norm = pd.read_csv("~/paten_lab/vg/robin-graphs/yeast_subset/yeast_subset.normalized.skip_source_sink_seq.snarl_sizes.txt", sep="\t", names=names)
+# before_norm = pd.read_csv("~/paten_lab/vg/robin-graphs/yeast_subset/yeast_subset.snarls_new.skip_source_sink_seq.snarl_sizes.txt", sep="\t", names=names) #using updated snarl calculation, since vg snarls output has changed in past year.
+# after_norm = pd.read_csv("~/paten_lab/vg/robin-graphs/yeast_subset/yeast_subset.normalized.skip_source_sink_seq.snarl_sizes.txt", sep="\t", names=names)
 
 
 #%%
@@ -86,9 +86,9 @@ print("before_norm_num_snarls", before_norm_num_snarls)
 after_norm_num_snarls = len(after_norm["size"])
 print("after_norm_num_snarls", after_norm_num_snarls)
 
-before_norm_mean = before_norm["size"].mean()
+before_norm_mean = before_norm["size"][1:].mean()
 print("before_norm_mean", before_norm_mean)
-after_norm_mean = after_norm["size"].mean()
+after_norm_mean = after_norm["size"][1:].mean()
 print("after_norm_mean", after_norm_mean)
 
 before_norm_mode = int(before_norm["size"].mode())
@@ -199,23 +199,113 @@ for x, y in snarl_size_change.items():
     else:
         snarl_size_change_only_splits[x] = y
 print("all snarls:")
-plt.scatter(x=snarl_size_change.keys(), y=snarl_size_change.values())
+plt.scatter(x=snarl_size_change.keys(), y=snarl_size_change.values(), s=8)
 plt.show()
 print("all snarls without splits:")
-plt.scatter(x=snarl_size_change_without_splits.keys(), y=snarl_size_change_without_splits.values())
+plt.scatter(x=snarl_size_change_without_splits.keys(), y=snarl_size_change_without_splits.values(), s=8)
 plt.show()
 
 print("only snarls with splits:")
-plt.scatter(x=snarl_size_change_only_splits.keys(), y=snarl_size_change_only_splits.values())
+plt.scatter(x=snarl_size_change_only_splits.keys(), y=snarl_size_change_only_splits.values(), s=8)
+plt.show()
+
+print("all snarls, dif colors")
+plt.scatter(x=snarl_size_change_without_splits.keys(), y=snarl_size_change_without_splits.values(), s=8)
+plt.scatter(x=snarl_size_change_only_splits.keys(), y=snarl_size_change_only_splits.values(), s=8)
 plt.show()
 #%%
+shrink = int()
+same = int()
+grow = int()
+for x in snarl_size_change_without_splits.values():
+    if x < 0:
+        shrink += 1
+    if x == 0:
+        same += 1
+    if x > 0:
+        grow += 1
+print(shrink, same, grow)
+# print(len([x if x < 0 for x in snarl_size_change_without_splits.values()]))
+#%%
+shrink_splits = list(snarl_size_change_only_splits.values())
+most_shrink_split = min(shrink_splits)
+most_shrink_split_i = shrink_splits.index(most_shrink_split)
+most_shrink_snarl = list(snarl_size_change_only_splits.keys())[most_shrink_split_i]
+print(most_shrink_snarl)
+print(snarl_size_change_only_splits[most_shrink_snarl])
+print(list(snarl_size_change.keys()).index(most_shrink_snarl))
+#%%
 """
-plot arranged with x axis is size of snarl, y axis is change of snarl size.
+This is for visualizing a good example of a large snarl in yeast_subset that split 
+into five subsnarls. Original snarl coordinates: 3881503-3881729
+"""
+
+print(before_norm.loc[list(snarl_size_change.keys()).index(most_shrink_snarl)])
+# df.loc[df['favorite_color'] == 'yellow']
+print(after_norm.loc[after_norm["source"] == most_shrink_snarl])
+print(after_norm.loc[58342])
+print(after_norm.loc[58343])
+print(after_norm.loc[58344])
+print(after_norm.loc[58345])
+print(after_norm.loc[58346])
+#%%
+print(len(snarl_size_change_only_splits))
+
+#%%
+"""
+plot arranged with x axis is size of snarl, y axis is change of snarl size by percentage.
 Idea is to find relatively small snarls with large change of snarl size, either favorably or unfavorably.
 """
-#todo
+after_i = int()
+snarl_num = list()
+size = list()
+size_change = list()
+debug_stop = int()
+for before_i in range(len(before_norm)):
+    ## skip the one massive snarl:
+    # if before_norm["size"][before_i] == 14380261:
+    #     after_i += 1
+    #     continue
+    # if debug_stop == 10:
+    #     break
+    # debug_stop += 1
+    # print('before_norm["source"][before_i]', before_norm["source"][before_i])
+    # print('after_norm["source"][after_i]', after_norm["source"][after_i])
+    if before_norm["source"][before_i] == after_norm["source"][after_i]:
+        if before_norm["sink"][before_i] == after_norm["sink"][after_i]:
+            # we have a snarl that is represented fully in both graphs.
+            size.append(before_norm["size"][before_i])
+            snarl_num.append((before_i, after_i))
+            size_change.append(after_norm["size"][after_i] - before_norm["size"][before_i])
+            after_i += 1
+        else:
+            # print("in else statement, while bool: ", (before_norm["source"][before_i + 1] != after_norm["source"][after_i]))
+            # we have a snarl that is split during normalization. Scan for next before_norm source value in after_norm.
+            while before_norm["source"][before_i + 1] != after_norm["source"][after_i]:
+                # print("next source in before_norm", before_norm["source"][before_i + 1], "current source in after_norm:", after_norm["source"][after_i])
+                after_i += 1
+
+size_change_percent = [(change/size)*100 for (change, size) in zip(size_change, size)]
+print(size_change_percent[:5])
 
 
+# size_change_sorted = [x for _, x in sorted(zip(size, size_change))]
+# size_sorted = sorted(size)
+# sort_indices = np.argsort(size)
+plt.xscale("log")
+plt.scatter(x=size, y= size_change_percent, s=8)
+#%%
+
+plt.xscale("log")
+plt.scatter(x=size, y= size_change_percent, s=8)
+# plt.xscale("linear")
+#%%
+max_change = max(size_change_percent)
+max_change_i = size_change_percent.index(max_change)
+print(max_change_i)
+snarl_num[max_change_i]
+print(before_norm.loc[snarl_num[max_change_i][0]])
+print(after_norm.loc[snarl_num[max_change_i][1]])
 #%%
 """
 Yeast_subset normalization info:

@@ -36,7 +36,7 @@ void help_normalize(char **argv) {
         << "    -g, --gbwt       gbwt corresponding to hashgraph." << endl
         << "    -s, --snarls       snarls file corresponding to hashgraph." << endl
         << "    -m, --max_alignment_size       limits the number of threads that will "
-           "be aligned in any snarl. If exceeded, program skips snarl. Default is 200 "
+           "be aligned in any snarl. If exceeded, program skips snarl. Default is none "
            "threads. If you don't want to skip any snarls based on thread count, enter 0."
         << endl;
 }
@@ -48,7 +48,7 @@ int main_normalize(int argc, char **argv) {
         return 1;
     }
 
-    int max_alignment_size = 200; // default cutoff is 200 threads in a snarl.
+    int max_alignment_size = INT_MAX; // default cutoff used to be 200 threads in a snarl.
     string gbwt;
     string snarls;
     string normalize_type = "all";
@@ -58,6 +58,9 @@ int main_normalize(int argc, char **argv) {
     bool evaluate = false;
     string snarl_sizes;
     bool snarl_sizes_skip_source_sink = false;
+    int max_handle_size = INT_MAX;
+    bool handles_in_snarl = false;
+
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -75,6 +78,8 @@ int main_normalize(int argc, char **argv) {
              {"evaluate", no_argument, 0, 'e'},
              {"snarl_sizes", required_argument, 0, 'i'},
              {"snarl_sizes_skip_source_sink", no_argument, 0, 'k'},
+             {"max_handle_size", required_argument, 0, 'h'}, // currently, default is INT_MAX. This is for compatibility with changes in graph size measures (0_snarl_analyzer). Eventually should change to handle size standard. 
+             {"handles_in_snarl", no_argument, 0, "x"}, // used in conjunction with arguments source and sink. Will print all the node ids in between source and sink.
              {0, 0, 0, 0}};
 
         int option_index = 0;
@@ -133,6 +138,14 @@ int main_normalize(int argc, char **argv) {
             snarl_sizes_skip_source_sink = true;
             break;
             
+        case 'h':
+            max_handle_size = parse<int>(optarg);
+            break;
+            
+        case 'x':
+            handles_in_snarl = true;
+            break;
+            
         default:
             cerr << "error:[vg normalize] abort" << endl;
             abort();
@@ -174,7 +187,7 @@ int main_normalize(int argc, char **argv) {
         auto start = chrono::high_resolution_clock::now();
 
         algorithms::SnarlNormalizer normalizer =
-            algorithms::SnarlNormalizer(*graph, haploGraph, max_alignment_size);
+            algorithms::SnarlNormalizer(*graph, haploGraph, max_alignment_size, max_handle_size);
 
         if (normalize_type == "all")
         {
@@ -248,6 +261,18 @@ int main_normalize(int argc, char **argv) {
         sizes.output_snarl_sizes(snarl_sizes);
 
     }
+    
+    if (handles_in_snarl)
+    {
+        if (source == NULL && sink == NULL)
+        {
+            cerr << "error:[vg normalize] please enter a values for source and sink to define the snarl."
+        }
+        else
+        {
+            algorithms::print_handles_in_snarl(*graph, source, sink)
+        }
+    }
 
     if (normalize_type!="none") {
         // Save the modified graph
@@ -258,6 +283,8 @@ int main_normalize(int argc, char **argv) {
 
         // graph->serialize(std::cout);
     }
+
+
     // delete graph;
 
     return 0;
