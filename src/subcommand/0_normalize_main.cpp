@@ -79,7 +79,7 @@ int main_normalize(int argc, char **argv) {
              {"snarl_sizes", required_argument, 0, 'i'},
              {"snarl_sizes_skip_source_sink", no_argument, 0, 'k'},
              {"max_handle_size", required_argument, 0, 'h'}, // currently, default is INT_MAX. This is for compatibility with changes in graph size measures (0_snarl_analyzer). Eventually should change to handle size standard. 
-             {"handles_in_snarl", no_argument, 0, "x"}, // used in conjunction with arguments source and sink. Will print all the node ids in between source and sink.
+             {"handles_in_snarl", no_argument, 0, 'x'}, // used in conjunction with arguments source and sink. Will print all the node ids in between source and sink.
              {0, 0, 0, 0}};
 
         int option_index = 0;
@@ -266,11 +266,11 @@ int main_normalize(int argc, char **argv) {
     {
         if (source == NULL && sink == NULL)
         {
-            cerr << "error:[vg normalize] please enter a values for source and sink to define the snarl."
+            cerr << "error:[vg normalize] please enter a values for source and sink to define the snarl." << endl;
         }
         else
         {
-            algorithms::print_handles_in_snarl(*graph, source, sink)
+            algorithms::print_handles_in_snarl(*graph, source, sink);
         }
     }
 
