@@ -158,7 +158,7 @@ int thread_phase(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
 
 /// Get count of a thread stored in GBWT metadata.
 /// NOTE: id is a gbwt path id, not a gbwt sequence id.
-int thread_count(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
+gbwt::size_type thread_count(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
 
 //------------------------------------------------------------------------------
 

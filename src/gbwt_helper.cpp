@@ -334,7 +334,7 @@ int thread_phase(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
     return path.phase;
 }
 
-int thread_count(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
+gbwt::size_type thread_count(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
     if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
         return 0;
     }

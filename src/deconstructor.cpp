@@ -631,7 +631,9 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
             vector<gbwt::size_type>& thread_ids = gbwt_name_to_ids.at(refpath);
             size_t path_len = 0;
             for (gbwt::size_type thread_id : thread_ids) {
-                path_len += path_to_length(extract_gbwt_path(*graph, *gbwt, thread_id));
+                size_t offset = thread_count(*gbwt, thread_id);
+                size_t len = path_to_length(extract_gbwt_path(*graph, *gbwt, thread_id));
+                path_len = std::max(path_len, offset + len);
             }
             stream << "##contig=<ID=" << refpath << ",length=" << path_len << ">" << endl;
         }
