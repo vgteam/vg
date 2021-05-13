@@ -264,13 +264,22 @@ int main_deconstruct(int argc, char** argv){
             }
         }            
 
-        if (gbwt_index.get() && !altpath_prefixes.empty()) {
+        if (gbwt_index.get()) {
             for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
                 string sample_name = thread_sample(*gbwt_index.get(), i);
+                // if no prefixes were specified, we add them all.  this way
+                // we make sure we only use gbwt alts.  an option could be added
+                // to incorporate graph paths by toggling this (ie only adding to
+                // the map if prefixes given)
+                bool add_prefix = altpath_prefixes.empty();
                 for (auto& prefix : altpath_prefixes) {
                     if (sample_name.compare(0, prefix.size(), prefix) == 0) {
-                        alt_path_to_prefix[sample_name] = sample_name;
+                        add_prefix = true;
+                        break;
                     }
+                }
+                if (add_prefix) { 
+                    alt_path_to_prefix[sample_name] = sample_name;
                 }
             }
         }
