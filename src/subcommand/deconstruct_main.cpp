@@ -192,7 +192,7 @@ int main_deconstruct(int argc, char** argv){
         // Add GBWT threads if no reference paths found or we're running with -a
         if (gbwt_index.get() && (all_snarls || refpaths.empty())) {
             for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
-                refpaths.push_back(thread_name(*gbwt_index, i));
+                refpaths.push_back(thread_name(*gbwt_index, i, true));
             }            
         }
     }
@@ -254,7 +254,7 @@ int main_deconstruct(int argc, char** argv){
             });
         if (gbwt_index.get()) {
             for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
-                std::string path_name = thread_name(*gbwt_index, i);
+                std::string path_name = thread_name(*gbwt_index, i, true);
                 for (auto& prefix : refpath_prefixes) {
                     if (path_name.compare(0, prefix.size(), prefix) == 0) {
                         refpaths.push_back(path_name);

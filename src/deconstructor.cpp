@@ -304,6 +304,10 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
                  << " trav=" << pb2json(path_travs.first[i]) << endl;
         }
 #endif
+        tuple<bool, string, size_t, size_t> subpath_parse = Paths::parse_subpath_name(path_trav_name);
+        if (get<0>(subpath_parse)) {
+            path_trav_name = get<1>(subpath_parse);
+        }
         if (ref_paths.count(path_trav_name) &&
             (ref_trav_name.empty() || path_trav_name < ref_trav_name)) {
             ref_trav_name = path_trav_name;
@@ -314,11 +318,20 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
     // remember all the reference traversals (there can be more than one only in the case of a
     // cycle in the reference path
     vector<int> ref_travs;
+    // hacky subpath support -- gets added to variant on output
+    vector<int64_t> ref_offsets;
     if (!ref_trav_name.empty()) {
         for (int i = 0; i < path_travs.first.size(); ++i) {
             string path_trav_name = graph->get_path_name(graph->get_path_handle_of_step(path_travs.second[i].first));
+            tuple<bool, string, size_t, size_t> subpath_parse = Paths::parse_subpath_name(path_trav_name);
+            int64_t sub_offset = 0;
+            if (get<0>(subpath_parse)) {
+                path_trav_name = get<1>(subpath_parse);
+                sub_offset = (int64_t)get<2>(subpath_parse);
+            }
             if (path_trav_name == ref_trav_name) {
                 ref_travs.push_back(i);
+                ref_offsets.push_back(sub_offset);
             }
         }
     }
@@ -326,6 +339,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
     // add in the gbwt traversals if we can
     size_t first_gbwt_trav_idx = path_travs.first.size();
     vector<gbwt::size_type> trav_thread_ids(first_gbwt_trav_idx, numeric_limits<gbwt::size_type>::max());
+    vector<int64_t> gbwt_trav_offsets;
     if (gbwt_trav_finder.get() != nullptr) {
         pair<vector<SnarlTraversal>, vector<gbwt::size_type>> thread_travs = gbwt_trav_finder->find_path_traversals(*snarl);
         for (int i = 0; i < thread_travs.first.size(); ++i) {
@@ -333,13 +347,16 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
             // we count on convention of reference as embedded path above, so ignore it here
             // todo: would be nice to be more flexible...
             if (gbwt_sample_name != gbwtgraph::REFERENCE_PATH_SAMPLE_NAME) {
-                string name = thread_name(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(thread_travs.second[i]));
+                string name = thread_name(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(thread_travs.second[i]), true);
+                
                 path_trav_names.push_back(name);
                 path_travs.first.push_back(thread_travs.first[i]);
                 // dummy handles so we can use the same code as the named path traversals above
                 path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
                 // but we keep the thread id for later
                 trav_thread_ids.push_back(thread_travs.second[i]);
+                // keep the offset (which is stored in the contig field)
+                gbwt_trav_offsets.push_back(thread_count(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(thread_travs.second[i])));
             }
         }
     }
@@ -347,17 +364,20 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
     // if there's no reference traversal, go fishing in the gbwt
     if (ref_travs.empty() && gbwt_trav_finder.get()) {
         int gbwt_ref_trav = -1;
+        int64_t gbwt_ref_offset = 0;
         for (int i = first_gbwt_trav_idx; i < path_travs.first.size(); ++i) {
             if (ref_paths.count(path_trav_names[i]) &&
                 (gbwt_ref_trav < 0 || path_trav_names[i] < path_trav_names[gbwt_ref_trav])) {
                 gbwt_ref_trav = i;
-            }
+                gbwt_ref_offset = gbwt_trav_offsets.at(i - first_gbwt_trav_idx);
+            } 
         }
         if (gbwt_ref_trav >= 0) {
             ref_travs.push_back(gbwt_ref_trav);
+            ref_offsets.push_back(gbwt_ref_offset);
             string& name = path_trav_names[gbwt_ref_trav];
-            assert(name.compare(0, 8, "_thread_") == 0);
-            ref_trav_name = name.substr(8);
+            assert(name.compare(0, 8, "_thread_") != 0);
+            ref_trav_name = name;
         }
     }
                                                           
@@ -410,7 +430,9 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
     }
 
     // we write a variant for every reference traversal
-    for (auto ref_trav_idx : ref_travs) {
+    for (size_t i = 0; i < ref_travs.size(); ++i) {
+        auto& ref_trav_idx = ref_travs[i];
+        auto& ref_trav_offset = ref_offsets[i];
 
         const SnarlTraversal& ref_trav = path_travs.first[ref_trav_idx];
         
@@ -458,7 +480,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         // shift from 0-based to 1-based for VCF
         first_path_pos += 1;
 
-        v.position = first_path_pos;
+        v.position = first_path_pos + ref_trav_offset;
 
         v.id = snarl_name(snarl);
         
@@ -601,13 +623,16 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         }       
     }
     if (!gbwt_ref_paths.empty()) {
-        unordered_map<string, gbwt::size_type> gbwt_name_to_id;
+        unordered_map<string, vector<gbwt::size_type>> gbwt_name_to_ids;
         for (size_t i = 0; i < gbwt->metadata.paths(); i++) {
-            gbwt_name_to_id[thread_name(*gbwt, i)] = i;
+            gbwt_name_to_ids[thread_name(*gbwt, i, true)].push_back(i);
         }
         for (const string& refpath : gbwt_ref_paths) {
-            gbwt::size_type thread_id = gbwt_name_to_id.at(refpath);
-            size_t path_len = path_to_length(extract_gbwt_path(*graph, *gbwt, thread_id));
+            vector<gbwt::size_type>& thread_ids = gbwt_name_to_ids.at(refpath);
+            size_t path_len = 0;
+            for (gbwt::size_type thread_id : thread_ids) {
+                path_len += path_to_length(extract_gbwt_path(*graph, *gbwt, thread_id));
+            }
             stream << "##contig=<ID=" << refpath << ",length=" << path_len << ">" << endl;
         }
     }

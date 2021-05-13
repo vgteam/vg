@@ -283,14 +283,16 @@ Path extract_gbwt_path(const HandleGraph& graph, const gbwt::GBWT& gbwt_index, g
     return result;
 }
 
-std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
+std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id, bool short_name) {
     if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
         return "";
     }
 
     const gbwt::PathName& path = gbwt_index.metadata.path(id);
     std::stringstream stream;
-    stream << "_thread_";
+    if (!short_name) {
+        stream << "_thread_";
+    }
     if (gbwt_index.metadata.hasSampleNames()) {
         stream << gbwt_index.metadata.sample(path.sample);
     } else {
@@ -302,7 +304,9 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
     } else {
         stream << path.contig;
     }
-    stream << "_" << path.phase << "_" << path.count;
+    if (!short_name) {
+        stream << "_" << path.phase << "_" << path.count;
+    }
     return stream.str();
 }
 
@@ -330,6 +334,14 @@ int thread_phase(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
     return path.phase;
 }
 
+int thread_count(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
+    if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
+        return 0;
+    }
+    
+    const gbwt::PathName& path = gbwt_index.metadata.path(id);
+    return path.count;
+}
 
 //------------------------------------------------------------------------------
 
