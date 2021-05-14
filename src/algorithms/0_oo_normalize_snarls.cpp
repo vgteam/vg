@@ -104,6 +104,9 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
         // } else {
         //     num_snarls_touched++;
         // }
+        // //todo: debug_print:
+        // cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
+
         if (_full_log_print)
         {
             cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
@@ -161,8 +164,6 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
          << full_error_record[0] << " snarls),\n"
          << "had haplotypes starting/ending in the middle of the snarl ("
          << full_error_record[1] << "),\n"
-         << "the snarl was cyclic (" 
-         << full_error_record[3] << " snarls),\n"
         //  << " there were handles not connected by the gbwt info ("
         //  << full_error_record[2] << " snarls),\n" 
          << "the snarl was cyclic (" << full_error_record[3] << " snarls),\n"
@@ -272,10 +273,25 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
     if (_path_finder == "GBWT") {
         tuple<vector<vector<handle_t>>, vector<vector<handle_t>>, unordered_set<handle_t>>
             gbwt_haplotypes = sequence_finder.find_gbwt_haps();
+
+        // cerr << "naive? gbwt haplotypes extract: " << endl;
+        // for (auto hap : get<0>(gbwt_haplotypes)) 
+        // {
+        //     for (auto handle : hap)
+        //     {
+        //         cerr << "handle id: " << _graph.get_id(handle) << " seq: " << _graph.get_sequence(handle) << endl;
+        //     }
+        // }
         // Convert the haplotypes from vector<handle_t> format to string format.
         get<0>(haplotypes) = format_handle_haplotypes_to_strings(get<0>(gbwt_haplotypes));
         get<1>(haplotypes) = get<1>(gbwt_haplotypes);
         get<2>(haplotypes) = get<2>(gbwt_haplotypes);
+        // cerr << "haplotypes after formatting to strings: " << endl;
+        // for (auto hap : get<0>(haplotypes)) 
+        // {
+        //     cerr << "hap: " << hap << endl;
+        // }
+        
     } else if (_path_finder == "exhaustive") {
         pair<unordered_set<string>, unordered_set<handle_t>> exhaustive_haplotypes =
             sequence_finder.find_exhaustive_paths();
@@ -471,7 +487,7 @@ unordered_set<string> SnarlNormalizer::format_handle_haplotypes_to_strings(
     for (vector<handle_t> haplotype_handles : haplotype_handle_vectors) {
         string hap;
         for (handle_t &handle : haplotype_handles) {
-            hap += _haploGraph.get_sequence(handle);
+            hap += _graph.get_sequence(handle);
         }
         haplotype_strings.emplace(hap);
     }
@@ -528,6 +544,8 @@ VG SnarlNormalizer::align_source_to_sink_haplotypes(
         // cerr << "hap after replace: " << hap << endl;
         edited_source_to_sink_haplotypes.emplace(hap);
     }
+    // cerr << "source_char: " << source_char << endl;
+    // cerr << "sink_char: " << sink_char << endl;
 
     // //todo: debug_statement
     // source_to_sink_haplotypes.emplace_back("XX");

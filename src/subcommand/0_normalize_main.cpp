@@ -52,7 +52,7 @@ int main_normalize(int argc, char **argv) {
     string gbwt;
     string snarls;
     string normalize_type = "all";
-    int source = NULL;
+    int source = NULL; //todo: do something other than NULL to avoid the compiler warnings. 
     int sink = NULL;
     bool paths_right_to_left = false;
     bool evaluate = false;
@@ -79,11 +79,11 @@ int main_normalize(int argc, char **argv) {
              {"snarl_sizes", required_argument, 0, 'i'},
              {"snarl_sizes_skip_source_sink", no_argument, 0, 'k'},
              {"max_handle_size", required_argument, 0, 'h'}, // currently, default is INT_MAX. This is for compatibility with changes in graph size measures (0_snarl_analyzer). Eventually should change to handle size standard. 
-             {"handles_in_snarl", no_argument, 0, 'x'}, // used in conjunction with arguments source and sink. Will print all the node ids in between source and sink.
+             {"handles_in_snarl", no_argument, 0, 'x'}, // used in conjunction with arguments source and sink. Will print all the node ids in between source and sink, inclusive.
              {0, 0, 0, 0}};
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "hg:s:n:a:b:pm:ei:k", long_options, &option_index);
+        c = getopt_long(argc, argv, "hg:s:n:a:b:pm:ei:kh:x", long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -144,6 +144,7 @@ int main_normalize(int argc, char **argv) {
             
         case 'x':
             handles_in_snarl = true;
+            normalize_type = "none";
             break;
             
         default:

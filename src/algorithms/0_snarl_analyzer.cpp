@@ -9,10 +9,10 @@ void print_handles_in_snarl(const HandleGraph& graph, const id_t& source, const 
     //Note: extract_subgraph here assumes that the source is leftmost node of the region.
     //todo: somehow avoid that assumption? Can I look up the snarl in snarl_roots, for example?
     SubHandleGraph snarl = extract_subgraph(graph, source, sink, false);
-    cerr << "node ids of snarl with source " << source << " and sink " << sink << endl; 
+    // cout << "node ids of snarl with source " << source << " and sink " << sink << endl; 
     snarl.for_each_handle([&](const handle_t handle) 
     {
-        cerr << graph.get_id(handle) << " ";
+        cout << graph.get_id(handle) << " ";
     });
 }
 
