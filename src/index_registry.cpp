@@ -2328,6 +2328,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
             haplotype_indexer->show_progress = IndexingParameters::verbosity >= IndexingParameters::Debug;
             
+            // from the toil-vg best practices
+            haplotype_indexer->force_phasing = true;
+            haplotype_indexer->discard_overlaps = true;
+            
             vector<string> parse_files = haplotype_indexer->parse_vcf(vcf_filenames[i],
                                                                       *graph);
             
