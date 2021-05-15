@@ -631,9 +631,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             FastaReference ref;
             ref.open(fasta_filenames[i]);
             for (const auto& idx_entry : *ref.index) {
-                seq_files[idx_entry.second.name] = i;
-                seq_lengths[idx_entry.second.name] = idx_entry.second.length;
-                seq_queue.emplace(idx_entry.second.length, idx_entry.second.name);
+                seq_files[idx_entry.first] = i;
+                seq_lengths[idx_entry.first] = idx_entry.second.length;
+                seq_queue.emplace(idx_entry.second.length, idx_entry.first);
             }
         }
         

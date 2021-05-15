@@ -265,7 +265,7 @@ int main_autoindex(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "p:w:r:v:i:g:x:a:P:R:f:M:T:t:dVh",
+        c = getopt_long (argc, argv, "p:w:r:v:i:g:x:a:P:R:f:M:T:t:dV:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
