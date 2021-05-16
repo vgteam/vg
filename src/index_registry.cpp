@@ -955,6 +955,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     auto output_vcf_name = plan->output_filepath(output_vcf, i, buckets.size());
                     htsFile* vcf = bcf_open(output_vcf_name.c_str(), "wz");
                     bcf_hdr_t* header = bcf_hdr_init("w");
+                    // this is to satisfy HaplotypeIndexer, which doesn't like sample-less VCFs
+                    int sample_add_code = bcf_hdr_add_sample(header, "dummy");
+                    if (sample_add_code != 0) {
+                        cerr << "error:[IndexRegistry] error initializing VCF header" << endl;
+                        exit(1);
+                    }
                     int hdr_write_err_code = bcf_hdr_write(vcf, header);
                     if (hdr_write_err_code != 0) {
                         cerr << "error:[IndexRegistry] error writing VCF header to " << output_vcf_name << endl;
