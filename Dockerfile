@@ -16,8 +16,7 @@ ARG TARGETARCH
 
 RUN echo build > /stage.txt
 
-RUN curl -sL https://deb.nodesource.com/setup_14.x | bash - && \
-    apt-get -qq -y update && \
+RUN apt-get -qq -y update && \
     apt-get -qq -y upgrade && \
     apt-get -qq -y install sudo
 
@@ -77,7 +76,7 @@ ARG THREADS=8
 
 RUN echo test > /stage.txt
 
-RUN apt-get -qq -y install nodejs
+RUN curl -sL https://deb.nodesource.com/setup_14.x | bash - && apt-get -qq -y install nodejs
 
 # Fail if any non-portable instructions were used
 RUN /bin/bash -e -c 'if objdump -d /vg/bin/vg | grep vperm2i128 ; then exit 1 ; else exit 0 ; fi'
