@@ -8,8 +8,6 @@
 image: quay.io/vgteam/vg_ci_prebake:latest
 
 before_script:
-  # txm markdown test runner depends on yargs which requires Node newer than current Ubuntu LTS can ship
-  - curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
   - sudo apt-get -q -y update
   # Make sure we have some curl stuff for pycurl which we need for some Python stuff
   # And the CI report upload needs uuidgen from uuid-runtime
