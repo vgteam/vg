@@ -57,7 +57,7 @@ std::vector<std::string> HaplotypeIndexer::parse_vcf(const std::string& filename
     // How many samples are there?
     size_t num_samples = variant_file.sampleNames.size();
     if (num_samples == 0) {
-        std::cerr << "error: [HaplotypeIndexer::parse_vcf] the variant file does not contain phasings" << std::endl;
+        std::cerr << "error: [HaplotypeIndexer::parse_vcf] variant file '" << filename << "' does not contain phasings" << std::endl;
         std::exit(EXIT_FAILURE);
     }
 
