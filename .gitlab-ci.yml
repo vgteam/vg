@@ -70,7 +70,7 @@ local-build-test-job:
     - git clone https://github.com/vgteam/sequenceTubeMap.git
     - cd sequenceTubeMap
     # Tube map expects local IPv6 but Kubernetes won't let us have it
-    - sed -i 's/^}$/,"serverBindAddress": "127.0.0.1"}/' src/config.json
+    - 'sed -i "s/^}$/,\"serverBindAddress\": \"127.0.0.1\"}/" src/config.json'
     - npm install
     - CI=true npm run test
   variables:
