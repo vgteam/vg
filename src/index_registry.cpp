@@ -631,9 +631,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             FastaReference ref;
             ref.open(fasta_filenames[i]);
             for (const auto& idx_entry : *ref.index) {
-                seq_files[idx_entry.second.name] = i;
-                seq_lengths[idx_entry.second.name] = idx_entry.second.length;
-                seq_queue.emplace(idx_entry.second.length, idx_entry.second.name);
+                seq_files[idx_entry.first] = i;
+                seq_lengths[idx_entry.first] = idx_entry.second.length;
+                seq_queue.emplace(idx_entry.second.length, idx_entry.first);
             }
         }
         
@@ -955,6 +955,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     auto output_vcf_name = plan->output_filepath(output_vcf, i, buckets.size());
                     htsFile* vcf = bcf_open(output_vcf_name.c_str(), "wz");
                     bcf_hdr_t* header = bcf_hdr_init("w");
+                    // this is to satisfy HaplotypeIndexer, which doesn't like sample-less VCFs
+                    int sample_add_code = bcf_hdr_add_sample(header, "dummy");
+                    if (sample_add_code != 0) {
+                        cerr << "error:[IndexRegistry] error initializing VCF header" << endl;
+                        exit(1);
+                    }
                     int hdr_write_err_code = bcf_hdr_write(vcf, header);
                     if (hdr_write_err_code != 0) {
                         cerr << "error:[IndexRegistry] error writing VCF header to " << output_vcf_name << endl;
@@ -2327,6 +2333,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 }
             }
             haplotype_indexer->show_progress = IndexingParameters::verbosity >= IndexingParameters::Debug;
+            
+            // from the toil-vg best practices
+            haplotype_indexer->force_phasing = true;
+            haplotype_indexer->discard_overlaps = true;
             
             vector<string> parse_files = haplotype_indexer->parse_vcf(vcf_filenames[i],
                                                                       *graph);
