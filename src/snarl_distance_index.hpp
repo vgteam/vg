@@ -1478,19 +1478,35 @@ private:
 
             if (!std::get<1>(node1) && std::get<1>(node2)) {
                 //Right of 1 and left of 2, so a simple forward traversal of the chain
-                return get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1))
-                     - std::get<2>(node1);
+                if (std::get<0>(node1) == std::get<0>(node2)) {
+                    //If these are the same node, then the path would need to go around the node
+                    return sum({get_forward_loop_value(std::get<0>(node1)), 
+                                get_reverse_loop_value(std::get<0>(node1)),
+                                std::get<2>(node1)});
+                } else {
+                    return minus(get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1)),
+                         std::get<2>(node1));
+                }
             } else if (!std::get<1>(node1) && !std::get<1>(node2)) {
                 //Right side of 1 and right side of 2
+                if (std::get<0>(node1) == std::get<0>(node2)) {
+                    return get_forward_loop_value(std::get<0>(node2));
 
-                return minus( sum({get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1)) , 
-                                   std::get<2>(node2), 
-                                   get_forward_loop_value(std::get<0>(node2))}), 
-                             std::get<2>(node1));
+                } else {
+                    return minus( sum({get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1)) , 
+                                       std::get<2>(node2), 
+                                       get_forward_loop_value(std::get<0>(node2))}), 
+                                 std::get<2>(node1));
+                }
             } else if (std::get<1>(node1) && std::get<1>(node2)) {
                 //Left side of 1 and left side of 2
-                return sum({get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1))  
-                     , get_reverse_loop_value(std::get<0>(node1))});
+                if (std::get<0>(node1) == std::get<0>(node2)) {
+                    return get_reverse_loop_value(std::get<0>(node1));
+
+                } else {
+                    return sum({get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1))  
+                         , get_reverse_loop_value(std::get<0>(node1))});
+                }
             } else {
                 assert(std::get<1>(node1) && !std::get<1>(node2));
                 //Left side of 1 and right side of 2

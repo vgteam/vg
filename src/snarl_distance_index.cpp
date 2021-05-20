@@ -1642,7 +1642,7 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
                 go_left2 = !go_left2;
             }
 #ifdef debug_distances
-            cerr << "Finding distances between ranks " << child_record1.get_rank_in_parent() << " " << go_left1 << " " << child_record1.get_node_length() << " and " << endl << child_record2.get_rank_in_parent() << " " << go_left2 << " " << child_record2.get_node_length() << endl;
+            cerr << "Finding distances between two nodes with ranks " << child_record1.get_rank_in_parent() << " " << go_left1 << " " << child_record1.get_node_length() << " and " << endl << child_record2.get_rank_in_parent() << " " << go_left2 << " " << child_record2.get_node_length() << endl;
             cerr << "            => " << chain_record.get_distance(
                 make_tuple(child_record1.get_rank_in_parent(), go_left1, child_record1.get_node_length()), 
                 make_tuple(child_record2.get_rank_in_parent(), go_left2, child_record2.get_node_length())) << endl;
@@ -1905,15 +1905,17 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
  
     if (canonical(net1) == canonical(net2)){
         cerr << "SAME NODE" << endl;
-        if (sum({distance_to_end1 , distance_to_start2}) >= node_length(net1)) {
+        if (sum({distance_to_end1 , distance_to_start2}) > node_length(net1) && 
+            sum({distance_to_end1 , distance_to_start2}) != std::numeric_limits<int64_t>::max()) {
             //If the positions are on the same node and are pointing towards each other, then
             //check the distance between them in the node
             minimum_distance = minus(sum({distance_to_end1 , distance_to_start2}), node_length(net1));
-            cerr << " Distance: " << minimum_distance << endl;
+            cerr << " Distance 2 to 1: " << minimum_distance << endl;
         }
-        if (sum({distance_to_start1 , distance_to_end2}) >= node_length(net1)) {
+        if (sum({distance_to_start1 , distance_to_end2}) > node_length(net1) && 
+            sum({distance_to_start1 , distance_to_end2}) != std::numeric_limits<int64_t>::max()) {
             minimum_distance = std::min(minus(sum({distance_to_start1 , distance_to_end2}), node_length(net1)), minimum_distance);
-            cerr << " Distance: " << minimum_distance << endl;
+            cerr << " Distance 1 to 2: " << minimum_distance << endl;
         }
         common_ancestor = get_parent(net1);
     } else {
