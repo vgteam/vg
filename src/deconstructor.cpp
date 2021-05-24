@@ -194,7 +194,12 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
     // count the number of times each allele comes up in a traversal
     vector<int> allele_frequencies(*max_element(trav_to_allele.begin(), trav_to_allele.end()) + 1, 0);
     for (auto trav : travs) {
-        ++allele_frequencies[trav_to_allele.at(trav)];
+        // we always want to choose alt over ref when possible in sorting logic below, so
+        // cap ref frequency at 1
+        int allele = trav_to_allele.at(trav);
+        if (allele > 0 || allele_frequencies[allele] == 0) {
+            ++allele_frequencies[allele];
+        }        
     }
     // sort on frquency
     function<bool(int, int)> comp = [&] (int trav1, int trav2) {
