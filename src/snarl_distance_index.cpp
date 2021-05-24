@@ -381,7 +381,9 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
                 temp_chain_record.chain_components.emplace_back(curr_component);
             }
         }
-        temp_chain_record.min_length = sum({temp_chain_record.prefix_sum.back() , temp_chain_record.end_node_length}); 
+        temp_chain_record.min_length = !temp_chain_record.is_trivial && temp_chain_record.start_node_id == temp_chain_record.end_node_id 
+                        ? temp_chain_record.prefix_sum.back()
+                        : sum({temp_chain_record.prefix_sum.back() , temp_chain_record.end_node_length});
 
         assert(temp_chain_record.prefix_sum.size() == temp_chain_record.backward_loops.size());
         assert(temp_chain_record.prefix_sum.size() == temp_chain_record.chain_components.size());
@@ -1219,6 +1221,7 @@ net_handle_t SnarlDistanceIndex::get_parent(const net_handle_t& child) const {
     } else if (parent_type == ROOT_HANDLE) {
         //The parent could be a root snarl, in which case we want to actually return the root, not the 
         //snarl pretending to be the root
+        //TODO: Actually shouldn't it return the root snarl and know that it's a root? How else would we end up in the root snarl?
         return get_net_handle(0, parent_connectivity);
     }
 
@@ -1807,7 +1810,7 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
     //probaby rearrange things so that either the snarl or the chain can access boundary node lengths
     auto update_distances = [&](net_handle_t& net, net_handle_t& parent, int64_t& dist_start, int64_t& dist_end) {
 #ifdef debug_distances
-        cerr << "     at node " << net_handle_as_string(net) << " at parent " << net_handle_as_string(parent) << endl;
+        cerr << "     Updating distance from node " << net_handle_as_string(net) << " at parent " << net_handle_as_string(parent) << endl;
 #endif
 
         if (is_trivial_chain(parent)) {
@@ -1958,6 +1961,11 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
     while (!is_root(net1)){
         //TODO: Actually checking distance in a chain is between the nodes, not the snarl
         //and neither include the lengths of the nodes
+#ifdef debug_distances
+            cerr << "At common ancestor " << net_handle_as_string(common_ancestor) <<  endl;
+            cerr << "  with distances " << distance_to_start1 << " "  << distance_to_end1 << 
+                    " " << distance_to_start2 << " " <<  distance_to_end2 << endl;
+#endif
 
         //Find the minimum distance between the two children (net1 and net2)
         int64_t distance_start_start = distance_in_parent(common_ancestor, flip(net1), flip(net2));
@@ -1973,8 +1981,7 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
                                     sum({distance_end_end , distance_to_end1 , distance_to_end2})))));
 
 #ifdef debug_distances
-        cerr << "At common ancestor " << net_handle_as_string(common_ancestor) <<  endl;
-        cerr << "  best distance is " << minimum_distance << endl;
+            cerr << "  best distance is " << minimum_distance << endl;
 #endif
         if (!is_root(common_ancestor)) {
             //Update the distances to reach the ends of the common ancestor
@@ -1986,10 +1993,36 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
             net2 = common_ancestor;
             common_ancestor = get_parent(common_ancestor);
         } else {
+            //If net1 and net2 are the same, check if they have external connectivity in the root
+            if ( canonical(net1) == canonical(net2) ) {
+#ifdef debug_distances
+                cerr << "    Checking external connectivity" << endl;
+#endif
+                if (has_external_connectivity(net1, START, START)) {
+                    cerr << "Start start " << endl;
+                    minimum_distance = std::min(minimum_distance, sum({distance_to_start1, distance_to_start2}));
+                }
+                if (has_external_connectivity(net1, END, END)) {
+                    cerr << " end end " << endl;
+                    minimum_distance = std::min(minimum_distance, sum({distance_to_end1, distance_to_end2}));
+                }
+                if (has_external_connectivity(net1, START, END)) {
+                    cerr << "start end " << endl;
+                    minimum_distance = std::min(minimum_distance, 
+                                       std::min(sum({distance_to_start1, distance_to_end2}),
+                                                sum({distance_to_end1, distance_to_start2})));
+                }
+            }
             //Just update this one to break out of the loop
             net1 = common_ancestor;
+
         }
 
+#ifdef debug_distances
+            cerr << "  new common ancestor " << net_handle_as_string(common_ancestor) <<  endl;
+            cerr << "  new distances are " << distance_to_start1 << " "  << distance_to_end1 << 
+                    " " << distance_to_start2 << " " <<  distance_to_end2 << endl;
+#endif
     }
 
     //minimum distance currently includes both positions
@@ -2038,6 +2071,15 @@ int64_t SnarlDistanceIndex::node_id(const net_handle_t& net) const {
         throw runtime_error("error: Looking for the node length of a non-node net_handle_t");
     }
 
+}
+
+bool SnarlDistanceIndex::has_connectivity(const net_handle_t& net, endpoint_t start, endpoint_t end) const {
+    SnarlTreeRecord record(net, &snarl_tree_records);
+    return record.has_connectivity(start, end);
+}
+bool SnarlDistanceIndex::has_external_connectivity(const net_handle_t& net, endpoint_t start, endpoint_t end) const {
+    SnarlTreeRecord record(net, &snarl_tree_records);
+    return record.has_external_connectivity(start, end);
 }
 
 }
