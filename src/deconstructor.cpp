@@ -195,9 +195,9 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
     vector<int> allele_frequencies(*max_element(trav_to_allele.begin(), trav_to_allele.end()) + 1, 0);
     for (auto trav : travs) {
         // we always want to choose alt over ref when possible in sorting logic below, so
-        // don't count refs here        
+        // cap ref frequency at 1
         int allele = trav_to_allele.at(trav);
-        if (allele > 0) {
+        if (allele > 0 || allele_frequencies[allele] == 0) {
             ++allele_frequencies[allele];
         }        
     }
