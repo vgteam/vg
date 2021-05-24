@@ -1,5 +1,9 @@
 # Multi-container Dockerfile for build and run containers for vg
-FROM ubuntu:20.04 AS base
+
+# Use Google's non-rate-limited mirror of Docker Hub to get our base image.
+# This helps automated Quay builds because Quay hasn't built a caching system
+# and exposes pull rate limits to users.
+FROM mirror.gcr.io/library/ubuntu:20.04 AS base
 MAINTAINER vgteam
 
 RUN echo base > /stage.txt
