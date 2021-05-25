@@ -2855,6 +2855,30 @@ namespace vg {
                 });
                 REQUIRE(child_i == 5);
             }
+            SECTION("Minimum distances are correct") {
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, true, 0), make_pos_t(2, false, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, true, 0), make_pos_t(5, false, 0)) == 3);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, true, 0), make_pos_t(4, false, 2)) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(6, true, 0), make_pos_t(1, false, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(9, true, 0), make_pos_t(1, false, 0)) == 3);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(7, true, 0), make_pos_t(1, false, 0)) == 2);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(8, true, 0), make_pos_t(1, false, 0)) == 2);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, true, 0), make_pos_t(8, false, 0)) == 2);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(8, false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(8, true, 0), make_pos_t(1, true, 0)) == std::numeric_limits<int64_t>::max());
+            }
         }
 
         TEST_CASE("Bubbles can be found when heads cannot reach tails", "[snarl_distance]") {
@@ -2873,9 +2897,9 @@ namespace vg {
             {
                 "node": [
                     {"id": 1, "sequence": "A"},
-                    {"id": 2, "sequence": "A"},
-                    {"id": 3, "sequence": "A"},
-                    {"id": 4, "sequence": "A"}
+                    {"id": 2, "sequence": "AA"},
+                    {"id": 3, "sequence": "AA"},
+                    {"id": 4, "sequence": "AA"}
                 ],
                 "edge": [
                     {"from": 1, "to": 3},
@@ -2936,6 +2960,28 @@ namespace vg {
                     child_i++;
                 });
                 REQUIRE(child_i == 3);
+            }
+            SECTION("Minimum distances are correct") {
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(3, false, 0), make_pos_t(4, false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(3, false, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(3, false, 1), make_pos_t(3, false, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(2, false, 1), make_pos_t(2, false, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(2, false, 0), make_pos_t(4, false, 0)) == 2);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(2, false, 0), make_pos_t(3, false, 0)) == 2);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(4, false, 1), make_pos_t(4, false, 0)) == std::numeric_limits<int64_t>::max());
             }
         }
 
@@ -3014,8 +3060,47 @@ namespace vg {
                 });
                 REQUIRE(child_i == 5);
             }
+            SECTION("Minimum distances are correct") {
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(3, false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == 2);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(5, false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(6, false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(2, false, 0), make_pos_t(4, false, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(2, false, 0), make_pos_t(3, false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(2, false, 0), make_pos_t(5, false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(2, false, 0), make_pos_t(6, false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(5, true, 0), make_pos_t(6, true, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(5, true, 0), make_pos_t(4, true, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(5, true, 0), make_pos_t(1, true, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(5, true, 0), make_pos_t(2, true, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(5, true, 0), make_pos_t(3, true, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(5, true, 0), make_pos_t(4, true, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(6, true, 0), make_pos_t(4, true, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(3, false, 0), make_pos_t(4, false, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(3, false, 0), make_pos_t(3, false, 0)) == 0);
+            }
         }
-        TEST_CASE("Distance index can deal with chains that loop at the root", "[snarl_distance]") {
+        TEST_CASE("Distance index can deal with chains that loop at the root", "[snarl_distance][bug]") {
+            //TODO: I think it should actually be a chain, whose parent is a root snarl
             
             // Build a toy graph
             const string graph_json = R"(
@@ -3069,6 +3154,22 @@ namespace vg {
                     child_i++;
                 });
                 REQUIRE(child_i == 2);
+            }
+            SECTION("Minimum distances are correct") {
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(2, false, 0), make_pos_t(1, false, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(1, false, 0)) == 0);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(2, false, 0), make_pos_t(1, false, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, true, 0), make_pos_t(2, true, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(2, true, 0), make_pos_t(1, true, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(2, true, 0)) == std::numeric_limits<int64_t>::max());
             }
             
             
@@ -3153,6 +3254,38 @@ namespace vg {
                     child_i++;
                 });
                 REQUIRE(child_i == 5);
+            }
+            SECTION("Minimum distances are correct") {
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(3, false, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(6, false, 0)) == 2);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(5, false, 0), make_pos_t(6, false, 0)) == 3);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(6, true, 0), make_pos_t(5, true, 0)) == 3);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(2, false, 0), make_pos_t(6, false, 0)) == 2);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(5, false, 0), make_pos_t(2, false, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, true, 0), make_pos_t(2, true, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(4, true, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(4, false, 0), make_pos_t(1, false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(4, false, 0), make_pos_t(2, false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(4, false, 0), make_pos_t(3, false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(4, false, 0), make_pos_t(5, false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(4, false, 0), make_pos_t(6, false, 0)) == std::numeric_limits<int64_t>::max());
             }
         }
         
@@ -3253,7 +3386,27 @@ namespace vg {
                 }
                 
             }
-            
+         
+            SECTION("Minimum distances are correct") {
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == 1); 
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(3, false, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == 2); 
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(5, false, 0)) == 3); 
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(6, false, 0)) == 3); 
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(7, false, 0)) == 4); 
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(8, false, 0)) == 5); 
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(9, false, 0)) == 5); 
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(10, false, 0)) == 6); 
+            }
         }
         
         TEST_CASE("chain start and end functions work on difficult chains", "[snarl_distance]") {
@@ -3358,7 +3511,25 @@ namespace vg {
                         distance_index.canonical(child_chain));
                 
             }
-            
+         
+            SECTION("Minimum distances are correct") {
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == 3);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(3, false, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(5, false, 0)) == 8);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(6, false, 0)) == 11);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(9, false, 0)) == 11);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(7, false, 0)) == 8);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(8, false, 0)) == 3);
+            }
         }
 
 
@@ -3430,7 +3601,27 @@ namespace vg {
 
             }
             
-            
+         
+            SECTION("Minimum distances are correct") {
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(2, true, 0), make_pos_t(1, true, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(2, true, 0)) == 2);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(1, true, 0)) == 3);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, true, 0), make_pos_t(1, false, 0)) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, true, 0), make_pos_t(2, false, 0)) == 2);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, true, 0), make_pos_t(2, true, 0)) == 3);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(2, false, 0), make_pos_t(1, true, 0)) == 2);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(2, false, 0), make_pos_t(2, true, 0)) == 1);
+            }
         }
         
         TEST_CASE( "Distance index can deal with a bigger graph with no ordinary cycles", "[snarl_distance][bad]" ) {
@@ -3454,7 +3645,6 @@ namespace vg {
            
             IntegratedSnarlFinder snarl_finder(graph); 
             
-            /*
             SnarlDistanceIndex distance_index(&graph, &snarl_finder);
            
             SECTION("Find all the nodes") {
@@ -3467,8 +3657,11 @@ namespace vg {
                 REQUIRE(component_count == 1);
 
             }
-            */
             
+            SECTION("Minimum distances are correct") {
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == 1);
+            }
         }
 
         /*

@@ -2012,6 +2012,13 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
                                        std::min(sum({distance_to_start1, distance_to_end2}),
                                                 sum({distance_to_end1, distance_to_start2})));
                 }
+
+                if (has_external_connectivity(net1, START, START) && has_external_connectivity(net1, END, END)) {
+                    minimum_distance = std::min(minimum_distance, 
+                                       sum({std::min(sum({distance_to_start1, distance_to_end2}),
+                                                sum({distance_to_end1, distance_to_start2})), 
+                                           minimum_length(net1)}));
+                }
             }
             //Just update this one to break out of the loop
             net1 = common_ancestor;
@@ -2054,6 +2061,12 @@ int64_t SnarlDistanceIndex::node_length(const net_handle_t& net) const {
         throw runtime_error("error: Looking for the node length of a non-node net_handle_t");
     }
 
+}
+
+
+//TODO: This is kind of redundant with node_length 
+int64_t SnarlDistanceIndex::minimum_length(const net_handle_t& net) const {
+        return SnarlTreeRecord(net, &snarl_tree_records).get_min_length();
 }
 int64_t SnarlDistanceIndex::node_id(const net_handle_t& net) const {
     assert(is_node(net) || is_sentinel(net));

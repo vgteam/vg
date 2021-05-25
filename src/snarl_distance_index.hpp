@@ -328,6 +328,14 @@ public:
      */
     int64_t node_length(const net_handle_t& net) const ;
 
+
+    /**
+     * This is also the length of a net, but it can also be a snarl or chain. 
+     * The length of a chain includes the boundary nodes, a snarl does not
+     * A looping chain only includes the start/end node once
+     */
+    int64_t minimum_length(const net_handle_t& net) const;
+
     /**
      * What is the node id of the node represented by this net handle
      * net must be a node or a sentinel
