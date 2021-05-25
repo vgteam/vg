@@ -27,7 +27,7 @@ cmp x.gbwt x2.gbwt
 is $? 0 "identical construction results with vg gbwt and vg index"
 vg gbwt -x x.vg -o parse --parse-only -v small/xy2.vcf.gz
 is $? 0 "chromosome X VCF parse"
-../deps/gbwt/build_gbwt -p -r parse_x > /dev/null 2> /dev/null
+../deps/gbwt/bin/build_gbwt -O -p -r parse_x > /dev/null 2> /dev/null
 is $? 0 "chromosome X GBWT from VCF parse"
 vg view -x GBWT x.gbwt > x.bare.gbwt
 cmp x.bare.gbwt parse_x.gbwt
@@ -161,7 +161,7 @@ rm -f xy.gbwt xy.ri
 
 # Non-empty and empty GBWTs
 vg gbwt -x x.vg -o x.gbwt -v small/xy2.vcf.gz
-../deps/gbwt/build_gbwt -e empty > /dev/null
+../deps/gbwt/bin/build_gbwt -e empty > /dev/null
 
 # Normal merging, x + empty
 vg gbwt -m -o x2.gbwt x.gbwt empty.gbwt
@@ -243,7 +243,7 @@ rm -f x.gbwt x.extract
 vg gbwt -x x.vg -g x.gg -o x.gbwt -v small/xy2.vcf.gz
 is $? 0 "GBWTGraph construction"
 vg view --extract-tag GBWTGraph x.gg > x.extracted.gg
-is $(md5sum x.extracted.gg | cut -f 1 -d\ ) 602951fad1bc68e3171ee75778b52b73 "GBWTGraph was serialized correctly"
+is $(md5sum x.extracted.gg | cut -f 1 -d\ ) 8e10d978d7303ba00ceed7837fcbd793 "GBWTGraph was serialized correctly"
 
 rm -f x.gbwt x.gg x.extracted.gg
 
@@ -252,7 +252,7 @@ rm -f x.gbwt x.gg x.extracted.gg
 vg gbwt -P -n 16 -x xy.xg -g xy.cover.gg -o xy.cover.gbwt
 is $? 0 "Path cover GBWTGraph construction"
 vg view --extract-tag GBWTGraph xy.cover.gg > xy.extracted.gg
-is $(md5sum xy.extracted.gg | cut -f 1 -d\ ) dfda13202364b838fbb61ed465e91d8f "GBWTGraph was serialized correctly"
+is $(md5sum xy.extracted.gg | cut -f 1 -d\ ) 6a2738f51472e0ba1553a815a005b157 "GBWTGraph was serialized correctly"
 is $(vg gbwt -c xy.cover.gbwt) 32 "path cover: 32 threads"
 is $(vg gbwt -C xy.cover.gbwt) 2 "path cover: 2 contigs"
 is $(vg gbwt -H xy.cover.gbwt) 16 "path cover: 16 haplotypes"
@@ -265,7 +265,7 @@ rm -f xy.cover.gg xy.cover.gbwt xy.extracted.gg
 vg gbwt -x xy-alt.xg -g xy.local.gg -l -n 16 -o xy.local.gbwt -v small/xy2.vcf.gz
 is $? 0 "Local haplotypes GBWTGraph construction"
 vg view --extract-tag GBWTGraph xy.local.gg > xy.extracted.gg
-is $(md5sum xy.extracted.gg | cut -f 1 -d\ ) 0f23148b424bf5cc2705bfa0a20cfa33 "GBWTGraph was serialized correctly"
+is $(md5sum xy.extracted.gg | cut -f 1 -d\ ) 00429586246711abcf1367a97d3c468c "GBWTGraph was serialized correctly"
 is $(vg gbwt -c xy.local.gbwt) 32 "local haplotypes: 32 threads"
 is $(vg gbwt -C xy.local.gbwt) 2 "local haplotypes: 2 contigs"
 is $(vg gbwt -H xy.local.gbwt) 16 "local haplotypes: 16 haplotypes"
@@ -279,7 +279,7 @@ vg gbwt -x x.vg -o x.gbwt -v small/xy2.vcf.gz
 vg gbwt -a -n 16 -x xy.xg -g augmented.gg -o augmented.gbwt x.gbwt
 is $? 0 "Augmented GBWTGraph construction"
 vg view --extract-tag GBWTGraph augmented.gg > augmented.extracted.gg
-is $(md5sum augmented.extracted.gg | cut -f 1 -d\ ) 0f23148b424bf5cc2705bfa0a20cfa33 "GBWTGraph was serialized correctly"
+is $(md5sum augmented.extracted.gg | cut -f 1 -d\ ) 00429586246711abcf1367a97d3c468c "GBWTGraph was serialized correctly"
 is $(vg gbwt -c augmented.gbwt) 18 "augmented: 18 threads"
 is $(vg gbwt -C augmented.gbwt) 2 "augmented: 2 contigs"
 is $(vg gbwt -H augmented.gbwt) 2 "augmented: 2 haplotypes"
@@ -296,7 +296,7 @@ rm -f x.vg y.vg x.xg xy.xg xy-alt.xg
 vg gbwt -o gfa.gbwt -G graphs/components_walks.gfa
 is $? 0 "GBWT construction from GFA"
 vg view --extract-tag GBWT gfa.gbwt > gfa.extracted.gbwt
-is $(md5sum gfa.extracted.gbwt | cut -f 1 -d\ ) 0dc7b0a99818f2fa4c79a9423e5a1e23 "GBWT was serialized correctly"
+is $(md5sum gfa.extracted.gbwt | cut -f 1 -d\ ) 68dad5b441d1d23413b4ddd42c962301 "GBWT was serialized correctly"
 is $(vg gbwt -c gfa.gbwt) 4 "gfa: 4 threads"
 is $(vg gbwt -C gfa.gbwt) 2 "gfa: 2 contigs"
 is $(vg gbwt -H gfa.gbwt) 2 "gfa: 2 haplotypes"
@@ -307,8 +307,8 @@ vg gbwt -o gfa2.gbwt -g gfa2.gg --translation gfa2.trans -G graphs/components_wa
 is $? 0 "GBWT+GBWTGraph construction from GFA"
 cmp gfa.gbwt gfa2.gbwt
 is $? 0 "Identical construction results with and without GBWTGraph"
-vg view --extract-tag GBWT gfa2.gg > gfa2.extracted.gg
-is $(md5sum gfa2.extracted.gg | cut -f 1 -d\ ) d41d8cd98f00b204e9800998ecf8427e "GBWTGraph was serialized correctly"
+vg view --extract-tag GBWTGraph gfa2.gg > gfa2.extracted.gg
+is $(md5sum gfa2.extracted.gg | cut -f 1 -d\ ) 5c1f16564c95b54f355972f065b25b4e "GBWTGraph was serialized correctly"
 is $(wc -l < gfa2.trans) 0 "no chopping: 0 translations"
 
 # Build GBWT and GBWTGraph from GFA with node chopping
