@@ -1,6 +1,6 @@
 /**
  * \file register_loader_saver_gbwtgraph.cpp
- * Defines IO for a minimizer index from stream files.
+ * Defines IO for GBWTGraph from stream files.
  */
 
 #include <vg/io/registry.hpp>
