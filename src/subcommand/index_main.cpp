@@ -15,6 +15,7 @@
 #include "xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
+#include "../io/save_handle_graph.hpp"
 #include "../stream_index.hpp"
 #include "../vg_set.hpp"
 #include "../utility.hpp"
@@ -491,8 +492,8 @@ int main_index(int argc, char** argv) {
         if (show_progress) {
             cerr << "Saving XG index to " << xg_name << endl;
         }
-        // Save encapsulated in a VPKG
-        vg::io::VPKG::save(xg_index, xg_name); 
+        // Save the XG.
+        vg::io::save_handle_graph(&xg_index, xg_name);
     }
 
     // Generate threads
@@ -515,10 +516,7 @@ int main_index(int argc, char** argv) {
             gbwt_index = haplotype_indexer.build_gbwt(*path_handle_graph, aln_file_names, "GAF");
         }
         if (build_gbwt && gbwt_index.get() != nullptr) {
-            if (show_progress) {
-                cerr << "Saving GBWT to disk..." << endl;
-            }
-            vg::io::VPKG::save(*gbwt_index, gbwt_name);
+            save_gbwt(*gbwt_index, gbwt_name, show_progress);
         }
     } // End of thread indexing.
 
@@ -632,8 +630,14 @@ int main_index(int argc, char** argv) {
         if (show_progress) {
             cerr << "Saving the index to disk..." << endl;
         }
-        vg::io::VPKG::save(gcsa_index, gcsa_name);
-        vg::io::VPKG::save(lcp_array, gcsa_name + ".lcp");
+        if (!sdsl::store_to_file(gcsa_index, gcsa_name)) {
+            std::cerr << "error: [vg index] cannot write the GCSA to " << gcsa_name << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        if (!sdsl::store_to_file(lcp_array, gcsa_name + ".lcp")) {
+            std::cerr << "error: [vg index] cannot write the LCP array to " << gcsa_name << ".lcp" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
 
         // Verify the index
         if (verify_gcsa) {

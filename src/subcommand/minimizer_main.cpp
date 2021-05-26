@@ -285,7 +285,13 @@ int main_minimizer(int argc, char** argv) {
     if (progress) {
         std::cerr << "Writing the index to " << output_name << std::endl;
     }
-    vg::io::VPKG::save(*index, output_name);
+    std::ofstream out(output_name, std::ios_base::binary);
+    if (!out) {
+        std::cerr << "error: [vg minimizer] cannot write the minimizer index to " << output_name << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    index->serialize(out);
+    out.close();
 
     if (progress) {
         double seconds = gbwt::readTimer() - start;

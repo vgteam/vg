@@ -74,11 +74,24 @@ void finish_gbwt_constuction(gbwt::GBWTBuilder& builder,
 
 //------------------------------------------------------------------------------
 
+/*
+    These are the proper ways of saving and loading GBWT indexes.
+    Loading with `vg::io::VPKG::load_one` is also supported.
+*/
+
 /// Load a compressed GBWT from the file.
-void load_gbwt(const std::string& filename, gbwt::GBWT& index, bool show_progress = false);
+void load_gbwt(gbwt::GBWT& index, const std::string& filename, bool show_progress = false);
 
 /// Load a dynamic GBWT from the file.
-void load_gbwt(const std::string& filename, gbwt::DynamicGBWT& index, bool show_progress = false);
+void load_gbwt(gbwt::DynamicGBWT& index, const std::string& filename, bool show_progress = false);
+
+/// Save a compressed GBWT to the file.
+void save_gbwt(const gbwt::GBWT& index, const std::string& filename, bool show_progress = false);
+
+/// Save a dynamic GBWT to the file.
+void save_gbwt(const gbwt::DynamicGBWT& index, const std::string& filename, bool show_progress = false);
+
+//------------------------------------------------------------------------------
 
 /**
  * Helper class that stores either a GBWT or a DynamicGBWT and loads them from a file

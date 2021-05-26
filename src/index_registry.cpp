@@ -2217,7 +2217,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             vector<gbwt::GBWT> gbwt_indexes(gbwt_names.size());
             for (size_t i = 0; i < gbwt_names.size(); ++i) {
-                load_gbwt(gbwt_names[i], gbwt_indexes[i], IndexingParameters::verbosity >= IndexingParameters::Debug);
+                load_gbwt(gbwt_indexes[i], gbwt_names[i], IndexingParameters::verbosity >= IndexingParameters::Debug);
             }
             gbwt::GBWT merged(gbwt_indexes);
             merged.serialize(outfile);

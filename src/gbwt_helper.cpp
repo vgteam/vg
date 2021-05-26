@@ -107,7 +107,7 @@ void finish_gbwt_constuction(gbwt::GBWTBuilder& builder,
 
 //------------------------------------------------------------------------------
 
-void load_gbwt(const std::string& filename, gbwt::GBWT& index, bool show_progress) {
+void load_gbwt(gbwt::GBWT& index, const std::string& filename, bool show_progress) {
     if (show_progress) {
         std::cerr << "Loading compressed GBWT from " << filename << std::endl;
     }
@@ -119,7 +119,7 @@ void load_gbwt(const std::string& filename, gbwt::GBWT& index, bool show_progres
     index = std::move(*loaded);
 }
 
-void load_gbwt(const std::string& filename, gbwt::DynamicGBWT& index, bool show_progress) {
+void load_gbwt(gbwt::DynamicGBWT& index, const std::string& filename, bool show_progress) {
     if (show_progress) {
         std::cerr << "Loading dynamic GBWT from " << filename << std::endl;
     }
@@ -130,6 +130,22 @@ void load_gbwt(const std::string& filename, gbwt::DynamicGBWT& index, bool show_
     }
     index = std::move(*loaded);
 }
+
+void save_gbwt(const gbwt::GBWT& index, const std::string& filename, bool show_progress) {
+    if (show_progress) {
+        std::cerr << "Saving compressed GBWT to " << filename << std::endl;
+    }
+    sdsl::simple_sds::serialize_to(index, filename);
+}
+
+void save_gbwt(const gbwt::DynamicGBWT& index, const std::string& filename, bool show_progress) {
+    if (show_progress) {
+        std::cerr << "Saving dynamic GBWT to " << filename << std::endl;
+    }
+    sdsl::simple_sds::serialize_to(index, filename);
+}
+
+//------------------------------------------------------------------------------
 
 void GBWTHandler::use_compressed() {
     if (this->in_use == index_compressed) {
@@ -142,7 +158,7 @@ void GBWTHandler::use_compressed() {
         this->dynamic = gbwt::DynamicGBWT();
         this->in_use = index_compressed;
     } else {
-        load_gbwt(this->filename, this->compressed, this->show_progress);
+        load_gbwt(this->compressed, this->filename, this->show_progress);
         this->in_use = index_compressed;
     }
 }
@@ -158,7 +174,7 @@ void GBWTHandler::use_dynamic() {
         this->compressed = gbwt::GBWT();
         this->in_use = index_dynamic;
     } else {
-        load_gbwt(this->filename, this->dynamic, this->show_progress);
+        load_gbwt(this->dynamic, this->filename, this->show_progress);
         this->in_use = index_dynamic;
     }
 }
@@ -180,16 +196,13 @@ void GBWTHandler::unbacked() {
 }
 
 void GBWTHandler::serialize(const std::string& new_filename) {
-    if (this->show_progress) {
-        std::cerr << "Serializing the GBWT to " << new_filename << std::endl;
-    }
     if (this->in_use == index_none) {
         std::cerr << "warning: [GBWTHandler] no GBWT to serialize" << std::endl;
         return;
     } else if (this->in_use == index_compressed) {
-        vg::io::VPKG::save(this->compressed, new_filename);
+        save_gbwt(this->compressed, new_filename, this->show_progress);
     } else {
-        vg::io::VPKG::save(this->dynamic, new_filename);
+        save_gbwt(this->dynamic, new_filename, this->show_progress);
     }
     this->filename = new_filename;
 }

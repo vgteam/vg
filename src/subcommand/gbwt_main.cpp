@@ -17,6 +17,7 @@
 #include "../region.hpp"
 
 #include <vg/io/vpkg.hpp>
+#include "../io/save_handle_graph.hpp"
 
 #include <gbwt/fast_locate.h>
 #include <gbwtgraph/gbz.h>
@@ -1005,7 +1006,7 @@ void use_or_save(std::unique_ptr<gbwt::DynamicGBWT>& index, GBWTHandler& gbwts, 
                 std::cerr << "Job " << i << ": Saving the GBWT to " << temp << std::endl;
             }
         }
-        vg::io::VPKG::save(*index, temp);
+        save_gbwt(*index, temp, false);
         filenames[i] = temp;
     }
 }
@@ -1114,7 +1115,7 @@ void step_2_merge_gbwts(GBWTHandler& gbwts, GBWTConfig& config) {
     if (config.merge == GBWTConfig::merge_fast) {
         std::vector<gbwt::GBWT> indexes(config.input_filenames.size());
         for (size_t i = 0; i < config.input_filenames.size(); i++) {
-            load_gbwt(config.input_filenames[i], indexes[i], config.show_progress);
+            load_gbwt(indexes[i], config.input_filenames[i], config.show_progress);
         }
         if (config.show_progress) {
             std::cerr << "Merging the GBWTs" << std::endl;
@@ -1125,7 +1126,7 @@ void step_2_merge_gbwts(GBWTHandler& gbwts, GBWTConfig& config) {
         gbwts.use_dynamic();
         for (size_t i = 1; i < config.input_filenames.size(); i++) {
             gbwt::GBWT next;
-            load_gbwt(config.input_filenames[i], next, config.show_progress);
+            load_gbwt(next, config.input_filenames[i], config.show_progress);
             if (next.size() > 2 * gbwts.dynamic.size()) {
                 std::cerr << "warning: [vg gbwt] merging " << config.input_filenames[i] << " into a substantially smaller index" << std::endl;
                 std::cerr << "warning: [vg gbwt] merging would be faster in another order" << std::endl;
@@ -1140,7 +1141,7 @@ void step_2_merge_gbwts(GBWTHandler& gbwts, GBWTConfig& config) {
         omp_set_num_threads(config.search_threads);
         for (size_t i = 1; i < config.input_filenames.size(); i++) {
             gbwt::DynamicGBWT next;
-            load_gbwt(config.input_filenames[i], next, config.show_progress);
+            load_gbwt(next, config.input_filenames[i], config.show_progress);
             if (next.size() > 2 * gbwts.dynamic.size()) {
                 std::cerr << "warning: [vg gbwt] merging " << config.input_filenames[i] << " into a substantially smaller index" << std::endl;
                 std::cerr << "warning: [vg gbwt] merging would be faster in another order" << std::endl;
@@ -1260,7 +1261,7 @@ void step_5_gbwtgraph(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& conf
         if (config.show_progress) {
             std::cerr << "Serializing GBWTGraph to " << config.graph_output << std::endl;
         }
-        vg::io::VPKG::save(graph, config.graph_output);
+        vg::io::save_handle_graph(&graph, config.graph_output);
     }
 
     report_time_memory("GBWTGraph built", start, config);
@@ -1283,7 +1284,10 @@ void step_6_r_index(GBWTHandler& gbwts, GBWTConfig& config) {
     if (config.show_progress) {
         std::cerr << "Serializing the r-index to " << config.r_index_name << std::endl;
     }
-    vg::io::VPKG::save(r_index, config.r_index_name);
+    if (!sdsl::store_to_file(r_index, config.r_index_name)) {
+        std::cerr << "error: [vg gbwt] cannot write the r-index to " << config.r_index_name << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
 
     report_time_memory("R-index built", start, config);
 }
