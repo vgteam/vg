@@ -113,7 +113,7 @@ void load_gbwt(gbwt::GBWT& index, const std::string& filename, bool show_progres
     }
     std::unique_ptr<gbwt::GBWT> loaded = vg::io::VPKG::load_one<gbwt::GBWT>(filename);
     if (loaded.get() == nullptr) {
-        std::cerr << "error: [load_gbwt()] could not load compressed GBWT " << filename << std::endl;
+        std::cerr << "error: [load_gbwt()] cannot load compressed GBWT " << filename << std::endl;
         std::exit(EXIT_FAILURE);
     }
     index = std::move(*loaded);
@@ -125,7 +125,19 @@ void load_gbwt(gbwt::DynamicGBWT& index, const std::string& filename, bool show_
     }
     std::unique_ptr<gbwt::DynamicGBWT> loaded = vg::io::VPKG::load_one<gbwt::DynamicGBWT>(filename);
     if (loaded.get() == nullptr) {
-        std::cerr << "error: [load_gbwt()] could not load dynamic GBWT " << filename << std::endl;
+        std::cerr << "error: [load_gbwt()] cannot load dynamic GBWT " << filename << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    index = std::move(*loaded);
+}
+
+void load_r_index(gbwt::FastLocate& index, const std::string& filename, bool show_progress) {
+    if (show_progress) {
+        std::cerr << "Loading r-index from " << filename << std::endl;
+    }
+    std::unique_ptr<gbwt::FastLocate> loaded = vg::io::VPKG::load_one<gbwt::FastLocate>(filename);
+    if (loaded.get() == nullptr) {
+        std::cerr << "error: [load_r_index()] cannot load r-index " << filename << std::endl;
         std::exit(EXIT_FAILURE);
     }
     index = std::move(*loaded);
@@ -143,6 +155,16 @@ void save_gbwt(const gbwt::DynamicGBWT& index, const std::string& filename, bool
         std::cerr << "Saving dynamic GBWT to " << filename << std::endl;
     }
     sdsl::simple_sds::serialize_to(index, filename);
+}
+
+void save_r_index(const gbwt::FastLocate& index, const std::string& filename, bool show_progress) {
+    if (show_progress) {
+        std::cerr << "Saving r-index to " << filename << std::endl;
+    }
+    if (!sdsl::store_to_file(index, filename)) {
+        std::cerr << "error: [save_r_index()] cannot write r-index to " << filename << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
 }
 
 //------------------------------------------------------------------------------

@@ -29,14 +29,10 @@
 #include <getopt.h>
 #include <omp.h>
 
+#include "../gbwtgraph_helper.hpp"
 #include "../index_manager.hpp"
 
-#include <gbwtgraph/gbz.h>
 #include <gbwtgraph/index.h>
-
-#include "../min_distance.hpp"
-#include "../handle.hpp"
-#include "../utility.hpp"
 
 using namespace vg;
 
@@ -201,11 +197,11 @@ int main_minimizer(int argc, char** argv) {
     gbwtgraph::GBZ gbz;
     if (input == input_graph) {
         if (progress) {
-            std::cerr << "Loading GBWT index " << gbwt_name << std::endl;
+            std::cerr << "Loading GBWT from " << gbwt_name << std::endl;
         }
         std::unique_ptr<gbwt::GBWT> gbwt_index(vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name));
         if (progress) {
-            std::cerr << "Loading input graph " << graph_name << std::endl;
+            std::cerr << "Loading input graph from " << graph_name << std::endl;
         }
         std::unique_ptr<HandleGraph> graph(vg::io::VPKG::load_one<HandleGraph>(graph_name));
         if (progress) {
@@ -213,23 +209,9 @@ int main_minimizer(int argc, char** argv) {
         }
         gbz = gbwtgraph::GBZ(gbwt_index, *graph);
     } else if (input == input_gg) {
-        // This is a bit ugly, because the structures are inside vg wrappers.
-        if (progress) {
-            std::cerr << "Loading GBWT index " << gbwt_name << std::endl;
-        }
-        std::unique_ptr<gbwt::GBWT> gbwt_index(vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name));
-        gbz.index = std::move(*gbwt_index);
-        if (progress) {
-            std::cerr << "Loading GBWTGraph " << graph_name << std::endl;
-        }
-        std::unique_ptr<gbwtgraph::GBWTGraph> graph(vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(graph_name));
-        gbz.graph = std::move(*graph);
-        gbz.graph.set_gbwt(gbz.index);
+        load_gbz(gbz, gbwt_name, graph_name, progress);
     } else if (input == input_gbz) {
-        if (progress) {
-            std::cerr << "Loading GBZ file " << graph_name << std::endl;
-        }
-        sdsl::simple_sds::load_from(gbz, graph_name);
+        load_gbz(gbz, graph_name);
     }
 
     // Minimizer index.
@@ -238,7 +220,7 @@ int main_minimizer(int argc, char** argv) {
         index = std::make_unique<gbwtgraph::DefaultMinimizerIndex>(kmer_length, (use_syncmers ? smer_length : window_length), use_syncmers);
     } else {
         if (progress) {
-            std::cerr << "Loading MinimizerIndex " << load_index << std::endl;
+            std::cerr << "Loading MinimizerIndex from " << load_index << std::endl;
         }
         index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(load_index);
     }
@@ -247,7 +229,7 @@ int main_minimizer(int argc, char** argv) {
     std::unique_ptr<MinimumDistanceIndex> distance_index;
     if (!distance_name.empty()) {
         if (progress) {
-            std::cerr << "Loading MinimumDistanceIndex " << distance_name << std::endl;
+            std::cerr << "Loading MinimumDistanceIndex from " << distance_name << std::endl;
         }
         distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
     }
@@ -282,16 +264,7 @@ int main_minimizer(int argc, char** argv) {
     }
 
     // Serialize the index.
-    if (progress) {
-        std::cerr << "Writing the index to " << output_name << std::endl;
-    }
-    std::ofstream out(output_name, std::ios_base::binary);
-    if (!out) {
-        std::cerr << "error: [vg minimizer] cannot write the minimizer index to " << output_name << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-    index->serialize(out);
-    out.close();
+    save_minimizer(*index, output_name);
 
     if (progress) {
         double seconds = gbwt::readTimer() - start;

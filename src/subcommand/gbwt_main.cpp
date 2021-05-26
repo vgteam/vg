@@ -12,15 +12,14 @@
 
 #include "subcommand.hpp"
 #include "../gbwt_helper.hpp"
+#include "../gbwtgraph_helper.hpp"
 #include "../haplotype_indexer.hpp"
 #include "../path.hpp"
 #include "../region.hpp"
 
 #include <vg/io/vpkg.hpp>
-#include "../io/save_handle_graph.hpp"
 
 #include <gbwt/fast_locate.h>
-#include <gbwtgraph/gbz.h>
 #include <gbwtgraph/gfa.h>
 #include <gbwtgraph/path_cover.h>
 
@@ -525,7 +524,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
                 string range(optarg);
                 size_t found = range.find("-");
                 if(found == std::string::npos || found == 0 || found + 1 == range.size()) {
-                    cerr << "error: [vg gbwt] could not parse range " << range << endl;
+                    cerr << "error: [vg gbwt] cannot parse range " << range << endl;
                     std::exit(EXIT_FAILURE);
                 }
                 config.haplotype_indexer.sample_range.first = parse<size_t>(range.substr(0, found));
@@ -538,7 +537,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
                 string key_value(optarg);
                 auto found = key_value.find('=');
                 if (found == string::npos || found == 0 || found + 1 == key_value.size()) {
-                    cerr << "error: [vg gbwt] could not parse rename " << key_value << endl;
+                    cerr << "error: [vg gbwt] cannot parse rename " << key_value << endl;
                     std::exit(EXIT_FAILURE);
                 }
                 // Parse out the two parts
@@ -559,7 +558,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
                 parse_region(region, parsed);
                 if (parsed.start <= 0 || parsed.end <= 0) {
                     // We need both range bounds, and we can't accept 0 since input is 1-based.
-                    cerr << "error: [vg gbwt] could not parse 1-based region " << region << endl;
+                    cerr << "error: [vg gbwt] cannot parse 1-based region " << region << endl;
                 }
                 // Make sure to correct the coordinates to 0-based exclusive-end, from 1-based inclusive-end
                 config.haplotype_indexer.regions[parsed.seq] = std::make_pair((size_t) (parsed.start - 1), (size_t) parsed.end);
@@ -927,7 +926,7 @@ std::vector<job_type> determine_jobs(std::unique_ptr<PathHandleGraph>& graph, co
         variant_file.parseSamples = false;
         variant_file.open(filename);
         if (!variant_file.is_open()) {
-            std::cerr << "error: [vg gbwt] could not open VCF file " << filename << std::endl;
+            std::cerr << "error: [vg gbwt] cannot open VCF file " << filename << std::endl;
             std::exit(EXIT_FAILURE);
         }
         for (size_t j = 0; j < paths.size(); j++) {
@@ -1247,21 +1246,9 @@ void step_5_gbwtgraph(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& conf
         graph = gbwtgraph::GBWTGraph(gbwts.compressed, *(graphs.path_graph));
     }
     if (config.gbz_format) {
-        if (config.show_progress) {
-            std::cerr << "Serializing GBZ to " << config.graph_output << std::endl;
-        }
-        std::ofstream out(config.graph_output, std::ios_base::binary);
-        if (!out) {
-            std::cerr << "error: [vg gbwt] cannot open file " << config.graph_output << " for writing" << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-        gbwtgraph::GBZ::simple_sds_serialize(gbwts.compressed, graph, out);
-        out.close();
+        save_gbz(gbwts.compressed, graph, config.graph_output, config.show_progress);
     } else {
-        if (config.show_progress) {
-            std::cerr << "Serializing GBWTGraph to " << config.graph_output << std::endl;
-        }
-        vg::io::save_handle_graph(&graph, config.graph_output);
+        save_gbwtgraph(graph, config.graph_output, config.show_progress);
     }
 
     report_time_memory("GBWTGraph built", start, config);
@@ -1281,13 +1268,7 @@ void step_6_r_index(GBWTHandler& gbwts, GBWTConfig& config) {
         std::cerr << "Starting the construction" << std::endl;
     }
     gbwt::FastLocate r_index(gbwts.compressed);
-    if (config.show_progress) {
-        std::cerr << "Serializing the r-index to " << config.r_index_name << std::endl;
-    }
-    if (!sdsl::store_to_file(r_index, config.r_index_name)) {
-        std::cerr << "error: [vg gbwt] cannot write the r-index to " << config.r_index_name << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
+    save_r_index(r_index, config.r_index_name, config.show_progress);
 
     report_time_memory("R-index built", start, config);
 }
@@ -1395,7 +1376,7 @@ void GraphHandler::get_graph(const GBWTConfig& config) {
         this->sequence_source.reset();
         this->path_graph = vg::io::VPKG::load_one<PathHandleGraph>(config.graph_name);
         if (this->path_graph == nullptr) {
-            std::cerr << "error: [vg gbwt] could not load graph " << config.graph_name << std::endl;
+            std::cerr << "error: [vg gbwt] cannot load graph " << config.graph_name << std::endl;
             std::exit(EXIT_FAILURE);
         }
         this->in_use = graph_path;
