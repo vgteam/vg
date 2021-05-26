@@ -24,8 +24,8 @@
 #include "../min_distance.hpp"
 #include "../source_sink_overlay.hpp"
 #include "../gbwt_helper.hpp"
+#include "../gcsa_helper.hpp"
 
-#include <gcsa/gcsa.h>
 #include <gcsa/algorithms.h>
 #include <gbwt/variants.h>
 #include <bdsg/overlays/packed_subgraph_overlay.hpp>
@@ -627,17 +627,8 @@ int main_index(int argc, char** argv) {
         }
 
         // Save the indexes
-        if (show_progress) {
-            cerr << "Saving the index to disk..." << endl;
-        }
-        if (!sdsl::store_to_file(gcsa_index, gcsa_name)) {
-            std::cerr << "error: [vg index] cannot write the GCSA to " << gcsa_name << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
-        if (!sdsl::store_to_file(lcp_array, gcsa_name + ".lcp")) {
-            std::cerr << "error: [vg index] cannot write the LCP array to " << gcsa_name << ".lcp" << std::endl;
-            std::exit(EXIT_FAILURE);
-        }
+        save_gcsa(gcsa_index, gcsa_name, show_progress);
+        save_lcp(lcp_array, gcsa_name + ".lcp", show_progress);
 
         // Verify the index
         if (verify_gcsa) {
