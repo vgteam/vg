@@ -18,6 +18,7 @@ namespace vg {
 */
 
 /// Load GBWTGraph from the file.
+/// NOTE: Call `graph.set_gbwt()` afterwards with the appropriate GBWT index.
 void load_gbwtgraph(gbwtgraph::GBWTGraph& graph, const std::string& filename, bool show_progress = false);
 
 /// Load GBZ from the file.

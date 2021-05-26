@@ -42,13 +42,14 @@ void load_gbz(gbwt::GBWT& index, gbwtgraph::GBWTGraph& graph, const std::string&
     }
     index = std::move(loaded->index);
     graph = std::move(loaded->graph);
+    graph.set_gbwt(index); // We moved the GBWT out from the GBZ, so we have to update the pointer.
 }
 
 void load_gbz(gbwtgraph::GBZ& gbz, const std::string& gbwt_name, const std::string& graph_name, bool show_progress) {
     gbz = gbwtgraph::GBZ();
     load_gbwt(gbz.index, gbwt_name, show_progress);
     load_gbwtgraph(gbz.graph, graph_name, show_progress);
-    gbz.graph.set_gbwt(gbz.index);
+    gbz.graph.set_gbwt(gbz.index); // We know the GBWT index corresponding to the graph.
 }
 
 void load_minimizer(gbwtgraph::DefaultMinimizerIndex& index, const std::string& filename, bool show_progress) {
