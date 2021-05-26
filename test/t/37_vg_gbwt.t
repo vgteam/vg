@@ -27,7 +27,7 @@ cmp x.gbwt x2.gbwt
 is $? 0 "identical construction results with vg gbwt and vg index"
 vg gbwt -x x.vg -o parse --parse-only -v small/xy2.vcf.gz
 is $? 0 "chromosome X VCF parse"
-../deps/gbwt/bin/build_gbwt -O -p -r parse_x > /dev/null 2> /dev/null
+../deps/gbwt/bin/build_gbwt -p -r parse_x > /dev/null 2> /dev/null
 is $? 0 "chromosome X GBWT from VCF parse"
 vg view -x GBWT x.gbwt > x.bare.gbwt
 cmp x.bare.gbwt parse_x.gbwt
@@ -296,7 +296,7 @@ rm -f x.vg y.vg x.xg xy.xg xy-alt.xg
 vg gbwt -o gfa.gbwt -G graphs/components_walks.gfa
 is $? 0 "GBWT construction from GFA"
 vg view --extract-tag GBWT gfa.gbwt > gfa.extracted.gbwt
-is $(md5sum gfa.extracted.gbwt | cut -f 1 -d\ ) 68dad5b441d1d23413b4ddd42c962301 "GBWT was serialized correctly"
+is $(md5sum gfa.extracted.gbwt | cut -f 1 -d\ ) be566b133e95f33402aead1af60ed1f1 "GBWT was serialized correctly"
 is $(vg gbwt -c gfa.gbwt) 4 "gfa: 4 threads"
 is $(vg gbwt -C gfa.gbwt) 2 "gfa: 2 contigs"
 is $(vg gbwt -H gfa.gbwt) 2 "gfa: 2 haplotypes"

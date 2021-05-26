@@ -172,7 +172,7 @@ int main_gbwt(int argc, char** argv) {
         step_4_path_cover(gbwts, graphs, config);
     }
 
-    // Now we can serialize the GBWT in SDSL format.
+    // Now we can serialize the GBWT to a separate file.
     if (!config.gbwt_output.empty() && !config.gbz_format) {
         double start = gbwt::readTimer();
         gbwts.serialize(config.gbwt_output);
