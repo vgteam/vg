@@ -6,6 +6,7 @@
 #include "../io/save_handle_graph.hpp"
 #include "../gfa.hpp"
 #include "../gbwt_helper.hpp"
+#include "../gbwtgraph_helper.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <vg/io/alignment_emitter.hpp>
@@ -14,7 +15,7 @@
 #include "bdsg/hash_graph.hpp"
 #include "bdsg/odgi.hpp"
 
-#include <gbwtgraph/gbwtgraph.h>
+#include <gbwtgraph/gbz.h>
 #include <gbwtgraph/gfa.h>
 
 #include <unistd.h>
@@ -26,22 +27,24 @@ using namespace vg::io;
 
 //------------------------------------------------------------------------------
 
+enum input_type { input_default, input_gam, input_gaf, input_gfa, input_gbwtgraph, input_gbz };
+
 void help_convert(char** argv);
+void no_multiple_inputs(input_type input);
 void gbwtgraph_to_xg(const gbwtgraph::GBWTGraph* input, xg::XG* output, const std::string& ref_sample);
 void add_paths(const gbwtgraph::GBWTGraph* input, MutablePathHandleGraph* output, const std::string& ref_sample);
+
 
 //------------------------------------------------------------------------------
 
 int main_convert(int argc, char** argv) {
 
     string output_format;
-    bool input_gfa = false;
+    input_type input = input_default;
     int64_t input_rgfa_rank = 0;
     string gfa_trans_path;
     string input_aln;
     string gbwt_name, ref_sample = gbwtgraph::REFERENCE_PATH_SAMPLE_NAME;
-    bool gam_to_gaf = false;
-    bool gaf_to_gam = false;
     set<string> rgfa_paths;
     vector<string> rgfa_prefixes;
     bool rgfa_pline = false;
@@ -63,6 +66,7 @@ int main_convert(int argc, char** argv) {
             {"gfa-in", no_argument, 0, 'g'},
             {"in-rgfa-rank", required_argument, 0, 'r'},
             {"gbwt-in", required_argument, 0, 'b'},
+            {"gbz-in", no_argument, 0, 'Z'},
             {"ref-sample", required_argument, 0, OPT_REF_SAMPLE},
             {"vg-out", no_argument, 0, 'v'},
             {"hash-out", no_argument, 0, 'a'},
@@ -82,7 +86,7 @@ int main_convert(int argc, char** argv) {
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hgr:b:vxapxofP:Q:BT:w:G:F:t:",
+        c = getopt_long (argc, argv, "hgr:b:ZvxapxofP:Q:BT:w:G:F:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -97,13 +101,20 @@ int main_convert(int argc, char** argv) {
             help_convert(argv);
             return 0;
         case 'g':
-            input_gfa = true;
+            no_multiple_inputs(input);
+            input = input_gfa;
             break;
         case 'r':
             input_rgfa_rank = stol(optarg);
             break;
         case 'b':
+            no_multiple_inputs(input);
+            input = input_gbwtgraph;
             gbwt_name = optarg;
+            break;
+        case 'Z':
+            no_multiple_inputs(input);
+            input = input_gbz;
             break;
         case OPT_REF_SAMPLE:
             ref_sample = optarg;
@@ -142,12 +153,14 @@ int main_convert(int argc, char** argv) {
             wline_sep = optarg;
             break;
         case 'G':
+            no_multiple_inputs(input);
+            input = input_gam;
             input_aln = optarg;
-            gam_to_gaf = true;
             break;
         case 'F':
+            no_multiple_inputs(input);
+            input = input_gaf;
             input_aln = optarg;
-            gaf_to_gam = true;
             break;
         case 't':
             {
@@ -164,7 +177,7 @@ int main_convert(int argc, char** argv) {
         }
     }
 
-    if (!gfa_trans_path.empty() && !input_gfa) {
+    if (!gfa_trans_path.empty() && input != input_gfa) {
         cerr << "error [vg convert]: -T can only be used with -g" << endl;
         return 1;
     }
@@ -172,39 +185,31 @@ int main_convert(int argc, char** argv) {
         cerr << "error [vg convert]: -P, -Q, and -w can only be used with -f" << endl;
         return 1;
     }
-    if (!gbwt_name.empty()) {
-        if (input_gfa) {
-            cerr << "error [vg convert]: GFA input (-g) cannot be used with GBWT input (-b)" << endl;
-            return 1;
-        }
-        if (output_format == "gfa" && (!rgfa_paths.empty() || !rgfa_prefixes.empty() || !wline_sep.empty())) {
-            cerr << "error [vg convert]: GFA output options (-P, -Q, -w) cannot be used with GBWT input (-b)" << endl;
+    if (input == input_gbwtgraph || input == input_gbz) {
+        if (output_format == "gfa" && !(rgfa_paths.empty() && rgfa_prefixes.empty() && wline_sep.empty())) {
+            cerr << "error [vg convert]: GFA output options (-P, -Q, -w) cannot be used with a GBWTGraph" << endl;
             return 1;
         }
     }
 
     // with -F or -G we convert an alignment and not a graph
-    if (!input_aln.empty()) {
-        if (gam_to_gaf && gaf_to_gam) {
-            cerr << "error [vg convert]: -F and -G options cannot be used together" << endl;
-            return 1;
-        } else if (!output_format.empty()) {
+    if (input == input_gam || input == input_gaf) {
+        if (!output_format.empty()) {
             cerr << "error [vg convert]: Alignment conversion options (-F and -G) cannot be used "
                  << "with any graph conversion options" << endl;
             return 1;
         }
-        assert(gam_to_gaf || gaf_to_gam);
 
         unique_ptr<HandleGraph> input_graph;
         string input_graph_filename = get_input_file_name(optind, argc, argv);
         input_graph = vg::io::VPKG::load_one<HandleGraph>(input_graph_filename);
 
-        unique_ptr<AlignmentEmitter> emitter = get_non_hts_alignment_emitter("-", gam_to_gaf ? "GAF" : "GAM", {}, get_thread_count(),
+        unique_ptr<AlignmentEmitter> emitter = get_non_hts_alignment_emitter("-", (input == input_gam) ? "GAF" : "GAM", {}, get_thread_count(),
                                                                              input_graph.get());
         std::function<void(Alignment&)> lambda = [&] (Alignment& aln) {
             emitter->emit_singles({aln});
         };                
-        if (gam_to_gaf) {
+        if (input == input_gam) {
             get_input_file(input_aln, [&](istream& in) {
                     vg::io::for_each_parallel(in, lambda);
             });
@@ -215,8 +220,8 @@ int main_convert(int argc, char** argv) {
     }
 
     if (output_format.empty()) {
-        // default to vg
-        output_format = "vg";
+        // default to HashGraph
+        output_format = "hash";
     }
         
     // allocate a graph using the graph_type string to decide a class
@@ -239,8 +244,8 @@ int main_convert(int argc, char** argv) {
     unique_ptr<HandleGraph> input_graph;
     unique_ptr<gbwt::GBWT> input_gbwt;
     PathHandleGraph* output_path_graph = dynamic_cast<PathHandleGraph*>(output_graph.get());
-    
-    if (input_gfa) {
+
+    if (input == input_gfa) {
         // we have to check this manually since we're not using the istream-based loading
         // functions in order to be able to use the disk-backed loading algorithm
         if (optind >= argc) {
@@ -286,8 +291,7 @@ int main_convert(int argc, char** argv) {
         }
     }
     else {
-        // Load a GBWTGraph or another HandleGraph.
-        if (!gbwt_name.empty()) {
+        if (input == input_gbwtgraph) {
             get_input_file(optind, argc, argv, [&](istream& in) {
                 input_graph = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(in);
             });
@@ -298,6 +302,14 @@ int main_convert(int argc, char** argv) {
             }
             input_gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
             gbwt_graph->set_gbwt(*input_gbwt);
+        } else if (input == input_gbz) {
+            std::unique_ptr<gbwtgraph::GBZ> gbz;
+            get_input_file(optind, argc, argv, [&](istream& in) {
+                gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(in);
+            });
+            input_gbwt = std::make_unique<gbwt::GBWT>(std::move(gbz->index));
+            gbz->graph.set_gbwt(*input_gbwt); // The GBWT pointer will get moved to the input graph.
+            input_graph = std::make_unique<gbwtgraph::GBWTGraph>(std::move(gbz->graph));
         } else {
             string input_graph_filename = get_input_file_name(optind, argc, argv);
             input_graph = vg::io::VPKG::load_one<HandleGraph>(input_graph_filename);
@@ -310,30 +322,30 @@ int main_convert(int argc, char** argv) {
             // XG output.
             if (output_format == "xg") {
                 xg::XG* xg_graph = dynamic_cast<xg::XG*>(output_graph.get());
-                if (input_path_graph != nullptr) {
-                    xg_graph->from_path_handle_graph(*input_path_graph);
-                } else if (!gbwt_name.empty()) {
+                if (input == input_gbwtgraph || input == input_gbz) {
                     gbwtgraph_to_xg(dynamic_cast<gbwtgraph::GBWTGraph*>(input_graph.get()), xg_graph, ref_sample);
+                } else if (input_path_graph != nullptr) {
+                    xg_graph->from_path_handle_graph(*input_path_graph);
                 } else {
                     xg_graph->from_handle_graph(*input_graph);
                 }
             }
-            // PathHandleGraph output.
-            else if (input_path_graph != nullptr && output_path_graph != nullptr) {
-                MutablePathMutableHandleGraph* mutable_output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(output_path_graph);
-                assert(mutable_output_graph != nullptr);
-                // ID hint (currently only for odgi)
-                mutable_output_graph->set_id_increment(input_graph->min_node_id());
-                handlealgs::copy_path_handle_graph(input_path_graph, mutable_output_graph);
-            }
             // GBWTGraph to PathHandleGraph.
-            else if (!gbwt_name.empty() && output_path_graph != nullptr) {
+            else if ((input == input_gbwtgraph || input == input_gbz) && output_path_graph != nullptr) {
                 MutablePathMutableHandleGraph* mutable_output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(output_path_graph);
                 assert(mutable_output_graph != nullptr);
                 // ID hint (currently only for odgi)
                 mutable_output_graph->set_id_increment(input_graph->min_node_id());
                 handlealgs::copy_handle_graph(input_graph.get(), mutable_output_graph);
                 add_paths(dynamic_cast<gbwtgraph::GBWTGraph*>(input_graph.get()), mutable_output_graph, ref_sample);
+            }
+            // Normal graph to PathHandleGraph.
+            else if (input_path_graph != nullptr && output_path_graph != nullptr) {
+                MutablePathMutableHandleGraph* mutable_output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(output_path_graph);
+                assert(mutable_output_graph != nullptr);
+                // ID hint (currently only for odgi)
+                mutable_output_graph->set_id_increment(input_graph->min_node_id());
+                handlealgs::copy_path_handle_graph(input_path_graph, mutable_output_graph);
             }
             // HandleGraph output.
             else {
@@ -351,12 +363,12 @@ int main_convert(int argc, char** argv) {
 
     // GFA output.
     if (output_format == "gfa") {
-        if (!gbwt_name.empty()) {
+        if (input == input_gbwtgraph || input == input_gbz) {
             gbwtgraph::gbwt_to_gfa(*dynamic_cast<const gbwtgraph::GBWTGraph*>(input_graph.get()), std::cout, false);
         }
         else {
             const PathHandleGraph* graph_to_write;
-            if (input_gfa) {
+            if (input == input_gfa) {
                 graph_to_write = dynamic_cast<const PathHandleGraph*>(output_graph.get());
             } else {
                 graph_to_write = dynamic_cast<const PathHandleGraph*>(input_graph.get());
@@ -395,10 +407,11 @@ void help_convert(char** argv) {
          << "    -g, --gfa-in           input in GFA format" << endl
          << "    -r, --in-rgfa-rank N   import rgfa tags with rank <= N as paths [default=0]" << endl
          << "    -b, --gbwt-in FILE     input graph is a GBWTGraph using the GBWT in FILE" << endl
-         << "        --ref-sample STR   convert the threads for sample STR into paths (default " << gbwtgraph::REFERENCE_PATH_SAMPLE_NAME << ")" << endl
+         << "    -Z, --gbz-in           input in GBZ format (GBWT + GBWTGraph)" << endl
+         << "        --ref-sample STR   convert the threads for GBWT sample STR into paths (default " << gbwtgraph::REFERENCE_PATH_SAMPLE_NAME << ")" << endl
          << "output options:" << endl
-         << "    -v, --vg-out           output in VG format [default]" << endl
-         << "    -a, --hash-out         output in HashGraph format" << endl
+         << "    -v, --vg-out           output in VG format" << endl
+         << "    -a, --hash-out         output in HashGraph format [default]" << endl
          << "    -p, --packed-out       output in PackedGraph format" << endl
          << "    -x, --xg-out           output in XG format" << endl
          << "    -o, --odgi-out         output in ODGI format" << endl
@@ -418,6 +431,14 @@ void help_convert(char** argv) {
          << "general options:" << endl
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
 }
+
+void no_multiple_inputs(input_type input) {
+    if (input != input_default) {
+        std::cerr << "error [vg convert]: cannot combine input types (GFA, GBWTGraph, GBZ, GAM, GAF)" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+}
+
 //------------------------------------------------------------------------------
 
 void check_duplicate_contigs(const gbwt::GBWT& index, const std::vector<gbwt::size_type>& thread_ids, const std::string& ref_sample) {
