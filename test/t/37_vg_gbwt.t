@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 118
+plan tests 122
 
 
 # Build vg graphs for two chromosomes
@@ -243,7 +243,12 @@ vg gbwt -x x.vg -g x.gg -o x.gbwt -v small/xy2.vcf.gz
 is $? 0 "GBWTGraph construction"
 is $(md5sum x.gg | cut -f 1 -d\ ) 8e10d978d7303ba00ceed7837fcbd793 "GBWTGraph was serialized correctly"
 
-rm -f x.gbwt x.gg
+# Build and serialize GBWTGraph in the GBZ format
+vg gbwt -x x.vg -g x.gbz --gbz-format -v small/xy2.vcf.gz
+is $? 0 "GBZ construction"
+is $(md5sum x.gbz | cut -f 1 -d\ ) 0b1850c1b479b3ac990cc24b70bf5e82 "GBZ was serialized correctly"
+
+rm -f x.gbwt x.gg x.gbz
 
 
 # Build both GBWT and GBWTGraph from a 16-path cover
@@ -304,6 +309,11 @@ is $? 0 "Identical construction results with and without GBWTGraph"
 is $(md5sum gfa2.gg | cut -f 1 -d\ ) 5c1f16564c95b54f355972f065b25b4e "GBWTGraph was serialized correctly"
 is $(wc -l < gfa2.trans) 0 "no chopping: 0 translations"
 
+# Build GBZ from GFA
+vg gbwt -g gfa2.gbz --gbz-format -G graphs/components_walks.gfa
+is $? 0 "GBZ construction from GFA"
+is $(md5sum gfa2.gbz | cut -f 1 -d\ ) 195b111e8dbb072c7486ce1cd5dca07b "GBZ was serialized correctly"
+
 # Build GBWT and GBWTGraph from GFA with node chopping
 vg gbwt -o chopping.gbwt -g chopping.gg --translation chopping.trans --max-node 2 -G graphs/chopping_walks.gfa
 is $? 0 "GBWT+GBWTGraph construction from GFA with chopping"
@@ -323,6 +333,6 @@ is $(vg gbwt -S ref_paths.gbwt) 2 "ref paths: 2 samples"
 is $(wc -l < ref_paths.trans) 0 "ref paths: 0 translations"
 
 rm -f gfa.gbwt
-rm -f gfa2.gbwt gfa2.gg gfa2.trans
+rm -f gfa2.gbwt gfa2.gg gfa2.trans gfa2.gbz
 rm -f ref_paths.gbwt ref_paths.gg ref_paths.trans
 rm -f chopping.gbwt chopping.gg chopping.trans
