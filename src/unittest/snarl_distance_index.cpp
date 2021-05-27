@@ -3625,7 +3625,7 @@ namespace vg {
         }
         
         TEST_CASE( "Distance index can deal with a bigger graph with no ordinary cycles", "[snarl_distance][bad]" ) {
-            //TODO: Add this back
+            //Four components of the root: 1, 4, and 5 are single nodes, 2-3 is a chain
             VG graph;
                 
             Node* n1 = graph.create_node("GCA");
@@ -3651,16 +3651,28 @@ namespace vg {
 
                 net_handle_t root_handle = distance_index.get_root();
                 size_t component_count = 0;
+                size_t chain_count = 0;
+                size_t node_count = 0;
                 distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
                     component_count += 1;
+                    if (distance_index.is_node(child) || distance_index.is_trivial_chain(child)) {
+                        node_count ++;
+                    } else if (distance_index.is_chain(child)) {
+                        chain_count ++;
+                    } else {
+                        REQUIRE(false);
+                    }
                 });
-                REQUIRE(component_count == 1);
+                //TODO: The way it is now there's four components but I don't think this must be true
+                REQUIRE(component_count == 4);
+                REQUIRE(node_count == 3);
+                REQUIRE(chain_count == 1);
 
             }
             
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == 1);
+                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == 3);
             }
         }
 

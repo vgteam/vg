@@ -1879,6 +1879,9 @@ private:
         } else if (type == NODE_HANDLE) {
             return  "node " + std::to_string( get_node_id_from_offset(get_record_offset(net))) + (ends_at(net) == START ? "rev" : "fd");
         } else if (type == SNARL_HANDLE) {
+            if (record.get_record_type() == ROOT) {
+                return "root snarl";
+            }
             result += "snarl ";        
         } else if (type == CHAIN_HANDLE && record_type == NODE_HANDLE) {
             return  "node " + std::to_string( get_node_id_from_offset(get_record_offset(net))) 
