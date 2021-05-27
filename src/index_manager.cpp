@@ -2,6 +2,8 @@
  * \file index_manager.cpp: implementations of common indexing functionality
  */
 
+#include "index_manager.hpp"
+
 #include <iostream>
 #include <vector>
 #include <string>
@@ -12,7 +14,6 @@
 #include <bdsg/hash_graph.hpp>
 #include <gbwtgraph/index.h> 
 
-#include "index_manager.hpp"
 #include "utility.hpp"
 #include "constructor.hpp"
 #include "cactus_snarl_finder.hpp"
@@ -395,7 +396,8 @@ void IndexManager::ensure_gbwt() {
 
         if (out.is_open()) {
             // Save it
-            vg::io::VPKG::save(*gbwt, out);
+            // TODO: It would be nicer to use file names here.
+            gbwt->simple_sds_serialize(out);
         }
     });
 }
@@ -446,7 +448,8 @@ void IndexManager::ensure_gbwtgraph() {
 
         if (out.is_open()) {
             // Save it
-            vg::io::VPKG::save(*gbwtgraph.first, out);
+            // TODO: It would be nicer to use file names here.
+            gbwtgraph.first->serialize(out);
         }
     });
 }
@@ -484,7 +487,8 @@ void IndexManager::ensure_minimizer() {
 
         if (out.is_open()) {
             // Save it
-            vg::io::VPKG::save(*minimizer, out);
+            // TODO: It would be nicer to use file names here.
+            minimizer->serialize(out);
         }
     });
 }
