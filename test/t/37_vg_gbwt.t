@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 122
+plan tests 126
 
 
 # Build vg graphs for two chromosomes
@@ -243,12 +243,18 @@ vg gbwt -x x.vg -g x.gg -o x.gbwt -v small/xy2.vcf.gz
 is $? 0 "GBWTGraph construction"
 is $(md5sum x.gg | cut -f 1 -d\ ) 8e10d978d7303ba00ceed7837fcbd793 "GBWTGraph was serialized correctly"
 
-# Build and serialize GBWTGraph in the GBZ format
-vg gbwt -x x.vg -g x.gbz --gbz-format -v small/xy2.vcf.gz
-is $? 0 "GBZ construction"
+# Build and serialize GBZ from an existing GBWT
+vg gbwt -x x.vg -g x.gbz --gbz-format x.gbwt
+is $? 0 "GBZ construction from GBWT"
 is $(md5sum x.gbz | cut -f 1 -d\ ) 0b1850c1b479b3ac990cc24b70bf5e82 "GBZ was serialized correctly"
 
-rm -f x.gbwt x.gg x.gbz
+# Build and serialize GBZ from VCF
+vg gbwt -x x.vg -g x2.gbz --gbz-format -v small/xy2.vcf.gz
+is $? 0 "GBZ construction from VCF"
+cmp x.gbz x2.gbz
+is $? 0 "Identical construction results from GBWT and VCF"
+
+rm -f x.gbwt x.gg x.gbz x2.gbz
 
 
 # Build both GBWT and GBWTGraph from a 16-path cover
@@ -272,7 +278,12 @@ is $(vg gbwt -C xy.local.gbwt) 2 "local haplotypes: 2 contigs"
 is $(vg gbwt -H xy.local.gbwt) 16 "local haplotypes: 16 haplotypes"
 is $(vg gbwt -S xy.local.gbwt) 16 "local haplotypes: 16 samples"
 
-rm -f xy.local.gg xy.local.gbwt
+# Build GBZ from 16 paths of local haplotypes
+vg gbwt -x xy-alt.xg -g xy.local.gbz --gbz-format -l -n 16 -v small/xy2.vcf.gz
+is $? 0 "Local haplotypes GBZ construction"
+is $(md5sum xy.local.gbz | cut -f 1 -d\ ) b2b37402cb2169ac994c42fdee94f3ec "GBZ was serialized correctly"
+
+rm -f xy.local.gg xy.local.gbwt xy.local.gbz
 
 
 # Build GBWTGraph from an augmented GBWT
