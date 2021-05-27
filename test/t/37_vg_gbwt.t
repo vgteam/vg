@@ -323,7 +323,7 @@ is $(wc -l < gfa2.trans) 0 "no chopping: 0 translations"
 # Build GBZ from GFA
 vg gbwt -g gfa2.gbz --gbz-format -G graphs/components_walks.gfa
 is $? 0 "GBZ construction from GFA"
-is $(md5sum gfa2.gbz | cut -f 1 -d\ ) 195b111e8dbb072c7486ce1cd5dca07b "GBZ was serialized correctly"
+is $(md5sum gfa2.gbz | cut -f 1 -d\ ) 4cba27d74e0d5679ceb75e1ef2cb45e4 "GBZ was serialized correctly"
 
 # Build GBWT and GBWTGraph from GFA with node chopping
 vg gbwt -o chopping.gbwt -g chopping.gg --translation chopping.trans --max-node 2 -G graphs/chopping_walks.gfa
