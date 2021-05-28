@@ -546,6 +546,10 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Must provide graph file with -x." << endl;
                     exit(1);
                 }
+                if (!std::ifstream(optarg).is_open()) {
+                    cerr << "error:[vg giraffe] Couldn't open graph file " << optarg << endl;
+                    exit(1); 
+                }
                 registry.provide("XG", optarg);
                 
                 // If we have an xg we probably want to use its name as the base name.
@@ -557,6 +561,10 @@ int main_giraffe(int argc, char** argv) {
                 if (!optarg || !*optarg) {
                     cerr << "error:[vg giraffe] Must provide GBGTGraph file with -g." << endl;
                     exit(1);
+                }
+                if (!std::ifstream(optarg).is_open()) {
+                    cerr << "error:[vg giraffe] Couldn't open GBWTGraph file " << optarg << endl;
+                    exit(1); 
                 }
                 registry.provide("GBWTGraph", optarg);
                 
@@ -571,6 +579,10 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Must provide GBWT file with -H." << endl;
                     exit(1);
                 }
+                if (!std::ifstream(optarg).is_open()) {
+                    cerr << "error:[vg giraffe] Couldn't open GBWT file " << optarg << endl;
+                    exit(1); 
+                }
                 registry.provide("Giraffe GBWT", optarg);
                 break;
                 
@@ -579,6 +591,10 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Must provide minimizer file with -m." << endl;
                     exit(1);
                 }
+                if (!std::ifstream(optarg).is_open()) {
+                    cerr << "error:[vg giraffe] Couldn't open minimizer file " << optarg << endl;
+                    exit(1); 
+                }
                 registry.provide("Minimizers", optarg);
                 break;
                 
@@ -586,6 +602,10 @@ int main_giraffe(int argc, char** argv) {
                 if (!optarg || !*optarg) {
                     cerr << "error:[vg giraffe] Must provide distance index file with -d." << endl;
                     exit(1);
+                }
+                if (!std::ifstream(optarg).is_open()) {
+                    cerr << "error:[vg giraffe] Couldn't open distance index file " << optarg << endl;
+                    exit(1); 
                 }
                 registry.provide("Distance Index", optarg);
                 break;
@@ -600,6 +620,10 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Must provide GAM file with -G." << endl;
                     exit(1);
                 }
+                if (!std::ifstream(optarg).is_open()) {
+                    cerr << "error:[vg giraffe] Couldn't open GAM file " << optarg << endl;
+                    exit(1); 
+                }
                 break;
             
             case 'f':
@@ -609,12 +633,20 @@ int main_giraffe(int argc, char** argv) {
                         cerr << "error:[vg giraffe] Must provide FASTQ file with -f." << endl;
                         exit(1);
                     }
+                    if (!std::ifstream(fastq_filename_2).is_open()) {
+                        cerr << "error:[vg giraffe] Couldn't open FASTQ file " << fastq_filename_2 << endl;
+                        exit(1); 
+                    }
                 }
                 else if (fastq_filename_2.empty()) {
                     fastq_filename_2 = optarg;
                     if (fastq_filename_2.empty()) {
                         cerr << "error:[vg giraffe] Must provide FASTQ file with -f." << endl;
                         exit(1);
+                    }
+                    if (!std::ifstream(fastq_filename_2).is_open()) {
+                        cerr << "error:[vg giraffe] Couldn't open second FASTQ file " << fastq_filename_2 << endl;
+                        exit(1); 
                     }
                     paired = true;
                 } else {

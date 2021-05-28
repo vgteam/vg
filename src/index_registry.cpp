@@ -4561,10 +4561,6 @@ void IndexFile::provide(const vector<string>& filenames) {
     // append all filenames
     // TODO: would it be better to sometimes error check that the file isn't a duplicate?
     for (const string& filename : filenames) {
-        if (!std::ifstream(filename).is_open()) {
-            cerr << "error:[IndexFile] Couldn't open input file " << filename << endl;
-            exit(1); 
-        }
         this->filenames.emplace_back(filename);
     }
     provided_directly = true;
