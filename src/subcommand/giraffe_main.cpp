@@ -981,6 +981,10 @@ int main_giraffe(int argc, char** argv) {
         index_targets.push_back("XG");
     }
     
+    for (auto& needed : index_targets) {
+        cerr << "Want index: " << needed << endl;
+    }
+    
     try {
         registry.make_indexes(index_targets);
     }
@@ -990,9 +994,11 @@ int main_giraffe(int argc, char** argv) {
         return 1;
     }
     
-    
     for (auto& completed : registry.completed_indexes()) {
         cerr << "Have index: " << completed << endl;
+        for (auto& filename : registry.require(completed)) {
+            cerr << "\tAt: " << filename << endl;
+        }
     }
     
     // If we are tracking correctness, we will fill this in with a graph for
@@ -1014,6 +1020,9 @@ int main_giraffe(int argc, char** argv) {
 
     // Grab the GBWTGraph
     auto gbwt_graph = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(registry.require("GBWTGraph").at(0));
+    // We also need to attach the GBWT to it
+    auto gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(registry.require("Giraffe GBWT").at(0));
+    gbwt_graph->set_gbwt(*gbwt);
 
     // Grab the distance index
     auto distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(registry.require("Distance Index").at(0));

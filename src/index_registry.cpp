@@ -3481,8 +3481,8 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
         }
     }
     
-    // prepare the index registry to go again, if necessary
-    reset();
+    // Keep all the indexes around. If you want to re-use the object for a
+    // different set of indexes, you will need to call reset() yourself.
 }
 
 void IndexRegistry::register_index(const IndexName& identifier, const string& suffix) {

@@ -256,6 +256,7 @@ public:
     /// Create and execute a plan to make the indicated indexes using provided inputs
     /// If provided inputs cannot create the desired indexes, throws a
     /// InsufficientInputException.
+    /// When completed, all requested index files will be available via require().
     void make_indexes(const vector<IndexName>& identifiers);
     
     /// Returns the recipe graph in dot format
@@ -266,6 +267,9 @@ public:
     
     /// Determine if a VCF file is phased or not
     static bool vcf_is_phased(const string& filepath);
+    
+    /// Discard any provided or constructed indexes
+    void reset();
     
 protected:
     
@@ -289,9 +293,6 @@ protected:
     bool all_finished(const vector<const IndexFile*>& inputs) const;
     
     bool all_finished(const IndexGroup& inputs) const;
-    
-    /// Discard any provided or constructed indexes
-    void reset();
     
     /// Function to get and/or initialize the temporary directory in which indexes will live
     string get_work_dir();
