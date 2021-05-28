@@ -236,12 +236,19 @@ public:
     /// Indicate a list of serialized files that contains some identified index
     void provide(const IndexName& identifier, const vector<string>& filenames);
     
+    /// Get the filename(s) associated with the given index. Aborts if the
+    /// index is not a known type, or if it is not provided or made.
+    vector<string> require(const IndexName& identifier) const;
+    
     /// Set the maximum memory that indexing should try to consume (note: this is
     /// not strictly adhered to due to difficulties in estimating memory use)
     void set_target_memory_usage(int64_t bytes);
     
     /// Get the maximum memory we will try to consume
     int64_t get_target_memory_usage() const;
+    
+    /// Get the amount of free memory
+    static int64_t get_system_memory();
     
     /// Get a list of all indexes that have already been completed or provided
     vector<IndexName> completed_indexes() const;
@@ -256,6 +263,9 @@ public:
     
     /// Returns the recipe graph in dot format with a plan highlighted
     string to_dot(const vector<IndexName>& targets) const;
+    
+    /// Determine if a VCF file is phased or not
+    static bool vcf_is_phased(const string& filepath);
     
 protected:
     

@@ -30,7 +30,10 @@
 #include <omp.h>
 
 #include "../gbwtgraph_helper.hpp"
-#include "../index_manager.hpp"
+#include "../index_registry.hpp"
+#include "../utility.hpp"
+#include "../handle.hpp"
+#include "../min_distance.hpp"
 
 #include <gbwtgraph/index.h>
 
@@ -41,18 +44,6 @@ constexpr int DEFAULT_MAX_THREADS = 16;
 
 int get_default_threads() {
     return std::min(omp_get_max_threads(), DEFAULT_MAX_THREADS);
-}
-
-size_t get_default_k() {
-    return IndexManager::minimizer_k;
-}
-
-size_t get_default_w() {
-    return IndexManager::minimizer_w;
-}
-
-size_t get_default_s() {
-    return IndexManager::minimizer_s;
 }
 
 enum input_type { input_graph, input_gg, input_gbz };
@@ -69,10 +60,10 @@ void help_minimizer(char** argv) {
     std::cerr << "    -o, --output-name X     store the index to file X" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Minimizer options:" << std::endl;
-    std::cerr << "    -k, --kmer-length N     length of the kmers in the index (default " << get_default_k() << ", max " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH << ")" << std::endl;
-    std::cerr << "    -w, --window-length N   choose the minimizer from a window of N kmers (default " << get_default_w() << ")" << std::endl;
+    std::cerr << "    -k, --kmer-length N     length of the kmers in the index (default " << IndexingParameters::minimizer_k << ", max " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH << ")" << std::endl;
+    std::cerr << "    -w, --window-length N   choose the minimizer from a window of N kmers (default " << IndexingParameters::minimizer_w << ")" << std::endl;
     std::cerr << "    -b, --bounded-syncmers  index bounded syncmers instead of minimizers" << std::endl;
-    std::cerr << "    -s, --smer-length N     use smers of length N in bounded syncmers (default " << get_default_s() << ")" << std::endl;
+    std::cerr << "    -s, --smer-length N     use smers of length N in bounded syncmers (default " << IndexingParameters::minimizer_s << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
     std::cerr << "    -d, --distance-index X  annotate the hits with positions in this distance index" << std::endl;
@@ -94,9 +85,6 @@ int main_minimizer(int argc, char** argv) {
     }
 
     // Command-line options.
-    size_t kmer_length = get_default_k();
-    size_t window_length = get_default_w();
-    size_t smer_length = get_default_s();
     std::string output_name, distance_name, load_index, gbwt_name, graph_name;
     bool use_syncmers = false;
     input_type input = input_graph;
@@ -140,16 +128,16 @@ int main_minimizer(int argc, char** argv) {
             output_name = optarg;
             break;
         case 'k':
-            kmer_length = parse<size_t>(optarg);
+            IndexingParameters::minimizer_k = parse<size_t>(optarg);
             break;
         case 'w':
-            window_length = parse<size_t>(optarg);
+            IndexingParameters::minimizer_w = parse<size_t>(optarg);
             break;
         case 'b':
             use_syncmers = true;
             break;
         case 's':
-            smer_length = parse<size_t>(optarg);
+            IndexingParameters::minimizer_s = parse<size_t>(optarg);
             break;
         case 'd':
             distance_name = optarg;
@@ -217,7 +205,9 @@ int main_minimizer(int argc, char** argv) {
     // Minimizer index.
     std::unique_ptr<gbwtgraph::DefaultMinimizerIndex> index;
     if (load_index.empty()) {
-        index = std::make_unique<gbwtgraph::DefaultMinimizerIndex>(kmer_length, (use_syncmers ? smer_length : window_length), use_syncmers);
+        index = std::make_unique<gbwtgraph::DefaultMinimizerIndex>(IndexingParameters::minimizer_k, 
+            (use_syncmers ? IndexingParameters::minimizer_s : IndexingParameters::minimizer_w),
+            use_syncmers);
     } else {
         if (progress) {
             std::cerr << "Loading MinimizerIndex from " << load_index << std::endl;

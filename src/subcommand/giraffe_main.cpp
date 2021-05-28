@@ -25,7 +25,7 @@
 #include "../hts_alignment_emitter.hpp"
 #include "../gapless_extender.hpp"
 #include "../minimizer_mapper.hpp"
-#include "../index_manager.hpp"
+#include "../index_registry.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 
 #include <gbwtgraph/minimizer.h>
@@ -373,7 +373,7 @@ int main_giraffe(int argc, char** argv) {
     // initialize parameters with their default options
     
     // This holds and manages finding our indexes.
-    IndexManager indexes;
+    IndexRegistry registry = VGIndexes::get_vg_index_registry();
     string output_basename;
     string report_name;
     // How close should two hits be to be in the same cluster?
@@ -546,7 +546,7 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Must provide graph file with -x." << endl;
                     exit(1);
                 }
-                indexes.set_graph_override(optarg);
+                registry.provide("XG", optarg);
                 break;
 
             case 'g':
@@ -554,7 +554,7 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Must provide GBGTGraph file with -g." << endl;
                     exit(1);
                 }
-                indexes.set_gbwtgraph_override(optarg);
+                registry.provide("GBWTGraph", optarg);
                 break;
 
             case 'H':
@@ -562,7 +562,7 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Must provide GBWT file with -H." << endl;
                     exit(1);
                 }
-                indexes.set_gbwt_override(optarg);
+                registry.provide("Giraffe GBWT", optarg);
                 break;
                 
             case 'm':
@@ -570,7 +570,7 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Must provide minimizer file with -m." << endl;
                     exit(1);
                 }
-                indexes.set_minimizer_override(optarg);
+                registry.provide("Minimizers", optarg);
                 break;
                 
             case 'd':
@@ -578,7 +578,7 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Must provide distance index file with -d." << endl;
                     exit(1);
                 }
-                indexes.set_distance_override(optarg);
+                registry.provide("Distance Index", optarg);
                 break;
 
             case 'p':
@@ -877,9 +877,6 @@ int main_giraffe(int argc, char** argv) {
     }
 
    
-    // Propagate progress
-    indexes.show_progress = show_progress;
-    
     // Get positional arguments before validating user intent
     if (have_input_file(optind, argc, argv)) {
         // Must be the FASTA, but check.
@@ -895,12 +892,13 @@ int main_giraffe(int argc, char** argv) {
             exit(1);
         }
         
-        indexes.set_fasta_filename(fasta_filename);
+        registry.provide("Reference Fasta", fasta_filename);
+        // Everything else should be named like the FASTA by default
+        registry.set_prefix(fasta_parts.first);
         
         if (have_input_file(optind, argc, argv)) {
             // Next one must be VCF, but check.
             // TODO: Unify with FASTA check?
-            // TODO: Move over to the index manager?
             
             string vcf_filename = get_input_file_name(optind, argc, argv);
             
@@ -913,7 +911,11 @@ int main_giraffe(int argc, char** argv) {
                 exit(1);
             }
             
-            indexes.set_vcf_filename(vcf_filename);
+            // Determine if it is phased or not
+            string file_type = IndexRegistry::vcf_is_phased(vcf_filename) ? "VCF w/ Phasing" : "VCF";
+            
+            // Feed it to the index registry to maybe use
+            registry.provide(file_type, vcf_filename);
         }
     }
 
@@ -927,7 +929,7 @@ int main_giraffe(int argc, char** argv) {
     
     // Decide if we are outputting to an htslib format
     bool hts_output = (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM");
-
+    
     if (!ref_paths_name.empty() && !hts_output) {
         cerr << "warning:[vg giraffe] Reference path file (--ref-paths) is only used when output format (-o) is SAM, BAM, or CRAM." << endl;
         ref_paths_name = "";
@@ -935,36 +937,6 @@ int main_giraffe(int argc, char** argv) {
     
     if (output_format != "GAM" && !output_basename.empty()) {
         cerr << "error:[vg giraffe] Using an output basename (--output-basename) only makes sense for GAM format (-o)" << endl;
-        exit(1);
-    }
-    
-    if (!indexes.can_get_gbwtgraph() && !indexes.can_get_graph()) {
-        cerr << "error:[vg giraffe] Mapping requires a normal graph (-x) or a GBWTGraph (-g)" << endl;
-        exit(1);
-    }
-    
-    if (track_correctness && !indexes.can_get_graph()) {
-        cerr << "error:[vg giraffe] Tracking correctness requires a normal graph (-x)" << endl;
-        exit(1);
-    }
-    
-    if (hts_output && !indexes.can_get_graph()) {
-        cerr << "error:[vg giraffe] Mapping to a linear format requires a normal graph (-x)" << endl;
-        exit(1);
-    }
-    
-    if (!indexes.can_get_gbwt()) {
-        cerr << "error:[vg giraffe] Mapping requires a GBWT index (-H)" << endl;
-        exit(1);
-    }
-    
-    if (!indexes.can_get_minimizer()) {
-        cerr << "error:[vg giraffe] Mapping requires a minimizer index (-m)" << endl;
-        exit(1);
-    }
-    
-    if (!indexes.can_get_distance()) {
-        cerr << "error:[vg giraffe] Mapping requires a distance index (-d)" << endl;
         exit(1);
     }
     
@@ -998,27 +970,47 @@ int main_giraffe(int argc, char** argv) {
 
     // create in-memory objects
     
+    // Don't try and use all the memory.
+    // TODO: add memory options like autoindex?
+    registry.set_target_memory_usage(IndexRegistry::get_system_memory() / 2);
+    
+    auto index_targets = VGIndexes::get_default_giraffe_indexes();
+    if (track_correctness || hts_output) {
+        // We also need an XG
+        index_targets.push_back("XG");
+    }
+    
+    try {
+        registry.make_indexes(index_targets);
+    }
+    catch (InsufficientInputException ex) {
+        cerr << "error:[vg giraffe] Input is not sufficient to create indexes" << endl;
+        cerr << ex.what();
+        return 1;
+    }
+    
     // If we are tracking correctness, we will fill this in with a graph for
     // getting offsets along ref paths.
     PathPositionHandleGraph* path_position_graph = nullptr;
     // One of these will actually own it
     bdsg::PathPositionOverlayHelper overlay_helper;
-    shared_ptr<PathHandleGraph> graph;
+    unique_ptr<PathHandleGraph> graph;
     if (track_correctness || hts_output) {
         // Load the base graph
-        graph = indexes.get_graph();
+        graph = vg::io::VPKG::load_one<PathHandleGraph>(registry.require("XG").at(0));
         // And make sure it has path position support.
         // Overlay is owned by the overlay_helper, if one is needed.
         path_position_graph = overlay_helper.apply(graph.get());
     }
-
-    std::shared_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index = indexes.get_minimizer();
+    
+    // Grab the minimizer index
+    auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Minimizer").at(0));
 
     // Grab the GBWTGraph
-    auto gbwt_graph = indexes.get_gbwtgraph();
+    auto gbwt_graph = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(registry.require("GBWTGraph").at(0));
 
     // Grab the distance index
-    auto distance_index = indexes.get_distance();
+    auto distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(registry.require("Distance Index").at(0));
 
     // Set up the mapper
     if (show_progress) {
