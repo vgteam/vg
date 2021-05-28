@@ -1149,12 +1149,24 @@ Functions</h2></td></tr>
 <tr class="memitem:ac2fee40d55dfda86b1e0cc2f2500b280"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac2fee40d55dfda86b1e0cc2f2500b280">finish_gbwt_constuction</a> (gbwt::GBWTBuilder &amp;builder, const std::vector&lt; std::string &gt; &amp;sample_names, const std::vector&lt; std::string &gt; &amp;contig_names, size_t haplotype_count, bool <a class="el" href="gbwt__main_8cpp.html#af705c69cda26007b3ea9bb76849e21b1">print_metadata</a>, const std::string &amp;header=&quot;GBWT&quot;)</td></tr>
 <tr class="memdesc:ac2fee40d55dfda86b1e0cc2f2500b280"><td class="mdescLeft">&#160;</td><td class="mdescRight">Finish GBWT construction and optionally print the metadata.  <a href="namespacevg.html#ac2fee40d55dfda86b1e0cc2f2500b280">More...</a><br /></td></tr>
 <tr class="separator:ac2fee40d55dfda86b1e0cc2f2500b280"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a39725e6c5cb1fc38f484e56b8fdc907f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a39725e6c5cb1fc38f484e56b8fdc907f">load_gbwt</a> (const std::string &amp;filename, gbwt::GBWT &amp;index, bool show_progress=false)</td></tr>
-<tr class="memdesc:a39725e6c5cb1fc38f484e56b8fdc907f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load a compressed GBWT from the file.  <a href="namespacevg.html#a39725e6c5cb1fc38f484e56b8fdc907f">More...</a><br /></td></tr>
-<tr class="separator:a39725e6c5cb1fc38f484e56b8fdc907f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5463a09e3854197eae3f257614049a83"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5463a09e3854197eae3f257614049a83">load_gbwt</a> (const std::string &amp;filename, gbwt::DynamicGBWT &amp;index, bool show_progress=false)</td></tr>
-<tr class="memdesc:a5463a09e3854197eae3f257614049a83"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load a dynamic GBWT from the file.  <a href="namespacevg.html#a5463a09e3854197eae3f257614049a83">More...</a><br /></td></tr>
-<tr class="separator:a5463a09e3854197eae3f257614049a83"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af077c13bde9c0e8f5ee88d7000a0803e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af077c13bde9c0e8f5ee88d7000a0803e">load_gbwt</a> (gbwt::GBWT &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:af077c13bde9c0e8f5ee88d7000a0803e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load a compressed GBWT from the file.  <a href="namespacevg.html#af077c13bde9c0e8f5ee88d7000a0803e">More...</a><br /></td></tr>
+<tr class="separator:af077c13bde9c0e8f5ee88d7000a0803e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5197b188ae631a5adcd9689a18138042"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5197b188ae631a5adcd9689a18138042">load_gbwt</a> (gbwt::DynamicGBWT &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:a5197b188ae631a5adcd9689a18138042"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load a dynamic GBWT from the file.  <a href="namespacevg.html#a5197b188ae631a5adcd9689a18138042">More...</a><br /></td></tr>
+<tr class="separator:a5197b188ae631a5adcd9689a18138042"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4ab05fd111751cbf31c3a6a5189a76ff"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4ab05fd111751cbf31c3a6a5189a76ff">load_r_index</a> (gbwt::FastLocate &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:a4ab05fd111751cbf31c3a6a5189a76ff"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load an r-index from the file.  <a href="namespacevg.html#a4ab05fd111751cbf31c3a6a5189a76ff">More...</a><br /></td></tr>
+<tr class="separator:a4ab05fd111751cbf31c3a6a5189a76ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a790122d8b3f28068aaf09f1eb5b966a9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a790122d8b3f28068aaf09f1eb5b966a9">save_gbwt</a> (const gbwt::GBWT &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:a790122d8b3f28068aaf09f1eb5b966a9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save a compressed GBWT to the file.  <a href="namespacevg.html#a790122d8b3f28068aaf09f1eb5b966a9">More...</a><br /></td></tr>
+<tr class="separator:a790122d8b3f28068aaf09f1eb5b966a9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8385d575383b7bae35726e90851a2795"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8385d575383b7bae35726e90851a2795">save_gbwt</a> (const gbwt::DynamicGBWT &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:a8385d575383b7bae35726e90851a2795"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save a dynamic GBWT to the file.  <a href="namespacevg.html#a8385d575383b7bae35726e90851a2795">More...</a><br /></td></tr>
+<tr class="separator:a8385d575383b7bae35726e90851a2795"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a50d4b5eef7efd656daeb423af1f6a3c6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a50d4b5eef7efd656daeb423af1f6a3c6">save_r_index</a> (const gbwt::FastLocate &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:a50d4b5eef7efd656daeb423af1f6a3c6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save an r-index to the file.  <a href="namespacevg.html#a50d4b5eef7efd656daeb423af1f6a3c6">More...</a><br /></td></tr>
+<tr class="separator:a50d4b5eef7efd656daeb423af1f6a3c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2d4b0a9961f932a8caccb1d0723fd171"><td class="memItemLeft" align="right" valign="top">std::vector&lt; gbwt::size_type &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2d4b0a9961f932a8caccb1d0723fd171">threads_for_sample</a> (const gbwt::GBWT &amp;gbwt_index, const std::string &amp;sample_name)</td></tr>
 <tr class="memdesc:a2d4b0a9961f932a8caccb1d0723fd171"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the list of thread ids / gbwt path ids for the given sample.  <a href="namespacevg.html#a2d4b0a9961f932a8caccb1d0723fd171">More...</a><br /></td></tr>
 <tr class="separator:a2d4b0a9961f932a8caccb1d0723fd171"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1198,6 +1210,47 @@ Functions</h2></td></tr>
 <tr class="memitem:a529e3aef69e8c01934184726b7937c37"><td class="memItemLeft" align="right" valign="top">gbwt::vector_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a529e3aef69e8c01934184726b7937c37">path_to_gbwt</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path)</td></tr>
 <tr class="memdesc:a529e3aef69e8c01934184726b7937c37"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert <a class="el" href="structvg_1_1Path.html">Path</a> to a GBWT path.  <a href="namespacevg.html#a529e3aef69e8c01934184726b7937c37">More...</a><br /></td></tr>
 <tr class="separator:a529e3aef69e8c01934184726b7937c37"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af83417b41cb483c6cad692b718c2bc02"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af83417b41cb483c6cad692b718c2bc02">load_gbwtgraph</a> (gbwtgraph::GBWTGraph &amp;graph, const std::string &amp;filename, bool show_progress)</td></tr>
+<tr class="separator:af83417b41cb483c6cad692b718c2bc02"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7f775d6f61207052e3c157e5ad6cfcf0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7f775d6f61207052e3c157e5ad6cfcf0">load_gbz</a> (gbwtgraph::GBZ &amp;gbz, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:a7f775d6f61207052e3c157e5ad6cfcf0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load GBZ from the file.  <a href="namespacevg.html#a7f775d6f61207052e3c157e5ad6cfcf0">More...</a><br /></td></tr>
+<tr class="separator:a7f775d6f61207052e3c157e5ad6cfcf0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a142177e721683d3e4d428f6cb8f22981"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a142177e721683d3e4d428f6cb8f22981">load_gbz</a> (gbwt::GBWT &amp;index, gbwtgraph::GBWTGraph &amp;graph, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:a142177e721683d3e4d428f6cb8f22981"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load GBWT and GBWTGraph from the GBZ file.  <a href="namespacevg.html#a142177e721683d3e4d428f6cb8f22981">More...</a><br /></td></tr>
+<tr class="separator:a142177e721683d3e4d428f6cb8f22981"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1bd12c27c337a889da2db07d54d2e1d6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1bd12c27c337a889da2db07d54d2e1d6">load_gbz</a> (gbwtgraph::GBZ &amp;gbz, const std::string &amp;gbwt_name, const std::string &amp;graph_name, bool show_progress=false)</td></tr>
+<tr class="memdesc:a1bd12c27c337a889da2db07d54d2e1d6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load GBZ from separate GBWT / GBWTGraph files.  <a href="namespacevg.html#a1bd12c27c337a889da2db07d54d2e1d6">More...</a><br /></td></tr>
+<tr class="separator:a1bd12c27c337a889da2db07d54d2e1d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a649b144d7ce85a247af73055577c4d91"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a649b144d7ce85a247af73055577c4d91">load_minimizer</a> (gbwtgraph::DefaultMinimizerIndex &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:a649b144d7ce85a247af73055577c4d91"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load a minimizer index from the file.  <a href="namespacevg.html#a649b144d7ce85a247af73055577c4d91">More...</a><br /></td></tr>
+<tr class="separator:a649b144d7ce85a247af73055577c4d91"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aea7640260b1c70795335439f3d6c2eac"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aea7640260b1c70795335439f3d6c2eac">save_gbwtgraph</a> (const gbwtgraph::GBWTGraph &amp;graph, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:aea7640260b1c70795335439f3d6c2eac"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save GBWTGraph to the file.  <a href="namespacevg.html#aea7640260b1c70795335439f3d6c2eac">More...</a><br /></td></tr>
+<tr class="separator:aea7640260b1c70795335439f3d6c2eac"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a017e7cda40a98b4b044507ab78a34da9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a017e7cda40a98b4b044507ab78a34da9">save_gbz</a> (const gbwtgraph::GBZ &amp;gbz, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:a017e7cda40a98b4b044507ab78a34da9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save GBZ to the file.  <a href="namespacevg.html#a017e7cda40a98b4b044507ab78a34da9">More...</a><br /></td></tr>
+<tr class="separator:a017e7cda40a98b4b044507ab78a34da9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6beaace0e6d90b654dc9c382afb39ce0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6beaace0e6d90b654dc9c382afb39ce0">save_gbz</a> (const gbwt::GBWT &amp;index, gbwtgraph::GBWTGraph &amp;graph, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:a6beaace0e6d90b654dc9c382afb39ce0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save GBWT and GBWTGraph to the GBZ file.  <a href="namespacevg.html#a6beaace0e6d90b654dc9c382afb39ce0">More...</a><br /></td></tr>
+<tr class="separator:a6beaace0e6d90b654dc9c382afb39ce0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af7669e457f62e6f197f3120086a091e2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af7669e457f62e6f197f3120086a091e2">save_gbz</a> (const gbwtgraph::GBZ &amp;gbz, const std::string &amp;gbwt_name, const std::string &amp;graph_name, bool show_progress=false)</td></tr>
+<tr class="memdesc:af7669e457f62e6f197f3120086a091e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save GBZ to separate GBWT / GBWTGraph files.  <a href="namespacevg.html#af7669e457f62e6f197f3120086a091e2">More...</a><br /></td></tr>
+<tr class="separator:af7669e457f62e6f197f3120086a091e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af7885143ca20185816afadc669813f12"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af7885143ca20185816afadc669813f12">save_minimizer</a> (const gbwtgraph::DefaultMinimizerIndex &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:af7885143ca20185816afadc669813f12"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save a minimizer index to the file.  <a href="namespacevg.html#af7885143ca20185816afadc669813f12">More...</a><br /></td></tr>
+<tr class="separator:af7885143ca20185816afadc669813f12"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afb0e46d1a71de77dddab10d147ac0538"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afb0e46d1a71de77dddab10d147ac0538">load_gcsa</a> (gcsa::GCSA &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:afb0e46d1a71de77dddab10d147ac0538"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load GCSA from the file.  <a href="namespacevg.html#afb0e46d1a71de77dddab10d147ac0538">More...</a><br /></td></tr>
+<tr class="separator:afb0e46d1a71de77dddab10d147ac0538"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0679feb8bafbf4be20c4bffa633223c6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0679feb8bafbf4be20c4bffa633223c6">load_lcp</a> (gcsa::LCPArray &amp;lcp, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:a0679feb8bafbf4be20c4bffa633223c6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load LCP array from the file.  <a href="namespacevg.html#a0679feb8bafbf4be20c4bffa633223c6">More...</a><br /></td></tr>
+<tr class="separator:a0679feb8bafbf4be20c4bffa633223c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa2840fc8dbdb12c000769a3baa39b808"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa2840fc8dbdb12c000769a3baa39b808">save_gcsa</a> (const gcsa::GCSA &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:aa2840fc8dbdb12c000769a3baa39b808"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save GCSA to the file.  <a href="namespacevg.html#aa2840fc8dbdb12c000769a3baa39b808">More...</a><br /></td></tr>
+<tr class="separator:aa2840fc8dbdb12c000769a3baa39b808"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a604f783fb59cb6c3e7fcc783a8286822"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a604f783fb59cb6c3e7fcc783a8286822">save_lcp</a> (const gcsa::LCPArray &amp;lcp, const std::string &amp;filename, bool show_progress=false)</td></tr>
+<tr class="memdesc:a604f783fb59cb6c3e7fcc783a8286822"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save LCP array to the file.  <a href="namespacevg.html#a604f783fb59cb6c3e7fcc783a8286822">More...</a><br /></td></tr>
+<tr class="separator:a604f783fb59cb6c3e7fcc783a8286822"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a871d5cdd29e1806636314021d0b6d451"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a871d5cdd29e1806636314021d0b6d451">get_traversal_of_snarl</a> (<a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl, const <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;manager, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path)</td></tr>
 <tr class="separator:a871d5cdd29e1806636314021d0b6d451"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a94385b32246fc81a0a44ea1b47d994ee"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a94385b32246fc81a0a44ea1b47d994ee">traversal_to_string</a> (<a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph, const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;path)</td></tr>
@@ -11151,8 +11204,8 @@ template&lt;class Element &gt; </div>
 
 </div>
 </div>
-<a id="a5463a09e3854197eae3f257614049a83"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5463a09e3854197eae3f257614049a83">&#9670;&nbsp;</a></span>load_gbwt() <span class="overload">[1/2]</span></h2>
+<a id="a5197b188ae631a5adcd9689a18138042"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5197b188ae631a5adcd9689a18138042">&#9670;&nbsp;</a></span>load_gbwt() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -11160,14 +11213,14 @@ template&lt;class Element &gt; </div>
         <tr>
           <td class="memname">void vg::load_gbwt </td>
           <td>(</td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>filename</em>, </td>
+          <td class="paramtype">gbwt::DynamicGBWT &amp;&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">gbwt::DynamicGBWT &amp;&#160;</td>
-          <td class="paramname"><em>index</em>, </td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -11187,8 +11240,8 @@ template&lt;class Element &gt; </div>
 
 </div>
 </div>
-<a id="a39725e6c5cb1fc38f484e56b8fdc907f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a39725e6c5cb1fc38f484e56b8fdc907f">&#9670;&nbsp;</a></span>load_gbwt() <span class="overload">[2/2]</span></h2>
+<a id="af077c13bde9c0e8f5ee88d7000a0803e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af077c13bde9c0e8f5ee88d7000a0803e">&#9670;&nbsp;</a></span>load_gbwt() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -11196,14 +11249,14 @@ template&lt;class Element &gt; </div>
         <tr>
           <td class="memname">void vg::load_gbwt </td>
           <td>(</td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>filename</em>, </td>
+          <td class="paramtype">gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">gbwt::GBWT &amp;&#160;</td>
-          <td class="paramname"><em>index</em>, </td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -11220,6 +11273,305 @@ template&lt;class Element &gt; </div>
 </div><div class="memdoc">
 
 <p>Load a compressed GBWT from the file. </p>
+
+</div>
+</div>
+<a id="af83417b41cb483c6cad692b718c2bc02"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af83417b41cb483c6cad692b718c2bc02">&#9670;&nbsp;</a></span>load_gbwtgraph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::load_gbwtgraph </td>
+          <td>(</td>
+          <td class="paramtype">gbwtgraph::GBWTGraph &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em> = <code>false</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Load GBWTGraph from the file. NOTE: Call <code>graph.set_gbwt()</code> afterwards with the appropriate GBWT index. </p>
+
+</div>
+</div>
+<a id="a142177e721683d3e4d428f6cb8f22981"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a142177e721683d3e4d428f6cb8f22981">&#9670;&nbsp;</a></span>load_gbz() <span class="overload">[1/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::load_gbz </td>
+          <td>(</td>
+          <td class="paramtype">gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">gbwtgraph::GBWTGraph &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Load GBWT and GBWTGraph from the GBZ file. </p>
+
+</div>
+</div>
+<a id="a7f775d6f61207052e3c157e5ad6cfcf0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7f775d6f61207052e3c157e5ad6cfcf0">&#9670;&nbsp;</a></span>load_gbz() <span class="overload">[2/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::load_gbz </td>
+          <td>(</td>
+          <td class="paramtype">gbwtgraph::GBZ &amp;&#160;</td>
+          <td class="paramname"><em>gbz</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Load GBZ from the file. </p>
+
+</div>
+</div>
+<a id="a1bd12c27c337a889da2db07d54d2e1d6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1bd12c27c337a889da2db07d54d2e1d6">&#9670;&nbsp;</a></span>load_gbz() <span class="overload">[3/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::load_gbz </td>
+          <td>(</td>
+          <td class="paramtype">gbwtgraph::GBZ &amp;&#160;</td>
+          <td class="paramname"><em>gbz</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>gbwt_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>graph_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Load GBZ from separate GBWT / GBWTGraph files. </p>
+
+</div>
+</div>
+<a id="afb0e46d1a71de77dddab10d147ac0538"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afb0e46d1a71de77dddab10d147ac0538">&#9670;&nbsp;</a></span>load_gcsa()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::load_gcsa </td>
+          <td>(</td>
+          <td class="paramtype">gcsa::GCSA &amp;&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Load GCSA from the file. </p>
+
+</div>
+</div>
+<a id="a0679feb8bafbf4be20c4bffa633223c6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0679feb8bafbf4be20c4bffa633223c6">&#9670;&nbsp;</a></span>load_lcp()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::load_lcp </td>
+          <td>(</td>
+          <td class="paramtype">gcsa::LCPArray &amp;&#160;</td>
+          <td class="paramname"><em>lcp</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Load LCP array from the file. </p>
+
+</div>
+</div>
+<a id="a649b144d7ce85a247af73055577c4d91"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a649b144d7ce85a247af73055577c4d91">&#9670;&nbsp;</a></span>load_minimizer()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::load_minimizer </td>
+          <td>(</td>
+          <td class="paramtype">gbwtgraph::DefaultMinimizerIndex &amp;&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Load a minimizer index from the file. </p>
+
+</div>
+</div>
+<a id="a4ab05fd111751cbf31c3a6a5189a76ff"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4ab05fd111751cbf31c3a6a5189a76ff">&#9670;&nbsp;</a></span>load_r_index()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::load_r_index </td>
+          <td>(</td>
+          <td class="paramtype">gbwt::FastLocate &amp;&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Load an r-index from the file. </p>
 
 </div>
 </div>
@@ -17487,6 +17839,378 @@ template&lt;class Decoder &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a8385d575383b7bae35726e90851a2795"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8385d575383b7bae35726e90851a2795">&#9670;&nbsp;</a></span>save_gbwt() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::save_gbwt </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::DynamicGBWT &amp;&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Save a dynamic GBWT to the file. </p>
+
+</div>
+</div>
+<a id="a790122d8b3f28068aaf09f1eb5b966a9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a790122d8b3f28068aaf09f1eb5b966a9">&#9670;&nbsp;</a></span>save_gbwt() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::save_gbwt </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Save a compressed GBWT to the file. </p>
+
+</div>
+</div>
+<a id="aea7640260b1c70795335439f3d6c2eac"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aea7640260b1c70795335439f3d6c2eac">&#9670;&nbsp;</a></span>save_gbwtgraph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::save_gbwtgraph </td>
+          <td>(</td>
+          <td class="paramtype">const gbwtgraph::GBWTGraph &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Save GBWTGraph to the file. </p>
+
+</div>
+</div>
+<a id="a6beaace0e6d90b654dc9c382afb39ce0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6beaace0e6d90b654dc9c382afb39ce0">&#9670;&nbsp;</a></span>save_gbz() <span class="overload">[1/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::save_gbz </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">gbwtgraph::GBWTGraph &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Save GBWT and GBWTGraph to the GBZ file. </p>
+
+</div>
+</div>
+<a id="a017e7cda40a98b4b044507ab78a34da9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a017e7cda40a98b4b044507ab78a34da9">&#9670;&nbsp;</a></span>save_gbz() <span class="overload">[2/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::save_gbz </td>
+          <td>(</td>
+          <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
+          <td class="paramname"><em>gbz</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Save GBZ to the file. </p>
+
+</div>
+</div>
+<a id="af7669e457f62e6f197f3120086a091e2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af7669e457f62e6f197f3120086a091e2">&#9670;&nbsp;</a></span>save_gbz() <span class="overload">[3/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::save_gbz </td>
+          <td>(</td>
+          <td class="paramtype">const gbwtgraph::GBZ &amp;&#160;</td>
+          <td class="paramname"><em>gbz</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>gbwt_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>graph_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Save GBZ to separate GBWT / GBWTGraph files. </p>
+
+</div>
+</div>
+<a id="aa2840fc8dbdb12c000769a3baa39b808"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa2840fc8dbdb12c000769a3baa39b808">&#9670;&nbsp;</a></span>save_gcsa()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::save_gcsa </td>
+          <td>(</td>
+          <td class="paramtype">const gcsa::GCSA &amp;&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Save GCSA to the file. </p>
+
+</div>
+</div>
+<a id="a604f783fb59cb6c3e7fcc783a8286822"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a604f783fb59cb6c3e7fcc783a8286822">&#9670;&nbsp;</a></span>save_lcp()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::save_lcp </td>
+          <td>(</td>
+          <td class="paramtype">const gcsa::LCPArray &amp;&#160;</td>
+          <td class="paramname"><em>lcp</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Save LCP array to the file. </p>
+
+</div>
+</div>
+<a id="af7885143ca20185816afadc669813f12"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af7885143ca20185816afadc669813f12">&#9670;&nbsp;</a></span>save_minimizer()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::save_minimizer </td>
+          <td>(</td>
+          <td class="paramtype">const gbwtgraph::DefaultMinimizerIndex &amp;&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Save a minimizer index to the file. </p>
+
+</div>
+</div>
+<a id="a50d4b5eef7efd656daeb423af1f6a3c6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a50d4b5eef7efd656daeb423af1f6a3c6">&#9670;&nbsp;</a></span>save_r_index()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::save_r_index </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::FastLocate &amp;&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_progress</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Save an r-index to the file. </p>
 
 </div>
 </div>
