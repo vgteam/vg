@@ -374,6 +374,7 @@ int main_giraffe(int argc, char** argv) {
     
     // This holds and manages finding our indexes.
     IndexRegistry registry = VGIndexes::get_vg_index_registry();
+    IndexingParameters::verbosity = IndexingParameters::Debug;
     string output_basename;
     string report_name;
     // How close should two hits be to be in the same cluster?
@@ -892,7 +893,7 @@ int main_giraffe(int argc, char** argv) {
             exit(1);
         }
         
-        registry.provide("Reference Fasta", fasta_filename);
+        registry.provide("Reference FASTA", fasta_filename);
         // Everything else should be named like the FASTA by default
         registry.set_prefix(fasta_parts.first);
         
@@ -989,6 +990,11 @@ int main_giraffe(int argc, char** argv) {
         return 1;
     }
     
+    
+    for (auto& completed : registry.completed_indexes()) {
+        cerr << "Have index: " << completed << endl;
+    }
+    
     // If we are tracking correctness, we will fill this in with a graph for
     // getting offsets along ref paths.
     PathPositionHandleGraph* path_position_graph = nullptr;
@@ -1004,7 +1010,7 @@ int main_giraffe(int argc, char** argv) {
     }
     
     // Grab the minimizer index
-    auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Minimizer").at(0));
+    auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Minimizers").at(0));
 
     // Grab the GBWTGraph
     auto gbwt_graph = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(registry.require("GBWTGraph").at(0));

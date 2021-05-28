@@ -3519,6 +3519,9 @@ void IndexRegistry::provide(const IndexName& identifier, const string& filename)
 }
 
 void IndexRegistry::provide(const IndexName& identifier, const vector<string>& filenames) {
+    if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+        cerr << "[IndexRegistry]: Provided: " << identifier << endl;
+    }
     if (!index_registry.count(identifier)) {
         cerr << "error:[IndexRegistry] cannot provide unregistered index: " << identifier << endl;
         exit(1);
