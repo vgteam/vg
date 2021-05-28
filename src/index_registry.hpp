@@ -202,6 +202,9 @@ public:
     /// Prefix for all saved outputs
     void set_prefix(const string& prefix);
     
+    /// Get the current prefix for saving output files.
+    string get_prefix() const;
+    
     /// Should intermediate files be saved to the output directory
     /// or the temp directory?
     void set_intermediate_file_keeping(bool keep_intermediates);

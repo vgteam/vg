@@ -374,7 +374,6 @@ int main_giraffe(int argc, char** argv) {
     
     // This holds and manages finding our indexes.
     IndexRegistry registry = VGIndexes::get_vg_index_registry();
-    IndexingParameters::verbosity = IndexingParameters::Debug;
     string output_basename;
     string report_name;
     // How close should two hits be to be in the same cluster?
@@ -548,6 +547,10 @@ int main_giraffe(int argc, char** argv) {
                     exit(1);
                 }
                 registry.provide("XG", optarg);
+                
+                // If we have an xg we probably want to use its name as the base name.
+                registry.set_prefix(split_ext(optarg).first);
+                
                 break;
 
             case 'g':
@@ -556,6 +559,11 @@ int main_giraffe(int argc, char** argv) {
                     exit(1);
                 }
                 registry.provide("GBWTGraph", optarg);
+                
+                // But if we have a GBWTGraph we probably want to use *its* name as the base name.
+                // Whichever is specified last will win, unless we also have a FASTA input name.
+                registry.set_prefix(split_ext(optarg).first);
+                
                 break;
 
             case 'H':
@@ -968,6 +976,29 @@ int main_giraffe(int argc, char** argv) {
     if ((forced_mean || forced_stdev || forced_rescue_attempts) && (!paired)) {
         cerr << "warning:[vg giraffe] Attempting to set paired-end parameters but running in single-end mode" << endl;
     }
+    
+    // The IndexRegistry doesn't try to infer index files based on the
+    // basename, so do that here.
+    unordered_map<string, string> indexes_and_extensions = {
+        {"XG", "xg"},
+        {"Giraffe GBWT", "gbwt"},
+        {"GBWTGraph", "gg"},
+        {"Distance Index", "dist"},
+        {"Minimizers", "min"}
+    };
+    for (auto& completed : registry.completed_indexes()) {
+        // Drop anything we already got from the list
+        indexes_and_extensions.erase(completed);
+    }
+    for (auto& index_and_extension : indexes_and_extensions) {
+        string inferred_filename = registry.get_prefix() + "." + index_and_extension.second;
+        if (ifstream(inferred_filename).is_open()) {
+            // A file with the appropriate name exists and we can read it
+            registry.provide(index_and_extension.first, inferred_filename);
+            // Report it because this may not be desired behavior
+            cerr << "[vg giraffe] Using " << inferred_filename << " as " << index_and_extension.first << endl;
+        }
+    }
 
     // create in-memory objects
     
@@ -981,9 +1012,11 @@ int main_giraffe(int argc, char** argv) {
         index_targets.push_back("XG");
     }
     
+#ifdef debug
     for (auto& needed : index_targets) {
         cerr << "Want index: " << needed << endl;
     }
+#endif
     
     try {
         registry.make_indexes(index_targets);
@@ -993,13 +1026,15 @@ int main_giraffe(int argc, char** argv) {
         cerr << ex.what();
         return 1;
     }
-    
+   
+#ifdef debug
     for (auto& completed : registry.completed_indexes()) {
         cerr << "Have index: " << completed << endl;
         for (auto& filename : registry.require(completed)) {
             cerr << "\tAt: " << filename << endl;
         }
     }
+#endif
     
     // If we are tracking correctness, we will fill this in with a graph for
     // getting offsets along ref paths.

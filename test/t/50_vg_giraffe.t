@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 20
+plan tests 22
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -G x.gbwt -v small/x.vcf.gz x.vg
@@ -15,6 +15,14 @@ vg minimizer -k 29 -w 11 -g x.gbwt -o x.min x.xg
 
 vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with all indexes specified without crashing"
+
+rm -f x.min
+
+vg giraffe -x x.xg -H x.gbwt -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
+is "${?}" "0" "a read can be mapped with the minimizer index being regenerated"
+
+vg giraffe -x x.xg -f reads/small.middle.ref.fq > mapped1.gam
+is "${?}" "0" "a read can be mapped with the indexes being inferred by name"
 
 vg minimizer -k 29 -b -s 18 -g x.gbwt -o x.sync x.xg
 

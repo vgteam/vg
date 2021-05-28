@@ -108,11 +108,11 @@ void copy_file(const string& from_fp, const string& to_fp) {
     ifstream from_file(from_fp, std::ios::binary);
     ofstream to_file(to_fp, std::ios::binary);
     if (!from_file) {
-        cerr << "error:[IndexRegistry] Couldn't open " << from_fp << endl;
+        cerr << "error:[IndexRegistry] Couldn't open input file " << from_fp << endl;
         exit(1);
     }
     if (!to_file) {
-        cerr << "error:[IndexRegistry] Couldn't open " << to_fp << endl;
+        cerr << "error:[IndexRegistry] Couldn't open output file " << to_fp << endl;
         exit(1);
     }
     to_file << from_file.rdbuf();
@@ -3400,6 +3400,10 @@ void IndexRegistry::set_prefix(const string& prefix) {
     this->output_prefix = prefix;
 }
 
+string IndexRegistry::get_prefix() const {
+    return this->output_prefix;
+}
+
 void IndexRegistry::set_intermediate_file_keeping(bool keep_intermediates) {
     this->keep_intermediates = keep_intermediates;
 }
@@ -4557,6 +4561,10 @@ void IndexFile::provide(const vector<string>& filenames) {
     // append all filenames
     // TODO: would it be better to sometimes error check that the file isn't a duplicate?
     for (const string& filename : filenames) {
+        if (!std::ifstream(filename).is_open()) {
+            cerr << "error:[IndexFile] Couldn't open input file " << filename << endl;
+            exit(1); 
+        }
         this->filenames.emplace_back(filename);
     }
     provided_directly = true;
