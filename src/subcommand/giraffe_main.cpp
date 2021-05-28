@@ -996,7 +996,7 @@ int main_giraffe(int argc, char** argv) {
             // A file with the appropriate name exists and we can read it
             registry.provide(index_and_extension.first, inferred_filename);
             // Report it because this may not be desired behavior
-            cerr << "[vg giraffe] Using " << inferred_filename << " as " << index_and_extension.first << endl;
+            cerr << "Guessing that " << inferred_filename << " is " << index_and_extension.first << endl;
         }
     }
 
