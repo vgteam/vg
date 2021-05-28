@@ -10,6 +10,7 @@
 #include "position.hpp"
 
 #include <gbwt/dynamic_gbwt.h>
+#include <gbwt/fast_locate.h>
 #include <handlegraph/mutable_path_handle_graph.hpp>
 
 namespace vg {
@@ -74,11 +75,30 @@ void finish_gbwt_constuction(gbwt::GBWTBuilder& builder,
 
 //------------------------------------------------------------------------------
 
+/*
+    These are the proper ways of saving and loading GBWT structures.
+    Loading with `vg::io::VPKG::load_one` is also supported.
+*/
+
 /// Load a compressed GBWT from the file.
-void load_gbwt(const std::string& filename, gbwt::GBWT& index, bool show_progress = false);
+void load_gbwt(gbwt::GBWT& index, const std::string& filename, bool show_progress = false);
 
 /// Load a dynamic GBWT from the file.
-void load_gbwt(const std::string& filename, gbwt::DynamicGBWT& index, bool show_progress = false);
+void load_gbwt(gbwt::DynamicGBWT& index, const std::string& filename, bool show_progress = false);
+
+/// Load an r-index from the file.
+void load_r_index(gbwt::FastLocate& index, const std::string& filename, bool show_progress = false);
+
+/// Save a compressed GBWT to the file.
+void save_gbwt(const gbwt::GBWT& index, const std::string& filename, bool show_progress = false);
+
+/// Save a dynamic GBWT to the file.
+void save_gbwt(const gbwt::DynamicGBWT& index, const std::string& filename, bool show_progress = false);
+
+/// Save an r-index to the file.
+void save_r_index(const gbwt::FastLocate& index, const std::string& filename, bool show_progress = false);
+
+//------------------------------------------------------------------------------
 
 /**
  * Helper class that stores either a GBWT or a DynamicGBWT and loads them from a file
@@ -178,7 +198,6 @@ unordered_map<nid_t, vector<nid_t>> load_translation_map(ifstream& input_stream)
 unordered_map<nid_t, pair<nid_t, size_t>> load_translation_back_map(HandleGraph& graph, ifstream& input_stream);
 
 //------------------------------------------------------------------------------
-
 
 } // namespace vg
 

@@ -15,6 +15,7 @@
 #include "xg.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
+#include "../io/save_handle_graph.hpp"
 #include "../stream_index.hpp"
 #include "../vg_set.hpp"
 #include "../utility.hpp"
@@ -23,8 +24,8 @@
 #include "../min_distance.hpp"
 #include "../source_sink_overlay.hpp"
 #include "../gbwt_helper.hpp"
+#include "../gcsa_helper.hpp"
 
-#include <gcsa/gcsa.h>
 #include <gcsa/algorithms.h>
 #include <gbwt/variants.h>
 #include <bdsg/overlays/packed_subgraph_overlay.hpp>
@@ -491,8 +492,8 @@ int main_index(int argc, char** argv) {
         if (show_progress) {
             cerr << "Saving XG index to " << xg_name << endl;
         }
-        // Save encapsulated in a VPKG
-        vg::io::VPKG::save(xg_index, xg_name); 
+        // Save the XG.
+        vg::io::save_handle_graph(&xg_index, xg_name);
     }
 
     // Generate threads
@@ -515,10 +516,7 @@ int main_index(int argc, char** argv) {
             gbwt_index = haplotype_indexer.build_gbwt(*path_handle_graph, aln_file_names, "GAF");
         }
         if (build_gbwt && gbwt_index.get() != nullptr) {
-            if (show_progress) {
-                cerr << "Saving GBWT to disk..." << endl;
-            }
-            vg::io::VPKG::save(*gbwt_index, gbwt_name);
+            save_gbwt(*gbwt_index, gbwt_name, show_progress);
         }
     } // End of thread indexing.
 
@@ -629,11 +627,8 @@ int main_index(int argc, char** argv) {
         }
 
         // Save the indexes
-        if (show_progress) {
-            cerr << "Saving the index to disk..." << endl;
-        }
-        vg::io::VPKG::save(gcsa_index, gcsa_name);
-        vg::io::VPKG::save(lcp_array, gcsa_name + ".lcp");
+        save_gcsa(gcsa_index, gcsa_name, show_progress);
+        save_lcp(lcp_array, gcsa_name + ".lcp", show_progress);
 
         // Verify the index
         if (verify_gcsa) {

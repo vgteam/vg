@@ -40,6 +40,8 @@
 #include "haplotype_indexer.hpp"
 #include "phase_unfolder.hpp"
 #include "gbwt_helper.hpp"
+#include "gbwtgraph_helper.hpp"
+#include "gcsa_helper.hpp"
 #include "kmer.hpp"
 #include "transcriptome.hpp"
 #include "integrated_snarl_finder.hpp"
@@ -2217,7 +2219,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             vector<gbwt::GBWT> gbwt_indexes(gbwt_names.size());
             for (size_t i = 0; i < gbwt_names.size(); ++i) {
-                load_gbwt(gbwt_names[i], gbwt_indexes[i], IndexingParameters::verbosity >= IndexingParameters::Debug);
+                load_gbwt(gbwt_indexes[i], gbwt_names[i], IndexingParameters::verbosity >= IndexingParameters::Debug);
             }
             gbwt::GBWT merged(gbwt_indexes);
             merged.serialize(outfile);
@@ -2343,7 +2345,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             unique_ptr<gbwt::DynamicGBWT> gbwt_index = haplotype_indexer->build_gbwt(parse_files);
             
-            vg::io::VPKG::save(*gbwt_index, gbwt_name);
+            save_gbwt(*gbwt_index, gbwt_name);
             
             gbwt_names[i] = gbwt_name;
         };
@@ -2430,7 +2432,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                        IndexingParameters::gbwt_sampling_interval,
                                                        IndexingParameters::verbosity >= IndexingParameters::Debug);
         
-        vg::io::VPKG::save(cover, output_name);
+        save_gbwt(cover, output_name);
         output_names.push_back(output_name);
         return all_outputs;
     });
@@ -2473,7 +2475,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                       IndexingParameters::gbwt_sampling_interval,
                                                       IndexingParameters::verbosity >= IndexingParameters::Debug);
         
-        vg::io::VPKG::save(cover, output_name);
+        save_gbwt(cover, output_name);
         output_names.push_back(output_name);
         return all_outputs;
     });
@@ -2607,7 +2609,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             // save the haplotype transcript GBWT
             gbwt_builder.finish();
-            vg::io::VPKG::save(gbwt_builder.index, gbwt_name);
+            save_gbwt(gbwt_builder.index, gbwt_name);
             
             // write transcript origin info table
             transcriptome.write_info(&info_outfile, *haplotype_index, false);
@@ -2997,8 +2999,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         cerr << "saving GCSA/LCP pair" << endl;
 #endif
         
-        vg::io::VPKG::save(gcsa_index, gcsa_output_name);
-        vg::io::VPKG::save(lcp_array, lcp_output_name);
+        save_gcsa(gcsa_index, gcsa_output_name);
+        save_lcp(lcp_array, lcp_output_name);
         
         gcsa_names.push_back(gcsa_output_name);
         lcp_names.push_back(lcp_output_name);
@@ -3220,7 +3222,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // TODO: could add simplification to replace XG index with a gbwt::SequenceSource here
         gbwtgraph::GBWTGraph ggraph(*gbwt_index, *xg_index);
         
-        vg::io::VPKG::save(ggraph, output_name);
+        save_gbwtgraph(ggraph, output_name);
         
         output_names.push_back(output_name);
         return all_outputs;
@@ -3280,7 +3282,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             return MIPayload::encode(dist_index->get_minimizer_distances(pos));
         });
         
-        vg::io::VPKG::save(minimizers, output_name);
+        save_minimizer(minimizers, output_name);
         
         output_names.push_back(output_name);
         return all_outputs;

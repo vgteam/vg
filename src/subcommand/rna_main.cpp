@@ -374,7 +374,7 @@ int32_t main_rna(int32_t argc, char** argv) {
         // Finish contruction and recode index.
         gbwt_builder.finish();
 
-        vg::io::VPKG::save(gbwt_builder.index, gbwt_out_filename);
+        save_gbwt(gbwt_builder.index, gbwt_out_filename);
 
         assert(num_written_transcripts == num_added_threads || num_written_transcripts == 0);
         num_written_transcripts = num_added_threads;

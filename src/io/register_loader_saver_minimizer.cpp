@@ -16,7 +16,10 @@ using namespace std;
 using namespace vg::io;
 
 void register_loader_saver_minimizer() {
-    Registry::register_bare_loader_saver<gbwtgraph::DefaultMinimizerIndex>("MinimizerIndex", [](istream& input) -> void* {
+    std::uint32_t magic_number = gbwtgraph::MinimizerHeader::TAG;
+    std::string magic_string(reinterpret_cast<char*>(&magic_number), sizeof(magic_number));
+
+    Registry::register_bare_loader_saver_with_magic<gbwtgraph::DefaultMinimizerIndex>("MinimizerIndex", magic_string, [](istream& input) -> void* {
         gbwtgraph::DefaultMinimizerIndex* index = new gbwtgraph::DefaultMinimizerIndex();
         index->deserialize(input);
         
