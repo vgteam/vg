@@ -620,7 +620,7 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Must provide GAM file with -G." << endl;
                     exit(1);
                 }
-                if (!std::ifstream(optarg).is_open()) {
+                if (optarg != "-" && !std::ifstream(optarg).is_open()) {
                     cerr << "error:[vg giraffe] Couldn't open GAM file " << optarg << endl;
                     exit(1); 
                 }
@@ -633,7 +633,7 @@ int main_giraffe(int argc, char** argv) {
                         cerr << "error:[vg giraffe] Must provide FASTQ file with -f." << endl;
                         exit(1);
                     }
-                    if (!std::ifstream(fastq_filename_1).is_open()) {
+                    if (fastq_filename_1 != "-" && !std::ifstream(fastq_filename_1).is_open()) {
                         cerr << "error:[vg giraffe] Couldn't open FASTQ file " << fastq_filename_1 << endl;
                         exit(1); 
                     }
@@ -644,7 +644,7 @@ int main_giraffe(int argc, char** argv) {
                         cerr << "error:[vg giraffe] Must provide FASTQ file with -f." << endl;
                         exit(1);
                     }
-                    if (!std::ifstream(fastq_filename_2).is_open()) {
+                    if (fastq_filename_2 != "-" && !std::ifstream(fastq_filename_2).is_open()) {
                         cerr << "error:[vg giraffe] Couldn't open second FASTQ file " << fastq_filename_2 << endl;
                         exit(1); 
                     }
