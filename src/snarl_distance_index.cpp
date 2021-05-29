@@ -282,20 +282,20 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
         TemporarySnarlRecord& temp_snarl_record = temp_snarl_records.back();
         temp_snarl_record.is_root_snarl = true;
         temp_snarl_record.parent = make_pair(TEMP_ROOT, 0); 
-        temp_snarl_record.node_count = 0;
 
 
         for (size_t chain_i : root_snarl_indexes) {
             //For each chain component of this root-level snarl
             assert(root_snarl_components[chain_i].first == TEMP_CHAIN);
-            TemporaryChainRecord temp_chain_record = temp_chain_records[root_snarl_components[chain_i].second];
+            TemporaryChainRecord& temp_chain_record = temp_chain_records[root_snarl_components[chain_i].second];
             temp_chain_record.parent = make_pair(TEMP_SNARL, temp_snarl_records.size() - 1);
             temp_chain_record.rank_in_parent = temp_snarl_record.children.size();
             temp_chain_record.reversed_in_parent = false;
 
             temp_snarl_record.children.emplace_back(root_snarl_components[chain_i]);
-            temp_snarl_record.node_count ++;
+            cerr << "  Add child " << structure_start_end_as_string(root_snarl_components[chain_i]) << endl;
         }
+        temp_snarl_record.node_count = temp_snarl_record.children.size();
     }
 
     /*Now go through the decomposition again to fill in the distances
@@ -765,6 +765,7 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                     //If this chain contains at least two nodes
 #ifdef debug_distance_indexing
                     cerr << "  Adding this chain at offset " << snarl_tree_records.size() << endl;
+                    cerr << "            with indices " << current_record_index.first << " " << current_record_index.second << endl;
 #endif 
                     record_to_offset.emplace(make_pair(temp_index_i,current_record_index), snarl_tree_records.size());
 
@@ -781,6 +782,7 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                     }
                     chain_record_constructor.set_parent_record_offset(
                             record_to_offset[make_pair(temp_index_i, temp_chain_record.parent)]);//TODO: Get the actual parent
+
                     chain_record_constructor.set_min_length(temp_chain_record.min_length);
                     chain_record_constructor.set_max_length(temp_chain_record.max_length);
                     chain_record_constructor.set_rank_in_parent(temp_chain_record.rank_in_parent);
@@ -993,7 +995,7 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                     node_record.set_parent_record_offset(record_to_offset[make_pair(temp_index_i, temp_chain_record.parent)]);
 
                     record_to_offset.emplace(make_pair(temp_index_i, current_record_index), node_record.NodeRecord::record_offset);
-                         cerr << "At offset " << node_record.NodeRecord::record_offset << endl;
+
                 }
             } else if (current_record_index.first == TEMP_SNARL) {
 #ifdef debug_distance_indexing
@@ -1030,7 +1032,6 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                         temp_record_stack.emplace_back(child);
 #ifdef debug_distance_indexing
                     cerr << "      " << temp_index->structure_start_end_as_string(child) << endl;
-                    cerr << "        at offset " << record_to_offset[make_pair(temp_index_i, child)]  << endl;
 #endif
                 }
                 
@@ -1060,8 +1061,8 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
 #ifdef debug_distance_indexing
         cerr << "Adding roots" << endl;
 #endif
+
         for (size_t component_num = 0 ; component_num < temp_index->components.size() ; component_num++){
-            cerr << "Add component " << endl;
             const pair<temp_record_t, size_t>& component_index = temp_index->components[component_num];
             //Let the root record know that it has another root
             root_record.add_component(component_num,record_to_offset[make_pair(temp_index_i,component_index)]); 
@@ -1121,13 +1122,13 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                 //And a constructor for the permanent record, which we've already created
                 SnarlRecordConstructor snarl_record_constructor (&snarl_tree_records,
                         record_to_offset[make_pair(temp_index_i, make_pair(TEMP_SNARL, temp_snarl_i))]); 
-cerr << "     Add children of snarl " << net_handle_as_string(get_net_handle(record_to_offset[make_pair(temp_index_i, make_pair(TEMP_SNARL, temp_snarl_i))], START_END)) << endl;
                 //Now add the children and tell the record where to find them
                 snarl_record_constructor.set_child_record_pointer(snarl_tree_records.size());
                 for (pair<temp_record_t, size_t> child : temp_snarl_record.children) {
                     snarl_record_constructor.add_child(record_to_offset[make_pair(temp_index_i, child)]);
 #ifdef debug_distance_indexing
                 cerr << "       child " << temp_index->structure_start_end_as_string(child) << endl;
+                cerr << "        " << child.first << " " << child.second << endl;
                 cerr << "        Add child " << net_handle_as_string(get_net_handle(record_to_offset[make_pair(temp_index_i, child)], START_END)) 
                      << "     at offset " << record_to_offset[make_pair(temp_index_i, child)] 
                      << "     to child list at offset " << snarl_tree_records.size() << endl;
