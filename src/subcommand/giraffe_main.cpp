@@ -633,8 +633,8 @@ int main_giraffe(int argc, char** argv) {
                         cerr << "error:[vg giraffe] Must provide FASTQ file with -f." << endl;
                         exit(1);
                     }
-                    if (!std::ifstream(fastq_filename_2).is_open()) {
-                        cerr << "error:[vg giraffe] Couldn't open FASTQ file " << fastq_filename_2 << endl;
+                    if (!std::ifstream(fastq_filename_1).is_open()) {
+                        cerr << "error:[vg giraffe] Couldn't open FASTQ file " << fastq_filename_1 << endl;
                         exit(1); 
                     }
                 }
