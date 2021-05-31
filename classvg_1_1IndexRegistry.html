@@ -68,6 +68,7 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
+<a href="#pub-static-methods">Static Public Member Functions</a> &#124;
 <a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="#pro-attribs">Protected Attributes</a> &#124;
 <a href="#friends">Friends</a> &#124;
@@ -98,6 +99,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aefc2da48af951d3b300ee0b5c70559c3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#aefc2da48af951d3b300ee0b5c70559c3">set_prefix</a> (const string &amp;prefix)</td></tr>
 <tr class="memdesc:aefc2da48af951d3b300ee0b5c70559c3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Prefix for all saved outputs.  <a href="classvg_1_1IndexRegistry.html#aefc2da48af951d3b300ee0b5c70559c3">More...</a><br /></td></tr>
 <tr class="separator:aefc2da48af951d3b300ee0b5c70559c3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa3748affd87c03e3a883ccb9d913eb73"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#aa3748affd87c03e3a883ccb9d913eb73">get_prefix</a> () const</td></tr>
+<tr class="memdesc:aa3748affd87c03e3a883ccb9d913eb73"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the current prefix for saving output files.  <a href="classvg_1_1IndexRegistry.html#aa3748affd87c03e3a883ccb9d913eb73">More...</a><br /></td></tr>
+<tr class="separator:aa3748affd87c03e3a883ccb9d913eb73"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a983cdafc1b28ea24def5349f90e415eb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#a983cdafc1b28ea24def5349f90e415eb">set_intermediate_file_keeping</a> (bool <a class="el" href="classvg_1_1IndexRegistry.html#a1b0ad4bff3fc2a7d514c6e1b46d3ca23">keep_intermediates</a>)</td></tr>
 <tr class="separator:a983cdafc1b28ea24def5349f90e415eb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad8f48075fe06df92c65bc5fd0207f9bc"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#ad8f48075fe06df92c65bc5fd0207f9bc">register_index</a> (const <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &amp;identifier, const string &amp;suffix)</td></tr>
@@ -111,6 +115,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a430536c995544af29060b78d04e3f5c1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#a430536c995544af29060b78d04e3f5c1">provide</a> (const <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &amp;identifier, const vector&lt; string &gt; &amp;filenames)</td></tr>
 <tr class="memdesc:a430536c995544af29060b78d04e3f5c1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Indicate a list of serialized files that contains some identified index.  <a href="classvg_1_1IndexRegistry.html#a430536c995544af29060b78d04e3f5c1">More...</a><br /></td></tr>
 <tr class="separator:a430536c995544af29060b78d04e3f5c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac52737ce471d6fb1ea968a2e57dc4b7f"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#ac52737ce471d6fb1ea968a2e57dc4b7f">require</a> (const <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &amp;identifier) const</td></tr>
+<tr class="separator:ac52737ce471d6fb1ea968a2e57dc4b7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aee06106e4888a5a17d12fa10f1e87893"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#aee06106e4888a5a17d12fa10f1e87893">set_target_memory_usage</a> (int64_t bytes)</td></tr>
 <tr class="separator:aee06106e4888a5a17d12fa10f1e87893"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa8aae29f234def70dc6de5f1a291cbc0"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#aa8aae29f234def70dc6de5f1a291cbc0">get_target_memory_usage</a> () const</td></tr>
@@ -127,6 +133,18 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a53573d21c79b060ebb0c643b1d395a7f"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#a53573d21c79b060ebb0c643b1d395a7f">to_dot</a> (const vector&lt; <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &gt; &amp;targets) const</td></tr>
 <tr class="memdesc:a53573d21c79b060ebb0c643b1d395a7f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the recipe graph in dot format with a plan highlighted.  <a href="classvg_1_1IndexRegistry.html#a53573d21c79b060ebb0c643b1d395a7f">More...</a><br /></td></tr>
 <tr class="separator:a53573d21c79b060ebb0c643b1d395a7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abcba0a09cee5a43096a09d05556353c1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#abcba0a09cee5a43096a09d05556353c1">reset</a> ()</td></tr>
+<tr class="memdesc:abcba0a09cee5a43096a09d05556353c1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Discard any provided or constructed indexes.  <a href="classvg_1_1IndexRegistry.html#abcba0a09cee5a43096a09d05556353c1">More...</a><br /></td></tr>
+<tr class="separator:abcba0a09cee5a43096a09d05556353c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
+Static Public Member Functions</h2></td></tr>
+<tr class="memitem:a1f03f21a783cad871997b03bcd0c8dff"><td class="memItemLeft" align="right" valign="top">static int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#a1f03f21a783cad871997b03bcd0c8dff">get_system_memory</a> ()</td></tr>
+<tr class="memdesc:a1f03f21a783cad871997b03bcd0c8dff"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the amount of free memory.  <a href="classvg_1_1IndexRegistry.html#a1f03f21a783cad871997b03bcd0c8dff">More...</a><br /></td></tr>
+<tr class="separator:a1f03f21a783cad871997b03bcd0c8dff"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abeceb0062997804e84372c7bca76c8ae"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#abeceb0062997804e84372c7bca76c8ae">vcf_is_phased</a> (const string &amp;filepath)</td></tr>
+<tr class="memdesc:abeceb0062997804e84372c7bca76c8ae"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if a VCF file is phased or not.  <a href="classvg_1_1IndexRegistry.html#abeceb0062997804e84372c7bca76c8ae">More...</a><br /></td></tr>
+<tr class="separator:abeceb0062997804e84372c7bca76c8ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
@@ -148,9 +166,6 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:ac81872b4bf8d7917b284f609a4127023"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a35e5dcdc072c53f562442686dff9977a"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#a35e5dcdc072c53f562442686dff9977a">all_finished</a> (const <a class="el" href="namespacevg.html#a96bc10f0ba77bc672e88a9f7d6e126b6">IndexGroup</a> &amp;inputs) const</td></tr>
 <tr class="separator:a35e5dcdc072c53f562442686dff9977a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abcba0a09cee5a43096a09d05556353c1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#abcba0a09cee5a43096a09d05556353c1">reset</a> ()</td></tr>
-<tr class="memdesc:abcba0a09cee5a43096a09d05556353c1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Discard any provided or constructed indexes.  <a href="classvg_1_1IndexRegistry.html#abcba0a09cee5a43096a09d05556353c1">More...</a><br /></td></tr>
-<tr class="separator:abcba0a09cee5a43096a09d05556353c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac587073860174b6c074d2be7ad53e103"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IndexRegistry.html#ac587073860174b6c074d2be7ad53e103">get_work_dir</a> ()</td></tr>
 <tr class="memdesc:ac587073860174b6c074d2be7ad53e103"><td class="mdescLeft">&#160;</td><td class="mdescRight">Function to get and/or initialize the temporary directory in which indexes will live.  <a href="classvg_1_1IndexRegistry.html#ac587073860174b6c074d2be7ad53e103">More...</a><br /></td></tr>
 <tr class="separator:ac587073860174b6c074d2be7ad53e103"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -477,6 +492,52 @@ Friends</h2></td></tr>
 
 </div>
 </div>
+<a id="aa3748affd87c03e3a883ccb9d913eb73"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa3748affd87c03e3a883ccb9d913eb73">&#9670;&nbsp;</a></span>get_prefix()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::IndexRegistry::get_prefix </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the current prefix for saving output files. </p>
+
+</div>
+</div>
+<a id="a1f03f21a783cad871997b03bcd0c8dff"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1f03f21a783cad871997b03bcd0c8dff">&#9670;&nbsp;</a></span>get_system_memory()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::IndexRegistry::get_system_memory </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Get the amount of free memory. </p>
+
+</div>
+</div>
 <a id="aa8aae29f234def70dc6de5f1a291cbc0"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aa8aae29f234def70dc6de5f1a291cbc0">&#9670;&nbsp;</a></span>get_target_memory_usage()</h2>
 
@@ -538,7 +599,7 @@ Friends</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Create and execute a plan to make the indicated indexes using provided inputs If provided inputs cannot create the desired indexes, throws a <a class="el" href="classvg_1_1InsufficientInputException.html">InsufficientInputException</a>. </p>
+<p>Create and execute a plan to make the indicated indexes using provided inputs If provided inputs cannot create the desired indexes, throws a <a class="el" href="classvg_1_1InsufficientInputException.html">InsufficientInputException</a>. When completed, all requested index files will be available via <a class="el" href="classvg_1_1IndexRegistry.html#ac52737ce471d6fb1ea968a2e57dc4b7f">require()</a>. </p>
 
 </div>
 </div>
@@ -739,14 +800,30 @@ Friends</h2></td></tr>
 
 </div>
 </div>
+<a id="ac52737ce471d6fb1ea968a2e57dc4b7f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac52737ce471d6fb1ea968a2e57dc4b7f">&#9670;&nbsp;</a></span>require()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; string &gt; vg::IndexRegistry::require </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#a7027e98a84fa4b0fa42f72bf4a1d862f">IndexName</a> &amp;&#160;</td>
+          <td class="paramname"><em>identifier</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Get the filename(s) associated with the given index. Aborts if the index is not a known type, or if it is not provided or made. </p>
+
+</div>
+</div>
 <a id="abcba0a09cee5a43096a09d05556353c1"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#abcba0a09cee5a43096a09d05556353c1">&#9670;&nbsp;</a></span>reset()</h2>
 
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">void vg::IndexRegistry::reset </td>
@@ -755,11 +832,6 @@ Friends</h2></td></tr>
           <td></td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 <p>Discard any provided or constructed indexes. </p>
@@ -860,6 +932,34 @@ Friends</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Returns the recipe graph in dot format with a plan highlighted. </p>
+
+</div>
+</div>
+<a id="abeceb0062997804e84372c7bca76c8ae"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abeceb0062997804e84372c7bca76c8ae">&#9670;&nbsp;</a></span>vcf_is_phased()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::IndexRegistry::vcf_is_phased </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filepath</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Determine if a VCF file is phased or not. </p>
 
 </div>
 </div>
