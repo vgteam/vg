@@ -108,11 +108,11 @@ void copy_file(const string& from_fp, const string& to_fp) {
     ifstream from_file(from_fp, std::ios::binary);
     ofstream to_file(to_fp, std::ios::binary);
     if (!from_file) {
-        cerr << "error:[IndexRegistry] Couldn't open " << from_fp << endl;
+        cerr << "error:[IndexRegistry] Couldn't open input file " << from_fp << endl;
         exit(1);
     }
     if (!to_file) {
-        cerr << "error:[IndexRegistry] Couldn't open " << to_fp << endl;
+        cerr << "error:[IndexRegistry] Couldn't open output file " << to_fp << endl;
         exit(1);
     }
     to_file << from_file.rdbuf();
@@ -3400,6 +3400,10 @@ void IndexRegistry::set_prefix(const string& prefix) {
     this->output_prefix = prefix;
 }
 
+string IndexRegistry::get_prefix() const {
+    return this->output_prefix;
+}
+
 void IndexRegistry::set_intermediate_file_keeping(bool keep_intermediates) {
     this->keep_intermediates = keep_intermediates;
 }
@@ -3481,8 +3485,8 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
         }
     }
     
-    // prepare the index registry to go again, if necessary
-    reset();
+    // Keep all the indexes around. If you want to re-use the object for a
+    // different set of indexes, you will need to call reset() yourself.
 }
 
 void IndexRegistry::register_index(const IndexName& identifier, const string& suffix) {
@@ -3519,11 +3523,27 @@ void IndexRegistry::provide(const IndexName& identifier, const string& filename)
 }
 
 void IndexRegistry::provide(const IndexName& identifier, const vector<string>& filenames) {
+    if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+        cerr << "[IndexRegistry]: Provided: " << identifier << endl;
+    }
     if (!index_registry.count(identifier)) {
         cerr << "error:[IndexRegistry] cannot provide unregistered index: " << identifier << endl;
         exit(1);
     }
     get_index(identifier)->provide(filenames);
+}
+
+vector<string> IndexRegistry::require(const IndexName& identifier) const {
+    if (!index_registry.count(identifier)) {
+        cerr << "error:[IndexRegistry] cannot require unregistered index: " << identifier << endl;
+        exit(1);
+    }
+    const IndexFile* index = get_index(identifier);
+    if (!index->is_finished()) {
+        cerr << "error:[IndexRegistry] do not have and did not make index: " << identifier << endl;
+        exit(1);
+    }
+    return index->get_filenames();
 }
 
 void IndexRegistry::set_target_memory_usage(int64_t bytes) {
@@ -3532,6 +3552,13 @@ void IndexRegistry::set_target_memory_usage(int64_t bytes) {
 
 int64_t IndexRegistry::get_target_memory_usage() const {
     return target_memory_usage;
+}
+
+// from https://stackoverflow.com/questions/2513505/how-to-get-available-memory-c-g
+int64_t IndexRegistry::get_system_memory() {
+    int64_t pages = sysconf(_SC_PHYS_PAGES);
+    int64_t page_size = sysconf(_SC_PAGE_SIZE);
+    return pages * page_size;
 }
 
 vector<IndexName> IndexRegistry::completed_indexes() const {
@@ -3705,6 +3732,97 @@ string IndexRegistry::get_work_dir() {
         work_dir = temp_file::create_directory();
     }
     return work_dir;
+}
+
+bool IndexRegistry::vcf_is_phased(const string& filepath) {
+    
+    if (IndexingParameters::verbosity >= IndexingParameters::Basic) {
+        cerr << "[IndexRegistry]: Checking for phasing in VCF(s)." << endl;
+    }
+    
+    // check about 30k variants before concluding that the VCF isn't phased
+    // TODO: will there be contig ordering biases that make this a bad assumption?
+    constexpr int vars_to_check = 1 << 15;
+    
+    htsFile* file = hts_open(filepath.c_str(), "rb");
+    bcf_hdr_t* hdr = bcf_hdr_read(file);
+    int phase_set_id = bcf_hdr_id2int(hdr, BCF_DT_ID, "PS");
+    // note: it seems that this is not necessary for expressing phasing after all
+//    if (phase_set_id < 0) {
+//        // no PS tag means no phasing
+//        bcf_hdr_destroy(hdr);
+//        hts_close(file);
+//        return false;
+//    }
+    
+    // iterate over records
+    bcf1_t* line = bcf_init();
+    int iter = 0;
+    bool found_phased = false;
+    while (bcf_read(file, hdr, line) >= 0 && iter < vars_to_check && !found_phased)
+    {
+        if (phase_set_id >= 0) {
+            if (phase_set_id == BCF_HT_INT) {
+                // phase sets are integers
+                int num_phase_set_arr = 0;
+                int32_t* phase_sets = NULL;
+                int num_phase_sets = bcf_get_format_int32(hdr, line, "PS", &phase_sets, &num_phase_set_arr);
+                for (int i = 0; i < num_phase_sets && !found_phased; ++i) {
+                    found_phased = phase_sets[i] != 0;
+                }
+                free(phase_sets);
+            }
+            else if (phase_set_id == BCF_HT_STR) {
+                // phase sets are strings
+                int num_phase_set_arr = 0;
+                char** phase_sets = NULL;
+                int num_phase_sets = bcf_get_format_string(hdr, line, "PS", &phase_sets, &num_phase_set_arr);
+                for (int i = 0; i < num_phase_sets && !found_phased; ++i) {
+                    found_phased = strcmp(phase_sets[i], ".") != 0;
+                }
+                if (phase_sets) {
+                    // all phase sets are concatenated in one malloc's char*, pointed to by the first pointer
+                    free(phase_sets[0]);
+                }
+                // free the array of pointers
+                free(phase_sets);
+            }
+        }
+        
+        // init a genotype array
+        int32_t* genotypes = nullptr;
+        int arr_size = 0;
+        // and query it
+        int num_genotypes = bcf_get_genotypes(hdr, line, &genotypes, &arr_size);
+        if (num_genotypes >= 0) {
+            // we got genotypes, check to see if they're phased
+            int num_samples = bcf_hdr_nsamples(hdr);
+            int ploidy = num_genotypes / num_samples;
+            for (int i = 0; i < num_genotypes && !found_phased; i += ploidy) {
+                for (int j = 0; j < ploidy && !found_phased; ++j) {
+                    if (genotypes[i + j] == bcf_int32_vector_end) {
+                        // sample has lower ploidy
+                        break;
+                    }
+                    if (bcf_gt_is_missing(genotypes[i + j])) {
+                        continue;
+                    }
+                    if (bcf_gt_is_phased(genotypes[i + j])) {
+                        // the VCF expresses phasing, we can
+                        found_phased = true;;
+                    }
+                }
+            }
+        }
+        
+        free(genotypes);
+        ++iter;
+    }
+    // clean up
+    bcf_destroy(line);
+    bcf_hdr_destroy(hdr);
+    hts_close(file);
+    return found_phased;
 }
 
 vector<IndexGroup> IndexRegistry::dependency_order() const {
