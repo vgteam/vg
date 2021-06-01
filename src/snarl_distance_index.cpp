@@ -142,6 +142,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
 #ifdef debug_distance_indexing
                 cerr << "                 This chain is part of the root but connects with something else in the root"<<endl;
 #endif
+                bool new_component = true;
 
                 //Add this to the union find
                 root_snarl_component_uf.resize(root_snarl_component_uf.size() + 1);
@@ -166,14 +167,19 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
 #ifdef debug_distance_indexing
                         cerr << "        Union this chain with " << temp_chain_records[node_record.parent.second].start_node_id << " " << temp_chain_records[node_record.parent.second].end_node_id << endl;
 #endif
+                    } else {
+                        new_component = false;
                     }
+                }
+                if (new_component) {
+                    root_structure_count += 1;
                 }
             } else {
                 //If this chain isn't connected to anything else, then it is a single component of the root
                 temp_chain_record.parent = make_pair(TEMP_ROOT, 0);
                 components.emplace_back(chain_index);
+                root_structure_count += 1;
             }
-            root_structure_count += 1;
         } else {
             //The last thing on the stack is the parent of this chain, which must be a snarl
             temp_chain_record.parent = stack.back();
