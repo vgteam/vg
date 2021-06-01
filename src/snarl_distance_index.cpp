@@ -432,6 +432,17 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
             }
         }
     }
+
+#ifdef debug_distance_indexing
+    cerr << "Filling in the distances in root snarls" << endl;
+#endif
+    for (pair<temp_record_t, size_t>& component_index : components) {
+        if (component_index.first == TEMP_SNARL) {
+            TemporarySnarlRecord& temp_snarl_record = temp_snarl_records.at(component_index.second);
+            populate_snarl_index(temp_snarl_record, component_index, size_limit, graph);
+            temp_snarl_record.min_length = std::numeric_limits<int64_t>::max();//TODO: This is true but might be better to store it as something else so we can bit compress later
+        }
+    }
 }
 
 /*Fill in the snarl index.
@@ -474,13 +485,6 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
         return curr_index;
     };
 
-    /*The boundary handles for this snarl */
-    handle_t snarl_start_in = graph->get_handle(temp_snarl_record.start_node_id, temp_snarl_record.start_node_rev);
-    handle_t snarl_start_out = graph->get_handle(temp_snarl_record.start_node_id, !temp_snarl_record.start_node_rev);
-    handle_t snarl_end_out = graph->get_handle(temp_snarl_record.end_node_id, temp_snarl_record.end_node_rev);
-    handle_t snarl_end_in = graph->get_handle(temp_snarl_record.end_node_id, !temp_snarl_record.end_node_rev);
-
-
 
     /*Now go through each of the children and add distances from that child to everything reachable from it
      * Start a dijkstra traversal from each node side in the snarl and record all distances
@@ -489,8 +493,12 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
     //Add the start and end nodes to the list of children so that we include them in the traversal 
     //TODO: Copying the list
     vector<pair<temp_record_t, size_t>> all_children = temp_snarl_record.children;
-    all_children.emplace_back(TEMP_NODE, temp_snarl_record.start_node_id);
-    all_children.emplace_back(TEMP_NODE, temp_snarl_record.end_node_id);
+    if (!temp_snarl_record.is_root_snarl) {
+
+
+        all_children.emplace_back(TEMP_NODE, temp_snarl_record.start_node_id);
+        all_children.emplace_back(TEMP_NODE, temp_snarl_record.end_node_id);
+    }
 
     while (!all_children.empty()) {
         const pair<temp_record_t, size_t> start_index = std::move(all_children.back());
@@ -509,9 +517,10 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
             start_rank = 0;
         } else if (start_index.first == TEMP_NODE && start_index.second == temp_snarl_record.end_node_id) {
             start_rank = 1;
-        } else {
-            assert(start_rank != 0 && start_rank != 1);
-        }
+        } //TODO:
+          //else {
+          //  assert(start_rank != 0 && start_rank != 1);
+          //}
 
         if ( (temp_snarl_record.node_count < size_limit || size_limit == 0) && !start_is_tip &&
              !start_rank == 0 && ! start_rank == 1) {
@@ -612,9 +621,10 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
                         next_rank = 0;
                     } else if (next_index.first == TEMP_NODE && next_index.second == temp_snarl_record.end_node_id) {
                         next_rank = 1;
-                    } else {
-                        assert(next_rank != 0 && next_rank != 1);
-                    }
+                    } //TODO: This won't be true of root snarls 
+                      //else {
+                      //  assert(next_rank != 0 && next_rank != 1);
+                      //}
                     bool next_rev = next_index.first == TEMP_NODE || temp_chain_records[next_index.second].is_trivial 
                             ? graph->get_is_reverse(next_handle) 
                             : graph->get_id(next_handle) == temp_chain_records[next_index.second].end_node_id;
@@ -625,9 +635,9 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
                         //If we are looking at all distances or we are looking at tips or boundaries
 
                         //Set the distance
-                        pair<size_t, bool> start = start_rank == 0 || start_rank == 1 
+                        pair<size_t, bool> start = !temp_snarl_record.is_root_snarl && (start_rank == 0 || start_rank == 1) 
                             ? make_pair(start_rank, false) : make_pair(start_rank, !start_rev);
-                        pair<size_t, bool> next = next_rank == 0 || next_rank == 1 
+                        pair<size_t, bool> next = !temp_snarl_record.is_root_snarl && (next_rank == 0 || next_rank == 1) 
                             ? make_pair(next_rank, false) : make_pair(next_rank, next_rev);
                         if (!temp_snarl_record.distances.count(make_pair(start, next)) ) {
 
@@ -635,6 +645,7 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
 #ifdef debug_distance_indexing
                             cerr << "           Adding distance between ranks " << start.first << " " << start.second << " and " << next.first << " " << next.second << ": " << current_distance << endl;
 #endif
+                            cerr << "ADD DISTANCE: " << structure_start_end_as_string(start_index) << " " << (start_rev ? "rev" : "fd") << "->" << structure_start_end_as_string(next_index) << " " << (next_rev ? "rev" : "fd") << ": " << current_distance << endl;
                         }
                     }
 
@@ -1036,9 +1047,6 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
 #endif
                 for (const pair<temp_record_t, size_t>& child : temp_snarl_record.children) {
                         temp_record_stack.emplace_back(child);
-#ifdef debug_distance_indexing
-                    cerr << "      " << temp_index->structure_start_end_as_string(child) << endl;
-#endif
                 }
                 
             } else {
@@ -1106,7 +1114,7 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
 
 #ifdef debug_distance_indexing
             cerr << temp_index->structure_start_end_as_string(component_index) << endl;
-            assert(record.get_parent_record_offset() == 0);
+            //assert(record.get_parent_record_offset() == 0);
 #endif
         }
     }
@@ -1158,12 +1166,14 @@ net_handle_t SnarlDistanceIndex::get_root() const {
 }
 
 bool SnarlDistanceIndex::is_root(const net_handle_t& net) const {
-    return get_handle_type(net) == ROOT_HANDLE && get_record_offset(net) == 0;
+    return get_handle_type(net) == ROOT_HANDLE;
 }
 
 bool SnarlDistanceIndex::is_snarl(const net_handle_t& net) const {
     return get_handle_type(net) == SNARL_HANDLE 
-            && SnarlTreeRecord(net, &snarl_tree_records).get_record_handle_type() == SNARL_HANDLE;
+            && (SnarlTreeRecord(net, &snarl_tree_records).get_record_handle_type() == SNARL_HANDLE ||
+                SnarlTreeRecord(net, &snarl_tree_records).get_record_type() == ROOT_SNARL ||  
+                SnarlTreeRecord(net, &snarl_tree_records).get_record_type() == DISTANCED_ROOT_SNARL);
 }
 
 bool SnarlDistanceIndex::is_chain(const net_handle_t& net) const {
@@ -1241,12 +1251,7 @@ net_handle_t SnarlDistanceIndex::get_parent(const net_handle_t& child) const {
         //If this is a node and it's parent is not a chain, we want to pretend that its 
         //parent is a chain
         return get_net_handle(get_record_offset(child), parent_connectivity, CHAIN_HANDLE);
-    } else if (parent_type == ROOT_HANDLE) {
-        //The parent could be a root snarl, in which case we want to actually return the root, not the 
-        //snarl pretending to be the root
-        //TODO: Actually shouldn't it return the root snarl and know that it's a root? How else would we end up in the root snarl?
-        return get_net_handle(0, parent_connectivity);
-    }
+    } 
 
     return get_net_handle(parent_pointer, parent_connectivity);
 }
@@ -1612,7 +1617,6 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
     if (is_root(parent)) {
         //If the parent is the root, then the children must be in the same root snarl for them to be
         //connected
-        RootRecord root_record(parent, &snarl_tree_records);
         size_t parent_record_offset1 = SnarlTreeRecord(child1, &snarl_tree_records).get_parent_record_offset();
         size_t parent_record_offset2 = SnarlTreeRecord(child2, &snarl_tree_records).get_parent_record_offset();
         if (parent_record_offset1 != parent_record_offset2) {
@@ -1636,6 +1640,7 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
             SnarlTreeRecord child_record2 (child2, &snarl_tree_records);
             size_t rank1 = child_record1.get_rank_in_parent();
             size_t rank2 = child_record2.get_rank_in_parent();
+            cerr << " Distance between ranks " << rank1 << " " << rank2 << endl;
 
 //#ifdef debug_distances
 //            cerr << "            => " << snarl_record.get_distance(rank1, ends_at(child1) == END, rank2, ends_at(child2) == END);
@@ -2004,6 +2009,7 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
                                     sum({distance_end_end , distance_to_end1 , distance_to_end2})))));
 
 #ifdef debug_distances
+            cerr << "    Found distances between nodes: " << distance_start_start << " " << distance_start_end << " " << distance_end_start << " " << distance_end_end << endl;
             cerr << "  best distance is " << minimum_distance << endl;
 #endif
         if (!is_root(common_ancestor)) {

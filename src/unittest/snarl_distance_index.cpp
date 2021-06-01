@@ -3099,7 +3099,7 @@ namespace vg {
                          make_pos_t(3, false, 0), make_pos_t(3, false, 0)) == 0);
             }
         }
-        TEST_CASE("Distance index can deal with chains that loop at the root", "[snarl_distance][bug]") {
+        TEST_CASE("Distance index can deal with chains that loop at the root", "[snarl_distance]") {
             //TODO: I think it should actually be a chain, whose parent is a root snarl
             
             // Build a toy graph
@@ -3654,6 +3654,9 @@ namespace vg {
                 size_t chain_count = 0;
                 size_t node_count = 0;
                 distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    cerr << distance_index.net_handle_as_string(child) << endl;
+                    //REQUIRE(distance_index.canonical(distance_index.get_parent(child)) == distance_index.canonical(root_handle));
+                    REQUIRE(distance_index.is_root(distance_index.get_parent(child)));
                     component_count += 1;
                     if (distance_index.is_node(child) || distance_index.is_trivial_chain(child)) {
                         node_count ++;
@@ -3673,6 +3676,20 @@ namespace vg {
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
                          make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == 3);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(3, false, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == 5);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, false, 0), make_pos_t(5, false, 0)) == 5);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, true, 0), make_pos_t(2, false, 0)) == 3);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, true, 0), make_pos_t(3, false, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, true, 0), make_pos_t(4, false, 0)) == 5);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(1, true, 0), make_pos_t(5, false, 0)) == 5);
             }
         }
 
