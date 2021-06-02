@@ -1232,19 +1232,29 @@ private:
                 bool right_side2, size_t node_count, record_t type) {
 
             //how many node sides in this snarl
-            size_t node_side_count = type == DISTANCED_ROOT_SNARL ? node_count : node_count * 2 + 2; 
+            size_t node_side_count = type == DISTANCED_ROOT_SNARL ? node_count * 2 : node_count * 2 + 2; 
 
             //make sure we're looking at the correct node side
             //If this is the start or end node, then we don't adjust based on orientation
             //because we only care about the inner sides. If this is a root snarl, then
             //there is no start or end node and the ranks 0 and 1 are not special
-             if (type == DISTANCED_ROOT_SNARL || (rank1 != 0 && rank1 != 1)) {
+             if (type == DISTANCED_ROOT_SNARL) { 
+                rank1 = rank1 * 2;
+                if (right_side1) {
+                    rank1 += 1;
+                }
+             } else if (rank1 != 0 && rank1 != 1) {
                 rank1 = (rank1-1) * 2;
                 if (right_side1) {
                     rank1 += 1;
                 }
             }
-            if (type == DISTANCED_ROOT_SNARL || (rank2 != 0 && rank2 != 1)) {
+            if (type == DISTANCED_ROOT_SNARL) {
+                rank2 = rank2 * 2;
+                if (right_side2) {
+                    rank2 += 1;
+                }
+            } else if (rank2 != 0 && rank2 != 1) {
                 rank2 = (rank2-1) * 2;
                 if (right_side2) {
                     rank2 += 1;
