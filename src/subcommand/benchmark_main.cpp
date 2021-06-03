@@ -15,9 +15,9 @@
 #include "../version.hpp"
 
 #include "../vg.hpp"
-#include "xg.hpp"
-#include "../indexed_vg.hpp"
-#include "../algorithms/extract_connecting_graph.hpp"
+#include "../xg.hpp"
+#include "../integrated_snarl_finder.hpp"
+#include "../min_distance.hpp"
 
 
 
@@ -89,8 +89,6 @@ int main_benchmark(int argc, char** argv) {
     // Turn on nested parallelism, so we can parallelize over VCFs and over alignment bands
     omp_set_nested(1);
     
-    
-    
     vector<BenchmarkResult> results;
     
     // Generate a test graph
@@ -118,56 +116,26 @@ int main_benchmark(int argc, char** argv) {
     xg::XG xg_index;
     xg_index.from_path_handle_graph(vg);
     
-    // And an IndexedVG
-    auto filename = temp_file::create();
-    vg_mut.serialize_to_file(filename, 10);
-    const IndexedVG indexed_vg(filename);
+    // Get a snarl manager
+    SnarlManager snarls = IntegratedSnarlFinder(xg_index).find_snarls_parallel();
     
-    if (sort_and_order_experiment) {
+    results.push_back(run_benchmark("DI1 construction", 1000, [&]() {
+         MinimumDistanceIndex distance_index(&xg_index, &snarls);
+    }));
     
-        results.push_back(run_benchmark("vg::algorithms topological_order", 1000, [&]() {
-            vector<handle_t> order = handlealgs::topological_order(&vg);
-            assert(order.size() == vg.get_node_count());
-        }));
-        
-        results.push_back(run_benchmark("VG::sort", 1000, [&]() {
-            vg_mut = vg;
-        }, [&]() {
-            vg_mut.sort();
-        }));
-        
-        results.push_back(run_benchmark("vg::algorithms weakly_connected_components", 1000, [&]() {
-            auto components = handlealgs::weakly_connected_components(&vg);
-            assert(components.size() == 1);
-            assert(components.front().size() == vg.get_node_count());
-        }));
-        
-    }
+    MinimumDistanceIndex distance_index(&xg_index, &snarls);
     
-    if (get_sequence_experiment) {
-    
-        results.push_back(run_benchmark("VG::get_sequence", 1000, [&]() {
-            for (size_t i = 1; i < 101; i++) {
-                handle_t handle = vg.get_handle(i);
-                string sequence = vg.get_sequence(handle);
-            }
-        }));
+    bits = 1;
+    results.push_back(run_benchmark("DI1 query", 1000, [&]() {
+        for (size_t i = 1; i < 1000; i++) {
+            pos_t start = make_pos_t(bits % 100 + 1, 1, false);
+            bits = bits ^ (bits << 13) ^ i;
+            pos_t end = make_pos_t(bits % 100 + 1, 1, false);
+            bits = bits ^ (bits << 13) ^ (i + 3);
+            distance_index.min_distance(start, end);
+        }
+    }));
         
-        results.push_back(run_benchmark("XG::get_sequence", 1000, [&]() {
-            for (size_t i = 1; i < 101; i++) {
-                handle_t handle = xg_index.get_handle(i);
-                string sequence = xg_index.get_sequence(handle);
-            }
-        }));
-        
-        results.push_back(run_benchmark("IndexedVG::get_sequence", 1000, [&]() {
-            for (size_t i = 1; i < 101; i++) {
-                handle_t handle = indexed_vg.get_handle(i);
-                string sequence = indexed_vg.get_sequence(handle);
-            }
-        }));
-        
-    }
     
     // Do the control against itself
     results.push_back(run_benchmark("control", 1000, benchmark_control));
