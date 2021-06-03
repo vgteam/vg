@@ -100,7 +100,14 @@ ifeq ($(shell uname -s),Darwin)
             LD_LIB_FLAGS += -lcairo
         endif
     endif
-	
+
+    ifdef HOMEBREW_PREFIX
+        # We need Bison from Homebrew instead of Apple's old Bison, and GNU coreutils
+        export PATH:=$(HOMEBREW_PREFIX)/opt/bison/bin:$(HOMEBREW_PREFIX)/opt/coreutils/libexec/gnubin:$(PATH)
+        # And we want to look for Homebrew libraries
+        LD_LIB_DIR_FLAGS += -L$(HOMEBREW_PREFIX)/lib
+    endif
+
 	# We need to find Boost Program Options. It is usually
 	# -lboost_program_options, except for on Macports installs of Boost where
 	# it is -lboost_program_options-mt. If we were a real build system we would
@@ -506,7 +513,7 @@ $(LIB_DIR)/cleaned_old_boost: $(wildcard $(LIB_DIR)/libboost_*) $(wildcard $(INC
 $(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/cleaned_old_protobuf_v003 $(LIBVGIO_DIR)/CMakeLists.txt $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp
 	+rm -f $(CWD)/$(INC_DIR)/vg.pb.h $(CWD)/$(INC_DIR)/vg/vg.pb.h
 	+rm -Rf $(CWD)/$(INC_DIR)/vg/io/
-	+. ./source_me.sh && export CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" && cd $(LIBVGIO_DIR) && rm -Rf CMakeCache.txt CMakeFiles *.cmake install_manifest.txt *.pb.cc *.pb.h *.a && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_PREFIX_PATH=$(CWD) -DCMAKE_LIBRARY_PATH=$(CWD)/$(LIB_DIR) -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib . $(FILTER) && $(MAKE) clean && VERBOSE=1 $(MAKE) $(FILTER) && $(MAKE) install 
+	+. ./source_me.sh && export CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" && export LDFLAGS="$(LD_LIB_DIR_FLAGS)" && cd $(LIBVGIO_DIR) && rm -Rf CMakeCache.txt CMakeFiles *.cmake install_manifest.txt *.pb.cc *.pb.h *.a && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_PREFIX_PATH=$(CWD) -DCMAKE_LIBRARY_PATH=$(CWD)/$(LIB_DIR) -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib . $(FILTER) && $(MAKE) clean && VERBOSE=1 $(MAKE) $(FILTER) && $(MAKE) install 
 
 $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp $(LIBHANDLEGRAPH_DIR)/src/*.cpp
 	+. ./source_me.sh && cd $(LIBHANDLEGRAPH_DIR) && CXXFLAGS="$(CXXFLAGS) $(CPPFLAGS)" cmake -DCMAKE_VERBOSE_MAKEFILE=ON . && $(MAKE) $(FILTER) && cp libhandlegraph.a $(CWD)/$(LIB_DIR) && cp -r src/include/handlegraph $(CWD)/$(INC_DIR)
@@ -586,7 +593,7 @@ $(INC_DIR)/dynamic/dynamic.hpp: $(DYNAMIC_DIR)/include/dynamic/*.hpp $(DYNAMIC_D
 	mkdir -p $(INC_DIR)/dynamic && cp -r $(CWD)/$(DYNAMIC_DIR)/include/dynamic/* $(INC_DIR)/dynamic/
 
 $(INC_DIR)/sparsehash/sparse_hash_map: $(wildcard $(SPARSEHASH_DIR)/**/*.cc) $(wildcard $(SPARSEHASH_DIR)/**/*.h) 
-	+. ./source_me.sh && cd $(SPARSEHASH_DIR) && ./autogen.sh && LDFLAGS="-L/opt/local/lib" ./configure --prefix=$(CWD) $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install
+	+. ./source_me.sh && cd $(SPARSEHASH_DIR) && ./autogen.sh && LDFLAGS="$(LD_LIB_DIR_FLAGS)" ./configure --prefix=$(CWD) $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install
 
 $(INC_DIR)/sparsepp/spp.h: $(wildcard $(SPARSEHASH_DIR)/sparsepp/*.h)
 	+cp -r $(SPARSEPP_DIR)/sparsepp $(INC_DIR)/
