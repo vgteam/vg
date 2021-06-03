@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 126
+plan tests 131
 
 
 # Build vg graphs for two chromosomes
@@ -254,7 +254,22 @@ is $? 0 "GBZ construction from VCF"
 cmp x.gbz x2.gbz
 is $? 0 "Identical construction results from GBWT and VCF"
 
+# Extract GBWT from GBZ
+vg gbwt -o extracted.gbwt -Z x.gbz
+is $? 0 "GBWT extraction from GBZ"
+cmp x.gbwt extracted.gbwt
+is $? 0 "Identical GBWT indexes"
+
+# Extract GBWT + GBWTGraph from GBZ
+vg gbwt -o extracted2.gbwt -g extracted2.gg -Z x.gbz
+is $? 0 "GBWT + GBWTGraph extraction from GBZ"
+cmp x.gbwt extracted2.gbwt
+is $? 0 "Identical GBWT indexes"
+cmp x.gg extracted2.gg
+is $? 0 "Identical GBWTGraphs"
+
 rm -f x.gbwt x.gg x.gbz x2.gbz
+rm -f extracted.gbwt extracted2.gbwt extracted2.gg
 
 
 # Build both GBWT and GBWTGraph from a 16-path cover
