@@ -1,6 +1,6 @@
-#define debug_distance_indexing
+//#define debug_distance_indexing
 //#define debug_snarl_traversal
-#define debug_distances
+//#define debug_distances
 
 #include "snarl_distance_index.hpp"
 
@@ -645,7 +645,6 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
 #ifdef debug_distance_indexing
                             cerr << "           Adding distance between ranks " << start.first << " " << start.second << " and " << next.first << " " << next.second << ": " << current_distance << endl;
 #endif
-                            cerr << "ADD DISTANCE: " << structure_start_end_as_string(start_index) << " " << (start_rev ? "rev" : "fd") << "->" << structure_start_end_as_string(next_index) << " " << (next_rev ? "rev" : "fd") << ": " << current_distance << endl;
                         }
                     }
 
@@ -1605,7 +1604,7 @@ net_handle_t SnarlDistanceIndex::get_parent_traversal(const net_handle_t& traver
 }
 
 int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent, 
-        const net_handle_t& child1, const net_handle_t& child2) const {
+        const net_handle_t& child1, const net_handle_t& child2, const HandleGraph* graph) const {
 #ifdef debug_distances
     cerr << "    Finding the distance in parent " << net_handle_as_string(parent) << " between " << endl 
          << "      " << net_handle_as_string(child1) << " and " <<  net_handle_as_string(child2) << endl;
@@ -1640,7 +1639,6 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
             SnarlTreeRecord child_record2 (child2, &snarl_tree_records);
             size_t rank1 = child_record1.get_rank_in_parent();
             size_t rank2 = child_record2.get_rank_in_parent();
-            cerr << " Distance between ranks " << rank1 << " " << rank2 << endl;
 
 //#ifdef debug_distances
 //            cerr << "            => " << snarl_record.get_distance(rank1, ends_at(child1) == END, rank2, ends_at(child2) == END);
@@ -1783,7 +1781,34 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
 //            cerr << "             between ranks " << rank1 << " " << rev1 << " " << rank2 << " " << rev2 << endl;
 //            cerr << "            => " << snarl_record.get_distance(rank1, rev1, rank2, rev2) << endl;
 //#endif
-        return snarl_record.get_distance(rank1, rev1, rank2, rev2);
+//
+        if (snarl_record.get_record_type() == OVERSIZED_SNARL 
+            && !(rank1 == 0 || rank1 == 1 || rank2 == 0 || rank2 == 1)) {
+            //If this is an oversized snarl and we're looking for internal distances, then we didn't store the
+            //distance and we have to find it using dijkstra's algorithm
+            if (graph == nullptr) {
+                cerr << "warning: trying to find the distance in an oversized snarl without a graph. Returning inf" << endl;
+                return std::numeric_limits<int64_t>::max();
+            }
+            handle_t handle1 = is_node(child1) ? get_handle(child1, graph) : get_handle(get_bound(child1, ends_at(child1) == END, false), graph); 
+            handle_t handle2 = is_node(child2) ? get_handle(child2, graph) : get_handle(get_bound(child2, ends_at(child2) == END, false), graph);
+            handle2 = graph->flip(handle2);
+
+            int64_t distance = std::numeric_limits<int64_t>::max();
+            handlegraph::algorithms::dijkstra(graph, handle1, [&](const handle_t& reached, size_t dist) {
+                if (reached == handle2) {
+                    //TODO: Also give up if the distance is too great
+                    distance = dist;
+                    return false;
+                }
+                return true;
+            }, false);
+            return distance;
+
+            
+        } else {
+           return snarl_record.get_distance(rank1, rev1, rank2, rev2);
+        }
     } else {
         throw runtime_error("error: Trying to find distance in the wrong type of handle");
     }
@@ -1797,14 +1822,12 @@ pair<net_handle_t, bool> SnarlDistanceIndex::lowest_common_ancestor(const net_ha
     while (!is_root(parent1)){
         net1_ancestors.insert(canonical(parent1));
         parent1 = canonical(get_parent(parent1));
-        cerr << "    " << net_handle_as_string(parent1) << endl;
     }
 
     while (net1_ancestors.count(canonical(parent2)) == 0 && !is_root(parent2)){
         //Go up until the parent2 matches something in the ancestors of net1
         //This loop will end because everything is in the same root eventually
         parent2 = canonical(get_parent(parent2));
-        cerr << "    " << net_handle_as_string(parent2) << endl;
     }
 
     bool is_connected = true;
@@ -1818,7 +1841,7 @@ pair<net_handle_t, bool> SnarlDistanceIndex::lowest_common_ancestor(const net_ha
     return make_pair(parent2, is_connected);
 }
 
-int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unoriented_distance) const {
+int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unoriented_distance, const HandleGraph* graph) const {
 
 
 #ifdef debug_distances
@@ -1859,10 +1882,10 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
         int64_t end_length = is_chain(parent) ? node_length(end_bound) : 0;
 
         //Get the distances from the bounds of the parent to the node we're looking at
-        int64_t distance_start_start = start_bound == net ? -start_length : distance_in_parent(parent, start_bound, flip(net));
-        int64_t distance_start_end = start_bound == flip(net) ? -start_length : distance_in_parent(parent, start_bound, net);
-        int64_t distance_end_start = end_bound == net ? -end_length : distance_in_parent(parent, end_bound, flip(net));
-        int64_t distance_end_end = end_bound == flip(net) ? -end_length : distance_in_parent(parent, end_bound, net);
+        int64_t distance_start_start = start_bound == net ? -start_length : distance_in_parent(parent, start_bound, flip(net), graph);
+        int64_t distance_start_end = start_bound == flip(net) ? -start_length : distance_in_parent(parent, start_bound, net, graph);
+        int64_t distance_end_start = end_bound == net ? -end_length : distance_in_parent(parent, end_bound, flip(net), graph);
+        int64_t distance_end_end = end_bound == flip(net) ? -end_length : distance_in_parent(parent, end_bound, net, graph);
 
         int64_t distance_start = dist_start;
         int64_t distance_end = dist_end; 
@@ -1935,18 +1958,15 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
      */
  
     if (canonical(net1) == canonical(net2)){
-        cerr << "SAME NODE" << endl;
         if (sum({distance_to_end1 , distance_to_start2}) > node_length(net1) && 
             sum({distance_to_end1 , distance_to_start2}) != std::numeric_limits<int64_t>::max()) {
             //If the positions are on the same node and are pointing towards each other, then
             //check the distance between them in the node
             minimum_distance = minus(sum({distance_to_end1 , distance_to_start2}), node_length(net1));
-            cerr << " Distance 2 to 1: " << minimum_distance << endl;
         }
         if (sum({distance_to_start1 , distance_to_end2}) > node_length(net1) && 
             sum({distance_to_start1 , distance_to_end2}) != std::numeric_limits<int64_t>::max()) {
             minimum_distance = std::min(minus(sum({distance_to_start1 , distance_to_end2}), node_length(net1)), minimum_distance);
-            cerr << " Distance 1 to 2: " << minimum_distance << endl;
         }
         common_ancestor = get_parent(net1);
     } else {
@@ -1996,10 +2016,10 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
 #endif
 
         //Find the minimum distance between the two children (net1 and net2)
-        int64_t distance_start_start = distance_in_parent(common_ancestor, flip(net1), flip(net2));
-        int64_t distance_start_end = distance_in_parent(common_ancestor, flip(net1), net2);
-        int64_t distance_end_start = distance_in_parent(common_ancestor, net1, flip(net2));
-        int64_t distance_end_end = distance_in_parent(common_ancestor, net1, net2);
+        int64_t distance_start_start = distance_in_parent(common_ancestor, flip(net1), flip(net2), graph);
+        int64_t distance_start_end = distance_in_parent(common_ancestor, flip(net1), net2, graph);
+        int64_t distance_end_start = distance_in_parent(common_ancestor, net1, flip(net2), graph);
+        int64_t distance_end_end = distance_in_parent(common_ancestor, net1, net2, graph);
 
         //And add those to the distances we've found to get the minimum distance between the positions
         minimum_distance = std::min(minimum_distance, 
@@ -2028,15 +2048,12 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
                 cerr << "    Checking external connectivity" << endl;
 #endif
                 if (has_external_connectivity(net1, START, START)) {
-                    cerr << "Start start " << endl;
                     minimum_distance = std::min(minimum_distance, sum({distance_to_start1, distance_to_start2}));
                 }
                 if (has_external_connectivity(net1, END, END)) {
-                    cerr << " end end " << endl;
                     minimum_distance = std::min(minimum_distance, sum({distance_to_end1, distance_to_end2}));
                 }
                 if (has_external_connectivity(net1, START, END)) {
-                    cerr << "start end " << endl;
                     minimum_distance = std::min(minimum_distance, 
                                        std::min(sum({distance_to_start1, distance_to_end2}),
                                                 sum({distance_to_end1, distance_to_start2})));

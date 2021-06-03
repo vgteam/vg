@@ -3624,7 +3624,7 @@ namespace vg {
             }
         }
         
-        TEST_CASE( "Distance index can deal with a bigger graph with no ordinary cycles", "[snarl_distance][bad]" ) {
+        TEST_CASE( "Distance index can deal with a bigger graph with no ordinary cycles", "[snarl_distance]" ) {
             //Four components of the root: 1, 4, and 5 are single nodes, 2-3 is a chain
             VG graph;
                 
@@ -3690,6 +3690,21 @@ namespace vg {
                          make_pos_t(1, true, 0), make_pos_t(4, false, 0)) == 5);
                 REQUIRE(distance_index.minimum_distance(
                          make_pos_t(1, true, 0), make_pos_t(5, false, 0)) == 5);
+
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(5, false, 1), make_pos_t(5, false, 0)) == 9);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(5, false, 0), make_pos_t(4, false, 0)) == 10);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(3, false, 0), make_pos_t(3, true, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(2, false, 0), make_pos_t(2, true, 0)) == 6);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(2, true, 0), make_pos_t(3, true, 0)) == 9);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(3, false, 0), make_pos_t(2, false, 0)) == 9);
+                REQUIRE(distance_index.minimum_distance(
+                         make_pos_t(3, false, 0), make_pos_t(3, true, 0)) == 4);
             }
         }
 
@@ -3989,9 +4004,10 @@ namespace vg {
             
              
         }
+        */
         
-        TEST_CASE( "NetGraph can traverse all the snarls in random graphs",
-                  "[snarl_distance][integrated-snarl-finder]" ) {
+        TEST_CASE( "Distance index can traverse all the snarls in random graphs",
+                  "[snarl_distance][integrated-snarl-finder][random]" ) {
         
             // Each actual graph takes a fairly long time to do so we randomize sizes...
             
@@ -4013,6 +4029,63 @@ namespace vg {
                 VG graph;
                 random_graph(bases, variant_bases, variant_count, &graph);
                 IntegratedSnarlFinder finder(graph); 
+                SnarlDistanceIndex distance_index(&graph, &finder);
+
+                for (size_t repeat_positions = 0 ; repeat_positions < 100 ; repeat_positions++) {
+                    //Pick random pairs of positions and find the distance between them
+                    id_t node_id1 = 0;
+                    id_t node_id2 = 0;
+                    uniform_int_distribution<int> random_node_ids(graph.min_node_id(),graph.max_node_id());
+                    default_random_engine generator(time(NULL));
+                    while (node_id1 == 0) {
+                        id_t new_id = random_node_ids(generator); 
+                        if (graph.has_node(new_id)) {
+                            node_id1 = new_id;
+                        }
+                    }
+                    while (node_id2 == 0) {
+                        id_t new_id = random_node_ids(generator); 
+                        if (graph.has_node(new_id)) {
+                            node_id2 = new_id;
+                        }
+                    }
+
+                    
+                    off_t offset1 = uniform_int_distribution<int>(0,graph.get_length(graph.get_handle(node_id1)) - 1)(generator);
+                    off_t offset2 = uniform_int_distribution<int>(0,graph.get_length(graph.get_handle(node_id2)) - 1)(generator);
+                    bool rev1 = uniform_int_distribution<int>(0,1)(generator) == 0;
+                    bool rev2 = uniform_int_distribution<int>(0,1)(generator) == 0;
+                    
+                    pos_t pos1 = make_pos_t(node_id1, rev1, offset1 );
+                    pos_t pos2 = make_pos_t(node_id2, rev2, offset2 );
+                    
+                    handle_t handle1 = graph.get_handle(node_id1, rev1);
+                    handle_t handle2 = graph.get_handle(node_id2, rev2);
+
+
+                    //Find actual distance
+                    int64_t dijkstra_distance = 0;
+                    dijkstra_distance += graph.get_length(graph.get_handle(node_id1)) - offset1;
+                    dijkstra_distance += offset2;
+                    handlegraph::algorithms::dijkstra(&graph, handle1, [&](const handle_t& reached, size_t distance) {
+                        if (reached == handle2) {
+                            dijkstra_distance += distance;
+                            return false;
+                        }
+                        return true;
+                    }
+                    , false);
+
+                    int64_t snarl_distance = distance_index.minimum_distance(pos1, pos2, false, &graph);
+                    REQUIRE(snarl_distance == dijkstra_distance);
+
+                    
+
+                }
+                cerr << "Finished graph" << endl;
+
+                /*
+                 * TODO: I don't think I can do this anymore
                 auto manager = finder.find_snarls_parallel();
                 
                 size_t snarls_seen = 0;
@@ -4065,14 +4138,12 @@ namespace vg {
                         REQUIRE(edges.count(make_pair(net_graph.flip(edge.second), net_graph.flip(edge.first))));
                     }
                 });
+                */
                     
             }
         
             
         }
        
-
-    */
-
    }
 }

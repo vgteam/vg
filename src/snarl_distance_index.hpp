@@ -83,7 +83,7 @@ private:
      * Otherwise, for snarls with more children than snarl_size_limit, only store the distances
      * that include boundary nodes (OVERSIZED_SNARL)
      */
-    size_t snarl_size_limit = 500;
+    size_t snarl_size_limit = 100000;
 
 
     
@@ -312,7 +312,7 @@ public:
      * Returns std::numeric_limits<int64_t>::max() if there is not path between them in the parent 
      * or if they are not children of the parent
      */
-    int64_t distance_in_parent(const net_handle_t& parent, const net_handle_t& child1, const net_handle_t& child2) const;
+    int64_t distance_in_parent(const net_handle_t& parent, const net_handle_t& child1, const net_handle_t& child2, const HandleGraph* graph=nullptr) const;
 
 
     /** 
@@ -354,7 +354,7 @@ public:
      * Returns std::numeric_limits<int64_t>::max() if there is no path between the two positions
      */
     //TODO: The positions can't be const?
-    int64_t minimum_distance(pos_t pos1, pos_t pos2, bool unoriented_distance = false) const ;
+    int64_t minimum_distance(pos_t pos1, pos_t pos2, bool unoriented_distance = false, const HandleGraph* graph=nullptr) const ;
 
 
 
@@ -1552,9 +1552,6 @@ private:
                                     sum({get_prefix_sum_value(std::get<0>(node1)), 
                                          minus(get_min_length(), get_prefix_sum_value(std::get<0>(node2))),
                                          get_reverse_loop_value(std::get<0>(node1))}));
-                    cerr << " Looping chain distance: " << sum({get_prefix_sum_value(std::get<0>(node1)), 
-                                         minus(get_min_length(), get_prefix_sum_value(std::get<0>(node2))),
-                                         get_reverse_loop_value(std::get<0>(node1))}) << endl;
                 }
             } else {
                 assert(std::get<1>(node1) && !std::get<1>(node2));
@@ -1570,9 +1567,6 @@ private:
                                     sum({get_prefix_sum_value(std::get<0>(node1)), 
                                          minus(minus(get_min_length(), get_prefix_sum_value(std::get<0>(node2))),
                                           std::get<2>(node2))}));
-                        cerr << " Looping chain distance: " << sum({get_prefix_sum_value(std::get<0>(node1)), 
-                                         minus(minus(get_min_length(), get_prefix_sum_value(std::get<0>(node2))),
-                                          std::get<2>(node2))}) << endl;
                 }
             }
             return distance;
