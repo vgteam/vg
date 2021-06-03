@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['kmer_5ft_5569',['kmer_t',['../structvg_1_1kmer__t.html',1,'vg::kmer_t'],['../structvg_1_1algorithms_1_1kmer__t.html',1,'vg::algorithms::kmer_t']]],
-  ['kmermatch_5570',['KmerMatch',['../structvg_1_1KmerMatch.html',1,'vg']]],
-  ['kmerposition_5571',['KmerPosition',['../structvg_1_1KmerPosition.html',1,'vg']]]
+  ['kmer_5ft_5572',['kmer_t',['../structvg_1_1kmer__t.html',1,'vg::kmer_t'],['../structvg_1_1algorithms_1_1kmer__t.html',1,'vg::algorithms::kmer_t']]],
+  ['kmermatch_5573',['KmerMatch',['../structvg_1_1KmerMatch.html',1,'vg']]],
+  ['kmerposition_5574',['KmerPosition',['../structvg_1_1KmerPosition.html',1,'vg']]]
 ];
