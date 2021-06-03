@@ -1069,7 +1069,7 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
         std::cerr << "Building input GBWTs" << std::endl;
     }
     gbwts.unbacked(); // We will build a new GBWT.
-    if (config.build != GBWTConfig::build_gfa) {
+    if (config.build != GBWTConfig::build_gfa && config.build != GBWTConfig::build_gbz) {
         graphs.get_graph(config);
     }
 
