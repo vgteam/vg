@@ -135,16 +135,36 @@ int main_mcmc(int argc, char** argv) {
     unique_ptr<SnarlManager> snarls = (vg::io::VPKG::load_one<SnarlManager>(snarls_file));
 
     // // create a PathHandleGraph 
-    unique_ptr<VG> vg_graph;
+    unique_ptr<PathHandleGraph> path_hgraph;
     bdsg::PathPositionOverlayHelper overlay_helper;
-    vg_graph = vg::io::VPKG::load_one<VG>(graph_file);
+    path_hgraph = vg::io::VPKG::load_one<PathHandleGraph>(graph_file);
 
-    if(vg_graph.get() == nullptr || vg_graph.get() == 0){
+    // Some stuff below here needs a vg graph.
+    VG* vg_graph = dynamic_cast<vg::VG*>(path_hgraph.get());
+    
+    // Call this to populate the vg_graph if it isn't populated.
+    auto ensure_vg = [&]() -> vg::VG* {
+        if (vg_graph == nullptr) {
+            // Copy instead.
+            vg_graph = new vg::VG();
+            handlealgs::copy_path_handle_graph(path_hgraph.get(), vg_graph);
+            // Give the unique_ptr ownership and delete the graph we loaded.
+            path_hgraph.reset(vg_graph);
+            // Make sure the paths are all synced up
+            vg_graph->paths.to_graph(vg_graph->graph);
+        }
+        return vg_graph;
+    };
+    
+    //convert to VG graph if needed
+    ensure_vg();
+
+    if(vg_graph == nullptr || vg_graph == 0){
         cerr << "Graph is NULL" <<endl;
         exit(1);
     }
     PathPositionHandleGraph* graph = nullptr;
-    graph = overlay_helper.apply(vg_graph.get());
+    graph = overlay_helper.apply(vg_graph);
     
      
     // Check our paths

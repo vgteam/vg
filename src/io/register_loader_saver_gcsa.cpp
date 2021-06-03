@@ -16,7 +16,10 @@ using namespace std;
 using namespace vg::io;
 
 void register_loader_saver_gcsa() {
-    Registry::register_bare_loader_saver<gcsa::GCSA>("GCSA", [](istream& input) -> void* {
+    std::uint32_t magic_number = gcsa::GCSAHeader::TAG;
+    std::string magic_string(reinterpret_cast<char*>(&magic_number), sizeof(magic_number));
+
+    Registry::register_bare_loader_saver_with_magic<gcsa::GCSA>("GCSA", magic_string, [](istream& input) -> void* {
         // Allocate a GCSA
         gcsa::GCSA* index = new gcsa::GCSA();
         

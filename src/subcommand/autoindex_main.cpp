@@ -21,104 +21,6 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-// from https://stackoverflow.com/questions/2513505/how-to-get-available-memory-c-g
-int64_t get_system_memory() {
-    int64_t pages = sysconf(_SC_PHYS_PAGES);
-    int64_t page_size = sysconf(_SC_PAGE_SIZE);
-    return pages * page_size;
-}
-
-bool vcf_is_phased(const string& filepath) {
-    
-    if (IndexingParameters::verbosity >= IndexingParameters::Basic) {
-        cerr << "[IndexRegistry]: Checking for phasing in VCF(s)." << endl;
-    }
-    
-    // check about 30k variants before concluding that the VCF isn't phased
-    // TODO: will there be contig ordering biases that make this a bad assumption?
-    constexpr int vars_to_check = 1 << 15;
-    
-    htsFile* file = hts_open(filepath.c_str(), "rb");
-    bcf_hdr_t* hdr = bcf_hdr_read(file);
-    int phase_set_id = bcf_hdr_id2int(hdr, BCF_DT_ID, "PS");
-    // note: it seems that this is not necessary for expressing phasing after all
-//    if (phase_set_id < 0) {
-//        // no PS tag means no phasing
-//        bcf_hdr_destroy(hdr);
-//        hts_close(file);
-//        return false;
-//    }
-    
-    // iterate over records
-    bcf1_t* line = bcf_init();
-    int iter = 0;
-    bool found_phased = false;
-    while (bcf_read(file, hdr, line) >= 0 && iter < vars_to_check && !found_phased)
-    {
-        if (phase_set_id >= 0) {
-            if (phase_set_id == BCF_HT_INT) {
-                // phase sets are integers
-                int num_phase_set_arr = 0;
-                int32_t* phase_sets = NULL;
-                int num_phase_sets = bcf_get_format_int32(hdr, line, "PS", &phase_sets, &num_phase_set_arr);
-                for (int i = 0; i < num_phase_sets && !found_phased; ++i) {
-                    found_phased = phase_sets[i] != 0;
-                }
-                free(phase_sets);
-            }
-            else if (phase_set_id == BCF_HT_STR) {
-                // phase sets are strings
-                int num_phase_set_arr = 0;
-                char** phase_sets = NULL;
-                int num_phase_sets = bcf_get_format_string(hdr, line, "PS", &phase_sets, &num_phase_set_arr);
-                for (int i = 0; i < num_phase_sets && !found_phased; ++i) {
-                    found_phased = strcmp(phase_sets[i], ".") != 0;
-                }
-                if (phase_sets) {
-                    // all phase sets are concatenated in one malloc's char*, pointed to by the first pointer
-                    free(phase_sets[0]);
-                }
-                // free the array of pointers
-                free(phase_sets);
-            }
-        }
-        
-        // init a genotype array
-        int32_t* genotypes = nullptr;
-        int arr_size = 0;
-        // and query it
-        int num_genotypes = bcf_get_genotypes(hdr, line, &genotypes, &arr_size);
-        if (num_genotypes >= 0) {
-            // we got genotypes, check to see if they're phased
-            int num_samples = bcf_hdr_nsamples(hdr);
-            int ploidy = num_genotypes / num_samples;
-            for (int i = 0; i < num_genotypes && !found_phased; i += ploidy) {
-                for (int j = 0; j < ploidy && !found_phased; ++j) {
-                    if (genotypes[i + j] == bcf_int32_vector_end) {
-                        // sample has lower ploidy
-                        break;
-                    }
-                    if (bcf_gt_is_missing(genotypes[i + j])) {
-                        continue;
-                    }
-                    if (bcf_gt_is_phased(genotypes[i + j])) {
-                        // the VCF expresses phasing, we can
-                        found_phased = true;;
-                    }
-                }
-            }
-        }
-        
-        free(genotypes);
-        ++iter;
-    }
-    // clean up
-    bcf_destroy(line);
-    bcf_hdr_destroy(hdr);
-    hts_close(file);
-    return found_phased;
-}
-
 int64_t parse_memory_usage(const string& mem_arg) {
     if (mem_arg.empty()) {
         cerr << "error:[vg autoindex] target memory usage arg is empty" << endl;
@@ -234,7 +136,7 @@ int main_autoindex(int argc, char** argv) {
     vector<string> vcf_names;
     bool force_unphased = false;
     bool force_phased = false;
-    int64_t target_mem_usage = get_system_memory() / 2;
+    int64_t target_mem_usage = IndexRegistry::get_system_memory() / 2;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -265,7 +167,7 @@ int main_autoindex(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "p:w:r:v:i:g:x:a:P:R:f:M:T:t:dVh",
+        c = getopt_long (argc, argv, "p:w:r:v:i:g:x:a:P:R:f:M:T:t:dV:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -384,7 +286,7 @@ int main_autoindex(int argc, char** argv) {
         bool phased = force_phased;
         if (!force_unphased) {
             for (size_t i = 0; i < vcf_names.size() && !phased; ++i) {
-                phased = vcf_is_phased(vcf_names[i]);
+                phased = IndexRegistry::vcf_is_phased(vcf_names[i]);
             }
         }
         

@@ -1,8 +1,8 @@
 # Test Data Directory
 This directory contains mock data for testing the examples on the VG wiki.
-It has the ame shape as some whole-genome data, but is not actually whole-genome scale.
+It has the same shape as some whole-genome data, but is not actually whole-genome scale.
 
-# fake-hs37d5
+# mock-hs37d5
 
 Can be generated like this:
 
@@ -33,3 +33,11 @@ Can be generated like this:
         bgzip ${VCF}
         tabix -p vcf ${VCF}.gz
     done
+    
+Simulated reads can then be generated like this:
+
+    vg construct -r hs37d5.fa >graph.vg
+    vg sim -x graph.vg -l 150 -p 500 -v 5 -n 10000 -P MT -a >sim.gam
+    vg view -aXi sim.gam >sim.fq
+    
+Since the contigs are short, we probably won't actually get 500 bp read separation.

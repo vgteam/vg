@@ -34,7 +34,7 @@ spec:
       initContainers:
       - name: configure
         image: moby/buildkit:buildx-stable-1
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         # Set up to GC any container data over 80 GB.
         # In the background? See https://github.com/moby/buildkit/issues/1962
         command:
@@ -90,7 +90,7 @@ spec:
           privileged: true
       containers:
       - image: moby/buildkit:buildx-stable-1
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command: [buildkitd, '--debug']
         name: buildkitd
         readinessProbe:
