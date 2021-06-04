@@ -661,7 +661,7 @@ private:
                 throw runtime_error("error: trying to get the start node of the root");
             } else if (type == NODE || type == DISTANCED_NODE) {
                 //TODO: I'm not sure if I want to allow this
-                cerr << "warning: Looking for the start of a node" << endl;
+                //cerr << "warning: Looking for the start of a node" << endl;
                 return get_id_from_offset(record_offset);
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
                 return (records->at(record_offset + SNARL_START_NODE_OFFSET)) >> 1;
@@ -681,7 +681,7 @@ private:
                 throw runtime_error("error: trying to get the start node of the root");
             } else if (type == NODE || type == DISTANCED_NODE) {
                 //TODO: I'm not sure if I want to allow this
-                cerr << "warning: Looking for the start of a node" << endl;
+                //cerr << "warning: Looking for the start of a node" << endl;
                 return false;
             } else if (type == SNARL || type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
                 return (records->at(record_offset + SNARL_START_NODE_OFFSET) & 1);
@@ -700,7 +700,7 @@ private:
                 throw runtime_error("error: trying to get the end node of the root");
             } else if (type == NODE || type == DISTANCED_NODE) {
                 //TODO: I'm not sure if I want to allow this
-                cerr << "warning: Looking for the end of a node" << endl;
+                //cerr << "warning: Looking for the end of a node" << endl;
                 //TODO: Put this in its own function? Also double check for off by ones
                 //Offset of the start of the node vector
                 return get_id_from_offset(record_offset);
@@ -722,7 +722,7 @@ private:
                 throw runtime_error("error: trying to get the end node of the root");
             } else if (type == NODE || type == DISTANCED_NODE) {
                 //TODO: I'm not sure if I want to allow this
-                cerr << "warning: Looking for the end of a node" << endl;
+                //cerr << "warning: Looking for the end of a node" << endl;
                 //TODO: Put this in its own function? Also double check for off by ones
                 //Offset of the start of the node vector
                 return get_id_from_offset(record_offset);
@@ -1511,8 +1511,12 @@ private:
 
             int64_t distance;
             bool is_looping_chain = get_start_id() == get_end_id(); 
+            cerr << "relevant values: " << get_prefix_sum_value(std::get<0>(node1)) << " " << get_prefix_sum_value(std::get<0>(node2)) << " "
+                 << get_forward_loop_value(std::get<0>(node2)) << " "<< get_reverse_loop_value(std::get<0>(node1)) << " "  
+                 << std::get<2>(node1) << " " << std::get<2>(node2) << endl;
 
             if (!std::get<1>(node1) && std::get<1>(node2)) {
+                cerr << "right left " << endl;
                 //Right of 1 and left of 2, so a simple forward traversal of the chain
                 if (std::get<0>(node1) == std::get<0>(node2)) {
                     //If these are the same node, then the path would need to go around the node
@@ -1525,6 +1529,7 @@ private:
                 }
             } else if (!std::get<1>(node1) && !std::get<1>(node2)) {
                 //Right side of 1 and right side of 2
+                cerr << "right right " << endl;
                 if (std::get<0>(node1) == std::get<0>(node2)) {
                     distance = get_forward_loop_value(std::get<0>(node2));
 
@@ -1536,6 +1541,7 @@ private:
                 }
             } else if (std::get<1>(node1) && std::get<1>(node2)) {
                 //Left side of 1 and left side of 2
+                cerr << "left left " << endl;
                 if (std::get<0>(node1) == std::get<0>(node2)) {
                     distance = get_reverse_loop_value(std::get<0>(node1));
 
@@ -1555,11 +1561,12 @@ private:
                 }
             } else {
                 assert(std::get<1>(node1) && !std::get<1>(node2));
+                cerr << "left right " << endl;
                 //Left side of 1 and right side of 2
                 distance = sum({get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1)), 
                                 get_reverse_loop_value(std::get<0>(node1)),
-                                get_forward_loop_value(std::get<0>(node1)),
-                                std::get<2>(node1)});
+                                get_forward_loop_value(std::get<0>(node2)),
+                                std::get<2>(node2)});
 
                 if (is_looping_chain) {
                     //Check the distance going backwards around the chain
@@ -1569,6 +1576,7 @@ private:
                                           std::get<2>(node2))}));
                 }
             }
+            cerr << "   ==> " << distance<< endl;
             return distance;
         }
 
@@ -1889,8 +1897,7 @@ private:
             result += "snarl ";        
         } else if (type == CHAIN_HANDLE && record_type == NODE_HANDLE) {
             return  "node " + std::to_string( get_node_id_from_offset(get_record_offset(net))) 
-                   + std::to_string( get_node_id_from_offset(get_record_offset(net))) + (ends_at(net) == START ? "rev" : "fd")
-                   + " pretending to be a chain";
+                   + (ends_at(net) == START ? "rev" : "fd") + " pretending to be a chain";
         } else if (type == CHAIN_HANDLE) {
             result += "chain ";
         } else if (type == SENTINEL_HANDLE) {
