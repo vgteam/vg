@@ -104,7 +104,7 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
         // } else {
         //     num_snarls_touched++;
         // }
-        // //todo: debug_print:
+        //todo: debug_print:
         // cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
 
         if (_full_log_print)
