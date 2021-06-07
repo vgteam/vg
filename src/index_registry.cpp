@@ -100,6 +100,7 @@ int IndexingParameters::minimizer_w = 11;
 int IndexingParameters::minimizer_s = 18;
 int IndexingParameters::path_cover_depth = gbwtgraph::PATH_COVER_DEFAULT_N;
 int IndexingParameters::giraffe_gbwt_downsample = gbwtgraph::LOCAL_HAPLOTYPES_DEFAULT_N;
+int IndexingParameters::downsample_threshold = 3;
 int IndexingParameters::downsample_context_length = gbwtgraph::PATH_COVER_DEFAULT_K;
 double IndexingParameters::max_memory_proportion = 0.75;
 double IndexingParameters::thread_chunk_inflation_factor = 2.0;
@@ -2393,7 +2394,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     
     // Giraffe will prefer to use a downsampled haplotype GBWT if possible
-    // FIXME Augment instead of downsampling if there are not too many haplotypes
     registry.register_recipe({"Giraffe GBWT"}, {"GBWT", "XG"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
@@ -2419,21 +2419,42 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         ifstream infile_xg, infile_gbwt;
         init_in(infile_xg, xg_filename);
         init_in(infile_gbwt, gbwt_filename);
-        
+
         auto output_name = plan->output_filepath(sampled_gbwt_output);
         ofstream outfile_sampled_gbwt;
         init_out(outfile_sampled_gbwt, output_name);
         
         auto xg_index = vg::io::VPKG::load_one<xg::XG>(infile_xg);
         auto gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(infile_gbwt);
-        
-        // compute a downsampled local haplotype cover (with path cover over missing components)
-        gbwt::GBWT cover = gbwtgraph::local_haplotypes(*xg_index, *gbwt_index,
-                                                       IndexingParameters::giraffe_gbwt_downsample,
-                                                       IndexingParameters::downsample_context_length,
-                                                       200 * gbwt::MILLION, // buffer size
-                                                       IndexingParameters::gbwt_sampling_interval,
-                                                       IndexingParameters::verbosity >= IndexingParameters::Debug);
+
+        // Downsample only if it would reduce the number of haplotypes sufficiently.
+        size_t threshold = IndexingParameters::giraffe_gbwt_downsample * IndexingParameters::downsample_threshold;
+        bool downsample = (gbwt_index->hasMetadata() && gbwt_index->metadata.haplotypes() >= threshold);
+
+        gbwt::GBWT cover;
+        if (downsample) {
+            // Downsample the haplotypes and generate a path cover of components without haplotypes.
+            cover = gbwtgraph::local_haplotypes(*xg_index, *gbwt_index,
+                                                IndexingParameters::giraffe_gbwt_downsample,
+                                                IndexingParameters::downsample_context_length,
+                                                200 * gbwt::MILLION, // buffer size
+                                                IndexingParameters::gbwt_sampling_interval,
+                                                IndexingParameters::verbosity >= IndexingParameters::Debug);
+        } else {
+            // Augment the GBWT with a path cover of components without haplotypes.
+            if (IndexingParameters::verbosity != IndexingParameters::None) {
+                cerr << "[IndexRegistry]: Not enough haplotypes; augmenting the full GBWT instead." << endl;
+            }
+            gbwt::DynamicGBWT dynamic_index(*gbwt_index);
+            gbwt_index.reset();
+            gbwtgraph::augment_gbwt(*xg_index, dynamic_index,
+                                    IndexingParameters::path_cover_depth,
+                                    IndexingParameters::downsample_context_length,
+                                    200 * gbwt::MILLION, // buffer size
+                                    IndexingParameters::gbwt_sampling_interval,
+                                    IndexingParameters::verbosity >= IndexingParameters::Debug);
+            cover = gbwt::GBWT(dynamic_index);
+        }
         
         save_gbwt(cover, output_name);
         output_names.push_back(output_name);
