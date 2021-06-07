@@ -440,10 +440,6 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
                 if (temp_chain_record.chain_components.at(node_i) != temp_chain_record.chain_components.at(node_i+1)){
                     //If this is a new chain component, then add the loop distance from the snarl
                     temp_chain_record.forward_loops.at(node_i) = temp_snarl_record.loop_start;
-                } else if (temp_snarl_record.is_trivial) {
-                    //If this is a trivial chain, then we always add the previous loop value
-                    temp_chain_record.forward_loops.at(node_i) = sum({temp_chain_record.forward_loops.at(node_i+1) , 
-                                    2*temp_snarl_record.end_node_length});
                 } else {
                     temp_chain_record.forward_loops.at(node_i) = 
                         std::min(sum({temp_chain_record.forward_loops.at(node_i+1) , 2* temp_snarl_record.min_length,
@@ -520,7 +516,6 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
         all_children.emplace_back(TEMP_NODE, temp_snarl_record.start_node_id);
         all_children.emplace_back(TEMP_NODE, temp_snarl_record.end_node_id);
     }
-    size_t edge_count = 0;
 
     while (!all_children.empty()) {
         const pair<temp_record_t, size_t> start_index = std::move(all_children.back());
@@ -605,7 +600,6 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
                     //At each of the nodes reachable from the current one, fill in the distance from the start
                     //node to the next node (current_distance). If this handle isn't leaving the snarl,
                     //add the next nodes along with the distance to the end of the next node
-                    edge_count++;
                     auto& node_record = temp_node_records.at(graph->get_id(next_handle)-min_node_id);
                     if (node_record.node_id == 0) {
 #ifdef debug_distance_indexing
@@ -702,12 +696,6 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
                 });
             }
         }
-    }
-    cerr << "EDGE COUNT: " << edge_count ;
-    if (edge_count > 2) {
-        //TODO: A better way to do this is to later set is_start_start_connected etc, and keep it as a trivial snarl
-        //Make sure that snarls that have extra loops are not counted as trivial
-        temp_snarl_record.is_trivial = false;
     }
 }
 
