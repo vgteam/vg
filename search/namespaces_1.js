@@ -1,7 +1,7 @@
 var searchData=
 [
-  ['algorithms_5821',['algorithms',['../namespacehandlegraph_1_1algorithms.html',1,'handlegraph']]],
-  ['handlegraph_5822',['handlegraph',['../namespacehandlegraph.html',1,'']]],
-  ['haplo_5823',['haplo',['../namespacehaplo.html',1,'']]],
-  ['haplomath_5824',['haploMath',['../namespacehaplo_1_1haploMath.html',1,'haplo']]]
+  ['algorithms_5823',['algorithms',['../namespacehandlegraph_1_1algorithms.html',1,'handlegraph']]],
+  ['handlegraph_5824',['handlegraph',['../namespacehandlegraph.html',1,'']]],
+  ['haplo_5825',['haplo',['../namespacehaplo.html',1,'']]],
+  ['haplomath_5826',['haploMath',['../namespacehaplo_1_1haploMath.html',1,'haplo']]]
 ];

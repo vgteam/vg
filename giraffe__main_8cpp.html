@@ -98,6 +98,7 @@ $(function() {
 <code>#include &quot;<a class="el" href="minimizer__mapper_8hpp.html">../minimizer_mapper.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="index__registry_8hpp.html">../index_registry.hpp</a>&quot;</code><br />
 <code>#include &lt;bdsg/overlays/overlay_helper.hpp&gt;</code><br />
+<code>#include &lt;gbwtgraph/gbz.h&gt;</code><br />
 <code>#include &lt;gbwtgraph/minimizer.h&gt;</code><br />
 <code>#include &lt;sys/ioctl.h&gt;</code><br />
 </div><table class="memberdecls">
@@ -145,6 +146,8 @@ Functions</h2></td></tr>
 <tr class="memitem:a1384531a1c8d8387bdd04961590bdf93"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1384531a1c8d8387bdd04961590bdf93">vg::parse</a> (const string &amp;arg, typename enable_if&lt; <a class="el" href="structvg_1_1is__instantiation__of.html">is_instantiation_of</a>&lt; Result, <a class="el" href="structvg_1_1Range.html">Range</a> &gt;::value, Result &gt;::type &amp;dest)</td></tr>
 <tr class="memdesc:a1384531a1c8d8387bdd04961590bdf93"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parse a range as start[:end[:step]].  <a href="namespacevg.html#a1384531a1c8d8387bdd04961590bdf93">More...</a><br /></td></tr>
 <tr class="separator:a1384531a1c8d8387bdd04961590bdf93"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ada042c5c5040b9b72848655d3dc5fcf8"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#ada042c5c5040b9b72848655d3dc5fcf8">strip_suffixes</a> (std::string filename, const std::vector&lt; std::string &gt; &amp;suffixes)</td></tr>
+<tr class="separator:ada042c5c5040b9b72848655d3dc5fcf8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8a250b5afd57abf13a1adceb71c7e677"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a8a250b5afd57abf13a1adceb71c7e677">help_giraffe</a> (char **argv)</td></tr>
 <tr class="separator:a8a250b5afd57abf13a1adceb71c7e677"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a03a19bdd804f12c23f77bb885e91df4a"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="giraffe__main_8cpp.html#a03a19bdd804f12c23f77bb885e91df4a">main_giraffe</a> (int argc, char **argv)</td></tr>
@@ -329,6 +332,34 @@ Functions</h2></td></tr>
           <td></td>
           <td class="paramtype">char **&#160;</td>
           <td class="paramname"><em>argv</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ada042c5c5040b9b72848655d3dc5fcf8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ada042c5c5040b9b72848655d3dc5fcf8">&#9670;&nbsp;</a></span>strip_suffixes()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::string strip_suffixes </td>
+          <td>(</td>
+          <td class="paramtype">std::string&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; std::string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>suffixes</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
