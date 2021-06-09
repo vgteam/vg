@@ -3,12 +3,19 @@
 
 namespace vg {
 namespace algorithms{
-/**
- * To "normalize" a snarl, SnarlNormalizer extracts all the sequences in the snarl as
- * represented in the gbwt, and then realigns them to create a replacement snarl. 
- * This process hopefully results in a snarl with less redundant sequence, and with 
- * duplicate variation combined into a single variant.
-*/
+
+void print_handles_in_snarl(const HandleGraph& graph, const id_t& source, const id_t& sink)
+{
+    //Note: extract_subgraph here assumes that the source is leftmost node of the region.
+    //todo: somehow avoid that assumption? Can I look up the snarl in snarl_roots, for example?
+    SubHandleGraph snarl = extract_subgraph(graph, source, sink, false);
+    // cout << "node ids of snarl with source " << source << " and sink " << sink << endl; 
+    snarl.for_each_handle([&](const handle_t handle) 
+    {
+        cout << graph.get_id(handle) << " ";
+    });
+}
+
 
 SnarlAnalyzer::SnarlAnalyzer(const HandleGraph& graph, ifstream &snarl_stream, bool skip_source_sink /*= true*/)
     :_graph(graph) 
@@ -18,7 +25,7 @@ SnarlAnalyzer::SnarlAnalyzer(const HandleGraph& graph, ifstream &snarl_stream, b
 
     vector<const Snarl *> snarl_roots = snarl_manager->top_level_snarls();
     for (auto roots : snarl_roots) {
-        SubHandleGraph snarl = extract_subgraph(_graph, roots->start().node_id(), roots->end().node_id(), roots->start().backward());
+        SubHandleGraph snarl = extract_subgraph(graph, roots->start().node_id(), roots->end().node_id(), roots->start().backward());
 
         int snarl_size = 0;
         if (skip_source_sink) // skip the source and sink to avoid double-counting of seq.
@@ -75,7 +82,7 @@ void SnarlAnalyzer::output_snarl_sizes(string& file_name)
 // Returns:
 //      a SubHandleGraph containing only the handles in _graph that are between start_id
 //      and sink_id.
-SubHandleGraph SnarlAnalyzer::extract_subgraph(const HandleGraph &graph,
+SubHandleGraph extract_subgraph(const HandleGraph &graph,
                                                  id_t source_id,
                                                  id_t sink_id,
                                                  const bool backwards) 
@@ -104,12 +111,12 @@ SubHandleGraph SnarlAnalyzer::extract_subgraph(const HandleGraph &graph,
     unordered_set<id_t> to_visit; // nodes found that belong in the subgraph.
 
     // initialize with leftmost_handle (because we move only to the right of leftmost_handle):
-    handle_t leftmost_handle = _graph.get_handle(leftmost_id);
+    handle_t leftmost_handle = graph.get_handle(leftmost_id);
     subgraph.add_handle(leftmost_handle);
     visited.insert(graph.get_id(leftmost_handle));
 
     // look only to the right of leftmost_handle
-    _graph.follow_edges(leftmost_handle, false, [&](const handle_t &handle) {
+    graph.follow_edges(leftmost_handle, false, [&](const handle_t &handle) {
         // mark the nodes to come as to_visit
         if (visited.find(graph.get_id(handle)) == visited.end()) {
             to_visit.insert(graph.get_id(handle));
@@ -120,7 +127,7 @@ SubHandleGraph SnarlAnalyzer::extract_subgraph(const HandleGraph &graph,
     while (to_visit.size() != 0) {
         // remove cur_handle from to_visit
         unordered_set<id_t>::iterator cur_index = to_visit.begin();
-        handle_t cur_handle = _graph.get_handle(*cur_index);
+        handle_t cur_handle = graph.get_handle(*cur_index);
 
         to_visit.erase(cur_index);
 
@@ -132,14 +139,14 @@ SubHandleGraph SnarlAnalyzer::extract_subgraph(const HandleGraph &graph,
         if (graph.get_id(cur_handle) != rightmost_id) { // don't iterate past rightmost node!
             // look for all nodes connected to cur_handle that need to be added
             // looking to the left,
-            _graph.follow_edges(cur_handle, true, [&](const handle_t &handle) {
+            graph.follow_edges(cur_handle, true, [&](const handle_t &handle) {
                 // mark the nodes to come as to_visit
                 if (visited.find(graph.get_id(handle)) == visited.end()) {
                     to_visit.insert(graph.get_id(handle));
                 }
             });
             // looking to the right,
-            _graph.follow_edges(cur_handle, false, [&](const handle_t &handle) {
+            graph.follow_edges(cur_handle, false, [&](const handle_t &handle) {
                 // mark the nodes to come as to_visit
                 if (visited.find(graph.get_id(handle)) == visited.end()) {
                     to_visit.insert(graph.get_id(handle));

@@ -30,7 +30,7 @@ void normalize(handlegraph::MutablePathDeletableHandleGraph* graph, int max_iter
         // for all handle graphs, or an obstacle to normality.
         
         // combine diced/chopped nodes (subpaths with no branching)
-        handlealgs::unchop(graph);
+        handlealgs::unchop(*graph);
         // Resolve forks that shouldn't be
         simplify_siblings(graph);
         
@@ -47,7 +47,7 @@ void normalize(handlegraph::MutablePathDeletableHandleGraph* graph, int max_iter
     
     // there may now be some cut nodes that can be simplified
     // This won't change the length.
-    handlealgs::unchop(graph);
+    handlealgs::unchop(*graph);
 }
 
 

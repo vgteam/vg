@@ -7,6 +7,7 @@
 #include <handlegraph/handle_graph.hpp>
 #include <gbwt/gbwt.h>
 #include "position.hpp"
+#include "gbwt_helper.hpp"
 
 /** \file 
  * Functions for working with `kmers_t`'s in HandleGraphs.
@@ -47,6 +48,10 @@ std::ostream& operator<<(std::ostream& out, const walk_t& walk);
 uint64_t walk_haplotype_frequency(const HandleGraph& graph,
                                   const gbwt::GBWT& haplotypes,
                                   const walk_t& walk);
+
+std::vector<std::string> walk_haplotype_names(const HandleGraph& graph,
+                                              const gbwt::GBWT& haplotypes,
+                                              const walk_t& walk);
 
 }
 

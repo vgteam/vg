@@ -5,6 +5,7 @@
 #include "augment.hpp"
 #include "alignment.hpp"
 #include "packer.hpp"
+#include "annotation.hpp"
 //#define debug
 
 using namespace vg::io;
@@ -196,6 +197,14 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
             if (aln.mapping_quality() < min_mapq || (filter_out_of_graph_alignments && !check_in_graph(aln.path(), graph))) {
                 return;
             }
+
+            if (aln_format == "GAF" && has_annotation(aln, "from_cg") && get_annotation<bool>(aln, "from_cg")) {
+#pragma omp critical (cerr)
+                {
+                    cerr << "[vg augment] error: GAF with cg cigars contains insufficient information for augmenting: cs cigars required." << endl;
+                }
+                exit(1);
+            }                    
 
             if (remove_softclips) {
                 softclip_trim(aln);

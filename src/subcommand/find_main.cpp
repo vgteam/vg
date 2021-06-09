@@ -659,6 +659,12 @@ int main_find(int argc, char** argv) {
                                 for (auto& h : walk.path) {
                                     ss << graph.get_id(h) << (graph.get_is_reverse(h)?"-":"+") << ",";
                                 }
+                                if (use_gbwt) {
+                                    ss << "\t";
+                                    for (auto& name : walk_haplotype_names(graph, *gbwt_index, walk)) {
+                                        ss << name << ",";
+                                    }
+                                }
                                 // write our record
 #pragma omp critical (cout)
                                 cout << ss.str() << std::endl;

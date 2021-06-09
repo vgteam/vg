@@ -154,10 +154,10 @@ pair<step_handle_t, step_handle_t> SnarlNormalizer::move_path_to_new_snarl(const
     // todo: address paths that don't span both source and sink.
     if (!(path_spans_left_right.first and path_spans_left_right.second))
     {
-        cerr << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << endl;
-        cerr << "in snarl with source: " << main_graph_source_and_sink.first << " and sink " << main_graph_source_and_sink.second << ":" << endl;
-        cerr << "PATH DOESN'T SPAN SOURCE AND SINK! THIS IS CURRENTLY UNSUPPORTED. SNARL WILL BE NORMALIZED, BUT PATH WON'T BE INCLUDED." << endl;
-        cerr << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << endl;
+        // cerr << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << endl;
+        // cerr << "in snarl with source: " << main_graph_source_and_sink.first << " and sink " << main_graph_source_and_sink.second << ":" << endl;
+        // cerr << "PATH DOESN'T SPAN SOURCE AND SINK! THIS IS CURRENTLY UNSUPPORTED. SNARL WILL BE NORMALIZED, BUT PATH WON'T BE INCLUDED." << endl;
+        // cerr << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << endl;
         pair<step_handle_t, step_handle_t> no_path;
         return no_path;
     }

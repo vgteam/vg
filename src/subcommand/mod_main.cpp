@@ -602,7 +602,7 @@ int main_mod(int argc, char** argv) {
     }
 
     if (unchop) {
-        handlealgs::unchop(graph.get());
+        handlealgs::unchop(*graph);
     }
 
     if (simplify_graph) {
@@ -714,7 +714,7 @@ int main_mod(int argc, char** argv) {
             chop_graph = vg_graph;
         }
         
-        handlealgs::chop(chop_graph, chop_to);
+        handlealgs::chop(*chop_graph, chop_to);
         
         if (chop_graph == vg_graph) {
             vg_graph->paths.compact_ranks();

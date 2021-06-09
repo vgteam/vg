@@ -16,7 +16,10 @@ using namespace std;
 using namespace vg::io;
 
 void register_loader_saver_lcp() {
-    Registry::register_bare_loader_saver<gcsa::LCPArray>("LCP", [](istream& input) -> void* {
+    std::uint32_t magic_number = gcsa::LCPHeader::TAG;
+    std::string magic_string(reinterpret_cast<char*>(&magic_number), sizeof(magic_number));
+
+    Registry::register_bare_loader_saver_with_magic<gcsa::LCPArray>("LCP", magic_string, [](istream& input) -> void* {
         // Allocate an LCPArray
         gcsa::LCPArray* index = new gcsa::LCPArray();
         

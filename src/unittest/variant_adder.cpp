@@ -241,7 +241,7 @@ ref	5	rs1337	AAAAAAAAAAAAAAAAAAAAA	A	29	PASS	.	GT	0/1
     
     SECTION ("should work when the graph is atomized") {
     
-        handlealgs::chop(&graph, 1);
+        handlealgs::chop(graph, 1);
         graph.paths.compact_ranks();
     
         // Make a VariantAdder
@@ -334,6 +334,9 @@ TEST_CASE( "The smart aligner works on very large inserts", "[variantadder]" ) {
     
     // Make a VariantAdder
     VariantAdder adder(graph);
+    vector<handle_t> order = handlealgs::topological_order(&adder.get_graph());
+    NodeSide front(adder.get_graph().get_id(order.front()), false);
+    NodeSide back(adder.get_graph().get_id(order.back()), true);
     
     // Make a really long insert
     stringstream s;
@@ -343,8 +346,7 @@ TEST_CASE( "The smart aligner works on very large inserts", "[variantadder]" ) {
     }
     s << "AAAAAAAAAAGCGC";
     
-    auto endpoints = make_pair(NodeSide(1, false), NodeSide(1, true));
-    Alignment aligned = adder.smart_align(graph, endpoints, s.str(), 10000 + graph.length());
+    Alignment aligned = adder.smart_align(graph, make_pair(front, back), s.str(), 10000 + graph.length());
     
     SECTION("the resulting alignment should have the input string") {
         REQUIRE(aligned.sequence() == s.str());
@@ -412,12 +414,15 @@ TEST_CASE( "The smart aligner should use mapping offsets on huge deletions", "[v
     
     // Make a VariantAdder
     VariantAdder adder(graph);
+    vector<handle_t> order = handlealgs::topological_order(&adder.get_graph());
+    NodeSide front(adder.get_graph().get_id(order.front()), false);
+    NodeSide back(adder.get_graph().get_id(order.back()), true);
     
     // Make a deleted version (only 21 As)
     string deleted = "GCGCAAAAAAAAAAAAAAAAAAAAAGCGC";
     
     // Align between 1 and 3
-    auto endpoints = make_pair(NodeSide(1, false), NodeSide(3, true));
+    auto endpoints = make_pair(front, back);
     Alignment aligned = adder.smart_align(graph, endpoints, deleted, graph.length());
     
     SECTION("the resulting alignment should have the input string") {
@@ -451,14 +456,14 @@ TEST_CASE( "The smart aligner should use mapping offsets on huge deletions", "[v
             }
             
             SECTION("the first mapping should be at the start of the first node") {
-                REQUIRE(m1.position().node_id() == 1);
+                REQUIRE(m1.position().node_id() == front.node);
                 REQUIRE(m1.position().offset() == 0);
                 REQUIRE(m1.position().is_reverse() == false);
             }
             
             SECTION("the second mapping should be at the end of the last node") {
-                REQUIRE(m2.position().node_id() == 3);
-                REQUIRE(m2.position().offset() == graph.get_node(3)->sequence().size() - match2.from_length());
+                REQUIRE(m2.position().node_id() == back.node);
+                REQUIRE(m2.position().offset() == adder.get_graph().get_length(order.back()) - mapping_from_length(m2));
                 REQUIRE(m2.position().is_reverse() == false);
             }
         }
@@ -497,12 +502,15 @@ TEST_CASE( "The smart aligner should find existing huge deletions", "[variantadd
     
     // Make a VariantAdder
     VariantAdder adder(graph);
+    vector<handle_t> order = handlealgs::topological_order(&adder.get_graph());
+    NodeSide front(adder.get_graph().get_id(order.front()), false);
+    NodeSide back(adder.get_graph().get_id(order.back()), true);
     
     // Make a deleted version (only 21 As)
     string deleted = "GCGCAAAAAAAAAAAAAAAAAAAAAGCGC";
     
     // Align it between 1 and 3
-    auto endpoints = make_pair(NodeSide(1, false), NodeSide(3, true));
+    auto endpoints = make_pair(front, back);
     Alignment aligned = adder.smart_align(graph, endpoints, deleted, graph.length());
     
     SECTION("the resulting alignment should have the input string") {
@@ -535,15 +543,15 @@ TEST_CASE( "The smart aligner should find existing huge deletions", "[variantadd
                 REQUIRE(match1.from_length() + match2.from_length() == deleted.size());
             }
             
-            SECTION("the first mapping should be at the start of node 1") {
-                REQUIRE(m1.position().node_id() == 1);
+            SECTION("the first mapping should be at the start of the first node") {
+                REQUIRE(m1.position().node_id() == front.node);
                 REQUIRE(m1.position().offset() == 0);
                 REQUIRE(m1.position().is_reverse() == false);
             }
             
-            SECTION("the second mapping should be at the end of node 3") {
-                REQUIRE(m2.position().node_id() == 3);
-                REQUIRE(m2.position().offset() == graph.get_node(3)->sequence().size() - match2.from_length());
+            SECTION("the second mapping should be at the end of the last node") {
+                REQUIRE(m2.position().node_id() == back.node);
+                REQUIRE(m2.position().offset() == adder.get_graph().get_length(order.back()) - mapping_from_length(m2));
                 REQUIRE(m2.position().is_reverse() == false);
             }
         }

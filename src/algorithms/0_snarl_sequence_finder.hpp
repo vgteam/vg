@@ -33,6 +33,9 @@ class SnarlSequenceFinder {
     const id_t &_source_id; 
     const id_t &_sink_id; 
     const bool &_backwards;
+    //todo: either make this an optional argument for the class (and pull it from the 
+    //todo:    SnarlNormalizer args), or remove as a debug var.
+    bool _full_log_print = false; // for printing info that isn't necessarily something gone wrong.
 
     vector<vector<handle_t>> 
     find_haplotypes_not_at_source(unordered_set<handle_t> &touched_handles);

@@ -18,9 +18,10 @@ using namespace vg::io;
 
 void register_loader_saver_gbwt() {
     // GBWT and DynamicGBWT can both load/save the same format.
-    // TODO: Should DynamicGBWT be its own file here?
+    std::uint32_t magic_number = gbwt::GBWTHeader::TAG;
+    std::string magic_string(reinterpret_cast<char*>(&magic_number), sizeof(magic_number));
 
-    Registry::register_bare_loader_saver<gbwt::GBWT>("GBWT", [](istream& input) -> void* {
+    Registry::register_bare_loader_saver_with_magic<gbwt::GBWT>("GBWT", magic_string, [](istream& input) -> void* {
         // Allocate a GBWT
         gbwt::GBWT* index = new gbwt::GBWT();
         
@@ -32,10 +33,10 @@ void register_loader_saver_gbwt() {
     }, [](const void* index_void, ostream& output) {
         // Cast to GBWT and serialize to the stream.
         assert(index_void != nullptr);
-        ((const gbwt::GBWT*) index_void)->serialize(output);
+        ((const gbwt::GBWT*) index_void)->simple_sds_serialize(output);
     });
     
-    Registry::register_bare_loader_saver<gbwt::DynamicGBWT>("GBWT", [](istream& input) -> void* {
+    Registry::register_bare_loader_saver_with_magic<gbwt::DynamicGBWT>("GBWT", magic_string, [](istream& input) -> void* {
         // Allocate a DynamicGBWT
         gbwt::DynamicGBWT* index = new gbwt::DynamicGBWT();
         
@@ -47,7 +48,7 @@ void register_loader_saver_gbwt() {
     }, [](const void* index_void, ostream& output) {
         // Cast to DynamicGBWT and serialize to the stream.
         assert(index_void != nullptr);
-        ((const gbwt::DynamicGBWT*) index_void)->serialize(output);
+        ((const gbwt::DynamicGBWT*) index_void)->simple_sds_serialize(output);
     });
 }
 
