@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 9
+plan tests 11
 
 vg view -J -v snarls/snarls.json > snarls.vg
 is $(vg snarls snarls.vg -r st.pb | vg view -R - | wc -l) 3 "vg snarls made right number of protobuf Snarls"
@@ -63,4 +63,10 @@ is $(vg snarls xy.vg | vg view -R - | wc -l) $(vg view -R xy.snarls | wc -l) "sa
 rm -f xy.vg xy.snarls
 
 
+# Find trivial snarls from a GBZ
+vg gbwt -g graph.gbz --gbz-format -G graphs/components_walks.gfa
+vg snarls -T -Z graph.gbz > graph.snarls
+is $? 0 "GBZ graphs can be used for finding snarls"
+is $(vg view -R graph.snarls | wc -l) 5 "correct number of snarls in the GFA W-line example"
 
+rm -f graph.gbz graph.snarls
