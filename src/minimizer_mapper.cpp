@@ -3556,7 +3556,9 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                 // If we have a nonzero offset in our mapping, and we follow
                 // something, we must be continuing on from a previous mapping to
                 // the node.
+                cerr << "mapping position: " << mapping.position().node_id() << " end of path: " << best.path().mapping(best.path().mapping_size() - 1).position().node_id();
                 assert(mapping.position().node_id() == best.path().mapping(best.path().mapping_size() - 1).position().node_id());
+                
 
                 // Find that previous mapping
                 auto* prev_mapping = best.mutable_path()->mutable_mapping(best.path().mapping_size() - 1);
