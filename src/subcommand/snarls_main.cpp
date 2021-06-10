@@ -30,7 +30,7 @@ void help_snarl(char** argv) {
          << "       By default, a list of protobuf Snarls is written" << endl
          << "options:" << endl
          << "    -A, --algorithm NAME   compute snarls using 'cactus' or 'integrated' algorithms (default: integrated)" << endl
-         << "    -Z, --gbz-in           the graph is in GBZ format (GBWT + GBWTGraph)" << endl
+         << "    -Z, --gbz-format       the graph is in GBZ format (GBWT + GBWTGraph)" << endl
          << "    -p, --pathnames        output variant paths as SnarlTraversals to STDOUT" << endl
          << "    -r, --traversals FILE  output SnarlTraversals for ultrabubbles." << endl
          << "    -e, --path-traversals  only consider traversals that correspond to paths in the graph. (-m ignored)" << endl
@@ -68,7 +68,7 @@ int main_snarl(int argc, char** argv) {
     string ref_fasta_filename;
     string ins_fasta_filename;
     bool path_traversals = false;
-    bool gbz_in = false;
+    bool gbz_format = false;
         
     int c;
     optind = 2; // force optind past command positional argument
@@ -76,7 +76,7 @@ int main_snarl(int argc, char** argv) {
         static struct option long_options[] =
             {
                 {"algorithm", required_argument, 0, 'A'},
-                {"gbz-in", no_argument, 0, 'Z'},
+                {"gbz-format", no_argument, 0, 'Z'},
                 {"traversals", required_argument, 0, 'r'},
                 {"pathnames", no_argument, 0, 'p'},
                 {"leaf-only", no_argument, 0, 'l'},
@@ -110,7 +110,7 @@ int main_snarl(int argc, char** argv) {
             break;
 
         case 'Z':
-            gbz_in = true;
+            gbz_format = true;
             break;
 
         case 'r':
@@ -180,7 +180,7 @@ int main_snarl(int argc, char** argv) {
     }
 
     // GBZ input does not work with all options.
-    if (gbz_in) {
+    if (gbz_format) {
         if (algorithm == "cactus") {
             cerr << "error: [vg snarls] the cactus algorithm does not work with GBZ graphs" << endl;
             return 1;
@@ -207,7 +207,7 @@ int main_snarl(int argc, char** argv) {
     unique_ptr<gbwtgraph::GBZ> gbz;
     HandleGraph* handle_graph = nullptr;
     string graph_filename = get_input_file_name(optind, argc, argv);
-    if (gbz_in) {
+    if (gbz_format) {
         gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(graph_filename);
         handle_graph = &(gbz->graph);
     } else {
