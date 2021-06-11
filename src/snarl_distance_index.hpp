@@ -1491,14 +1491,6 @@ private:
         //TODO: Double check finding the distance for the same node
         virtual int64_t get_distance(tuple<size_t, bool, int64_t> node1, 
                              tuple<size_t, bool, int64_t> node2) const {
-            if (get_record_handle_type() == NODE_HANDLE) {
-                throw runtime_error("error: Trying to get chain distances from a node");
-            } else if (get_record_type() == MULTICOMPONENT_CHAIN) {
-                if (records->at(std::get<0>(node1) + CHAIN_NODE_COMPONENT_OFFSET) != 
-                    records->at(std::get<0>(node2) + CHAIN_NODE_COMPONENT_OFFSET)) {
-                    return std::numeric_limits<int64_t>::max();
-                }
-            }
 
             if (std::get<0>(node1) > std::get<0>(node2)) {
                 //If the first node comes after the second in the chain, reverse them
@@ -1508,8 +1500,25 @@ private:
 
             }
 
-            int64_t distance;
             bool is_looping_chain = get_start_id() == get_end_id(); 
+            if (get_record_handle_type() == NODE_HANDLE) {
+                throw runtime_error("error: Trying to get chain distances from a node");
+            } else if (get_record_type() == MULTICOMPONENT_CHAIN) {
+                if (records->at(std::get<0>(node1) + CHAIN_NODE_COMPONENT_OFFSET) != 
+                    records->at(std::get<0>(node2) + CHAIN_NODE_COMPONENT_OFFSET)) {
+                    cerr << "DIFFERENT COMPONENTS: inf" << endl;
+                    if (is_looping_chain) {
+                        //If this is a looping chain, then the first/last node could be in two 
+                        //components
+                        return get_distance_taking_chain_loop(node1, node2);
+                    } else {
+                        return std::numeric_limits<int64_t>::max();
+                    }
+                }
+            }
+
+
+            int64_t distance;
 
             if (!std::get<1>(node1) && std::get<1>(node2)) {
                 //Right of 1 and left of 2, so a simple forward traversal of the chain
@@ -1522,16 +1531,6 @@ private:
                     distance = minus(get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1)),
                          std::get<2>(node1));
                 }
-                if (is_looping_chain) {
-                    //Check distance for taking loop in chain: loop forward from the first node, from the start of the 
-                    //chain to the first node, from the end of the node to the second node, and the reverse loop of the second
-                    distance = std::min(distance,
-                                    sum({get_forward_loop_value(std::get<0>(node1)),
-                                         std::get<2>(node1), 
-                                         get_prefix_sum_value(std::get<0>(node1)), 
-                                         minus(get_min_length(), get_prefix_sum_value(std::get<0>(node2))),
-                                         get_reverse_loop_value(std::get<0>(node2))}));
-                }
             } else if (!std::get<1>(node1) && !std::get<1>(node2)) {
                 //Right side of 1 and right side of 2
                 if (std::get<0>(node1) == std::get<0>(node2)) {
@@ -1543,16 +1542,6 @@ private:
                                        get_forward_loop_value(std::get<0>(node2))}), 
                                  std::get<2>(node1));
                 }
-                if (is_looping_chain) {
-                    //Check distance for taking loop in chain: loop forward from the first node, from the start of the 
-                    //chain to the first node, from the end of the node to the second node
-                    distance = std::min(distance,
-                                    sum({get_forward_loop_value(std::get<0>(node1)),
-                                         std::get<2>(node1), 
-                                         get_prefix_sum_value(std::get<0>(node1)), 
-                                         minus(minus(get_min_length(), get_prefix_sum_value(std::get<0>(node2))),
-                                            std::get<2>(node2))}));
-                }
             } else if (std::get<1>(node1) && std::get<1>(node2)) {
                 //Left side of 1 and left side of 2
                 if (std::get<0>(node1) == std::get<0>(node2)) {
@@ -1562,16 +1551,6 @@ private:
                     distance = sum({get_prefix_sum_value(std::get<0>(node2)) - get_prefix_sum_value(std::get<0>(node1)),
                                     get_reverse_loop_value(std::get<0>(node1))});
                 }
-                if (is_looping_chain) {
-                    //Check distance for taking loop in chain: from the first node left to the start, around the 
-                    //chain loop, then the reverse loop of the second node
-                    //This assumes that the length of the chain only includes the start/end node's length once,
-                    //which it does but might change
-                    distance = std::min(distance,
-                                    sum({get_prefix_sum_value(std::get<0>(node1)), 
-                                         minus(get_min_length(), get_prefix_sum_value(std::get<0>(node2))),
-                                         get_reverse_loop_value(std::get<0>(node2))}));
-                }
             } else {
                 assert(std::get<1>(node1) && !std::get<1>(node2));
                 //Left side of 1 and right side of 2
@@ -1580,13 +1559,71 @@ private:
                                 get_forward_loop_value(std::get<0>(node2)),
                                 std::get<2>(node2)});
 
-                if (is_looping_chain) {
-                    //Check the distance going backwards around the chain
-                    distance = std::min(distance,
-                                    sum({get_prefix_sum_value(std::get<0>(node1)), 
-                                         minus(minus(get_min_length(), get_prefix_sum_value(std::get<0>(node2))),
-                                          std::get<2>(node2))}));
-                }
+            }
+            if (is_looping_chain) {
+                distance = std::min(distance, get_distance_taking_chain_loop(node1, node2));
+            }
+            return distance;
+        }
+
+        ///For a chain that loops (when the start and end node are the same), find the 
+        //distance walking around the back of the loop
+        virtual int64_t get_distance_taking_chain_loop(tuple<size_t, bool, int64_t> node1, 
+                             tuple<size_t, bool, int64_t> node2) const {
+            //This is only called by get_distance, so the nodes should be ordered
+            assert (std::get<0>(node1) <= std::get<0>(node2));
+
+            if (get_record_handle_type() == NODE_HANDLE) {
+                throw runtime_error("error: Trying to get chain distances from a node");
+            } else if (get_record_type() == MULTICOMPONENT_CHAIN) {
+                //TODO: If this is a multicomponent chain and the nodes are in different components,
+                //then it can only reach around backwards if the first node happens to be the actual
+                //first node in the chain, and it is in the same component as the second node
+                //when it is considered to be the last node (since the first/last node in the chain
+                //can belong to separate components if one of the snarls is disconnected)
+            }
+
+
+            int64_t distance;
+            assert(get_start_id() == get_end_id()); 
+
+            if (!std::get<1>(node1) && std::get<1>(node2)) {
+                //Right of 1 and left of 2, so a simple forward traversal of the chain
+                //loop forward from the first node, from the start of the chain to the first 
+                //node, from the end of the node to the second node, and the reverse loop of the second
+                distance = sum({get_forward_loop_value(std::get<0>(node1)),
+                                     std::get<2>(node1), 
+                                     get_prefix_sum_value(std::get<0>(node1)), 
+                                     minus(get_min_length(), get_prefix_sum_value(std::get<0>(node2))),
+                                     get_reverse_loop_value(std::get<0>(node2))});
+            } else if (!std::get<1>(node1) && !std::get<1>(node2)) {
+                //Right side of 1 and right side of 2
+                
+                //Check distance for taking loop in chain: loop forward from the first node, from the start of the 
+                //chain to the first node, from the end of the node to the second node
+                distance = sum({get_forward_loop_value(std::get<0>(node1)),
+                                     std::get<2>(node1), 
+                                     get_prefix_sum_value(std::get<0>(node1)), 
+                                     minus(minus(get_min_length(), get_prefix_sum_value(std::get<0>(node2))),
+                                        std::get<2>(node2))});
+            } else if (std::get<1>(node1) && std::get<1>(node2)) {
+                //Left side of 1 and left side of 2
+                
+                //from the first node left to the start, around the 
+                //chain loop, then the reverse loop of the second node
+                //This assumes that the length of the chain only includes the start/end node's length once,
+                //which it does but might change
+                distance = sum({get_prefix_sum_value(std::get<0>(node1)), 
+                                     minus(get_min_length(), get_prefix_sum_value(std::get<0>(node2))),
+                                     get_reverse_loop_value(std::get<0>(node2))});
+            } else {
+                assert(std::get<1>(node1) && !std::get<1>(node2));
+                //Left side of 1 and right side of 2
+                
+                //Check the distance going backwards around the chain
+                distance = sum({get_prefix_sum_value(std::get<0>(node1)), 
+                                     minus(minus(get_min_length(), get_prefix_sum_value(std::get<0>(node2))),
+                                      std::get<2>(node2))});
             }
             return distance;
         }

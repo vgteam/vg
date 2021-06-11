@@ -3772,60 +3772,101 @@ namespace vg {
                          make_pos_t(11, true, 0), make_pos_t(4, false, 0)) == std::numeric_limits<int64_t>::max());
             }
         }
-
-        TEST_CASE( "Snarl distance index can deal with edges that exit common ancestor chain","[snarl_distance][bug]" ) {
-            //This is a looping chain with snarls 1fd->12fd and 12fd->1fd
+        TEST_CASE( "Snarl distance index can deal with loops in a snarl", "[snarl_distance][bug]" ) {
+            //THis actually makes a chain 4fd->2fd, 2fd->4fd that is disconnected
             VG graph;
         
             Node* n1 = graph.create_node("GCA");
             Node* n2 = graph.create_node("T");
             Node* n3 = graph.create_node("G");
             Node* n4 = graph.create_node("CTGA");
-            Node* n5 = graph.create_node("GGGGGGGGGGGG");//12 Gs
+            Node* n5 = graph.create_node("GCA");
             Node* n6 = graph.create_node("T");
             Node* n7 = graph.create_node("G");
-            Node* n8 = graph.create_node("G");
-            Node* n9 = graph.create_node("AA");
-            Node* n10 = graph.create_node("G");
-            Node* n11 = graph.create_node("G");
-            Node* n12 = graph.create_node("G");
-            Node* n13 = graph.create_node("GA");
-            Node* n14 = graph.create_node("G");
-            Node* n15 = graph.create_node("G");
-            Node* n16 = graph.create_node("G");
         
             Edge* e1 = graph.create_edge(n1, n2);
-            Edge* e2 = graph.create_edge(n1, n13);
+            Edge* e2 = graph.create_edge(n1, n7);
             Edge* e3 = graph.create_edge(n2, n3);
-            Edge* e4 = graph.create_edge(n2, n16);
-            Edge* e27 = graph.create_edge(n16, n9);
+            Edge* e4 = graph.create_edge(n2, n4);
             Edge* e5 = graph.create_edge(n3, n4);
-            Edge* e6 = graph.create_edge(n3, n5);
+            Edge* e6 = graph.create_edge(n4, n5);
             Edge* e7 = graph.create_edge(n4, n6);
-            Edge* e8 = graph.create_edge(n5, n6);
+            Edge* e8 = graph.create_edge(n5, n7);
             Edge* e9 = graph.create_edge(n6, n7);
-            Edge* e10 = graph.create_edge(n6, n8);
-            Edge* e11 = graph.create_edge(n7, n8);
-            Edge* e12 = graph.create_edge(n8, n9);
-            Edge* e13 = graph.create_edge(n9, n10);
-            Edge* e14 = graph.create_edge(n9, n11);
-            Edge* e15 = graph.create_edge(n10, n11);
-            Edge* e16 = graph.create_edge(n11, n12);
-            Edge* e17 = graph.create_edge(n11, n2);
-            Edge* e18 = graph.create_edge(n12, n1);
-            Edge* e19 = graph.create_edge(n13, n14);
-            Edge* e20 = graph.create_edge(n13, n15);
-            Edge* e21 = graph.create_edge(n14, n15);
-            Edge* e22 = graph.create_edge(n15, n12);
-            Edge* e23 = graph.create_edge(n2, n2, true, false);
-            Edge* e24 = graph.create_edge(n11, n11, false, true);
-            Edge* e25 = graph.create_edge(n1, n1, true, false);
-            Edge* e26 = graph.create_edge(n12, n12, false, true);
-
+            Edge* e10 = graph.create_edge(n3, n3, true, false);
+        
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+        
+        
+        
+            SECTION ("Min distance") {
+        
+                REQUIRE(distance_index.minimum_distance(make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance( make_pos_t(5, false, 0), make_pos_t(6, false, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance( make_pos_t(5, false, 0), make_pos_t(6, true, 0)) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.minimum_distance( make_pos_t(5, true, 2), make_pos_t(6, false, 0)) == 11);
+                REQUIRE(distance_index.minimum_distance(make_pos_t(2, false, 0), make_pos_t(7, false, 0)) == 6);
+        
+        
+            }
+        }
 
-            SECTION("minimum distances") {
+
+        TEST_CASE( "Snarl distance index can deal with edges that exit common ancestor","[snarl_distance]" ) {
+
+            SECTION("chain") {
+                //This is a looping chain with snarls 1fd->12fd and 12fd->1fd
+                VG graph;
+        
+                Node* n1 = graph.create_node("GCA");
+                Node* n2 = graph.create_node("T");
+                Node* n3 = graph.create_node("G");
+                Node* n4 = graph.create_node("CTGA");
+                Node* n5 = graph.create_node("GGGGGGGGGGGG");//12 Gs
+                Node* n6 = graph.create_node("T");
+                Node* n7 = graph.create_node("G");
+                Node* n8 = graph.create_node("G");
+                Node* n9 = graph.create_node("AA");
+                Node* n10 = graph.create_node("G");
+                Node* n11 = graph.create_node("G");
+                Node* n12 = graph.create_node("G");
+                Node* n13 = graph.create_node("GA");
+                Node* n14 = graph.create_node("G");
+                Node* n15 = graph.create_node("G");
+                Node* n16 = graph.create_node("G");
+        
+                Edge* e1 = graph.create_edge(n1, n2);
+                Edge* e2 = graph.create_edge(n1, n13);
+                Edge* e3 = graph.create_edge(n2, n3);
+                Edge* e4 = graph.create_edge(n2, n16);
+                Edge* e27 = graph.create_edge(n16, n9);
+                Edge* e5 = graph.create_edge(n3, n4);
+                Edge* e6 = graph.create_edge(n3, n5);
+                Edge* e7 = graph.create_edge(n4, n6);
+                Edge* e8 = graph.create_edge(n5, n6);
+                Edge* e9 = graph.create_edge(n6, n7);
+                Edge* e10 = graph.create_edge(n6, n8);
+                Edge* e11 = graph.create_edge(n7, n8);
+                Edge* e12 = graph.create_edge(n8, n9);
+                Edge* e13 = graph.create_edge(n9, n10);
+                Edge* e14 = graph.create_edge(n9, n11);
+                Edge* e15 = graph.create_edge(n10, n11);
+                Edge* e16 = graph.create_edge(n11, n12);
+                Edge* e17 = graph.create_edge(n11, n2);
+                Edge* e18 = graph.create_edge(n12, n1);
+                Edge* e19 = graph.create_edge(n13, n14);
+                Edge* e20 = graph.create_edge(n13, n15);
+                Edge* e21 = graph.create_edge(n14, n15);
+                Edge* e22 = graph.create_edge(n15, n12);
+                Edge* e23 = graph.create_edge(n2, n2, true, false);
+                Edge* e24 = graph.create_edge(n11, n11, false, true);
+                Edge* e25 = graph.create_edge(n1, n1, true, false);
+                Edge* e26 = graph.create_edge(n12, n12, false, true);
+
+                IntegratedSnarlFinder snarl_finder(graph); 
+                SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+
                 REQUIRE(distance_index.minimum_distance(make_pos_t(2, true, 0), make_pos_t(10, true, 0)) == 2);
                 REQUIRE(distance_index.minimum_distance(make_pos_t(2, false, 0), make_pos_t(10, false, 0)) == 4);
                 REQUIRE(distance_index.minimum_distance(make_pos_t(4, true, 3), make_pos_t(5, false, 0)) == 5);
@@ -3835,6 +3876,59 @@ namespace vg {
                 REQUIRE(distance_index.minimum_distance(make_pos_t(14, false, 0),make_pos_t(10, true, 0)) == 5);
                 REQUIRE(distance_index.minimum_distance(make_pos_t(14, false, 0),make_pos_t(3, false, 0)) == 7);
                 REQUIRE(distance_index.minimum_distance(make_pos_t(16, false, 0),make_pos_t(3, false, 0)) == 5);
+
+            }
+            SECTION ("snarl") {
+                VG graph;
+                
+                Node* n1 = graph.create_node("GCA");
+                Node* n2 = graph.create_node("T");
+                Node* n3 = graph.create_node("G");
+                Node* n4 = graph.create_node("CTGA");
+                Node* n5 = graph.create_node("GGGGGGGGGGGG");//12 Gs
+                Node* n6 = graph.create_node("T");
+                Node* n7 = graph.create_node("G");
+                Node* n8 = graph.create_node("CTGA");
+                Node* n9 = graph.create_node("AA");
+                Node* n10 = graph.create_node("G");
+                Node* n11 = graph.create_node("G");
+                Node* n12 = graph.create_node("G");
+                
+                Edge* e1 = graph.create_edge(n1, n2);
+                Edge* e2 = graph.create_edge(n1, n10);
+                Edge* e3 = graph.create_edge(n2, n3);
+                Edge* e4 = graph.create_edge(n2, n11);
+                Edge* e5 = graph.create_edge(n11, n9);
+                Edge* e6 = graph.create_edge(n3, n4);
+                Edge* e7 = graph.create_edge(n3, n5);
+                Edge* e8 = graph.create_edge(n4, n6);
+                Edge* e9 = graph.create_edge(n5, n6);
+                Edge* e10 = graph.create_edge(n6, n7);
+                Edge* e11 = graph.create_edge(n6, n12);
+                Edge* e12 = graph.create_edge(n12, n8);
+                Edge* e13 = graph.create_edge(n7, n8);
+                Edge* e14 = graph.create_edge(n8, n9);
+                Edge* e15 = graph.create_edge(n9, n10);
+                Edge* e16 = graph.create_edge(n2, n2, true, false);
+                Edge* e17 = graph.create_edge(n9, n9, false, true);
+                Edge* e18 = graph.create_edge(n2, n9, true, true);
+                
+                IntegratedSnarlFinder snarl_finder(graph); 
+                SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+
+                
+                REQUIRE(distance_index.minimum_distance( make_pos_t(2, true, 0),make_pos_t(9, true, 1)) == 2);
+                REQUIRE(distance_index.minimum_distance( make_pos_t(2, false, 0),make_pos_t(9, true, 1)) == 5);
+                REQUIRE(distance_index.minimum_distance( make_pos_t(3, true, 0),make_pos_t(9, false, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance( make_pos_t(3, true, 0),make_pos_t(9, true, 1)) == 3);
+                REQUIRE(distance_index.minimum_distance( make_pos_t(3, false, 0),make_pos_t(9, false, 0)) == 11);
+                REQUIRE(distance_index.minimum_distance( make_pos_t(4, false, 0),make_pos_t(5, false, 0)) == 14);
+                REQUIRE(distance_index.minimum_distance( make_pos_t(4, true, 0),make_pos_t(5, false, 0)) == 8);
+                REQUIRE(distance_index.minimum_distance(make_pos_t(7, false, 0),make_pos_t(12, false, 0)) == 14);
+                REQUIRE(distance_index.minimum_distance(make_pos_t(7, false, 0),make_pos_t(12, true, 0)) == 13);
+                REQUIRE(distance_index.minimum_distance(make_pos_t(7, true, 0),make_pos_t(12, false, 0)) == 15);
+                REQUIRE(distance_index.minimum_distance(make_pos_t(8, false, 0),make_pos_t(11, false, 0)) == 7);
+
 
             }
         }

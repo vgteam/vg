@@ -1,6 +1,6 @@
 //#define debug_distance_indexing
 //#define debug_snarl_traversal
-//#define debug_distances
+#define debug_distances
 
 #include "snarl_distance_index.hpp"
 
@@ -390,6 +390,13 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
                 }
                 temp_chain_record.chain_components.emplace_back(curr_component);
             }
+        } //Finished walking through chain
+        if (temp_chain_record.start_node_id == temp_chain_record.end_node_id && temp_chain_record.chain_components.back() != 0) {
+            //If this is a looping, multicomponent chain, then we need to make sure that the start and end node (which
+            //is the same node) end up in the same component
+            //TODO: Actually this won't work because the first one should still be in a separate connected component-
+            //I think I need a flag saying that the first node is in a different connected component
+
         }
         temp_chain_record.min_length = !temp_chain_record.is_trivial && temp_chain_record.start_node_id == temp_chain_record.end_node_id 
                         ? temp_chain_record.prefix_sum.back()
