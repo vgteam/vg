@@ -91,6 +91,7 @@ Inheritance diagram for vg::IncrementalSubgraph:</div>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a4546c7f9285de3463a623d4553f5b9ab"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IncrementalSubgraph.html#a4546c7f9285de3463a623d4553f5b9ab">IncrementalSubgraph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1IncrementalSubgraph.html#a45a1fbda6452cbdade4d40bc4dab539c">graph</a>, const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;starting_position, bool <a class="el" href="classvg_1_1IncrementalSubgraph.html#a8b93ae511b47d189bdcf996d88f04f9d">extract_left</a>, int64_t <a class="el" href="classvg_1_1IncrementalSubgraph.html#a06d0598eae084de70fa40ed859ce9704">max_distance</a>=numeric_limits&lt; int64_t &gt;::max())</td></tr>
+<tr class="memdesc:a4546c7f9285de3463a623d4553f5b9ab"><td class="mdescLeft">&#160;</td><td class="mdescRight">Initialize.  <a href="classvg_1_1IncrementalSubgraph.html#a4546c7f9285de3463a623d4553f5b9ab">More...</a><br /></td></tr>
 <tr class="separator:a4546c7f9285de3463a623d4553f5b9ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4c8f5a87dfcf68630d645a9469e75837"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IncrementalSubgraph.html#a4c8f5a87dfcf68630d645a9469e75837">IncrementalSubgraph</a> ()=default</td></tr>
 <tr class="memdesc:a4c8f5a87dfcf68630d645a9469e75837"><td class="mdescLeft">&#160;</td><td class="mdescRight">Default constructor &ndash; not actually functional.  <a href="classvg_1_1IncrementalSubgraph.html#a4c8f5a87dfcf68630d645a9469e75837">More...</a><br /></td></tr>
@@ -114,7 +115,7 @@ Public Member Functions</h2></td></tr>
 <tr class="memdesc:ab859980ced41bcd382cd5961ff3b8475"><td class="mdescLeft">&#160;</td><td class="mdescRight">The minimum distance from the start position.  <a href="classvg_1_1IncrementalSubgraph.html#ab859980ced41bcd382cd5961ff3b8475">More...</a><br /></td></tr>
 <tr class="separator:ab859980ced41bcd382cd5961ff3b8475"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0d573babd81fa2d0c209c75afec6c91d"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IncrementalSubgraph.html#a0d573babd81fa2d0c209c75afec6c91d">max_distance_from_start</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const</td></tr>
-<tr class="memdesc:a0d573babd81fa2d0c209c75afec6c91d"><td class="mdescLeft">&#160;</td><td class="mdescRight">The minimum distance from the start position.  <a href="classvg_1_1IncrementalSubgraph.html#a0d573babd81fa2d0c209c75afec6c91d">More...</a><br /></td></tr>
+<tr class="memdesc:a0d573babd81fa2d0c209c75afec6c91d"><td class="mdescLeft">&#160;</td><td class="mdescRight">The maximum distance from the start position.  <a href="classvg_1_1IncrementalSubgraph.html#a0d573babd81fa2d0c209c75afec6c91d">More...</a><br /></td></tr>
 <tr class="separator:a0d573babd81fa2d0c209c75afec6c91d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a91bb045370337f4f91aea10c14fdca95"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1IncrementalSubgraph.html#a91bb045370337f4f91aea10c14fdca95">extracting_left</a> () const</td></tr>
 <tr class="memdesc:a91bb045370337f4f91aea10c14fdca95"><td class="mdescLeft">&#160;</td><td class="mdescRight">Are we doing extraction left or right?  <a href="classvg_1_1IncrementalSubgraph.html#a91bb045370337f4f91aea10c14fdca95">More...</a><br /></td></tr>
@@ -268,7 +269,8 @@ Additional Inherited Members</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Initialize as the reverse version of another graph, optionally also complementing </p>
+
+<p>Initialize. </p>
 
 </div>
 </div>
@@ -918,7 +920,7 @@ Additional Inherited Members</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>The minimum distance from the start position. </p>
+<p>The maximum distance from the start position. </p>
 
 </div>
 </div>
