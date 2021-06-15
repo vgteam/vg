@@ -119,6 +119,8 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:ab5e1a3e81b21bd428e7457f92c9eb4c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2cf1c19544cf2bda62934b1a016abedf"><td class="memItemLeft" align="right" valign="top">vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a2cf1c19544cf2bda62934b1a016abedf">get_alleles</a> (vcflib::Variant &amp;v, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;travs, int ref_path_idx, char prev_char, bool use_start)</td></tr>
 <tr class="separator:a2cf1c19544cf2bda62934b1a016abedf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5db03b6ca9bf9fccd85838826be52e02"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a5db03b6ca9bf9fccd85838826be52e02">add_allele_path_to_info</a> (vcflib::Variant &amp;v, int allele, const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;trav, bool reversed, bool one_based)</td></tr>
+<tr class="separator:a5db03b6ca9bf9fccd85838826be52e02"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0a75aae09aa1cae7cd56cbda651e3607"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a0a75aae09aa1cae7cd56cbda651e3607">get_genotypes</a> (vcflib::Variant &amp;v, const vector&lt; string &gt; &amp;names, const vector&lt; int &gt; &amp;trav_to_allele, const vector&lt; gbwt::size_type &gt; &amp;trav_thread_ids)</td></tr>
 <tr class="separator:a0a75aae09aa1cae7cd56cbda651e3607"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abf0058cfc205df642533b0f29c471b73"><td class="memItemLeft" align="right" valign="top">pair&lt; vector&lt; int &gt;, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#abf0058cfc205df642533b0f29c471b73">choose_traversals</a> (const string &amp;<a class="el" href="classvg_1_1VCFOutputCaller.html#a70e8288543e7facfb79f5211ce33fa7f">sample_name</a>, const vector&lt; int &gt; &amp;travs, const vector&lt; int &gt; &amp;trav_to_allele, const vector&lt; string &gt; &amp;trav_to_name, const vector&lt; int &gt; &amp;gbwt_phases)</td></tr>
@@ -234,6 +236,60 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a5db03b6ca9bf9fccd85838826be52e02"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5db03b6ca9bf9fccd85838826be52e02">&#9670;&nbsp;</a></span>add_allele_path_to_info()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Deconstructor::add_allele_path_to_info </td>
+          <td>(</td>
+          <td class="paramtype">vcflib::Variant &amp;&#160;</td>
+          <td class="paramname"><em>v</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>allele</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;&#160;</td>
+          <td class="paramname"><em>trav</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>reversed</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>one_based</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a6a04c1d7c7ab976a12a8137ad7496fa3"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a6a04c1d7c7ab976a12a8137ad7496fa3">&#9670;&nbsp;</a></span>check_max_nodes()</h2>
 
