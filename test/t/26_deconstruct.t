@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 21
+plan tests 22
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz > tiny.vg
 vg index tiny.vg -x tiny.xg
@@ -15,8 +15,12 @@ gzip -dc tiny/tiny.vcf.gz | tail -3 | awk '{print $1 "\t" $2 "\t" $4 "\t" $5}' >
 cat tiny_decon.vcf | grep -v "#" | grep -v GC | awk '{print $1 "\t" $2 "\t" $4 "\t" $5}' > tiny_dec.tsv
 diff tiny_orig.tsv tiny_dec.tsv
 is "$?" 0 "deconstruct retrieved original VCF (modulo adjacent snp allele)"
+grep '>1>6' tiny_decon.vcf | awk '{print $8}' > allele_travs
+printf "AT=>1>3>5>6,>1>3>4>6,>1>2>5>6,>1>2>4>6\n" > expected_allele_travs
+diff allele_travs expected_allele_travs
+is "$?" 0 "deconstruct produced expected AT field"
 
-rm -f tiny.vg tiny.xg tiny_decon.vcf tiny_orig.tsv tiny_dec.tsv
+rm -f tiny.vg tiny.xg tiny_decon.vcf tiny_orig.tsv tiny_dec.tsv allele_travs expected_allele_travs
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 vg index hla.vg -x hla.xg
