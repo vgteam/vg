@@ -220,6 +220,10 @@ public:
     //
     // For chains, we use the net handles to the appropriate first/last nodes
     // in the appropriate orientation.
+    // The chain bound of a looping chain will have connectivity with the same
+    // start/end point when it is for the end of the chain; the connectivity
+    // will be start-start if it is going backwards in the node, and end-end
+    // if it is going forwards
     
     /**
      * Get the bounding handle for the snarl or chain referenced by the given
@@ -424,7 +428,7 @@ private:
     const static size_t SNARL_START_NODE_OFFSET = 7;
     const static size_t SNARL_END_NODE_OFFSET = 8;
     
-    const static size_t CHAIN_RECORD_SIZE = 8;
+    const static size_t CHAIN_RECORD_SIZE = 9;
     const static size_t CHAIN_NODE_COUNT_OFFSET = 1;
     const static size_t CHAIN_PARENT_OFFSET = 2;
     const static size_t CHAIN_MIN_LENGTH_OFFSET = 3;
@@ -432,13 +436,15 @@ private:
     const static size_t CHAIN_RANK_OFFSET = 5;
     const static size_t CHAIN_START_NODE_OFFSET = 6;
     const static size_t CHAIN_END_NODE_OFFSET = 7;
+    const static size_t CHAIN_LAST_CHILD_OFFSET = 8; //The offset of the last thing in the chain - node or (if looping chain) snarl
 
     const static size_t CHAIN_NODE_RECORD_SIZE = 5; //# things for a node (not including snarl record)
+    const static size_t CHAIN_NODE_ID_OFFSET = 0; //node id of this node
     const static size_t CHAIN_NODE_PREFIX_SUM_OFFSET = 1;
     const static size_t CHAIN_NODE_FORWARD_LOOP_OFFSET = 2;
     const static size_t CHAIN_NODE_REVERSE_LOOP_OFFSET = 3;
     const static size_t CHAIN_NODE_SNARL_SIZE_OFFSET = 4;
-    //This is only for multicomponent chains (in which case CHAIN_NODE_RECORD_SIZE should be 6)
+    //This is only for multicomponent chains (in which case CHAIN_NODE_RECORD_SIZE should be one more than the default)
     const static size_t CHAIN_NODE_COMPONENT_OFFSET = 4;
     //If there is a snarl, the snarl size is repeated after the snarl record
 
@@ -1125,7 +1131,8 @@ private:
 
             assert(get_handle_type(net) == NODE_HANDLE);
             assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
-            assert(get_connectivity(net) == START_END || get_connectivity(net) == END_START);
+            assert(get_connectivity(net) == START_END || get_connectivity(net) == END_START
+                  || get_connectivity(net) == START_START || get_connectivity(net) == END_END);
         }
 
         virtual id_t get_node_id() const {
@@ -1450,9 +1457,24 @@ private:
             }
         }
 
-        //Get the prefix sum value for this node (boundary node of a snarl in the chain)
+        virtual pair<size_t, bool> get_last_child_offset() const {
+            if (get_record_handle_type() == NODE_HANDLE) {
+                throw runtime_error("error: Trying to get children of a node");
+            } else {
+                size_t val = records->at(record_offset + CHAIN_LAST_CHILD_OFFSET);
+                return make_pair(val<1, val & 1);
+            }
+        }
+
+        //Get the values this node (boundary node of a snarl in the chain)
         //pointer is a pointer into snarl_tree_records, to the beginning of the record for this node
         //So it'll point to the node id of the node we're looking at
+        virtual int64_t get_chain_node_id(size_t pointer) const {
+            if (get_record_handle_type() == NODE_HANDLE) {
+                throw runtime_error("error: Trying to get chain distances from a node");
+            }
+            return records->at(pointer+CHAIN_NODE_ID_OFFSET);
+        }
         virtual int64_t get_prefix_sum_value(size_t pointer) const {
             if (get_record_handle_type() == NODE_HANDLE) {
                 throw runtime_error("error: Trying to get chain distances from a node");
@@ -1474,14 +1496,19 @@ private:
             size_t val =  records->at(pointer+CHAIN_NODE_REVERSE_LOOP_OFFSET); 
             return val == 0 ? std::numeric_limits<int64_t>::max() : val-1; 
         }
-        virtual size_t get_chain_component(size_t pointer) const {
+        virtual size_t get_chain_component(size_t pointer, bool get_end=false) const {
             if (get_record_handle_type() == NODE_HANDLE) {
                 throw runtime_error("error: Trying to get chain distances from a node");
             }
             if (get_record_type() != MULTICOMPONENT_CHAIN){
                 throw runtime_error("error: Trying to get the component of a single component chain");
             }
-            return records->at(pointer+CHAIN_NODE_COMPONENT_OFFSET); 
+            if (get_chain_node_id(pointer) == get_start_id() && !get_end) {
+                //The first component is always 0
+                return 0;
+            } else {
+                return records->at(pointer+CHAIN_NODE_COMPONENT_OFFSET); 
+            }
         }
 
         //Get the distance between the given node sides (relative to the orientation of the chain)
@@ -1504,9 +1531,7 @@ private:
             if (get_record_handle_type() == NODE_HANDLE) {
                 throw runtime_error("error: Trying to get chain distances from a node");
             } else if (get_record_type() == MULTICOMPONENT_CHAIN) {
-                if (records->at(std::get<0>(node1) + CHAIN_NODE_COMPONENT_OFFSET) != 
-                    records->at(std::get<0>(node2) + CHAIN_NODE_COMPONENT_OFFSET)) {
-                    cerr << "DIFFERENT COMPONENTS: inf" << endl;
+                if (get_chain_component(std::get<0>(node1)) != get_chain_component(std::get<0>(node2))) {
                     if (is_looping_chain) {
                         //If this is a looping chain, then the first/last node could be in two 
                         //components
@@ -1575,12 +1600,20 @@ private:
 
             if (get_record_handle_type() == NODE_HANDLE) {
                 throw runtime_error("error: Trying to get chain distances from a node");
-            } else if (get_record_type() == MULTICOMPONENT_CHAIN) {
-                //TODO: If this is a multicomponent chain and the nodes are in different components,
+            } else if (get_record_type() == MULTICOMPONENT_CHAIN && 
+                get_chain_component(std::get<0>(node1)) != get_chain_component(std::get<0>(node2)) ) {
+                //If this is a multicomponent chain and the nodes are in different components,
                 //then it can only reach around backwards if the first node happens to be the actual
                 //first node in the chain, and it is in the same component as the second node
                 //when it is considered to be the last node (since the first/last node in the chain
                 //can belong to separate components if one of the snarls is disconnected)
+                if (!(get_chain_node_id(std::get<0>(node1)) == get_start_id() && 
+                   (get_chain_node_id(std::get<0>(node1)) == get_start_id() ||
+                     get_chain_component(std::get<0>(node2) == 0)))) {
+                     //This is messy but if the first node is the start and the second node is in the 
+                     //same component, then it's fine otherwise return inf
+                     return std::numeric_limits<int64_t>::max();
+                 }
             }
 
 
@@ -1654,16 +1687,26 @@ private:
                 if (go_left) {
                     return make_pair(pointer.first - CHAIN_NODE_RECORD_SIZE - extra_node_record_size, false);
                 } else {
-                    size_t snarl_record_length = SnarlRecord(pointer.first, records).record_size();
-                    return make_pair(pointer.first + snarl_record_length + 1, false);
+                    if (get_start_id() == get_end_id() && pointer.first == get_last_child_offset().first) {
+                        //If this is the last child in a looping chain
+                        return make_pair(get_first_node_offset(), false);
+                    } else {
+                        size_t snarl_record_length = SnarlRecord(pointer.first, records).record_size();
+                        return make_pair(pointer.first + snarl_record_length + 1, false);
+                    }
                 }
             } else {
                 //This is a node
                 if (go_left) {
                     //Looking left in the chain
-                    if (pointer.first == record_offset + CHAIN_RECORD_SIZE) {
+                    if (pointer.first == get_first_node_offset()) {
                         //If this is the first node in the chain
-                        return make_pair(0, false);
+                        if (get_start_id() == get_end_id()) {
+                            pair<size_t, bool> last_child = get_last_child_offset();
+                            return last_child; //TODO: I'm not sure if this is always true (snarl)
+                        } else {
+                            return make_pair(0, false);
+                        }
                     }
                     size_t snarl_record_size = records->at(pointer.first-1);
                     if (snarl_record_size == 0) {
@@ -1678,7 +1721,12 @@ private:
                     if (records->at(pointer.first+CHAIN_NODE_SNARL_SIZE_OFFSET + extra_node_record_size) == 0 &&
                         records->at(pointer.first+CHAIN_NODE_RECORD_SIZE+ extra_node_record_size) == 0) {
                         //If this is the last node in the chain
-                        return make_pair(0, false);
+                        if (get_start_id() == get_end_id()) {
+                            //If this loops, go back to the beginning
+                            return make_pair(get_first_node_offset(), false);
+                        } else {
+                            return make_pair(0, false);
+                        }
                     }
                     size_t snarl_record_size = records->at(pointer.first+CHAIN_NODE_SNARL_SIZE_OFFSET+extra_node_record_size);
                     return make_pair(pointer.first+CHAIN_NODE_RECORD_SIZE+extra_node_record_size, snarl_record_size != 0);
@@ -1687,6 +1735,8 @@ private:
         }
         //The same thing but take and return a net_handle_t
         //return the same net_handle_t if this is the end of the chain
+        //For looping chains, this one has to know whether the boundary node is representing the start or end
+        //This means that you only see the boundary node as the start or the end
         virtual net_handle_t get_next_child(const net_handle_t& net_handle, bool go_left) const {
             //get the next child in the chain. net_handle must point to a snarl or node in the chain 
             net_handle_record_t handle_type = get_handle_type(net_handle);
@@ -1704,7 +1754,7 @@ private:
                 NodeRecord node_record(get_record_offset(net_handle), records);
                 assert(node_record.get_parent_record_offset() == record_offset);
                 pair<size_t, bool> next_pointer = get_next_child(
-                    make_pair(node_record.get_rank_in_parent(), true), go_left);
+                    make_pair(node_record.get_rank_in_parent(), false), go_left);
                 if (next_pointer.first == 0 ){
                     return net_handle;
                 }
@@ -1712,9 +1762,13 @@ private:
                         get_offset_from_id(records->at(next_pointer.first)), records
                     ).get_is_reversed_in_parent();
                 
+                connectivity_t connectivity = go_left == next_is_reversed_in_parent ? START_END : END_START;
+                if (!next_pointer.second && next_pointer.first == get_first_node_offset()) {
+                    connectivity = endpoints_to_connectivity(get_end_endpoint(connectivity), get_end_endpoint(connectivity)); 
+                }
                 return get_net_handle(get_offset_from_id(records->at(next_pointer.first)),
-                                  go_left == next_is_reversed_in_parent ? START_END : END_START,
-                                  next_pointer.first ? SNARL_HANDLE : NODE_HANDLE);
+                                  connectivity,
+                                  next_pointer.second ? SNARL_HANDLE : NODE_HANDLE);
             } else {
                 //Otherwise, it is a snarl and we can use the snarl's offset, since it exists in 
                 //the chain
@@ -1724,8 +1778,11 @@ private:
                 if (next_pointer.first == 0 ){
                     return net_handle;
                 }
-                return get_net_handle(next_pointer.first,
-                                  go_left ? END_START : START_END,
+                connectivity_t connectivity = next_pointer.second ? END_START : START_END;
+                if (!next_pointer.second && next_pointer.first == get_first_node_offset()) {
+                    connectivity = endpoints_to_connectivity(get_end_endpoint(connectivity), get_end_endpoint(connectivity)); 
+                }
+                return get_net_handle(next_pointer.first, connectivity,
                                   next_pointer.first ? SNARL_HANDLE : NODE_HANDLE);
             }
         }
@@ -1824,6 +1881,15 @@ private:
 #endif
             SnarlTreeRecordConstructor::records->at(ChainRecord::record_offset + CHAIN_NODE_COUNT_OFFSET) = node_count;
         }
+
+        void set_last_child_offset(size_t offset, bool is_snarl) {
+#ifdef debug_indexing
+            cerr << ChainRecord::record_offset + CHAIN_LAST_CHILD_OFFSET << " set chain last child offset " << offset << endl;
+            assert(SnarlTreeRecordConstructor::records->at(ChainRecord::record_offset + CHAIN_LAST_CHILD_OFFSET) == 0);
+#endif
+            SnarlTreeRecordConstructor::records->at(ChainRecord::record_offset + CHAIN_LAST_CHILD_OFFSET) = ((offset < 1) | is_snarl);
+        }
+
         void add_trivial_snarl() {
 #ifdef debug_indexing
             cerr << SnarlTreeRecordConstructor::records->size() << "  Adding chain's trivial snarl to the end of the array " << endl;
@@ -1937,6 +2003,9 @@ private:
         if (type == ROOT_HANDLE) {
             return "root";
         } else if (type == NODE_HANDLE) {
+            if (ends_at(net) == starts_at(net)) {
+                return "node" + std::to_string( get_node_id_from_offset(get_record_offset(net))) + (ends_at(net) == START ? "rev" : "fd") + " that is the end node of a looping chain";
+            }
             return  "node " + std::to_string( get_node_id_from_offset(get_record_offset(net))) + (ends_at(net) == START ? "rev" : "fd");
         } else if (type == SNARL_HANDLE) {
             if (record.get_record_type() == ROOT) {

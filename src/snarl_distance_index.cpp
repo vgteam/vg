@@ -1,6 +1,6 @@
 //#define debug_distance_indexing
 //#define debug_snarl_traversal
-#define debug_distances
+//#define debug_distances
 
 #include "snarl_distance_index.hpp"
 
@@ -392,10 +392,11 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
             }
         } //Finished walking through chain
         if (temp_chain_record.start_node_id == temp_chain_record.end_node_id && temp_chain_record.chain_components.back() != 0) {
-            //If this is a looping, multicomponent chain, then we need to make sure that the start and end node (which
-            //is the same node) end up in the same component
-            //TODO: Actually this won't work because the first one should still be in a separate connected component-
-            //I think I need a flag saying that the first node is in a different connected component
+            //If this is a looping, multicomponent chain, the start/end node could end up in separate chain components
+            //despite being the same node.
+            //Since the first component will always be 0, set the first node's component to be whatever the last 
+            //component was
+            temp_chain_record.chain_components[0] = temp_chain_record.chain_components.back();
 
         }
         temp_chain_record.min_length = !temp_chain_record.is_trivial && temp_chain_record.start_node_id == temp_chain_record.end_node_id 
@@ -833,7 +834,8 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                     size_t chain_node_i = 0; //How far along the chain are we?
                     bool prev_node = false;//Was the previous thing in the chain a node?
 
-                    for (const pair<temp_record_t, size_t>& child_record_index : temp_chain_record.children) {
+                    for (size_t child_record_index_i = 0 ; child_record_index_i < temp_chain_record.children.size() ; child_record_index_i++) {
+                        const pair<temp_record_t, size_t>& child_record_index = temp_chain_record.children[child_record_index_i];
                         //Go through each node and snarl in the chain and add them to the index
 #ifdef debug_distance_indexing
                         cerr << "  Adding child of the chain: " << temp_index->structure_start_end_as_string(child_record_index) << endl;
@@ -885,6 +887,11 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                                     chain_record_constructor.add_node(temp_node_record.node_id, temp_chain_record.prefix_sum[chain_node_i],
                                                                   temp_chain_record.forward_loops[chain_node_i],
                                                                   temp_chain_record.backward_loops[chain_node_i]);
+                                }
+
+                                if (child_record_index_i == temp_chain_record.children.size() - 1) {
+                                    //If this is the last node in the chain
+                                    chain_record_constructor.set_last_child_offset(node_record_constructor.NodeRecord::record_offset, false);
                                 }
 
 #ifdef debug_distance_indexing
@@ -1003,6 +1010,10 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                                     if (snarl_record_constructor.is_end_tip_connected()) {
                                         chain_record_constructor.set_start_tip_connected();
                                     }
+                                }
+                                if (child_record_index_i == temp_chain_record.children.size() - 1) {
+                                    //If this is the last node in the chain
+                                    chain_record_constructor.set_last_child_offset(snarl_record_constructor.SnarlRecord::record_offset, true);
                                 }
                             } else {
                                 //Add a trivial snarl
@@ -1244,7 +1255,7 @@ handle_t SnarlDistanceIndex::get_handle(const net_handle_t& net, const handlegra
     } else if (get_handle_type(net) == NODE_HANDLE || get_handle_type(net) == CHAIN_HANDLE ) {
         NodeRecord node_record(net, &snarl_tree_records);
         return graph->get_handle(get_node_id_from_offset(get_record_offset(net)), 
-                                 get_connectivity(net) == START_END ? false : true);
+                                 ends_at(net) == END ? false : true);
     } else {
         throw runtime_error("error: trying to get a handle from a snarl, chain, or root");
     }
@@ -1294,6 +1305,13 @@ net_handle_t SnarlDistanceIndex::get_bound(const net_handle_t& snarl, bool get_e
             rev_in_parent = !rev_in_parent;
         }
         connectivity_t connectivity = rev_in_parent ? END_START : START_END;
+        if (SnarlTreeRecord(snarl, &snarl_tree_records).get_start_id() 
+                == SnarlTreeRecord(snarl, &snarl_tree_records).get_end_id() &&  get_end) {
+            //If this is a looping chain and we're getting the end, then the traversal of the node will be the 
+            //end endpoint repeated, instead of the actual traversal
+            //TODO: This might cause problems when checking traversals but I think it's fine
+            connectivity = endpoints_to_connectivity(get_end_endpoint(connectivity), get_end_endpoint(connectivity));
+        }
         return get_net_handle(get_offset_from_node_id(id), connectivity,  NODE_HANDLE);
     } else {
         assert(get_handle_type(snarl) == SNARL_HANDLE);
@@ -1436,9 +1454,7 @@ bool SnarlDistanceIndex::follow_net_edges_impl(const net_handle_t& here, const h
         }
         return true;
 
-    }
-
-    if (get_handle_type(here) == CHAIN_HANDLE || get_handle_type(here) == SENTINEL_HANDLE) {
+    } else if (get_handle_type(here) == CHAIN_HANDLE || get_handle_type(here) == SENTINEL_HANDLE) {
         assert(parent_record.get_record_handle_type() == SNARL_HANDLE ||
                parent_record.get_record_handle_type() == ROOT_HANDLE);//It could also be the root
         //If this is a chain (or a node pretending to be a chain) and it is the child of a snarl
@@ -1462,7 +1478,7 @@ bool SnarlDistanceIndex::follow_net_edges_impl(const net_handle_t& here, const h
             }
         } else if (get_handle_type(here) == NODE_HANDLE) {
             graph_handle = graph->get_handle(get_node_id_from_offset(get_record_offset(here)), 
-                                get_connectivity(here) == START_END ? go_left : !go_left);
+                                ends_at(here) == END ? go_left : !go_left);
         } else {
             //TODO: This might not be the best way to handle orientation because it's a bit inconsistent with tips
             //Might be better to just use go_left and pretend the traversal is forward, but that might be 
@@ -1470,7 +1486,7 @@ bool SnarlDistanceIndex::follow_net_edges_impl(const net_handle_t& here, const h
             //
             //If the traversal explicitly goes out the start, then we assume that it is oriented backwards
             //and go the opposite direction of go_left. Otherwise, assume that it is oriented forwards
-            if (get_end_endpoint(get_connectivity(here)) == START) {
+            if (ends_at(here) == START) {
                 go_left = !go_left;
             } 
             graph_handle = get_handle(get_bound(here, !go_left, false), graph);
@@ -1538,14 +1554,17 @@ bool SnarlDistanceIndex::follow_net_edges_impl(const net_handle_t& here, const h
         assert(parent_record.get_record_handle_type() == CHAIN_HANDLE);
         //If this is a snarl or node, then it is the component of a (possibly pretend) chain
         ChainRecord parent_chain(this_record.get_parent_record_offset(), &snarl_tree_records);
+        if (ends_at(here) == START) {
+            go_left = !go_left;
+        }
+        if (SnarlTreeRecord(get_record_offset(here), &snarl_tree_records).get_is_reversed_in_parent()) {
+            go_left = !go_left;
+        }
         net_handle_t next_net = parent_chain.get_next_child(here, go_left);
         if (next_net == here) {
             //If this is the end of the chain
             return true;
         }
-#ifdef debug_snarl_traversal
-        cerr << "    -> next child in the chain " << net_handle_as_string(next_net) << endl;
-#endif
         return iteratee(next_net);
         
     }

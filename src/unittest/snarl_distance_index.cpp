@@ -3147,8 +3147,89 @@ namespace vg {
                 distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
                     REQUIRE(distance_index.is_node(child));
                     child_i++;
+                    REQUIRE(child_i <= 2);
                 });
                 REQUIRE(child_i == 2);
+            }
+            SECTION("Traverse the looping chain going 'forward'") {
+
+                net_handle_t root_handle = distance_index.get_root();
+                net_handle_t top_chain_handle;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    top_chain_handle = child;
+                });
+                net_handle_t chain_start_in_handle = distance_index.get_bound(top_chain_handle, false, true);
+                net_handle_t chain_end_out_handle = distance_index.get_bound(top_chain_handle, true, false);
+                REQUIRE(chain_start_in_handle != chain_end_out_handle);
+
+                //Traverse start node in, to reach middle node going forward
+                bool found_next_node = false;
+                net_handle_t middle_forward_handle;
+                distance_index.follow_net_edges(chain_start_in_handle, &graph, false, [&](const net_handle_t& next) {
+                    REQUIRE(distance_index.is_node(next));
+                    found_next_node = true;
+                    middle_forward_handle = next;
+                });
+                REQUIRE(found_next_node);
+                //Traverse middle node going forward to reach the end node (start) going in (out)
+                found_next_node = false;
+                distance_index.follow_net_edges(middle_forward_handle, &graph, false, [&](const net_handle_t& next) {
+                    REQUIRE(distance_index.is_node(next));
+                    REQUIRE(next == chain_end_out_handle);
+                    found_next_node = true;
+                });
+                REQUIRE(found_next_node);
+                //Traverse end node going out to reach middle node going forward again
+                found_next_node = false;
+                distance_index.follow_net_edges(chain_end_out_handle, &graph, false, [&](const net_handle_t& next) {
+                    REQUIRE(distance_index.is_node(next));
+                    REQUIRE(next == middle_forward_handle);
+                    found_next_node = true;
+                });
+                REQUIRE(found_next_node);
+
+
+
+            }
+            SECTION("Traverse the looping chain going 'backward'") {
+
+                net_handle_t root_handle = distance_index.get_root();
+                net_handle_t top_chain_handle;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    top_chain_handle = child;
+                });
+                net_handle_t chain_end_in_handle = distance_index.get_bound(top_chain_handle, false, false);
+                net_handle_t chain_start_out_handle = distance_index.get_bound(top_chain_handle, true, true);
+                REQUIRE(chain_end_in_handle != chain_start_out_handle);
+
+                //Traverse end node in, to reach middle node going backward
+                bool found_next_node = false;
+                net_handle_t middle_backward_handle;
+                distance_index.follow_net_edges(chain_end_in_handle, &graph, false, [&](const net_handle_t& next) {
+                    REQUIRE(distance_index.is_node(next));
+                    found_next_node = true;
+                    middle_backward_handle = next;
+                });
+                REQUIRE(found_next_node);
+                //Traverse middle node going backward to reach the start node (end) going out (in)
+                found_next_node = false;
+                distance_index.follow_net_edges(middle_backward_handle, &graph, false, [&](const net_handle_t& next) {
+                    REQUIRE(distance_index.is_node(next));
+                    REQUIRE(next == chain_start_out_handle);
+                    found_next_node = true;
+                });
+                REQUIRE(found_next_node);
+                //Traverse end node going out to reach middle node going forward again
+                found_next_node = false;
+                distance_index.follow_net_edges(chain_start_out_handle, &graph, false, [&](const net_handle_t& next) {
+                    REQUIRE(distance_index.is_node(next));
+                    REQUIRE(next == middle_backward_handle);
+                    found_next_node = true;
+                });
+                REQUIRE(found_next_node);
+
+
+
             }
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
