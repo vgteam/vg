@@ -26,6 +26,35 @@
 namespace vg {
     namespace unittest {
     
+        TEST_CASE( "Build a snarl distance index for a graph with one node",
+                  "[snarl_distance][bug]" ) {
+        
+        
+            VG graph;
+                
+            Node* n1 = graph.create_node("GCA");
+
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SECTION("Traverse the graph") {
+                net_handle_t root_handle = distance_index.get_root();
+                net_handle_t chain_handle;
+                size_t root_child_count = 0;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    REQUIRE(distance_index.is_chain(child));
+                    chain_handle = child;
+                    root_child_count++;
+                });
+                REQUIRE(root_child_count == 1);
+                size_t chain_child_count = 0;
+                distance_index.for_each_child(chain_handle, [&](const net_handle_t& child) {
+                    REQUIRE(distance_index.is_node(child));
+                    chain_child_count++;
+                });
+                REQUIRE(chain_child_count ==1);
+
+            }
+        }
         TEST_CASE( "Snarl decomposition can allow traversal of a simple net graph",
                   "[snarl_distance]" ) {
         
@@ -3853,7 +3882,7 @@ namespace vg {
                          make_pos_t(11, true, 0), make_pos_t(4, false, 0)) == std::numeric_limits<int64_t>::max());
             }
         }
-        TEST_CASE( "Snarl distance index can deal with loops in a snarl", "[snarl_distance][bug]" ) {
+        TEST_CASE( "Snarl distance index can deal with loops in a snarl", "[snarl_distance]" ) {
             //THis actually makes a chain 4fd->2fd, 2fd->4fd that is disconnected
             VG graph;
         
@@ -4067,6 +4096,134 @@ namespace vg {
       
             }
         }
+
+        TEST_CASE( "Distances where shortest path exits common ancestor","[snarl_distance]" ) {
+            VG graph;
+        
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GGGGGGGGGGGG");//12 Gs
+            Node* n6 = graph.create_node("T");
+            Node* n7 = graph.create_node("G");
+            Node* n8 = graph.create_node("CTGA");
+            Node* n9 = graph.create_node("A");
+            Node* n10 = graph.create_node("G");
+        
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n10);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n2, n9);
+            Edge* e5 = graph.create_edge(n3, n4);
+            Edge* e6 = graph.create_edge(n3, n5);
+            Edge* e7 = graph.create_edge(n4, n6);
+            Edge* e8 = graph.create_edge(n5, n6);
+            Edge* e9 = graph.create_edge(n6, n7);
+            Edge* e10 = graph.create_edge(n6, n8);
+            Edge* e11 = graph.create_edge(n7, n8);
+            Edge* e12 = graph.create_edge(n8, n9);
+            Edge* e13 = graph.create_edge(n9, n10);
+            Edge* e14 = graph.create_edge(n2, n2, true, false);
+            Edge* e15 = graph.create_edge(n5, n5);
+        
+
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index(&graph, &snarl_finder);       
+
+            SECTION( "Min distance" ) {
+                REQUIRE(distance_index.minimum_distance(make_pos_t(5, false, 1), make_pos_t(5, false, 0)) == 11);
+                REQUIRE(distance_index.minimum_distance(make_pos_t(5, false, 0), make_pos_t(5, false, 0)) == 0);
+            }
+        
+        }//End test case
+
+        TEST_CASE("Distance index can deal with top level loop", "[snarl_distance]") {
+            VG graph;
+        
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("T");
+            Node* n7 = graph.create_node("G");
+        
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n3);
+            Edge* e3 = graph.create_edge(n2, n7);
+            Edge* e4 = graph.create_edge(n3, n4);
+            Edge* e5 = graph.create_edge(n3, n5);
+            Edge* e6 = graph.create_edge(n4, n6);
+            Edge* e7 = graph.create_edge(n5, n6);
+            Edge* e8 = graph.create_edge(n6, n7);
+            Edge* e9 = graph.create_edge(n1, n1, true, false);
+        
+
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index(&graph, &snarl_finder);       
+
+       
+            // We end up with a big unary snarl of 7 rev -> 7 rev
+            // Inside that we have a chain of two normal snarls 2 rev -> 3 fwd, and 3 fwd -> 6 fwd
+            // And inside 2 rev -> 3 fwd, we get 1 rev -> 1 rev as another unary snarl.
+        
+            // We name the snarls for the distance index by their start nodes.
+        
+            SECTION("Minimum distance") {
+                REQUIRE(distance_index.minimum_distance(make_pos_t(1, false, 0),make_pos_t(7, false, 0)) == 4);
+                REQUIRE(distance_index.minimum_distance(make_pos_t(2, true, 0),make_pos_t(3, false, 0)) == 7);
+                REQUIRE(distance_index.minimum_distance(make_pos_t(4, true, 0),make_pos_t(2, false, 0)) == 11);
+            }
+        }//end test case
+
+        TEST_CASE("Distance index can deal with an interior chain", "[snarl_distance]") {
+            VG graph;
+        
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("T");
+            Node* n7 = graph.create_node("G");
+            Node* n8 = graph.create_node("CTGA");
+            Node* n9 = graph.create_node("T");
+            Node* n10 = graph.create_node("G");
+        
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n10);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n2, n4);
+            Edge* e5 = graph.create_edge(n3, n4);
+            Edge* e6 = graph.create_edge(n4, n5);
+            Edge* e7 = graph.create_edge(n4, n6);
+            Edge* e8 = graph.create_edge(n4, n7);
+            Edge* e9 = graph.create_edge(n5, n7);
+            Edge* e10 = graph.create_edge(n6, n7);
+            Edge* e11 = graph.create_edge(n7, n8);
+            Edge* e12 = graph.create_edge(n7, n8, false, true);
+            Edge* e13 = graph.create_edge(n8, n9);
+            Edge* e14 = graph.create_edge(n8, n9, true, false);
+            Edge* e15 = graph.create_edge(n9, n10);
+        
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index(&graph, &snarl_finder);       
+        
+            SECTION("Create distance index") {
+                REQUIRE(distance_index.minimum_distance(make_pos_t(1, false, 0),make_pos_t(7, false, 0)) == 8);
+                REQUIRE(distance_index.minimum_distance(make_pos_t(1, false, 0),make_pos_t(8, false, 0)) == 9);
+                REQUIRE(distance_index.minimum_distance(make_pos_t(1, false, 0),make_pos_t(8, true, 0)) == 9);
+                REQUIRE(distance_index.minimum_distance(make_pos_t(1, false, 0),make_pos_t(5, false, 0)) == 8);
+                REQUIRE(distance_index.minimum_distance(make_pos_t(8, false, 0),make_pos_t(5, true, 0)) == 5);
+                REQUIRE(distance_index.minimum_distance(make_pos_t(3, false, 0),make_pos_t(6, false, 0)) == 5);
+                REQUIRE(distance_index.minimum_distance(make_pos_t(3, false, 0),make_pos_t(10, false, 0)) == 11);
+                REQUIRE(distance_index.minimum_distance(make_pos_t(7, false, 0),make_pos_t(1, true, 0)) == 11);
+        
+            }
+        }//end test case
+
+
 
 
         /*
@@ -4374,8 +4531,8 @@ namespace vg {
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index(&graph, &snarl_finder);
 
-            id_t node_id1 = 12; bool rev1 = false ; size_t offset1 = 11;
-            id_t node_id2 = 12; bool rev2 = false ; size_t offset2 = 2;
+            id_t node_id1 = 1; bool rev1 = false ; size_t offset1 = 111;
+            id_t node_id2 = 1; bool rev2 = false ; size_t offset2 = 167;
             pos_t pos1 = make_pos_t(node_id1, rev1, offset1);
             pos_t pos2 = make_pos_t(node_id2, rev2, offset2);
             handle_t handle1 = graph.get_handle(node_id1, rev1);
@@ -4417,11 +4574,11 @@ namespace vg {
             
             for (size_t repeat = 0; repeat < 100; repeat++) {
             
-                uniform_int_distribution<size_t> bases_dist(100, 1000);
+                uniform_int_distribution<size_t> bases_dist(100, 500);
                 size_t bases = bases_dist(generator);
-                uniform_int_distribution<size_t> variant_bases_dist(1, bases/10);
+                uniform_int_distribution<size_t> variant_bases_dist(1, bases/20);
                 size_t variant_bases = variant_bases_dist(generator);
-                uniform_int_distribution<size_t> variant_count_dist(1, bases/10);
+                uniform_int_distribution<size_t> variant_count_dist(1, bases/20);
                 size_t variant_count = variant_count_dist(generator);
                         
 #ifdef debug
@@ -4431,6 +4588,8 @@ namespace vg {
                 VG graph;
                 random_graph(bases, variant_bases, variant_count, &graph);
                 IntegratedSnarlFinder finder(graph); 
+                cerr << "serializing graph" << endl;
+                graph.serialize_to_file("test_graph.vg");
                 SnarlDistanceIndex distance_index(&graph, &finder);
 
                 for (size_t repeat_positions = 0 ; repeat_positions < 100 ; repeat_positions++) {
@@ -4452,6 +4611,9 @@ namespace vg {
                         }
                     }
 
+                    REQUIRE(graph.has_node(node_id1));
+                    REQUIRE(graph.has_node(node_id2));
+
                     
                     off_t offset1 = uniform_int_distribution<int>(0,graph.get_length(graph.get_handle(node_id1)) - 1)(generator);
                     off_t offset2 = uniform_int_distribution<int>(0,graph.get_length(graph.get_handle(node_id2)) - 1)(generator);
@@ -4465,6 +4627,7 @@ namespace vg {
                     handle_t handle2 = graph.get_handle(node_id2, rev2);
 
 
+                            cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
                     //Find actual distance
                     int64_t dijkstra_distance = std::numeric_limits<int64_t>::max();
                     if (node_id1 == node_id2 && offset1 <= offset2 && rev1 == rev2) {
