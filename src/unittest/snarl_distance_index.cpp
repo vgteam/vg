@@ -36,6 +36,22 @@ namespace vg {
 
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SECTION("Traverse the snarl decomposition") {
+                bool found_start = false;
+                bool found_end = false;
+                snarl_finder.traverse_decomposition(
+                [&](handle_t chain_start_handle) {
+                    REQUIRE(graph.get_id(chain_start_handle) == 1);
+                    found_start = true;
+                },[&](handle_t chain_end_handle) {
+                    REQUIRE(graph.get_id(chain_end_handle) == 1);
+                    found_end = true;
+                }, [&](handle_t snarl_start_handle) {
+                }, [&](handle_t snarl_end_handle) {
+                });
+                REQUIRE(found_start);
+                REQUIRE(found_end);
+            }
             SECTION("Traverse the graph") {
                 net_handle_t root_handle = distance_index.get_root();
                 net_handle_t chain_handle;
