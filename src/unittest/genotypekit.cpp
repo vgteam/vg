@@ -650,7 +650,7 @@ TEST_CASE("IntegratedSnarlFinder safely handles a single node graph", "[genotype
     REQUIRE(finder->find_snarls().num_snarls() == 0);
 }
 
-TEST_CASE("IntegratedSnarlFinder handles a single node connected component in a larger graph", "[genotype][integrated-snarl-finder]") {
+TEST_CASE("IntegratedSnarlFinder produces all the correct types of single-node chains", "[genotype][integrated-snarl-finder]") {
     
     // Build a toy graph
     const string graph_json = R"(
@@ -659,9 +659,14 @@ TEST_CASE("IntegratedSnarlFinder handles a single node connected component in a 
         "node": [
             {"id": 1, "sequence": "GATTACA"},
             {"id": 2, "sequence": "GATT"},
-            {"id": 3, "sequence": "ACA"}
+            {"id": 3, "sequence": "ACA"},
+            {"id": 4, "sequence": "T"},
+            {"id": 5, "sequence": "A"}
         ], "edge": [
-            {"from": 2, "to": 3}
+            {"from": 2, "to": 3},
+            {"from": 2, "to": 4},
+            {"from": 4, "to": 3},
+            {"from": 2, "to": 5}
         ]
     }
 
@@ -685,19 +690,27 @@ TEST_CASE("IntegratedSnarlFinder handles a single node connected component in a 
     // Chain visits are specified to happen for single-node chains
     finder.traverse_decomposition([&](const handle_t& chain_start) {
         // Deal with the start of a chain
+#ifdef debug
         std::cerr << "Chain start: " << graph.get_id(chain_start) << (graph.get_is_reverse(chain_start) ? "R" : "F") << std::endl;
+#endif
         chain_starts.insert(chain_start);
     }, [&](const handle_t& chain_end){
         // Deal with the end of a chain
+#ifdef debug
         std::cerr << "Chain end: " << graph.get_id(chain_end) << (graph.get_is_reverse(chain_end) ? "R" : "F") << std::endl;
+#endif
         chain_ends.insert(chain_end);
     }, [&](const handle_t& snarl_start){
         // Deal with the start of a snarl
+#ifdef debug
         std::cerr << "Snarl start: " << graph.get_id(snarl_start) << (graph.get_is_reverse(snarl_start) ? "R" : "F") << std::endl;
+#endif
         snarl_starts.insert(snarl_start);
     }, [&](const handle_t& snarl_end) {
         // Deal with the end of a snarl
+#ifdef debug
         std::cerr << "Snarl end: " << graph.get_id(snarl_end) << (graph.get_is_reverse(snarl_end) ? "R" : "F") << std::endl;
+#endif
         snarl_ends.insert(snarl_end);
     });
     
@@ -712,6 +725,14 @@ TEST_CASE("IntegratedSnarlFinder handles a single node connected component in a 
     // The single-node chain should be found for the single-node component
     REQUIRE((chain_starts.count(graph.get_handle(1)) || chain_starts.count(graph.get_handle(1, true))));
     REQUIRE((chain_ends.count(graph.get_handle(1)) || chain_ends.count(graph.get_handle(1, true))));
+    
+    // The single-node chain should be found for the contained node in the snarl
+    REQUIRE((chain_starts.count(graph.get_handle(4)) || chain_starts.count(graph.get_handle(4, true))));
+    REQUIRE((chain_ends.count(graph.get_handle(4)) || chain_ends.count(graph.get_handle(4, true))));
+    
+    // The single-node chain should be found for the dangling bridge in the snarl
+    REQUIRE((chain_starts.count(graph.get_handle(5)) || chain_starts.count(graph.get_handle(5, true))));
+    REQUIRE((chain_ends.count(graph.get_handle(5)) || chain_ends.count(graph.get_handle(5, true))));
 }
 
 TEST_CASE("IntegratedSnarlFinder safely handles a path when forced to root at one end", "[genotype][integrated-snarl-finder]") {
