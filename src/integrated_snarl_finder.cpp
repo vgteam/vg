@@ -1691,12 +1691,16 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
                             // It turns out there's only one edge here.
                             // It is going to become a contained self-loop, instead of a real cycle
                             
-                            // TODO: register as part of snarl in index
+                            // Record we visited it.
                             visited.insert(graph->forward(edge));
                             
 #ifdef debug
                             cerr << "\t\tContain new self-loop " << graph->get_id(edge) << (graph->get_is_reverse(edge) ? "-" : "+") << endl;
 #endif
+
+                            // Register as part of snarl in index
+                            begin_chain(graph->forward(edge));
+                            end_chain(graph->forward(edge));
                         } else {
                             // Close the cycle we are making out of the bridge
                             // forest path.
