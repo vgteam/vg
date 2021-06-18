@@ -605,22 +605,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
     sample_names.clear();
-    graph->for_each_path_handle([&](const path_handle_t& path_handle) {
-            string path_name = graph->get_path_name(path_handle);
-            if (!this->ref_paths.count(path_name)) {
-                // rely on the given map.  if a path isn't in it, it'll be ignored
-                if (path_to_sample) {
-                    if (path_to_sample->count(path_name)) {
-                        sample_names.insert(path_to_sample->find(path_name)->second);
-                    }
-                    // if we have the map, we only consider paths there-in
-                }
-                else {
-                    // no name mapping, just use every path as is
-                    sample_names.insert(path_name);
-                }
-            }
-        });
+    // prefer the GBWT sample names
     if (gbwt) {
         // add in sample names from the gbwt
         for (size_t i = 0; i < gbwt->metadata.paths(); i++) {
@@ -638,6 +623,23 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                 }
             }
         }
+    } else {
+        graph->for_each_path_handle([&](const path_handle_t& path_handle) {
+            string path_name = graph->get_path_name(path_handle);
+            if (!this->ref_paths.count(path_name)) {
+                // rely on the given map.  if a path isn't in it, it'll be ignored
+                if (path_to_sample) {
+                    if (path_to_sample->count(path_name)) {
+                        sample_names.insert(path_to_sample->find(path_name)->second);
+                    }
+                    // if we have the map, we only consider paths there-in
+                }
+                else {
+                    // no name mapping, just use every path as is
+                    sample_names.insert(path_name);
+                }
+            }
+        });
     }
     
     // print the VCF header
