@@ -142,10 +142,14 @@ int main_deconstruct(int argc, char** argv){
         return 1;
     }
 
+    /*
+    // this appears to be overly-restrictive, as deconstruction functions fine
+    // in the case that the GBWT and XG are equivalent
     if (!gbwt_file_name.empty() && path_restricted_traversals) {
         cerr << "Error [vg deconstruct]: -e cannot be used with -g" << endl;
         return 1;
     }
+    */
 
     // Read the graph
     unique_ptr<PathHandleGraph> path_handle_graph;
