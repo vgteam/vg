@@ -107,29 +107,67 @@ void finish_gbwt_constuction(gbwt::GBWTBuilder& builder,
 
 //------------------------------------------------------------------------------
 
-void load_gbwt(const std::string& filename, gbwt::GBWT& index, bool show_progress) {
+void load_gbwt(gbwt::GBWT& index, const std::string& filename, bool show_progress) {
     if (show_progress) {
         std::cerr << "Loading compressed GBWT from " << filename << std::endl;
     }
     std::unique_ptr<gbwt::GBWT> loaded = vg::io::VPKG::load_one<gbwt::GBWT>(filename);
     if (loaded.get() == nullptr) {
-        std::cerr << "error: [load_gbwt()] could not load compressed GBWT " << filename << std::endl;
+        std::cerr << "error: [load_gbwt()] cannot load compressed GBWT " << filename << std::endl;
         std::exit(EXIT_FAILURE);
     }
     index = std::move(*loaded);
 }
 
-void load_gbwt(const std::string& filename, gbwt::DynamicGBWT& index, bool show_progress) {
+void load_gbwt(gbwt::DynamicGBWT& index, const std::string& filename, bool show_progress) {
     if (show_progress) {
         std::cerr << "Loading dynamic GBWT from " << filename << std::endl;
     }
     std::unique_ptr<gbwt::DynamicGBWT> loaded = vg::io::VPKG::load_one<gbwt::DynamicGBWT>(filename);
     if (loaded.get() == nullptr) {
-        std::cerr << "error: [load_gbwt()] could not load dynamic GBWT " << filename << std::endl;
+        std::cerr << "error: [load_gbwt()] cannot load dynamic GBWT " << filename << std::endl;
         std::exit(EXIT_FAILURE);
     }
     index = std::move(*loaded);
 }
+
+void load_r_index(gbwt::FastLocate& index, const std::string& filename, bool show_progress) {
+    if (show_progress) {
+        std::cerr << "Loading r-index from " << filename << std::endl;
+    }
+    std::unique_ptr<gbwt::FastLocate> loaded = vg::io::VPKG::load_one<gbwt::FastLocate>(filename);
+    if (loaded.get() == nullptr) {
+        std::cerr << "error: [load_r_index()] cannot load r-index " << filename << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    index = std::move(*loaded);
+}
+
+void save_gbwt(const gbwt::GBWT& index, const std::string& filename, bool show_progress) {
+    if (show_progress) {
+        std::cerr << "Saving compressed GBWT to " << filename << std::endl;
+    }
+    sdsl::simple_sds::serialize_to(index, filename);
+}
+
+void save_gbwt(const gbwt::DynamicGBWT& index, const std::string& filename, bool show_progress) {
+    if (show_progress) {
+        std::cerr << "Saving dynamic GBWT to " << filename << std::endl;
+    }
+    sdsl::simple_sds::serialize_to(index, filename);
+}
+
+void save_r_index(const gbwt::FastLocate& index, const std::string& filename, bool show_progress) {
+    if (show_progress) {
+        std::cerr << "Saving r-index to " << filename << std::endl;
+    }
+    if (!sdsl::store_to_file(index, filename)) {
+        std::cerr << "error: [save_r_index()] cannot write r-index to " << filename << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+}
+
+//------------------------------------------------------------------------------
 
 void GBWTHandler::use_compressed() {
     if (this->in_use == index_compressed) {
@@ -142,7 +180,7 @@ void GBWTHandler::use_compressed() {
         this->dynamic = gbwt::DynamicGBWT();
         this->in_use = index_compressed;
     } else {
-        load_gbwt(this->filename, this->compressed, this->show_progress);
+        load_gbwt(this->compressed, this->filename, this->show_progress);
         this->in_use = index_compressed;
     }
 }
@@ -158,19 +196,21 @@ void GBWTHandler::use_dynamic() {
         this->compressed = gbwt::GBWT();
         this->in_use = index_dynamic;
     } else {
-        load_gbwt(this->filename, this->dynamic, this->show_progress);
+        load_gbwt(this->dynamic, this->filename, this->show_progress);
         this->in_use = index_dynamic;
     }
 }
 
 void GBWTHandler::use(gbwt::GBWT& new_index) {
     this->clear();
+    this->unbacked();
     this->compressed.swap(new_index);
     this->in_use = index_compressed;
 }
 
 void GBWTHandler::use(gbwt::DynamicGBWT& new_index) {
     this->clear();
+    this->unbacked();
     this->dynamic.swap(new_index);
     this->in_use = index_dynamic;
 }
@@ -180,16 +220,13 @@ void GBWTHandler::unbacked() {
 }
 
 void GBWTHandler::serialize(const std::string& new_filename) {
-    if (this->show_progress) {
-        std::cerr << "Serializing the GBWT to " << new_filename << std::endl;
-    }
     if (this->in_use == index_none) {
         std::cerr << "warning: [GBWTHandler] no GBWT to serialize" << std::endl;
         return;
     } else if (this->in_use == index_compressed) {
-        vg::io::VPKG::save(this->compressed, new_filename);
+        save_gbwt(this->compressed, new_filename, this->show_progress);
     } else {
-        vg::io::VPKG::save(this->dynamic, new_filename);
+        save_gbwt(this->dynamic, new_filename, this->show_progress);
     }
     this->filename = new_filename;
 }
@@ -283,14 +320,16 @@ Path extract_gbwt_path(const HandleGraph& graph, const gbwt::GBWT& gbwt_index, g
     return result;
 }
 
-std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
+std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id, bool short_name) {
     if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
         return "";
     }
 
     const gbwt::PathName& path = gbwt_index.metadata.path(id);
     std::stringstream stream;
-    stream << "_thread_";
+    if (!short_name) {
+        stream << "_thread_";
+    }
     if (gbwt_index.metadata.hasSampleNames()) {
         stream << gbwt_index.metadata.sample(path.sample);
     } else {
@@ -302,7 +341,9 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
     } else {
         stream << path.contig;
     }
-    stream << "_" << path.phase << "_" << path.count;
+    if (!short_name) {
+        stream << "_" << path.phase << "_" << path.count;
+    }
     return stream.str();
 }
 
@@ -330,6 +371,14 @@ int thread_phase(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
     return path.phase;
 }
 
+gbwt::size_type thread_count(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
+    if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
+        return 0;
+    }
+    
+    const gbwt::PathName& path = gbwt_index.metadata.path(id);
+    return path.count;
+}
 
 //------------------------------------------------------------------------------
 

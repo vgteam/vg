@@ -16,8 +16,10 @@ using namespace std;
 using namespace vg::io;
 
 void register_loader_saver_r_index() {
+    std::uint32_t magic_number = gbwt::FastLocate::Header::TAG;
+    std::string magic_string(reinterpret_cast<char*>(&magic_number), sizeof(magic_number));
 
-    Registry::register_bare_loader_saver<gbwt::FastLocate>("R-INDEX", [](istream& input) -> void* {
+    Registry::register_bare_loader_saver_with_magic<gbwt::FastLocate>("R-INDEX", magic_string, [](istream& input) -> void* {
         // Allocate an r-index
         gbwt::FastLocate* index = new gbwt::FastLocate();
 

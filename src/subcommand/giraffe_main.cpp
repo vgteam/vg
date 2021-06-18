@@ -1,5 +1,5 @@
 /**
- * \file giraffe_main.cpp: G(ir)AF (Graph Alignment Format) Fast Emitter: a new mapper that will be *extremely* fast once we actually write it
+ * \file giraffe_main.cpp: G(ir)AF (Graph Alignment Format) Fast Emitter: a fast short-read-to-haplotypes mapper
  */
 
 #include <omp.h>
@@ -25,9 +25,10 @@
 #include "../hts_alignment_emitter.hpp"
 #include "../gapless_extender.hpp"
 #include "../minimizer_mapper.hpp"
-#include "../index_manager.hpp"
+#include "../index_registry.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
 
+#include <gbwtgraph/gbz.h>
 #include <gbwtgraph/minimizer.h>
 
 //#define USE_CALLGRIND
@@ -293,7 +294,18 @@ inline bool parse(const string& arg, typename enable_if<is_instantiation_of<Resu
         }
     }
 }
+}
 
+// Try stripping all suffixes in the vector, one at a time, and return on failure.
+std::string strip_suffixes(std::string filename, const std::vector<std::string>& suffixes) {
+    for (const std::string& suffix : suffixes) {
+        if (filename.length() > suffix.length() && filename.substr(filename.length() - suffix.length()) == suffix) {
+            filename = filename.substr(0, filename.length() - suffix.length());
+        } else {
+            break;
+        }
+    }
+    return filename;
 }
 
 void help_giraffe(char** argv) {
@@ -302,9 +314,7 @@ void help_giraffe(char** argv) {
     << "Map unpaired reads using minimizers and gapless extension." << endl
     << endl
     << "basic options:" << endl
-    << "  -x, --xg-name FILE            use this xg index or graph" << endl
-    << "  -g, --graph-name FILE         use this GBWTGraph" << endl
-    << "  -H, --gbwt-name FILE          use this GBWT index" << endl
+    << "  -Z, --gbz-name FILE           use this GBZ file (GBWT index + GBWTGraph)" << endl
     << "  -m, --minimizer-name FILE     use this minimizer index" << endl
     << "  -d, --dist-name FILE          cluster using this distance index" << endl
     << "  -p, --progress                show progress" << endl
@@ -312,6 +322,10 @@ void help_giraffe(char** argv) {
     << "  -G, --gam-in FILE             read and realign GAM-format reads from FILE" << endl
     << "  -f, --fastq-in FILE           read and align FASTQ-format reads from FILE (two are allowed, one for each mate)" << endl
     << "  -i, --interleaved             GAM/FASTQ input is interleaved pairs, for paired-end alignment" << endl
+    << "alternate indexes:" << endl
+    << "  -x, --xg-name FILE            use this xg index or graph" << endl
+    << "  -g, --graph-name FILE         use this GBWTGraph" << endl
+    << "  -H, --gbwt-name FILE          use this GBWT index" << endl
     << "output options:" << endl
     << "  -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
     << "  -N, --sample NAME             add this sample name" << endl
@@ -373,7 +387,7 @@ int main_giraffe(int argc, char** argv) {
     // initialize parameters with their default options
     
     // This holds and manages finding our indexes.
-    IndexManager indexes;
+    IndexRegistry registry = VGIndexes::get_vg_index_registry();
     string output_basename;
     string report_name;
     // How close should two hits be to be in the same cluster?
@@ -486,6 +500,7 @@ int main_giraffe(int argc, char** argv) {
         static struct option long_options[] =
         {
             {"help", no_argument, 0, 'h'},
+            {"gbz-name", required_argument, 0, 'Z'},
             {"xg-name", required_argument, 0, 'x'},
             {"graph-name", required_argument, 0, 'g'},
             {"gbwt-name", required_argument, 0, 'H'},
@@ -531,7 +546,7 @@ int main_giraffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:m:s:d:pG:f:iM:N:R:o:nb:c:C:D:F:e:a:S:u:v:w:Ot:r:A:L:",
+        c = getopt_long (argc, argv, "hZ:x:g:H:m:s:d:pG:f:iM:N:R:o:nb:c:C:D:F:e:a:S:u:v:w:Ot:r:A:L:",
                          long_options, &option_index);
 
 
@@ -541,20 +556,55 @@ int main_giraffe(int argc, char** argv) {
 
         switch (c)
         {
+            case 'Z':
+                if (!optarg || !*optarg) {
+                    cerr << "error:[vg giraffe] Must provide GBZ file with -Z." << endl;
+                    exit(1);
+                }
+                if (!std::ifstream(optarg).is_open()) {
+                    cerr << "error:[vg giraffe] Couldn't open GBZ file " << optarg << endl;
+                    exit(1);
+                }
+                registry.provide("Giraffe GBZ", optarg);
+
+                // If we have a GBZ we probably want to use its name as the base name.
+                // But see -g.
+                registry.set_prefix(strip_suffixes(std::string(optarg), { ".gbz", ".giraffe" }));
+
+                break;
+
             case 'x':
                 if (!optarg || !*optarg) {
                     cerr << "error:[vg giraffe] Must provide graph file with -x." << endl;
                     exit(1);
                 }
-                indexes.set_graph_override(optarg);
+                if (!std::ifstream(optarg).is_open()) {
+                    cerr << "error:[vg giraffe] Couldn't open graph file " << optarg << endl;
+                    exit(1); 
+                }
+                registry.provide("XG", optarg);
+                
+                // If we have an xg we probably want to use its name as the base name.
+                // But see -g.
+                registry.set_prefix(split_ext(optarg).first);
+                
                 break;
 
             case 'g':
                 if (!optarg || !*optarg) {
-                    cerr << "error:[vg giraffe] Must provide GBGTGraph file with -g." << endl;
+                    cerr << "error:[vg giraffe] Must provide GBWTGraph file with -g." << endl;
                     exit(1);
                 }
-                indexes.set_gbwtgraph_override(optarg);
+                if (!std::ifstream(optarg).is_open()) {
+                    cerr << "error:[vg giraffe] Couldn't open GBWTGraph file " << optarg << endl;
+                    exit(1); 
+                }
+                registry.provide("GBWTGraph", optarg);
+                
+                // But if we have a GBWTGraph we probably want to use *its* name as the base name.
+                // Whichever is specified last will win, unless we also have a FASTA input name.
+                registry.set_prefix(split_ext(optarg).first);
+                
                 break;
 
             case 'H':
@@ -562,7 +612,11 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Must provide GBWT file with -H." << endl;
                     exit(1);
                 }
-                indexes.set_gbwt_override(optarg);
+                if (!std::ifstream(optarg).is_open()) {
+                    cerr << "error:[vg giraffe] Couldn't open GBWT file " << optarg << endl;
+                    exit(1); 
+                }
+                registry.provide("Giraffe GBWT", optarg);
                 break;
                 
             case 'm':
@@ -570,7 +624,11 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Must provide minimizer file with -m." << endl;
                     exit(1);
                 }
-                indexes.set_minimizer_override(optarg);
+                if (!std::ifstream(optarg).is_open()) {
+                    cerr << "error:[vg giraffe] Couldn't open minimizer file " << optarg << endl;
+                    exit(1); 
+                }
+                registry.provide("Minimizers", optarg);
                 break;
                 
             case 'd':
@@ -578,7 +636,11 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Must provide distance index file with -d." << endl;
                     exit(1);
                 }
-                indexes.set_distance_override(optarg);
+                if (!std::ifstream(optarg).is_open()) {
+                    cerr << "error:[vg giraffe] Couldn't open distance index file " << optarg << endl;
+                    exit(1); 
+                }
+                registry.provide("Distance Index", optarg);
                 break;
 
             case 'p':
@@ -877,9 +939,6 @@ int main_giraffe(int argc, char** argv) {
     }
 
    
-    // Propagate progress
-    indexes.show_progress = show_progress;
-    
     // Get positional arguments before validating user intent
     if (have_input_file(optind, argc, argv)) {
         // Must be the FASTA, but check.
@@ -895,12 +954,13 @@ int main_giraffe(int argc, char** argv) {
             exit(1);
         }
         
-        indexes.set_fasta_filename(fasta_filename);
+        registry.provide("Reference FASTA", fasta_filename);
+        // Everything else should be named like the FASTA by default
+        registry.set_prefix(fasta_parts.first);
         
         if (have_input_file(optind, argc, argv)) {
             // Next one must be VCF, but check.
             // TODO: Unify with FASTA check?
-            // TODO: Move over to the index manager?
             
             string vcf_filename = get_input_file_name(optind, argc, argv);
             
@@ -913,7 +973,11 @@ int main_giraffe(int argc, char** argv) {
                 exit(1);
             }
             
-            indexes.set_vcf_filename(vcf_filename);
+            // Determine if it is phased or not
+            string file_type = IndexRegistry::vcf_is_phased(vcf_filename) ? "VCF w/ Phasing" : "VCF";
+            
+            // Feed it to the index registry to maybe use
+            registry.provide(file_type, vcf_filename);
         }
     }
 
@@ -927,7 +991,7 @@ int main_giraffe(int argc, char** argv) {
     
     // Decide if we are outputting to an htslib format
     bool hts_output = (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM");
-
+    
     if (!ref_paths_name.empty() && !hts_output) {
         cerr << "warning:[vg giraffe] Reference path file (--ref-paths) is only used when output format (-o) is SAM, BAM, or CRAM." << endl;
         ref_paths_name = "";
@@ -935,36 +999,6 @@ int main_giraffe(int argc, char** argv) {
     
     if (output_format != "GAM" && !output_basename.empty()) {
         cerr << "error:[vg giraffe] Using an output basename (--output-basename) only makes sense for GAM format (-o)" << endl;
-        exit(1);
-    }
-    
-    if (!indexes.can_get_gbwtgraph() && !indexes.can_get_graph()) {
-        cerr << "error:[vg giraffe] Mapping requires a normal graph (-x) or a GBWTGraph (-g)" << endl;
-        exit(1);
-    }
-    
-    if (track_correctness && !indexes.can_get_graph()) {
-        cerr << "error:[vg giraffe] Tracking correctness requires a normal graph (-x)" << endl;
-        exit(1);
-    }
-    
-    if (hts_output && !indexes.can_get_graph()) {
-        cerr << "error:[vg giraffe] Mapping to a linear format requires a normal graph (-x)" << endl;
-        exit(1);
-    }
-    
-    if (!indexes.can_get_gbwt()) {
-        cerr << "error:[vg giraffe] Mapping requires a GBWT index (-H)" << endl;
-        exit(1);
-    }
-    
-    if (!indexes.can_get_minimizer()) {
-        cerr << "error:[vg giraffe] Mapping requires a minimizer index (-m)" << endl;
-        exit(1);
-    }
-    
-    if (!indexes.can_get_distance()) {
-        cerr << "error:[vg giraffe] Mapping requires a distance index (-d)" << endl;
         exit(1);
     }
     
@@ -995,36 +1029,95 @@ int main_giraffe(int argc, char** argv) {
     if ((forced_mean || forced_stdev || forced_rescue_attempts) && (!paired)) {
         cerr << "warning:[vg giraffe] Attempting to set paired-end parameters but running in single-end mode" << endl;
     }
+    
+    // The IndexRegistry doesn't try to infer index files based on the
+    // basename, so do that here.
+    unordered_map<string, string> indexes_and_extensions = {
+        {"Giraffe GBZ", "gbz"},
+        {"XG", "xg"},
+        {"Giraffe GBWT", "gbwt"},
+        {"GBWTGraph", "gg"},
+        {"Distance Index", "dist"},
+        {"Minimizers", "min"}
+    };
+    for (auto& completed : registry.completed_indexes()) {
+        // Drop anything we already got from the list
+        indexes_and_extensions.erase(completed);
+    }
+    for (auto& index_and_extension : indexes_and_extensions) {
+        string inferred_filename = registry.get_prefix() + "." + index_and_extension.second;
+        if (ifstream(inferred_filename).is_open()) {
+            // A file with the appropriate name exists and we can read it
+            registry.provide(index_and_extension.first, inferred_filename);
+            // Report it because this may not be desired behavior
+            cerr << "Guessing that " << inferred_filename << " is " << index_and_extension.first << endl;
+        }
+    }
 
     // create in-memory objects
+    
+    // Don't try and use all the memory.
+    // TODO: add memory options like autoindex?
+    registry.set_target_memory_usage(IndexRegistry::get_system_memory() / 2);
+    
+    auto index_targets = VGIndexes::get_default_giraffe_indexes();
+    if (track_correctness || hts_output) {
+        // We also need an XG
+        index_targets.push_back("XG");
+    }
+    
+#ifdef debug
+    for (auto& needed : index_targets) {
+        cerr << "Want index: " << needed << endl;
+    }
+#endif
+    
+    try {
+        registry.make_indexes(index_targets);
+    }
+    catch (InsufficientInputException ex) {
+        cerr << "error:[vg giraffe] Input is not sufficient to create indexes" << endl;
+        cerr << ex.what();
+        return 1;
+    }
+   
+#ifdef debug
+    for (auto& completed : registry.completed_indexes()) {
+        cerr << "Have index: " << completed << endl;
+        for (auto& filename : registry.require(completed)) {
+            cerr << "\tAt: " << filename << endl;
+        }
+    }
+#endif
     
     // If we are tracking correctness, we will fill this in with a graph for
     // getting offsets along ref paths.
     PathPositionHandleGraph* path_position_graph = nullptr;
     // One of these will actually own it
     bdsg::PathPositionOverlayHelper overlay_helper;
-    shared_ptr<PathHandleGraph> graph;
+    unique_ptr<PathHandleGraph> graph;
     if (track_correctness || hts_output) {
         // Load the base graph
-        graph = indexes.get_graph();
+        graph = vg::io::VPKG::load_one<PathHandleGraph>(registry.require("XG").at(0));
         // And make sure it has path position support.
         // Overlay is owned by the overlay_helper, if one is needed.
         path_position_graph = overlay_helper.apply(graph.get());
     }
+    
+    // Grab the minimizer index
+    auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Minimizers").at(0));
 
-    std::shared_ptr<gbwtgraph::DefaultMinimizerIndex> minimizer_index = indexes.get_minimizer();
-
-    // Grab the GBWTGraph
-    auto gbwt_graph = indexes.get_gbwtgraph();
+    // Grab the GBZ
+    auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0));
 
     // Grab the distance index
-    auto distance_index = indexes.get_distance();
+    auto distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(registry.require("Distance Index").at(0));
 
     // Set up the mapper
     if (show_progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(*gbwt_graph, *minimizer_index, *distance_index, path_position_graph);
+    MinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, *distance_index, path_position_graph);
     if (forced_mean && forced_stdev) {
         minimizer_mapper.force_fragment_length_distr(fragment_mean, fragment_stdev);
     }
@@ -1268,7 +1361,7 @@ int main_giraffe(int argc, char** argv) {
             // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
             unique_ptr<AlignmentEmitter> alignment_emitter = discard_alignments ?
                 make_unique<NullAlignmentEmitter>() :
-                get_alignment_emitter("-", output_format, paths, thread_count, path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)gbwt_graph.get());
+                get_alignment_emitter("-", output_format, paths, thread_count, path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)&(gbz->graph));
             
 #ifdef USE_CALLGRIND
             // We want to profile the alignment, not the loading.

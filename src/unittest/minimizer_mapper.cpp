@@ -214,6 +214,8 @@ TEST_CASE("Fragment length distribution gets reasonable value", "[giraffe][mappi
 
         //Make an empty minimizer mapper just to get the fragment length distr
         gbwtgraph::GBWTGraph gbwt_graph;
+        gbwt::GBWT gbwt;
+        gbwt_graph.set_gbwt(gbwt);
         gbwtgraph::DefaultMinimizerIndex minimizer_index;
         MinimumDistanceIndex distance_index;
         PathPositionHandleGraph* handle_graph;

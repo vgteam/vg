@@ -24,6 +24,7 @@
 #include <gbwt/variants.h>
 #include <gbwtgraph/index.h>
 #include <gbwtgraph/gbwtgraph.h>
+#include <gbwtgraph/gbz.h>
 #include <gbwtgraph/path_cover.h>
 #include <vg/io/vpkg.hpp>
 #include <gcsa/gcsa.h>
@@ -40,6 +41,8 @@
 #include "haplotype_indexer.hpp"
 #include "phase_unfolder.hpp"
 #include "gbwt_helper.hpp"
+#include "gbwtgraph_helper.hpp"
+#include "gcsa_helper.hpp"
 #include "kmer.hpp"
 #include "transcriptome.hpp"
 #include "integrated_snarl_finder.hpp"
@@ -97,6 +100,7 @@ int IndexingParameters::minimizer_w = 11;
 int IndexingParameters::minimizer_s = 18;
 int IndexingParameters::path_cover_depth = gbwtgraph::PATH_COVER_DEFAULT_N;
 int IndexingParameters::giraffe_gbwt_downsample = gbwtgraph::LOCAL_HAPLOTYPES_DEFAULT_N;
+int IndexingParameters::downsample_threshold = 3;
 int IndexingParameters::downsample_context_length = gbwtgraph::PATH_COVER_DEFAULT_K;
 double IndexingParameters::max_memory_proportion = 0.75;
 double IndexingParameters::thread_chunk_inflation_factor = 2.0;
@@ -106,11 +110,11 @@ void copy_file(const string& from_fp, const string& to_fp) {
     ifstream from_file(from_fp, std::ios::binary);
     ofstream to_file(to_fp, std::ios::binary);
     if (!from_file) {
-        cerr << "error:[IndexRegistry] Couldn't open " << from_fp << endl;
+        cerr << "error:[IndexRegistry] Couldn't open input file " << from_fp << endl;
         exit(1);
     }
     if (!to_file) {
-        cerr << "error:[IndexRegistry] Couldn't open " << to_fp << endl;
+        cerr << "error:[IndexRegistry] Couldn't open output file " << to_fp << endl;
         exit(1);
     }
     to_file << from_file.rdbuf();
@@ -376,6 +380,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("Spliced Distance Index", "spliced.dist");
     
     registry.register_index("GBWTGraph", "gg");
+    registry.register_index("Giraffe GBZ", "giraffe.gbz");
     
     registry.register_index("Minimizers", "min");
     
@@ -631,9 +636,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             FastaReference ref;
             ref.open(fasta_filenames[i]);
             for (const auto& idx_entry : *ref.index) {
-                seq_files[idx_entry.second.name] = i;
-                seq_lengths[idx_entry.second.name] = idx_entry.second.length;
-                seq_queue.emplace(idx_entry.second.length, idx_entry.second.name);
+                seq_files[idx_entry.first] = i;
+                seq_lengths[idx_entry.first] = idx_entry.second.length;
+                seq_queue.emplace(idx_entry.second.length, idx_entry.first);
             }
         }
         
@@ -955,6 +960,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     auto output_vcf_name = plan->output_filepath(output_vcf, i, buckets.size());
                     htsFile* vcf = bcf_open(output_vcf_name.c_str(), "wz");
                     bcf_hdr_t* header = bcf_hdr_init("w");
+                    // this is to satisfy HaplotypeIndexer, which doesn't like sample-less VCFs
+                    int sample_add_code = bcf_hdr_add_sample(header, "dummy");
+                    if (sample_add_code != 0) {
+                        cerr << "error:[IndexRegistry] error initializing VCF header" << endl;
+                        exit(1);
+                    }
                     int hdr_write_err_code = bcf_hdr_write(vcf, header);
                     if (hdr_write_err_code != 0) {
                         cerr << "error:[IndexRegistry] error writing VCF header to " << output_vcf_name << endl;
@@ -2211,7 +2222,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             vector<gbwt::GBWT> gbwt_indexes(gbwt_names.size());
             for (size_t i = 0; i < gbwt_names.size(); ++i) {
-                load_gbwt(gbwt_names[i], gbwt_indexes[i], IndexingParameters::verbosity >= IndexingParameters::Debug);
+                load_gbwt(gbwt_indexes[i], gbwt_names[i], IndexingParameters::verbosity >= IndexingParameters::Debug);
             }
             gbwt::GBWT merged(gbwt_indexes);
             merged.serialize(outfile);
@@ -2328,12 +2339,16 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             }
             haplotype_indexer->show_progress = IndexingParameters::verbosity >= IndexingParameters::Debug;
             
+            // from the toil-vg best practices
+            haplotype_indexer->force_phasing = true;
+            haplotype_indexer->discard_overlaps = true;
+            
             vector<string> parse_files = haplotype_indexer->parse_vcf(vcf_filenames[i],
                                                                       *graph);
             
             unique_ptr<gbwt::DynamicGBWT> gbwt_index = haplotype_indexer->build_gbwt(parse_files);
             
-            vg::io::VPKG::save(*gbwt_index, gbwt_name);
+            save_gbwt(*gbwt_index, gbwt_name);
             
             gbwt_names[i] = gbwt_name;
         };
@@ -2404,23 +2419,44 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         ifstream infile_xg, infile_gbwt;
         init_in(infile_xg, xg_filename);
         init_in(infile_gbwt, gbwt_filename);
-        
+
         auto output_name = plan->output_filepath(sampled_gbwt_output);
         ofstream outfile_sampled_gbwt;
         init_out(outfile_sampled_gbwt, output_name);
         
         auto xg_index = vg::io::VPKG::load_one<xg::XG>(infile_xg);
         auto gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(infile_gbwt);
+
+        // Downsample only if it would reduce the number of haplotypes sufficiently.
+        size_t threshold = IndexingParameters::giraffe_gbwt_downsample * IndexingParameters::downsample_threshold;
+        bool downsample = (gbwt_index->hasMetadata() && gbwt_index->metadata.haplotypes() >= threshold);
+
+        gbwt::GBWT cover;
+        if (downsample) {
+            // Downsample the haplotypes and generate a path cover of components without haplotypes.
+            cover = gbwtgraph::local_haplotypes(*xg_index, *gbwt_index,
+                                                IndexingParameters::giraffe_gbwt_downsample,
+                                                IndexingParameters::downsample_context_length,
+                                                200 * gbwt::MILLION, // buffer size
+                                                IndexingParameters::gbwt_sampling_interval,
+                                                IndexingParameters::verbosity >= IndexingParameters::Debug);
+        } else {
+            // Augment the GBWT with a path cover of components without haplotypes.
+            if (IndexingParameters::verbosity != IndexingParameters::None) {
+                cerr << "[IndexRegistry]: Not enough haplotypes; augmenting the full GBWT instead." << endl;
+            }
+            gbwt::DynamicGBWT dynamic_index(*gbwt_index);
+            gbwt_index.reset();
+            gbwtgraph::augment_gbwt(*xg_index, dynamic_index,
+                                    IndexingParameters::path_cover_depth,
+                                    IndexingParameters::downsample_context_length,
+                                    200 * gbwt::MILLION, // buffer size
+                                    IndexingParameters::gbwt_sampling_interval,
+                                    IndexingParameters::verbosity >= IndexingParameters::Debug);
+            cover = gbwt::GBWT(dynamic_index);
+        }
         
-        // compute a downsampled local haplotype cover (with path cover over missing components)
-        gbwt::GBWT cover = gbwtgraph::local_haplotypes(*xg_index, *gbwt_index,
-                                                       IndexingParameters::giraffe_gbwt_downsample,
-                                                       IndexingParameters::downsample_context_length,
-                                                       200 * gbwt::MILLION, // buffer size
-                                                       IndexingParameters::gbwt_sampling_interval,
-                                                       IndexingParameters::verbosity >= IndexingParameters::Debug);
-        
-        vg::io::VPKG::save(cover, output_name);
+        save_gbwt(cover, output_name);
         output_names.push_back(output_name);
         return all_outputs;
     });
@@ -2463,7 +2499,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                       IndexingParameters::gbwt_sampling_interval,
                                                       IndexingParameters::verbosity >= IndexingParameters::Debug);
         
-        vg::io::VPKG::save(cover, output_name);
+        save_gbwt(cover, output_name);
         output_names.push_back(output_name);
         return all_outputs;
     });
@@ -2597,7 +2633,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             // save the haplotype transcript GBWT
             gbwt_builder.finish();
-            vg::io::VPKG::save(gbwt_builder.index, gbwt_name);
+            save_gbwt(gbwt_builder.index, gbwt_name);
             
             // write transcript origin info table
             transcriptome.write_info(&info_outfile, *haplotype_index, false);
@@ -2987,8 +3023,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         cerr << "saving GCSA/LCP pair" << endl;
 #endif
         
-        vg::io::VPKG::save(gcsa_index, gcsa_output_name);
-        vg::io::VPKG::save(lcp_array, lcp_output_name);
+        save_gcsa(gcsa_index, gcsa_output_name);
+        save_lcp(lcp_array, lcp_output_name);
         
         gcsa_names.push_back(gcsa_output_name);
         lcp_names.push_back(lcp_output_name);
@@ -3172,16 +3208,49 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     
     ////////////////////////////////////
-    // GBWTGraph Recipes
+    // GBZ Recipes
     ////////////////////////////////////
-    
-    registry.register_recipe({"GBWTGraph"}, {"Giraffe GBWT", "XG"},
+
+    registry.register_recipe({"Giraffe GBZ"}, {"GBWTGraph", "Giraffe GBWT"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing GBWTGraph." << endl;
+            cerr << "[IndexRegistry]: Combining Giraffe GBWT and GBWTGraph into GBZ." << endl;
+        }
+
+        assert(inputs.size() == 2);
+        auto gbwt_filenames = inputs[1]->get_filenames();
+        auto gg_filenames = inputs[0]->get_filenames();
+        assert(gbwt_filenames.size() == 1);
+        assert(gg_filenames.size() == 1);
+        auto gbwt_filename = gbwt_filenames.front();
+        auto gg_filename = gg_filenames.front();
+
+        assert(constructing.size() == 1);
+        vector<vector<string>> all_outputs(constructing.size());
+        auto gbz_output = *constructing.begin();
+        auto& output_names = all_outputs[0];
+
+        gbwtgraph::GBZ gbz;
+        load_gbz(gbz, gbwt_filename, gg_filename);
+
+        string output_name = plan->output_filepath(gbz_output);
+        save_gbz(gbz, output_name);
+
+        output_names.push_back(output_name);
+        return all_outputs;
+    });
+
+    // This used to be a GBWTGraph recipe, but we don't want to produce GBWTGraphs anymore.
+    registry.register_recipe({"Giraffe GBZ"}, {"Giraffe GBWT", "XG"},
+                             [&](const vector<const IndexFile*>& inputs,
+                                 const IndexingPlan* plan,
+                                 AliasGraph& alias_graph,
+                                 const IndexGroup& constructing) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            cerr << "[IndexRegistry]: Constructing GBZ." << endl;
         }
         
         assert(inputs.size() == 2);
@@ -3194,33 +3263,32 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         assert(constructing.size() == 1);
         vector<vector<string>> all_outputs(constructing.size());
-        auto gbwtgraph_output = *constructing.begin();
+        auto gbz_output = *constructing.begin();
         auto& output_names = all_outputs[0];
         
-        ifstream infile_gbwt, infile_xg;
-        init_in(infile_gbwt, gbwt_filename);
+        ifstream infile_xg;
         init_in(infile_xg, xg_filename);
-        string output_name = plan->output_filepath(gbwtgraph_output);
-        ofstream outfile;
-        init_out(outfile, output_name);
-        
-        auto gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(infile_gbwt);
         auto xg_index = vg::io::VPKG::load_one<xg::XG>(infile_xg);
-        
+
+        gbwtgraph::GBZ gbz;
+        load_gbwt(gbz.index, gbwt_filename);
         // TODO: could add simplification to replace XG index with a gbwt::SequenceSource here
-        gbwtgraph::GBWTGraph ggraph(*gbwt_index, *xg_index);
-        
-        vg::io::VPKG::save(ggraph, output_name);
-        
+        gbz.graph = gbwtgraph::GBWTGraph(gbz.index, *xg_index);
+
+        string output_name = plan->output_filepath(gbz_output);
+        save_gbz(gbz, output_name);
+
         output_names.push_back(output_name);
         return all_outputs;
     });
-        
+
     ////////////////////////////////////
     // Minimizers Recipes
     ////////////////////////////////////
-    
-    registry.register_recipe({"Minimizers"}, {"Distance Index", "GBWTGraph", "Giraffe GBWT"},
+
+    // FIXME We may not always want to store the minimizer index. Rebuilding the index may be
+    // faster than loading it from a network drive.
+    registry.register_recipe({"Minimizers"}, {"Distance Index", "Giraffe GBZ"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -3231,34 +3299,26 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         // TODO: should the distance index input be a joint simplification to avoid serializing it?
         
-        assert(inputs.size() == 3);
+        assert(inputs.size() == 2);
         auto dist_filenames = inputs[0]->get_filenames();
-        auto ggraph_filenames = inputs[1]->get_filenames();
-        auto gbwt_filenames = inputs[2]->get_filenames();
+        auto gbz_filenames = inputs[1]->get_filenames();
         assert(dist_filenames.size() == 1);
-        assert(gbwt_filenames.size() == 1);
-        assert(ggraph_filenames.size() == 1);
+        assert(gbz_filenames.size() == 1);
         auto dist_filename = dist_filenames.front();
-        auto gbwt_filename = gbwt_filenames.front();
-        auto ggraph_filename = ggraph_filenames.front();
+        auto gbz_filename = gbz_filenames.front();
                 
         assert(constructing.size() == 1);
         vector<vector<string>> all_outputs(constructing.size());
         auto minimizer_output = *constructing.begin();
         auto& output_names = all_outputs[0];
         
-        ifstream infile_gbwt, infile_ggraph, infile_dist;
+        ifstream infile_dist;
         init_in(infile_dist, dist_filename);
-        init_in(infile_gbwt, gbwt_filename);
-        init_in(infile_ggraph, ggraph_filename);
-        string output_name = plan->output_filepath(minimizer_output);
-        ofstream outfile;
-        init_out(outfile, output_name);
-                
-        auto gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(infile_gbwt);
-        auto ggraph_index = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(infile_ggraph);
-        ggraph_index->set_gbwt(*gbwt_index);
         auto dist_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(infile_dist);
+
+        ifstream infile_gbz;
+        init_in(infile_gbz, gbz_filename);
+        auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(infile_gbz);
                 
         gbwtgraph::DefaultMinimizerIndex minimizers(IndexingParameters::minimizer_k,
                                                     IndexingParameters::use_bounded_syncmers ?
@@ -3266,11 +3326,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                         IndexingParameters::minimizer_w,
                                                     IndexingParameters::use_bounded_syncmers);
                 
-        gbwtgraph::index_haplotypes(*ggraph_index, minimizers, [&](const pos_t& pos) -> gbwtgraph::payload_type {
+        gbwtgraph::index_haplotypes(gbz->graph, minimizers, [&](const pos_t& pos) -> gbwtgraph::payload_type {
             return MIPayload::encode(dist_index->get_minimizer_distances(pos));
         });
         
-        vg::io::VPKG::save(minimizers, output_name);
+        string output_name = plan->output_filepath(minimizer_output);
+        save_minimizer(minimizers, output_name);
         
         output_names.push_back(output_name);
         return all_outputs;
@@ -3302,8 +3363,7 @@ vector<IndexName> VGIndexes::get_default_mpmap_indexes() {
 
 vector<IndexName> VGIndexes::get_default_giraffe_indexes() {
     vector<IndexName> indexes{
-        "Giraffe GBWT",
-        "GBWTGraph",
+        "Giraffe GBZ",
         "Distance Index",
         "Minimizers"
     };
@@ -3388,6 +3448,10 @@ void IndexRegistry::set_prefix(const string& prefix) {
     this->output_prefix = prefix;
 }
 
+string IndexRegistry::get_prefix() const {
+    return this->output_prefix;
+}
+
 void IndexRegistry::set_intermediate_file_keeping(bool keep_intermediates) {
     this->keep_intermediates = keep_intermediates;
 }
@@ -3469,8 +3533,8 @@ void IndexRegistry::make_indexes(const vector<IndexName>& identifiers) {
         }
     }
     
-    // prepare the index registry to go again, if necessary
-    reset();
+    // Keep all the indexes around. If you want to re-use the object for a
+    // different set of indexes, you will need to call reset() yourself.
 }
 
 void IndexRegistry::register_index(const IndexName& identifier, const string& suffix) {
@@ -3507,11 +3571,27 @@ void IndexRegistry::provide(const IndexName& identifier, const string& filename)
 }
 
 void IndexRegistry::provide(const IndexName& identifier, const vector<string>& filenames) {
+    if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+        cerr << "[IndexRegistry]: Provided: " << identifier << endl;
+    }
     if (!index_registry.count(identifier)) {
         cerr << "error:[IndexRegistry] cannot provide unregistered index: " << identifier << endl;
         exit(1);
     }
     get_index(identifier)->provide(filenames);
+}
+
+vector<string> IndexRegistry::require(const IndexName& identifier) const {
+    if (!index_registry.count(identifier)) {
+        cerr << "error:[IndexRegistry] cannot require unregistered index: " << identifier << endl;
+        exit(1);
+    }
+    const IndexFile* index = get_index(identifier);
+    if (!index->is_finished()) {
+        cerr << "error:[IndexRegistry] do not have and did not make index: " << identifier << endl;
+        exit(1);
+    }
+    return index->get_filenames();
 }
 
 void IndexRegistry::set_target_memory_usage(int64_t bytes) {
@@ -3520,6 +3600,13 @@ void IndexRegistry::set_target_memory_usage(int64_t bytes) {
 
 int64_t IndexRegistry::get_target_memory_usage() const {
     return target_memory_usage;
+}
+
+// from https://stackoverflow.com/questions/2513505/how-to-get-available-memory-c-g
+int64_t IndexRegistry::get_system_memory() {
+    int64_t pages = sysconf(_SC_PHYS_PAGES);
+    int64_t page_size = sysconf(_SC_PAGE_SIZE);
+    return pages * page_size;
 }
 
 vector<IndexName> IndexRegistry::completed_indexes() const {
@@ -3693,6 +3780,97 @@ string IndexRegistry::get_work_dir() {
         work_dir = temp_file::create_directory();
     }
     return work_dir;
+}
+
+bool IndexRegistry::vcf_is_phased(const string& filepath) {
+    
+    if (IndexingParameters::verbosity >= IndexingParameters::Basic) {
+        cerr << "[IndexRegistry]: Checking for phasing in VCF(s)." << endl;
+    }
+    
+    // check about 30k variants before concluding that the VCF isn't phased
+    // TODO: will there be contig ordering biases that make this a bad assumption?
+    constexpr int vars_to_check = 1 << 15;
+    
+    htsFile* file = hts_open(filepath.c_str(), "rb");
+    bcf_hdr_t* hdr = bcf_hdr_read(file);
+    int phase_set_id = bcf_hdr_id2int(hdr, BCF_DT_ID, "PS");
+    // note: it seems that this is not necessary for expressing phasing after all
+//    if (phase_set_id < 0) {
+//        // no PS tag means no phasing
+//        bcf_hdr_destroy(hdr);
+//        hts_close(file);
+//        return false;
+//    }
+    
+    // iterate over records
+    bcf1_t* line = bcf_init();
+    int iter = 0;
+    bool found_phased = false;
+    while (bcf_read(file, hdr, line) >= 0 && iter < vars_to_check && !found_phased)
+    {
+        if (phase_set_id >= 0) {
+            if (phase_set_id == BCF_HT_INT) {
+                // phase sets are integers
+                int num_phase_set_arr = 0;
+                int32_t* phase_sets = NULL;
+                int num_phase_sets = bcf_get_format_int32(hdr, line, "PS", &phase_sets, &num_phase_set_arr);
+                for (int i = 0; i < num_phase_sets && !found_phased; ++i) {
+                    found_phased = phase_sets[i] != 0;
+                }
+                free(phase_sets);
+            }
+            else if (phase_set_id == BCF_HT_STR) {
+                // phase sets are strings
+                int num_phase_set_arr = 0;
+                char** phase_sets = NULL;
+                int num_phase_sets = bcf_get_format_string(hdr, line, "PS", &phase_sets, &num_phase_set_arr);
+                for (int i = 0; i < num_phase_sets && !found_phased; ++i) {
+                    found_phased = strcmp(phase_sets[i], ".") != 0;
+                }
+                if (phase_sets) {
+                    // all phase sets are concatenated in one malloc's char*, pointed to by the first pointer
+                    free(phase_sets[0]);
+                }
+                // free the array of pointers
+                free(phase_sets);
+            }
+        }
+        
+        // init a genotype array
+        int32_t* genotypes = nullptr;
+        int arr_size = 0;
+        // and query it
+        int num_genotypes = bcf_get_genotypes(hdr, line, &genotypes, &arr_size);
+        if (num_genotypes >= 0) {
+            // we got genotypes, check to see if they're phased
+            int num_samples = bcf_hdr_nsamples(hdr);
+            int ploidy = num_genotypes / num_samples;
+            for (int i = 0; i < num_genotypes && !found_phased; i += ploidy) {
+                for (int j = 0; j < ploidy && !found_phased; ++j) {
+                    if (genotypes[i + j] == bcf_int32_vector_end) {
+                        // sample has lower ploidy
+                        break;
+                    }
+                    if (bcf_gt_is_missing(genotypes[i + j])) {
+                        continue;
+                    }
+                    if (bcf_gt_is_phased(genotypes[i + j])) {
+                        // the VCF expresses phasing, we can
+                        found_phased = true;;
+                    }
+                }
+            }
+        }
+        
+        free(genotypes);
+        ++iter;
+    }
+    // clean up
+    bcf_destroy(line);
+    bcf_hdr_destroy(hdr);
+    hts_close(file);
+    return found_phased;
 }
 
 vector<IndexGroup> IndexRegistry::dependency_order() const {

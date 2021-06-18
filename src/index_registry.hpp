@@ -105,8 +105,10 @@ struct IndexingParameters {
     static int path_cover_depth;
     // the number of haplotypes to downsample to in giraffe's GBWT [64]
     static int giraffe_gbwt_downsample;
-    // Jordan actually doesn't know what this one does [4]
+    // sample subpaths of this length (in nodes) [4]
     static int downsample_context_length;
+    // augment the existing GBWT instead of downsampling it if the number of haplotypes is < this * giraffe_gbwt_downsample [3]
+    static int downsample_threshold;
     // actually use this fraction of the maximum memory to give slosh for bad estmates [0.75]
     static double max_memory_proportion;
     // aim to have X timese as many chunks as threads [2]
@@ -202,6 +204,9 @@ public:
     /// Prefix for all saved outputs
     void set_prefix(const string& prefix);
     
+    /// Get the current prefix for saving output files.
+    string get_prefix() const;
+    
     /// Should intermediate files be saved to the output directory
     /// or the temp directory?
     void set_intermediate_file_keeping(bool keep_intermediates);
@@ -236,6 +241,10 @@ public:
     /// Indicate a list of serialized files that contains some identified index
     void provide(const IndexName& identifier, const vector<string>& filenames);
     
+    /// Get the filename(s) associated with the given index. Aborts if the
+    /// index is not a known type, or if it is not provided or made.
+    vector<string> require(const IndexName& identifier) const;
+    
     /// Set the maximum memory that indexing should try to consume (note: this is
     /// not strictly adhered to due to difficulties in estimating memory use)
     void set_target_memory_usage(int64_t bytes);
@@ -243,12 +252,16 @@ public:
     /// Get the maximum memory we will try to consume
     int64_t get_target_memory_usage() const;
     
+    /// Get the amount of free memory
+    static int64_t get_system_memory();
+    
     /// Get a list of all indexes that have already been completed or provided
     vector<IndexName> completed_indexes() const;
     
     /// Create and execute a plan to make the indicated indexes using provided inputs
     /// If provided inputs cannot create the desired indexes, throws a
     /// InsufficientInputException.
+    /// When completed, all requested index files will be available via require().
     void make_indexes(const vector<IndexName>& identifiers);
     
     /// Returns the recipe graph in dot format
@@ -256,6 +269,12 @@ public:
     
     /// Returns the recipe graph in dot format with a plan highlighted
     string to_dot(const vector<IndexName>& targets) const;
+    
+    /// Determine if a VCF file is phased or not
+    static bool vcf_is_phased(const string& filepath);
+    
+    /// Discard any provided or constructed indexes
+    void reset();
     
 protected:
     
@@ -279,9 +298,6 @@ protected:
     bool all_finished(const vector<const IndexFile*>& inputs) const;
     
     bool all_finished(const IndexGroup& inputs) const;
-    
-    /// Discard any provided or constructed indexes
-    void reset();
     
     /// Function to get and/or initialize the temporary directory in which indexes will live
     string get_work_dir();

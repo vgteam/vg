@@ -29,10 +29,10 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
 
     assert(ref_path_idx >=0 && ref_path_idx < travs.size());
 
-    // map strings to allele numbers
+    // map strings to allele numbers (and their traversal)
     // (we are using the traversal finder in such a way that duplicate alleles can get returned
     // in order to be able to preserve the path names)
-    map<string, int> allele_idx;
+    map<string, pair<int, int>> allele_idx;
     size_t cur_alt = 1;
 
     // go from traversals number (offset in travs) to allele number
@@ -52,7 +52,7 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
 
     // set the reference allele
     string ref_allele = trav_to_string(travs.at(ref_path_idx));
-    allele_idx[ref_allele] = 0;
+    allele_idx[ref_allele] = make_pair(0, ref_path_idx);
     trav_to_allele[ref_path_idx] = 0;
     bool substitution = true;
         
@@ -63,13 +63,13 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
             auto ai_it = allele_idx.find(allele);
             if (ai_it == allele_idx.end()) {
                 // make a new allele for this string
-                allele_idx[allele] = cur_alt;
+                allele_idx[allele] = make_pair(cur_alt, i);
                 trav_to_allele.at(i) = cur_alt;
                 ++cur_alt;
                 substitution = substitution && allele.size() == ref_allele.size();
             } else {
                 // allele string has been seen, map this traversal to it
-                trav_to_allele.at(i) = ai_it->second;
+                trav_to_allele.at(i) = ai_it->second.first;
             }
         }
     }
@@ -79,20 +79,28 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
     assert(allele_idx.size() > 0);
     v.alt.resize(allele_idx.size() - 1);
 
+    // init the traversal info
+    v.info["AT"].resize(allele_idx.size());
+
     for (auto ai_pair : allele_idx) {
         string allele_string = ai_pair.first;
+        int allele_no = ai_pair.second.first;
+        int allele_trav_no = ai_pair.second.second;
         if (!use_start) {
             reverse_complement_in_place(allele_string);
         }
         if (!substitution) {
             allele_string = string(1, prev_char) + allele_string;
         }
-        v.alleles[ai_pair.second] = allele_string;
-        if (ai_pair.second > 0) {
-            v.alt[ai_pair.second - 1] = allele_string;
+        v.alleles[allele_no] = allele_string;
+        if (allele_no > 0) {
+            v.alt[allele_no - 1] = allele_string;
         } else {
             v.ref = allele_string;
         }
+
+        // update the traversal info
+        add_allele_path_to_info(v, allele_no, travs[allele_trav_no], !use_start, !substitution); 
     }
 
     // shift our variant back if it's an indel
@@ -104,6 +112,50 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
     v.updateAlleleIndexes();
 
     return trav_to_allele;
+}
+
+void Deconstructor::add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav,
+                                            bool reversed, bool one_based) {
+    auto& trav_info = v.info["AT"];
+    assert(allele < trav_info.size());
+
+    vector<int> nodes;
+    nodes.reserve(trav.visit_size());
+    const Visit* prev_visit = nullptr;
+    unordered_map<nid_t, pair<nid_t, size_t>>::const_iterator prev_trans;
+    
+    for (size_t i = 0; i < trav.visit_size(); ++i) {
+        size_t j = !reversed ? i : trav.visit_size() - 1 - i;
+        const Visit& visit = trav.visit(j);
+        nid_t node_id = visit.node_id();
+        bool skip = false;
+        // todo: check one_based? (we kind of ignore that when writing the snarl name, so maybe not pertienent)
+        if (translation) {
+            auto i = translation->find(node_id);
+            if (i == translation->end()) {
+                throw runtime_error("Error [vg deconstruct]: Unable to find node " + std::to_string(node_id) + " in translation file");
+            }
+            if (prev_visit) {
+                nid_t prev_node_id = prev_visit->node_id();
+                if (prev_trans->second.first == i->second.first && node_id != prev_node_id) {
+                    // here is a case where we have two consecutive nodes that map back to
+                    // the same source node.
+                    // todo: sanity check! (could verify if translation node properly covered)
+                    skip = true;
+                }
+            }
+            node_id = i->second.first;
+            prev_trans = i;
+        }
+
+        if (!skip) {
+            bool vrev = visit.backward() != reversed;
+            trav_info[allele] += (vrev ? "<" : ">");
+            trav_info[allele] += std::to_string(node_id);
+        }
+        prev_visit = &visit;
+    }
+    
 }
 
 void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& names,
@@ -194,7 +246,12 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
     // count the number of times each allele comes up in a traversal
     vector<int> allele_frequencies(*max_element(trav_to_allele.begin(), trav_to_allele.end()) + 1, 0);
     for (auto trav : travs) {
-        ++allele_frequencies[trav_to_allele.at(trav)];
+        // we always want to choose alt over ref when possible in sorting logic below, so
+        // cap ref frequency at 1
+        int allele = trav_to_allele.at(trav);
+        if (allele > 0 || allele_frequencies[allele] == 0) {
+            ++allele_frequencies[allele];
+        }        
     }
     // sort on frquency
     function<bool(int, int)> comp = [&] (int trav1, int trav2) {
@@ -304,6 +361,10 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
                  << " trav=" << pb2json(path_travs.first[i]) << endl;
         }
 #endif
+        tuple<bool, string, size_t, size_t> subpath_parse = Paths::parse_subpath_name(path_trav_name);
+        if (get<0>(subpath_parse)) {
+            path_trav_name = get<1>(subpath_parse);
+        }
         if (ref_paths.count(path_trav_name) &&
             (ref_trav_name.empty() || path_trav_name < ref_trav_name)) {
             ref_trav_name = path_trav_name;
@@ -314,11 +375,20 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
     // remember all the reference traversals (there can be more than one only in the case of a
     // cycle in the reference path
     vector<int> ref_travs;
+    // hacky subpath support -- gets added to variant on output
+    vector<int64_t> ref_offsets;
     if (!ref_trav_name.empty()) {
         for (int i = 0; i < path_travs.first.size(); ++i) {
             string path_trav_name = graph->get_path_name(graph->get_path_handle_of_step(path_travs.second[i].first));
+            tuple<bool, string, size_t, size_t> subpath_parse = Paths::parse_subpath_name(path_trav_name);
+            int64_t sub_offset = 0;
+            if (get<0>(subpath_parse)) {
+                path_trav_name = get<1>(subpath_parse);
+                sub_offset = (int64_t)get<2>(subpath_parse);
+            }
             if (path_trav_name == ref_trav_name) {
                 ref_travs.push_back(i);
+                ref_offsets.push_back(sub_offset);
             }
         }
     }
@@ -326,6 +396,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
     // add in the gbwt traversals if we can
     size_t first_gbwt_trav_idx = path_travs.first.size();
     vector<gbwt::size_type> trav_thread_ids(first_gbwt_trav_idx, numeric_limits<gbwt::size_type>::max());
+    vector<int64_t> gbwt_trav_offsets;
     if (gbwt_trav_finder.get() != nullptr) {
         pair<vector<SnarlTraversal>, vector<gbwt::size_type>> thread_travs = gbwt_trav_finder->find_path_traversals(*snarl);
         for (int i = 0; i < thread_travs.first.size(); ++i) {
@@ -333,13 +404,16 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
             // we count on convention of reference as embedded path above, so ignore it here
             // todo: would be nice to be more flexible...
             if (gbwt_sample_name != gbwtgraph::REFERENCE_PATH_SAMPLE_NAME) {
-                string name = thread_name(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(thread_travs.second[i]));
+                string name = thread_name(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(thread_travs.second[i]), true);
+                
                 path_trav_names.push_back(name);
                 path_travs.first.push_back(thread_travs.first[i]);
                 // dummy handles so we can use the same code as the named path traversals above
                 path_travs.second.push_back(make_pair(step_handle_t(), step_handle_t()));
                 // but we keep the thread id for later
                 trav_thread_ids.push_back(thread_travs.second[i]);
+                // keep the offset (which is stored in the contig field)
+                gbwt_trav_offsets.push_back(thread_count(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(thread_travs.second[i])));
             }
         }
     }
@@ -347,17 +421,20 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
     // if there's no reference traversal, go fishing in the gbwt
     if (ref_travs.empty() && gbwt_trav_finder.get()) {
         int gbwt_ref_trav = -1;
+        int64_t gbwt_ref_offset = 0;
         for (int i = first_gbwt_trav_idx; i < path_travs.first.size(); ++i) {
             if (ref_paths.count(path_trav_names[i]) &&
                 (gbwt_ref_trav < 0 || path_trav_names[i] < path_trav_names[gbwt_ref_trav])) {
                 gbwt_ref_trav = i;
-            }
+                gbwt_ref_offset = gbwt_trav_offsets.at(i - first_gbwt_trav_idx);
+            } 
         }
         if (gbwt_ref_trav >= 0) {
             ref_travs.push_back(gbwt_ref_trav);
+            ref_offsets.push_back(gbwt_ref_offset);
             string& name = path_trav_names[gbwt_ref_trav];
-            assert(name.compare(0, 8, "_thread_") == 0);
-            ref_trav_name = name.substr(8);
+            assert(name.compare(0, 8, "_thread_") != 0);
+            ref_trav_name = name;
         }
     }
                                                           
@@ -410,7 +487,9 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
     }
 
     // we write a variant for every reference traversal
-    for (auto ref_trav_idx : ref_travs) {
+    for (size_t i = 0; i < ref_travs.size(); ++i) {
+        auto& ref_trav_idx = ref_travs[i];
+        auto& ref_trav_offset = ref_offsets[i];
 
         const SnarlTraversal& ref_trav = path_travs.first[ref_trav_idx];
         
@@ -458,7 +537,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         // shift from 0-based to 1-based for VCF
         first_path_pos += 1;
 
-        v.position = first_path_pos;
+        v.position = first_path_pos + ref_trav_offset;
 
         v.id = snarl_name(snarl);
         
@@ -587,6 +666,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         stream << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree (0=top level)\">" << endl;
         stream << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
     }
+    stream << "##INFO=<ID=AT,Number=A,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
     set<string> gbwt_ref_paths;
     for(auto& refpath : ref_paths) {
         if (graph->has_path(refpath)) {
@@ -601,13 +681,18 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         }       
     }
     if (!gbwt_ref_paths.empty()) {
-        unordered_map<string, gbwt::size_type> gbwt_name_to_id;
+        unordered_map<string, vector<gbwt::size_type>> gbwt_name_to_ids;
         for (size_t i = 0; i < gbwt->metadata.paths(); i++) {
-            gbwt_name_to_id[thread_name(*gbwt, i)] = i;
+            gbwt_name_to_ids[thread_name(*gbwt, i, true)].push_back(i);
         }
         for (const string& refpath : gbwt_ref_paths) {
-            gbwt::size_type thread_id = gbwt_name_to_id.at(refpath);
-            size_t path_len = path_to_length(extract_gbwt_path(*graph, *gbwt, thread_id));
+            vector<gbwt::size_type>& thread_ids = gbwt_name_to_ids.at(refpath);
+            size_t path_len = 0;
+            for (gbwt::size_type thread_id : thread_ids) {
+                size_t offset = thread_count(*gbwt, thread_id);
+                size_t len = path_to_length(extract_gbwt_path(*graph, *gbwt, thread_id));
+                path_len = std::max(path_len, offset + len);
+            }
             stream << "##contig=<ID=" << refpath << ",length=" << path_len << ">" << endl;
         }
     }

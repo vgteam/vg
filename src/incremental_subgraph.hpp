@@ -20,8 +20,7 @@ using namespace std;
 class IncrementalSubgraph : public ExpandingOverlayGraph {
 public:
     
-    /// Initialize as the reverse version of another graph, optionally also
-    /// complementing
+    /// Initialize
     IncrementalSubgraph(const HandleGraph& graph,
                         const pos_t& starting_position,
                         bool extract_left,
@@ -55,7 +54,7 @@ public:
     /// The minimum distance from the start position
     int64_t min_distance_from_start(const handle_t& handle) const;
     
-    /// The minimum distance from the start position
+    /// The maximum distance from the start position
     int64_t max_distance_from_start(const handle_t& handle) const;
     
     /// Are we doing extraction left or right?

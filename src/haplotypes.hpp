@@ -622,7 +622,7 @@ int64_t GBWTScoreProvider<GBWTType>::get_haplotype_count() const {
   
   // TODO: Does this haplotype count have the same expected-count-for-fixed-path semantics that we want?
   // Or does it count fragments of haplotypes?
-  return index.metadata.haplotype_count;
+  return index.metadata.haplotypes();
 }
 
 template<class GBWTType>
