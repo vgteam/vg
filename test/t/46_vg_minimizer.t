@@ -42,7 +42,7 @@ is $(md5sum x.mi | cut -f 1 -d\ ) 58b2bd98902df9acbe416bcfde649571 "construction
 
 # Construction from GBZ
 vg gbwt -x x.xg -g x.gbz --gbz-format x.gbwt
-vg minimizer -t 1 -Z -o x.mi x.gbz
+vg minimizer -t 1 -o x.mi x.gbz
 is $? 0 "construction from GBZ"
 is $(md5sum x.mi | cut -f 1 -d\ ) 58b2bd98902df9acbe416bcfde649571 "construction is deterministic"
 

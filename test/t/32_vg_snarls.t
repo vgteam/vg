@@ -65,7 +65,7 @@ rm -f xy.vg xy.snarls
 
 # Find trivial snarls from a GBZ
 vg gbwt -g graph.gbz --gbz-format -G graphs/components_walks.gfa
-vg snarls -T -Z graph.gbz > graph.snarls
+vg snarls -T graph.gbz > graph.snarls
 is $? 0 "GBZ graphs can be used for finding snarls"
 is $(vg view -R graph.snarls | wc -l) 5 "correct number of snarls in the GFA W-line example"
 
