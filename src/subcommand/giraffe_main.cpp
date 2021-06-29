@@ -311,7 +311,7 @@ std::string strip_suffixes(std::string filename, const std::vector<std::string>&
 void help_giraffe(char** argv) {
     cerr
     << "usage: " << argv[0] << " giraffe [options] [ref.fa [variants.vcf.gz]] > output.gam" << endl
-    << "Map unpaired reads using minimizers and gapless extension." << endl
+    << "Fast haplotype-aware short read mapper." << endl
     << endl
     << "basic options:" << endl
     << "  -Z, --gbz-name FILE           use this GBZ file (GBWT index + GBWTGraph)" << endl
@@ -360,7 +360,7 @@ void help_giraffe(char** argv) {
     << "  --rescue-subgraph-size FLOAT  search for rescued alignments FLOAT standard deviations greater than the mean [4.0]" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
-    << "  -t, --threads INT             number of compute threads to use" << endl;
+    << "  -t, --threads INT             number of mapping threads to use" << endl;
 }
 
 int main_giraffe(int argc, char** argv) {
