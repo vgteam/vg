@@ -1776,6 +1776,7 @@ int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent,
 //#ifdef debug_distances
 //            cerr << "            => " << node_record1.get_node_length() << endl;
 //#endif
+
                 return node_record1.get_node_length();
             } else {
 //#ifdef debug_distances
@@ -2035,8 +2036,11 @@ int64_t SnarlDistanceIndex::minimum_distance(pos_t pos1, pos_t pos2, bool unorie
         cerr << "   with distances to ends " << distance_to_start2 << " and " << distance_to_end2 << endl;
 #endif
     }
-    net1 = canonical(net1);
-    net2 = canonical(net2);
+    //TODO: I'm taking this out because it should really be start-end connected, but this
+    //won't do this if that traversal isn't possible. Really it should just be setting the 
+    //connectivity instead
+    //net1 = canonical(net1);
+    //net2 = canonical(net2);
 
 
     /* 
