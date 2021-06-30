@@ -421,20 +421,6 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
             //Also check if the reverse loop values would be improved if we went around again
             if (temp_chain_record.backward_loops.back() < temp_chain_record.backward_loops.front()) {
                 temp_chain_record.backward_loops[0] = temp_chain_record.backward_loops.back();
-                size_t nodei = 1;
-                for (int i = 2 ; i < temp_chain_record.children.size() ; i++) {
-                    auto& child = temp_chain_record.children.at(i);
-                    if (child.first == TEMP_SNARL){
-                        TemporarySnarlRecord& temp_snarl_record = temp_snarl_records.at(child.second);
-
-                        int64_t new_loop_distance = sum({temp_chain_record.backward_loops.at(nodei-1)  
-                                            , 2 * (temp_snarl_record.start_node_length + temp_snarl_record.min_length)});
-                        temp_chain_record.backward_loops[nodei] = std::min(temp_chain_record.backward_loops[nodei],
-                                                                               new_loop_distance);
-                                
-                        nodei++;
-                    }
-                }
             }
         }
 
