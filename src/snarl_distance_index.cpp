@@ -529,6 +529,34 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
         const pair<temp_record_t, size_t> start_index = std::move(all_children.back());
         all_children.pop_back();
 
+        //Check if this node is a tip
+        if ((start_index.first == TEMP_NODE 
+             && start_index.second != temp_snarl_record.start_node_id 
+             && start_index.second != temp_snarl_record.end_node_id) 
+            || 
+            (start_index.first == TEMP_CHAIN && temp_chain_records.at(start_index.second).is_trivial)) {
+            id_t node_id = start_index.first == TEMP_NODE ? start_index.second : temp_chain_records.at(start_index.second).start_node_id;
+            size_t rank = start_index.first == TEMP_NODE ? temp_node_records.at(start_index.second-min_node_id).rank_in_parent 
+                                                          : temp_chain_records.at(start_index.second).rank_in_parent;
+            
+            bool has_edges = false;
+            graph->follow_edges(graph->get_handle(node_id, false), false, [&](const handle_t next_handle) {
+                has_edges = true;
+            });
+            if (!has_edges) {
+                temp_node_records.at(node_id-min_node_id).is_tip = true;
+                temp_snarl_record.tippy_child_ranks.insert(rank);
+            }
+            has_edges = false;
+            graph->follow_edges(graph->get_handle(node_id, true), false, [&](const handle_t next_handle) {
+                has_edges = true;
+            });
+            if (!has_edges) {
+                temp_node_records.at(node_id-min_node_id).is_tip = true;
+                temp_snarl_record.tippy_child_ranks.insert(rank);
+            }
+        }
+
         bool start_is_tip = start_index.first == TEMP_NODE 
                       ? temp_node_records.at(start_index.second-min_node_id).is_tip 
                       : temp_chain_records.at(start_index.second).is_tip;
@@ -609,27 +637,28 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
                     //node to the next node (current_distance). If this handle isn't leaving the snarl,
                     //add the next nodes along with the distance to the end of the next node
                     auto& node_record = temp_node_records.at(graph->get_id(next_handle)-min_node_id);
-                    if (node_record.node_id == 0) {
-#ifdef debug_distance_indexing
-                        cerr << "Adding a tip " <<  graph->get_id(next_handle) << endl;
-#endif
-                        //If we haven't seen this node before, it means that it was a tip
-                        node_record.node_id = graph->get_id(next_handle);
-                        node_record.node_length = graph->get_length(next_handle);
-                        node_record.rank_in_parent = temp_snarl_record.node_count+2;
-                        node_record.reversed_in_parent = false;
-                        node_record.parent = snarl_index; 
-                        node_record.is_tip = true;
-
-                        //also update the parent
-                        temp_snarl_record.node_count ++;
-                        temp_snarl_record.is_trivial = false;
-                        temp_snarl_record.children.emplace_back(TEMP_NODE, graph->get_id(next_handle));
-                        temp_snarl_record.tippy_child_ranks.insert(node_record.rank_in_parent);
-
-                        //TODO: Is it bad to change the list as we're walking through it?
-                        all_children.emplace_back(TEMP_NODE, graph->get_id(next_handle)); 
-                    }
+//TODO: The snarl decomposition should find tips now
+//                    if (node_record.node_id == 0) {
+//#ifdef debug_distance_indexing
+//                        cerr << "Adding a tip " <<  graph->get_id(next_handle) << endl;
+//#endif
+//                        //If we haven't seen this node before, it means that it was a tip
+//                        node_record.node_id = graph->get_id(next_handle);
+//                        node_record.node_length = graph->get_length(next_handle);
+//                        node_record.rank_in_parent = temp_snarl_record.node_count+2;
+//                        node_record.reversed_in_parent = false;
+//                        node_record.parent = snarl_index; 
+//                        node_record.is_tip = true;
+//
+//                        //also update the parent
+//                        temp_snarl_record.node_count ++;
+//                        temp_snarl_record.is_trivial = false;
+//                        temp_snarl_record.children.emplace_back(TEMP_NODE, graph->get_id(next_handle));
+//                        temp_snarl_record.tippy_child_ranks.insert(node_record.rank_in_parent);
+//
+//                        //TODO: Is it bad to change the list as we're walking through it?
+//                        all_children.emplace_back(TEMP_NODE, graph->get_id(next_handle)); 
+//                    }
 
                     //The index of the snarl's child that next_handle represents
                     pair<temp_record_t, size_t> next_index = get_ancestor_of_node(make_pair(TEMP_NODE, graph->get_id(next_handle))); 
