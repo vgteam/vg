@@ -45,8 +45,11 @@ string wrap_text(const string& str, size_t width);
 bool is_number(const string& s);
 
 // split a string on any character found in the string of delimiters (delims)
-std::vector<std::string>& split_delims(const std::string &s, const std::string& delims, std::vector<std::string> &elems);
-std::vector<std::string> split_delims(const std::string &s, const std::string& delims);
+// if max_cuts specified, only split at the first <max_cuts> delimiter occurrences
+std::vector<std::string>& split_delims(const std::string &s, const std::string& delims, std::vector<std::string> &elems,
+                                       size_t max_cuts = numeric_limits<size_t>::max());
+std::vector<std::string> split_delims(const std::string &s, const std::string& delims,
+                                      size_t max_cuts = numeric_limits<size_t>::max());
 
 /// Check if a string starts with another string
 bool starts_with(const std::string& value, const std::string& prefix);

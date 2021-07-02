@@ -147,14 +147,16 @@ void choose_good_thread_count() {
     }
 }
 
-std::vector<std::string> &split_delims(const std::string &s, const std::string& delims, std::vector<std::string> &elems) {
+std::vector<std::string> &split_delims(const std::string &s, const std::string& delims, std::vector<std::string> &elems, size_t max_cuts) {
     size_t start = string::npos;
+    size_t cuts = 0;
     for (size_t i = 0; i < s.size(); ++i) {
-        if (delims.find(s[i]) != string::npos) {
+        if (delims.find(s[i]) != string::npos && cuts < max_cuts) {
             if (start != string::npos && i > start) {
                 elems.push_back(s.substr(start, i - start));
             }
             start = string::npos;
+            ++cuts;
         } else if (start == string::npos) {
             start = i;
         }
@@ -165,9 +167,9 @@ std::vector<std::string> &split_delims(const std::string &s, const std::string& 
     return elems;
 }
 
-std::vector<std::string> split_delims(const std::string &s, const std::string& delims) {
+std::vector<std::string> split_delims(const std::string &s, const std::string& delims, size_t max_cuts) {
     std::vector<std::string> elems;
-    return split_delims(s, delims, elems);
+    return split_delims(s, delims, elems, max_cuts);
 }
 
 bool starts_with(const std::string& value, const std::string& prefix) {

@@ -185,7 +185,7 @@ bool is_w_line(const PathHandleGraph* graph, const string& wline_sep,
 void write_w_line(const PathHandleGraph* graph, ostream& out, const string& wline_sep,
                   path_handle_t path_handle) {
     string path_name = graph->get_path_name(path_handle);
-    vector<string> toks = split_delims(path_name, wline_sep);
+    vector<string> toks = split_delims(path_name, wline_sep, 2);
     string& sample = toks[0];
     size_t hap_index = stol(toks[1]);
     auto subpath_parse = Paths::parse_subpath_name(toks[2]);
