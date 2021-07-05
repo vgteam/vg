@@ -341,7 +341,7 @@ As with `vg call`, it is best to compute snarls separately and pass them in with
 
 More information is available in the [wiki page on transcriptomics](https://github.com/vgteam/vg/wiki/Transcriptomic-analyses).
 
-Working from the `test/` directory the following example shows how to create a spliced pangenome graph including indexes using `vg autoindex` with 4 threads:
+Working from the `test/` directory the following example shows how to create a spliced pangenome graph and indexes using `vg autoindex` with 4 threads:
 
 <!-- !test check Autoindex for transcriptomic analysis -->
 ```sh
@@ -356,6 +356,8 @@ RNA-seq reads can be mapped to the spliced pangenome graph using `vg mpmap` with
 # Map simulated RNA-seq reads using vg mpmap
 vg mpmap -n rna -t 4 -x vg_rna.spliced.xg -g vg_rna.spliced.gcsa -d vg_rna.spliced.dist -f small/x_rna_1.fq -f small/x_rna_2.fq > mpmap.gamp
 ```
+
+This will produce alignments in the multipath format. For more information on the multipath alignment format and `vg mpmap` see [wiki page on mpmap](https://github.com/vgteam/vg/wiki/Multipath-alignments-and-vg-mpmap). Running the two commands on the small example data using 4 threads should on most machines take less than a minute.  
 
 ### Command line interface
 
