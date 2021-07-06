@@ -15,7 +15,8 @@ namespace algorithms {
 
 using namespace std;
 
-bool simplify_siblings(handlegraph::MutablePathDeletableHandleGraph* graph) {
+bool simplify_siblings(handlegraph::MutablePathDeletableHandleGraph* graph,
+                       function<bool(const handle_t&, const handle_t&)> can_merge) {
 
     // Each handle is part of a "family" of handles with the same parents on
     // the left side and the same leading base. We elide the trivial ones. We
@@ -127,9 +128,16 @@ bool simplify_siblings(handlegraph::MutablePathDeletableHandleGraph* graph) {
 #ifdef debug
                     cerr << "\tHas " << seen_parents << "/" << correct_parents.size() << " required parents" << endl;
 #endif
-                    
-                    if (!bad_parent && seen_parents == correct_parents.size()) {
-                        // If it has the correct parents, it is a member of the superfamily
+                    // If it has the correct parents, it is a member of the superfamily
+                    bool superfamily_check = !bad_parent && seen_parents == correct_parents.size();
+                    if (can_merge != nullptr) {
+                        // optional callback filter checks candidate against the super family
+                        for (auto super_it = superfamily.begin(); superfamily_check && super_it != superfamily.end(); ++super_it) {
+                            superfamily_check = can_merge(candidate, *super_it);
+                        }
+                    }
+                    if (superfamily_check) {
+                        // If it has the correct parents and passes the check callback, it is a member of the superfamily
                         superfamily.insert(candidate);
                         
 #ifdef debug
