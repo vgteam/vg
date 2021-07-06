@@ -128,7 +128,7 @@ var searchData=
   ['normal_5finverse_5fcdf_3202',['normal_inverse_cdf',['../namespacevg.html#adbaafa0c783156a34cb7e16ec2958c1f',1,'vg']]],
   ['normal_5fpdf_3203',['normal_pdf',['../namespacevg.html#a97e831d426c5d0eaed85a981adb0704a',1,'vg']]],
   ['normal_5fsupports_3204',['normal_supports',['../structvg_1_1BREAKPOINT.html#a08a0810aad3ba05efd04908b4911d57d',1,'vg::BREAKPOINT']]],
-  ['normalize_3205',['normalize',['../namespacevg_1_1algorithms.html#a871771c17515766ca57ffb98c65cf71a',1,'vg::algorithms']]],
+  ['normalize_3205',['normalize',['../namespacevg_1_1algorithms.html#afb6a93eb17739d744908d61ca6650f4c',1,'vg::algorithms']]],
   ['normalize_2ecpp_3206',['normalize.cpp',['../normalize_8cpp.html',1,'']]],
   ['normalize_2ehpp_3207',['normalize.hpp',['../normalize_8hpp.html',1,'']]],
   ['normalize_5falignment_3208',['normalize_alignment',['../namespacevg.html#afa0c54720b2b1007ae540dc70b5b8024',1,'vg']]],

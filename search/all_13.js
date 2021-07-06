@@ -215,7 +215,7 @@ var searchData=
   ['simplify_5ffiltered_5fedits_4368',['simplify_filtered_edits',['../namespacevg.html#ad6a42e8ba843cd728b9f84738756b30e',1,'vg']]],
   ['simplify_5fmain_2ecpp_4369',['simplify_main.cpp',['../simplify__main_8cpp.html',1,'']]],
   ['simplify_5fonce_4370',['simplify_once',['../classvg_1_1SmallSnarlSimplifier.html#afc5525b90ddf851ee7d43a6476acd99d',1,'vg::SmallSnarlSimplifier']]],
-  ['simplify_5fsiblings_4371',['simplify_siblings',['../namespacevg_1_1algorithms.html#a0302b4facee1b81b2bdbdc6a252a2051',1,'vg::algorithms']]],
+  ['simplify_5fsiblings_4371',['simplify_siblings',['../namespacevg_1_1algorithms.html#a9e4cebdfc1e901db4588c4612653df96',1,'vg::algorithms']]],
   ['simplify_5fsiblings_2ecpp_4372',['simplify_siblings.cpp',['../simplify__siblings_8cpp.html',1,'']]],
   ['simplify_5fsiblings_2ehpp_4373',['simplify_siblings.hpp',['../simplify__siblings_8hpp.html',1,'']]],
   ['simplify_5ftopologies_4374',['simplify_topologies',['../classvg_1_1MultipathMapper.html#a5f865a27bd34ffce2e2ea1d05fc02b43',1,'vg::MultipathMapper']]],

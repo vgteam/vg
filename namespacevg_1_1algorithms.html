@@ -231,8 +231,8 @@ Functions</h2></td></tr>
 <tr class="separator:a799b55d576410cb7e9f11dbf99f44b27"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a22d03c4f50c51d0d537811ba88895688"><td class="memItemLeft" align="right" valign="top">map&lt; <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a>, char &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a22d03c4f50c51d0d537811ba88895688">next_pos_chars</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> pos)</td></tr>
 <tr class="separator:a22d03c4f50c51d0d537811ba88895688"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a871771c17515766ca57ffb98c65cf71a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a871771c17515766ca57ffb98c65cf71a">normalize</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> *graph, int max_iter, bool debug)</td></tr>
-<tr class="separator:a871771c17515766ca57ffb98c65cf71a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afb6a93eb17739d744908d61ca6650f4c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#afb6a93eb17739d744908d61ca6650f4c">normalize</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> *graph, int max_iter, bool debug, function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; can_merge)</td></tr>
+<tr class="separator:afb6a93eb17739d744908d61ca6650f4c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae5ff6fdbf4ef393faf59f22365c46bbb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ae5ff6fdbf4ef393faf59f22365c46bbb">append_mapping_sequence</a> (const <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;m, const string &amp;node_seq, string &amp;seq)</td></tr>
 <tr class="memdesc:ae5ff6fdbf4ef393faf59f22365c46bbb"><td class="mdescLeft">&#160;</td><td class="mdescRight">use the given oriented node sequence and the mapping to reconstruct the sequence represented by the mapping  <a href="namespacevg_1_1algorithms.html#ae5ff6fdbf4ef393faf59f22365c46bbb">More...</a><br /></td></tr>
 <tr class="separator:ae5ff6fdbf4ef393faf59f22365c46bbb"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -262,8 +262,8 @@ Functions</h2></td></tr>
 <tr class="separator:acfe6f985e8bedbad1b33861c62379772"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a012fced2754c445ec404ff5420018982"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a012fced2754c445ec404ff5420018982">shortest_cycle_length</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
 <tr class="separator:a012fced2754c445ec404ff5420018982"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0302b4facee1b81b2bdbdc6a252a2051"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a0302b4facee1b81b2bdbdc6a252a2051">simplify_siblings</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> *graph)</td></tr>
-<tr class="separator:a0302b4facee1b81b2bdbdc6a252a2051"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9e4cebdfc1e901db4588c4612653df96"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a9e4cebdfc1e901db4588c4612653df96">simplify_siblings</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> *graph, function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; can_merge)</td></tr>
+<tr class="separator:a9e4cebdfc1e901db4588c4612653df96"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a64bd6b3ff0d2e22bf752e29e3522a98d"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a64bd6b3ff0d2e22bf752e29e3522a98d">sorted_id_ranges</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
 <tr class="memdesc:a64bd6b3ff0d2e22bf752e29e3522a98d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a sorted list of inclusive ranges of IDs used in the given HandleGraph.  <a href="namespacevg_1_1algorithms.html#a64bd6b3ff0d2e22bf752e29e3522a98d">More...</a><br /></td></tr>
 <tr class="separator:a64bd6b3ff0d2e22bf752e29e3522a98d"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2740,8 +2740,8 @@ template&lt;class DistHeuristic &gt; </div>
 
 </div>
 </div>
-<a id="a871771c17515766ca57ffb98c65cf71a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a871771c17515766ca57ffb98c65cf71a">&#9670;&nbsp;</a></span>normalize()</h2>
+<a id="afb6a93eb17739d744908d61ca6650f4c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afb6a93eb17739d744908d61ca6650f4c">&#9670;&nbsp;</a></span>normalize()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2762,7 +2762,13 @@ template&lt;class DistHeuristic &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>debug</em> = <code>false</code>&#160;</td>
+          <td class="paramname"><em>debug</em> = <code>false</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt;&#160;</td>
+          <td class="paramname"><em>can_merge</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -2771,7 +2777,8 @@ template&lt;class DistHeuristic &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Normalize a graph, performing up to the given number of iterations. Simplifies siblings and unchops runs of nodes, in a loop. </p>
+<p>Normalize a graph, performing up to the given number of iterations. Simplifies siblings and unchops runs of nodes, in a loop.</p>
+<p>if "can_merge" specified, it must return true in order for a pair of nodes to get merged </p>
 
 </div>
 </div>
@@ -3596,8 +3603,8 @@ template&lt;class DistHeuristic &gt; </div>
 
 </div>
 </div>
-<a id="a0302b4facee1b81b2bdbdc6a252a2051"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0302b4facee1b81b2bdbdc6a252a2051">&#9670;&nbsp;</a></span>simplify_siblings()</h2>
+<a id="a9e4cebdfc1e901db4588c4612653df96"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9e4cebdfc1e901db4588c4612653df96">&#9670;&nbsp;</a></span>simplify_siblings()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3606,15 +3613,26 @@ template&lt;class DistHeuristic &gt; </div>
           <td class="memname">bool vg::algorithms::simplify_siblings </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>graph</em></td><td>)</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt;&#160;</td>
+          <td class="paramname"><em>can_merge</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
 <p>Simplify siblings in the given graph.</p>
 <p>When one base has two successors with the same base value, and those successors have the same set of predecessors, the successors will be merged.</p>
 <p>Performs only a subset of the possible merges. Can only merge in from one side of a given node in a single invocation. Returns true if it made progress and there may be more merging to do.</p>
-<p>Preserves paths. </p>
+<p>Preserves paths.</p>
+<p>Optional can_merge callback will only let nodes get merged together if this pairwise check returns true. </p>
 
 </div>
 </div>

@@ -63,7 +63,7 @@ var searchData=
   ['normal_5fdistribution_8160',['normal_distribution',['../classvg_1_1normal__distribution.html#a7c7bb2c253ac80e0752fd2ba2f84ed56',1,'vg::normal_distribution']]],
   ['normal_5finverse_5fcdf_8161',['normal_inverse_cdf',['../namespacevg.html#adbaafa0c783156a34cb7e16ec2958c1f',1,'vg']]],
   ['normal_5fpdf_8162',['normal_pdf',['../namespacevg.html#a97e831d426c5d0eaed85a981adb0704a',1,'vg']]],
-  ['normalize_8163',['normalize',['../namespacevg_1_1algorithms.html#a871771c17515766ca57ffb98c65cf71a',1,'vg::algorithms']]],
+  ['normalize_8163',['normalize',['../namespacevg_1_1algorithms.html#afb6a93eb17739d744908d61ca6650f4c',1,'vg::algorithms']]],
   ['normalize_5falignment_8164',['normalize_alignment',['../namespacevg.html#afa0c54720b2b1007ae540dc70b5b8024',1,'vg']]],
   ['nth_5fcopy_5fof_5fhandle_8165',['nth_copy_of_handle',['../classvg_1_1DagifiedGraph.html#a716193b4f3dcecfd26de15acf83964b9',1,'vg::DagifiedGraph']]],
   ['nullclusterer_8166',['NullClusterer',['../classvg_1_1NullClusterer.html#a63ae2e8bfe748f6557df52cddf4b41e8',1,'vg::NullClusterer']]],
