@@ -328,7 +328,8 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
          * loop vectors here
          */
         size_t curr_component = 0; //which component of the chain are we in
-        for (const pair<temp_record_t, size_t>& chain_child_index : temp_chain_record.children){ 
+        for (size_t chain_child_i = 0 ; chain_child_i < temp_chain_record.children.size() ; chain_child_i++ ){ 
+            const pair<temp_record_t, size_t>& chain_child_index = temp_chain_record.children[chain_child_i];
             //Go through each of the children in the chain, skipping nodes 
             //The snarl may be trivial, in which case don't fill in the distances
 #ifdef debug_distance_indexing
@@ -379,6 +380,11 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
                 if (new_component) {
                     //If this snarl wasn't start-end connected, then we start tracking the distance vectors
                     //here
+
+                    //If this is the second component of the multicomponent chain, then remember the minimum length
+                    if (curr_component == 1) {
+                        temp_chain_record.min_length = temp_chain_record.prefix_sum.back();
+                    }
                     temp_chain_record.prefix_sum.emplace_back(0);
                     temp_chain_record.backward_loops.emplace_back(temp_snarl_record.loop_end);
                 } else {
@@ -389,6 +395,9 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
                         , 2 * (temp_snarl_record.start_node_length + temp_snarl_record.min_length)})));
                 }
                 temp_chain_record.chain_components.emplace_back(curr_component);
+                if (chain_child_i == temp_chain_record.children.size() - 2 && temp_snarl_record.min_length == std::numeric_limits<int64_t>::max()) {
+                    temp_chain_record.loopable = false;
+                }
             }
         } //Finished walking through chain
         if (temp_chain_record.start_node_id == temp_chain_record.end_node_id && temp_chain_record.chain_components.back() != 0) {
@@ -400,7 +409,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
 
         }
         temp_chain_record.min_length = !temp_chain_record.is_trivial && temp_chain_record.start_node_id == temp_chain_record.end_node_id 
-                        ? temp_chain_record.prefix_sum.back()
+                        ? sum({temp_chain_record.prefix_sum.back(), temp_chain_record.min_length})
                         : sum({temp_chain_record.prefix_sum.back() , temp_chain_record.end_node_length});
 
         assert(temp_chain_record.prefix_sum.size() == temp_chain_record.backward_loops.size());
@@ -848,6 +857,7 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
 
                     size_t chain_node_i = 0; //How far along the chain are we?
                     bool prev_node = false;//Was the previous thing in the chain a node?
+                    pair<size_t, bool> last_child_offset;
 
                     for (size_t child_record_index_i = 0 ; child_record_index_i < temp_chain_record.children.size() ; child_record_index_i++) {
                         const pair<temp_record_t, size_t>& child_record_index = temp_chain_record.children[child_record_index_i];
@@ -903,11 +913,8 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                                                                   temp_chain_record.forward_loops[chain_node_i],
                                                                   temp_chain_record.backward_loops[chain_node_i]);
                                 }
+                                last_child_offset = make_pair(node_record_constructor.NodeRecord::record_offset, false);
 
-                                if (child_record_index_i == temp_chain_record.children.size() - 1) {
-                                    //If this is the last node in the chain
-                                    chain_record_constructor.set_last_child_offset(node_record_constructor.NodeRecord::record_offset, false);
-                                }
 
 #ifdef debug_distance_indexing
                             cerr << "    The node record is at offset " << node_record_constructor.NodeRecord::record_offset << endl;
@@ -1026,10 +1033,7 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                                         chain_record_constructor.set_start_tip_connected();
                                     }
                                 }
-                                if (child_record_index_i == temp_chain_record.children.size() - 1) {
-                                    //If this is the last node in the chain
-                                    chain_record_constructor.set_last_child_offset(snarl_record_constructor.SnarlRecord::record_offset, true);
-                                }
+                                last_child_offset = make_pair(snarl_record_constructor.SnarlRecord::record_offset, true);
                             } else {
                                 //Add a trivial snarl
 #ifdef debug_distance_indexing
@@ -1041,6 +1045,9 @@ vector<size_t> SnarlDistanceIndex::get_snarl_tree_records(const vector<const Tem
                             prev_node = false;
                         }
                     }
+                    //Does the chain loop and is the last node connected to the rest of the chain through the last snarl
+                    bool last_node_connected = temp_chain_record.loopable && (temp_chain_record.start_node_id==temp_chain_record.end_node_id);
+                    chain_record_constructor.set_last_child_offset(last_child_offset.first, last_child_offset.second, last_node_connected);
                     //Finish the chain by adding two 0's
                     snarl_tree_records.emplace_back(0);
                     snarl_tree_records.emplace_back(0);
