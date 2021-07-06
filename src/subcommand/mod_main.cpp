@@ -39,6 +39,7 @@ void help_mod(char** argv) {
          << "                            and edges that do not introduce new paths are removed and neighboring" << endl
          << "                            nodes are merged)" << endl
          << "    -U, --until-normal N    iterate normalization until convergence, or at most N times" << endl
+         << "    -z, --nomerge-pre STR   do not let normalize (-n, -U) zip up any pair of nodes that both belong to path with prefix STR" << endl
          << "    -E, --unreverse-edges   flip doubly-reversing edges so that they are represented on the" << endl
          << "                            forward strand of the graph" << endl
          << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
@@ -113,6 +114,7 @@ int main_mod(int argc, char** argv) {
     string vcf_filename;
     string loci_filename;
     int max_degree = 0;
+    string nomerge_prefix;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -140,6 +142,7 @@ int main_mod(int argc, char** argv) {
             {"unchop", no_argument, 0, 'u'},
             {"normalize", no_argument, 0, 'n'},
             {"until-normal", required_argument, 0, 'U'},
+            {"nomerge-pre", required_argument, 0, 'z'},
             {"remove-non-path", no_argument, 0, 'N'},
             {"remove-path", no_argument, 0, 'A'},
             {"orient-forward", no_argument, 0, 'O'},
@@ -165,7 +168,7 @@ int main_mod(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNAf:Cg:x:RTU:Bbd:Ow:L:y:Z:Eav:G:M:Dr:I",
+        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunz:NAf:Cg:x:RTU:Bbd:Ow:L:y:Z:Eav:G:M:Dr:I",
                 long_options, &option_index);
 
 
@@ -276,6 +279,10 @@ int main_mod(int argc, char** argv) {
 
         case 'n':
             normalize_graph = true;
+            break;
+
+        case 'z':
+            nomerge_prefix = optarg;
             break;
 
         case 'N':
@@ -610,14 +617,33 @@ int main_mod(int argc, char** argv) {
         algorithms::simplify_siblings(graph.get()) && algorithms::simplify_siblings(graph.get());
     }
 
+    // check if a handle is contained within a path whose name has nomerge_prefix
+    function<bool(const handle_t&)> check_prefix = [&nomerge_prefix, &graph](const handle_t& handle) {
+        bool has_prefix = false;
+        graph->for_each_step_on_handle(handle, [&nomerge_prefix, &graph, &has_prefix](const step_handle_t& step_handle) {
+                string path_name = graph->get_path_name(graph->get_path_handle_of_step(step_handle));
+                if (path_name.compare(0, nomerge_prefix.length(), nomerge_prefix) == 0) {
+                    has_prefix = true;
+                }
+                return !has_prefix;
+            });
+        return has_prefix;
+    };
+    function<bool(const handle_t&, const handle_t&)> can_merge = nullptr;
+    if (!nomerge_prefix.empty()) {        
+        can_merge = [&nomerge_prefix, &graph, &check_prefix](const handle_t& h1, const handle_t& h2) {
+            return !check_prefix(h1) || !check_prefix(h2);
+        };
+    }
+    
     if (normalize_graph) {
-        algorithms::normalize(graph.get());
+        algorithms::normalize(graph.get(), 1, false, can_merge);
     }
 
     if (until_normal_iter) {
         // TODO: This doesn't work with vg::VG due to its paths needing re-syncing
         assert(vg_graph == nullptr);
-        algorithms::normalize(graph.get(), until_normal_iter, true);
+        algorithms::normalize(graph.get(), until_normal_iter, true, can_merge);
     }
 
     if (remove_non_path) {

@@ -22,8 +22,12 @@ using namespace std;
  * progress and there may be more merging to do.
  *
  * Preserves paths.
+ *
+ * Optional can_merge callback will only let nodes get merged together if 
+ * this pairwise check returns true. 
  */
-bool simplify_siblings(handlegraph::MutablePathDeletableHandleGraph* graph);
+bool simplify_siblings(handlegraph::MutablePathDeletableHandleGraph* graph,
+                       function<bool(const handle_t&, const handle_t&)> can_merge = nullptr);
     
 }
 }
