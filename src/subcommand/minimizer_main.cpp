@@ -61,8 +61,8 @@ void help_minimizer(char** argv) {
     std::cerr << "Minimizer options:" << std::endl;
     std::cerr << "    -k, --kmer-length N     length of the kmers in the index (default " << IndexingParameters::minimizer_k << ", max " << gbwtgraph::DefaultMinimizerIndex::key_type::KMER_MAX_LENGTH << ")" << std::endl;
     std::cerr << "    -w, --window-length N   choose the minimizer from a window of N kmers (default " << IndexingParameters::minimizer_w << ")" << std::endl;
-    std::cerr << "    -b, --bounded-syncmers  index bounded syncmers instead of minimizers" << std::endl;
-    std::cerr << "    -s, --smer-length N     use smers of length N in bounded syncmers (default " << IndexingParameters::minimizer_s << ")" << std::endl;
+    std::cerr << "    -c, --closed-syncmers   index closed syncmers instead of minimizers" << std::endl;
+    std::cerr << "    -s, --smer-length N     use smers of length N in closed syncmers (default " << IndexingParameters::minimizer_s << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Other options:" << std::endl;
     std::cerr << "    -d, --distance-index X  annotate the hits with positions in this distance index" << std::endl;
@@ -77,7 +77,7 @@ void help_minimizer(char** argv) {
 
 int main_minimizer(int argc, char** argv) {
 
-    if (argc <= 6) {
+    if (argc <= 5) {
         help_minimizer(argv);
         return 1;
     }
@@ -98,7 +98,8 @@ int main_minimizer(int argc, char** argv) {
             { "index-name", required_argument, 0, 'i' }, // deprecated
             { "kmer-length", required_argument, 0, 'k' },
             { "window-length", required_argument, 0, 'w' },
-            { "bounded-syncmers", no_argument, 0, 'b' },
+            { "bounded-syncmers", no_argument, 0, 'b' }, // deprecated
+            { "closed-syncmers", no_argument, 0, 'c' },
             { "smer-length", required_argument, 0, 's' },
             { "distance-index", required_argument, 0, 'd' },
             { "load-index", required_argument, 0, 'l' },
@@ -109,7 +110,7 @@ int main_minimizer(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "g:o:i:k:w:bs:d:l:Gpt:h", long_options, &option_index);
+        c = getopt_long(argc, argv, "g:o:i:k:w:bcs:d:l:Gpt:h", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -131,6 +132,10 @@ int main_minimizer(int argc, char** argv) {
             IndexingParameters::minimizer_w = parse<size_t>(optarg);
             break;
         case 'b':
+            std::cerr << "warning: [vg minimizer] --bounded-syncmers is deprecated, use --closed-syncmers instead" << std::endl;
+            use_syncmers = true;
+            break;
+        case 'c':
             use_syncmers = true;
             break;
         case 's':

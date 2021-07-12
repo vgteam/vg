@@ -25,7 +25,7 @@ is $? 0 "single-threaded construction"
 is $(md5sum x.mi | cut -f 1 -d\ ) 58b2bd98902df9acbe416bcfde649571 "construction is deterministic"
 
 # Indexing syncmers
-vg minimizer -t 1 -o x.mi -b -g x.gbwt x.xg
+vg minimizer -t 1 -o x.mi -c -g x.gbwt x.xg
 is $? 0 "syncmer index"
 is $(md5sum x.mi | cut -f 1 -d\ ) 111bb0658db34d88a3a075f269513a36 "construction is deterministic"
 
