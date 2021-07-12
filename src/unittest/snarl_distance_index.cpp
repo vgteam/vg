@@ -27,7 +27,7 @@ namespace vg {
     namespace unittest {
     
         TEST_CASE( "Build a snarl distance index for a graph with one node",
-                  "[snarl_distance][bug]" ) {
+                  "[snarl_distance]" ) {
         
         
             VG graph;
@@ -57,17 +57,11 @@ namespace vg {
                 net_handle_t chain_handle;
                 size_t root_child_count = 0;
                 distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
-                    REQUIRE(distance_index.is_chain(child));
+                    REQUIRE(distance_index.is_node(child));
                     chain_handle = child;
                     root_child_count++;
                 });
                 REQUIRE(root_child_count == 1);
-                size_t chain_child_count = 0;
-                distance_index.for_each_child(chain_handle, [&](const net_handle_t& child) {
-                    REQUIRE(distance_index.is_node(child));
-                    chain_child_count++;
-                });
-                REQUIRE(chain_child_count ==1);
 
             }
         }
@@ -3898,7 +3892,7 @@ namespace vg {
                          make_pos_t(11, true, 0), make_pos_t(4, false, 0)) == std::numeric_limits<int64_t>::max());
             }
         }
-        TEST_CASE( "Snarl distance index can deal with loops in a snarl", "[snarl_distance]" ) {
+        TEST_CASE( "Snarl distance index can deal with loops in a snarl", "[snarl_distance][bug]" ) {
             //THis actually makes a chain 4fd->2fd, 2fd->4fd that is disconnected
             VG graph;
         
@@ -4547,14 +4541,13 @@ namespace vg {
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index(&graph, &snarl_finder);
 
-            id_t node_id1 = 1; bool rev1 = false ; size_t offset1 = 111;
-            id_t node_id2 = 1; bool rev2 = false ; size_t offset2 = 167;
+            id_t node_id1 = 31; bool rev1 = true ; size_t offset1 = 0;
+            id_t node_id2 = 68; bool rev2 = true ; size_t offset2 = 0;
             pos_t pos1 = make_pos_t(node_id1, rev1, offset1);
             pos_t pos2 = make_pos_t(node_id2, rev2, offset2);
             handle_t handle1 = graph.get_handle(node_id1, rev1);
             handle_t handle2 = graph.get_handle(node_id2, rev2);
 
-            cerr << "find distance " << node_id1 << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
             //Find actual distance
             int64_t dijkstra_distance = std::numeric_limits<int64_t>::max();
             if (node_id1 == node_id2 && offset1 <= offset2 && rev1 == rev2) {
@@ -4564,7 +4557,6 @@ namespace vg {
                 //TODO: The way the dijkstra algorithm is set up, it won't return to the start node
             } else {
                 handlegraph::algorithms::dijkstra(&graph, handle1, [&](const handle_t& reached, size_t distance) {
-                    cerr << graph.get_id(reached) << (graph.get_is_reverse(reached) ? "rev" : "fd") << ": " << distance << endl;
                     if (reached == handle2) {
                         dijkstra_distance = distance;
                         dijkstra_distance += graph.get_length(graph.get_handle(node_id1)) - offset1;
@@ -4574,6 +4566,17 @@ namespace vg {
                     return true;
                 }
                 , false);
+
+                //handlegraph::algorithms::dijkstra(&graph, graph.get_handle(243, false), [&](const handle_t& reached, size_t distance) {
+                //    if (reached == graph.get_handle(261, false)) {
+                //        cerr << " Calculated distance: " << distance << endl;
+                //        return false;
+                //    }
+                //    return true;
+                //}
+                //, false);
+
+
                 REQUIRE(distance_index.minimum_distance(pos1, pos2, false, &graph) == dijkstra_distance);
             }
 
@@ -4582,15 +4585,15 @@ namespace vg {
         }
         
         TEST_CASE( "Distance index can traverse all the snarls in random graphs",
-                  "[snarl_distance][integrated-snarl-finder][random]" ) {
+                  "[snarl_distance_random]" ) {
         
             // Each actual graph takes a fairly long time to do so we randomize sizes...
             
             default_random_engine generator(std::chrono::system_clock::now().time_since_epoch().count());
             
-            for (size_t repeat = 0; repeat < 100; repeat++) {
+            for (size_t repeat = 0; repeat < 1000; repeat++) {
             
-                uniform_int_distribution<size_t> bases_dist(100, 500);
+                uniform_int_distribution<size_t> bases_dist(100, 1000);
                 size_t bases = bases_dist(generator);
                 uniform_int_distribution<size_t> variant_bases_dist(1, bases/20);
                 size_t variant_bases = variant_bases_dist(generator);
@@ -4604,11 +4607,18 @@ namespace vg {
                 VG graph;
                 random_graph(bases, variant_bases, variant_count, &graph);
                 IntegratedSnarlFinder finder(graph); 
-                cerr << "serializing graph" << endl;
-                graph.serialize_to_file("test_graph.vg");
                 SnarlDistanceIndex distance_index(&graph, &finder);
 
-                for (size_t repeat_positions = 0 ; repeat_positions < 100 ; repeat_positions++) {
+                //Make sure that the distance index found all the nodes
+                for (id_t id = graph.min_node_id() ; id <= graph.max_node_id() ; id++) {
+                    if (graph.has_node(id)) {
+                        handle_t handle = graph.get_handle(id);
+                        REQUIRE(graph.get_length(handle) == 
+                                distance_index.node_length(distance_index.get_net(handle, &graph)));
+                    }
+                }
+
+                for (size_t repeat_positions = 0 ; repeat_positions < 500 ; repeat_positions++) {
                     //Pick random pairs of positions and find the distance between them
                     id_t node_id1 = 0;
                     id_t node_id2 = 0;
@@ -4643,7 +4653,6 @@ namespace vg {
                     handle_t handle2 = graph.get_handle(node_id2, rev2);
 
 
-                            cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
                     //Find actual distance
                     int64_t dijkstra_distance = std::numeric_limits<int64_t>::max();
                     if (node_id1 == node_id2 && offset1 <= offset2 && rev1 == rev2) {
