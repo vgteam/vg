@@ -81,7 +81,6 @@ void help_index(char** argv) {
          << "snarl distance index options" << endl
          << "    -s  --snarl-name FILE  load snarls from FILE (snarls must include trivial snarls)" << endl
          << "    -j  --dist-name FILE   use this file to store a snarl-based distance index" << endl
-         << "        --gbz-format       the input graph is in GBZ format" << endl
          << "    -w  --max_dist N       cap beyond which the maximum distance is no longer accurate. If this is not included or is 0, don't build maximum distance index" << endl;
 }
 
@@ -101,7 +100,6 @@ int main_index(int argc, char** argv) {
     #define OPT_BUILD_VGI_INDEX  1000
     #define OPT_RENAME_VARIANTS  1001
     #define OPT_PATHS_AS_SAMPLES 1002
-    #define OPT_GBZ_FORMAT       1003
 
     // Which indexes to build.
     bool build_xg = false, build_gbwt = false, build_gcsa = false, build_dist = false;
@@ -136,7 +134,6 @@ int main_index(int argc, char** argv) {
     //Distance index
     int cap = -1;
     bool include_maximum = false;
-    bool gbz_format = false;
 
     // Include alt paths in xg
     bool xg_alts = false;
@@ -194,7 +191,6 @@ int main_index(int argc, char** argv) {
             //Snarl distance index
             {"snarl-name", required_argument, 0, 's'},
             {"dist-name", required_argument, 0, 'j'},
-            {"gbz-format", no_argument, 0, OPT_GBZ_FORMAT},
             {"max-dist", required_argument, 0, 'w'},
             {0, 0, 0, 0}
         };
@@ -382,9 +378,6 @@ int main_index(int argc, char** argv) {
         case 'j':
             build_dist = true;
             dist_name = optarg;
-            break;
-        case OPT_GBZ_FORMAT:
-            gbz_format = true;
             break;
         case 'w':
             build_dist = true;
@@ -735,21 +728,29 @@ int main_index(int argc, char** argv) {
                 // Save the completed DistanceIndex
                 vg::io::VPKG::save(di, dist_name);
 
-            } else if (gbz_format) {
-                // We have a GBZ graph
-                auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(file_names.at(0));
-                MinimumDistanceIndex di(&(gbz->graph), snarl_manager);
-                vg::io::VPKG::save(di, dist_name);
             } else {
-                // We were given a graph generically
-                auto graph = vg::io::VPKG::load_one<handlegraph::HandleGraph>(file_names.at(0));
-    
-                // Create the MinimumDistanceIndex
-                MinimumDistanceIndex di(graph.get(), snarl_manager);
-                vg::io::VPKG::save(di, dist_name);
+                // May be GBZ or a HandleGraph.
+                auto options = vg::io::VPKG::try_load_first<gbwtgraph::GBZ, handlegraph::HandleGraph>(file_names.at(0));
+                
+                if (get<0>(options)) {
+                    // We have a GBZ graph
+                    auto& gbz = get<0>(options);
+                    
+                    // Create the MinimumDistanceIndex
+                    MinimumDistanceIndex di(&(gbz->graph), snarl_manager);
+                    vg::io::VPKG::save(di, dist_name);
+                } else if (get<1>(options)) {
+                    // We were given a graph generically
+                    auto& graph = get<1>(options);
+                    
+                    // Create the MinimumDistanceIndex
+                    MinimumDistanceIndex di(graph.get(), snarl_manager);
+                    vg::io::VPKG::save(di, dist_name);
+                } else {
+                    cerr << "error: [vg index] input is not a graph or GBZ" << endl;
+                    return 1;
+                }
             }
-          
-            
         }
 
     }
