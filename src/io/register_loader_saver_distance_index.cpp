@@ -16,7 +16,10 @@ using namespace std;
 using namespace vg::io;
 
 void register_loader_saver_distance_index() {
-    Registry::register_bare_loader_saver<MinimumDistanceIndex>("DISTANCE", [](istream& input) -> void* {
+    // The distance index header is just a text string. We need to make sure
+    // this looks like a bare distance index file if we are going to load it
+    // without type-tagged message deserialization.
+    Registry::register_bare_loader_saver_with_magic<MinimumDistanceIndex>("DISTANCE", "distance index", [](istream& input) -> void* {
         // Allocate an index and hand it the stream
         MinimumDistanceIndex* index = new MinimumDistanceIndex(input);
         

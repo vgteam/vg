@@ -5,23 +5,31 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 22
+plan tests 24
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
-vg index -x x.xg -G x.gbwt -v small/x.vcf.gz x.vg
+vg index -x x.xg x.vg
+vg gbwt -x x.vg -o x.gbwt -a -v small/x.vcf.gz
 vg snarls --include-trivial x.vg > x.snarls
 vg index -s x.snarls -j x.dist x.vg
 vg minimizer -k 29 -w 11 -g x.gbwt -o x.min x.xg
 
 vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
-is "${?}" "0" "a read can be mapped with all indexes specified without crashing"
+is "${?}" "0" "a read can be mapped with xg + gbwt + min + dist specified without crashing"
+
+vg giraffe -Z x.giraffe.gbz -m x.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
+is "${?}" "0" "a read can be mapped with gbz + min + dist specified without crashing"
+
+rm -f x.giraffe.gbz
+vg gbwt -x x.xg -g x.gg x.gbwt
+vg giraffe -g x.gg -H x.gbwt -m x.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
+is "${?}" "0" "a read can be mapped with gg + gbwt + min + dist specified without crashing"
 
 rm -f x.min
-
-vg giraffe -x x.xg -H x.gbwt -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
+vg giraffe -Z x.giraffe.gbz -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with the minimizer index being regenerated"
 
-vg giraffe -x x.xg -f reads/small.middle.ref.fq > mapped1.gam
+vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with the indexes being inferred by name"
 
 vg minimizer -k 29 -b -s 18 -g x.gbwt -o x.sync x.xg
@@ -30,6 +38,8 @@ vg giraffe -x x.xg -H x.gbwt -m x.sync -d x.dist -f reads/small.middle.ref.fq > 
 is "${?}" "0" "a read can be mapped with syncmer indexes without crashing"
 
 rm -f x.vg x.xg x.gbwt x.snarls x.min x.sync x.dist x.gg
+rm -f x.giraffe.gbz
+
 
 cp small/x.fa .
 cp small/x.vcf.gz .
@@ -81,7 +91,9 @@ is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l)" "2" "s
 is "$(cat surjected.sam | grep -v '^@' | cut -f 7)" "$(printf '*\n*')" "surjection of unpaired reads to SAM produces absent partner contigs"
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 2)" "$(printf '0\n16')" "surjection of unpaired reads to SAM produces correct flags"
 
-rm -f x.vg x.gbwt x.gg x.snarls x.min x.dist x.gg x.fa x.fa.fai x.vcf.gz x.vcf.gz.tbi single.gam paired.gam surjected.sam
+rm -f x.vg x.gbwt x.xg x.snarls x.min x.dist x.gg x.fa x.fa.fai x.vcf.gz x.vcf.gz.tbi single.gam paired.gam surjected.sam
+rm -f x.giraffe.gbz
+
 
 cp small/xy.fa .
 cp small/xy.vcf.gz .
@@ -95,5 +107,6 @@ is "${?}" "0" "surjecting with a sequence dictionary in non-sorted order produce
 diff surjected-xy.dict small/xy.dict
 is "${?}" "0" "surjecting with a sequence dictionary in sorted order produces headers in sorted order"
 
-rm -f xy.vg xy.gbwt xy.gg xy.snarls xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi surjected-yx.dict surjected-xy.dict
+rm -f xy.vg xy.gbwt xy.xg xy.snarls xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi surjected-yx.dict surjected-xy.dict
+rm -f xy.giraffe.gbz
 

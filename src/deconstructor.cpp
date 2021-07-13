@@ -29,10 +29,10 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
 
     assert(ref_path_idx >=0 && ref_path_idx < travs.size());
 
-    // map strings to allele numbers
+    // map strings to allele numbers (and their traversal)
     // (we are using the traversal finder in such a way that duplicate alleles can get returned
     // in order to be able to preserve the path names)
-    map<string, int> allele_idx;
+    map<string, pair<int, int>> allele_idx;
     size_t cur_alt = 1;
 
     // go from traversals number (offset in travs) to allele number
@@ -52,7 +52,7 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
 
     // set the reference allele
     string ref_allele = trav_to_string(travs.at(ref_path_idx));
-    allele_idx[ref_allele] = 0;
+    allele_idx[ref_allele] = make_pair(0, ref_path_idx);
     trav_to_allele[ref_path_idx] = 0;
     bool substitution = true;
         
@@ -63,13 +63,13 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
             auto ai_it = allele_idx.find(allele);
             if (ai_it == allele_idx.end()) {
                 // make a new allele for this string
-                allele_idx[allele] = cur_alt;
+                allele_idx[allele] = make_pair(cur_alt, i);
                 trav_to_allele.at(i) = cur_alt;
                 ++cur_alt;
                 substitution = substitution && allele.size() == ref_allele.size();
             } else {
                 // allele string has been seen, map this traversal to it
-                trav_to_allele.at(i) = ai_it->second;
+                trav_to_allele.at(i) = ai_it->second.first;
             }
         }
     }
@@ -79,20 +79,28 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
     assert(allele_idx.size() > 0);
     v.alt.resize(allele_idx.size() - 1);
 
+    // init the traversal info
+    v.info["AT"].resize(allele_idx.size());
+
     for (auto ai_pair : allele_idx) {
         string allele_string = ai_pair.first;
+        int allele_no = ai_pair.second.first;
+        int allele_trav_no = ai_pair.second.second;
         if (!use_start) {
             reverse_complement_in_place(allele_string);
         }
         if (!substitution) {
             allele_string = string(1, prev_char) + allele_string;
         }
-        v.alleles[ai_pair.second] = allele_string;
-        if (ai_pair.second > 0) {
-            v.alt[ai_pair.second - 1] = allele_string;
+        v.alleles[allele_no] = allele_string;
+        if (allele_no > 0) {
+            v.alt[allele_no - 1] = allele_string;
         } else {
             v.ref = allele_string;
         }
+
+        // update the traversal info
+        add_allele_path_to_info(v, allele_no, travs[allele_trav_no], !use_start, !substitution); 
     }
 
     // shift our variant back if it's an indel
@@ -104,6 +112,50 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
     v.updateAlleleIndexes();
 
     return trav_to_allele;
+}
+
+void Deconstructor::add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav,
+                                            bool reversed, bool one_based) {
+    auto& trav_info = v.info["AT"];
+    assert(allele < trav_info.size());
+
+    vector<int> nodes;
+    nodes.reserve(trav.visit_size());
+    const Visit* prev_visit = nullptr;
+    unordered_map<nid_t, pair<nid_t, size_t>>::const_iterator prev_trans;
+    
+    for (size_t i = 0; i < trav.visit_size(); ++i) {
+        size_t j = !reversed ? i : trav.visit_size() - 1 - i;
+        const Visit& visit = trav.visit(j);
+        nid_t node_id = visit.node_id();
+        bool skip = false;
+        // todo: check one_based? (we kind of ignore that when writing the snarl name, so maybe not pertienent)
+        if (translation) {
+            auto i = translation->find(node_id);
+            if (i == translation->end()) {
+                throw runtime_error("Error [vg deconstruct]: Unable to find node " + std::to_string(node_id) + " in translation file");
+            }
+            if (prev_visit) {
+                nid_t prev_node_id = prev_visit->node_id();
+                if (prev_trans->second.first == i->second.first && node_id != prev_node_id) {
+                    // here is a case where we have two consecutive nodes that map back to
+                    // the same source node.
+                    // todo: sanity check! (could verify if translation node properly covered)
+                    skip = true;
+                }
+            }
+            node_id = i->second.first;
+            prev_trans = i;
+        }
+
+        if (!skip) {
+            bool vrev = visit.backward() != reversed;
+            trav_info[allele] += (vrev ? "<" : ">");
+            trav_info[allele] += std::to_string(node_id);
+        }
+        prev_visit = &visit;
+    }
+    
 }
 
 void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& names,
@@ -553,22 +605,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
     sample_names.clear();
-    graph->for_each_path_handle([&](const path_handle_t& path_handle) {
-            string path_name = graph->get_path_name(path_handle);
-            if (!this->ref_paths.count(path_name)) {
-                // rely on the given map.  if a path isn't in it, it'll be ignored
-                if (path_to_sample) {
-                    if (path_to_sample->count(path_name)) {
-                        sample_names.insert(path_to_sample->find(path_name)->second);
-                    }
-                    // if we have the map, we only consider paths there-in
-                }
-                else {
-                    // no name mapping, just use every path as is
-                    sample_names.insert(path_name);
-                }
-            }
-        });
+    // prefer the GBWT sample names
     if (gbwt) {
         // add in sample names from the gbwt
         for (size_t i = 0; i < gbwt->metadata.paths(); i++) {
@@ -586,6 +623,23 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                 }
             }
         }
+    } else {
+        graph->for_each_path_handle([&](const path_handle_t& path_handle) {
+            string path_name = graph->get_path_name(path_handle);
+            if (!this->ref_paths.count(path_name)) {
+                // rely on the given map.  if a path isn't in it, it'll be ignored
+                if (path_to_sample) {
+                    if (path_to_sample->count(path_name)) {
+                        sample_names.insert(path_to_sample->find(path_name)->second);
+                    }
+                    // if we have the map, we only consider paths there-in
+                }
+                else {
+                    // no name mapping, just use every path as is
+                    sample_names.insert(path_name);
+                }
+            }
+        });
     }
     
     // print the VCF header
@@ -614,6 +668,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         stream << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree (0=top level)\">" << endl;
         stream << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
     }
+    stream << "##INFO=<ID=AT,Number=A,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
     set<string> gbwt_ref_paths;
     for(auto& refpath : ref_paths) {
         if (graph->has_path(refpath)) {

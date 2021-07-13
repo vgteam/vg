@@ -203,12 +203,14 @@ void GBWTHandler::use_dynamic() {
 
 void GBWTHandler::use(gbwt::GBWT& new_index) {
     this->clear();
+    this->unbacked();
     this->compressed.swap(new_index);
     this->in_use = index_compressed;
 }
 
 void GBWTHandler::use(gbwt::DynamicGBWT& new_index) {
     this->clear();
+    this->unbacked();
     this->dynamic.swap(new_index);
     this->in_use = index_dynamic;
 }

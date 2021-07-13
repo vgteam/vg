@@ -24,6 +24,7 @@
 #include <gbwt/variants.h>
 #include <gbwtgraph/index.h>
 #include <gbwtgraph/gbwtgraph.h>
+#include <gbwtgraph/gbz.h>
 #include <gbwtgraph/path_cover.h>
 #include <vg/io/vpkg.hpp>
 #include <gcsa/gcsa.h>
@@ -99,6 +100,7 @@ int IndexingParameters::minimizer_w = 11;
 int IndexingParameters::minimizer_s = 18;
 int IndexingParameters::path_cover_depth = gbwtgraph::PATH_COVER_DEFAULT_N;
 int IndexingParameters::giraffe_gbwt_downsample = gbwtgraph::LOCAL_HAPLOTYPES_DEFAULT_N;
+int IndexingParameters::downsample_threshold = 3;
 int IndexingParameters::downsample_context_length = gbwtgraph::PATH_COVER_DEFAULT_K;
 double IndexingParameters::max_memory_proportion = 0.75;
 double IndexingParameters::thread_chunk_inflation_factor = 2.0;
@@ -378,6 +380,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("Spliced Distance Index", "spliced.dist");
     
     registry.register_index("GBWTGraph", "gg");
+    registry.register_index("Giraffe GBZ", "giraffe.gbz");
     
     registry.register_index("Minimizers", "min");
     
@@ -2416,21 +2419,42 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         ifstream infile_xg, infile_gbwt;
         init_in(infile_xg, xg_filename);
         init_in(infile_gbwt, gbwt_filename);
-        
+
         auto output_name = plan->output_filepath(sampled_gbwt_output);
         ofstream outfile_sampled_gbwt;
         init_out(outfile_sampled_gbwt, output_name);
         
         auto xg_index = vg::io::VPKG::load_one<xg::XG>(infile_xg);
         auto gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(infile_gbwt);
-        
-        // compute a downsampled local haplotype cover (with path cover over missing components)
-        gbwt::GBWT cover = gbwtgraph::local_haplotypes(*xg_index, *gbwt_index,
-                                                       IndexingParameters::giraffe_gbwt_downsample,
-                                                       IndexingParameters::downsample_context_length,
-                                                       200 * gbwt::MILLION, // buffer size
-                                                       IndexingParameters::gbwt_sampling_interval,
-                                                       IndexingParameters::verbosity >= IndexingParameters::Debug);
+
+        // Downsample only if it would reduce the number of haplotypes sufficiently.
+        size_t threshold = IndexingParameters::giraffe_gbwt_downsample * IndexingParameters::downsample_threshold;
+        bool downsample = (gbwt_index->hasMetadata() && gbwt_index->metadata.haplotypes() >= threshold);
+
+        gbwt::GBWT cover;
+        if (downsample) {
+            // Downsample the haplotypes and generate a path cover of components without haplotypes.
+            cover = gbwtgraph::local_haplotypes(*xg_index, *gbwt_index,
+                                                IndexingParameters::giraffe_gbwt_downsample,
+                                                IndexingParameters::downsample_context_length,
+                                                200 * gbwt::MILLION, // buffer size
+                                                IndexingParameters::gbwt_sampling_interval,
+                                                IndexingParameters::verbosity >= IndexingParameters::Debug);
+        } else {
+            // Augment the GBWT with a path cover of components without haplotypes.
+            if (IndexingParameters::verbosity != IndexingParameters::None) {
+                cerr << "[IndexRegistry]: Not enough haplotypes; augmenting the full GBWT instead." << endl;
+            }
+            gbwt::DynamicGBWT dynamic_index(*gbwt_index);
+            gbwt_index.reset();
+            gbwtgraph::augment_gbwt(*xg_index, dynamic_index,
+                                    IndexingParameters::path_cover_depth,
+                                    IndexingParameters::downsample_context_length,
+                                    200 * gbwt::MILLION, // buffer size
+                                    IndexingParameters::gbwt_sampling_interval,
+                                    IndexingParameters::verbosity >= IndexingParameters::Debug);
+            cover = gbwt::GBWT(dynamic_index);
+        }
         
         save_gbwt(cover, output_name);
         output_names.push_back(output_name);
@@ -3184,16 +3208,49 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     
     ////////////////////////////////////
-    // GBWTGraph Recipes
+    // GBZ Recipes
     ////////////////////////////////////
-    
-    registry.register_recipe({"GBWTGraph"}, {"Giraffe GBWT", "XG"},
+
+    registry.register_recipe({"Giraffe GBZ"}, {"GBWTGraph", "Giraffe GBWT"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing GBWTGraph." << endl;
+            cerr << "[IndexRegistry]: Combining Giraffe GBWT and GBWTGraph into GBZ." << endl;
+        }
+
+        assert(inputs.size() == 2);
+        auto gbwt_filenames = inputs[1]->get_filenames();
+        auto gg_filenames = inputs[0]->get_filenames();
+        assert(gbwt_filenames.size() == 1);
+        assert(gg_filenames.size() == 1);
+        auto gbwt_filename = gbwt_filenames.front();
+        auto gg_filename = gg_filenames.front();
+
+        assert(constructing.size() == 1);
+        vector<vector<string>> all_outputs(constructing.size());
+        auto gbz_output = *constructing.begin();
+        auto& output_names = all_outputs[0];
+
+        gbwtgraph::GBZ gbz;
+        load_gbz(gbz, gbwt_filename, gg_filename);
+
+        string output_name = plan->output_filepath(gbz_output);
+        save_gbz(gbz, output_name);
+
+        output_names.push_back(output_name);
+        return all_outputs;
+    });
+
+    // This used to be a GBWTGraph recipe, but we don't want to produce GBWTGraphs anymore.
+    registry.register_recipe({"Giraffe GBZ"}, {"Giraffe GBWT", "XG"},
+                             [&](const vector<const IndexFile*>& inputs,
+                                 const IndexingPlan* plan,
+                                 AliasGraph& alias_graph,
+                                 const IndexGroup& constructing) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            cerr << "[IndexRegistry]: Constructing GBZ." << endl;
         }
         
         assert(inputs.size() == 2);
@@ -3206,33 +3263,32 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         assert(constructing.size() == 1);
         vector<vector<string>> all_outputs(constructing.size());
-        auto gbwtgraph_output = *constructing.begin();
+        auto gbz_output = *constructing.begin();
         auto& output_names = all_outputs[0];
         
-        ifstream infile_gbwt, infile_xg;
-        init_in(infile_gbwt, gbwt_filename);
+        ifstream infile_xg;
         init_in(infile_xg, xg_filename);
-        string output_name = plan->output_filepath(gbwtgraph_output);
-        ofstream outfile;
-        init_out(outfile, output_name);
-        
-        auto gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(infile_gbwt);
         auto xg_index = vg::io::VPKG::load_one<xg::XG>(infile_xg);
-        
+
+        gbwtgraph::GBZ gbz;
+        load_gbwt(gbz.index, gbwt_filename);
         // TODO: could add simplification to replace XG index with a gbwt::SequenceSource here
-        gbwtgraph::GBWTGraph ggraph(*gbwt_index, *xg_index);
-        
-        save_gbwtgraph(ggraph, output_name);
-        
+        gbz.graph = gbwtgraph::GBWTGraph(gbz.index, *xg_index);
+
+        string output_name = plan->output_filepath(gbz_output);
+        save_gbz(gbz, output_name);
+
         output_names.push_back(output_name);
         return all_outputs;
     });
-        
+
     ////////////////////////////////////
     // Minimizers Recipes
     ////////////////////////////////////
-    
-    registry.register_recipe({"Minimizers"}, {"Distance Index", "GBWTGraph", "Giraffe GBWT"},
+
+    // FIXME We may not always want to store the minimizer index. Rebuilding the index may be
+    // faster than loading it from a network drive.
+    registry.register_recipe({"Minimizers"}, {"Distance Index", "Giraffe GBZ"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -3243,34 +3299,26 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         // TODO: should the distance index input be a joint simplification to avoid serializing it?
         
-        assert(inputs.size() == 3);
+        assert(inputs.size() == 2);
         auto dist_filenames = inputs[0]->get_filenames();
-        auto ggraph_filenames = inputs[1]->get_filenames();
-        auto gbwt_filenames = inputs[2]->get_filenames();
+        auto gbz_filenames = inputs[1]->get_filenames();
         assert(dist_filenames.size() == 1);
-        assert(gbwt_filenames.size() == 1);
-        assert(ggraph_filenames.size() == 1);
+        assert(gbz_filenames.size() == 1);
         auto dist_filename = dist_filenames.front();
-        auto gbwt_filename = gbwt_filenames.front();
-        auto ggraph_filename = ggraph_filenames.front();
+        auto gbz_filename = gbz_filenames.front();
                 
         assert(constructing.size() == 1);
         vector<vector<string>> all_outputs(constructing.size());
         auto minimizer_output = *constructing.begin();
         auto& output_names = all_outputs[0];
         
-        ifstream infile_gbwt, infile_ggraph, infile_dist;
+        ifstream infile_dist;
         init_in(infile_dist, dist_filename);
-        init_in(infile_gbwt, gbwt_filename);
-        init_in(infile_ggraph, ggraph_filename);
-        string output_name = plan->output_filepath(minimizer_output);
-        ofstream outfile;
-        init_out(outfile, output_name);
-                
-        auto gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(infile_gbwt);
-        auto ggraph_index = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(infile_ggraph);
-        ggraph_index->set_gbwt(*gbwt_index);
         auto dist_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(infile_dist);
+
+        ifstream infile_gbz;
+        init_in(infile_gbz, gbz_filename);
+        auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(infile_gbz);
                 
         gbwtgraph::DefaultMinimizerIndex minimizers(IndexingParameters::minimizer_k,
                                                     IndexingParameters::use_bounded_syncmers ?
@@ -3278,10 +3326,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                         IndexingParameters::minimizer_w,
                                                     IndexingParameters::use_bounded_syncmers);
                 
-        gbwtgraph::index_haplotypes(*ggraph_index, minimizers, [&](const pos_t& pos) -> gbwtgraph::payload_type {
+        gbwtgraph::index_haplotypes(gbz->graph, minimizers, [&](const pos_t& pos) -> gbwtgraph::payload_type {
             return MIPayload::encode(dist_index->get_minimizer_distances(pos));
         });
         
+        string output_name = plan->output_filepath(minimizer_output);
         save_minimizer(minimizers, output_name);
         
         output_names.push_back(output_name);
@@ -3314,8 +3363,7 @@ vector<IndexName> VGIndexes::get_default_mpmap_indexes() {
 
 vector<IndexName> VGIndexes::get_default_giraffe_indexes() {
     vector<IndexName> indexes{
-        "Giraffe GBWT",
-        "GBWTGraph",
+        "Giraffe GBZ",
         "Distance Index",
         "Minimizers"
     };
