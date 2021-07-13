@@ -1,0 +1,106 @@
+{
+  "edge": [
+    {
+      "from": 1,
+      "to": 2
+    },
+    {
+      "from": 1,
+      "to": 3
+    },
+    {
+      "from": 2,
+      "to": 44
+    },
+    {
+      "from": 44,
+      "to": 5
+    },
+    {
+      "from": 5,
+      "to": 34
+    },
+    {
+      "from": 5,
+      "to": 7
+    },
+    {
+      "from": 7,
+      "to": 77
+    },
+    {
+      "from": 77,
+      "to": 33
+    },
+    {
+      "from": 34,
+      "to": 33
+    },
+    {
+      "from": 33,
+      "to": 9
+    },
+    {
+      "from": 3,
+      "to": 10
+    },
+    {
+      "from": 10,
+      "to": 9
+    },
+    {
+      "from": 9,
+      "to": 99
+    }
+  ],
+  "node": [
+    {
+      "sequence": "AAAAAAAAAAAAAAAAAAAAAAA",
+      "id": 1
+    },
+    {
+      "sequence": "T",
+      "id": 2
+    },
+    {
+      "sequence": "C",
+      "id": 3
+    },
+    {
+      "sequence": "A",
+      "id": 44
+    },
+    {
+      "sequence": "T",
+      "id": 5
+    },
+    {
+      "sequence": "C",
+      "id": 34
+    },
+    {
+      "sequence": "A",
+      "id": 7
+    },
+    {
+      "sequence": "A",
+      "id": 77
+    },
+    {
+      "sequence": "T",
+      "id": 33
+    },
+    {
+      "sequence": "CCCCCCCCCCCCCCCCCCCCCCCC",
+      "id": 9
+    },
+    {
+      "sequence": "CCCCCCCCCCCCCCCCCCCCCCCC",
+      "id": 99
+    },
+    {
+      "sequence": "C",
+      "id": 10
+    }
+  ]
+}
