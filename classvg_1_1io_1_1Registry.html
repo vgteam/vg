@@ -410,7 +410,7 @@ template&lt;typename Handled , typename... Bases&gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Register a load function for loading the given types from non-type-tagged-message "bare" streams witht he given possibly empty prefix, which is retained in the stream data. </p>
+<p>Register a load function for loading the given types from demultiplexed streams. If a header sniffing function is provided, the function will also be used on the whole input stream if it matches the function, skipping demultiplexing of type-tagged messages. </p>
 
 </div>
 </div>
@@ -455,7 +455,8 @@ template&lt;typename Handled , typename... Bases&gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Register a loading function and a saving function with the given tag for the given object type and list of base classes. The functions operate on bare streams; conversion to type-tagged messages of chunks of stream data is performed automatically. The load function will also be registered to load from non-type-tagged-message-format files, when trying to load the actual handled type, for backward compatibility. </p>
+<p>Register a loading function and a saving function with the given tag for the given object type and list of base classes. The functions operate on bare streams; conversion to type-tagged messages of chunks of stream data is performed automatically.</p>
+<p>Because, without a magic value or header check function, we can't reject type-tagged message files, loaders registered with this function won't actually be used when a non-type-tagged file is loaded. See <a class="el" href="classvg_1_1io_1_1Registry.html#ad3f16de5d24cb503429d358e2af8c831">register_bare_loader_saver_with_magic()</a>, or use <a class="el" href="classvg_1_1io_1_1Registry.html#a873d317a5ec04d5af5223008310043df">register_bare_loader_saver_with_header_check()</a> with an always true check function if you do not need to load type-tagged messages. </p>
 
 </div>
 </div>
@@ -506,8 +507,7 @@ template&lt;typename Handled , typename... Bases&gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Generealization of register_bare_loader_saver_with_magic, where user can supply their own header-checking function. <br  />
- </p>
+<p>Generealization of register_bare_loader_saver_with_magic, where user can supply their own header-checking function. Check function must peek/get/unget and may not seek/tell. </p>
 
 </div>
 </div>
@@ -558,7 +558,7 @@ template&lt;typename Handled , typename... Bases&gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Like <a class="el" href="classvg_1_1io_1_1Registry.html#aab501bb8db46d45e8b1946da37f0b382">register_bare_loader_saver()</a>, except that additionally the function will be used when attempting to load any of the base classes when the file begins with the specified magic bytes. </p>
+<p>Like <a class="el" href="classvg_1_1io_1_1Registry.html#aab501bb8db46d45e8b1946da37f0b382">register_bare_loader_saver()</a>, except that additionally the function will be used when attempting to load any of the base classes when the file begins with the specified magic bytes. Type-tagged files with the given tag that do not match the magic will be decoded into a stream and loaded with the loader. </p>
 
 </div>
 </div>
@@ -609,7 +609,7 @@ template&lt;typename Handled , typename... Bases&gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Like <a class="el" href="classvg_1_1io_1_1Registry.html#aab501bb8db46d45e8b1946da37f0b382">register_bare_loader_saver()</a>, except that additionally the function will be used when attempting to load any of the base classes when the file begins with any of the the specified magic byte sequences. </p>
+<p>Like <a class="el" href="classvg_1_1io_1_1Registry.html#ad3f16de5d24cb503429d358e2af8c831">register_bare_loader_saver_with_magic()</a>, except that multiple magic values are supported. </p>
 
 </div>
 </div>

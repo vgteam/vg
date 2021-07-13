@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['output_5fformat_5ft_10964',['output_format_t',['../classvg_1_1MultipathAlignmentEmitter.html#a9a078e9c7bfe62603e8f359b62519b0b',1,'vg::MultipathAlignmentEmitter']]]
+  ['path_5fcover_5fmode_10959',['path_cover_mode',['../structGBWTConfig.html#a6607b41ac0d4eaad9b9ec03e4513a8e1',1,'GBWTConfig']]],
+  ['pruningmode_10960',['PruningMode',['../prune__main_8cpp.html#a2c77251411bc109287b491299718e248',1,'prune_main.cpp']]]
 ];

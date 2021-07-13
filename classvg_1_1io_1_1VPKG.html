@@ -68,7 +68,6 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#pub-static-methods">Static Public Member Functions</a> &#124;
-<a href="#pri-types">Private Types</a> &#124;
 <a href="#pri-static-methods">Static Private Member Functions</a> &#124;
 <a href="classvg_1_1io_1_1VPKG-members.html">List of all members</a>  </div>
   <div class="headertitle">
@@ -80,12 +79,12 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
-<tr class="memitem:a0d7fe746690a2ffa7ff234fbd4c9a678"><td class="memTemplParams" colspan="2">template&lt;typename... Wanted&gt; </td></tr>
-<tr class="memitem:a0d7fe746690a2ffa7ff234fbd4c9a678"><td class="memTemplItemLeft" align="right" valign="top">static tuple&lt; unique_ptr&lt; Wanted &gt;... &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a0d7fe746690a2ffa7ff234fbd4c9a678">load_all</a> (istream &amp;in)</td></tr>
-<tr class="separator:a0d7fe746690a2ffa7ff234fbd4c9a678"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae85c3a51f8b8ca2383f064e1c280d26a"><td class="memTemplParams" colspan="2">template&lt;typename... Wanted&gt; </td></tr>
-<tr class="memitem:ae85c3a51f8b8ca2383f064e1c280d26a"><td class="memTemplItemLeft" align="right" valign="top">static tuple&lt; unique_ptr&lt; Wanted &gt;... &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#ae85c3a51f8b8ca2383f064e1c280d26a">load_all</a> (const string &amp;filename)</td></tr>
-<tr class="separator:ae85c3a51f8b8ca2383f064e1c280d26a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a58ed1c37748fed4b15d4e611659ce4c3"><td class="memTemplParams" colspan="2">template&lt;typename... Wanted&gt; </td></tr>
+<tr class="memitem:a58ed1c37748fed4b15d4e611659ce4c3"><td class="memTemplItemLeft" align="right" valign="top">static tuple&lt; unique_ptr&lt; Wanted &gt;... &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a58ed1c37748fed4b15d4e611659ce4c3">try_load_first</a> (istream &amp;in, const string &amp;filename=&quot;&quot;)</td></tr>
+<tr class="separator:a58ed1c37748fed4b15d4e611659ce4c3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a504e965a2a019ce27267ea85c106a91b"><td class="memTemplParams" colspan="2">template&lt;typename... Wanted&gt; </td></tr>
+<tr class="memitem:a504e965a2a019ce27267ea85c106a91b"><td class="memTemplItemLeft" align="right" valign="top">static tuple&lt; unique_ptr&lt; Wanted &gt;... &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a504e965a2a019ce27267ea85c106a91b">try_load_first</a> (const string &amp;filename)</td></tr>
+<tr class="separator:a504e965a2a019ce27267ea85c106a91b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0d7f96d4dd7fe5b1fe47b330ca617623"><td class="memTemplParams" colspan="2">template&lt;typename Wanted &gt; </td></tr>
 <tr class="memitem:a0d7f96d4dd7fe5b1fe47b330ca617623"><td class="memTemplItemLeft" align="right" valign="top">static unique_ptr&lt; Wanted &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a0d7f96d4dd7fe5b1fe47b330ca617623">try_load_one</a> (istream &amp;in, const string &amp;filename=&quot;&quot;)</td></tr>
 <tr class="separator:a0d7f96d4dd7fe5b1fe47b330ca617623"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -107,70 +106,41 @@ Static Public Member Functions</h2></td></tr>
 <tr class="memitem:a030910ec652e742dbf98a845b95943a5"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a030910ec652e742dbf98a845b95943a5">with_save_stream</a> (ostream &amp;to, const string &amp;tag, const function&lt; void(ostream &amp;)&gt; &amp;use_stream)</td></tr>
 <tr class="separator:a030910ec652e742dbf98a845b95943a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-types"></a>
-Private Types</h2></td></tr>
-<tr class="memitem:a8628083f85511abc137b64c80985160f"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a8628083f85511abc137b64c80985160f">LoadProgress</a> { <a class="el" href="classvg_1_1io_1_1VPKG.html#a8628083f85511abc137b64c80985160fa0144ac24be607b318784e8f649a5e805">LOAD_SUCCESS</a>, 
-<a class="el" href="classvg_1_1io_1_1VPKG.html#a8628083f85511abc137b64c80985160fa22aed2fd5642203df3615d8022475963">LOAD_FINISHED</a>, 
-<a class="el" href="classvg_1_1io_1_1VPKG.html#a8628083f85511abc137b64c80985160fa13a501190b9ad99796a37541966ba2df">LOAD_SEARCHING</a>
- }</td></tr>
-<tr class="separator:a8628083f85511abc137b64c80985160f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-static-methods"></a>
 Static Private Member Functions</h2></td></tr>
-<tr class="memitem:a4f8777ceafb9a052440bdd39b3b6627d"><td class="memTemplParams" colspan="2">template&lt;typename... TupleTypes&gt; </td></tr>
-<tr class="memitem:a4f8777ceafb9a052440bdd39b3b6627d"><td class="memTemplItemLeft" align="right" valign="top">static tuple&lt; unique_ptr&lt; TupleTypes &gt;... &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a4f8777ceafb9a052440bdd39b3b6627d">to_tuple</a> (deque&lt; void * &gt; items)</td></tr>
-<tr class="separator:a4f8777ceafb9a052440bdd39b3b6627d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a135d941f26807344cf3925a81b5f03b0"><td class="memTemplParams" colspan="2">template&lt;typename Pointed &gt; </td></tr>
-<tr class="memitem:a135d941f26807344cf3925a81b5f03b0"><td class="memTemplItemLeft" align="right" valign="top">static unique_ptr&lt; Pointed &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a135d941f26807344cf3925a81b5f03b0">extract_first</a> (deque&lt; void * &gt; &amp;pointers)</td></tr>
-<tr class="separator:a135d941f26807344cf3925a81b5f03b0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2202bb1eac89a28b2986be4e874807b8"><td class="memTemplParams" colspan="2">template&lt;typename One &gt; </td></tr>
-<tr class="memitem:a2202bb1eac89a28b2986be4e874807b8"><td class="memTemplItemLeft" align="right" valign="top">static <a class="el" href="classvg_1_1io_1_1VPKG.html#a8628083f85511abc137b64c80985160f">LoadProgress</a>&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a2202bb1eac89a28b2986be4e874807b8">load_into_one</a> (<a class="el" href="classvg_1_1io_1_1MessageIterator.html">MessageIterator</a> &amp;it, size_t i, deque&lt; void * &gt; &amp;dest)</td></tr>
-<tr class="separator:a2202bb1eac89a28b2986be4e874807b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acfc929254f523522f369c4a17c8f0941"><td class="memTemplParams" colspan="2">template&lt;typename FirstPriority , typename SecondPriority , typename... Rest&gt; </td></tr>
+<tr class="memitem:acfc929254f523522f369c4a17c8f0941"><td class="memTemplItemLeft" align="right" valign="top">static tuple&lt; unique_ptr&lt; FirstPriority &gt;, unique_ptr&lt; SecondPriority &gt;, unique_ptr&lt; Rest &gt;... &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#acfc929254f523522f369c4a17c8f0941">try_load_first_bare</a> (istream &amp;in, const string &amp;filename, bool &amp;found)</td></tr>
+<tr class="separator:acfc929254f523522f369c4a17c8f0941"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2707edbb6b28a6623ea8ae11e607c861"><td class="memTemplParams" colspan="2">template&lt;typename Only &gt; </td></tr>
+<tr class="memitem:a2707edbb6b28a6623ea8ae11e607c861"><td class="memTemplItemLeft" align="right" valign="top">static tuple&lt; unique_ptr&lt; Only &gt; &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a2707edbb6b28a6623ea8ae11e607c861">try_load_first_bare</a> (istream &amp;in, const string &amp;filename, bool &amp;found)</td></tr>
+<tr class="separator:a2707edbb6b28a6623ea8ae11e607c861"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a12f9922d4b17194d248dc3f19a449f60"><td class="memTemplParams" colspan="2">template&lt;typename FirstPriority , typename SecondPriority , typename... Rest&gt; </td></tr>
+<tr class="memitem:a12f9922d4b17194d248dc3f19a449f60"><td class="memTemplItemLeft" align="right" valign="top">static tuple&lt; unique_ptr&lt; FirstPriority &gt;, unique_ptr&lt; SecondPriority &gt;, unique_ptr&lt; Rest &gt;... &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a12f9922d4b17194d248dc3f19a449f60">try_load_first_encapsulated</a> (<a class="el" href="classvg_1_1io_1_1MessageIterator.html">MessageIterator</a> &amp;it, bool &amp;found)</td></tr>
+<tr class="separator:a12f9922d4b17194d248dc3f19a449f60"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a186f277ebf475632f1b4d1eac4c48139"><td class="memTemplParams" colspan="2">template&lt;typename Only &gt; </td></tr>
+<tr class="memitem:a186f277ebf475632f1b4d1eac4c48139"><td class="memTemplItemLeft" align="right" valign="top">static tuple&lt; unique_ptr&lt; Only &gt; &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a186f277ebf475632f1b4d1eac4c48139">try_load_first_encapsulated</a> (<a class="el" href="classvg_1_1io_1_1MessageIterator.html">MessageIterator</a> &amp;it, bool &amp;found)</td></tr>
+<tr class="separator:a186f277ebf475632f1b4d1eac4c48139"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad5d2bad9c95479a3f1520c5fadcba1b2"><td class="memTemplParams" colspan="2">template&lt;typename Wanted &gt; </td></tr>
+<tr class="memitem:ad5d2bad9c95479a3f1520c5fadcba1b2"><td class="memTemplItemLeft" align="right" valign="top">static unique_ptr&lt; Wanted &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#ad5d2bad9c95479a3f1520c5fadcba1b2">try_load_bare</a> (istream &amp;in, const string &amp;filename=&quot;&quot;)</td></tr>
+<tr class="separator:ad5d2bad9c95479a3f1520c5fadcba1b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a695e5a53bfbc9a5b36c5ea2306f253db"><td class="memTemplParams" colspan="2">template&lt;typename Wanted &gt; </td></tr>
+<tr class="memitem:a695e5a53bfbc9a5b36c5ea2306f253db"><td class="memTemplItemLeft" align="right" valign="top">static unique_ptr&lt; Wanted &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a695e5a53bfbc9a5b36c5ea2306f253db">try_load_encapsulated</a> (istream &amp;in)</td></tr>
+<tr class="separator:a695e5a53bfbc9a5b36c5ea2306f253db"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a860f50291f4b5a6be232e5312eb884ab"><td class="memTemplParams" colspan="2">template&lt;typename Wanted &gt; </td></tr>
+<tr class="memitem:a860f50291f4b5a6be232e5312eb884ab"><td class="memTemplItemLeft" align="right" valign="top">static unique_ptr&lt; Wanted &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a860f50291f4b5a6be232e5312eb884ab">try_load_encapsulated</a> (<a class="el" href="classvg_1_1io_1_1MessageIterator.html">MessageIterator</a> &amp;it)</td></tr>
+<tr class="separator:a860f50291f4b5a6be232e5312eb884ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0bcbb5a28413d3599a642cd5f22d93be"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a0bcbb5a28413d3599a642cd5f22d93be">with_putback</a> (istream &amp;in, const function&lt; void(istream &amp;)&gt; &amp;callback)</td></tr>
+<tr class="separator:a0bcbb5a28413d3599a642cd5f22d93be"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af08bb9c650bfbbf15521ca1a215d0939"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:af08bb9c650bfbbf15521ca1a215d0939"><td class="memTemplItemLeft" align="right" valign="top">static string&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#af08bb9c650bfbbf15521ca1a215d0939">describe</a> ()</td></tr>
 <tr class="separator:af08bb9c650bfbbf15521ca1a215d0939"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2e0142d06cb046ec1173a371f6e91a11"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:a2e0142d06cb046ec1173a371f6e91a11"><td class="memTemplItemLeft" align="right" valign="top">static std::enable_if&lt; std::is_default_constructible&lt; T &gt;::value, unique_ptr&lt; T &gt; &gt;::type&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a2e0142d06cb046ec1173a371f6e91a11">make_default_or_null</a> ()</td></tr>
-<tr class="separator:a2e0142d06cb046ec1173a371f6e91a11"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a843dc5afd6bef8eab9a11e5c6291fd54"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:a843dc5afd6bef8eab9a11e5c6291fd54"><td class="memTemplItemLeft" align="right" valign="top">static std::enable_if&lt;!std::is_default_constructible&lt; T &gt;::value, unique_ptr&lt; T &gt; &gt;::type&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a843dc5afd6bef8eab9a11e5c6291fd54">make_default_or_null</a> ()</td></tr>
-<tr class="separator:a843dc5afd6bef8eab9a11e5c6291fd54"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Interface for reading/writing type-tagged files.</p>
-<p>Allows you to load a HandleGraph from a file with the implementation being auto-selected based on what is in the file.</p>
-<p>Allows you to load multiple indexes or objects from the same file, as they are found.</p>
-<p>Allows saving multiple indexes or objects to a file with one call. </p>
-</div><h2 class="groupheader">Member Enumeration Documentation</h2>
-<a id="a8628083f85511abc137b64c80985160f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8628083f85511abc137b64c80985160f">&#9670;&nbsp;</a></span>LoadProgress</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">enum <a class="el" href="classvg_1_1io_1_1VPKG.html#a8628083f85511abc137b64c80985160f">vg::io::VPKG::LoadProgress</a></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Return type to represent whether the loader is making progress. Lets us know when we have loaded items vs. when nobody has anything to load so we can skip unwanted sections. </p>
-<table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a8628083f85511abc137b64c80985160fa0144ac24be607b318784e8f649a5e805"></a>LOAD_SUCCESS&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a8628083f85511abc137b64c80985160fa22aed2fd5642203df3615d8022475963"></a>LOAD_FINISHED&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a8628083f85511abc137b64c80985160fa13a501190b9ad99796a37541966ba2df"></a>LOAD_SEARCHING&#160;</td><td class="fielddoc"></td></tr>
-</table>
-
-</div>
-</div>
-<h2 class="groupheader">Member Function Documentation</h2>
+<div class="textblock"><p>Interface for reading/writing files.</p>
+<p>Originally designed for Protobuf-based type-tagged files with optional BGZIP compression.</p>
+<p>Now mostly used for files identified by prefixes or sniffing functions.</p>
+<p>Allows you to load e.g. a HandleGraph from a file with the implementation being auto-selected based on what is in the file. </p>
+</div><h2 class="groupheader">Member Function Documentation</h2>
 <a id="af08bb9c650bfbbf15521ca1a215d0939"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#af08bb9c650bfbbf15521ca1a215d0939">&#9670;&nbsp;</a></span>describe()</h2>
 
@@ -196,139 +166,6 @@ template&lt;typename T &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Return a string to represent the given type. Should be demangled and human-readable. </p>
-
-</div>
-</div>
-<a id="a135d941f26807344cf3925a81b5f03b0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a135d941f26807344cf3925a81b5f03b0">&#9670;&nbsp;</a></span>extract_first()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename Pointed &gt; </div>
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static unique_ptr&lt;Pointed&gt; vg::io::VPKG::extract_first </td>
-          <td>(</td>
-          <td class="paramtype">deque&lt; void * &gt; &amp;&#160;</td>
-          <td class="paramname"><em>pointers</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Pop off the first item in the given collection and wrap it in a typed unique_ptr. </p>
-
-</div>
-</div>
-<a id="ae85c3a51f8b8ca2383f064e1c280d26a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae85c3a51f8b8ca2383f064e1c280d26a">&#9670;&nbsp;</a></span>load_all() <span class="overload">[1/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename... Wanted&gt; </div>
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static tuple&lt;unique_ptr&lt;Wanted&gt;...&gt; vg::io::VPKG::load_all </td>
-          <td>(</td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>filename</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Allocate and load one or more objects from the given file on a single pass. Returns a tuple of pointers to loaded objects, or null if they could not be found. Only works on VPKG-formatted files. Supports "-" for standard input. </p>
-
-</div>
-</div>
-<a id="a0d7fe746690a2ffa7ff234fbd4c9a678"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0d7fe746690a2ffa7ff234fbd4c9a678">&#9670;&nbsp;</a></span>load_all() <span class="overload">[2/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename... Wanted&gt; </div>
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static tuple&lt;unique_ptr&lt;Wanted&gt;...&gt; vg::io::VPKG::load_all </td>
-          <td>(</td>
-          <td class="paramtype">istream &amp;&#160;</td>
-          <td class="paramname"><em>in</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Allocate and load one or more objects from the given stream on a single pass. Returns a tuple of pointers to loaded objects, or null if they could not be found. Only works on VPKG-formatted files. TODO: Probably ought to fail if something isn't found! </p>
-
-</div>
-</div>
-<a id="a2202bb1eac89a28b2986be4e874807b8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2202bb1eac89a28b2986be4e874807b8">&#9670;&nbsp;</a></span>load_into_one()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename One &gt; </div>
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static <a class="el" href="classvg_1_1io_1_1VPKG.html#a8628083f85511abc137b64c80985160f">LoadProgress</a> vg::io::VPKG::load_into_one </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1io_1_1MessageIterator.html">MessageIterator</a> &amp;&#160;</td>
-          <td class="paramname"><em>it</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>i</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">deque&lt; void * &gt; &amp;&#160;</td>
-          <td class="paramname"><em>dest</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>If the null slot at index i in the given collection of void*s can be filled with an object of type One from the given <a class="el" href="classvg_1_1io_1_1MessageIterator.html">MessageIterator</a>, fill it.</p>
-<p>Returns LOAD_SUCCESS if it finds and loads something, LOAD_FINISHED if it is filled in or hits EOF, and LOAD_SEARCHING if it is still unfilled but can't be loaded from the current tag. </p>
 
 </div>
 </div>
@@ -398,64 +235,6 @@ template&lt;typename Wanted &gt; </div>
 </div><div class="memdoc">
 <p>Load an object of the given type from a stream. The stream may be <a class="el" href="classvg_1_1io_1_1VPKG.html">VPKG</a> with the appropriate tag, or a bare non-VPKG stream understood by the loader. Tagged messages that can't be used to load the thing we are looking for are skipped. Ends the program with an error if the object could not be found in the stream.</p>
 <p>May consume trailing data from the stream. </p>
-
-</div>
-</div>
-<a id="a2e0142d06cb046ec1173a371f6e91a11"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2e0142d06cb046ec1173a371f6e91a11">&#9670;&nbsp;</a></span>make_default_or_null() <span class="overload">[1/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename T &gt; </div>
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static std::enable_if&lt;std::is_default_constructible&lt;T&gt;::value, unique_ptr&lt;T&gt; &gt;::type vg::io::VPKG::make_default_or_null </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Return a new default-constructed instance of the given type, or a null pointer if it is not default constructible.</p>
-<p>This version matches default-consttructable types. </p>
-
-</div>
-</div>
-<a id="a843dc5afd6bef8eab9a11e5c6291fd54"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a843dc5afd6bef8eab9a11e5c6291fd54">&#9670;&nbsp;</a></span>make_default_or_null() <span class="overload">[2/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename T &gt; </div>
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static std::enable_if&lt;!std::is_default_constructible&lt;T&gt;::value, unique_ptr&lt;T&gt; &gt;::type vg::io::VPKG::make_default_or_null </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Return a new default-constructed instance of the given type, or a null pointer if it is not default constructible.</p>
-<p>This version matches non-default-consttructable types. </p>
 
 </div>
 </div>
@@ -536,22 +315,62 @@ template&lt;typename Have &gt; </div>
 
 </div>
 </div>
-<a id="a4f8777ceafb9a052440bdd39b3b6627d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4f8777ceafb9a052440bdd39b3b6627d">&#9670;&nbsp;</a></span>to_tuple()</h2>
+<a id="ad5d2bad9c95479a3f1520c5fadcba1b2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad5d2bad9c95479a3f1520c5fadcba1b2">&#9670;&nbsp;</a></span>try_load_bare()</h2>
 
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;typename... TupleTypes&gt; </div>
+template&lt;typename Wanted &gt; </div>
 <table class="mlabels">
   <tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">static tuple&lt;unique_ptr&lt;TupleTypes&gt;...&gt; vg::io::VPKG::to_tuple </td>
+          <td class="memname">static unique_ptr&lt;Wanted&gt; vg::io::VPKG::try_load_bare </td>
           <td>(</td>
-          <td class="paramtype">deque&lt; void * &gt;&#160;</td>
-          <td class="paramname"><em>items</em></td><td>)</td>
+          <td class="paramtype">istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em> = <code>&quot;&quot;</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Load an object of the given type from a stream. The stream has to be a bare non-VPKG stream understood by the loader. Returns the loaded object, or null if no loader liked the input.</p>
+<p>filename is optional, and can be used by callback code that may, for some reason, want to link the stream back to a path (cough cough GFA loader cough cough). </p>
+
+</div>
+</div>
+<a id="a695e5a53bfbc9a5b36c5ea2306f253db"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a695e5a53bfbc9a5b36c5ea2306f253db">&#9670;&nbsp;</a></span>try_load_encapsulated() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Wanted &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">static unique_ptr&lt;Wanted&gt; vg::io::VPKG::try_load_encapsulated </td>
+          <td>(</td>
+          <td class="paramtype">istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
@@ -561,7 +380,276 @@ template&lt;typename... TupleTypes&gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Given a collection of void pointers, give ownership of the objects they point to, if any, to unique_ptrs in a tuple. </p>
+<p>Load an object of the given type from a stream. The stream has to be a <a class="el" href="classvg_1_1io_1_1VPKG.html">VPKG</a> type-tagged message stream. Returns the loaded object, or null if the messages have incompatible type tags. If the messages have incompatible tags, some may be consumed from the stream. Throws an exception if the input is not a <a class="el" href="classvg_1_1io_1_1VPKG.html">VPKG</a> type-tagged message stream. </p>
+
+</div>
+</div>
+<a id="a860f50291f4b5a6be232e5312eb884ab"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a860f50291f4b5a6be232e5312eb884ab">&#9670;&nbsp;</a></span>try_load_encapsulated() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Wanted &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">static unique_ptr&lt;Wanted&gt; vg::io::VPKG::try_load_encapsulated </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1io_1_1MessageIterator.html">MessageIterator</a> &amp;&#160;</td>
+          <td class="paramname"><em>it</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Load an object of the given type from an iterator of type-tagged messages. Returns the loaded object, or null if the messages have incompatible type tags. If the messages have incompatible tags, the iterator will not be advanced. </p>
+
+</div>
+</div>
+<a id="a504e965a2a019ce27267ea85c106a91b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a504e965a2a019ce27267ea85c106a91b">&#9670;&nbsp;</a></span>try_load_first() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename... Wanted&gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">static tuple&lt;unique_ptr&lt;Wanted&gt;...&gt; vg::io::VPKG::try_load_first </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Allocate and load the first available type from the given stream. Returns a tuple where at most one item is filled, and that item is the first type we could successfully load out of the template parameters.</p>
+<p>If any type is to be loaded from type-tagged messages, it must come first, or its type-tagged messages may be skipped when looking for higher-priority types. </p>
+
+</div>
+</div>
+<a id="a58ed1c37748fed4b15d4e611659ce4c3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a58ed1c37748fed4b15d4e611659ce4c3">&#9670;&nbsp;</a></span>try_load_first() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename... Wanted&gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">static tuple&lt;unique_ptr&lt;Wanted&gt;...&gt; vg::io::VPKG::try_load_first </td>
+          <td>(</td>
+          <td class="paramtype">istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em> = <code>&quot;&quot;</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Allocate and load an available type from the given stream. Returns a tuple where at most one item is filled, and that item is the first type we could successfully load out of the template parameters, except that bare loaders are prioritized over encapsulated ones.</p>
+<p>filename is optional, and can be used by callback code that may, for some reason, want to link the stream back to a path (cough cough GFA loader cough cough) </p>
+
+</div>
+</div>
+<a id="acfc929254f523522f369c4a17c8f0941"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acfc929254f523522f369c4a17c8f0941">&#9670;&nbsp;</a></span>try_load_first_bare() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename FirstPriority , typename SecondPriority , typename... Rest&gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">static tuple&lt;unique_ptr&lt;FirstPriority&gt;, unique_ptr&lt;SecondPriority&gt;, unique_ptr&lt;Rest&gt;...&gt; vg::io::VPKG::try_load_first_bare </td>
+          <td>(</td>
+          <td class="paramtype">istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool &amp;&#160;</td>
+          <td class="paramname"><em>found</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Allocate and load the first available type from the given stream, using a bare loader. Returns a tuple where at most one item is filled, and that item is the first type we could successfully load out of the template parameters. Sets found to true if anything is successfully loaded.</p>
+<p>filename is optional, and can be used by callback code that may, for some reason, want to link the stream back to a path (cough cough GFA loader cough cough) </p>
+
+</div>
+</div>
+<a id="a2707edbb6b28a6623ea8ae11e607c861"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2707edbb6b28a6623ea8ae11e607c861">&#9670;&nbsp;</a></span>try_load_first_bare() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Only &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">static tuple&lt;unique_ptr&lt;Only&gt; &gt; vg::io::VPKG::try_load_first_bare </td>
+          <td>(</td>
+          <td class="paramtype">istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool &amp;&#160;</td>
+          <td class="paramname"><em>found</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Allocate and load the first available type from the given stream, using a bare loader. Returns a tuple where at most one item is filled, and that item is the first type we could successfully load out of the template parameters. Sets found to true if anything is successfully loaded.</p>
+<p>filename is optional, and can be used by callback code that may, for some reason, want to link the stream back to a path (cough cough GFA loader cough cough) </p>
+
+</div>
+</div>
+<a id="a12f9922d4b17194d248dc3f19a449f60"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a12f9922d4b17194d248dc3f19a449f60">&#9670;&nbsp;</a></span>try_load_first_encapsulated() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename FirstPriority , typename SecondPriority , typename... Rest&gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">static tuple&lt;unique_ptr&lt;FirstPriority&gt;, unique_ptr&lt;SecondPriority&gt;, unique_ptr&lt;Rest&gt;...&gt; vg::io::VPKG::try_load_first_encapsulated </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1io_1_1MessageIterator.html">MessageIterator</a> &amp;&#160;</td>
+          <td class="paramname"><em>it</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool &amp;&#160;</td>
+          <td class="paramname"><em>found</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Allocate and load the first available type from the given iterator, using a bare loader. Returns a tuple where at most one item is filled, and that item is the first type we could successfully load out of the template parameters. Sets found to true if anything is successfully loaded. </p>
+
+</div>
+</div>
+<a id="a186f277ebf475632f1b4d1eac4c48139"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a186f277ebf475632f1b4d1eac4c48139">&#9670;&nbsp;</a></span>try_load_first_encapsulated() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Only &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">static tuple&lt;unique_ptr&lt;Only&gt; &gt; vg::io::VPKG::try_load_first_encapsulated </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1io_1_1MessageIterator.html">MessageIterator</a> &amp;&#160;</td>
+          <td class="paramname"><em>it</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool &amp;&#160;</td>
+          <td class="paramname"><em>found</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Allocate and load the first available type from the given iterator, using a VPKG-encapsulated loader. Returns a tuple where at most one item is filled, and that item is the first type we could successfully load out of the template parameters. Sets found to true if anything is successfully loaded. </p>
 
 </div>
 </div>
@@ -590,7 +678,7 @@ template&lt;typename Wanted &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Load an object of the given type from a file by name. The stream may be <a class="el" href="classvg_1_1io_1_1VPKG.html">VPKG</a> with the appropriate tag, or a bare non-VPKG stream understood by the loader. Tagged messages that can't be used to load the thing we are looking for are skipped. Returns null if the object could not be found in the file. Supports "-" for standard input. </p>
+<p>Load an object of the given type from a file by name. The stream may be <a class="el" href="classvg_1_1io_1_1VPKG.html">VPKG</a> with the appropriate tag, or a bare non-VPKG stream understood by the loader. Returns null if the object could not be found in the file. Supports "-" for standard input. </p>
 
 </div>
 </div>
@@ -629,7 +717,46 @@ template&lt;typename Wanted &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Load an object of the given type from a stream. The stream may be <a class="el" href="classvg_1_1io_1_1VPKG.html">VPKG</a> with the appropriate tag, or a bare non-VPKG stream understood by the loader. Tagged messages that can't be used to load the thing we are looking for are skipped. This doesn't work for Protobuf messages directly, but it will work for e.g. <a class="el" href="classvg_1_1VG.html">vg::VG</a>. filename is optional, and can be used by callback code that may, for some reason, want to link the stream back to a path (cough cough GFA loader cough cough) </p>
+<p>Load an object of the given type from a file. The stream may be <a class="el" href="classvg_1_1io_1_1VPKG.html">VPKG</a> with the appropriate tag, or a bare non-VPKG stream understood by the loader.</p>
+<p>Tagged messages that can't be used to load the thing we are looking for may or may not be consumed, so you should not call this function in a loop over types on the same stream.</p>
+<p>filename is optional, and can be used by callback code that may, for some reason, want to link the stream back to a path (cough cough GFA loader cough cough) </p>
+
+</div>
+</div>
+<a id="a0bcbb5a28413d3599a642cd5f22d93be"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0bcbb5a28413d3599a642cd5f22d93be">&#9670;&nbsp;</a></span>with_putback()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">static void vg::io::VPKG::with_putback </td>
+          <td>(</td>
+          <td class="paramtype">istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; void(istream &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>callback</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Run the given callback with a version of the given stream that allows putback. </p>
 
 </div>
 </div>
