@@ -51,6 +51,9 @@ private:
     vector<int> get_alleles(vcflib::Variant& v, const vector<SnarlTraversal>& travs, int ref_path_idx,
                             char prev_char, bool use_start);
 
+    // add a traversal to the VCF info field in the format of a GFA W-line or GAF path
+    void add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav, bool reversed, bool one_based);
+    
     // write traversal path names as genotypes
     void get_genotypes(vcflib::Variant& v, const vector<string>& names, const vector<int>& trav_to_allele,
                        const vector<gbwt::size_type>& trav_thread_ids);

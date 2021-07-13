@@ -131,9 +131,11 @@ struct GBWTHandler {
     void use_dynamic();
 
     /// Start using this compressed GBWT. Clears the index used as the argument.
+    /// The GBWT is not backed by a file.
     void use(gbwt::GBWT& new_index);
 
     /// Start using this dynamic GBWT. Clears the index used as the argument.
+    /// The GBWT is not backed by a file.
     void use(gbwt::DynamicGBWT& new_index);
 
     /// The GBWT is no longer backed by a file.

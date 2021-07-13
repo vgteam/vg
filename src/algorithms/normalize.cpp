@@ -18,7 +18,8 @@ namespace algorithms {
 
 using namespace std;
 
-void normalize(handlegraph::MutablePathDeletableHandleGraph* graph, int max_iter, bool debug) {
+void normalize(handlegraph::MutablePathDeletableHandleGraph* graph, int max_iter, bool debug,
+               function<bool(const handle_t&, const handle_t&)> can_merge) {
 
     size_t last_len = 0;
     if (max_iter > 1) {
@@ -32,7 +33,7 @@ void normalize(handlegraph::MutablePathDeletableHandleGraph* graph, int max_iter
         // combine diced/chopped nodes (subpaths with no branching)
         handlealgs::unchop(*graph);
         // Resolve forks that shouldn't be
-        simplify_siblings(graph);
+        simplify_siblings(graph, can_merge);
         
         if (max_iter > 1) {
             size_t curr_len = graph->get_total_length();

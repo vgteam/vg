@@ -105,8 +105,10 @@ struct IndexingParameters {
     static int path_cover_depth;
     // the number of haplotypes to downsample to in giraffe's GBWT [64]
     static int giraffe_gbwt_downsample;
-    // Jordan actually doesn't know what this one does [4]
+    // sample subpaths of this length (in nodes) [4]
     static int downsample_context_length;
+    // augment the existing GBWT instead of downsampling it if the number of haplotypes is < this * giraffe_gbwt_downsample [3]
+    static int downsample_threshold;
     // actually use this fraction of the maximum memory to give slosh for bad estmates [0.75]
     static double max_memory_proportion;
     // aim to have X timese as many chunks as threads [2]

@@ -24,6 +24,7 @@
 #include "../min_distance.hpp"
 #include "../source_sink_overlay.hpp"
 #include "../gbwt_helper.hpp"
+#include "../gbwtgraph_helper.hpp"
 #include "../gcsa_helper.hpp"
 
 #include <gcsa/algorithms.h>
@@ -96,8 +97,8 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
-    #define OPT_BUILD_VGI_INDEX 1000
-    #define OPT_RENAME_VARIANTS 1001
+    #define OPT_BUILD_VGI_INDEX  1000
+    #define OPT_RENAME_VARIANTS  1001
     #define OPT_PATHS_AS_SAMPLES 1002
 
     // Which indexes to build.
@@ -728,15 +729,28 @@ int main_index(int argc, char** argv) {
                 vg::io::VPKG::save(di, dist_name);
 
             } else {
-                // We were given a graph generically
-                auto graph = vg::io::VPKG::load_one<handlegraph::HandleGraph>(file_names.at(0));
-    
-                // Create the MinimumDistanceIndex
-                MinimumDistanceIndex di(graph.get(), snarl_manager);
-                vg::io::VPKG::save(di, dist_name);
+                // May be GBZ or a HandleGraph.
+                auto options = vg::io::VPKG::try_load_first<gbwtgraph::GBZ, handlegraph::HandleGraph>(file_names.at(0));
+                
+                if (get<0>(options)) {
+                    // We have a GBZ graph
+                    auto& gbz = get<0>(options);
+                    
+                    // Create the MinimumDistanceIndex
+                    MinimumDistanceIndex di(&(gbz->graph), snarl_manager);
+                    vg::io::VPKG::save(di, dist_name);
+                } else if (get<1>(options)) {
+                    // We were given a graph generically
+                    auto& graph = get<1>(options);
+                    
+                    // Create the MinimumDistanceIndex
+                    MinimumDistanceIndex di(graph.get(), snarl_manager);
+                    vg::io::VPKG::save(di, dist_name);
+                } else {
+                    cerr << "error: [vg index] input is not a graph or GBZ" << endl;
+                    return 1;
+                }
             }
-          
-            
         }
 
     }
