@@ -2,7 +2,6 @@
 
 #include "0_oo_normalize_snarls.hpp"
 #include "0_snarl_sequence_finder.hpp"
-// #include <algorithm>
 #include <string>
 
 // #include <deps/seqan/include/seqan/align.h>
