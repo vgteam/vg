@@ -264,9 +264,10 @@ bool simplify_siblings(handlegraph::MutablePathDeletableHandleGraph* graph,
             // Create the merge start position
             merge_from.emplace_back(family.at(i), 0);
             
-            // See where the first mismatch is, and min that in with the LCP length
+            // See where the first (case-insensitive) mismatch is, and min that in with the LCP length
             auto other_string = graph->get_sequence(family.at(i));
-            auto mismatch_iters = std::mismatch(reference_string.begin(), reference_string.end(), other_string.begin());
+            auto mismatch_iters = std::mismatch(reference_string.begin(), reference_string.end(), other_string.begin(),
+                                                [](unsigned char c1, unsigned char c2) {return std::toupper(c1) == std::toupper(c2);});
             size_t match_length = mismatch_iters.first - reference_string.begin();
             lcp_length = std::min(lcp_length, match_length);
         }
