@@ -4186,7 +4186,6 @@ namespace vg {
                 REQUIRE(distance_index.minimum_distance(make_pos_t(4, true, 0),make_pos_t(2, false, 0)) == 11);
             }
         }//end test case
-
         TEST_CASE("Distance index can deal with an interior chain", "[snarl_distance]") {
             VG graph;
         
@@ -4230,6 +4229,76 @@ namespace vg {
                 REQUIRE(distance_index.minimum_distance(make_pos_t(3, false, 0),make_pos_t(10, false, 0)) == 11);
                 REQUIRE(distance_index.minimum_distance(make_pos_t(7, false, 0),make_pos_t(1, true, 0)) == 11);
         
+            }
+        }//end test case
+
+        TEST_CASE("Distance index can save and load", "[snarl_distance]") {
+            VG graph;
+        
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("T");
+            Node* n7 = graph.create_node("G");
+            Node* n8 = graph.create_node("CTGA");
+            Node* n9 = graph.create_node("T");
+            Node* n10 = graph.create_node("G");
+        
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n10);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n2, n4);
+            Edge* e5 = graph.create_edge(n3, n4);
+            Edge* e6 = graph.create_edge(n4, n5);
+            Edge* e7 = graph.create_edge(n4, n6);
+            Edge* e8 = graph.create_edge(n4, n7);
+            Edge* e9 = graph.create_edge(n5, n7);
+            Edge* e10 = graph.create_edge(n6, n7);
+            Edge* e11 = graph.create_edge(n7, n8);
+            Edge* e12 = graph.create_edge(n7, n8, false, true);
+            Edge* e13 = graph.create_edge(n8, n9);
+            Edge* e14 = graph.create_edge(n8, n9, true, false);
+            Edge* e15 = graph.create_edge(n9, n10);
+        
+            IntegratedSnarlFinder snarl_finder(graph); 
+        
+            SECTION("Create distance index") {
+                bdsg::yomo::UniqueMappedPointer<SnarlDistanceIndex> distance_index;
+                distance_index.construct("Distance Index", &graph, &snarl_finder);       
+
+                REQUIRE(distance_index->minimum_distance(make_pos_t(1, false, 0),make_pos_t(7, false, 0)) == 8);
+                REQUIRE(distance_index->minimum_distance(make_pos_t(1, false, 0),make_pos_t(8, false, 0)) == 9);
+                REQUIRE(distance_index->minimum_distance(make_pos_t(1, false, 0),make_pos_t(8, true, 0)) == 9);
+                REQUIRE(distance_index->minimum_distance(make_pos_t(1, false, 0),make_pos_t(5, false, 0)) == 8);
+                REQUIRE(distance_index->minimum_distance(make_pos_t(8, false, 0),make_pos_t(5, true, 0)) == 5);
+                REQUIRE(distance_index->minimum_distance(make_pos_t(3, false, 0),make_pos_t(6, false, 0)) == 5);
+                REQUIRE(distance_index->minimum_distance(make_pos_t(3, false, 0),make_pos_t(10, false, 0)) == 11);
+                REQUIRE(distance_index->minimum_distance(make_pos_t(7, false, 0),make_pos_t(1, true, 0)) == 11);
+        
+                SECTION("Save and load index") {
+                    char filename[] = "tmpXXXXXX";
+                    int tmpfd = mkstemp(filename);
+                    assert(tmpfd != -1);
+                    distance_index.save(tmpfd);
+
+                    distance_index.dissociate();
+                    distance_index.reset();
+
+                    distance_index.load(tmpfd, "Distance Index");
+                    
+
+                    REQUIRE(distance_index->minimum_distance(make_pos_t(1, false, 0),make_pos_t(7, false, 0)) == 8);
+                    REQUIRE(distance_index->minimum_distance(make_pos_t(1, false, 0),make_pos_t(8, false, 0)) == 9);
+                    REQUIRE(distance_index->minimum_distance(make_pos_t(1, false, 0),make_pos_t(8, true, 0)) == 9);
+                    REQUIRE(distance_index->minimum_distance(make_pos_t(1, false, 0),make_pos_t(5, false, 0)) == 8);
+                    REQUIRE(distance_index->minimum_distance(make_pos_t(8, false, 0),make_pos_t(5, true, 0)) == 5);
+                    REQUIRE(distance_index->minimum_distance(make_pos_t(3, false, 0),make_pos_t(6, false, 0)) == 5);
+                    REQUIRE(distance_index->minimum_distance(make_pos_t(3, false, 0),make_pos_t(10, false, 0)) == 11);
+                    REQUIRE(distance_index->minimum_distance(make_pos_t(7, false, 0),make_pos_t(1, true, 0)) == 11);
+        
+                }
             }
         }//end test case
 
