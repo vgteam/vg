@@ -249,8 +249,8 @@ public:
      public:
         void print_self() {
             cerr << "Entire index:" << endl;
-            for (size_t i = 0 ; i < snarl_tree_records.size() ; i++) {
-                cerr << "(" << i << "):" << snarl_tree_records[i] << "   " ;
+            for (size_t i = 0 ; i < snarl_tree_records->size() ; i++) {
+                cerr << "(" << i << "):" << snarl_tree_records->at(i) << "   " ;
             }
             cerr << endl;
         }
@@ -304,7 +304,7 @@ private:
      */
     
 public:
-    bdsg::MappedIntVector snarl_tree_records;
+    bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector> snarl_tree_records;
 
     /* If this is 0, then don't store distances
      * Otherwise, for snarls with more children than snarl_size_limit, only store the distances
@@ -463,15 +463,15 @@ private:
 
     //Get the offset into snarl_tree_records for a node record
     size_t get_offset_from_node_id (const id_t& id) const {
-        size_t node_records_offset = snarl_tree_records.at(COMPONENT_COUNT_OFFSET) + ROOT_RECORD_SIZE; 
-        size_t offset = (id-snarl_tree_records.at(MIN_NODE_ID_OFFSET)) * NODE_RECORD_SIZE;
+        size_t node_records_offset = snarl_tree_records->at(COMPONENT_COUNT_OFFSET) + ROOT_RECORD_SIZE; 
+        size_t offset = (id-snarl_tree_records->at(MIN_NODE_ID_OFFSET)) * NODE_RECORD_SIZE;
         return node_records_offset + offset; 
     }
     //And its inverse, get the id from the offset of the node record
     //TODO: Do I want to add the min_node_id?
     id_t get_node_id_from_offset(size_t offset) const {
-        size_t min_node_id = snarl_tree_records.at(MIN_NODE_ID_OFFSET);
-        size_t node_records_offset = snarl_tree_records.at(COMPONENT_COUNT_OFFSET) + ROOT_RECORD_SIZE; 
+        size_t min_node_id = snarl_tree_records->at(MIN_NODE_ID_OFFSET);
+        size_t node_records_offset = snarl_tree_records->at(COMPONENT_COUNT_OFFSET) + ROOT_RECORD_SIZE; 
         return ((offset-node_records_offset) / NODE_RECORD_SIZE) + min_node_id;
     }
 
@@ -548,18 +548,18 @@ private:
 
         //The offset of the start of this record in snarl_tree_records
         size_t record_offset;
-        const bdsg::MappedIntVector* records;
+        const bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector>* records;
 
         //Constructors assuming that this record already exists
         SnarlTreeRecord(){};
-        SnarlTreeRecord (size_t pointer, const bdsg::MappedIntVector* tree_records){
+        SnarlTreeRecord (size_t pointer, const bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector>* tree_records){
             record_offset = pointer;
             records = tree_records;
 
             record_t type = get_record_type();
             assert(type >= 1 && type <= 13 );
         }
-        SnarlTreeRecord (const net_handle_t& net, const bdsg::MappedIntVector* tree_records){
+        SnarlTreeRecord (const net_handle_t& net, const bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector>* tree_records){
             record_offset = get_record_offset(net);
             records = tree_records;
             record_t type = get_record_type();
@@ -570,7 +570,7 @@ private:
 
         //What type of snarl tree node is this?
         //This will be the first value of any record
-        virtual record_t get_record_type() const {return static_cast<record_t>(records->at(record_offset) >> 9);}
+        virtual record_t get_record_type() const {return static_cast<record_t>((*records)->at(record_offset) >> 9);}
 
         //The name is a bit misleading, it is the handle type that the record thinks it is, 
         //not necessarily the record type of the net_handle_t that was used to produce it
@@ -591,18 +591,18 @@ private:
         }
 
         //Get the internal connectivity of the structure
-        virtual bool is_start_start_connected() const {return records->at(record_offset) & 32;}
-        virtual bool is_start_end_connected() const {return records->at(record_offset) & 16;}
-        virtual bool is_start_tip_connected() const {return records->at(record_offset) & 8;}
-        virtual bool is_end_end_connected() const {return records->at(record_offset) & 4;}
-        virtual bool is_end_tip_connected() const {return records->at(record_offset) & 2;}
-        virtual bool is_tip_tip_connected() const {return records->at(record_offset) & 1;}
+        virtual bool is_start_start_connected() const {return (*records)->at(record_offset) & 32;}
+        virtual bool is_start_end_connected() const {return (*records)->at(record_offset) & 16;}
+        virtual bool is_start_tip_connected() const {return (*records)->at(record_offset) & 8;}
+        virtual bool is_end_end_connected() const {return (*records)->at(record_offset) & 4;}
+        virtual bool is_end_tip_connected() const {return (*records)->at(record_offset) & 2;}
+        virtual bool is_tip_tip_connected() const {return (*records)->at(record_offset) & 1;}
 
         //And the external connectivity. This is only relevant for root-level structures
         //since it would otherwise be captured by the containing snarl
-        virtual bool is_externally_start_end_connected() const {return records->at(record_offset) & 64;}
-        virtual bool is_externally_start_start_connected() const {return records->at(record_offset) & 128;}
-        virtual bool is_externally_end_end_connected() const {return records->at(record_offset) & 256;}
+        virtual bool is_externally_start_end_connected() const {return (*records)->at(record_offset) & 64;}
+        virtual bool is_externally_start_start_connected() const {return (*records)->at(record_offset) & 128;}
+        virtual bool is_externally_end_end_connected() const {return (*records)->at(record_offset) & 256;}
 
         virtual bool has_connectivity(connectivity_t connectivity) const;
         virtual bool has_connectivity(endpoint_t start, endpoint_t end);
@@ -654,11 +654,11 @@ private:
         //TODO: This might be bad but this has the same members as SnarlTreeRecord
         //and does basically the same thing but doesn't inherit from it
         size_t record_offset;
-        bdsg::MappedIntVector* records;
+        bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector>* records;
 
         //Constructors assuming that this record already exists
         SnarlTreeRecordConstructor() {};
-        SnarlTreeRecordConstructor (size_t pointer, bdsg::MappedIntVector* tree_records){
+        SnarlTreeRecordConstructor (size_t pointer, bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector>* tree_records){
             record_offset = pointer;
             records = tree_records;
 
@@ -668,7 +668,7 @@ private:
                     type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL || type == CHAIN || 
                     type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN);
         }
-        SnarlTreeRecordConstructor (const net_handle_t& net, bdsg::MappedIntVector* tree_records){
+        SnarlTreeRecordConstructor (const net_handle_t& net, bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector>* tree_records){
             record_offset = get_record_offset(net);
             records = tree_records;
             record_t type = get_record_type();
@@ -705,20 +705,20 @@ private:
     struct RootRecord : SnarlTreeRecord {
 
         RootRecord (){};
-        RootRecord (size_t pointer, const bdsg::MappedIntVector* tree_records){
+        RootRecord (size_t pointer, const bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector>* tree_records){
             record_offset = pointer;
             records = tree_records;
             assert(get_record_type() == ROOT);
         }
-        RootRecord (net_handle_t net, const bdsg::MappedIntVector* tree_records){
+        RootRecord (net_handle_t net, const bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector>* tree_records){
             record_offset = get_record_offset(net);
             records = tree_records;
             assert(get_record_type() == ROOT);
         }
-        virtual size_t get_connected_component_count() const {return records->at(record_offset+COMPONENT_COUNT_OFFSET);}
-        virtual size_t get_node_count() const {return records->at(record_offset+NODE_COUNT_OFFSET);}
-        virtual size_t get_min_node_id() const {return records->at(record_offset+MIN_NODE_ID_OFFSET);}
-        virtual SnarlTreeRecord get_component_record(size_t component_number) const {return SnarlTreeRecord(records->at(record_offset+2+component_number), records);}
+        virtual size_t get_connected_component_count() const {return (*records)->at(record_offset+COMPONENT_COUNT_OFFSET);}
+        virtual size_t get_node_count() const {return (*records)->at(record_offset+NODE_COUNT_OFFSET);}
+        virtual size_t get_min_node_id() const {return (*records)->at(record_offset+MIN_NODE_ID_OFFSET);}
+        virtual SnarlTreeRecord get_component_record(size_t component_number) const {return SnarlTreeRecord((*records)->at(record_offset+2+component_number), records);}
         virtual bool for_each_child(const std::function<bool(const handlegraph::net_handle_t&)>& iteratee) const;
 
     };
@@ -728,17 +728,17 @@ private:
         //Constructor meant for creating a new record, at the end of snarl_tree_records
         //TODO: The way I wrote this pointer should be 0
         RootRecordConstructor (size_t pointer, size_t connected_component_count, size_t node_count, 
-                    id_t min_node_id, bdsg::MappedIntVector* records){
+                    id_t min_node_id, bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector>* records){
             RootRecord::record_offset = pointer;
             SnarlTreeRecordConstructor::record_offset = pointer;
             SnarlTreeRecordConstructor::records = records;
             RootRecord::records = records;
             //Allocate memory for the root vector and for all of the nodes
 #ifdef debug_indexing
-            cerr << " Resizing array to add root: length " << SnarlTreeRecordConstructor::records->size() << " -> " 
-                 << SnarlTreeRecordConstructor::records->size() + ROOT_RECORD_SIZE + connected_component_count + (NODE_RECORD_SIZE * node_count) << endl;
+            cerr << " Resizing array to add root: length " << SnarlTreeRecordConstructor::(*records)->size() << " -> " 
+                 << SnarlTreeRecordConstructor::(*records)->size() + ROOT_RECORD_SIZE + connected_component_count + (NODE_RECORD_SIZE * node_count) << endl;
 #endif
-            SnarlTreeRecordConstructor::records->resize(SnarlTreeRecordConstructor::records->size() + ROOT_RECORD_SIZE + connected_component_count + (NODE_RECORD_SIZE * node_count));
+            (*SnarlTreeRecordConstructor::records)->resize((*SnarlTreeRecordConstructor::records)->size() + ROOT_RECORD_SIZE + connected_component_count + (NODE_RECORD_SIZE * node_count));
             set_record_type(ROOT);
             set_min_node_id(min_node_id);
             set_node_count(node_count);
@@ -753,13 +753,13 @@ private:
 
 
         NodeRecord() {};
-        NodeRecord (size_t pointer, const bdsg::MappedIntVector* tree_records){
+        NodeRecord (size_t pointer, const bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector>* tree_records){
             record_offset = pointer;
             records = tree_records;
 
             assert(get_record_type() == NODE || get_record_type() == DISTANCED_NODE);
         }
-        NodeRecord (net_handle_t net, const bdsg::MappedIntVector* tree_records){
+        NodeRecord (net_handle_t net, const bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector>* tree_records){
             records = tree_records;
             record_offset = get_record_offset(net);
 
@@ -772,9 +772,9 @@ private:
         virtual id_t get_node_id() const {return get_id_from_offset(record_offset);}
 
         //TODO: This one is a bit redundant but fine I think
-        virtual int64_t get_node_length() const {return records->at(record_offset + NODE_LENGTH_OFFSET);}
+        virtual int64_t get_node_length() const {return (*records)->at(record_offset + NODE_LENGTH_OFFSET);}
 
-        virtual size_t get_root_component() const {return records->at(record_offset + NODE_COMPONENT_OFFSET);}
+        virtual size_t get_root_component() const {return (*records)->at(record_offset + NODE_COMPONENT_OFFSET);}
 
         virtual bool in_chain() const {return SnarlTreeRecord(get_parent_record_offset(), records).get_record_handle_type() == CHAIN_HANDLE;}
 
@@ -785,7 +785,7 @@ private:
 
         //Constructor meant for creating a new record, at the end of snarl_tree_records
         //The memory for all nodes has already been allocated by the root
-        NodeRecordConstructor (size_t pointer, record_t type, bdsg::MappedIntVector* records){
+        NodeRecordConstructor (size_t pointer, record_t type, bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector>* records){
             SnarlTreeRecordConstructor::records = records;
             NodeRecord::records = records;
             //TODO: Only one get_offset_from_id?
@@ -797,16 +797,16 @@ private:
         virtual void set_node_length(size_t length) {
 #ifdef debug_indexing
             cerr <<NodeRecord::record_offset + NODE_LENGTH_OFFSET << " set node length " << length << endl;
-            assert(SnarlTreeRecordConstructor::records->at(NodeRecord::record_offset + NODE_LENGTH_OFFSET) == 0);
+            assert((*SnarlTreeRecordConstructor::records)->at(NodeRecord::record_offset + NODE_LENGTH_OFFSET) == 0);
 #endif
-            SnarlTreeRecordConstructor::records->at(NodeRecord::record_offset + NODE_LENGTH_OFFSET) = length;
+            (*SnarlTreeRecordConstructor::records)->at(NodeRecord::record_offset + NODE_LENGTH_OFFSET) = length;
         }
         virtual void set_root_component(size_t component) {
 #ifdef debug_indexing
             cerr <<NodeRecord::record_offset + NODE_COMPONENT_OFFSET << " set root component " << component << endl;
-            assert(SnarlTreeRecordConstructor::records->at(NodeRecord::record_offset + NODE_COMPONENT_OFFSET) == 0);
+            assert((*SnarlTreeRecordConstructor::records)->at(NodeRecord::record_offset + NODE_COMPONENT_OFFSET) == 0);
 #endif
-            SnarlTreeRecordConstructor::records->at(NodeRecord::record_offset + NODE_COMPONENT_OFFSET) = component;
+            (*SnarlTreeRecordConstructor::records)->at(NodeRecord::record_offset + NODE_COMPONENT_OFFSET) = component;
         }
     };
 
@@ -814,7 +814,7 @@ private:
 
 
         SnarlRecord() {};
-        SnarlRecord (size_t pointer, const bdsg::MappedIntVector* tree_records){
+        SnarlRecord (size_t pointer, const bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector>* tree_records){
             record_offset = pointer;
             records = tree_records;
             record_t type = get_record_type();
@@ -822,7 +822,7 @@ private:
                 || type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL);
         }
 
-        SnarlRecord (net_handle_t net, const bdsg::MappedIntVector* tree_records){
+        SnarlRecord (net_handle_t net, const bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector>* tree_records){
             record_offset = get_record_offset(net);
             records = tree_records;
             net_handle_record_t type = get_handle_type(net);
@@ -848,11 +848,11 @@ private:
         virtual int64_t get_distance(size_t rank1, bool right_side1, size_t rank2, bool right_side2) const;
 
         virtual size_t get_node_count() const {
-            return records->at(record_offset + SNARL_NODE_COUNT_OFFSET);
+            return (*records)->at(record_offset + SNARL_NODE_COUNT_OFFSET);
         }
 
         virtual size_t get_child_record_pointer() const {
-            return records->at(record_offset+SNARL_CHILD_RECORD_OFFSET) ;
+            return (*records)->at(record_offset+SNARL_CHILD_RECORD_OFFSET) ;
         }
 
         virtual bool for_each_child(const std::function<bool(const net_handle_t&)>& iteratee) const;
@@ -864,7 +864,7 @@ private:
 
         SnarlRecordConstructor();
 
-        SnarlRecordConstructor (size_t node_count, bdsg::MappedIntVector* records, record_t type){
+        SnarlRecordConstructor (size_t node_count, bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector>* records, record_t type){
             //Constructor for making a new record, including allocating memory.
             //Assumes that this is the latest record being made, so pointer will be the end of
             //the array and we need to allocate extra memory past it
@@ -872,18 +872,18 @@ private:
             SnarlTreeRecordConstructor::records = records;
             SnarlRecord::records = records;
 
-            SnarlRecord::record_offset = records->size();
-            SnarlTreeRecordConstructor::record_offset = records->size();
+            SnarlRecord::record_offset = (*records)->size();
+            SnarlTreeRecordConstructor::record_offset = (*records)->size();
 
             size_t extra_size = record_size(type, node_count);
 #ifdef debug_indexing
-            cerr << " Resizing array to add snarl: length " << SnarlTreeRecordConstructor::records->size() << " -> "  << SnarlTreeRecordConstructor::records->size() + extra_size << endl;
+            cerr << " Resizing array to add snarl: length " << (*SnarlTreeRecordConstructor::records)->size() << " -> "  << (*SnarlTreeRecordConstructor::records)->size() + extra_size << endl;
 #endif
-            SnarlTreeRecordConstructor::records->resize(SnarlTreeRecordConstructor::records->size() + extra_size);
+            (*SnarlTreeRecordConstructor::records)->resize((*SnarlTreeRecordConstructor::records)->size() + extra_size);
             set_node_count(node_count);
             set_record_type(type);
         }
-        SnarlRecordConstructor(bdsg::MappedIntVector* records, size_t pointer) {
+        SnarlRecordConstructor(bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector>* records, size_t pointer) {
             //Make a constructor for a snarl record that has already been allocated.
             //For adding children to an existing snarl record
             SnarlRecord::record_offset = pointer;
@@ -906,7 +906,7 @@ private:
     struct ChainRecord : SnarlTreeRecord {
 
         ChainRecord() {};
-        ChainRecord (size_t pointer, const bdsg::MappedIntVector* tree_records){
+        ChainRecord (size_t pointer, const bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector>* tree_records){
             record_offset = pointer;
             records = tree_records;
             net_handle_record_t record_type= get_record_handle_type();
@@ -919,7 +919,7 @@ private:
                 assert(get_record_handle_type() == CHAIN_HANDLE);
             }
         }
-        ChainRecord (net_handle_t net, const bdsg::MappedIntVector* tree_records){
+        ChainRecord (net_handle_t net, const bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector>* tree_records){
             record_offset = get_record_offset(net);
             records = tree_records;
 
@@ -992,7 +992,7 @@ private:
 
         //TODO: I don't think I even need node count
         ChainRecordConstructor() {}
-        ChainRecordConstructor (size_t pointer, record_t type, size_t node_count, bdsg::MappedIntVector* records){
+        ChainRecordConstructor (size_t pointer, record_t type, size_t node_count, bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector>* records){
             assert(type == CHAIN || 
                    type == DISTANCED_CHAIN ||
                    type == MULTICOMPONENT_CHAIN);
@@ -1001,9 +1001,9 @@ private:
             SnarlTreeRecordConstructor::records = records;
             ChainRecord::records = records;
 #ifdef debug_indexing
-            cerr << " Resizing array to add chain: length " << SnarlTreeRecordConstructor::records->size() << " -> "  << SnarlTreeRecordConstructor::records->size() + CHAIN_RECORD_SIZE << endl;
+            cerr << " Resizing array to add chain: length " << (*SnarlTreeRecordConstructor::records)->size() << " -> "  << (*SnarlTreeRecordConstructor::records)->size() + CHAIN_RECORD_SIZE << endl;
 #endif
-            SnarlTreeRecordConstructor::records->resize(SnarlTreeRecordConstructor::records->size() + CHAIN_RECORD_SIZE);
+            (*SnarlTreeRecordConstructor::records)->resize((*SnarlTreeRecordConstructor::records)->size() + CHAIN_RECORD_SIZE);
             set_node_count(node_count);
             set_record_type(type);
         }
@@ -1157,7 +1157,7 @@ protected:
 
     //Given an arbitrary number of temporary indexes, produce the final one
     //Each temporary index must be a separate connected component
-    bdsg::MappedIntVector get_snarl_tree_records(const vector<const TemporaryDistanceIndex*>& temporary_indexes, const HandleGraph* graph);
+    void get_snarl_tree_records(const vector<const TemporaryDistanceIndex*>& temporary_indexes, const HandleGraph* graph);
     friend class TemporaryDistanceIndex;
 
     private:
