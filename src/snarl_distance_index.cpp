@@ -12,7 +12,7 @@ namespace vg {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //Constructor
 SnarlDistanceIndex::SnarlDistanceIndex() {
-    snarl_tree_records.construct();
+    snarl_tree_records.construct(tag);
     snarl_tree_records->width(64);
 }
 SnarlDistanceIndex::~SnarlDistanceIndex() {
@@ -21,7 +21,7 @@ SnarlDistanceIndex::~SnarlDistanceIndex() {
 SnarlDistanceIndex::SnarlDistanceIndex(const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit) :
     snarl_size_limit(size_limit){
 
-    snarl_tree_records.construct();
+    snarl_tree_records.construct(tag);
     snarl_tree_records->width(64);
 
     //Build the temporary distance index from the graph
@@ -1675,6 +1675,28 @@ net_handle_t SnarlDistanceIndex::get_parent_traversal(const net_handle_t& traver
 
 
 }
+
+void SnarlDistanceIndex::load(string& filename) {
+    std::ifstream in (filename);
+    snarl_tree_records.load(in);
+}
+void SnarlDistanceIndex::load(int fd) {
+    snarl_tree_records.load(fd, tag);
+}
+void SnarlDistanceIndex::load(std::istream& in) {
+    snarl_tree_records.load(in, tag);
+}
+void SnarlDistanceIndex::save(string& filename) const {
+    std::ofstream out(filename);
+    snarl_tree_records.save(out);
+}
+void SnarlDistanceIndex::save(int fd) {
+    snarl_tree_records.save(fd);
+}
+void SnarlDistanceIndex::save(std::ostream& out) const {
+    snarl_tree_records.save(out);
+}
+
 
 int64_t SnarlDistanceIndex::distance_in_parent(const net_handle_t& parent, 
         const net_handle_t& child1, const net_handle_t& child2, const HandleGraph* graph) const {

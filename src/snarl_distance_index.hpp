@@ -185,6 +185,14 @@ public:
      */
     net_handle_t get_parent_traversal(const net_handle_t& traversal_start, const net_handle_t& traversal_end) const;
 
+public:
+    void load(string& filename);
+    void load(int fd);
+    void load(std::istream&in);
+
+    void save(string& filename) const;
+    void save(int fd) ;
+    void save(std::ostream&out) const;
 
 ///////////////////////////// More public functions for distance calculations using net_handle_t's 
 
@@ -313,6 +321,8 @@ public:
     size_t snarl_size_limit = 100000;
 
 private:
+
+    string tag = "Snarl Distance Index 3.0";
 
 
 /////// These are used to interpret the distance index, which is just a vector of ints

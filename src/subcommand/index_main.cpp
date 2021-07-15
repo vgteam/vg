@@ -20,8 +20,8 @@
 #include "../vg_set.hpp"
 #include "../utility.hpp"
 #include "../region.hpp"
-#include "../snarls.hpp"
-#include "../min_distance.hpp"
+#include "../integrated_snarl_finder.hpp"
+#include "../snarl_distance_index.hpp"
 #include "../source_sink_overlay.hpp"
 #include "../gbwt_helper.hpp"
 #include "../gbwtgraph_helper.hpp"
@@ -710,10 +710,11 @@ int main_index(int argc, char** argv) {
         } else if (dist_name.empty()) {
             cerr << "error: [vg index] distance index requires an output file" << endl;
             return 1;
-        } else if (snarl_name.empty()) {
-            cerr << "error: [vg index] distance index requires a snarl file" << endl;
-            return 1;
-            
+        //TODO: Assumes that we don't have a snarl index, but if we do we might want to just load it
+        //} else if (snarl_name.empty()) {
+        //    cerr << "error: [vg index] distance index requires a snarl file" << endl;
+        //    return 1;
+        //    
         } else {
             //Get snarl manager
             ifstream snarl_stream(snarl_name);
@@ -730,23 +731,26 @@ int main_index(int argc, char** argv) {
                 
                 auto xg = vg::io::VPKG::load_one<xg::XG>(xg_name);
 
+                IntegratedSnarlFinder snarl_finder(*xg.get());
                 // Create the MinimumDistanceIndex
-                MinimumDistanceIndex di(xg.get(), snarl_manager);
+                SnarlDistanceIndex distance_index(xg.get(), &snarl_finder);
                 // Save the completed DistanceIndex
-                vg::io::VPKG::save(di, dist_name);
+                distance_index.save(dist_name);
 
             } else if (gbz_format) {
                 // We have a GBZ graph
                 auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(file_names.at(0));
-                MinimumDistanceIndex di(&(gbz->graph), snarl_manager);
-                vg::io::VPKG::save(di, dist_name);
+                IntegratedSnarlFinder snarl_finder(gbz->graph);
+                SnarlDistanceIndex distance_index(&(gbz->graph), &snarl_finder);
+                distance_index.save(dist_name);
             } else {
                 // We were given a graph generically
                 auto graph = vg::io::VPKG::load_one<handlegraph::HandleGraph>(file_names.at(0));
     
+                IntegratedSnarlFinder snarl_finder(*graph.get());
                 // Create the MinimumDistanceIndex
-                MinimumDistanceIndex di(graph.get(), snarl_manager);
-                vg::io::VPKG::save(di, dist_name);
+                SnarlDistanceIndex distance_index(graph.get(), &snarl_finder);
+                distance_index.save(dist_name);
             }
           
             
