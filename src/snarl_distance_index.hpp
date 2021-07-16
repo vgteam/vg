@@ -322,7 +322,7 @@ public:
 
 private:
 
-    string tag = "Snarl Distance Index 3.0";
+    string tag = "DistanceIndex3.0";
 
 
 /////// These are used to interpret the distance index, which is just a vector of ints
@@ -390,7 +390,6 @@ private:
      * 
      * Each bit represents one type of connectivity:
      * start-start, start-end, start-tip, end-end, end-tip, tip-tip
-     * std::bitset<6> connectivity;
      * 
      * The remainder of the tag will be the record_t of the record
      * NODE, SNARL, and CHAIN indicate that they don't store distances.

@@ -74,6 +74,8 @@ Note that a 64-bit OS is required. Ubuntu 18.04 should work.
 
 When you are ready, build with `. ./source_me.sh && make`, and run with `./bin/vg`.
 
+Note that vg can take anywhere from 10 minutes to more than an hour to compile depending on your machine and the number of threads used. 
+
 You can also produce a static binary with `make static`, assuming you have static versions of all the dependencies installed on your system.
 
 ### Building on MacOS
@@ -338,6 +340,24 @@ As with `vg call`, it is best to compute snarls separately and pass them in with
 `vg` has a number of tools to support transcriptomic analyses with spliced graphs (i.e. graphs that have annotated splice junctions added as edges into the graph). These edges can be added into an existing graph using `vg rna`. We can then perform splice-aware mapping to these graphs using `vg mpmap`. `vg` developers have also made a tool for haplotype-aware transcript quantification based on these tools in [`rpvg`](https://github.com/jonassibbesen/rpvg). The easiest way to start this pipeline is to use the `vg autoindex` subcommand to make indexes for `vg mpmap`. `vg autoindex` creates indexes for mapping from common interchange formats like FASTA, VCF, and GTF. 
 
 More information is available in the [wiki page on transcriptomics](https://github.com/vgteam/vg/wiki/Transcriptomic-analyses).
+
+Working from the `test/` directory the following example shows how to create a spliced pangenome graph and indexes using `vg autoindex` with 4 threads:
+
+<!-- !test check Autoindex for transcriptomic analysis -->
+```sh
+# Create spliced pangenome graph and indexes for vg mpmap
+vg autoindex --workflow mpmap -t 4 --prefix vg_rna --ref-fasta small/x.fa --vcf small/x.vcf.gz --tx-gff small/x.gtf
+```
+
+RNA-seq reads can be mapped to the spliced pangenome graph using `vg mpmap` with 4 threads:
+
+<!-- !test check Mapping using mpmap for transcriptomic analysis -->
+```sh
+# Map simulated RNA-seq reads using vg mpmap
+vg mpmap -n rna -t 4 -x vg_rna.spliced.xg -g vg_rna.spliced.gcsa -d vg_rna.spliced.dist -f small/x_rna_1.fq -f small/x_rna_2.fq > mpmap.gamp
+```
+
+This will produce alignments in the multipath format. For more information on the multipath alignment format and `vg mpmap` see [wiki page on mpmap](https://github.com/vgteam/vg/wiki/Multipath-alignments-and-vg-mpmap). Running the two commands on the small example data using 4 threads should on most machines take less than a minute.  
 
 ### Command line interface
 

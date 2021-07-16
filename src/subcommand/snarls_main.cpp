@@ -30,7 +30,6 @@ void help_snarl(char** argv) {
          << "       By default, a list of protobuf Snarls is written" << endl
          << "options:" << endl
          << "    -A, --algorithm NAME   compute snarls using 'cactus' or 'integrated' algorithms (default: integrated)" << endl
-         << "    -Z, --gbz-format       the graph is in GBZ format (GBWT + GBWTGraph)" << endl
          << "    -p, --pathnames        output variant paths as SnarlTraversals to STDOUT" << endl
          << "    -r, --traversals FILE  output SnarlTraversals for ultrabubbles." << endl
          << "    -e, --path-traversals  only consider traversals that correspond to paths in the graph. (-m ignored)" << endl
@@ -68,7 +67,6 @@ int main_snarl(int argc, char** argv) {
     string ref_fasta_filename;
     string ins_fasta_filename;
     bool path_traversals = false;
-    bool gbz_format = false;
         
     int c;
     optind = 2; // force optind past command positional argument
@@ -76,7 +74,6 @@ int main_snarl(int argc, char** argv) {
         static struct option long_options[] =
             {
                 {"algorithm", required_argument, 0, 'A'},
-                {"gbz-format", no_argument, 0, 'Z'},
                 {"traversals", required_argument, 0, 'r'},
                 {"pathnames", no_argument, 0, 'p'},
                 {"leaf-only", no_argument, 0, 'l'},
@@ -95,7 +92,7 @@ int main_snarl(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "A:Zsr:laTopm:v:f:i:eh?t:",
+        c = getopt_long (argc, argv, "A:sr:laTopm:v:f:i:eh?t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -107,10 +104,6 @@ int main_snarl(int argc, char** argv) {
         
         case 'A':
             algorithm = optarg;
-            break;
-
-        case 'Z':
-            gbz_format = true;
             break;
 
         case 'r':
@@ -179,18 +172,6 @@ int main_snarl(int argc, char** argv) {
         }
     }
 
-    // GBZ input does not work with all options.
-    if (gbz_format) {
-        if (algorithm == "cactus") {
-            cerr << "error: [vg snarls] the cactus algorithm does not work with GBZ graphs" << endl;
-            return 1;
-        }
-        if (fill_path_names || path_traversals || !vcf_filename.empty()) {
-            cerr << "error: [vg snarls] GBZ graphs do not have embedded paths required by -p, -r, and -v" << endl;
-            return 1;
-        }
-    }
-
     // Prepare traversal output stream
     ofstream trav_stream;
     if (!traversal_file.empty()) {
@@ -202,20 +183,41 @@ int main_snarl(int argc, char** argv) {
         }
     }
 
-    // Read the graph
+    // Read the graph into one of these two typed pointers.
     unique_ptr<PathHandleGraph> path_handle_graph;
     unique_ptr<gbwtgraph::GBZ> gbz;
+    // And set this to point to the actual handle graph to use.
+    // TODO: Should GBZ be a handle graph proxy?
     HandleGraph* handle_graph = nullptr;
+    
     string graph_filename = get_input_file_name(optind, argc, argv);
-    if (gbz_format) {
-        gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(graph_filename);
+    auto input = vg::io::VPKG::try_load_first<gbwtgraph::GBZ, PathHandleGraph>(graph_filename);
+    if (get<0>(input)) {
+        // We encountered a GBZ
+        gbz = std::move(get<0>(input));
         handle_graph = &(gbz->graph);
-    } else {
-        path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_filename);
+        
+        // Make sure we can still do what we wanted to do.
+        // GBZ input does not work with all options.
+        if (algorithm == "cactus") {
+            cerr << "error: [vg snarls] the cactus algorithm does not work with GBZ graphs" << endl;
+            return 1;
+        }
+        if (fill_path_names || path_traversals || !vcf_filename.empty()) {
+            cerr << "error: [vg snarls] GBZ graphs do not have embedded paths required by -p, -r, and -v" << endl;
+            return 1;
+        }
+    } else if (get<1>(input)) {
+        // We encountered a PathHandleGraph
+        path_handle_graph = std::move(get<1>(input));
         handle_graph = path_handle_graph.get();
+    } else {
+        // We didn't get anything.
+        cerr << "error: [vg snarls] input graph is not in GBZ or PathHandleGraph format" << endl;
+        return 1;
     }
     
-    // The only implemented snarl finder:
+    // Pick a SnalrFinder
     unique_ptr<SnarlFinder> snarl_finder;
     
     if (algorithm == "cactus") {

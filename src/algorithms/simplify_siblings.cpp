@@ -15,7 +15,8 @@ namespace algorithms {
 
 using namespace std;
 
-bool simplify_siblings(handlegraph::MutablePathDeletableHandleGraph* graph) {
+bool simplify_siblings(handlegraph::MutablePathDeletableHandleGraph* graph,
+                       function<bool(const handle_t&, const handle_t&)> can_merge) {
 
     // Each handle is part of a "family" of handles with the same parents on
     // the left side and the same leading base. We elide the trivial ones. We
@@ -127,9 +128,16 @@ bool simplify_siblings(handlegraph::MutablePathDeletableHandleGraph* graph) {
 #ifdef debug
                     cerr << "\tHas " << seen_parents << "/" << correct_parents.size() << " required parents" << endl;
 #endif
-                    
-                    if (!bad_parent && seen_parents == correct_parents.size()) {
-                        // If it has the correct parents, it is a member of the superfamily
+                    // If it has the correct parents, it is a member of the superfamily
+                    bool superfamily_check = !bad_parent && seen_parents == correct_parents.size();
+                    if (can_merge != nullptr) {
+                        // optional callback filter checks candidate against the super family
+                        for (auto super_it = superfamily.begin(); superfamily_check && super_it != superfamily.end(); ++super_it) {
+                            superfamily_check = can_merge(candidate, *super_it);
+                        }
+                    }
+                    if (superfamily_check) {
+                        // If it has the correct parents and passes the check callback, it is a member of the superfamily
                         superfamily.insert(candidate);
                         
 #ifdef debug
@@ -256,9 +264,10 @@ bool simplify_siblings(handlegraph::MutablePathDeletableHandleGraph* graph) {
             // Create the merge start position
             merge_from.emplace_back(family.at(i), 0);
             
-            // See where the first mismatch is, and min that in with the LCP length
+            // See where the first (case-insensitive) mismatch is, and min that in with the LCP length
             auto other_string = graph->get_sequence(family.at(i));
-            auto mismatch_iters = std::mismatch(reference_string.begin(), reference_string.end(), other_string.begin());
+            auto mismatch_iters = std::mismatch(reference_string.begin(), reference_string.end(), other_string.begin(),
+                                                [](unsigned char c1, unsigned char c2) {return std::toupper(c1) == std::toupper(c2);});
             size_t match_length = mismatch_iters.first - reference_string.begin();
             lcp_length = std::min(lcp_length, match_length);
         }

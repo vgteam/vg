@@ -352,7 +352,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
                 //Fill in this snarl's distances
                 populate_snarl_index(temp_snarl_record, chain_child_index, size_limit, graph);
 
-                int64_t length;
+                size_t length;
                 bool new_component = false;
                 //TODO: Double check these orientations
                 if (temp_snarl_record.distances.count(make_pair(make_pair(0, false), make_pair(1, false)))){
@@ -361,7 +361,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex(
                     length = temp_snarl_record.distances.at(make_pair(make_pair(1, false), make_pair(0, false)));
                 } else {
                     //The snarl is not start-end connected
-                    length = std::numeric_limits<int64_t>::max();
+                    length = std::numeric_limits<size_t>::max();
                     //Start a new component
                     curr_component ++;
                     new_component=true;
@@ -773,6 +773,11 @@ void SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDist
     size_t total_component_count = 0;
     id_t min_node_id = 0;
     id_t max_node_id = 0;
+    //The maximum value that gets stored in the index 
+    //Used for setting the width of ints in the int vector (snarl_tree_records)
+    //This only counts distance values, since the max offset value will be the length 
+    //of the array, I'll check that right before setting the width
+    size_t max_value = 0; 
 
     /*Go through each of the indexes to count how many nodes, components, etc */
     for (const TemporaryDistanceIndex* temp_index : temporary_indexes) {
@@ -860,6 +865,7 @@ void SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDist
                     chain_record_constructor.set_rank_in_parent(temp_chain_record.rank_in_parent);
                     chain_record_constructor.set_start_node(temp_chain_record.start_node_id, temp_chain_record.start_node_rev);
                     chain_record_constructor.set_end_node(temp_chain_record.end_node_id, temp_chain_record.end_node_rev);
+                    max_value = std::max(max_value, (size_t) temp_chain_record.max_length);
 
 
                     size_t chain_node_i = 0; //How far along the chain are we?
@@ -903,6 +909,7 @@ void SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDist
                                 node_record_constructor.set_node_length(temp_node_record.node_length);
                                 node_record_constructor.set_parent_record_offset(chain_record_constructor.get_offset());
                                 node_record_constructor.set_is_reversed_in_parent(temp_node_record.reversed_in_parent);
+                                max_value = std::max(max_value, temp_node_record.node_length);
 
                                 //TODO: This is not really used
                                 //The "rank" of the node actually points to the node in the chain, so it is the
@@ -959,6 +966,7 @@ void SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDist
                                                                          temp_snarl_record.end_node_rev);
                                 snarl_record_constructor.set_min_length(temp_snarl_record.min_length);
                                 snarl_record_constructor.set_max_length(temp_snarl_record.max_length);
+                                max_value = std::max(max_value, (size_t) temp_snarl_record.max_length);
 
                                 //Add distances and record connectivity
                                 for (const auto& it : temp_snarl_record.distances) {
@@ -973,6 +981,7 @@ void SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDist
                                         //or the snarl is too big but we are looking at the boundaries
                                         snarl_record_constructor.set_distance(node_ranks.first.first, node_ranks.first.second, 
                                             node_ranks.second.first, node_ranks.second.second, distance);
+                                        max_value = std::max(max_value, (size_t)distance);
                                     }
 
                                     //Now set the connectivity of this snarl
@@ -1075,6 +1084,7 @@ void SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDist
                     node_record.set_rank_in_parent(temp_chain_record.rank_in_parent);
                     node_record.set_is_reversed_in_parent(false);//TODO: Make sure that this is true
                     node_record.set_parent_record_offset(record_to_offset[make_pair(temp_index_i, temp_chain_record.parent)]);
+                    max_value = std::max(max_value, temp_node_record.node_length);
 
                     record_to_offset.emplace(make_pair(temp_index_i, current_record_index), node_record.NodeRecord::record_offset);
 
@@ -1104,6 +1114,7 @@ void SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDist
                         //or the snarl is too big but we are looking at the boundaries
                         snarl_record_constructor.set_distance(node_ranks.first.first, node_ranks.first.second, 
                             node_ranks.second.first, node_ranks.second.second, distance);
+                        max_value = std::max(max_value, (size_t)distance);
                     }
                 }
 #ifdef debug_distance_indexing
@@ -1130,6 +1141,7 @@ void SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDist
                 node_record.set_rank_in_parent(temp_node_record.rank_in_parent);
                 node_record.set_is_reversed_in_parent(false);//TODO: Make sure that this is true
                 node_record.set_parent_record_offset(record_to_offset[make_pair(temp_index_i, temp_node_record.parent)]);
+                max_value = std::max(max_value, temp_node_record.node_length);
 
                 record_to_offset.emplace(make_pair(temp_index_i, current_record_index), node_record.NodeRecord::record_offset);
             }
@@ -1216,6 +1228,14 @@ void SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDist
             }
         }
     }
+
+    //TODO: Instead of repacking, could figure out the max size from the temporary index 
+    //and set the width to start
+    //The size of the array can be stored as an offset in the array
+    max_value = std::max(max_value, snarl_tree_records->size());
+    size_t new_width = log(max_value-1) + 1;
+    new_width = std::max(new_width, (size_t)13); //13 is the width of the tags
+    snarl_tree_records->repack(new_width, snarl_tree_records->size());
 }
 //TODO: Also need to go the other way, from final index to temporary one for merging
 
@@ -2251,12 +2271,13 @@ bool SnarlDistanceIndex::SnarlTreeRecord::has_connectivity(connectivity_t connec
 }
 size_t SnarlDistanceIndex::SnarlTreeRecord::get_min_length() const {
     record_t type = get_record_type();
+    size_t val;
     if (type == DISTANCED_NODE) {
-        return (*records)->at(record_offset + NODE_LENGTH_OFFSET);
+        val =  (*records)->at(record_offset + NODE_LENGTH_OFFSET);
     } else if (type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-        return (*records)->at(record_offset + SNARL_MIN_LENGTH_OFFSET);
+        val =  (*records)->at(record_offset + SNARL_MIN_LENGTH_OFFSET);
     } else if (type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
-        return (*records)->at(record_offset + CHAIN_MIN_LENGTH_OFFSET);
+        val = (*records)->at(record_offset + CHAIN_MIN_LENGTH_OFFSET);
     } else if (type == NODE || type == SNARL || type == CHAIN) {
         throw runtime_error("error: trying to access get distance in a distanceless index");
     } else if (type == ROOT || type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL) {
@@ -2264,16 +2285,18 @@ size_t SnarlDistanceIndex::SnarlTreeRecord::get_min_length() const {
     } else {
         throw runtime_error("error: trying to access a snarl tree node of the wrong type");
     }
+    return val == 0 ? std::numeric_limits<size_t>::max() : val - 1;
 };
 
 size_t SnarlDistanceIndex::SnarlTreeRecord::get_max_length() const {
     record_t type = get_record_type();
+    size_t val;
     if (type == DISTANCED_NODE) {
-        return (*records)->at(record_offset + NODE_LENGTH_OFFSET);
+        val = (*records)->at(record_offset + NODE_LENGTH_OFFSET);
     } else if (type == DISTANCED_SNARL || type == OVERSIZED_SNARL)  {
-        return (*records)->at(record_offset + SNARL_MAX_LENGTH_OFFSET);
+        val = (*records)->at(record_offset + SNARL_MAX_LENGTH_OFFSET);
     } else if (type == DISTANCED_CHAIN || type == MULTICOMPONENT_CHAIN)  {
-        return (*records)->at(record_offset + CHAIN_MAX_LENGTH_OFFSET);
+        val = (*records)->at(record_offset + CHAIN_MAX_LENGTH_OFFSET);
     } else if (type == NODE || type == SNARL || type == CHAIN) {
         throw runtime_error("error: trying to access get distance in a distanceless index");
     }  else if (type == ROOT || type == ROOT_SNARL || type == DISTANCED_ROOT_SNARL) {
@@ -2281,6 +2304,8 @@ size_t SnarlDistanceIndex::SnarlTreeRecord::get_max_length() const {
     } else {
         throw runtime_error("error: trying to access a snarl tree node of the wrong type");
     }
+
+    return val == 0 ? std::numeric_limits<size_t>::max() : val - 1;
 };
 
 size_t SnarlDistanceIndex::SnarlTreeRecord::get_rank_in_parent() const {
@@ -2531,7 +2556,7 @@ void SnarlDistanceIndex::SnarlTreeRecordConstructor::set_min_length(size_t lengt
     assert((*records)->at(offset) == 0);
 #endif
 
-    (*records)->at(offset) = length;
+    (*records)->at(offset) = (length == std::numeric_limits<size_t>::max() ? 0 : length + 1);
 };
 void SnarlDistanceIndex::SnarlTreeRecordConstructor::set_max_length(size_t length) {
     record_t type = get_record_type();
@@ -2554,7 +2579,7 @@ void SnarlDistanceIndex::SnarlTreeRecordConstructor::set_max_length(size_t lengt
     assert((*records)->at(offset) == 0);
 #endif
 
-    (*records)->at(offset) = length;
+    (*records)->at(offset) = (length == std::numeric_limits<size_t>::max() ? 0 : length + 1);
 };
 
 void SnarlDistanceIndex::SnarlTreeRecordConstructor::set_rank_in_parent(size_t rank) {
