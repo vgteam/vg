@@ -57,7 +57,7 @@ void help_mpmap(char** argv) {
     << "  -f, --fastq FILE          input FASTQ (possibly gzipped), can be given twice for paired ends (for stdin use -)" << endl
     << "  -i, --interleaved         input contains interleaved paired ends" << endl
     << "algorithm presets:" << endl
-    << "  -n, --nt-type TYPE        sequence type preset: 'DNA' for genomic data, 'RNA' for transcriptomic data [DNA]" << endl
+    << "  -n, --nt-type TYPE        sequence type preset: 'DNA' for genomic data, 'RNA' for transcriptomic data [RNA]" << endl
     << "  -l, --read-length TYPE    read length preset: 'very-short', 'short', or 'long' (approx. <50bp, 50-500bp, and >500bp) [short]" << endl
     << "  -e, --error-rate TYPE     error rate preset: 'low' or 'high' (approx. PHRED >20 and <20) [low]" << endl
     << "output:" << endl
