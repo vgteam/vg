@@ -16,13 +16,13 @@ vg index -x xy2.xg -g xy2.gcsa -v small/xy2.vcf.gz --gbwt-name xy2.gbwt -k 16 xy
 # We turn off the background model calibration with -B and ignore it with -P 1
 
 # This read is part ref and part alt which matches a haplotype on X, but is possible on Y as well.
-is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa -f reads/xy2.match.fq -F GAM | vg view -aj - | jq '.mapping_quality')" "3" "MAPQ is 50% without haplotype info"
-is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -f reads/xy2.match.fq -F GAM | vg view -aj - | jq '.mapping_quality')" "4" "haplotype match can disambiguate"
+is "$(vg mpmap -B -P 1 -n dna -x xy2.xg -g xy2.gcsa -f reads/xy2.match.fq -F GAM | vg view -aj - | jq '.mapping_quality')" "3" "MAPQ is 50% without haplotype info"
+is "$(vg mpmap -B -P 1 -n dna -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -f reads/xy2.match.fq -F GAM | vg view -aj - | jq '.mapping_quality')" "4" "haplotype match can disambiguate"
 
 # For paired end, don't do any fragment length estimation
 
-is "$(vg mpmap -B -P 1 -I 200 -D 200 -x xy2.xg -g xy2.gcsa -f reads/xy2.matchpaired.fq -i -F GAM | vg view -aj - | head -n1 | jq '.mapping_quality')" "3" "MAPQ is 50% when paired without haplotype info"
-vg mpmap -B -P 1 -I 200 -D 200 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -f reads/xy2.matchpaired.fq -i -F GAM > gbwt.gam
+is "$(vg mpmap -B -P 1 -n dna -I 200 -D 200 -x xy2.xg -g xy2.gcsa -f reads/xy2.matchpaired.fq -i -F GAM | vg view -aj - | head -n1 | jq '.mapping_quality')" "3" "MAPQ is 50% when paired without haplotype info"
+vg mpmap -B -P 1 -n dna -I 200 -D 200 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -f reads/xy2.matchpaired.fq -i -F GAM > gbwt.gam
 is "$(vg view -aj gbwt.gam | head -n1 | jq '.mapping_quality')" "4" "haplotype match can disambiguate paired"
 is "$(vg view -aj gbwt.gam | head -n1 | jq '.annotation.haplotype_score_used')" "true" "use of haplotype-aware mapping is recorded"
 
@@ -35,10 +35,10 @@ rm -f gbwt.gam
 # We need to use snarl cutting to actually consider the alignment as not just a single subpath
 vg snarls xy2.vg > xy2.snarls
 
-is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa -s xy2.snarls -f reads/xy2.discordant.fq -F GAM | vg view -aj - | jq -r '.path.mapping[0].position.node_id')" "50" "Haplotype-oblivious mapping places read on the wrong contig"
-is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa -s xy2.snarls -f reads/xy2.discordant.fq -F GAM | vg view -aj - | jq '.mapping_quality')" "3" "Haplotype-oblivious mapping places read with MAPQ of 50%"
-is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls -f reads/xy2.discordant.fq -t 1 -F GAM | vg view -aj - | jq -r '.path.mapping[0].position.node_id')" "1" "Haplotype-aware mapping places read on the right contig"
-is "$(vg mpmap -B -P 1 -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls -f reads/xy2.discordant.fq -F GAM | vg view -aj - | jq '.mapping_quality')" "6" "Haplotype-aware mapping places read with MAPQ > 50%"
+is "$(vg mpmap -B -P 1 -n dna -x xy2.xg -g xy2.gcsa -s xy2.snarls -f reads/xy2.discordant.fq -F GAM | vg view -aj - | jq -r '.path.mapping[0].position.node_id')" "50" "Haplotype-oblivious mapping places read on the wrong contig"
+is "$(vg mpmap -B -P 1 -n dna -x xy2.xg -g xy2.gcsa -s xy2.snarls -f reads/xy2.discordant.fq -F GAM | vg view -aj - | jq '.mapping_quality')" "3" "Haplotype-oblivious mapping places read with MAPQ of 50%"
+is "$(vg mpmap -B -P 1 -n dna -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls -f reads/xy2.discordant.fq -t 1 -F GAM | vg view -aj - | jq -r '.path.mapping[0].position.node_id')" "1" "Haplotype-aware mapping places read on the right contig"
+is "$(vg mpmap -B -P 1 -n dna -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -s xy2.snarls -f reads/xy2.discordant.fq -F GAM | vg view -aj - | jq '.mapping_quality')" "6" "Haplotype-aware mapping places read with MAPQ > 50%"
 
 rm -f xy2.vg xy2.xg xy2.gcsa xy2.gcsa.lcp xy2.gbwt xy2.snarls
 
@@ -46,9 +46,9 @@ rm -f xy2.vg xy2.xg xy2.gcsa xy2.gcsa.lcp xy2.gbwt xy2.snarls
 
 vg index -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -k 16 graphs/refonly-lrc_kir.vg
 
-vg mpmap -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -B -i -I 10 -D 50 -F GAM | vg view -aj -  > temp_paired_alignment.json
-vg mpmap -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -B -i -I 100000 -D 5 -F GAM | vg view -aj -  > temp_distant_alignment.json
-vg mpmap -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -B -i -F GAM | vg view -aj - > temp_independent_alignment.json
+vg mpmap -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -n dna -B -i -I 10 -D 50 -F GAM | vg view -aj -  > temp_paired_alignment.json
+vg mpmap -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -n dna -B -i -I 100000 -D 5 -F GAM | vg view -aj -  > temp_distant_alignment.json
+vg mpmap -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -n dna -B -i -F GAM | vg view -aj - > temp_independent_alignment.json
 paired_score=$(jq -r ".score" < temp_paired_alignment.json | awk '{ sum+=$1} END {print sum}')
 independent_score=$(jq -r ".score" < temp_independent_alignment.json | awk '{ sum+=$1} END {print sum}')
 is $(printf "%s\t%s\n" $paired_score $independent_score | awk '{if ($1 < $2) print 1; else print 0}') 1 "paired read alignments forced to be consistent have lower score than unrestricted alignments"
@@ -63,7 +63,7 @@ rm -f temp_paired_alignment.json temp_distant_alignment.json temp_independent_al
 
 vg sim -x graphs/refonly-lrc_kir.vg.xg -n 1000 -p 500 -l 100 -a > input.gam
 
-vg mpmap -B -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -G input.gam -I 500 -D 100 -i -F GAM --no-qual-adjust > output.gam
+vg mpmap -B -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -G input.gam -I 500 -D 100 -n dna -i -F GAM --no-qual-adjust > output.gam
 is "$(vg view -aj output.gam | jq -c 'select(.fragment_next == null and .fragment_prev == null)' | wc -l)" "0" "small batches are still all paired in the output"
 
 rm -f graphs/refonly-lrc_kir.vg.xg graphs/refonly-lrc_kir.vg.gcsa graphs/refonly-lrc_kir.vg.gcsa.lcp input.gam output.gam
@@ -86,7 +86,7 @@ CAAATAAGGT
 +
 HHHHHHHHHH" > t.fq
 
-is "$(vg mpmap -B -x t.xg -g t.gcsa -f t.fq | vg view -Kj - | wc -l)" "3" "multipath mapping works in scenarios that trigger branch point trimming"
+is "$(vg mpmap -B -n dna -x t.xg -g t.gcsa -f t.fq | vg view -Kj - | wc -l)" "3" "multipath mapping works in scenarios that trigger branch point trimming"
 
 rm t.vg t.xg t.gcsa t.gcsa.lcp t.fq
 
