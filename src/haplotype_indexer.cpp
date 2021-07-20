@@ -9,6 +9,8 @@
 
 #include <vg/io/stream.hpp>
 
+#include <gbwtgraph/utils.h>
+
 #include "gbwt_helper.hpp"
 
 #include "haplotype_indexer.hpp"
@@ -367,7 +369,7 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandle
         contig_names.push_back("0"); // An artificial contig.
     }
     else {
-        sample_names.push_back("ref"); // An artificial sample.
+        sample_names.push_back(gbwtgraph::REFERENCE_PATH_SAMPLE_NAME); // An artificial sample.
         haplotype_count = 1;
     }
 
