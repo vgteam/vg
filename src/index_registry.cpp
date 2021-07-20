@@ -2238,7 +2238,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // meta-recipe to make GBWTs
     auto make_gbwt = [&](const vector<const IndexFile*>& inputs,
                          const IndexingPlan* plan,
-                         const IndexGroup& constructing) {
+                         const IndexGroup& constructing,
+                         bool include_embedded_paths) {
         
         assert(inputs.size() == 2);
         
@@ -2348,7 +2349,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             unique_ptr<gbwt::DynamicGBWT> gbwt_index;
             
-            if (graph_filenames.size() != 1 || i == 1) {
+            if ((graph_filenames.size() != 1 || i == 0) && include_embedded_paths) {
                 // If there's a graph per VCF, or if this is the first VCF, include graph embedded paths
                 gbwt_index = haplotype_indexer->build_gbwt(parse_files, *graph);
             } else {
@@ -2383,7 +2384,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         else {
             gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
         }
-        return make_gbwt(inputs, plan, constructing);
+        return make_gbwt(inputs, plan, constructing, true);
     });
     
     registry.register_recipe({"Spliced GBWT"}, {"Chunked VCF w/ Phasing", "Spliced VG w/ Variant Paths"},
@@ -2398,7 +2399,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         else {
             gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
         }
-        return make_gbwt(inputs, plan, constructing);
+        // If we include graph embedded paths here, they get interpreted as transcripts.
+        return make_gbwt(inputs, plan, constructing, false);
     });
     
     // Giraffe will prefer to use a downsampled haplotype GBWT if possible

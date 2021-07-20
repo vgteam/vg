@@ -164,8 +164,12 @@ protected:
      *
      * haplotypes is the set of (sample number, haplotype number) pairs for
      * haplotypes that exist in the index, across contigs.
+     *
+     * job_name can influence progress messages.
      */
-    void add_vcf_parse_files_to_gbwt(const std::vector<std::string>& vcf_parse_files, std::vector<std::string>& sample_names, std::vector<std::string>& contig_names, std::set<gbwt::range_type>& haplotypes) const;
+    void add_vcf_parse_files_to_gbwt(const std::vector<std::string>& vcf_parse_files, gbwt::DynamicGBWT& index,
+        std::vector<std::string>& sample_names, std::vector<std::string>& contig_names, std::set<gbwt::range_type>& haplotypes,
+        const std::string& job_name = "GBWT") const;
     
     /**
      * Add the embedded paths from a graph to the GBWT under construction.
@@ -184,8 +188,12 @@ protected:
      * haplotypes that exist in the index, across contigs.
      *
      * Can only be called once for a given GBWT builder/metadata set.
+     *
+     * job_name can influence progress messages.
      */
-    void add_embedded_paths_to_gbwt(const PathHandleGraph& graph, gbwt::GBWTBuilder& builder, std::vector<std::string>& sample_names, std::vector<std::string>& contig_names, std::set<gbwt::range_type>& haplotypes) const;
+    void add_embedded_paths_to_gbwt(const PathHandleGraph& graph, gbwt::GBWTBuilder& builder,
+        std::vector<std::string>& sample_names, std::vector<std::string>& contig_names, std::set<gbwt::range_type>& haplotypes,
+        const std::string& job_name = "GBWT") const;
 };
 
 }

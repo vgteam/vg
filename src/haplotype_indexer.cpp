@@ -295,7 +295,8 @@ std::vector<std::string> HaplotypeIndexer::parse_vcf(const std::string& filename
 }
 
 void HaplotypeIndexer::add_vcf_parse_files_to_gbwt(const std::vector<std::string>& vcf_parse_files, gbwt::DynamicGBWT& index,
-    std::vector<std::string>& sample_names, std::vector<std::string>& contig_names, std::set<gbwt::range_type>& haplotypes) const {
+    std::vector<std::string>& sample_names, std::vector<std::string>& contig_names, std::set<gbwt::range_type>& haplotypes,
+    const std::string& job_name) const {
 
     if (show_progress) {
         #pragma omp critical
@@ -361,7 +362,7 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const std::vecto
     }
     
     // Actual work.
-    add_vcf_parse_files_to_gbwt(vcf_parse_files, *index, sample_names, contig_names, haplotypes);
+    add_vcf_parse_files_to_gbwt(vcf_parse_files, *index, sample_names, contig_names, haplotypes, job_name);
 
     // Finish the construction.
     index->metadata.setSamples(sample_names);
@@ -376,12 +377,13 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const std::vecto
 }
 
 void HaplotypeIndexer::add_embedded_paths_to_gbwt(const PathHandleGraph& graph, gbwt::GBWTBuilder& builder,
-    std::vector<std::string>& sample_names, std::vector<std::string>& contig_names, std::set<gbwt::range_type>& haplotypes) const {
+    std::vector<std::string>& sample_names, std::vector<std::string>& contig_names, std::set<gbwt::range_type>& haplotypes,
+    const std::string& job_name) const {
     
     if (show_progress) {
         #pragma omp critical
         {
-            std::cerr << "Indexing embedded paths" << std::endl;
+            std::cerr << job_name << ": Indexing embedded paths" << std::endl;
         }
     }
     
@@ -457,13 +459,13 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const std::vecto
     
     if (!vcf_parse_files.empty()) {
         // Add parse files if any
-        add_vcf_parse_files_to_gbwt(vcf_parse_files, *index, sample_names, contig_names, haplotypes);
+        add_vcf_parse_files_to_gbwt(vcf_parse_files, *index, sample_names, contig_names, haplotypes, job_name);
     }
     
     // Add graph paths with an additional builder on the same index
     gbwt::GBWTBuilder builder(gbwt_node_width(graph), this->gbwt_buffer_size * gbwt::MILLION, this->id_interval);
     builder.swapIndex(*index);
-    add_embedded_paths_to_gbwt(graph, builder, sample_names, contig_names, haplotypes);
+    add_embedded_paths_to_gbwt(graph, builder, sample_names, contig_names, haplotypes, job_name);
     builder.finish();
     builder.swapIndex(*index);
     
