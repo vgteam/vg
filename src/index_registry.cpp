@@ -2346,7 +2346,15 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             vector<string> parse_files = haplotype_indexer->parse_vcf(vcf_filenames[i],
                                                                       *graph);
             
-            unique_ptr<gbwt::DynamicGBWT> gbwt_index = haplotype_indexer->build_gbwt(parse_files);
+            unique_ptr<gbwt::DynamicGBWT> gbwt_index;
+            
+            if (graph_filenames.size() != 1 || i == 1) {
+                // If there's a graph per VCF, or if this is the first VCF, include graph embedded paths
+                gbwt_index = haplotype_indexer->build_gbwt(parse_files, *graph);
+            } else {
+                // Don't include graph embedded paths for this GBWT job.
+                gbwt_index = haplotype_indexer->build_gbwt(parse_files);
+            }
             
             save_gbwt(*gbwt_index, gbwt_name);
             
