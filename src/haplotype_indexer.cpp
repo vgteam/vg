@@ -294,17 +294,14 @@ std::vector<std::string> HaplotypeIndexer::parse_vcf(const std::string& filename
     return result;
 }
 
-std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const std::vector<std::string>& vcf_parse_files, const std::string& job_name) const {
+void HaplotypeIndexer::add_vcf_parse_files_to_gbwt(const std::vector<std::string>& vcf_parse_files, gbwt::DynamicGBWT& index,
+    std::vector<std::string>& sample_names, std::vector<std::string>& contig_names, std::set<gbwt::range_type>& haplotypes) const {
 
-    // GBWT metadata.
-    std::vector<std::string> sample_names, contig_names;
-    std::set<gbwt::range_type> haplotypes;
-
-    // GBWT index.
-    std::unique_ptr<gbwt::DynamicGBWT> index(new gbwt::DynamicGBWT());
-    index->addMetadata();
-    if (vcf_parse_files.empty()) {
-        return index;
+    if (show_progress) {
+        #pragma omp critical
+        {
+            std::cerr << "Indexing parse files" << std::endl;
+        }
     }
 
     // Construction for each contig.
@@ -332,7 +329,7 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const std::vecto
             }
         }
         gbwt::GBWTBuilder builder(variants.nodeWidth(true), this->gbwt_buffer_size * gbwt::MILLION, this->id_interval);
-        builder.swapIndex(*index);
+        builder.swapIndex(index);
         gbwt::generateHaplotypes(variants, std::set<std::string>(),
         [&](gbwt::size_type sample_id) -> bool {
             return (this->excluded_samples.find(sample_names[sample_id]) == this->excluded_samples.end());
@@ -345,8 +342,26 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const std::vecto
             return this->discard_overlaps;
         });
         builder.finish();
-        builder.swapIndex(*index);
+        builder.swapIndex(index);
     }
+}
+
+std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const std::vector<std::string>& vcf_parse_files, const std::string& job_name) const {
+
+    // GBWT metadata.
+    std::vector<std::string> sample_names, contig_names;
+    std::set<gbwt::range_type> haplotypes;
+
+    // GBWT index.
+    std::unique_ptr<gbwt::DynamicGBWT> index(new gbwt::DynamicGBWT());
+    index->addMetadata();
+    
+    if (vcf_parse_files.empty()) {
+        return index;
+    }
+    
+    // Actual work.
+    add_vcf_parse_files_to_gbwt(vcf_parse_files, *index, sample_names, contig_names, haplotypes);
 
     // Finish the construction.
     index->metadata.setSamples(sample_names);
@@ -360,29 +375,29 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const std::vecto
     return index;
 }
 
-std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandleGraph& graph) const {
-
-    // GBWT metadata.
-    std::vector<std::string> sample_names, contig_names;
-    size_t haplotype_count = 0;
-    if (this->paths_as_samples) {
-        contig_names.push_back("0"); // An artificial contig.
-    }
-    else {
-        sample_names.push_back(gbwtgraph::REFERENCE_PATH_SAMPLE_NAME); // An artificial sample.
-        haplotype_count = 1;
-    }
-
-    // GBWT construction.
-    gbwt::GBWTBuilder builder(gbwt_node_width(graph), this->gbwt_buffer_size * gbwt::MILLION, this->id_interval);
-    builder.index.addMetadata();
-
-    // Actual work.
+void HaplotypeIndexer::add_embedded_paths_to_gbwt(const PathHandleGraph& graph, gbwt::GBWTBuilder& builder,
+    std::vector<std::string>& sample_names, std::vector<std::string>& contig_names, std::set<gbwt::range_type>& haplotypes) const {
+    
     if (show_progress) {
         #pragma omp critical
         {
             std::cerr << "Indexing embedded paths" << std::endl;
         }
+    }
+    
+    // We may create a special sample to hold reference paths
+    size_t special_sample_number = std::numeric_limits<size_t>::max();
+    // Or a special contig to hold reference paths, depending on path interpretation mode.
+    size_t special_contig_number = std::numeric_limits<size_t>::max();
+    if (this->paths_as_samples) {
+        contig_names.push_back("0"); // An artificial contig.
+        special_contig_number = contig_names.size() - 1;
+    }
+    else {
+        sample_names.push_back(gbwtgraph::REFERENCE_PATH_SAMPLE_NAME); // An artificial sample.
+        special_sample_number = sample_names.size() - 1;
+        // Give it a (possibly empty) haplotype 0
+        haplotypes.insert(gbwt::range_type(special_sample_number, 0));
     }
     graph.for_each_path_handle([&](path_handle_t path_handle) {
         std::string path_name = graph.get_path_name(path_handle);
@@ -396,20 +411,74 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandle
         }
         builder.insert(buffer, true); // Insert in both orientations.
         if (this->paths_as_samples) {
-            builder.index.metadata.addPath(sample_names.size(), 0, 0, 0);
+            // Treat each path as a different sample on a special reference contig
+            size_t new_sample_number = sample_names.size();
             sample_names.push_back(path_name);
-            haplotype_count++;
+            builder.index.metadata.addPath(new_sample_number, special_contig_number, 0, 0);
+            // Give each of them a haplotype 0
+            haplotypes.insert(gbwt::range_type(new_sample_number, 0));
         } else {
-            builder.index.metadata.addPath(0, contig_names.size(), 0, 0);
+            // Treat each path as a different contig of the special reference sample (which already has a haplotype)
+            size_t new_contig_number = contig_names.size();
+            builder.index.metadata.addPath(special_sample_number, new_contig_number, 0, 0);
             contig_names.push_back(path_name);
         }
     });
+}
+
+std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandleGraph& graph) const {
+
+    // GBWT metadata.
+    std::vector<std::string> sample_names, contig_names;
+    std::set<gbwt::range_type> haplotypes;
+    
+    // GBWT construction.
+    gbwt::GBWTBuilder builder(gbwt_node_width(graph), this->gbwt_buffer_size * gbwt::MILLION, this->id_interval);
+    builder.index.addMetadata();
+
+    // Actual work.
+    add_embedded_paths_to_gbwt(graph, builder, sample_names, contig_names, haplotypes);
         
     // Finish the construction and extract the index.
-    finish_gbwt_constuction(builder, sample_names, contig_names, haplotype_count, this->show_progress);
+    finish_gbwt_constuction(builder, sample_names, contig_names, haplotypes.size(), this->show_progress);
     std::unique_ptr<gbwt::DynamicGBWT> built(new gbwt::DynamicGBWT());
     builder.swapIndex(*built);
     return built;
+}
+
+std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const std::vector<std::string>& vcf_parse_files, const PathHandleGraph& graph, const std::string& job_name) const {
+    // GBWT metadata.
+    std::vector<std::string> sample_names, contig_names;
+    std::set<gbwt::range_type> haplotypes;
+
+    // GBWT index.
+    std::unique_ptr<gbwt::DynamicGBWT> index(new gbwt::DynamicGBWT());
+    index->addMetadata();
+    
+    if (!vcf_parse_files.empty()) {
+        // Add parse files if any
+        add_vcf_parse_files_to_gbwt(vcf_parse_files, *index, sample_names, contig_names, haplotypes);
+    }
+    
+    // Add graph paths with an additional builder on the same index
+    gbwt::GBWTBuilder builder(gbwt_node_width(graph), this->gbwt_buffer_size * gbwt::MILLION, this->id_interval);
+    builder.swapIndex(*index);
+    add_embedded_paths_to_gbwt(graph, builder, sample_names, contig_names, haplotypes);
+    builder.finish();
+    builder.swapIndex(*index);
+    
+    if (!haplotypes.empty()) {
+        // Finish the construction because we made something
+        index->metadata.setSamples(sample_names);
+        index->metadata.setContigs(contig_names);
+        index->metadata.setHaplotypes(haplotypes.size());
+        if (this->show_progress) {
+            std::cerr << job_name << ": ";
+            gbwt::operator<<(std::cerr, index->metadata);
+            std::cerr << std::endl;
+        }
+    } 
+    return index;
 }
 
 std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandleGraph& graph,

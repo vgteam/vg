@@ -115,6 +115,20 @@ public:
      * that the sample names are the same in all files.
      */
     std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(const std::vector<std::string>& vcf_parse_files, const std::string& job_name = "GBWT") const;
+    
+    /**
+     * Build a GBWT from the haplotypes in the given VCF parse files.
+     *
+     * Respects excluded_samples and does not produce threads for them.
+     *
+     * We expect that all parse files contain sample/contig names and
+     * that the sample names are the same in all files.
+     *
+     * Also includes non-alt-allele paths from the given graph, as a special
+     * reference sample (default) or their own individual samples (if
+     * paths_as_samples is set).
+     */
+    std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(const std::vector<std::string>& vcf_parse_files, const PathHandleGraph& graph, const std::string& job_name = "GBWT") const;
 
     /**
      * Build a GBWT from the embedded non-alt paths in the graph. Use
@@ -133,6 +147,45 @@ public:
      */
     std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(const PathHandleGraph& graph,
         const std::vector<std::string>& aln_filenames, const std::string& aln_format) const;
+
+protected:
+
+    /**
+     * Add VCF-derived haplotypes to the GBWT under construction.
+     *
+     * vcf_parse_files is the haplotype-encoding parse files to read.
+     *
+     * index is the under-construction GBWT to operate on.
+     *
+     * sample_names is the ordered list of sample names being included in the GBWT,
+     * defining the sample numbering scheme.
+     *  
+     * contig_names is the same but for contigs.
+     *
+     * haplotypes is the set of (sample number, haplotype number) pairs for
+     * haplotypes that exist in the index, across contigs.
+     */
+    void add_vcf_parse_files_to_gbwt(const std::vector<std::string>& vcf_parse_files, std::vector<std::string>& sample_names, std::vector<std::string>& contig_names, std::set<gbwt::range_type>& haplotypes) const;
+    
+    /**
+     * Add the embedded paths from a graph to the GBWT under construction.
+     *
+     * graph is the graph to embed non-alt-allele paths from.
+     *
+     * builder is the GBWT builder that the haplotype threads actually get added
+     * to.
+     *
+     * sample_names is the ordered list of sample names being included in the GBWT,
+     * defining the sample numbering scheme.
+     *  
+     * contig_names is the same but for contigs.
+     *
+     * haplotypes is the set of (sample number, haplotype number) pairs for
+     * haplotypes that exist in the index, across contigs.
+     *
+     * Can only be called once for a given GBWT builder/metadata set.
+     */
+    void add_embedded_paths_to_gbwt(const PathHandleGraph& graph, gbwt::GBWTBuilder& builder, std::vector<std::string>& sample_names, std::vector<std::string>& contig_names, std::set<gbwt::range_type>& haplotypes) const;
 };
 
 }
