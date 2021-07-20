@@ -13,13 +13,441 @@ make_distance_index(bdsg::SnarlDistanceIndex* distance_index, const HandleGraph*
     distance_index->set_snarl_size_limit(size_limit);
 
     //Build the temporary distance index from the graph
-    TemporaryDistanceIndex temp_index(graph, snarl_finder, size_limit);
+    SnarlDisanceIndex::TemporaryDistanceIndex temp_index = make_temporary_index(graph, snarl_finder, size_limit);
 
     //And fill in the permanent distance index
     vector<const TemporaryDistanceIndex*> indexes;
     indexes.emplace_back(&temp_index);
     get_snarl_tree_records(indexes, graph);
 }
+SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
+    const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit) :
+    min_node_id(graph->min_node_id()), max_node_id(graph->max_node_id()) {
+
+#ifdef debug_distance_indexing
+    cerr << "Creating new distance index for nodes between " << graph->min_node_id() << " and " << graph->max_node_id() << endl;
+
+#endif
+    //Construct the distance index using the snarl decomposition
+    //traverse_decomposition will visit all structures (including trivial snarls), calling
+    //each of the given functions for the start and ends of the snarls and chains
+    temp_node_records.resize(max_node_id-min_node_id+1);
+
+
+
+    //Stores unfinished records, as type of record and offset into appropriate vector
+    //(temp_node/snarl/chain_records)
+    vector<pair<temp_record_t, size_t>> stack;
+
+    //There may be components of the root that are connected to each other. Each connected component will
+    //get put into a (fake) root-level snarl, but we don't know what those components will be initially,
+    //since the decomposition just puts them in the same root snarl. This is used to group the root-level
+    //components into connected components that will later be used to make root snarls
+    structures::UnionFind root_snarl_component_uf (0);
+
+
+    /*Go through the decomposition top down and record the connectivity of the snarls and chains
+     * Distances will be added later*/
+
+    snarl_finder->traverse_decomposition(
+    [&](handle_t chain_start_handle) {
+        /*This gets called when a new chain is found, starting at the start handle going into chain
+         * For the first node in a chain, create a chain record and fill in the first node.
+         * Also add the first node record
+         */
+#ifdef debug_distance_indexing
+        cerr << "  Starting new chain at " << graph->get_id(chain_start_handle) << (graph->get_is_reverse(chain_start_handle) ? " reverse" : " forward") << endl;
+        //We shouldn't have seen this node before
+        //assert(temp_node_records[graph->get_id(chain_start_handle)-min_node_id].node_id == 0);
+#endif
+
+        //Fill in node in chain
+        stack.emplace_back(TEMP_CHAIN, temp_chain_records.size());
+        id_t node_id = graph->get_id(chain_start_handle);
+        temp_chain_records.emplace_back();
+        auto& temp_chain = temp_chain_records.back();
+        temp_chain.start_node_id = node_id; 
+        temp_chain.start_node_rev = graph->get_is_reverse(chain_start_handle);
+        temp_chain.children.emplace_back(TEMP_NODE, node_id);
+
+        //And the node record itself
+        auto& temp_node = temp_node_records.at(node_id-min_node_id);
+        temp_node.node_id = node_id;
+        temp_node.node_length = graph->get_length(chain_start_handle);
+        temp_node.reversed_in_parent = graph->get_is_reverse(chain_start_handle);
+        temp_node.parent = stack.back(); //The parent is this chain
+
+    },
+    [&](handle_t chain_end_handle) {
+        /*This gets called at the end of a chain, facing out
+         * Record the chain's end node. The node record itself would have been added as part of the snarl
+         * Also record the chain's parent here
+         */
+
+        //Done with this chain
+        pair<temp_record_t, size_t> chain_index = stack.back();
+        stack.pop_back();
+
+        assert(chain_index.first == TEMP_CHAIN);
+        TemporaryChainRecord& temp_chain_record = temp_chain_records.at(chain_index.second);
+        id_t node_id = graph->get_id(chain_end_handle);
+
+        //Fill in node in chain
+        temp_chain_record.end_node_id = node_id;
+        temp_chain_record.end_node_rev = graph->get_is_reverse(chain_end_handle);
+        temp_chain_record.end_node_length = graph->get_length(chain_end_handle);
+
+        //Check if this is a trivial chain that represents a node
+        if (temp_chain_record.children.size() == 1 && temp_chain_record.start_node_id == temp_chain_record.end_node_id) {
+            temp_chain_record.is_trivial = true;
+            temp_chain_record.start_node_rev = false;
+            temp_chain_record.end_node_rev = false;
+        }
+
+        //TODO: Add root-level snarls
+        if (stack.empty()) {
+            //If this was the last thing on the stack, then this was a root
+
+            //Check to see if there is anything connected to the ends of the chain
+            vector<id_t> reachable_nodes;
+            graph->follow_edges(graph->get_handle(temp_chain_record.start_node_id, !temp_chain_record.start_node_rev),
+                false, [&] (const handle_t& next) {
+                    if (graph->get_id(next) != temp_chain_record.start_node_id &&
+                        graph->get_id(next) != temp_chain_record.end_node_id) {
+                        reachable_nodes.emplace_back(graph->get_id(next));
+                    }
+                });
+            graph->follow_edges(graph->get_handle(temp_chain_record.end_node_id, temp_chain_record.end_node_rev),
+                false, [&] (const handle_t& next) {
+                    if (graph->get_id(next) != temp_chain_record.start_node_id &&
+                        graph->get_id(next) != temp_chain_record.end_node_id) {
+                        reachable_nodes.emplace_back(graph->get_id(next));
+                    }
+                });
+            if (reachable_nodes.size() && (temp_chain_record.is_trivial || temp_chain_record.start_node_id != temp_chain_record.end_node_id)) {
+                //If we can reach anything leaving the chain (besides the chain itself), then it is part of a root snarl
+                //Note that if the chain's start and end node are the same, then it will always be a single component
+#ifdef debug_distance_indexing
+                cerr << "                 This chain is part of the root but connects with something else in the root"<<endl;
+#endif
+                bool new_component = true;
+
+                //Add this to the union find
+                root_snarl_component_uf.resize(root_snarl_component_uf.size() + 1);
+                //And remember that it's in a connected component of the root
+                temp_chain_record.root_snarl_index = root_snarl_components.size();
+                root_snarl_components.emplace_back(chain_index);
+                for (id_t next_id : reachable_nodes) {
+                    //For each node that this is connected to, check if we've already seen it and if we have, then
+                    //union this chain and that node's chain
+                    TemporaryNodeRecord& node_record = temp_node_records[next_id-min_node_id];
+                    if (node_record.node_id != 0) {
+                        //If we've already seen this node, union it with the new one
+                        //If we can see it by walking out from this top-level chain, then it must also be a
+                        //top-level chain (or node pretending to be a chain)
+                        assert(node_record.parent.first == TEMP_CHAIN);
+                        size_t other_i = temp_chain_records[node_record.parent.second].root_snarl_index;
+                        assert(other_i != std::numeric_limits<size_t>::max());
+                        root_snarl_component_uf.union_groups(other_i, temp_chain_record.root_snarl_index);
+#ifdef debug_distance_indexing
+                        cerr << "        Union this chain with " << temp_chain_records[node_record.parent.second].start_node_id << " " << temp_chain_records[node_record.parent.second].end_node_id << endl;
+#endif
+                    } else {
+                        new_component = false;
+                    }
+                }
+                if (new_component) {
+                    root_structure_count += 1;
+                }
+            } else {
+                //If this chain isn't connected to anything else, then it is a single component of the root
+                temp_chain_record.parent = make_pair(TEMP_ROOT, 0);
+                components.emplace_back(chain_index);
+                root_structure_count += 1;
+            }
+        } else {
+            //The last thing on the stack is the parent of this chain, which must be a snarl
+            temp_chain_record.parent = stack.back();
+            auto& parent_snarl_record = temp_snarl_records.at(temp_chain_record.parent.second);
+            temp_chain_record.rank_in_parent = parent_snarl_record.children.size() + 2;
+            parent_snarl_record.children.emplace_back(chain_index);
+        }
+
+#ifdef debug_distance_indexing
+        cerr << "  Ending new " << (temp_chain_record.is_trivial ? "trivial " : "") <<  "chain " << structure_start_end_as_string(chain_index)
+             << endl << "    that is a child of " << structure_start_end_as_string(temp_chain_record.parent) << endl;
+#endif
+    },
+    [&](handle_t snarl_start_handle) {
+        /*This gets called at the beginning of a new snarl facing in
+         * Create a new snarl record and fill in the start node.
+         * The node record would have been created as part of the chain, or as the end node
+         * of the previous snarl
+         */
+
+#ifdef debug_distance_indexing
+        cerr << "  Starting new snarl at " << graph->get_id(snarl_start_handle) << (graph->get_is_reverse(snarl_start_handle) ? " reverse" : " forward") << endl;
+#endif
+        stack.emplace_back(TEMP_SNARL, temp_snarl_records.size());
+        temp_snarl_records.emplace_back();
+        temp_snarl_records.back().start_node_id = graph->get_id(snarl_start_handle);
+        temp_snarl_records.back().start_node_rev = graph->get_is_reverse(snarl_start_handle);
+        temp_snarl_records.back().start_node_length = graph->get_length(snarl_start_handle);
+    },
+    [&](handle_t snarl_end_handle){
+        /*This gets called at the end of the snarl facing out
+         * Fill in the end node of the snarl, its parent, and record the snarl as a child of its
+         * parent chain
+         * Also create a node record
+         */
+        pair<temp_record_t, size_t> snarl_index = stack.back();
+        stack.pop_back();
+        assert(snarl_index.first == TEMP_SNARL);
+        assert(stack.back().first == TEMP_CHAIN);
+        TemporarySnarlRecord& temp_snarl_record = temp_snarl_records[snarl_index.second];
+        id_t node_id = graph->get_id(snarl_end_handle);
+
+        //Record the end node in the snarl
+        temp_snarl_record.end_node_id = node_id;
+        temp_snarl_record.end_node_rev = graph->get_is_reverse(snarl_end_handle);
+        temp_snarl_record.end_node_length = graph->get_length(snarl_end_handle);
+        temp_snarl_record.node_count = temp_snarl_record.children.size();
+        if (temp_snarl_record.children.size() == 0) {
+            temp_snarl_record.is_trivial = true;
+        }
+        //Record the snarl as a child of its chain
+        if (stack.empty()) {
+            assert(false);
+            //TODO: The snarl should always be the child of a chain
+            //If this was the last thing on the stack, then this was a root
+            //TODO: I'm not sure if this would get put into a chain or not
+            temp_snarl_record.parent = make_pair(TEMP_ROOT, 0);
+            root_structure_count += 1;
+            components.emplace_back(snarl_index);
+        } else {
+            //This is the child of a chain
+            assert(stack.back().first == TEMP_CHAIN);
+            temp_snarl_record.parent = stack.back();
+            auto& temp_chain = temp_chain_records.at(stack.back().second);
+            temp_chain.children.emplace_back(snarl_index);
+            temp_chain.children.emplace_back(TEMP_NODE, node_id);
+
+        }
+
+        //Record the node itself. This gets done for the start of the chain, and ends of snarls
+        TemporaryNodeRecord& temp_node_record = temp_node_records.at(node_id-min_node_id);
+        temp_node_record.node_id = node_id;
+        temp_node_record.node_length = graph->get_length(snarl_end_handle);
+        temp_node_record.reversed_in_parent = graph->get_is_reverse(snarl_end_handle);
+        temp_node_record.parent = stack.back();
+
+        //TODO: This isn't actually counting everything
+        index_size += SnarlRecord::record_size(DISTANCED_SNARL, temp_snarl_record.node_count);
+
+#ifdef debug_distance_indexing
+        cerr << "  Ending new snarl " << structure_start_end_as_string(snarl_index)
+             << endl << "    that is a child of " << structure_start_end_as_string(temp_snarl_record.parent) << endl;
+#endif
+    });
+
+    /*
+     * We finished going through everything that exists according to the snarl decomposition, but
+     * it's still missing tips, which will be discovered when filling in the snarl distances,
+     * and root-level snarls, which we'll add now by combining the chain components in root_snarl_components
+     * into snarls defined by root_snarl_component_uf
+     * The root-level snarl is a fake snarl that doesn't exist according to the snarl decomposition,
+     * but is an extra layer that groups together components of the root that are connected
+     */
+
+    vector<vector<size_t>> root_snarl_component_indexes = root_snarl_component_uf.all_groups();
+    for (vector<size_t>& root_snarl_indexes : root_snarl_component_indexes) {
+#ifdef debug_distance_indexing
+        cerr << "Create a new root snarl from components" << endl;
+#endif
+        //For each of the root snarls
+        components.emplace_back(TEMP_SNARL, temp_snarl_records.size());
+        temp_snarl_records.emplace_back();
+        TemporarySnarlRecord& temp_snarl_record = temp_snarl_records.back();
+        temp_snarl_record.is_root_snarl = true;
+        temp_snarl_record.parent = make_pair(TEMP_ROOT, 0);
+
+
+        for (size_t chain_i : root_snarl_indexes) {
+            //For each chain component of this root-level snarl
+            assert(root_snarl_components[chain_i].first == TEMP_CHAIN);
+            TemporaryChainRecord& temp_chain_record = temp_chain_records[root_snarl_components[chain_i].second];
+            temp_chain_record.parent = make_pair(TEMP_SNARL, temp_snarl_records.size() - 1);
+            temp_chain_record.rank_in_parent = temp_snarl_record.children.size();
+            temp_chain_record.reversed_in_parent = false;
+
+            temp_snarl_record.children.emplace_back(root_snarl_components[chain_i]);
+        }
+        temp_snarl_record.node_count = temp_snarl_record.children.size();
+    }
+
+    /*Now go through the decomposition again to fill in the distances
+     * This traverses all chains in reverse order that we found them in, so bottom up
+     * Each chain and snarl already knows its parents and children, except for single nodes
+     * that are children of snarls. These nodes were not in chains will have their node
+     * records created here
+     */
+
+#ifdef debug_distance_indexing
+    cerr << "Filling in the distances in snarls" << endl;
+#endif
+    for (int i = temp_chain_records.size()-1 ; i >= 0 ; i--) {
+
+        TemporaryChainRecord& temp_chain_record = temp_chain_records[i];
+#ifdef debug_distance_indexing
+        cerr << "  At "  << (temp_chain_record.is_trivial ? " trivial " : "") << " chain " << structure_start_end_as_string(make_pair(TEMP_CHAIN, i)) << endl;
+#endif
+
+        //Add the first values for the prefix sum and backwards loop vectors
+        temp_chain_record.prefix_sum.emplace_back(0);
+        temp_chain_record.backward_loops.emplace_back(std::numeric_limits<int64_t>::max());
+        temp_chain_record.chain_components.emplace_back(0);
+
+
+        /*First, go through each of the snarls in the chain in the forward direction and
+         * fill in the distances in the snarl. Also fill in the prefix sum and backwards
+         * loop vectors here
+         */
+        size_t curr_component = 0; //which component of the chain are we in
+        for (size_t chain_child_i = 0 ; chain_child_i < temp_chain_record.children.size() ; chain_child_i++ ){
+            const pair<temp_record_t, size_t>& chain_child_index = temp_chain_record.children[chain_child_i];
+            //Go through each of the children in the chain, skipping nodes
+            //The snarl may be trivial, in which case don't fill in the distances
+#ifdef debug_distance_indexing
+            cerr << "    Looking at child " << structure_start_end_as_string(chain_child_index) << endl;
+#endif
+
+            if (chain_child_index.first == TEMP_SNARL){
+                //This is where all the work gets done. Need to go through the snarl and add
+                //all distances, then add distances to the chain that this is in
+                //The parent chain will be the last thing in the stack
+                TemporarySnarlRecord& temp_snarl_record = temp_snarl_records.at(chain_child_index.second);
+
+                //Fill in this snarl's distances
+                populate_snarl_index(temp_snarl_record, chain_child_index, size_limit, graph);
+
+                int64_t length;
+                bool new_component = false;
+                //TODO: Double check these orientations
+                if (temp_snarl_record.distances.count(make_pair(make_pair(0, false), make_pair(1, false)))){
+                    length = temp_snarl_record.distances.at(make_pair(make_pair(0, false), make_pair(1, false)));
+                } else if (temp_snarl_record.distances.count(make_pair(make_pair(1, false), make_pair(0, false)))){
+                    length = temp_snarl_record.distances.at(make_pair(make_pair(1, false), make_pair(0, false)));
+                } else {
+                    //The snarl is not start-end connected
+                    length = std::numeric_limits<int64_t>::max();
+                    //Start a new component
+                    curr_component ++;
+                    new_component=true;
+#ifdef debug_distance_indexing
+            cerr << "      This snarl is not start-end connected, starting new chain component " << endl;
+#endif
+                }
+                temp_snarl_record.min_length = length;
+
+                //Get the loop distances for the snarl
+                temp_snarl_record.loop_start =
+                    temp_snarl_record.distances.count(make_pair(make_pair(0, false), make_pair(0, false)))
+                  ? temp_snarl_record.distances.at(make_pair(make_pair(0, false), make_pair(0, false)))
+                  : std::numeric_limits<int64_t>::max();
+                temp_snarl_record.loop_end =
+                    temp_snarl_record.distances.count(make_pair(make_pair(1, false), make_pair(1, false)))
+                  ? temp_snarl_record.distances.at(make_pair(make_pair(1, false), make_pair(1, false)))
+                  : std::numeric_limits<int64_t>::max();
+
+                //And get the distance values for the end node of the snarl in the chain
+                if (new_component) {
+                    //If this snarl wasn't start-end connected, then we start tracking the distance vectors
+                    //here
+
+                    //If this is the second component of the multicomponent chain, then remember the minimum length
+                    if (curr_component == 1) {
+                        temp_chain_record.min_length = temp_chain_record.prefix_sum.back();
+                    }
+                    temp_chain_record.prefix_sum.emplace_back(0);
+                    temp_chain_record.backward_loops.emplace_back(temp_snarl_record.loop_end);
+                } else {
+                    temp_chain_record.prefix_sum.emplace_back(sum({temp_chain_record.prefix_sum.back(),
+                        temp_snarl_record.min_length, temp_snarl_record.start_node_length}));
+                    temp_chain_record.backward_loops.emplace_back(std::min(temp_snarl_record.loop_end,
+                        sum({temp_chain_record.backward_loops.back()
+                        , 2 * (temp_snarl_record.start_node_length + temp_snarl_record.min_length)})));
+                }
+                temp_chain_record.chain_components.emplace_back(curr_component);
+                if (chain_child_i == temp_chain_record.children.size() - 2 && temp_snarl_record.min_length == std::numeric_limits<int64_t>::max()) {
+                    temp_chain_record.loopable = false;
+                }
+            }
+        } //Finished walking through chain
+        if (temp_chain_record.start_node_id == temp_chain_record.end_node_id && temp_chain_record.chain_components.back() != 0) {
+            //If this is a looping, multicomponent chain, the start/end node could end up in separate chain components
+            //despite being the same node.
+            //Since the first component will always be 0, set the first node's component to be whatever the last
+            //component was
+            temp_chain_record.chain_components[0] = temp_chain_record.chain_components.back();
+
+        }
+        temp_chain_record.min_length = !temp_chain_record.is_trivial && temp_chain_record.start_node_id == temp_chain_record.end_node_id
+                        ? sum({temp_chain_record.prefix_sum.back(), temp_chain_record.min_length})
+                        : sum({temp_chain_record.prefix_sum.back() , temp_chain_record.end_node_length});
+
+        assert(temp_chain_record.prefix_sum.size() == temp_chain_record.backward_loops.size());
+        assert(temp_chain_record.prefix_sum.size() == temp_chain_record.chain_components.size());
+
+
+        /*Now that we've gone through all the snarls in the chain, fill in the forward loop vector
+         * by going through the chain in the backwards direction
+         */
+        temp_chain_record.forward_loops.resize(temp_chain_record.prefix_sum.size(),
+                                               std::numeric_limits<int64_t>::max());
+        if (temp_chain_record.start_node_id == temp_chain_record.end_node_id && temp_chain_record.children.size() > 1) {
+            //If this is a looping chain, then check the first snarl for a loop
+            TemporarySnarlRecord& temp_snarl_record = temp_snarl_records.at(temp_chain_record.children.at(1).second);
+            temp_chain_record.forward_loops[temp_chain_record.forward_loops.size()-1] = temp_snarl_record.loop_start;
+
+
+            //Also check if the reverse loop values would be improved if we went around again
+            if (temp_chain_record.backward_loops.back() < temp_chain_record.backward_loops.front()) {
+                temp_chain_record.backward_loops[0] = temp_chain_record.backward_loops.back();
+            }
+        }
+
+        size_t node_i = temp_chain_record.prefix_sum.size() - 2;
+        // We start at the next to last node because we need to look at this record and the next one.
+
+        for (int j = (int)temp_chain_record.children.size() - 1 ; j >= 0 ; j--) {
+            auto& child = temp_chain_record.children.at(j);
+            if (child.first == TEMP_SNARL){
+                TemporarySnarlRecord& temp_snarl_record = temp_snarl_records.at(child.second);
+                if (temp_chain_record.chain_components.at(node_i) != temp_chain_record.chain_components.at(node_i+1)){
+                    //If this is a new chain component, then add the loop distance from the snarl
+                    temp_chain_record.forward_loops.at(node_i) = temp_snarl_record.loop_start;
+                } else {
+                    temp_chain_record.forward_loops.at(node_i) =
+                        std::min(sum({temp_chain_record.forward_loops.at(node_i+1) , 2* temp_snarl_record.min_length,
+                                      2*temp_snarl_record.end_node_length}), temp_snarl_record.loop_start);
+                }
+                node_i --;
+            }
+        }
+    }
+
+#ifdef debug_distance_indexing
+    cerr << "Filling in the distances in root snarls" << endl;
+#endif
+    for (pair<temp_record_t, size_t>& component_index : components) {
+        if (component_index.first == TEMP_SNARL) {
+            TemporarySnarlRecord& temp_snarl_record = temp_snarl_records.at(component_index.second);
+            populate_snarl_index(temp_snarl_record, component_index, size_limit, graph);
+            temp_snarl_record.min_length = std::numeric_limits<int64_t>::max();//TODO: This is true but might be better to store it as something else so we can bit compress later
+        }
+    }
+}
+
 
 /*Fill in the snarl index.
  * The index will already know its boundaries and everything knows their relationships in the
@@ -286,484 +714,5 @@ void SnarlDistanceIndex::TemporaryDistanceIndex::populate_snarl_index(
         }
     }
 }
-
-void SnarlDistanceIndex::get_snarl_tree_records(const vector<const TemporaryDistanceIndex*>& temporary_indexes, const HandleGraph* graph) {
-
-#ifdef debug_distance_indexing
-    cerr << "Convert a temporary distance index into a permanent one" << endl;
-#endif
-
-    //TODO: Make sure not to include trivial chains
-    //Convert temporary distance indexes into the final index stored as a single vector
-    size_t total_index_size = 1;
-    size_t total_component_count = 0;
-    id_t min_node_id = 0;
-    id_t max_node_id = 0;
-    //The maximum value that gets stored in the index 
-    //Used for setting the width of ints in the int vector (snarl_tree_records)
-    //This only counts distance values, since the max offset value will be the length 
-    //of the array, I'll check that right before setting the width
-    size_t max_value = 0; 
-
-    /*Go through each of the indexes to count how many nodes, components, etc */
-    for (const TemporaryDistanceIndex* temp_index : temporary_indexes) {
-        total_index_size += temp_index->index_size;
-        total_component_count += temp_index->root_structure_count;
-        min_node_id = min_node_id == 0 ? temp_index->min_node_id 
-                                       : std::min(min_node_id, temp_index->min_node_id);
-        max_node_id = std::max(max_node_id, temp_index->max_node_id);
-    }
-
-#ifdef debug_distance_indexing
-    cerr << "Converting " << temporary_indexes.size() << " temporary indexes with "
-         << total_component_count << " connected components from node " 
-         << min_node_id << " to " << max_node_id << endl;
-    cerr << " Adding root record" << endl;
-#endif
-
-    //TODO: Count everything properly
-    //snarl_tree_records->reserve(total_index_size);
-
-    /*Allocate memory for the root and the nodes */
-    RootRecordConstructor root_record(0, total_component_count, max_node_id-min_node_id+1, min_node_id, &snarl_tree_records);
-#ifdef debug_distance_indexing
-    cerr << "  Root record had length " << snarl_tree_records->size() << endl;
-#endif
-
-    /*Now go through each of the chain/snarl indexes and copy them into snarl_tree_records
-     * Walk down the snarl tree and fill in children
-     */
-    //TODO: For now I'm assuming that I'm including distances
-    // maps <index into temporary_indexes, <record type, index into chain/snarl/node records>> to new offset
-    std::unordered_map<pair<size_t, pair<temp_record_t, size_t>>, size_t> record_to_offset;
-    //Set the root index
-    for (size_t temp_index_i = 0 ; temp_index_i < temporary_indexes.size() ; temp_index_i++) {
-        //Any root will point to the same root
-        record_to_offset.emplace(make_pair(temp_index_i,make_pair(TEMP_ROOT, 0)), 0);
-    }
-    //Go through each separate temporary index, corresponding to separate connected components
-    for (size_t temp_index_i = 0 ; temp_index_i < temporary_indexes.size() ; temp_index_i++) {
-        const TemporaryDistanceIndex* temp_index = temporary_indexes[temp_index_i];
-        //Get a stack of temporary snarl tree records to be added to the index
-        //Initially, it contains only the root components
-        //This reverses the order of the connected components but I don't think that matters
-        //TODO: this is copying the components but it shouldn't be too big so I think it's fine
-        vector<pair<temp_record_t, size_t>> temp_record_stack = temp_index->components;
-
-        while (!temp_record_stack.empty()) {
-            pair<temp_record_t, size_t> current_record_index = temp_record_stack.back();
-            temp_record_stack.pop_back();
-
-#ifdef debug_distance_indexing
-            cerr << "Translating " << temp_index->structure_start_end_as_string(current_record_index) << endl;
-#endif
-
-            if (current_record_index.first == TEMP_CHAIN) {
-                /*Add a new chain to the index. Each of the chain's child snarls and nodes will also 
-                 * be added here
-                 */
-                const TemporaryDistanceIndex::TemporaryChainRecord& temp_chain_record = 
-                        temp_index->temp_chain_records[current_record_index.second];
-                if (!temp_chain_record.is_trivial) {
-                    //If this chain contains at least two nodes
-#ifdef debug_distance_indexing
-                    cerr << "  Adding this chain at offset " << snarl_tree_records->size() << endl;
-                    cerr << "            with indices " << current_record_index.first << " " << current_record_index.second << endl;
-#endif 
-                    record_to_offset.emplace(make_pair(temp_index_i,current_record_index), snarl_tree_records->size());
-
-                    ChainRecordConstructor chain_record_constructor;
-
-                    if (temp_chain_record.chain_components.back() == 0 || snarl_size_limit == 0) {
-                        record_t record_type = snarl_size_limit == 0 ? CHAIN : DISTANCED_CHAIN;
-                        chain_record_constructor = ChainRecordConstructor(snarl_tree_records->size(), record_type, 
-                                                               temp_chain_record.prefix_sum.size(), &snarl_tree_records);
-                        chain_record_constructor.set_start_end_connected();
-                    } else {
-                        chain_record_constructor = ChainRecordConstructor(snarl_tree_records->size(), MULTICOMPONENT_CHAIN, 
-                                                               temp_chain_record.prefix_sum.size(), &snarl_tree_records);
-                    }
-                    chain_record_constructor.set_parent_record_offset(
-                            record_to_offset[make_pair(temp_index_i, temp_chain_record.parent)]);//TODO: Get the actual parent
-
-                    chain_record_constructor.set_min_length(temp_chain_record.min_length);
-                    chain_record_constructor.set_max_length(temp_chain_record.max_length);
-                    chain_record_constructor.set_rank_in_parent(temp_chain_record.rank_in_parent);
-                    chain_record_constructor.set_start_node(temp_chain_record.start_node_id, temp_chain_record.start_node_rev);
-                    chain_record_constructor.set_end_node(temp_chain_record.end_node_id, temp_chain_record.end_node_rev);
-                    max_value = std::max(max_value, (size_t) temp_chain_record.max_length);
-
-
-                    size_t chain_node_i = 0; //How far along the chain are we?
-                    bool prev_node = false;//Was the previous thing in the chain a node?
-                    pair<size_t, bool> last_child_offset;
-
-                    for (size_t child_record_index_i = 0 ; child_record_index_i < temp_chain_record.children.size() ; child_record_index_i++) {
-                        const pair<temp_record_t, size_t>& child_record_index = temp_chain_record.children[child_record_index_i];
-                        //Go through each node and snarl in the chain and add them to the index
-#ifdef debug_distance_indexing
-                        cerr << "  Adding child of the chain: " << temp_index->structure_start_end_as_string(child_record_index) << endl;
-#endif
-
-                        if (child_record_index.first == TEMP_NODE) {
-                            //Add a node to the chain
-                            if (prev_node) {
-                                //If the last thing we saw was a node, then this is the end of a trivial snarl 
-                                chain_record_constructor.add_trivial_snarl();
-#ifdef debug_distance_indexing
-                                cerr << "    Also adding a trivial snarl before this node" << endl;
-#endif
-                            }
-                            if (chain_node_i != 0 && child_record_index == temp_chain_record.children.front()) {
-                                //If this is the last node in the chain, and it is the same as the first node -
-                                // it is a looping chain and we set this and don't re-record the node
-                                // TODO: I'm using externally_start_start_connected here to indicate that 
-                                // it's sharing a start and end node, but chains might actually be allowed to
-                                // be start-end connected in which case I need a new flag
-                                //chain_record_constructor.set_externally_start_end_connected();
-#ifdef debug_distance_indexing
-                            cerr << "    This is a looping chain"  << endl;
-#endif
-
-                            } else {
-                                const TemporaryDistanceIndex::TemporaryNodeRecord& temp_node_record = 
-                                    temp_index->temp_node_records[child_record_index.second-min_node_id];
-                                //Fill in this node in the index 
-                                record_t record_type = snarl_size_limit == 0 ? NODE : DISTANCED_NODE;
-                                NodeRecordConstructor node_record_constructor(
-                                    get_offset_from_node_id(temp_node_record.node_id), record_type, &snarl_tree_records);
-                                node_record_constructor.set_node_length(temp_node_record.node_length);
-                                node_record_constructor.set_parent_record_offset(chain_record_constructor.get_offset());
-                                node_record_constructor.set_is_reversed_in_parent(temp_node_record.reversed_in_parent);
-                                max_value = std::max(max_value, temp_node_record.node_length);
-
-                                //TODO: This is not really used
-                                //The "rank" of the node actually points to the node in the chain, so it is the
-                                //current size of the records (before adding the node to the chain)
-                                node_record_constructor.set_rank_in_parent(snarl_tree_records->size());
-
-                                //Add the node to the chain
-                                if (chain_record_constructor.ChainRecord::get_record_type() == MULTICOMPONENT_CHAIN) {
-                                    chain_record_constructor.add_node(temp_node_record.node_id, temp_chain_record.prefix_sum[chain_node_i],
-                                                                  temp_chain_record.forward_loops[chain_node_i],
-                                                                  temp_chain_record.backward_loops[chain_node_i],
-                                                                  temp_chain_record.chain_components[chain_node_i]);
-                                } else {
-                                    chain_record_constructor.add_node(temp_node_record.node_id, temp_chain_record.prefix_sum[chain_node_i],
-                                                                  temp_chain_record.forward_loops[chain_node_i],
-                                                                  temp_chain_record.backward_loops[chain_node_i]);
-                                }
-                                last_child_offset = make_pair(node_record_constructor.NodeRecord::record_offset, false);
-
-
-#ifdef debug_distance_indexing
-                            cerr << "    The node record is at offset " << node_record_constructor.NodeRecord::record_offset << endl;
-#endif
-                            }
-
-                            chain_node_i++;
-                            prev_node = true;
-
-
-                        } else {
-                            //Add a snarl to the chain
-                            assert(child_record_index.first == TEMP_SNARL);
-                            //Get the temporary snarl record
-                            const TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = 
-                                 temp_index->temp_snarl_records[child_record_index.second];
-                            if (!temp_snarl_record.is_trivial) {
-                                //If this is an actual snarl that we need to make
-
-                                //Record how to find the new snarl record
-                                record_to_offset.emplace(make_pair(temp_index_i, child_record_index), snarl_tree_records->size()+1);
-
-                                //Add the snarl to the chain, and get back the record to fill it in
-
-                                record_t record_type = snarl_size_limit == 0 ? SNARL : 
-                                    (temp_snarl_record.node_count < snarl_size_limit ? DISTANCED_SNARL : OVERSIZED_SNARL);
-                                SnarlRecordConstructor snarl_record_constructor = 
-                                    chain_record_constructor.add_snarl(temp_snarl_record.node_count, record_type);
-
-                                //Fill in snarl info
-                                snarl_record_constructor.set_parent_record_offset(chain_record_constructor.get_offset());
-                                snarl_record_constructor.set_start_node(temp_snarl_record.start_node_id,
-                                                                         temp_snarl_record.start_node_rev);
-                                snarl_record_constructor.set_end_node(temp_snarl_record.end_node_id,
-                                                                         temp_snarl_record.end_node_rev);
-                                snarl_record_constructor.set_min_length(temp_snarl_record.min_length);
-                                snarl_record_constructor.set_max_length(temp_snarl_record.max_length);
-                                max_value = std::max(max_value, (size_t) temp_snarl_record.max_length);
-
-                                //Add distances and record connectivity
-                                for (const auto& it : temp_snarl_record.distances) {
-                                    const pair<pair<size_t, bool>, pair<size_t, bool>>& node_ranks = it.first;
-                                    const int64_t distance = it.second;
-
-                                    if (snarl_size_limit != 0 &&
-                                        (temp_snarl_record.node_count < snarl_size_limit ||
-                                         (node_ranks.first.first == 0 || node_ranks.first.first == 1 ||
-                                          node_ranks.second.first == 0 || node_ranks.second.first == 1))) {
-                                        //If we are keeping track of distances and either this is a small enough snarl,
-                                        //or the snarl is too big but we are looking at the boundaries
-                                        snarl_record_constructor.set_distance(node_ranks.first.first, node_ranks.first.second, 
-                                            node_ranks.second.first, node_ranks.second.second, distance);
-                                        max_value = std::max(max_value, (size_t)distance);
-                                    }
-
-                                    //Now set the connectivity of this snarl
-                                    if (node_ranks.first.first == 0 && node_ranks.second.first == 0) {
-                                        snarl_record_constructor.set_start_start_connected();
-                                    } else if ((node_ranks.first.first == 0 && node_ranks.second.first == 1) ||
-                                               (node_ranks.first.first == 1 && node_ranks.second.first == 0)) {
-                                        snarl_record_constructor.set_start_end_connected();
-                                    } else if (node_ranks.first.first == 1 && node_ranks.second.first == 1) {
-                                        snarl_record_constructor.set_end_end_connected();
-                                    } else if ((node_ranks.first.first == 0 || node_ranks.second.first == 0) &&
-                                               (temp_snarl_record.tippy_child_ranks.count(node_ranks.first.first) 
-                                                || temp_snarl_record.tippy_child_ranks.count(node_ranks.second.first))) {
-                                        snarl_record_constructor.set_start_tip_connected();
-                                    } else if ((node_ranks.first.first == 1 || node_ranks.second.first == 1) &&
-                                               (temp_snarl_record.tippy_child_ranks.count(node_ranks.first.first) 
-                                                || temp_snarl_record.tippy_child_ranks.count(node_ranks.second.first))) {
-                                        snarl_record_constructor.set_end_tip_connected();
-                                    } else if (temp_snarl_record.tippy_child_ranks.count(node_ranks.first.first) 
-                                                && temp_snarl_record.tippy_child_ranks.count(node_ranks.second.first)) {
-                                        snarl_record_constructor.set_tip_tip_connected();
-                                    }
-                                }
-#ifdef debug_distance_indexing
-                            cerr << "    The snarl record is at offset " << snarl_record_constructor.SnarlRecord::record_offset << endl;
-                            cerr << "    This child snarl has " << snarl_record_constructor.get_node_count() << " children: " << endl;
-#endif
-                                for (const pair<temp_record_t, size_t>& child : temp_snarl_record.children) {
-                                    temp_record_stack.emplace_back(child);
-#ifdef debug_distance_indexing
-                                    cerr << "      " << temp_index->structure_start_end_as_string(child) << endl;
-#endif
-                                }
-
-
-                                //Add connectivity in chain based on this snarl
-                                //TODO: Tip-tip connected?
-                                //TODO: What about if it's a multicomponent chain?
-                                if (!snarl_record_constructor.get_is_reversed_in_parent()) {
-                                    //If this snarl is oriented forward in the chain
-                                    if (snarl_record_constructor.is_start_start_connected()) {
-                                        chain_record_constructor.set_start_start_connected();
-                                    } 
-                                    if (snarl_record_constructor.is_end_end_connected()) {
-                                        chain_record_constructor.set_end_end_connected();
-                                    } 
-                                    if (snarl_record_constructor.is_start_tip_connected()) {
-                                        chain_record_constructor.set_start_tip_connected();
-                                    }
-                                    if (snarl_record_constructor.is_end_tip_connected()) {
-                                        chain_record_constructor.set_end_tip_connected();
-                                    }
-                                } else {
-                                    //If this snarl is oriented backwards in the chain
-                                    if (snarl_record_constructor.is_start_start_connected()) {
-                                        chain_record_constructor.set_end_end_connected();
-                                    } 
-                                    if (snarl_record_constructor.is_end_end_connected()) {
-                                        chain_record_constructor.set_start_start_connected();
-                                    } 
-                                    if (snarl_record_constructor.is_start_tip_connected()) {
-                                        chain_record_constructor.set_end_tip_connected();
-                                    }
-                                    if (snarl_record_constructor.is_end_tip_connected()) {
-                                        chain_record_constructor.set_start_tip_connected();
-                                    }
-                                }
-                                last_child_offset = make_pair(snarl_record_constructor.SnarlRecord::record_offset, true);
-                            } else {
-                                //Add a trivial snarl
-#ifdef debug_distance_indexing
-                                cerr << "    which is a trivial snarl" << endl;
-#endif
-                                chain_record_constructor.add_trivial_snarl();
-                            }
-
-                            prev_node = false;
-                        }
-                    }
-                    //Does the chain loop and is the last node connected to the rest of the chain through the last snarl
-                    bool last_node_connected = temp_chain_record.loopable && (temp_chain_record.start_node_id==temp_chain_record.end_node_id);
-                    chain_record_constructor.set_last_child_offset(last_child_offset.first, last_child_offset.second, last_node_connected);
-                    //Finish the chain by adding two 0's
-                    chain_record_constructor.finish_chain();
-                } else {
-                    //If the chain is trivial, then only record the node
-#ifdef debug_distance_indexing
-                    cerr << "        this chain is actually just a node "
-                         << temp_index->structure_start_end_as_string(temp_chain_record.children[0]) << endl; 
-#endif
-                    assert(temp_chain_record.children.size() == 1);
-                    assert(temp_chain_record.children[0].first == TEMP_NODE);
-                    const TemporaryDistanceIndex::TemporaryNodeRecord& temp_node_record = 
-                            temp_index->temp_node_records[temp_chain_record.children[0].second-min_node_id];
-
-                    record_t record_type = snarl_size_limit == 0 ? NODE : DISTANCED_NODE;
-                    NodeRecordConstructor node_record(
-                        get_offset_from_node_id(temp_node_record.node_id), record_type, &snarl_tree_records);
-                    node_record.set_node_length(temp_node_record.node_length);
-                    node_record.set_rank_in_parent(temp_chain_record.rank_in_parent);
-                    node_record.set_is_reversed_in_parent(false);//TODO: Make sure that this is true
-                    node_record.set_parent_record_offset(record_to_offset[make_pair(temp_index_i, temp_chain_record.parent)]);
-                    max_value = std::max(max_value, temp_node_record.node_length);
-
-                    record_to_offset.emplace(make_pair(temp_index_i, current_record_index), node_record.NodeRecord::record_offset);
-
-                }
-            } else if (current_record_index.first == TEMP_SNARL) {
-#ifdef debug_distance_indexing
-                cerr << "        this is a root-level snarl " 
-                     << temp_index->structure_start_end_as_string(current_record_index) << endl;
-#endif
-                //This is a root-level snarl
-                record_t record_type = snarl_size_limit == 0 ? ROOT_SNARL : DISTANCED_ROOT_SNARL;
-
-                const TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = temp_index->temp_snarl_records[current_record_index.second];
-                record_to_offset.emplace(make_pair(temp_index_i,current_record_index), snarl_tree_records->size());
-
-                SnarlRecordConstructor snarl_record_constructor (temp_snarl_record.node_count, &snarl_tree_records, record_type);
-
-                //Fill in snarl info
-                snarl_record_constructor.set_parent_record_offset(0);
-                //Add distances and record connectivity
-                for (const auto& it : temp_snarl_record.distances) {
-                    const pair<pair<size_t, bool>, pair<size_t, bool>>& node_ranks = it.first;
-                    const int64_t distance = it.second;
-                    if (snarl_size_limit != 0 ) {
-                        //TODO: I"m checking this but also automatically making a distanced snarl
-                        //If we are keeping track of distances and either this is a small enough snarl,
-                        //or the snarl is too big but we are looking at the boundaries
-                        snarl_record_constructor.set_distance(node_ranks.first.first, node_ranks.first.second, 
-                            node_ranks.second.first, node_ranks.second.second, distance);
-                        max_value = std::max(max_value, (size_t)distance);
-                    }
-                }
-#ifdef debug_distance_indexing
-                cerr << "    The snarl record is at offset " << snarl_record_constructor.SnarlRecord::record_offset << endl;
-                cerr << "    This child snarl has " << snarl_record_constructor.get_node_count() << " children: " << endl;
-#endif
-                for (const pair<temp_record_t, size_t>& child : temp_snarl_record.children) {
-                        temp_record_stack.emplace_back(child);
-                }
-                
-            } else {
-                //TODO: This was a node that was a tip, so it wasn't put in a chain by the temporary index
-                assert(current_record_index.first == TEMP_NODE);
-#ifdef debug_distance_indexing
-                cerr << "        this just a node that is a tip " 
-                     << temp_index->structure_start_end_as_string(current_record_index) << endl;
-#endif
-                const TemporaryDistanceIndex::TemporaryNodeRecord& temp_node_record = 
-                        temp_index->temp_node_records[current_record_index.second-min_node_id];
-                record_t record_type = snarl_size_limit == 0 ? NODE : DISTANCED_NODE;
-                NodeRecordConstructor node_record(
-                    get_offset_from_node_id(temp_node_record.node_id), record_type, &snarl_tree_records);
-                node_record.set_node_length(temp_node_record.node_length);
-                node_record.set_rank_in_parent(temp_node_record.rank_in_parent);
-                node_record.set_is_reversed_in_parent(false);//TODO: Make sure that this is true
-                node_record.set_parent_record_offset(record_to_offset[make_pair(temp_index_i, temp_node_record.parent)]);
-                max_value = std::max(max_value, temp_node_record.node_length);
-
-                record_to_offset.emplace(make_pair(temp_index_i, current_record_index), node_record.NodeRecord::record_offset);
-            }
-#ifdef debug_distance_indexing
-            cerr << "Finished translating " << temp_index->structure_start_end_as_string(current_record_index) << endl;
-#endif
-        }
-#ifdef debug_distance_indexing
-        cerr << "Adding roots" << endl;
-#endif
-
-        for (size_t component_num = 0 ; component_num < temp_index->components.size() ; component_num++){
-            const pair<temp_record_t, size_t>& component_index = temp_index->components[component_num];
-            //Let the root record know that it has another root
-            root_record.add_component(component_num,record_to_offset[make_pair(temp_index_i,component_index)]); 
-
-            SnarlTreeRecord record (record_to_offset[make_pair(temp_index_i, component_index)], 
-                                    &snarl_tree_records);
-            SnarlTreeRecordConstructor record_constructor(record_to_offset[make_pair(temp_index_i, component_index)], 
-                                                              &snarl_tree_records);
-            if (record.get_record_type() != ROOT_SNARL && record.get_record_type() != DISTANCED_ROOT_SNARL) {
-                //If this isn't a root snarl
-                handle_t start_out = graph->get_handle(record.get_start_id(), !record.get_start_orientation());
-                handle_t end_out = graph->get_handle(record.get_end_id(), record.get_end_orientation());
-                handle_t start_in = graph->get_handle(record.get_start_id(), record.get_start_orientation());
-                handle_t end_in = graph->get_handle(record.get_end_id(), !record.get_end_orientation());
-
-
-                graph->follow_edges(start_out, false, [&](const handle_t& h) {
-                    if (h == start_in) {
-                        record_constructor.set_externally_start_start_connected();
-                    } else if (h == end_in) {
-                        record_constructor.set_externally_start_end_connected();
-                    }
-                    return true;
-                });
-                graph->follow_edges(end_out, false, [&](const handle_t& h) {
-                    if (h == end_in) {
-                        record_constructor.set_externally_end_end_connected();
-                    } else if (h == start_in) {
-                        record_constructor.set_externally_start_end_connected();
-                    }
-                    return true;
-                });
-            }
-            
-
-#ifdef debug_distance_indexing
-            cerr << temp_index->structure_start_end_as_string(component_index) << endl;
-            //assert(record.get_parent_record_offset() == 0);
-#endif
-        }
-    }
-
-    
-
-#ifdef debug_distance_indexing
-    cerr << "Now filling in children of each snarl" << endl;
-    cerr << "The index currently has size " << snarl_tree_records->size() << endl;
-#endif
-
-    /* Now go through everything again and give everything children */
-    for (size_t temp_index_i = 0 ; temp_index_i < temporary_indexes.size() ; temp_index_i++) {
-        const TemporaryDistanceIndex* temp_index = temporary_indexes[temp_index_i];
-        for (size_t temp_snarl_i = 0 ; temp_snarl_i < temp_index->temp_snarl_records.size() ; temp_snarl_i ++) {
-            //Get the temporary index for this snarl
-            const TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = temp_index->temp_snarl_records[temp_snarl_i];
-            if (!temp_snarl_record.is_trivial) {
-                //And a constructor for the permanent record, which we've already created
-                SnarlRecordConstructor snarl_record_constructor (&snarl_tree_records,
-                        record_to_offset[make_pair(temp_index_i, make_pair(TEMP_SNARL, temp_snarl_i))]); 
-                //Now add the children and tell the record where to find them
-                snarl_record_constructor.set_child_record_pointer(snarl_tree_records->size());
-                for (pair<temp_record_t, size_t> child : temp_snarl_record.children) {
-                    snarl_record_constructor.add_child(record_to_offset[make_pair(temp_index_i, child)]);
-#ifdef debug_distance_indexing
-                cerr << "       child " << temp_index->structure_start_end_as_string(child) << endl;
-                cerr << "        " << child.first << " " << child.second << endl;
-                cerr << "        Add child " << net_handle_as_string(get_net_handle(record_to_offset[make_pair(temp_index_i, child)], START_END)) 
-                     << "     at offset " << record_to_offset[make_pair(temp_index_i, child)] 
-                     << "     to child list at offset " << snarl_tree_records->size() << endl;
-#endif
-                }
-            }
-        }
-    }
-
-    //TODO: Instead of repacking, could figure out the max size from the temporary index 
-    //and set the width to start
-    //The size of the array can be stored as an offset in the array
-    max_value = std::max(max_value, snarl_tree_records->size());
-    size_t new_width = log(max_value-1) + 1;
-    new_width = std::max(new_width, (size_t)13); //13 is the width of the tags
-    snarl_tree_records->repack(new_width, snarl_tree_records->size());
-}
-//TODO: Also need to go the other way, from final index to temporary one for merging
-
 
 }
