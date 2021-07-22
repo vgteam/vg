@@ -26,14 +26,14 @@
 using namespace vg;
 
 struct GBWTConfig {
-    // Build mode also defines the type of input args.
-    enum build_mode { build_none, build_vcf, build_gfa, build_paths, build_alignments, build_gbz };
+    /// thread_source represents a place where haplotype information for the GBWT can come from. 
+    enum thread_source { threads_from_vcf, threads_from_gfa, threads_from_paths, threads_from_alignments, threads_from_gbz };
     enum merge_mode { merge_none, merge_insert, merge_fast, merge_parallel };
     enum path_cover_mode { path_cover_none, path_cover_augment, path_cover_local, path_cover_greedy };
 
     // Requirements and modes.
     bool produces_one_gbwt = false; // Steps 1-4 eventually produce one input GBWT regardless of the number of input args.
-    build_mode build = build_none;
+    std::set<thread_source> build;
     merge_mode merge = merge_none;
     path_cover_mode path_cover = path_cover_none;
     bool metadata_mode = false, thread_mode = false;
@@ -159,7 +159,7 @@ int main_gbwt(int argc, char** argv) {
     GraphHandler graphs;
 
     // Input GBWT construction.
-    if (config.build != GBWTConfig::build_none) {
+    if (!config.build.empty()) {
         step_1_build_gbwts(gbwts, graphs, config);
     }
 
@@ -321,13 +321,6 @@ void use_preset(std::string preset_name, GBWTConfig& config) {
         config.haplotype_indexer.discard_overlaps = true;
     } else {
         std::cerr << "error: [vg gbwt] invalid preset: " << preset_name << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-}
-
-void no_multiple_input_types(const GBWTConfig& config) {
-    if (config.build != GBWTConfig::build_none) {
-        std::cerr << "error: [vg gbwt] only one input type can be specified for step 1" << std::endl;
         std::exit(EXIT_FAILURE);
     }
 }
@@ -513,8 +506,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
 
         // Input GBWT construction: VCF
         case 'v':
-            no_multiple_input_types(config);
-            config.build = GBWTConfig::build_vcf;
+            config.build.insert(GBWTConfig::threads_from_vcf);
             config.produces_one_gbwt = true;
             break;
         case OPT_PRESET:
@@ -596,8 +588,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
 
         // Input GBWT construction: GFA
         case 'G':
-            no_multiple_input_types(config);
-            config.build = GBWTConfig::build_gfa;
+            config.build.insert(GBWTConfig::threads_from_gfa);
             config.produces_one_gbwt = true;
             break;
         case OPT_MAX_NODE:
@@ -615,15 +606,13 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
 
         // Input GBWT construction: GBZ
         case 'Z':
-            no_multiple_input_types(config);
-            config.build = GBWTConfig::build_gbz;
+            config.build.insert(GBWTConfig::threads_from_gbz);
             config.produces_one_gbwt = true;
             break;
 
         // Input GBWT construction: Paths
         case 'E':
-            no_multiple_input_types(config);
-            config.build = GBWTConfig::build_paths;
+            config.build.insert(GBWTConfig::threads_from_paths);
             config.produces_one_gbwt = true;
             break;
         case OPT_PATHS_AS_SAMPLES:
@@ -632,8 +621,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
 
         // Input GBWT construction: GAF/GAM
         case 'A':
-            no_multiple_input_types(config);
-            config.build = GBWTConfig::build_alignments;
+            config.build.insert(GBWTConfig::threads_from_alignments);
             config.produces_one_gbwt = true;
             break;
         case OPT_GAM_FORMAT:
@@ -759,13 +747,13 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             std::exit(EXIT_FAILURE);
         }
     }
-
+    
     // The remaining args are input args.
     for (int arg = optind; arg < argc; arg++) {
         config.input_filenames.push_back(argv[arg]);
     }
     // We can load a single input GBWT if we did not use any build options.
-    if (config.input_filenames.size() == 1 && config.build == GBWTConfig::build_none) {
+    if (config.input_filenames.size() == 1 && config.build.empty()) {
         config.gbwt_name = config.input_filenames.front();
     }
 
@@ -781,79 +769,154 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
 //----------------------------------------------------------------------------
 
 void validate_gbwt_config(GBWTConfig& config) {
+
     // We can either write GBWT in SDSL format to a separate file or with GBWTGraph in GBZ format.
     // However, `--parse-only` uses `gbwt_output` for other purposes.
     bool has_gbwt_output = !config.gbwt_output.empty() || (config.gbz_format && !config.graph_output.empty() && !config.parse_only);
 
-    // We have one input GBWT after steps 1-4.
-    bool one_input_gbwt = config.input_filenames.size() == 1 || config.produces_one_gbwt;
+    // We may have been given a graph, and if so we need to make sure that at least one thread source is going to use it.
+    bool has_graph_input = !config.graph_name.empty();
+    bool used_graph_input = false;
 
     // We can load a PathHandleGraph from a file, get a SequenceSource from parsing GFA, or get a GBWTGraph from GBZ.
-    bool has_graph_input = !config.graph_name.empty() || config.build == GBWTConfig::build_gfa || config.build == GBWTConfig::build_gbz;
+    bool has_graph_available = has_graph_input || config.build.count(GBWTConfig::threads_from_gfa) || config.build.count(GBWTConfig::threads_from_gbz);
 
-    if (config.build != GBWTConfig::build_none) {
+    // We need to make sure that if we have input args, exactly one of our thread sources is going to use them.
+    bool has_input_args = !config.input_filenames.empty();
+    bool has_exactly_one_input_arg = config.input_filenames.size() == 1;
+    bool used_input_args = false;
+    
+    // We have one input GBWT after steps 1-4.
+    // TODO: Should this be xor?
+    bool one_input_gbwt = has_exactly_one_input_arg || config.produces_one_gbwt;
+    
+    if (config.parse_only && (config.build.size() != 1 || !config.build.count(GBWTConfig::threads_from_vcf))) {
+        std::cerr << "error: [vg gbwt] --parse-only mode only works with exactly one thread source: VCF files (-v)" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    if (!config.build.empty()) {
+        if (config.build.size() > 1 &&
+            (config.build.size() != 2 ||
+             !config.build.count(GBWTConfig::threads_from_vcf) ||
+             !config.build.count(GBWTConfig::threads_from_paths))
+            ) {
+             
+            // Only VCF and path thread sources are implemented together right now
+            std::cerr << "error: [vg gbwt] only VCF and path thread sources can be combined for step 1; "
+                      << "you specified some other combination of " << config.build.size() << " thread sources" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
         if (!has_gbwt_output) {
             std::cerr << "error: [vg gbwt] GBWT construction requires output GBWT" << std::endl;
             std::exit(EXIT_FAILURE);
         }
-        if (config.build == GBWTConfig::build_vcf) {
-            if (config.graph_name.empty() || config.input_filenames.empty()) {
-                std::cerr << "error: [vg gbwt] GBWT construction from VCF files requires -x and input args" << std::endl;
+        for (auto thread_source : config.build) {
+            switch (thread_source) {
+            case GBWTConfig::threads_from_vcf:
+                if (!has_graph_input || !has_input_args) {
+                    std::cerr << "error: [vg gbwt] GBWT construction from VCF files requires -x and input args" << std::endl;
+                    std::exit(EXIT_FAILURE);
+                }
+                if (used_input_args) {
+                    std::cerr << "error: [vg gbwt] GBWT construction from VCF files requires input args, but input args have already been used by another thread source" << std::endl;
+                    std::exit(EXIT_FAILURE);
+                }
+                
+                used_graph_input = true;
+                used_input_args = true;
+                if (config.parse_only) {
+                    config.haplotype_indexer.batch_file_prefix = config.gbwt_output;
+                }
+                break;
+            case GBWTConfig::threads_from_gfa:
+                if (!has_exactly_one_input_arg) {
+                    std::cerr << "error: [vg gbwt] GBWT construction from GFA requires one input arg" << std::endl;
+                    std::exit(EXIT_FAILURE);
+                }
+                if (used_input_args) {
+                    std::cerr << "error: [vg gbwt] GBWT construction from GFA requires one input arg, but input args have already been used by another thread source" << std::endl;
+                    std::exit(EXIT_FAILURE);
+                }
+                
+                used_input_args = true;
+                break;
+            case GBWTConfig::threads_from_gbz:
+                if (!has_exactly_one_input_arg) {
+                    std::cerr << "error: [vg gbwt] GBZ input requires one input arg" << std::endl;
+                    std::exit(EXIT_FAILURE);
+                }
+                
+                used_input_args = true;
+                break;
+            case GBWTConfig::threads_from_alignments:
+                if (!has_graph_input || !has_input_args) {
+                    std::cerr << "error: [vg gbwt] GBWT construction from alignments requires -x and input args" << std::endl;
+                    std::exit(EXIT_FAILURE);
+                }
+                if (used_input_args) {
+                    std::cerr << "error: [vg gbwt] GBWT construction from alignments requires input args, but input args have already been used by another thread source" << std::endl;
+                    std::exit(EXIT_FAILURE);
+                }
+                
+                used_graph_input = true;
+                used_input_args = true;
+                break;
+            case GBWTConfig::threads_from_paths:
+                if (!has_graph_input) {
+                    std::cerr << "error: [vg gbwt] GBWT construction from embedded paths requires -x" << std::endl;
+                    std::exit(EXIT_FAILURE);
+                }
+                
+                used_graph_input = true;
+                break;
+            default:
+                std::cerr << "error: [vg gbwt] GBWT construction can't validate unimplemented thread source " << thread_source << std::endl;
                 std::exit(EXIT_FAILURE);
+                break;
             }
-            if (config.parse_only) {
-                config.haplotype_indexer.batch_file_prefix = config.gbwt_output;
+        }
+        
+        if (has_input_args && !used_input_args) {
+            std::cerr << "error: [vg gbwt] " << config.input_filenames.size() << " superfluous input args are not used by any thread source:";
+            for (auto& arg : config.input_filenames) {
+                std::cerr << " " << arg;
             }
-        } else if (config.build == GBWTConfig::build_gfa) {
-            if (!config.graph_name.empty()) {
-                std::cerr << "error: [vg gbwt] GBWT construction from GFA does not use -x" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            if (config.input_filenames.size() != 1) {
-                std::cerr << "error: [vg gbwt] GBWT construction from GFA requires one input arg" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-        } else if (config.build == GBWTConfig::build_gbz) {
-            if (!config.graph_name.empty()) {
-                std::cerr << "error: [vg gbwt] GBZ input does not use -x" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            if (config.input_filenames.size() != 1) {
-                std::cerr << "error: [vg gbwt] GBZ input requires one input arg" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-        } else if (config.build == GBWTConfig::build_alignments) {
-            if (config.graph_name.empty() || config.input_filenames.empty()) {
-                std::cerr << "error: [vg gbwt] GBWT construction from alignments requires -x and input args" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-        } else if (config.build == GBWTConfig::build_paths) {
-            if (config.graph_name.empty()) {
-                std::cerr << "error: [vg gbwt] GBWT construction from embedded paths requires -x" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            if (!config.input_filenames.empty()) {
-                std::cerr << "error: [vg gbwt] GBWT construction from embedded paths does not use input args" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
+            std::cerr << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        
+        if (has_graph_input && !used_graph_input) {
+            std::cerr << "error: [vg gbwt] GBWT construction was given -x " << config.graph_name << " but no thread source can use a graph file" << std::endl;
+            std::exit(EXIT_FAILURE);
         }
     }
 
     if (config.merge != GBWTConfig::merge_none) {
-        if (config.input_filenames.size() < 2 || !has_gbwt_output) {
-            std::cerr << "error: [vg gbwt] merging requires multiple input GBWTs and output GBWT" << std::endl;
+        if (!has_input_args || has_exactly_one_input_arg || !has_gbwt_output) {
+            std::cerr << "error: [vg gbwt] merging requires multiple input GBWTs and an output GBWT" << std::endl;
             std::exit(EXIT_FAILURE);
         }
+        if (used_input_args) {
+            std::cerr << "error: [vg gbwt] merging requires input args, but input args have already been used by another operation" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        used_input_args = true;
     }
 
     if (!config.to_remove.empty()) {
-        if (config.build == GBWTConfig::build_gbz) {
+        if (config.build.count(GBWTConfig::threads_from_gbz)) {
             std::cerr << "error: [vg gbwt] the GBWT extracted from GBZ cannot be modified" << std::endl;
         }
-        if (!(config.input_filenames.size() == 1 || config.merge != GBWTConfig::merge_none) || !has_gbwt_output) {
+        if (!(has_exactly_one_input_arg || config.merge != GBWTConfig::merge_none) || !has_gbwt_output) {
             std::cerr << "error: [vg gbwt] removing a sample requires one input GBWT and output GBWT" << std::endl;
             std::exit(EXIT_FAILURE);
         }
+        if (used_input_args) {
+            std::cerr << "error: [vg gbwt] removing a sample requires one input GBWT, but input args have already been used by another operation" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        used_input_args = true;
     }
 
     if (config.path_cover != GBWTConfig::path_cover_none) {
@@ -861,13 +924,20 @@ void validate_gbwt_config(GBWTConfig& config) {
             std::cerr << "error: [vg gbwt] path cover options require -x and output GBWT" << std::endl;
             std::exit(EXIT_FAILURE);
         }
-        if (config.path_cover == GBWTConfig::path_cover_greedy && !config.input_filenames.empty()) {
+        if (config.path_cover == GBWTConfig::path_cover_greedy && has_input_args) {
             std::cerr << "error: [vg gbwt] greedy path cover does not use input GBWTs" << std::endl;
             std::exit(EXIT_FAILURE);
         }
-        if ((config.path_cover == GBWTConfig::path_cover_local || config.path_cover == GBWTConfig::path_cover_augment) && !(config.input_filenames.size() == 1 || config.merge != GBWTConfig::merge_none)) {
-            std::cerr << "error: [vg gbwt] path cover options -a and -l require one input GBWT" << std::endl;
-            std::exit(EXIT_FAILURE);
+        if (config.path_cover == GBWTConfig::path_cover_local || config.path_cover == GBWTConfig::path_cover_augment) {
+            if (!(has_exactly_one_input_arg || config.merge != GBWTConfig::merge_none)) {
+                std::cerr << "error: [vg gbwt] path cover options -a and -l require one input GBWT" << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            if (used_input_args) {
+                std::cerr << "error: [vg gbwt] path cover options -a and -l require one input GBWT, but input args have already been used by another operation" << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            used_input_args = true;
         }
         if (config.num_paths == 0) {
             std::cerr << "error: [vg gbwt] number of paths must be non-zero for path cover" << std::endl;
@@ -880,7 +950,7 @@ void validate_gbwt_config(GBWTConfig& config) {
     }
 
     if (!config.graph_output.empty()) {
-        if (!has_graph_input || !one_input_gbwt) {
+        if (!has_graph_available || !one_input_gbwt) {
             std::cerr << "error: [vg gbwt] GBWTGraph construction requires an input graph and and one input GBWT" << std::endl;
             std::exit(EXIT_FAILURE);
         }
@@ -906,6 +976,10 @@ void validate_gbwt_config(GBWTConfig& config) {
             std::exit(EXIT_FAILURE);
         }
     }
+    
+    // TODO: We'd like to check for an unused input arg here, but anything that
+    // needs one_input_gbwt might be getting it from either the input arg or
+    // internal generation.
 }
 
 //----------------------------------------------------------------------------
@@ -1069,83 +1143,108 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
         std::cerr << "Building input GBWTs" << std::endl;
     }
     gbwts.unbacked(); // We will build a new GBWT.
-    if (config.build != GBWTConfig::build_gfa && config.build != GBWTConfig::build_gbz) {
+    if (config.build.count(GBWTConfig::threads_from_vcf) ||
+        config.build.count(GBWTConfig::threads_from_paths) ||
+        config.build.count(GBWTConfig::threads_from_alignments)) {
+        // We will need a graph for these thread sources
         graphs.get_graph(config);
     }
-
-    if (config.build == GBWTConfig::build_vcf) {
-        if (config.show_progress) {
-            std::cerr << "Input type: VCF" << std::endl;
-        }
-        omp_set_num_threads(config.build_jobs);
-        // Process each VCF contig corresponding to a non-alt path.
-        std::vector<job_type> jobs = determine_jobs(graphs.path_graph, config);
-        if (jobs.size() > 1 && config.merge == GBWTConfig::merge_none) {
-            config.merge = GBWTConfig::merge_fast;
-        }
-        std::vector<std::vector<std::string>> vcf_parses(jobs.size());
-        if (config.show_progress) {
-            std::cerr << "Parsing " << jobs.size() << " VCF files using up to " << config.build_jobs << " parallel jobs" << std::endl;
-        }
-        #pragma omp parallel for schedule(dynamic, 1)
-        for (size_t i = 0; i < jobs.size(); i++) {
-            std::string job_name = "Job " + std::to_string(i);
-            if (config.show_progress) {
-                #pragma omp critical
-                {
-                    std::cerr << job_name << ": File " << jobs[i].filename << ", paths {";
-                    for (path_handle_t handle : jobs[i].paths) {
-                        std::cerr << " " << graphs.path_graph->get_path_name(handle);
+    
+    for (auto thread_source : config.build) {
+        switch (thread_source) {
+        case GBWTConfig::threads_from_vcf:
+            {
+                if (config.show_progress) {
+                    std::cerr << "Input type: VCF" << std::endl;
+                }
+                omp_set_num_threads(config.build_jobs);
+                // Process each VCF contig corresponding to a non-alt path.
+                std::vector<job_type> jobs = determine_jobs(graphs.path_graph, config);
+                if (jobs.size() > 1 && config.merge == GBWTConfig::merge_none) {
+                    config.merge = GBWTConfig::merge_fast;
+                }
+                std::vector<std::vector<std::string>> vcf_parses(jobs.size());
+                if (config.show_progress) {
+                    std::cerr << "Parsing " << jobs.size() << " VCF files using up to "
+                              << config.build_jobs << " parallel jobs" << std::endl;
+                }
+                #pragma omp parallel for schedule(dynamic, 1)
+                for (size_t i = 0; i < jobs.size(); i++) {
+                    std::string job_name = "Job " + std::to_string(i);
+                    if (config.show_progress) {
+                        #pragma omp critical
+                        {
+                            std::cerr << job_name << ": File " << jobs[i].filename << ", paths {";
+                            for (path_handle_t handle : jobs[i].paths) {
+                                std::cerr << " " << graphs.path_graph->get_path_name(handle);
+                            }
+                            std::cerr << " }" << std::endl;
+                        }
                     }
-                    std::cerr << " }" << std::endl;
+                    vcf_parses[i] = config.haplotype_indexer.parse_vcf(jobs[i].filename, *(graphs.path_graph), jobs[i].paths, job_name);
+                }
+                graphs.clear(); // Delete the graph to save memory.
+                if (!config.parse_only) {
+                    std::vector<std::string> gbwt_files(vcf_parses.size(), "");
+                    if (config.show_progress) {
+                        std::cerr << "Building " << vcf_parses.size() << " GBWTs using up to "
+                                  << config.build_jobs << " parallel jobs" << std::endl;
+                    }
+                    #pragma omp parallel for schedule(dynamic, 1)
+                    for (size_t i = 0; i < vcf_parses.size(); i++) {
+                        std::string job_name = "Job " + std::to_string(i);
+                        std::unique_ptr<gbwt::DynamicGBWT> parsed = config.haplotype_indexer.build_gbwt(vcf_parses[i], job_name);
+                        use_or_save(parsed, gbwts, gbwt_files, i, config.show_progress);
+                    }
+                    if (vcf_parses.size() > 1) {
+                        config.input_filenames = gbwt_files; // Use the temporary GBWTs as inputs.
+                    }
                 }
             }
-            vcf_parses[i] = config.haplotype_indexer.parse_vcf(jobs[i].filename, *(graphs.path_graph), jobs[i].paths, job_name);
-        }
-        graphs.clear(); // Delete the graph to save memory.
-        if (!config.parse_only) {
-            std::vector<std::string> gbwt_files(vcf_parses.size(), "");
-            if (config.show_progress) {
-                std::cerr << "Building " << vcf_parses.size() << " GBWTs using up to " << config.build_jobs << " parallel jobs" << std::endl;
+            break;
+        case GBWTConfig::threads_from_gfa:
+            {
+                if(config.show_progress) {
+                    std::cerr << "Input type: GFA" << std::endl;
+                }
+                auto result = gbwtgraph::gfa_to_gbwt(config.input_filenames.front(), config.gfa_parameters);
+                if (result.first.get() == nullptr || result.second.get() == nullptr) {
+                    std::cerr << "error: [vg gbwt] GBWT construction from GFA failed" << std::endl;
+                    std::exit(EXIT_FAILURE);
+                }
+                gbwts.use(*(result.first));
+                graphs.use(result.second);
             }
-            #pragma omp parallel for schedule(dynamic, 1)
-            for (size_t i = 0; i < vcf_parses.size(); i++) {
-                std::string job_name = "Job " + std::to_string(i);
-                std::unique_ptr<gbwt::DynamicGBWT> parsed = config.haplotype_indexer.build_gbwt(vcf_parses[i], job_name);
-                use_or_save(parsed, gbwts, gbwt_files, i, config.show_progress);
+            break;
+        case GBWTConfig::threads_from_gbz:
+            if(config.show_progress) {
+                std::cerr << "Input type: GBZ" << std::endl;
             }
-            if (vcf_parses.size() > 1) {
-                config.input_filenames = gbwt_files; // Use the temporary GBWTs as inputs.
+            graphs.load_gbz(gbwts, config);
+            break;
+        case GBWTConfig::threads_from_paths:
+            {
+                if(config.show_progress) {
+                    std::cerr << "Input type: embedded paths" << std::endl;
+                }
+                std::unique_ptr<gbwt::DynamicGBWT> temp = config.haplotype_indexer.build_gbwt(*(graphs.path_graph));
+                gbwts.use(*temp);
             }
-        }
-    } else if (config.build == GBWTConfig::build_gfa) {
-        if(config.show_progress) {
-            std::cerr << "Input type: GFA" << std::endl;
-        }
-        auto result = gbwtgraph::gfa_to_gbwt(config.input_filenames.front(), config.gfa_parameters);
-        if (result.first.get() == nullptr || result.second.get() == nullptr) {
-            std::cerr << "error: [vg gbwt] GBWT construction from GFA failed" << std::endl;
+            break;
+        case GBWTConfig::threads_from_alignments:
+            {
+                if (config.show_progress) {
+                    std::cerr << "Input type: " << (config.gam_format ? "GAM" : "GAF") << std::endl;
+                }
+                std::unique_ptr<gbwt::DynamicGBWT> temp = config.haplotype_indexer.build_gbwt(*(graphs.path_graph), config.input_filenames, (config.gam_format ? "GAM" : "GAF"));
+                gbwts.use(*temp);
+            }
+            break;
+        default:
+            std::cerr << "error: [vg gbwt] Unimplemented input type: " << thread_source << std::endl;
             std::exit(EXIT_FAILURE);
+            break;
         }
-        gbwts.use(*(result.first));
-        graphs.use(result.second);
-    } else if (config.build == GBWTConfig::build_gbz) {
-        if(config.show_progress) {
-            std::cerr << "Input type: GBZ" << std::endl;
-        }
-        graphs.load_gbz(gbwts, config);
-    } else if (config.build == GBWTConfig::build_paths) {
-        if(config.show_progress) {
-            std::cerr << "Input type: embedded paths" << std::endl;
-        }
-        std::unique_ptr<gbwt::DynamicGBWT> temp = config.haplotype_indexer.build_gbwt(*(graphs.path_graph));
-        gbwts.use(*temp);
-    } else if (config.build == GBWTConfig::build_alignments) {
-        if (config.show_progress) {
-            std::cerr << "Input type: " << (config.gam_format ? "GAM" : "GAF") << std::endl;
-        }
-        std::unique_ptr<gbwt::DynamicGBWT> temp = config.haplotype_indexer.build_gbwt(*(graphs.path_graph), config.input_filenames, (config.gam_format ? "GAM" : "GAF"));
-        gbwts.use(*temp);
     }
 
     report_time_memory("GBWTs built", start, config);
