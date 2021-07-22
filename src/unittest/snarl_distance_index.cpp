@@ -35,7 +35,8 @@ namespace vg {
             Node* n1 = graph.create_node("GCA");
 
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
             SECTION("Traverse the snarl decomposition") {
                 bool found_start = false;
                 bool found_end = false;
@@ -95,7 +96,8 @@ namespace vg {
             
             //get the snarls
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
             SECTION("Nodes all have correct lengths") {
                 REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n1->id(), true), &graph)) == 3);
                 REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n2->id(), true), &graph)) == 1);
@@ -145,13 +147,13 @@ namespace vg {
                         distance_index.get_net(graph.get_handle(n8->id(), true), &graph)) == 0);
                 REQUIRE(distance_index.distance_in_parent(chain1, 
                         distance_index.get_net(graph.get_handle(n1->id(), true), &graph),
-                        distance_index.get_net(graph.get_handle(n8->id(), true), &graph)) == std::numeric_limits<int64_t>:: max());
+                        distance_index.get_net(graph.get_handle(n8->id(), true), &graph)) == std::numeric_limits<size_t>:: max());
                 REQUIRE(distance_index.distance_in_parent(chain1, 
                         distance_index.get_net(graph.get_handle(n1->id(), true), &graph),
-                        distance_index.get_net(graph.get_handle(n8->id(), false), &graph)) == std::numeric_limits<int64_t>:: max());
+                        distance_index.get_net(graph.get_handle(n8->id(), false), &graph)) == std::numeric_limits<size_t>:: max());
                 REQUIRE(distance_index.distance_in_parent(chain1, 
                         distance_index.get_net(graph.get_handle(n1->id(), false), &graph),
-                        distance_index.get_net(graph.get_handle(n8->id(), false), &graph)) == std::numeric_limits<int64_t>:: max());
+                        distance_index.get_net(graph.get_handle(n8->id(), false), &graph)) == std::numeric_limits<size_t>:: max());
             }
 
             SECTION( "The top-level snarl has 3 nodes" ) {
@@ -172,26 +174,26 @@ namespace vg {
              
                 SECTION("Distances in the top-level snarl is correct"){
 
-                    int64_t d_start_start = distance_index.distance_in_parent(top_snarl,
+                    size_t d_start_start = distance_index.distance_in_parent(top_snarl,
                                                 distance_index.get_bound(top_snarl, false, true), 
                                                 child);
-                    int64_t d_start_end = distance_index.distance_in_parent(top_snarl,
+                    size_t d_start_end = distance_index.distance_in_parent(top_snarl,
                                                 distance_index.get_bound(top_snarl, false, true), 
                                                 distance_index.flip(child));
-                    int64_t d_end_start = distance_index.distance_in_parent(top_snarl,
+                    size_t d_end_start = distance_index.distance_in_parent(top_snarl,
                                                 distance_index.get_bound(top_snarl, true, true), 
                                                 child);
-                    int64_t d_end_end = distance_index.distance_in_parent(top_snarl,
+                    size_t d_end_end = distance_index.distance_in_parent(top_snarl,
                                                 distance_index.get_bound(top_snarl, true, true), 
                                                 distance_index.flip(child));
-                    int64_t d_across = distance_index.distance_in_parent(top_snarl,
+                    size_t d_across = distance_index.distance_in_parent(top_snarl,
                                                 distance_index.get_bound(top_snarl, false, true), 
                                                 distance_index.get_bound(top_snarl, true, true));
                     REQUIRE(d_across == 0);
-                    REQUIRE(((d_start_start == 0 && d_start_end == std::numeric_limits<int64_t>::max()) ||
-                            (d_start_end == 0 && d_start_start == std::numeric_limits<int64_t>::max())));
-                    REQUIRE(((d_end_start == 0 && d_end_end == std::numeric_limits<int64_t>::max()) ||
-                            (d_end_end == 0 && d_end_start == std::numeric_limits<int64_t>::max())));
+                    REQUIRE(((d_start_start == 0 && d_start_end == std::numeric_limits<size_t>::max()) ||
+                            (d_start_end == 0 && d_start_start == std::numeric_limits<size_t>::max())));
+                    REQUIRE(((d_end_start == 0 && d_end_end == std::numeric_limits<size_t>::max()) ||
+                            (d_end_end == 0 && d_end_start == std::numeric_limits<size_t>::max())));
 
                 }   
             }
@@ -244,35 +246,35 @@ namespace vg {
             }
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n1->id(), false, 0), make_pos_t(n2->id(), false, 0)) == 3);
+                         n1->id(), false, 0, n2->id(), false, 0) == 3);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n1->id(), false, 0), make_pos_t(n8->id(), false, 0)) == 3);
+                         n1->id(), false, 0, n8->id(), false, 0) == 3);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n1->id(), false, 0), make_pos_t(n7->id(), false, 0)) == 5);
+                         n1->id(), false, 0, n7->id(), false, 0) == 5);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n3->id(), false, 0), make_pos_t(n7->id(), false, 0)) == 4);
+                         n3->id(), false, 0, n7->id(), false, 0) == 4);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n7->id(), true, 0), make_pos_t(n3->id(), true, 0)) == 4);
+                         n7->id(), true, 0, n3->id(), true, 0) == 4);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n2->id(), false, 0), make_pos_t(n5->id(), false, 0)) == 2);
+                         n2->id(), false, 0, n5->id(), false, 0) == 2);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n6->id(), false, 0), make_pos_t(n8->id(), false, 1)) == 3);
+                         n6->id(), false, 0, n8->id(), false, 1) == 3);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n2->id(), false, 0), make_pos_t(n6->id(), false, 0)) == 1);
+                         n2->id(), false, 0, n6->id(), false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n7->id(), true, 0), make_pos_t(n4->id(), true, 0)) == 4);
+                         n7->id(), true, 0, n4->id(), true, 0) == 4);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n5->id(), true, 0), make_pos_t(n2->id(), true, 0)) == 4);
+                         n5->id(), true, 0, n2->id(), true, 0) == 4);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n5->id(), true, 0), make_pos_t(n2->id(), false, 0)) == std::numeric_limits<int64_t>::max());
+                         n5->id(), true, 0, n2->id(), false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n6->id(), false, 0), make_pos_t(n5->id(), false, 0)) == std::numeric_limits<int64_t>::max());
+                         n6->id(), false, 0, n5->id(), false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n5->id(), false, 0), make_pos_t(n6->id(), false, 0)) == std::numeric_limits<int64_t>::max());
+                         n5->id(), false, 0, n6->id(), false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n5->id(), true, 0), make_pos_t(n6->id(), true, 0)) == std::numeric_limits<int64_t>::max());
+                         n5->id(), true, 0, n6->id(), true, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n5->id(), false, 0), make_pos_t(n6->id(), true, 0)) == std::numeric_limits<int64_t>::max());
+                         n5->id(), false, 0, n6->id(), true, 0) == std::numeric_limits<size_t>::max());
             }
         
         }
@@ -308,7 +310,8 @@ namespace vg {
             Edge* e10 = graph.create_edge(n7, n8);
             
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
             
             SECTION( "A connectivity-ignoring net graph ignores connectivity" ) {
             
@@ -403,7 +406,7 @@ namespace vg {
                 }
 
                 REQUIRE(distance_index.distance_in_parent(snarl_3_5, start_in, start_in) == 0);
-                REQUIRE(distance_index.distance_in_parent(snarl_3_5, end_in, end_in) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.distance_in_parent(snarl_3_5, end_in, end_in) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.distance_in_parent(snarl_3_5, start_in, end_in) == 0);
                 REQUIRE(distance_index.distance_in_parent(snarl_3_5, end_in, start_in) == 0);
             }
@@ -425,41 +428,41 @@ namespace vg {
                 }
 
                 REQUIRE(distance_index.distance_in_parent(snarl_2_7, start_in, start_in) == 2);
-                REQUIRE(distance_index.distance_in_parent(snarl_2_7, end_in, end_in) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.distance_in_parent(snarl_2_7, end_in, end_in) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.distance_in_parent(snarl_2_7, start_in, end_in) == 1);
                 REQUIRE(distance_index.distance_in_parent(snarl_2_7, end_in, start_in) == 1);
             }
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n1->id(), false, 0), make_pos_t(n8->id(), false, 0)) == 3);
+                         n1->id(), false, 0, n8->id(), false, 0) == 3);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n1->id(), false, 0), make_pos_t(n7->id(), false, 0)) == 5);
+                         n1->id(), false, 0, n7->id(), false, 0) == 5);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n3->id(), false, 0), make_pos_t(n7->id(), false, 0)) == 4);
+                         n3->id(), false, 0, n7->id(), false, 0) == 4);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n7->id(), true, 0), make_pos_t(n3->id(), true, 0)) == 4);
+                         n7->id(), true, 0, n3->id(), true, 0) == 4);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n2->id(), false, 0), make_pos_t(n5->id(), false, 0)) == 2);
+                         n2->id(), false, 0, n5->id(), false, 0) == 2);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n6->id(), false, 0), make_pos_t(n8->id(), false, 1)) == 3);
+                         n6->id(), false, 0, n8->id(), false, 1) == 3);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n2->id(), false, 0), make_pos_t(n6->id(), false, 0)) == 1);
+                         n2->id(), false, 0, n6->id(), false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n7->id(), true, 0), make_pos_t(n4->id(), true, 0)) == 4);
+                         n7->id(), true, 0, n4->id(), true, 0) == 4);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n5->id(), true, 0), make_pos_t(n2->id(), true, 0)) == 4);
+                         n5->id(), true, 0, n2->id(), true, 0) == 4);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n3->id(), false, 0), make_pos_t(n3->id(), true, 0)) == 1);
+                         n3->id(), false, 0, n3->id(), true, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n2->id(), false, 0), make_pos_t(n2->id(), true, 0)) == 3);
+                         n2->id(), false, 0, n2->id(), true, 0) == 3);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n1->id(), false, 0), make_pos_t(n1->id(), true, 0)) == 7);
+                         n1->id(), false, 0, n1->id(), true, 0) == 7);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n1->id(), false, 0), make_pos_t(n3->id(), true, 0)) == 5);
+                         n1->id(), false, 0, n3->id(), true, 0) == 5);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n5->id(), true, 0), make_pos_t(n2->id(), false, 0)) == std::numeric_limits<int64_t>::max());
+                         n5->id(), true, 0, n2->id(), false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n6->id(), false, 0), make_pos_t(n5->id(), false, 0)) == std::numeric_limits<int64_t>::max());
+                         n6->id(), false, 0, n5->id(), false, 0) == std::numeric_limits<size_t>::max());
             }
             /*
              * TODO: SHould we allow a netgraph that respects internal connectivity?
@@ -553,7 +556,8 @@ namespace vg {
             Edge* e10 = graph.create_edge(n7, n8);
             
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
             
             
             SECTION( "A connectivity-ignoring net graph ignores connectivity" ) {
@@ -648,7 +652,7 @@ namespace vg {
                 }
                 REQUIRE(distance_index.distance_in_parent(snarl_3_5, distance_index.flip(chain_4), distance_index.flip(chain_4)) == 0);
                 REQUIRE(distance_index.distance_in_parent(snarl_3_5, end_in, end_in) == 8);
-                REQUIRE(distance_index.distance_in_parent(snarl_3_5, start_in, start_in) == std::numeric_limits<int64_t>::max());
+                REQUIRE(distance_index.distance_in_parent(snarl_3_5, start_in, start_in) == std::numeric_limits<size_t>::max());
 
 
             }
@@ -672,29 +676,29 @@ namespace vg {
             }
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n1->id(), false, 0), make_pos_t(n8->id(), false, 0)) == 3);
+                         n1->id(), false, 0, n8->id(), false, 0) == 3);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n1->id(), false, 0), make_pos_t(n7->id(), false, 0)) == 5);
+                         n1->id(), false, 0, n7->id(), false, 0) == 5);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n3->id(), false, 0), make_pos_t(n7->id(), false, 0)) == 4);
+                         n3->id(), false, 0, n7->id(), false, 0) == 4);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n7->id(), true, 0), make_pos_t(n3->id(), true, 0)) == 4);
+                         n7->id(), true, 0, n3->id(), true, 0) == 4);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n2->id(), false, 0), make_pos_t(n5->id(), false, 0)) == 2);
+                         n2->id(), false, 0, n5->id(), false, 0) == 2);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n6->id(), false, 0), make_pos_t(n8->id(), false, 1)) == 3);
+                         n6->id(), false, 0, n8->id(), false, 1) == 3);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n5->id(), true, 0), make_pos_t(n2->id(), true, 0)) == 4);
+                         n5->id(), true, 0, n2->id(), true, 0) == 4);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n5->id(), true, 0), make_pos_t(n2->id(), false, 0)) == std::numeric_limits<int64_t>::max());
+                         n5->id(), true, 0, n2->id(), false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n6->id(), false, 0), make_pos_t(n5->id(), false, 0)) == std::numeric_limits<int64_t>::max());
+                         n6->id(), false, 0, n5->id(), false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n4->id(), true, 0), make_pos_t(n4->id(), false, 0)) == 4);
+                         n4->id(), true, 0, n4->id(), false, 0) == 4);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n5->id(), true, 0), make_pos_t(n4->id(), false, 0)) == 7);
+                         n5->id(), true, 0, n4->id(), false, 0) == 7);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(n7->id(), true, 0), make_pos_t(n8->id(), false, 0)) == 16);
+                         n7->id(), true, 0, n8->id(), false, 0) == 16);
             }
                    
         } 
@@ -725,7 +729,8 @@ namespace vg {
                 
                 //get the snarls
                 IntegratedSnarlFinder snarl_finder(graph); 
-                SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+                SnarlDistanceIndex distance_index;
+                make_distance_index(&distance_index, &graph, &snarl_finder);
                 
                 //Handle for first node facing in
                 net_handle_t n1_fd = distance_index.get_net(graph.get_handle(1, false), &graph); 
@@ -825,7 +830,8 @@ namespace vg {
             
             //get the snarls
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
             
             SECTION( "A connectivity-ignoring net graph ignores connectivity" ) {
             
@@ -1453,7 +1459,8 @@ namespace vg {
                 graph.create_edge(n3, n4);
                 
                 IntegratedSnarlFinder snarl_finder(graph);
-                SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+                SnarlDistanceIndex distance_index;
+                make_distance_index(&distance_index, &graph, &snarl_finder);
                 
             }
             
@@ -1482,7 +1489,8 @@ namespace vg {
                 Edge* e10 = graph.create_edge(n7, n8);
                 
                 IntegratedSnarlFinder snarl_finder(graph);
-                SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+                SnarlDistanceIndex distance_index;
+                make_distance_index(&distance_index, &graph, &snarl_finder);
 
                 //The root contains one connected component
                 net_handle_t root_handle = distance_index.get_root();
@@ -1664,7 +1672,8 @@ namespace vg {
                 Edge* e11 = graph.create_edge(n8, n9);
                 
                 IntegratedSnarlFinder snarl_finder(graph);
-                SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+                SnarlDistanceIndex distance_index;
+                make_distance_index(&distance_index, &graph, &snarl_finder);
                 
                 //The root contains one connected component
                 net_handle_t root_handle = distance_index.get_root();
@@ -1815,7 +1824,8 @@ namespace vg {
                 Edge* e10 = graph.create_edge(n7, n8);
 
                 IntegratedSnarlFinder snarl_finder(graph);
-                SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+                SnarlDistanceIndex distance_index;
+                make_distance_index(&distance_index, &graph, &snarl_finder);
                 
                 //The root contains one connected component
                 net_handle_t root_handle = distance_index.get_root();
@@ -1998,23 +2008,23 @@ namespace vg {
 
                 SECTION("Minimum distances are correct") {
                     REQUIRE(distance_index.minimum_distance(
-                             make_pos_t(n1->id(), false, 0), make_pos_t(n8->id(), false, 0)) == 5);
+                             n1->id(), false, 0, n8->id(), false, 0) == 5);
                     REQUIRE(distance_index.minimum_distance(
-                             make_pos_t(n3->id(), false, 0), make_pos_t(n8->id(), false, 0)) == 7);
+                             n3->id(), false, 0, n8->id(), false, 0) == 7);
                     REQUIRE(distance_index.minimum_distance(
-                             make_pos_t(n8->id(), true, 0), make_pos_t(n3->id(), true, 0)) == 10);
+                             n8->id(), true, 0, n3->id(), true, 0) == 10);
                     REQUIRE(distance_index.minimum_distance(
-                             make_pos_t(n2->id(), false, 0), make_pos_t(n6->id(), true, 0)) == 1);
+                             n2->id(), false, 0, n6->id(), true, 0) == 1);
                     REQUIRE(distance_index.minimum_distance(
-                             make_pos_t(n4->id(), false, 0), make_pos_t(n7->id(), false, 0)) == 5);
+                             n4->id(), false, 0, n7->id(), false, 0) == 5);
                     REQUIRE(distance_index.minimum_distance(
-                             make_pos_t(n1->id(), false, 0), make_pos_t(n7->id(), false, 0)) == 4);
+                             n1->id(), false, 0, n7->id(), false, 0) == 4);
                     REQUIRE(distance_index.minimum_distance(
-                             make_pos_t(n5->id(), false, 0), make_pos_t(n1->id(), true, 0)) == 5);
+                             n5->id(), false, 0, n1->id(), true, 0) == 5);
                     REQUIRE(distance_index.minimum_distance(
-                             make_pos_t(n5->id(), false, 0), make_pos_t(n5->id(), false, 0)) == 0);
+                             n5->id(), false, 0, n5->id(), false, 0) == 0);
                     REQUIRE(distance_index.minimum_distance(
-                             make_pos_t(n5->id(), false, 0), make_pos_t(n5->id(), true, 0)) == std::numeric_limits<int64_t>::max());
+                             n5->id(), false, 0, n5->id(), true, 0) == std::numeric_limits<size_t>::max());
                 }
                 
             }
@@ -2311,7 +2321,8 @@ namespace vg {
             REQUIRE(graph.paths.size() == 1);
 
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
             SECTION("The snarl distance index finds the right snarls") {
                 
                     
@@ -2526,13 +2537,13 @@ namespace vg {
             }
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(8, false, 0)) == 2);
+                         1, false, 0, 8, false, 0) == 2);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(8, true, 0), make_pos_t(1, true, 0)) == 2);
+                         8, true, 0, 1, true, 0) == 2);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(4, false, 0), make_pos_t(9, false, 0)) == 6);
+                         4, false, 0, 9, false, 0) == 6);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(4, false, 0), make_pos_t(4, false, 2)) == 2);
+                         4, false, 0, 4, false, 2) == 2);
             }
         }
 
@@ -2567,7 +2578,8 @@ namespace vg {
             graph.extend(chunk);
             
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
 
         
             SECTION("Root node has 1 child bubble") {
@@ -2622,9 +2634,9 @@ namespace vg {
             }
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == std::numeric_limits<int64_t>::max());
+                         1, false, 0, 2, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(2, true, 0)) == 1);
+                         1, false, 0, 2, true, 0) == 1);
             }
         }
 
@@ -2679,7 +2691,8 @@ namespace vg {
             graph.extend(chunk);
             
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
             
             SECTION("Root node has 2 child bubbles") {
 
@@ -2759,21 +2772,21 @@ namespace vg {
             }
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(6, false, 0)) == 1);
+                         1, false, 0, 6, false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == 1);
+                         1, false, 0, 2, false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == 2);
+                         1, false, 0, 4, false, 0) == 2);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(4, false, 2)) == 4);
+                         1, false, 0, 4, false, 2) == 4);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(5, false, 0), make_pos_t(9, false, 0)) == std::numeric_limits<int64_t>::max());
+                         5, false, 0, 9, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(9, false, 0)) == std::numeric_limits<int64_t>::max());
+                         1, false, 0, 9, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(9, true, 0), make_pos_t(1, true, 0)) == std::numeric_limits<int64_t>::max());
+                         9, true, 0, 1, true, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(9, true, 0)) == 3);
+                         1, false, 0, 9, true, 0) == 3);
             }
         }
 
@@ -2827,7 +2840,8 @@ namespace vg {
             graph.extend(chunk);
          
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
             
             SECTION("Root node has 2 child bubbles") {
 
@@ -2893,27 +2907,27 @@ namespace vg {
             }
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == std::numeric_limits<int64_t>::max());
+                         1, false, 0, 2, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, true, 0), make_pos_t(2, false, 0)) == 1);
+                         1, true, 0, 2, false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, true, 0), make_pos_t(5, false, 0)) == 3);
+                         1, true, 0, 5, false, 0) == 3);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, true, 0), make_pos_t(4, false, 2)) == 4);
+                         1, true, 0, 4, false, 2) == 4);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(6, true, 0), make_pos_t(1, false, 0)) == 1);
+                         6, true, 0, 1, false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(9, true, 0), make_pos_t(1, false, 0)) == 3);
+                         9, true, 0, 1, false, 0) == 3);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(7, true, 0), make_pos_t(1, false, 0)) == 2);
+                         7, true, 0, 1, false, 0) == 2);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(8, true, 0), make_pos_t(1, false, 0)) == 2);
+                         8, true, 0, 1, false, 0) == 2);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, true, 0), make_pos_t(8, false, 0)) == 2);
+                         1, true, 0, 8, false, 0) == 2);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(8, false, 0)) == std::numeric_limits<int64_t>::max());
+                         1, false, 0, 8, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(8, true, 0), make_pos_t(1, true, 0)) == std::numeric_limits<int64_t>::max());
+                         8, true, 0, 1, true, 0) == std::numeric_limits<size_t>::max());
             }
         }
 
@@ -2955,7 +2969,8 @@ namespace vg {
             graph.extend(chunk);
             
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
            
             SECTION("Root should have one child actual bubble") {
 
@@ -2997,25 +3012,25 @@ namespace vg {
             }
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == std::numeric_limits<int64_t>::max());
+                         1, false, 0, 2, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == std::numeric_limits<int64_t>::max());
+                         1, false, 0, 4, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == std::numeric_limits<int64_t>::max());
+                         1, false, 0, 4, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(3, false, 0), make_pos_t(4, false, 0)) == std::numeric_limits<int64_t>::max());
+                         3, false, 0, 4, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(3, false, 0)) == 1);
+                         1, false, 0, 3, false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(3, false, 1), make_pos_t(3, false, 0)) == 1);
+                         3, false, 1, 3, false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(2, false, 1), make_pos_t(2, false, 0)) == 1);
+                         2, false, 1, 2, false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(2, false, 0), make_pos_t(4, false, 0)) == 2);
+                         2, false, 0, 4, false, 0) == 2);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(2, false, 0), make_pos_t(3, false, 0)) == 2);
+                         2, false, 0, 3, false, 0) == 2);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(4, false, 1), make_pos_t(4, false, 0)) == std::numeric_limits<int64_t>::max());
+                         4, false, 1, 4, false, 0) == std::numeric_limits<size_t>::max());
             }
         }
 
@@ -3063,7 +3078,8 @@ namespace vg {
             graph.extend(chunk);
             
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
            
             SECTION("Root should have one child actual bubble") {
 
@@ -3096,41 +3112,41 @@ namespace vg {
             }
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == 1);
+                         1, false, 0, 2, false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(3, false, 0)) == std::numeric_limits<int64_t>::max());
+                         1, false, 0, 3, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == 2);
+                         1, false, 0, 4, false, 0) == 2);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(5, false, 0)) == std::numeric_limits<int64_t>::max());
+                         1, false, 0, 5, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(6, false, 0)) == std::numeric_limits<int64_t>::max());
+                         1, false, 0, 6, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(2, false, 0), make_pos_t(4, false, 0)) == 1);
+                         2, false, 0, 4, false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(2, false, 0), make_pos_t(3, false, 0)) == std::numeric_limits<int64_t>::max());
+                         2, false, 0, 3, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(2, false, 0), make_pos_t(5, false, 0)) == std::numeric_limits<int64_t>::max());
+                         2, false, 0, 5, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(2, false, 0), make_pos_t(6, false, 0)) == std::numeric_limits<int64_t>::max());
+                         2, false, 0, 6, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(5, true, 0), make_pos_t(6, true, 0)) == std::numeric_limits<int64_t>::max());
+                         5, true, 0, 6, true, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(5, true, 0), make_pos_t(4, true, 0)) == std::numeric_limits<int64_t>::max());
+                         5, true, 0, 4, true, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(5, true, 0), make_pos_t(1, true, 0)) == std::numeric_limits<int64_t>::max());
+                         5, true, 0, 1, true, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(5, true, 0), make_pos_t(2, true, 0)) == std::numeric_limits<int64_t>::max());
+                         5, true, 0, 2, true, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(5, true, 0), make_pos_t(3, true, 0)) == 1);
+                         5, true, 0, 3, true, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(5, true, 0), make_pos_t(4, true, 0)) == std::numeric_limits<int64_t>::max());
+                         5, true, 0, 4, true, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(6, true, 0), make_pos_t(4, true, 0)) == std::numeric_limits<int64_t>::max());
+                         6, true, 0, 4, true, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(3, false, 0), make_pos_t(4, false, 0)) == 1);
+                         3, false, 0, 4, false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(3, false, 0), make_pos_t(3, false, 0)) == 0);
+                         3, false, 0, 3, false, 0) == 0);
             }
         }
         TEST_CASE("Distance index can deal with chains that loop at the root", "[snarl_distance]") {
@@ -3166,7 +3182,8 @@ namespace vg {
             graph.extend(chunk);
             
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
            
             SECTION("Root should have one child actual bubble") {
 
@@ -3272,19 +3289,19 @@ namespace vg {
             }
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == 1);
+                         1, false, 0, 2, false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(2, false, 0), make_pos_t(1, false, 0)) == 1);
+                         2, false, 0, 1, false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(1, false, 0)) == 0);
+                         1, false, 0, 1, false, 0) == 0);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(2, false, 0), make_pos_t(1, false, 0)) == 1);
+                         2, false, 0, 1, false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, true, 0), make_pos_t(2, true, 0)) == 1);
+                         1, true, 0, 2, true, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(2, true, 0), make_pos_t(1, true, 0)) == 1);
+                         2, true, 0, 1, true, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(2, true, 0)) == std::numeric_limits<int64_t>::max());
+                         1, false, 0, 2, true, 0) == std::numeric_limits<size_t>::max());
             }
             
             
@@ -3332,7 +3349,8 @@ namespace vg {
             graph.extend(chunk);
             
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
            
             
                 
@@ -3372,35 +3390,35 @@ namespace vg {
             }
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(3, false, 0)) == 1);
+                         1, false, 0, 3, false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(6, false, 0)) == 2);
+                         1, false, 0, 6, false, 0) == 2);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(5, false, 0), make_pos_t(6, false, 0)) == 3);
+                         5, false, 0, 6, false, 0) == 3);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(6, true, 0), make_pos_t(5, true, 0)) == 3);
+                         6, true, 0, 5, true, 0) == 3);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(2, false, 0), make_pos_t(6, false, 0)) == 2);
+                         2, false, 0, 6, false, 0) == 2);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(5, false, 0), make_pos_t(2, false, 0)) == 1);
+                         5, false, 0, 2, false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == std::numeric_limits<int64_t>::max());
+                         1, false, 0, 2, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, true, 0), make_pos_t(2, true, 0)) == std::numeric_limits<int64_t>::max());
+                         1, true, 0, 2, true, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == std::numeric_limits<int64_t>::max());
+                         1, false, 0, 4, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(4, true, 0)) == std::numeric_limits<int64_t>::max());
+                         1, false, 0, 4, true, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(4, false, 0), make_pos_t(1, false, 0)) == std::numeric_limits<int64_t>::max());
+                         4, false, 0, 1, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(4, false, 0), make_pos_t(2, false, 0)) == std::numeric_limits<int64_t>::max());
+                         4, false, 0, 2, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(4, false, 0), make_pos_t(3, false, 0)) == std::numeric_limits<int64_t>::max());
+                         4, false, 0, 3, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(4, false, 0), make_pos_t(5, false, 0)) == std::numeric_limits<int64_t>::max());
+                         4, false, 0, 5, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(4, false, 0), make_pos_t(6, false, 0)) == std::numeric_limits<int64_t>::max());
+                         4, false, 0, 6, false, 0) == std::numeric_limits<size_t>::max());
             }
         }
         
@@ -3454,7 +3472,8 @@ namespace vg {
             graph.extend(chunk);
             
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
             
                 
             SECTION("There should be three top-level snarls") {
@@ -3504,23 +3523,23 @@ namespace vg {
          
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == 1); 
+                         1, false, 0, 2, false, 0) == 1); 
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(3, false, 0)) == 1);
+                         1, false, 0, 3, false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == 2); 
+                         1, false, 0, 4, false, 0) == 2); 
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(5, false, 0)) == 3); 
+                         1, false, 0, 5, false, 0) == 3); 
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(6, false, 0)) == 3); 
+                         1, false, 0, 6, false, 0) == 3); 
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(7, false, 0)) == 4); 
+                         1, false, 0, 7, false, 0) == 4); 
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(8, false, 0)) == 5); 
+                         1, false, 0, 8, false, 0) == 5); 
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(9, false, 0)) == 5); 
+                         1, false, 0, 9, false, 0) == 5); 
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(10, false, 0)) == 6); 
+                         1, false, 0, 10, false, 0) == 6); 
             }
         }
         
@@ -3555,7 +3574,8 @@ namespace vg {
             
             // Work out its snarls
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
                 
             //The root contains one connected component
             net_handle_t root_handle = distance_index.get_root();
@@ -3629,21 +3649,21 @@ namespace vg {
          
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == 3);
+                         1, false, 0, 2, false, 0) == 3);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(3, false, 0)) == 4);
+                         1, false, 0, 3, false, 0) == 4);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == 4);
+                         1, false, 0, 4, false, 0) == 4);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(5, false, 0)) == 8);
+                         1, false, 0, 5, false, 0) == 8);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(6, false, 0)) == 11);
+                         1, false, 0, 6, false, 0) == 11);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(9, false, 0)) == 11);
+                         1, false, 0, 9, false, 0) == 11);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(7, false, 0)) == 8);
+                         1, false, 0, 7, false, 0) == 8);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(8, false, 0)) == 3);
+                         1, false, 0, 8, false, 0) == 3);
             }
         }
 
@@ -3665,7 +3685,8 @@ namespace vg {
             Edge* e3 = graph.create_edge(n2, n2, false, true);
             
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
            
             SECTION("Root should have one child actual bubble") {
 
@@ -3719,23 +3740,23 @@ namespace vg {
          
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == 1);
+                         1, false, 0, 2, false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(2, true, 0), make_pos_t(1, true, 0)) == 1);
+                         2, true, 0, 1, true, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(2, true, 0)) == 2);
+                         1, false, 0, 2, true, 0) == 2);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(1, true, 0)) == 3);
+                         1, false, 0, 1, true, 0) == 3);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, true, 0), make_pos_t(1, false, 0)) == 1);
+                         1, true, 0, 1, false, 0) == 1);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, true, 0), make_pos_t(2, false, 0)) == 2);
+                         1, true, 0, 2, false, 0) == 2);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, true, 0), make_pos_t(2, true, 0)) == 3);
+                         1, true, 0, 2, true, 0) == 3);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(2, false, 0), make_pos_t(1, true, 0)) == 2);
+                         2, false, 0, 1, true, 0) == 2);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(2, false, 0), make_pos_t(2, true, 0)) == 1);
+                         2, false, 0, 2, true, 0) == 1);
             }
         }
         
@@ -3760,7 +3781,8 @@ namespace vg {
            
             IntegratedSnarlFinder snarl_finder(graph); 
             
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
            
             SECTION("Find all the nodes") {
 
@@ -3789,36 +3811,36 @@ namespace vg {
             
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(2, false, 0)) == 3);
+                         1, false, 0, 2, false, 0) == 3);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(3, false, 0)) == 4);
+                         1, false, 0, 3, false, 0) == 4);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == 5);
+                         1, false, 0, 4, false, 0) == 5);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(5, false, 0)) == 5);
+                         1, false, 0, 5, false, 0) == 5);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, true, 0), make_pos_t(2, false, 0)) == 3);
+                         1, true, 0, 2, false, 0) == 3);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, true, 0), make_pos_t(3, false, 0)) == 4);
+                         1, true, 0, 3, false, 0) == 4);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, true, 0), make_pos_t(4, false, 0)) == 5);
+                         1, true, 0, 4, false, 0) == 5);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, true, 0), make_pos_t(5, false, 0)) == 5);
+                         1, true, 0, 5, false, 0) == 5);
 
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(5, false, 1), make_pos_t(5, false, 0)) == 9);
+                         5, false, 1, 5, false, 0) == 9);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(5, false, 0), make_pos_t(4, false, 0)) == 10);
+                         5, false, 0, 4, false, 0) == 10);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(3, false, 0), make_pos_t(3, true, 0)) == 4);
+                         3, false, 0, 3, true, 0) == 4);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(2, false, 0), make_pos_t(2, true, 0)) == 6);
+                         2, false, 0, 2, true, 0) == 6);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(2, true, 0), make_pos_t(3, true, 0)) == 9);
+                         2, true, 0, 3, true, 0) == 9);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(3, false, 0), make_pos_t(2, false, 0)) == 9);
+                         3, false, 0, 2, false, 0) == 9);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(3, false, 0), make_pos_t(3, true, 0)) == 4);
+                         3, false, 0, 3, true, 0) == 4);
             }
         }
         TEST_CASE( "Snarl distance index can deal with loops in a chain", "[snarl_distance]") {
@@ -3859,37 +3881,38 @@ namespace vg {
             
            
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
            
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(7, true, 0)) == 15);
+                         1, false, 0, 7, true, 0) == 15);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(7, false, 0), make_pos_t(1, true, 0)) == 13);
+                         7, false, 0, 1, true, 0) == 13);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(4, false, 0), make_pos_t(10, true, 0)) == 15);
+                         4, false, 0, 10, true, 0) == 15);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(4, false, 0), make_pos_t(11, true, 0)) == 14);
+                         4, false, 0, 11, true, 0) == 14);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(12, true, 0), make_pos_t(12, false, 0)) == 22);
+                         12, true, 0, 12, false, 0) == 22);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(6, true, 0)) == 9);
+                         1, false, 0, 6, true, 0) == 9);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(5, false, 0), make_pos_t(5, true, 0)) == 5);
+                         5, false, 0, 5, true, 0) == 5);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(2, false, 0), make_pos_t(2, true, 0)) == 11);
+                         2, false, 0, 2, true, 0) == 11);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, false, 0), make_pos_t(1, true, 0)) == 15);
+                         1, false, 0, 1, true, 0) == 15);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(8, true, 0), make_pos_t(9, false, 0)) == 16);
+                         8, true, 0, 9, false, 0) == 16);
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(12, false, 0), make_pos_t(1, true, 0)) == std::numeric_limits<int64_t>::max());
+                         12, false, 0, 1, true, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(1, true, 0), make_pos_t(7, false, 0)) == std::numeric_limits<int64_t>::max());
+                         1, true, 0, 7, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(10, true, 0), make_pos_t(4, false, 0)) == std::numeric_limits<int64_t>::max());
+                         10, true, 0, 4, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
-                         make_pos_t(11, true, 0), make_pos_t(4, false, 0)) == std::numeric_limits<int64_t>::max());
+                         11, true, 0, 4, false, 0) == std::numeric_limits<size_t>::max());
             }
         }
         TEST_CASE( "Snarl distance index can deal with loops in a snarl", "[snarl_distance][bug]" ) {
@@ -3916,17 +3939,18 @@ namespace vg {
             Edge* e10 = graph.create_edge(n3, n3, true, false);
         
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
         
         
         
             SECTION ("Min distance") {
         
-                REQUIRE(distance_index.minimum_distance(make_pos_t(1, false, 0), make_pos_t(4, false, 0)) == 4);
-                REQUIRE(distance_index.minimum_distance( make_pos_t(5, false, 0), make_pos_t(6, false, 0)) == std::numeric_limits<int64_t>::max());
-                REQUIRE(distance_index.minimum_distance( make_pos_t(5, false, 0), make_pos_t(6, true, 0)) == std::numeric_limits<int64_t>::max());
-                REQUIRE(distance_index.minimum_distance( make_pos_t(5, true, 2), make_pos_t(6, false, 0)) == 11);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(2, false, 0), make_pos_t(7, false, 0)) == 6);
+                REQUIRE(distance_index.minimum_distance(1, false, 0,4, false, 0) == 4);
+                REQUIRE(distance_index.minimum_distance(5, false, 0,6, false, 0) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.minimum_distance(5, false, 0,6, true, 0) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.minimum_distance(5, true, 2,6, false, 0) == 11);
+                REQUIRE(distance_index.minimum_distance(2, false, 0,7, false, 0) == 6);
         
         
             }
@@ -3985,17 +4009,18 @@ namespace vg {
                 Edge* e26 = graph.create_edge(n12, n12, false, true);
 
                 IntegratedSnarlFinder snarl_finder(graph); 
-                SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+                SnarlDistanceIndex distance_index;
+                make_distance_index(&distance_index, &graph, &snarl_finder);
 
-                REQUIRE(distance_index.minimum_distance(make_pos_t(2, true, 0), make_pos_t(10, true, 0)) == 2);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(2, false, 0), make_pos_t(10, false, 0)) == 4);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(4, true, 3), make_pos_t(5, false, 0)) == 5);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(4, false, 0),make_pos_t(5, false, 0)) == 11);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(4, true, 3),make_pos_t(5, true, 0)) == 8);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(14, false, 0),make_pos_t(10, false, 0)) == 10);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(14, false, 0),make_pos_t(10, true, 0)) == 5);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(14, false, 0),make_pos_t(3, false, 0)) == 7);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(16, false, 0),make_pos_t(3, false, 0)) == 5);
+                REQUIRE(distance_index.minimum_distance(2, true, 0,10, true, 0) == 2);
+                REQUIRE(distance_index.minimum_distance(2, false, 0,10, false, 0) == 4);
+                REQUIRE(distance_index.minimum_distance(4, true, 3,5, false, 0) == 5);
+                REQUIRE(distance_index.minimum_distance(4, false, 0,5, false, 0) == 11);
+                REQUIRE(distance_index.minimum_distance(4, true, 3,5, true, 0) == 8);
+                REQUIRE(distance_index.minimum_distance(14, false, 0,10, false, 0) == 10);
+                REQUIRE(distance_index.minimum_distance(14, false, 0,10, true, 0) == 5);
+                REQUIRE(distance_index.minimum_distance(14, false, 0,3, false, 0) == 7);
+                REQUIRE(distance_index.minimum_distance(16, false, 0,3, false, 0) == 5);
 
             }
             SECTION ("snarl") {
@@ -4034,20 +4059,21 @@ namespace vg {
                 Edge* e18 = graph.create_edge(n2, n9, true, true);
                 
                 IntegratedSnarlFinder snarl_finder(graph); 
-                SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+                SnarlDistanceIndex distance_index;
+                make_distance_index(&distance_index, &graph, &snarl_finder);
 
                 
-                REQUIRE(distance_index.minimum_distance( make_pos_t(2, true, 0),make_pos_t(9, true, 1)) == 2);
-                REQUIRE(distance_index.minimum_distance( make_pos_t(2, false, 0),make_pos_t(9, true, 1)) == 5);
-                REQUIRE(distance_index.minimum_distance( make_pos_t(3, true, 0),make_pos_t(9, false, 0)) == 4);
-                REQUIRE(distance_index.minimum_distance( make_pos_t(3, true, 0),make_pos_t(9, true, 1)) == 3);
-                REQUIRE(distance_index.minimum_distance( make_pos_t(3, false, 0),make_pos_t(9, false, 0)) == 11);
-                REQUIRE(distance_index.minimum_distance( make_pos_t(4, false, 0),make_pos_t(5, false, 0)) == 14);
-                REQUIRE(distance_index.minimum_distance( make_pos_t(4, true, 0),make_pos_t(5, false, 0)) == 8);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(7, false, 0),make_pos_t(12, false, 0)) == 14);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(7, false, 0),make_pos_t(12, true, 0)) == 13);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(7, true, 0),make_pos_t(12, false, 0)) == 15);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(8, false, 0),make_pos_t(11, false, 0)) == 7);
+                REQUIRE(distance_index.minimum_distance(2, true, 0,9, true, 1) == 2);
+                REQUIRE(distance_index.minimum_distance(2, false, 0,9, true, 1) == 5);
+                REQUIRE(distance_index.minimum_distance(3, true, 0,9, false, 0) == 4);
+                REQUIRE(distance_index.minimum_distance(3, true, 0,9, true, 1) == 3);
+                REQUIRE(distance_index.minimum_distance(3, false, 0,9, false, 0) == 11);
+                REQUIRE(distance_index.minimum_distance(4, false, 0,5, false, 0) == 14);
+                REQUIRE(distance_index.minimum_distance(4, true, 0,5, false, 0) == 8);
+                REQUIRE(distance_index.minimum_distance(7, false, 0,12, false, 0) == 14);
+                REQUIRE(distance_index.minimum_distance(7, false, 0,12, true, 0) == 13);
+                REQUIRE(distance_index.minimum_distance(7, true, 0,12, false, 0) == 15);
+                REQUIRE(distance_index.minimum_distance(8, false, 0,11, false, 0) == 7);
 
 
             }
@@ -4087,22 +4113,23 @@ namespace vg {
             Edge* e17 = graph.create_edge(n2, n2, true, false);
         
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
         
             SECTION ("Min distance") {
         
-                REQUIRE(distance_index.minimum_distance(make_pos_t(4, false, 0),
-                                       make_pos_t(6, false, 0)) == 19);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(4, false, 0),
-                                       make_pos_t(6, true, 0)) == 25);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(3, true, 0),
-                                       make_pos_t(7, false, 0)) == 8);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(2, true, 0),
-                                       make_pos_t(7, false, 0)) == 7);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(2, false, 0),
-                                       make_pos_t(7, false, 0)) == 6);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(2, false, 0),
-                                       make_pos_t(7, true, 0)) == 11);
+                REQUIRE(distance_index.minimum_distance(4, false, 0,
+                                       6, false, 0) == 19);
+                REQUIRE(distance_index.minimum_distance(4, false, 0,
+                                       6, true, 0) == 25);
+                REQUIRE(distance_index.minimum_distance(3, true, 0,
+                                       7, false, 0) == 8);
+                REQUIRE(distance_index.minimum_distance(2, true, 0,
+                                       7, false, 0) == 7);
+                REQUIRE(distance_index.minimum_distance(2, false, 0,
+                                       7, false, 0) == 6);
+                REQUIRE(distance_index.minimum_distance(2, false, 0,
+                                       7, true, 0) == 11);
       
             }
         }
@@ -4139,11 +4166,12 @@ namespace vg {
         
 
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);       
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
 
             SECTION( "Min distance" ) {
-                REQUIRE(distance_index.minimum_distance(make_pos_t(5, false, 1), make_pos_t(5, false, 0)) == 11);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(5, false, 0), make_pos_t(5, false, 0)) == 0);
+                REQUIRE(distance_index.minimum_distance(5, false, 1,5, false, 0) == 11);
+                REQUIRE(distance_index.minimum_distance(5, false, 0,5, false, 0) == 0);
             }
         
         }//End test case
@@ -4171,7 +4199,8 @@ namespace vg {
         
 
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);       
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
 
        
             // We end up with a big unary snarl of 7 rev -> 7 rev
@@ -4181,9 +4210,9 @@ namespace vg {
             // We name the snarls for the distance index by their start nodes.
         
             SECTION("Minimum distance") {
-                REQUIRE(distance_index.minimum_distance(make_pos_t(1, false, 0),make_pos_t(7, false, 0)) == 4);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(2, true, 0),make_pos_t(3, false, 0)) == 7);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(4, true, 0),make_pos_t(2, false, 0)) == 11);
+                REQUIRE(distance_index.minimum_distance(1, false, 0,7, false, 0) == 4);
+                REQUIRE(distance_index.minimum_distance(2, true, 0,3, false, 0) == 7);
+                REQUIRE(distance_index.minimum_distance(4, true, 0,2, false, 0) == 11);
             }
         }//end test case
         TEST_CASE("Distance index can deal with an interior chain", "[snarl_distance]") {
@@ -4217,17 +4246,18 @@ namespace vg {
             Edge* e15 = graph.create_edge(n9, n10);
         
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);       
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
         
             SECTION("Create distance index") {
-                REQUIRE(distance_index.minimum_distance(make_pos_t(1, false, 0),make_pos_t(7, false, 0)) == 8);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(1, false, 0),make_pos_t(8, false, 0)) == 9);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(1, false, 0),make_pos_t(8, true, 0)) == 9);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(1, false, 0),make_pos_t(5, false, 0)) == 8);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(8, false, 0),make_pos_t(5, true, 0)) == 5);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(3, false, 0),make_pos_t(6, false, 0)) == 5);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(3, false, 0),make_pos_t(10, false, 0)) == 11);
-                REQUIRE(distance_index.minimum_distance(make_pos_t(7, false, 0),make_pos_t(1, true, 0)) == 11);
+                REQUIRE(distance_index.minimum_distance(1, false, 0,7, false, 0) == 8);
+                REQUIRE(distance_index.minimum_distance(1, false, 0,8, false, 0) == 9);
+                REQUIRE(distance_index.minimum_distance(1, false, 0,8, true, 0) == 9);
+                REQUIRE(distance_index.minimum_distance(1, false, 0,5, false, 0) == 8);
+                REQUIRE(distance_index.minimum_distance(8, false, 0,5, true, 0) == 5);
+                REQUIRE(distance_index.minimum_distance(3, false, 0,6, false, 0) == 5);
+                REQUIRE(distance_index.minimum_distance(3, false, 0,10, false, 0) == 11);
+                REQUIRE(distance_index.minimum_distance(7, false, 0,1, true, 0) == 11);
         
             }
         }//end test case
@@ -4265,17 +4295,18 @@ namespace vg {
             IntegratedSnarlFinder snarl_finder(graph); 
         
             SECTION("Create distance index") {
-                bdsg::yomo::UniqueMappedPointer<SnarlDistanceIndex> distance_index;
-                distance_index.construct("Distance Index", &graph, &snarl_finder);       
+                SnarlDistanceIndex distance_index;
 
-                REQUIRE(distance_index->minimum_distance(make_pos_t(1, false, 0),make_pos_t(7, false, 0)) == 8);
-                REQUIRE(distance_index->minimum_distance(make_pos_t(1, false, 0),make_pos_t(8, false, 0)) == 9);
-                REQUIRE(distance_index->minimum_distance(make_pos_t(1, false, 0),make_pos_t(8, true, 0)) == 9);
-                REQUIRE(distance_index->minimum_distance(make_pos_t(1, false, 0),make_pos_t(5, false, 0)) == 8);
-                REQUIRE(distance_index->minimum_distance(make_pos_t(8, false, 0),make_pos_t(5, true, 0)) == 5);
-                REQUIRE(distance_index->minimum_distance(make_pos_t(3, false, 0),make_pos_t(6, false, 0)) == 5);
-                REQUIRE(distance_index->minimum_distance(make_pos_t(3, false, 0),make_pos_t(10, false, 0)) == 11);
-                REQUIRE(distance_index->minimum_distance(make_pos_t(7, false, 0),make_pos_t(1, true, 0)) == 11);
+                make_distance_index(&distance_index, &graph, &snarl_finder);
+
+                REQUIRE(distance_index.minimum_distance(1, false, 0,7, false, 0) == 8);
+                REQUIRE(distance_index.minimum_distance(1, false, 0,8, false, 0) == 9);
+                REQUIRE(distance_index.minimum_distance(1, false, 0,8, true, 0) == 9);
+                REQUIRE(distance_index.minimum_distance(1, false, 0,5, false, 0) == 8);
+                REQUIRE(distance_index.minimum_distance(8, false, 0,5, true, 0) == 5);
+                REQUIRE(distance_index.minimum_distance(3, false, 0,6, false, 0) == 5);
+                REQUIRE(distance_index.minimum_distance(3, false, 0,10, false, 0) == 11);
+                REQUIRE(distance_index.minimum_distance(7, false, 0,1, true, 0) == 11);
         
                 SECTION("Save and load index") {
                     char filename[] = "tmpXXXXXX";
@@ -4283,20 +4314,18 @@ namespace vg {
                     assert(tmpfd != -1);
                     distance_index.save(tmpfd);
 
-                    distance_index.dissociate();
-                    distance_index.reset();
 
-                    distance_index.load(tmpfd, "Distance Index");
+                    distance_index.load(tmpfd);
                     
 
-                    REQUIRE(distance_index->minimum_distance(make_pos_t(1, false, 0),make_pos_t(7, false, 0)) == 8);
-                    REQUIRE(distance_index->minimum_distance(make_pos_t(1, false, 0),make_pos_t(8, false, 0)) == 9);
-                    REQUIRE(distance_index->minimum_distance(make_pos_t(1, false, 0),make_pos_t(8, true, 0)) == 9);
-                    REQUIRE(distance_index->minimum_distance(make_pos_t(1, false, 0),make_pos_t(5, false, 0)) == 8);
-                    REQUIRE(distance_index->minimum_distance(make_pos_t(8, false, 0),make_pos_t(5, true, 0)) == 5);
-                    REQUIRE(distance_index->minimum_distance(make_pos_t(3, false, 0),make_pos_t(6, false, 0)) == 5);
-                    REQUIRE(distance_index->minimum_distance(make_pos_t(3, false, 0),make_pos_t(10, false, 0)) == 11);
-                    REQUIRE(distance_index->minimum_distance(make_pos_t(7, false, 0),make_pos_t(1, true, 0)) == 11);
+                    REQUIRE(distance_index.minimum_distance(1, false, 0,7, false, 0) == 8);
+                    REQUIRE(distance_index.minimum_distance(1, false, 0,8, false, 0) == 9);
+                    REQUIRE(distance_index.minimum_distance(1, false, 0,8, true, 0) == 9);
+                    REQUIRE(distance_index.minimum_distance(1, false, 0,5, false, 0) == 8);
+                    REQUIRE(distance_index.minimum_distance(8, false, 0,5, true, 0) == 5);
+                    REQUIRE(distance_index.minimum_distance(3, false, 0,6, false, 0) == 5);
+                    REQUIRE(distance_index.minimum_distance(3, false, 0,10, false, 0) == 11);
+                    REQUIRE(distance_index.minimum_distance(7, false, 0,1, true, 0) == 11);
         
                 }
             }
@@ -4608,20 +4637,19 @@ namespace vg {
             VG graph(vg_stream);
             vg_stream.close();
             IntegratedSnarlFinder snarl_finder(graph); 
-            SnarlDistanceIndex distance_index(&graph, &snarl_finder);
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
 
             id_t node_id1 = 31; bool rev1 = true ; size_t offset1 = 0;
             id_t node_id2 = 68; bool rev2 = true ; size_t offset2 = 0;
-            pos_t pos1 = make_pos_t(node_id1, rev1, offset1);
-            pos_t pos2 = make_pos_t(node_id2, rev2, offset2);
             handle_t handle1 = graph.get_handle(node_id1, rev1);
             handle_t handle2 = graph.get_handle(node_id2, rev2);
 
             //Find actual distance
-            int64_t dijkstra_distance = std::numeric_limits<int64_t>::max();
+            size_t dijkstra_distance = std::numeric_limits<size_t>::max();
             if (node_id1 == node_id2 && offset1 <= offset2 && rev1 == rev2) {
                 dijkstra_distance = offset2 - offset1;
-                REQUIRE(distance_index.minimum_distance(pos1, pos2, false, &graph) == dijkstra_distance);
+                REQUIRE(distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph) == dijkstra_distance);
             } else if (node_id1 == node_id2) {
                 //TODO: The way the dijkstra algorithm is set up, it won't return to the start node
             } else {
@@ -4646,7 +4674,7 @@ namespace vg {
                 //, false);
 
 
-                REQUIRE(distance_index.minimum_distance(pos1, pos2, false, &graph) == dijkstra_distance);
+                REQUIRE(distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph) == dijkstra_distance);
             }
 
 
@@ -4676,7 +4704,8 @@ namespace vg {
                 VG graph;
                 random_graph(bases, variant_bases, variant_count, &graph);
                 IntegratedSnarlFinder finder(graph); 
-                SnarlDistanceIndex distance_index(&graph, &finder);
+                SnarlDistanceIndex distance_index;
+                make_distance_index(&distance_index, &graph, &finder);
 
                 //Make sure that the distance index found all the nodes
                 for (id_t id = graph.min_node_id() ; id <= graph.max_node_id() ; id++) {
@@ -4715,19 +4744,17 @@ namespace vg {
                     bool rev1 = uniform_int_distribution<int>(0,1)(generator) == 0;
                     bool rev2 = uniform_int_distribution<int>(0,1)(generator) == 0;
                     
-                    pos_t pos1 = make_pos_t(node_id1, rev1, offset1 );
-                    pos_t pos2 = make_pos_t(node_id2, rev2, offset2 );
                     
                     handle_t handle1 = graph.get_handle(node_id1, rev1);
                     handle_t handle2 = graph.get_handle(node_id2, rev2);
 
 
                     //Find actual distance
-                    int64_t dijkstra_distance = std::numeric_limits<int64_t>::max();
+                    size_t dijkstra_distance = std::numeric_limits<size_t>::max();
                     if (node_id1 == node_id2 && offset1 <= offset2 && rev1 == rev2) {
                         dijkstra_distance = offset2 - offset1;
     
-                        int64_t snarl_distance = distance_index.minimum_distance(pos1, pos2, false, &graph);
+                        size_t snarl_distance = distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph);
                         if (snarl_distance != dijkstra_distance){
                             cerr << "Failed random test" << endl;
                             cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
@@ -4752,7 +4779,7 @@ namespace vg {
                         }
                         , false);
     
-                        int64_t snarl_distance = distance_index.minimum_distance(pos1, pos2, false, &graph);
+                        size_t snarl_distance = distance_index.minimum_distance(node_id1, rev1, offset1, node_id2, rev2, offset2, false, &graph);
                         if (snarl_distance != dijkstra_distance){
                             cerr << "Failed random test" << endl;
                             cerr << node_id1 << " " << (rev1 ? "rev" : "fd") << offset1 << " -> " << node_id2 <<  (rev2 ? "rev" : "fd") << offset2 << endl;
