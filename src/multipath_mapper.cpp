@@ -4892,12 +4892,17 @@ namespace vg {
             }
         }
         
-        for (const pair<handle_t, int64_t>& expansion_point : expansion_points) {
-            // we might need to extend the subgraph here to get a full alignment
-            algorithms::locally_expand_graph(*xindex, graph, expansion_point.first, expansion_point.second);
+        if (!expansion_points.empty()) {
+            int64_t num_edges_before_expansion = graph.get_edge_count();
+            for (const pair<handle_t, int64_t>& expansion_point : expansion_points) {
+                // we might need to extend the subgraph here to get a full alignment
+                algorithms::locally_expand_graph(*xindex, graph, expansion_point.first, expansion_point.second);
+            }
+            return num_edges_before_expansion != graph.get_edge_count();
         }
-        
-        return !expansion_points.empty();
+        else {
+            return false;
+        }
     }
     
     void MultipathMapper::multipath_align(const Alignment& alignment, clustergraph_t& cluster_graph,
@@ -4907,6 +4912,9 @@ namespace vg {
         bool new_graph_material = true;
         while (new_graph_material) {
             // there are parts of this graph we haven't tried to align to yet
+            
+            multipath_aln_out.mutable_subpath()->clear();
+            multipath_aln_out.mutable_start()->clear();
             
             auto graph = get<0>(cluster_graph).get();
             auto& graph_mems = get<1>(cluster_graph);
