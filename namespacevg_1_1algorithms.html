@@ -214,6 +214,8 @@ Functions</h2></td></tr>
 <tr class="memitem:a3961418e3f3af94c4275118e4693a2fe"><td class="memItemLeft" align="right" valign="top">std::ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a3961418e3f3af94c4275118e4693a2fe">operator&lt;&lt;</a> (std::ostream &amp;out, const <a class="el" href="structvg_1_1algorithms_1_1kmer__t.html">kmer_t</a> &amp;kmer)</td></tr>
 <tr class="memdesc:a3961418e3f3af94c4275118e4693a2fe"><td class="mdescLeft">&#160;</td><td class="mdescRight">Print a <a class="el" href="structvg_1_1algorithms_1_1kmer__t.html" title="Stores a kmer in the context of a graph.">kmer_t</a> to a stream.  <a href="namespacevg_1_1algorithms.html#a3961418e3f3af94c4275118e4693a2fe">More...</a><br /></td></tr>
 <tr class="separator:a3961418e3f3af94c4275118e4693a2fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa015cfde6842fff0d0dcd81f7130c659"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aa015cfde6842fff0d0dcd81f7130c659">locally_expand_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;parent, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> &amp;subgraph, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> from, int64_t max_dist)</td></tr>
+<tr class="separator:aa015cfde6842fff0d0dcd81f7130c659"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a91a6bbd822f6380421a973f75036c3d3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a91a6bbd822f6380421a973f75036c3d3">merge</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> *graph, const vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt;&gt; &amp;start, size_t length)</td></tr>
 <tr class="separator:a91a6bbd822f6380421a973f75036c3d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0820d23864c46dc1bc71ec68aee4e55e"><td class="memItemLeft" align="right" valign="top">pair&lt; vector&lt; unordered_set&lt; size_t &gt; &gt;, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a0820d23864c46dc1bc71ec68aee4e55e">kargers_min_cut</a> (<a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> graph, const int seed)</td></tr>
@@ -2540,6 +2542,47 @@ template&lt;class DistHeuristic &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="aa015cfde6842fff0d0dcd81f7130c659"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa015cfde6842fff0d0dcd81f7130c659">&#9670;&nbsp;</a></span>locally_expand_graph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::locally_expand_graph </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>parent</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>subgraph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td>
+          <td class="paramname"><em>from</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>max_dist</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Add to a subgraph (with same node ID space as parent) by walking forward from a given node and adding all walks up to a maximum distance away. The handle provided graph should be from the subgraph, not the parent graph. </p>
 
 </div>
 </div>
