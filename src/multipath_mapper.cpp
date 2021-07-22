@@ -4858,7 +4858,7 @@ namespace vg {
                 if (mapping.position().offset() < max_len) {
                     // the clipped sequence's alignment might not fit on this node
                     handle_t handle = graph.get_handle(mapping.position().node_id(), mapping.position().is_reverse());
-                    bool is_source = !graph.follow_edges(handle, true, [](const handle_t& h) {return false;});
+                    bool is_source = graph.follow_edges(handle, true, [](const handle_t& h) {return false;});
                     if (is_source) {
                         // this soft clip might arise because we didn't extract enough graph
                         auto flipped = graph.flip(handle);
@@ -4881,7 +4881,7 @@ namespace vg {
                     size_t max_len = get_aligner()->longest_detectable_gap(multipath_aln.sequence().size(), edit.to_length());
                     if (graph.get_length(handle) - final_offset < max_len) {
                         // the clipped sequence's alignment might not fit on this node
-                        bool is_sink = !graph.follow_edges(handle, false, [](const handle_t& h) {return false;});
+                        bool is_sink = graph.follow_edges(handle, false, [](const handle_t& h) {return false;});
                         if (is_sink) {
                             // this soft clip might arise because we didn't extract enough graph
                             expansion_points[handle] =  max<int64_t>(expansion_points[handle],
