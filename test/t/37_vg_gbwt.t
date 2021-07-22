@@ -313,7 +313,7 @@ is $(vg gbwt -S augmented.gbwt) 17 "augmented: 17 samples"
 
 rm -f x.gbwt augmented.gg augmented.gbwt
 
-vg gbwt -x x.vg -E -o x.gbwt -a -v small/x.vcf.gz
+vg gbwt -x x.vg -E -o x.gbwt -a -v small/xy2.vcf.gz
 is "$?" "0" "GBWT construction succeeds with both VCF and graph paths as sources"
 is "$(vg gbwt -T x.gbwt | wc -l)" "3" "Constructed GBWT includes one reference path and two sample haplotypes"
 

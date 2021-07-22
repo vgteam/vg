@@ -1301,7 +1301,13 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
         config.input_filenames = gbwt_files; // Use the temporary GBWTs as inputs.
         if (config.merge == GBWTConfig::merge_none) {
             // And remember to merge them
-            config.merge = GBWTConfig::merge_fast;
+            if (config.build.size() == 1) {
+                // We only have one thread source so we know the GBWTs don't overlap
+                config.merge = GBWTConfig::merge_fast;
+            } else {
+                // The GBWTs may overlap
+                config.merge = GBWTConfig::merge_insert;
+            }
         }
     }
 
