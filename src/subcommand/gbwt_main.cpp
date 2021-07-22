@@ -929,15 +929,10 @@ void validate_gbwt_config(GBWTConfig& config) {
             std::exit(EXIT_FAILURE);
         }
         if (config.path_cover == GBWTConfig::path_cover_local || config.path_cover == GBWTConfig::path_cover_augment) {
-            if (!(has_exactly_one_input_arg || config.merge != GBWTConfig::merge_none)) {
-                std::cerr << "error: [vg gbwt] path cover options -a and -l require one input GBWT" << std::endl;
+            if (!(one_input_gbwt || config.merge != GBWTConfig::merge_none)) {
+                std::cerr << "error: [vg gbwt] path cover options -a and -l require one input GBWT, or arguments to generate a single GBWT" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
-            if (used_input_args) {
-                std::cerr << "error: [vg gbwt] path cover options -a and -l require one input GBWT, but input args have already been used by another operation" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            used_input_args = true;
         }
         if (config.num_paths == 0) {
             std::cerr << "error: [vg gbwt] number of paths must be non-zero for path cover" << std::endl;
