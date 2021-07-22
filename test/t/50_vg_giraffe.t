@@ -9,7 +9,7 @@ plan tests 24
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
-vg gbwt -x x.vg -o x.gbwt -a -v small/x.vcf.gz
+vg gbwt -x x.vg -E -o x.gbwt -a -v small/x.vcf.gz
 vg snarls --include-trivial x.vg > x.snarls
 vg index -s x.snarls -j x.dist x.vg
 vg minimizer -k 29 -w 11 -g x.gbwt -o x.min x.xg

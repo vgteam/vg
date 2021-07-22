@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 131
+plan tests 133
 
 
 # Build vg graphs for two chromosomes
@@ -313,6 +313,9 @@ is $(vg gbwt -S augmented.gbwt) 17 "augmented: 17 samples"
 
 rm -f x.gbwt augmented.gg augmented.gbwt
 
+vg gbwt -x x.vg -E -o x.gbwt -a -v small/x.vcf.gz
+is "$?" "0" "GBWT construction succeeds with both VCF and graph paths as sources"
+is "$(vg gbwt -T x.gbwt | wc -l)" "3" "Constructed GBWT includes one reference path and two sample haplotypes"
 
 # Remove the graphs
 rm -f x.vg y.vg x.xg xy.xg xy-alt.xg

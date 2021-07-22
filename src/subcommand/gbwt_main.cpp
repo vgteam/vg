@@ -1178,7 +1178,11 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
                     }
                     vcf_parses[i] = config.haplotype_indexer.parse_vcf(jobs[i].filename, *(graphs.path_graph), jobs[i].paths, job_name);
                 }
-                graphs.clear(); // Delete the graph to save memory.
+                if (config.build.size() == 1) {
+                    // This is the only GBWT type to be built; we can safely
+                    // delete the graph to save memory.
+                    graphs.clear();
+                }
                 if (!config.parse_only) {
                     std::vector<std::string> gbwt_files(vcf_parses.size(), "");
                     if (config.show_progress) {
