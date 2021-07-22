@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order
 
-plan tests 55
+plan tests 56
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -264,7 +264,8 @@ rm -f x.vg distIndex snarls.pb
 
 # Test distance index with GBZ
 vg gbwt -g graph.gbz --gbz-format -G graphs/components_walks.gfa
-vg snarls -T -Z graph.gbz > graph.snarls
+vg snarls -T graph.gbz > graph.snarls
+is $? 0 "snarls construction from GBZ"
 vg index -s graph.snarls -j graph.dist graph.gbz
 is $? 0 "distance index construction from GBZ"
 
