@@ -1116,10 +1116,56 @@ std::vector<job_type> determine_jobs(std::unique_ptr<PathHandleGraph>& graph, co
     return result;
 }
 
-void use_or_save(std::unique_ptr<gbwt::DynamicGBWT>& index, GBWTHandler& gbwts, std::vector<std::string>& filenames, size_t i, bool show_progress) {
+/**
+ * Record that you are going to make the given number of partial GBWTs.
+ * If multiple GBWTs exist they will exist as nonempty filenames in filenames.
+ * If a single GBWT exists it will be use()'d by the GBWTHandler.
+ *
+ * Returns the base number to pass to finish_gbwt() for the GBWTs you are
+ * working on when you finish one. Each GBWT gets numbered contiguously,
+ * starting with the return value.
+ *
+ * All begun GBWTs must be finished with finish_gbwt() before a new batch can
+ * be begun.
+ */
+size_t start_gbwts(size_t count, GBWTHandler& gbwts, std::vector<std::string>& filenames, bool show_progress) {
+    // Where will the first new GBWT be in our list?
+    size_t gbwt_base = filenames.size();
+    if (count == 0) {
+        // Nothing to do!
+        return gbwt_base;
+    }
     if (filenames.size() == 1) {
+        // First we need to save what we thought was going to be the only GBWT to a file.
+        filenames[0] = temp_file::create("gbwt-" + std::to_string(0) + "-");
+        if (show_progress) {
+            #pragma omp critical
+            {
+                std::cerr << "Job " << 0 << ": Saving the GBWT to " << filenames[0] << std::endl;
+            }
+        }
+        gbwts.serialize(filenames[0]);
+        // And clear it out because we are using filenames instead.
+        gbwts.clear();
+    }
+    // Make room in filenames for the new GBWTs.
+    filenames.resize(filenames.size() + count);
+    // And return where the room is.
+    return gbwt_base;
+}
+
+/**
+ * Provide the finished GBWT for a GBWT started with start_gbwts().
+ * Thread safe for different GBWTs at the same time.
+ */
+template<typename GBWTType>
+void finish_gbwt(std::unique_ptr<GBWTType>& index, GBWTHandler& gbwts, std::vector<std::string>& filenames, size_t i, bool show_progress) {
+    if (filenames.size() == 1) {
+        // We are a one-item batch, and the first batch.
+        // Just keep this GBWT loaded.
         gbwts.use(*index);
     } else {
+        // We are a multi-item batch, so we need to spill to disk for merging
         std::string temp = temp_file::create("gbwt-" + std::to_string(i) + "-");
         if (show_progress) {
             #pragma omp critical
@@ -1145,8 +1191,13 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
         graphs.get_graph(config);
     }
     
+    // Each source will create one or more temporary GBWTs
+    std::vector<std::string> gbwt_files;
+    
     for (auto thread_source : config.build) {
         switch (thread_source) {
+        // TODO: To make this pattern really work we need to make GBWTHandler do merges.
+        // Right now we handle all the cases of multiple compatible sources separately.
         case GBWTConfig::threads_from_vcf:
             {
                 if (config.show_progress) {
@@ -1155,9 +1206,6 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
                 omp_set_num_threads(config.build_jobs);
                 // Process each VCF contig corresponding to a non-alt path.
                 std::vector<job_type> jobs = determine_jobs(graphs.path_graph, config);
-                if (jobs.size() > 1 && config.merge == GBWTConfig::merge_none) {
-                    config.merge = GBWTConfig::merge_fast;
-                }
                 std::vector<std::vector<std::string>> vcf_parses(jobs.size());
                 if (config.show_progress) {
                     std::cerr << "Parsing " << jobs.size() << " VCF files using up to "
@@ -1184,7 +1232,8 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
                     graphs.clear();
                 }
                 if (!config.parse_only) {
-                    std::vector<std::string> gbwt_files(vcf_parses.size(), "");
+                    // Make space for all our GBWT files
+                    size_t gbwt_base_index = start_gbwts(vcf_parses.size(), gbwts, gbwt_files, config.show_progress);
                     if (config.show_progress) {
                         std::cerr << "Building " << vcf_parses.size() << " GBWTs using up to "
                                   << config.build_jobs << " parallel jobs" << std::endl;
@@ -1193,10 +1242,7 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
                     for (size_t i = 0; i < vcf_parses.size(); i++) {
                         std::string job_name = "Job " + std::to_string(i);
                         std::unique_ptr<gbwt::DynamicGBWT> parsed = config.haplotype_indexer.build_gbwt(vcf_parses[i], job_name);
-                        use_or_save(parsed, gbwts, gbwt_files, i, config.show_progress);
-                    }
-                    if (vcf_parses.size() > 1) {
-                        config.input_filenames = gbwt_files; // Use the temporary GBWTs as inputs.
+                        finish_gbwt(parsed, gbwts, gbwt_files, gbwt_base_index + i, config.show_progress);
                     }
                 }
             }
@@ -1206,12 +1252,14 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
                 if(config.show_progress) {
                     std::cerr << "Input type: GFA" << std::endl;
                 }
+                size_t gbwt_base_index = start_gbwts(1, gbwts, gbwt_files, config.show_progress);
                 auto result = gbwtgraph::gfa_to_gbwt(config.input_filenames.front(), config.gfa_parameters);
                 if (result.first.get() == nullptr || result.second.get() == nullptr) {
                     std::cerr << "error: [vg gbwt] GBWT construction from GFA failed" << std::endl;
                     std::exit(EXIT_FAILURE);
                 }
-                gbwts.use(*(result.first));
+                finish_gbwt(result.first, gbwts, gbwt_files, gbwt_base_index, config.show_progress);
+                // TODO: Handle multiple graph sources?
                 graphs.use(result.second);
             }
             break;
@@ -1219,6 +1267,7 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
             if(config.show_progress) {
                 std::cerr << "Input type: GBZ" << std::endl;
             }
+            // This clobbers gbwts, so it can't combine with anything else 
             graphs.load_gbz(gbwts, config);
             break;
         case GBWTConfig::threads_from_paths:
@@ -1226,8 +1275,9 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
                 if(config.show_progress) {
                     std::cerr << "Input type: embedded paths" << std::endl;
                 }
+                size_t gbwt_base_index = start_gbwts(1, gbwts, gbwt_files, config.show_progress);
                 std::unique_ptr<gbwt::DynamicGBWT> temp = config.haplotype_indexer.build_gbwt(*(graphs.path_graph));
-                gbwts.use(*temp);
+                finish_gbwt(temp, gbwts, gbwt_files, gbwt_base_index, config.show_progress);
             }
             break;
         case GBWTConfig::threads_from_alignments:
@@ -1235,14 +1285,23 @@ void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& co
                 if (config.show_progress) {
                     std::cerr << "Input type: " << (config.gam_format ? "GAM" : "GAF") << std::endl;
                 }
+                size_t gbwt_base_index = start_gbwts(1, gbwts, gbwt_files, config.show_progress);
                 std::unique_ptr<gbwt::DynamicGBWT> temp = config.haplotype_indexer.build_gbwt(*(graphs.path_graph), config.input_filenames, (config.gam_format ? "GAM" : "GAF"));
-                gbwts.use(*temp);
+                finish_gbwt(temp, gbwts, gbwt_files, gbwt_base_index, config.show_progress);
             }
             break;
         default:
             std::cerr << "error: [vg gbwt] Unimplemented input type: " << thread_source << std::endl;
             std::exit(EXIT_FAILURE);
             break;
+        }
+    }
+    
+    if (gbwt_files.size() > 1) {
+        config.input_filenames = gbwt_files; // Use the temporary GBWTs as inputs.
+        if (config.merge == GBWTConfig::merge_none) {
+            // And remember to merge them
+            config.merge = GBWTConfig::merge_fast;
         }
     }
 
