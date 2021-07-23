@@ -709,15 +709,6 @@ int main_index(int argc, char** argv) {
         //    return 1;
         //    
         } else {
-            //Get snarl manager
-            ifstream snarl_stream(snarl_name);
-            if (!snarl_stream) {
-                cerr << "error: [vg index] cannot open Snarls file" << endl;
-                exit(1);
-            }
-            SnarlManager* snarl_manager = new SnarlManager(snarl_stream);
-            snarl_stream.close();
-
             //Get graph and build dist index
             if (file_names.empty() && !xg_name.empty()) {
                 // We were given a -x specifically to read as XG
