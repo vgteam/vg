@@ -726,7 +726,8 @@ int main_index(int argc, char** argv) {
 
                 IntegratedSnarlFinder snarl_finder(*xg.get());
                 // Create the MinimumDistanceIndex
-                SnarlDistanceIndex distance_index(xg.get(), &snarl_finder);
+                SnarlDistanceIndex distance_index;
+                make_distance_index(&distance_index, xg.get(), &snarl_finder);
                 // Save the completed DistanceIndex
                 distance_index.save(dist_name);
             } else {
@@ -739,7 +740,8 @@ int main_index(int argc, char** argv) {
                     
                     // Create the MinimumDistanceIndex
                     IntegratedSnarlFinder snarl_finder(gbz->graph);
-                    SnarlDistanceIndex distance_index(&(gbz->graph), &snarl_finder);
+                    SnarlDistanceIndex distance_index;
+                    make_distance_index(&distance_index, &(gbz->graph), &snarl_finder);
                     distance_index.save(dist_name);
                 } else if (get<1>(options)) {
                     // We were given a graph generically
@@ -747,7 +749,8 @@ int main_index(int argc, char** argv) {
                     
                     // Create the MinimumDistanceIndex
                     IntegratedSnarlFinder snarl_finder(*graph.get());
-                    SnarlDistanceIndex distance_index(graph.get(), &snarl_finder);
+                    SnarlDistanceIndex distance_index;
+                    make_distance_index(&distance_index, graph.get(), &snarl_finder);
                     distance_index.save(dist_name);
                 } else {
                     cerr << "error: [vg index] input is not a graph or GBZ" << endl;
