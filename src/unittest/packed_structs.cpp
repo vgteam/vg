@@ -37,7 +37,7 @@ using namespace std;
             uint64_t next_val = 0;
             
             vector<uint64_t> std_vec;
-            bdsg::PackedVector dyn_vec;
+            bdsg::PackedVector<> dyn_vec;
             
             for (size_t j = 0; j < num_ops; j++) {
                 
@@ -91,7 +91,7 @@ using namespace std;
                         
                         dyn_vec.serialize(strm);
                         strm.seekg(0);
-                        bdsg::PackedVector copy_vec(strm);
+                        bdsg::PackedVector<> copy_vec(strm);
                         
                         REQUIRE(copy_vec.size() == dyn_vec.size());
                         for (size_t i = 0; i < copy_vec.size(); i++) {
@@ -115,7 +115,6 @@ using namespace std;
         enum vec_op_t {SET = 0, GET = 1, APPEND = 2, POP = 3, SERIALIZE = 4};
         std::default_random_engine prng(test_seed_source());
         std::uniform_int_distribution<int> op_distr(0, 4);
-        std::uniform_int_distribution<int> page_distr(1, 5);
         std::uniform_int_distribution<int> val_distr(0, 100);
         
         int num_runs = 1000;
@@ -130,7 +129,7 @@ using namespace std;
             uint64_t next_val = val_distr(prng);
             
             std::vector<uint64_t> std_vec;
-            bdsg::PagedVector dyn_vec(page_distr(prng));
+            bdsg::PagedVector<> dyn_vec;
             
             for (size_t j = 0; j < num_ops; j++) {
                 
@@ -184,7 +183,7 @@ using namespace std;
                         
                         dyn_vec.serialize(strm);
                         strm.seekg(0);
-                        bdsg::PagedVector copy_vec(strm);
+                        bdsg::PagedVector<> copy_vec(strm);
                         
                         REQUIRE(copy_vec.size() == dyn_vec.size());
                         for (size_t i = 0; i < copy_vec.size(); i++) {
@@ -221,7 +220,7 @@ using namespace std;
             uint64_t next_val = 0;
             
             std::deque<uint64_t> std_deq;
-            bdsg::PackedDeque suc_deq;
+            bdsg::PackedDeque<> suc_deq;
             
             for (size_t j = 0; j < num_ops; j++) {
                 
@@ -290,7 +289,7 @@ using namespace std;
                         
                         suc_deq.serialize(strm);
                         strm.seekg(0);
-                        bdsg::PackedDeque copy_deq(strm);
+                        bdsg::PackedDeque<> copy_deq(strm);
                         
                         REQUIRE(copy_deq.size() == suc_deq.size());
                         for (size_t i = 0; i < copy_deq.size(); i++) {
