@@ -3980,7 +3980,14 @@ bool IndexRegistry::vcf_is_phased(const string& filepath) {
 }
 
 bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
+    if (IndexingParameters::verbosity >= IndexingParameters::Basic) {
+        cerr << "[IndexRegistry]: Checking for haplotype lines in GFA." << endl;
+    }
     ifstream strm(filepath);
+    if (!strm) {
+        cerr << "error:[IndexRegistry] Could not open GFA file " << filepath << endl;
+        exit(1);
+    }
     while (strm.good()) {
         char line_type = strm.get();
         if (line_type == 'W') {

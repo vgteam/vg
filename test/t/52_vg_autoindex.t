@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 21
+plan tests 24
 
 vg autoindex -p auto -w map -r tiny/tiny.fa -v tiny/tiny.vcf.gz --force-unphased
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg map with basic input"
@@ -69,6 +69,16 @@ is $(echo $?) 0 "basic autoindexing results can be used by vg giraffe"
 
 rm auto.*
 rm t.*
+
+vg autoindex -p auto -w giraffe -g graphs/gfa_with_w_lines.gfa 
+is $(echo $?) 0 "autoindexing successfully completes indexing for vg giraffe with GFA input with W-lines"
+is $(ls auto.* | wc -l) 3 "autoindexing creates 3 inputs for vg giraffe from GFA input"
+vg convert -g graphs/gfa_with_w_lines.gfa -x > g.xg
+vg sim -x g.xg -n 20 -a -l 4 | vg giraffe -Z auto.giraffe.gbz -m auto.min -d auto.dist -G - > /dev/null
+is $(echo $?) 0 "GFA autoindexing results can be used by vg giraffe"
+
+rm auto.*
+rm g.xg
 
 
 
