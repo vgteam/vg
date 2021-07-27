@@ -1173,6 +1173,112 @@ namespace unittest {
         }
     }
 
+    TEST_CASE( "Clustering works on long nodes", "[cluster]" ) {
+        VG graph;
+        
+        size_t LONG_LENGTH = 200;
+        
+        string long_string;
+        for (int i = 0; i < LONG_LENGTH; i++) {
+            long_string.push_back('A');
+        }
+
+        Node* n1 = graph.create_node(long_string);
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("C");
+        Node* n4 = graph.create_node(long_string);
+        Node* n5 = graph.create_node("G");
+        Node* n6 = graph.create_node("A");
+        Node* n7 = graph.create_node(long_string);
+
+        // Shape is two SNPs in a row with long nodes between them
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+        Edge* e3 = graph.create_edge(n2, n4);
+        Edge* e4 = graph.create_edge(n3, n4);
+        Edge* e5 = graph.create_edge(n4, n5);
+        Edge* e6 = graph.create_edge(n4, n6);
+        Edge* e7 = graph.create_edge(n5, n7);
+        Edge* e8 = graph.create_edge(n6, n7);
+
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls();
+        MinimumDistanceIndex dist_index (&graph, &snarl_manager);
+        SnarlSeedClusterer clusterer(dist_index);
+
+        SECTION("Forward strand across SNP in range") {
+
+            vector<pos_t> positions({
+                make_pos_t(1, false, LONG_LENGTH - 2),
+                make_pos_t(4, false, 2)
+            });
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (const pos_t& pos : positions) {
+                std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info = dist_index.get_minimizer_distances(pos);
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
+                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+            }
+
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            REQUIRE( clusters.size() == 1);
+
+        }
+        
+        SECTION("Forward strand across SNP out of range") {
+
+            vector<pos_t> positions({
+                make_pos_t(1, false, LONG_LENGTH - 2),
+                make_pos_t(4, false, 2)
+            });
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (const pos_t& pos : positions) {
+                std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info = dist_index.get_minimizer_distances(pos);
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
+                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+            }
+
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 4); 
+            REQUIRE( clusters.size() == 2);
+
+        }
+        
+        SECTION("Reverse strand across SNP in range") {
+
+            vector<pos_t> positions({
+                make_pos_t(1, true, 2),
+                make_pos_t(4, true, LONG_LENGTH - 2)
+            });
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (const pos_t& pos : positions) {
+                std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info = dist_index.get_minimizer_distances(pos);
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
+                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+            }
+
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+            REQUIRE( clusters.size() == 1);
+
+        }
+        
+        SECTION("Reverse strand across SNP out of range") {
+
+            vector<pos_t> positions({
+                make_pos_t(1, true, 2),
+                make_pos_t(4, true, LONG_LENGTH - 2)
+            });
+            vector<SnarlSeedClusterer::Seed> seeds;
+            for (const pos_t& pos : positions) {
+                std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info = dist_index.get_minimizer_distances(pos);
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
+                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+            }
+
+            vector<SnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 4); 
+            REQUIRE( clusters.size() == 2);
+
+        }
+    }
+
     TEST_CASE( "Disconnected graph",
                    "[cluster]" ) {
         VG graph;

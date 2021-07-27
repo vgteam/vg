@@ -624,6 +624,22 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
             REQUIRE(di.min_distance(make_pos_t(4, false, LONG_LENGTH - 1),
                                     make_pos_t(7, false, LONG_LENGTH - 1)) == LONG_LENGTH + 1);
                                     
+            // Across a SNP counts offsets on both sides
+            REQUIRE(di.min_distance(make_pos_t(1, false, LONG_LENGTH - 1 - 5),
+                                    make_pos_t(4, false, 3)) == 5 + 2 + 3);
+            REQUIRE(di.min_distance(make_pos_t(4, false, LONG_LENGTH - 1 - 5),
+                                    make_pos_t(7, false, 3)) == 5 + 2 + 3);
+                                    
+            // Into a SNP and out of a SNP are 1 + intervening offset
+            REQUIRE(di.min_distance(make_pos_t(1, false, LONG_LENGTH - 1),
+                                    make_pos_t(2, false, 0)) == 1);
+            REQUIRE(di.min_distance(make_pos_t(1, false, LONG_LENGTH - 1 - 4),
+                                    make_pos_t(2, false, 0)) == 5);
+            REQUIRE(di.min_distance(make_pos_t(2, false, 0),
+                                    make_pos_t(4, false, 0)) == 1);
+            REQUIRE(di.min_distance(make_pos_t(2, false, 0),
+                                    make_pos_t(4, false, 4)) == 5);
+                                    
             // Remember: offsets on the reverse strand are along the reverse strand. from the end of the forward strand.
             
             // We can also measure all the way across on the reverse strand
@@ -641,6 +657,23 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
                                     make_pos_t(1, true, 0)) == LONG_LENGTH + 1);
             REQUIRE(di.min_distance(make_pos_t(7, true, 0),
                                     make_pos_t(4, true, 0)) == LONG_LENGTH + 1);
+                                    
+            // Across a SNP counts offsets on both sides
+            REQUIRE(di.min_distance(make_pos_t(4, true, LONG_LENGTH - 1 - 5),
+                                    make_pos_t(1, true, 3)) == 5 + 2 + 3);
+            REQUIRE(di.min_distance(make_pos_t(7, true, LONG_LENGTH - 1 - 5),
+                                    make_pos_t(4, true, 3)) == 5 + 2 + 3);
+                                    
+            // Into a SNP and out of a SNP are 1 + intervening offset
+            REQUIRE(di.min_distance(make_pos_t(2, true, 0),
+                                    make_pos_t(1, true, 0)) == 1);
+            REQUIRE(di.min_distance(make_pos_t(2, true, 0),
+                                    make_pos_t(1, true, 4)) == 5);
+            REQUIRE(di.min_distance(make_pos_t(4, true, LONG_LENGTH - 1),
+                                    make_pos_t(2, true, 0)) == 1);
+            REQUIRE(di.min_distance(make_pos_t(4, true, LONG_LENGTH - 1 - 4),
+                                    make_pos_t(2, true, 0)) == 5);
+            
 
         }
 
