@@ -1235,6 +1235,7 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
 
         Edge* e1 = graph.create_edge(n1, n2);
         Edge* e2 = graph.create_edge(n1, n5);
+        // 2, 3, 4 is a child snarl
         Edge* e3 = graph.create_edge(n2, n3);
         Edge* e4 = graph.create_edge(n2, n4);
         Edge* e5 = graph.create_edge(n3, n4);
@@ -1246,7 +1247,8 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
         Edge* e11 = graph.create_edge(n7, n9);
         Edge* e12 = graph.create_edge(n8, n9);
         Edge* e13 = graph.create_edge(n9, n10);
-
+        
+        // 11, 12, 13 is a top level snarl
         Edge* e14 = graph.create_edge(n11, n12);
         Edge* e15 = graph.create_edge(n11, n13);
         Edge* e16 = graph.create_edge(n12, n13);
@@ -1325,8 +1327,6 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
             REQUIRE (std::get<5>(di.get_minimizer_distances(make_pos_t(12 , false, 0))) == 4);
             REQUIRE (std::get<6>(di.get_minimizer_distances(make_pos_t(12 , false, 0))) == 4);
             REQUIRE (std::get<7>(di.get_minimizer_distances(make_pos_t(12 , false, 0))) == 1);
-
-
         }
  
     }

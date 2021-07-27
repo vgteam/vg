@@ -167,7 +167,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 
     // Find the seeds and mark the minimizers that were located.
     std::vector<Seed> seeds = this->find_seeds(minimizers, aln, funnel);
-
+    
     // Cluster the seeds. Get sets of input seed indexes that go together.
     if (track_provenance) {
         funnel.stage("cluster");
@@ -2954,6 +2954,12 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             std::cerr << log_name() << "Found " << seeds.size() << " seeds from "
                 << (minimizers.size() - rejected_count) << " minimizers, rejected "
                 << rejected_count << std::endl;
+            
+            
+            std::cerr << log_name() << "All seeds:" << std::endl;
+            for (auto& seed : seeds) {
+                std::cerr << log_name() << seed << std::endl; 
+            }
         }
     }
 

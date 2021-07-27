@@ -32,7 +32,7 @@ class SnarlSeedClusterer {
             bool rev_in_chain; //True if this node is traversed backward in the chain
 
         };
-
+        
         /// Cluster information used in Giraffe.
         struct Cluster {
             std::vector<size_t> seeds; // Seed ids.
@@ -312,9 +312,16 @@ class SnarlSeedClusterer {
         //cluster its seeds and return the cluster heads
         //Nodes if taken from tree_state.simple_snarl_to_nodes_by_component and each element in it is
         //the node id of the node
-        hash_set<pair<size_t, size_t>> cluster_simple_snarl(TreeState& tree_state, vector<tuple<id_t, bool, int64_t, int64_t, int64_t>> nodes, int64_t loop_left, int64_t loop_right, int64_t snarl_length) const;
+        //snarl_rank indexes into the minumum distance index's snarl_indexes
+        hash_set<pair<size_t, size_t>> cluster_simple_snarl(TreeState& tree_state, size_t snarl_rank, vector<tuple<id_t, bool, int64_t, int64_t, int64_t>> nodes, int64_t loop_left, int64_t loop_right, int64_t snarl_length) const;
 
 };
+
+/**
+ * Dump a seed for debugging purposes.
+ */
+ostream& operator<<(ostream& out, const SnarlSeedClusterer::Seed& seed);
+
 }
 
 #endif

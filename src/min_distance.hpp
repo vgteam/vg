@@ -90,6 +90,10 @@ class MinimumDistanceIndex {
     //
     //If the position is not on a root node (that is, a boundary node of a snarl in a root chain), returns
     //false and MIPayload::NO_VALUE for all values
+    //
+    //The last field is always false unless the position is in a top level
+    //simple bubble, in which case it is true when the position is pointing
+    //backward along the chain.
     tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>  get_minimizer_distances (pos_t pos);
 
     //What is the length of the top level chain that this node belongs to?
