@@ -608,9 +608,10 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
             di.print_self();
 #endif
 
-            // All the way end to end is full length of long nodes plus one version of each SNP
+            // All the way end to end is full length of long nodes, minus 1
+            // because both ends are in bounds, plus one version of each SNP
             REQUIRE(di.min_distance(make_pos_t(1, false, 0),
-                                    make_pos_t(7, false, LONG_LENGTH - 1)) == LONG_LENGTH * 3 + 2);
+                                    make_pos_t(7, false, LONG_LENGTH - 1)) == LONG_LENGTH * 3 - 1 + 2);
             // Across each SNP is 2 bp
             REQUIRE(di.min_distance(make_pos_t(1, false, LONG_LENGTH - 1),
                                     make_pos_t(4, false, 0)) == 2);
@@ -622,22 +623,24 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
                                     make_pos_t(4, false, LONG_LENGTH - 1)) == LONG_LENGTH + 1);
             REQUIRE(di.min_distance(make_pos_t(4, false, LONG_LENGTH - 1),
                                     make_pos_t(7, false, LONG_LENGTH - 1)) == LONG_LENGTH + 1);
+                                    
+            // Remember: offsets on the reverse strand are along the reverse strand. from the end of the forward strand.
             
             // We can also measure all the way across on the reverse strand
-            REQUIRE(di.min_distance(make_pos_t(7, true, LONG_LENGTH - 1),
-                                    make_pos_t(1, true, 0)) == LONG_LENGTH * 3 + 2);
+            REQUIRE(di.min_distance(make_pos_t(7, true, 0),
+                                    make_pos_t(1, true, LONG_LENGTH - 1)) == LONG_LENGTH * 3 - 1 + 2);
                                     
             // And across each SNP
-            REQUIRE(di.min_distance(make_pos_t(4, true, 0),
-                                    make_pos_t(1, true, LONG_LENGTH - 1)) == 2);
-            REQUIRE(di.min_distance(make_pos_t(7, true, 0),
-                                    make_pos_t(4, true, LONG_LENGTH - 1)) == 2);
-            
-            // And across each SNP to the far end of a node
             REQUIRE(di.min_distance(make_pos_t(4, true, LONG_LENGTH - 1),
-                                    make_pos_t(1, true, LONG_LENGTH - 1)) == LONG_LENGTH + 1);
+                                    make_pos_t(1, true, 0)) == 2);
             REQUIRE(di.min_distance(make_pos_t(7, true, LONG_LENGTH - 1),
-                                    make_pos_t(4, true, LONG_LENGTH - 1)) == LONG_LENGTH + 1);
+                                    make_pos_t(4, true, 0)) == 2);
+            
+            // And from the far end of a node across each SNP
+            REQUIRE(di.min_distance(make_pos_t(4, true, 0),
+                                    make_pos_t(1, true, 0)) == LONG_LENGTH + 1);
+            REQUIRE(di.min_distance(make_pos_t(7, true, 0),
+                                    make_pos_t(4, true, 0)) == LONG_LENGTH + 1);
 
         }
 
