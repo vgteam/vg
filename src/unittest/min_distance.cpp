@@ -569,6 +569,80 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
 
         }
     }//end test case
+    
+    TEST_CASE("Long nodes min distance", "[min_dist]") {
+        VG graph;
+        
+        size_t LONG_LENGTH = 200;
+        
+        string long_string;
+        for (int i = 0; i < LONG_LENGTH; i++) {
+            long_string.push_back('A');
+        }
+
+        Node* n1 = graph.create_node(long_string);
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("C");
+        Node* n4 = graph.create_node(long_string);
+        Node* n5 = graph.create_node("G");
+        Node* n6 = graph.create_node("A");
+        Node* n7 = graph.create_node(long_string);
+
+        // Shape is two SNPs in a row with long nodes between them
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+        Edge* e3 = graph.create_edge(n2, n4);
+        Edge* e4 = graph.create_edge(n3, n4);
+        Edge* e5 = graph.create_edge(n4, n5);
+        Edge* e6 = graph.create_edge(n4, n6);
+        Edge* e7 = graph.create_edge(n5, n7);
+        Edge* e8 = graph.create_edge(n6, n7);
+
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+
+        SECTION("Min distance") {
+
+            MinimumDistanceIndex di (&graph, &snarl_manager);
+#ifdef print
+            di.print_self();
+#endif
+
+            // All the way end to end is full length of long nodes plus one version of each SNP
+            REQUIRE(di.min_distance(make_pos_t(1, false, 0),
+                                    make_pos_t(7, false, LONG_LENGTH - 1)) == LONG_LENGTH * 3 + 2);
+            // Across each SNP is 2 bp
+            REQUIRE(di.min_distance(make_pos_t(1, false, LONG_LENGTH - 1),
+                                    make_pos_t(4, false, 0)) == 2);
+            REQUIRE(di.min_distance(make_pos_t(4, false, LONG_LENGTH - 1),
+                                    make_pos_t(7, false, 0)) == 2);
+                                   
+            // Across a SNP and to the far end of a node is SNP plus node length
+            REQUIRE(di.min_distance(make_pos_t(1, false, LONG_LENGTH - 1),
+                                    make_pos_t(4, false, LONG_LENGTH - 1)) == LONG_LENGTH + 1);
+            REQUIRE(di.min_distance(make_pos_t(4, false, LONG_LENGTH - 1),
+                                    make_pos_t(7, false, LONG_LENGTH - 1)) == LONG_LENGTH + 1);
+            
+            // We can also measure all the way across on the reverse strand
+            REQUIRE(di.min_distance(make_pos_t(7, true, LONG_LENGTH - 1),
+                                    make_pos_t(1, true, 0)) == LONG_LENGTH * 3 + 2);
+                                    
+            // And across each SNP
+            REQUIRE(di.min_distance(make_pos_t(4, true, 0),
+                                    make_pos_t(1, true, LONG_LENGTH - 1)) == 2);
+            REQUIRE(di.min_distance(make_pos_t(7, true, 0),
+                                    make_pos_t(4, true, LONG_LENGTH - 1)) == 2);
+            
+            // And across each SNP to the far end of a node
+            REQUIRE(di.min_distance(make_pos_t(4, true, LONG_LENGTH - 1),
+                                    make_pos_t(1, true, LONG_LENGTH - 1)) == LONG_LENGTH + 1);
+            REQUIRE(di.min_distance(make_pos_t(7, true, LONG_LENGTH - 1),
+                                    make_pos_t(4, true, LONG_LENGTH - 1)) == LONG_LENGTH + 1);
+
+        }
+
+    }//end test case
+    
     TEST_CASE("Top level loop creates unary snarl min", "[min_dist]") {
         VG graph;
 
