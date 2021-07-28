@@ -1215,7 +1215,8 @@ void IntegratedSnarlFinder::traverse_decomposition(const function<void(handle_t)
                                     begin_snarl,
                                     end_snarl);
 }
-  
+
+#define debug
 void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph& cactus,
     const MergedAdjacencyGraph& forest,
     vector<pair<size_t, vector<handle_t>>>& longest_paths,
@@ -1801,6 +1802,7 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
     }
     
 }
+#undef debug
 
 SnarlManager IntegratedSnarlFinder::find_snarls_parallel() {
 
