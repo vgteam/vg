@@ -1266,7 +1266,7 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
     // Now, keep a set of all the edges that have found a place in the decomposition.
     // Ignore handle orientation.
     // Because we don't want to mess up orientations, we only access the set through accessors.
-    HandleGraphNodeSet visited;
+    HandleGraphNodeSet visited(graph);
     
 #ifdef debug
     cerr << "Traversing cactus graph..." << endl;
