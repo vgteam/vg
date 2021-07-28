@@ -2755,7 +2755,7 @@ tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> MinimumD
         return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(true, component, offset + node_offset,
             false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
 
-    } else if (component != 0 && snarl_index.depth == 0 && snarl_index.in_chain && snarl_index.is_simple_snarl) {
+    } else if (component != 0 && snarl_index.depth == 0 && snarl_index.in_chain && snarl_index.is_simple_snarl && !chain_indexes[get_chain_assignment(snarl_index.id_in_parent)].is_looping_chain ) {
         //This node is on a top-level simple snarl
 
         size_t chain_rank = get_chain_rank(snarl_index.id_in_parent);
