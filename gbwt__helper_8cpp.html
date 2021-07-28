@@ -77,6 +77,7 @@ $(function() {
 <code>#include &quot;<a class="el" href="utility_8hpp.html">utility.hpp</a>&quot;</code><br />
 <code>#include &lt;<a class="el" href="vpkg_8hpp.html">vg/io/vpkg.hpp</a>&gt;</code><br />
 <code>#include &lt;sstream&gt;</code><br />
+<code>#include &lt;unordered_map&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
@@ -116,6 +117,8 @@ Functions</h2></td></tr>
 <tr class="memitem:a50d4b5eef7efd656daeb423af1f6a3c6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a50d4b5eef7efd656daeb423af1f6a3c6">vg::save_r_index</a> (const gbwt::FastLocate &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
 <tr class="memdesc:a50d4b5eef7efd656daeb423af1f6a3c6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save an r-index to the file.  <a href="namespacevg.html#a50d4b5eef7efd656daeb423af1f6a3c6">More...</a><br /></td></tr>
 <tr class="separator:a50d4b5eef7efd656daeb423af1f6a3c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1c1952daa0e6b195dceb36bc7822baba"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1c1952daa0e6b195dceb36bc7822baba">vg::rebuild_gbwt</a> (const gbwt::GBWT &amp;gbwt_index, const std::vector&lt; std::pair&lt; gbwt::vector_type, gbwt::vector_type &gt;&gt; &amp;mappings)</td></tr>
+<tr class="separator:a1c1952daa0e6b195dceb36bc7822baba"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2d4b0a9961f932a8caccb1d0723fd171"><td class="memItemLeft" align="right" valign="top">std::vector&lt; gbwt::size_type &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2d4b0a9961f932a8caccb1d0723fd171">vg::threads_for_sample</a> (const gbwt::GBWT &amp;gbwt_index, const std::string &amp;sample_name)</td></tr>
 <tr class="memdesc:a2d4b0a9961f932a8caccb1d0723fd171"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the list of thread ids / gbwt path ids for the given sample.  <a href="namespacevg.html#a2d4b0a9961f932a8caccb1d0723fd171">More...</a><br /></td></tr>
 <tr class="separator:a2d4b0a9961f932a8caccb1d0723fd171"><td class="memSeparator" colspan="2">&#160;</td></tr>

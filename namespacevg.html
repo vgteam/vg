@@ -1165,6 +1165,8 @@ Functions</h2></td></tr>
 <tr class="memitem:a50d4b5eef7efd656daeb423af1f6a3c6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a50d4b5eef7efd656daeb423af1f6a3c6">save_r_index</a> (const gbwt::FastLocate &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
 <tr class="memdesc:a50d4b5eef7efd656daeb423af1f6a3c6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save an r-index to the file.  <a href="namespacevg.html#a50d4b5eef7efd656daeb423af1f6a3c6">More...</a><br /></td></tr>
 <tr class="separator:a50d4b5eef7efd656daeb423af1f6a3c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1c1952daa0e6b195dceb36bc7822baba"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1c1952daa0e6b195dceb36bc7822baba">rebuild_gbwt</a> (const gbwt::GBWT &amp;gbwt_index, const std::vector&lt; std::pair&lt; gbwt::vector_type, gbwt::vector_type &gt;&gt; &amp;mappings)</td></tr>
+<tr class="separator:a1c1952daa0e6b195dceb36bc7822baba"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2d4b0a9961f932a8caccb1d0723fd171"><td class="memItemLeft" align="right" valign="top">std::vector&lt; gbwt::size_type &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2d4b0a9961f932a8caccb1d0723fd171">threads_for_sample</a> (const gbwt::GBWT &amp;gbwt_index, const std::string &amp;sample_name)</td></tr>
 <tr class="memdesc:a2d4b0a9961f932a8caccb1d0723fd171"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the list of thread ids / gbwt path ids for the given sample.  <a href="namespacevg.html#a2d4b0a9961f932a8caccb1d0723fd171">More...</a><br /></td></tr>
 <tr class="separator:a2d4b0a9961f932a8caccb1d0723fd171"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -11598,7 +11600,7 @@ template&lt;class Element &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Load a translation file (created with vg gbwt &ndash;translation) and return a backwards mapping of chopped node to original segment position (id,offset pair) NOTE: hopefully this is just a short-term hack, and we get a general interface baked into </p>
+<p>Load a translation file (created with vg gbwt &ndash;translation) and return a backwards mapping of chopped node to original segment position (id,offset pair) NOTE: hopefully this is just a short-term hack, and we get a general interface baked into the handlegraphs themselves </p>
 
 </div>
 </div>
@@ -16878,6 +16880,35 @@ template&lt;class Decoder &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1c1952daa0e6b195dceb36bc7822baba"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1c1952daa0e6b195dceb36bc7822baba">&#9670;&nbsp;</a></span>rebuild_gbwt()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwt::GBWT vg::rebuild_gbwt </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>gbwt_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; std::pair&lt; gbwt::vector_type, gbwt::vector_type &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>mappings</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Rebuild the GBWT by applying all provided mappings. Each mapping is a pair (original subpath, new subpath). If the original subpath is empty, the mapping is ignored. If there are multiple applicable mappings, the first one will be used. TODO: We could provide construction parameters and an option to parallelize by contig. </p>
 
 </div>
 </div>
