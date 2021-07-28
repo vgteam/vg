@@ -52,10 +52,9 @@ void help_minimizer(char** argv) {
     std::cerr << std::endl;
     std::cerr << "Builds a (w, k)-minimizer index or a (k, s)-syncmer index of the threads in the GBWT" << std::endl;
     std::cerr << "index. The graph can be any HandleGraph, which will be transformed into a GBWTGraph." << std::endl;
-    std::cerr << "The transformation can be avoided by providing a GBWTGraph and using option -G or -Z." << std::endl;
+    std::cerr << "The transformation can be avoided by providing a GBWTGraph or a GBZ graph." << std::endl;
     std::cerr << std::endl;
     std::cerr << "Required options:" << std::endl;
-    std::cerr << "    -g, --gbwt-name X       use the GBWT index in file X (or specify -Z)" << std::endl;
     std::cerr << "    -o, --output-name X     store the index to file X" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Minimizer options:" << std::endl;
@@ -67,8 +66,8 @@ void help_minimizer(char** argv) {
     std::cerr << "Other options:" << std::endl;
     std::cerr << "    -d, --distance-index X  annotate the hits with positions in this distance index" << std::endl;
     std::cerr << "    -l, --load-index X      load the index from file X and insert the new kmers into it" << std::endl;
-    std::cerr << "                            (overrides -k, -w, -b, and -s)" << std::endl;
-    std::cerr << "    -G, --gbwt-graph        the input graph is a GBWTGraph" << std::endl;
+    std::cerr << "                            (overrides minimizer options)" << std::endl;
+    std::cerr << "    -g, --gbwt-name X       use the GBWT index in file X (required with a non-GBZ graph)" << std::endl;
     std::cerr << "    -p, --progress          show progress information" << std::endl;
     std::cerr << "    -t, --threads N         use N threads for index construction (default " << get_default_threads() << ")" << std::endl;
     std::cerr << "                            (using more than " << DEFAULT_MAX_THREADS << " threads rarely helps)" << std::endl;
@@ -103,7 +102,7 @@ int main_minimizer(int argc, char** argv) {
             { "smer-length", required_argument, 0, 's' },
             { "distance-index", required_argument, 0, 'd' },
             { "load-index", required_argument, 0, 'l' },
-            { "gbwt-graph", no_argument, 0, 'G' },
+            { "gbwt-graph", no_argument, 0, 'G' }, // deprecated
             { "progress", no_argument, 0, 'p' },
             { "threads", required_argument, 0, 't' },
             { 0, 0, 0, 0 }
@@ -122,7 +121,7 @@ int main_minimizer(int argc, char** argv) {
             output_name = optarg;
             break;
         case 'i':
-            std::cerr << "warning: [vg minimizer] --index-name is deprecated, use --output-name instead" << std::endl;
+            std::cerr << "[vg minimizer] warning: --index-name is deprecated, use --output-name instead" << std::endl;
             output_name = optarg;
             break;
         case 'k':
@@ -132,7 +131,7 @@ int main_minimizer(int argc, char** argv) {
             IndexingParameters::minimizer_w = parse<size_t>(optarg);
             break;
         case 'b':
-            std::cerr << "warning: [vg minimizer] --bounded-syncmers is deprecated, use --closed-syncmers instead" << std::endl;
+            std::cerr << "[vg minimizer] warning: --bounded-syncmers is deprecated, use --closed-syncmers instead" << std::endl;
             use_syncmers = true;
             break;
         case 'c':
@@ -148,7 +147,7 @@ int main_minimizer(int argc, char** argv) {
             load_index = optarg;
             break;
         case 'G':
-            std::cerr << "warning: [vg minimizer] --gbwt-graph is deprecated, graph format is now autodetected" << std::endl;
+            std::cerr << "[vg minimizer] warning: --gbwt-graph is deprecated, graph format is now autodetected" << std::endl;
             break;
         case 'p':
             progress = true;
@@ -168,7 +167,7 @@ int main_minimizer(int argc, char** argv) {
         }
     }
     if (output_name.empty()) {
-        std::cerr << "[vg minimizer]: option --output-name is required" << std::endl;
+        std::cerr << "[vg minimizer] error: option --output-name is required" << std::endl;
         return 1;
     }
     if (optind + 1 != argc) {
@@ -197,7 +196,7 @@ int main_minimizer(int argc, char** argv) {
         gbz->graph = std::move(*get<1>(input));
         
         if (gbwt_name.empty()) {
-            std::cerr << "[vg minimizer]: option --gbwt-name is required when using a GBWTGraph" << std::endl;
+            std::cerr << "[vg minimizer] error: option --gbwt-name is required when using a GBWTGraph" << std::endl;
             return 1;
         }
         
@@ -209,7 +208,7 @@ int main_minimizer(int argc, char** argv) {
         // We got a normal HandleGraph
         
         if (gbwt_name.empty()) {
-            std::cerr << "[vg minimizer]: option --gbwt-name is required when using a HandleGraph" << std::endl;
+            std::cerr << "[vg minimizer] error: option --gbwt-name is required when using a HandleGraph" << std::endl;
             return 1;
         }
         
@@ -222,7 +221,7 @@ int main_minimizer(int argc, char** argv) {
         }
         gbz.reset(new gbwtgraph::GBZ(gbwt_index, *get<2>(input)));
     } else {
-        std::cerr << "[vg minimizer]: input graph is not a GBZ, GBWTGraph, or HandleGraph." << std::endl;
+        std::cerr << "[vg minimizer] error: input graph is not a GBZ, GBWTGraph, or HandleGraph." << std::endl;
         return 1;
     }
 
