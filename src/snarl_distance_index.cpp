@@ -179,6 +179,8 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             parent_snarl_record.children.emplace_back(chain_index);
         }
 
+        temp_index.max_index_size += temp_chain_record.get_max_record_length();
+
 #ifdef debug_distance_indexing
         cerr << "  Ending new " << (temp_chain_record.is_trivial ? "trivial " : "") <<  "chain " << structure_start_end_as_string(chain_index)
              << endl << "    that is a child of " << structure_start_end_as_string(temp_chain_record.parent) << endl;
@@ -246,6 +248,8 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
         temp_node_record.node_length = graph->get_length(snarl_end_handle);
         temp_node_record.reversed_in_parent = graph->get_is_reverse(snarl_end_handle);
         temp_node_record.parent = stack.back();
+
+        temp_index.max_index_size += temp_snarl_record.get_max_record_length();
 
 
 #ifdef debug_distance_indexing
@@ -438,6 +442,9 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
                 node_i --;
             }
         }
+        temp_index.max_distance = std::max(temp_index.max_distance, temp_chain_record.prefix_sum.back());
+        temp_index.max_distance = std::max(temp_index.max_distance, temp_chain_record.forward_loops.back());
+        temp_index.max_distance = std::max(temp_index.max_distance, temp_chain_record.backward_loops.front());
     }
 
 #ifdef debug_distance_indexing
