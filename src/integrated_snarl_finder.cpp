@@ -1228,6 +1228,19 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
   
     // Now, keep a set of all the edges that have found a place in the decomposition.
     unordered_set<handle_t> visited;
+    // Because we don't want to mess up orientations, we only access the set through accessors.
+    /// Note that a backing graph node has been visited, given a handle to it in either orientation.
+    auto record_visit = [&](const handle_t& here) {
+        visited.insert(graph->forward(here));
+    };
+    /// Check if a backing graph node has been visited yet, given a handle to it in either orientation
+    auto already_visited = [&](const handle_t& here) {
+        return visited.count(graph->forward(here));
+    }
+    /// Get the number of visited nodes
+    auto total_visited = [&]() {
+        return visited.size();
+    };
     
 #ifdef debug
     cerr << "Traversing cactus graph..." << endl;
@@ -1235,7 +1248,7 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
 
     // How many handle graph nodes need to be decomposed?
     size_t to_decompose = graph->get_node_count();
-    while(visited.size() < to_decompose) {
+    while(total_visited() < to_decompose) {
         // While we haven't touched everything
         
 #ifdef debug
@@ -1281,7 +1294,7 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
             // We will root on a tip-tip path for its connected component, if
             // not already covered, because there isn't a longer cycle.
             
-            if (!visited.count(longest_paths.back().second.front())) {
+            if (!already_visited(longest_paths.back().second.front())) {
                 // This connected component isn't already covered.
                 
                 handle_t first_edge = longest_paths.back().second.front();
@@ -1311,7 +1324,7 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
                             begin_chain(inbound);
                             end_chain(inbound);
                             
-                            visited.insert(graph->forward(inbound));
+                            record_visit(inbound);
                         }
                     });
                 } else {
@@ -1380,7 +1393,7 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
                             begin_chain(inbound);
                             end_chain(inbound);
                             
-                            visited.insert(graph->forward(inbound));
+                            record_visit(inbound);
                         } 
                     });
                 }
@@ -1390,7 +1403,7 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
         } else {
             // We will root on a cycle for its component, if not already covered.
             
-            if (!visited.count(longest_cycles.back().second)) {
+            if (!already_visited(longest_cycles.back().second)) {
                 // This connected component hasn't been done yet.
                 
 #ifdef debug
@@ -1449,8 +1462,8 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
                 if (frame.is_snarl) {
                     
                     // Visit the start and end of the snarl, for decomposition purposes.
-                    visited.insert(graph->forward(frame.bounds.first));
-                    visited.insert(graph->forward(frame.bounds.second));
+                    record_visit(frame.bounds.first);
+                    record_visit(frame.bounds.second);
                     // TODO: register as part of snarl in index
                     
                     // Make sure this isn't trying to be a unary snarl
@@ -1489,7 +1502,7 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
                             begin_chain(inbound);
                             end_chain(inbound);
                             
-                            visited.insert(graph->forward(inbound));
+                            record_visit(inbound);
                         }
                     });
                 } else {
@@ -1693,7 +1706,7 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
                             // It is going to become a contained self-loop, instead of a real cycle
                             
                             // Record we visited it.
-                            visited.insert(graph->forward(edge));
+                            record_visit(edge);
                             
 #ifdef debug
                             cerr << "\t\tContain new self-loop " << graph->get_id(edge) << (graph->get_is_reverse(edge) ? "-" : "+") << endl;
@@ -1743,7 +1756,7 @@ void IntegratedSnarlFinder::traverse_computed_decomposition(MergedAdjacencyGraph
                                 begin_chain(inbound);
                                 end_chain(inbound);
                                 
-                                visited.insert(graph->forward(inbound));
+                                record_visit(inbound);
                             }   
                         });
                         
