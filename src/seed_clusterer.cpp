@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#define DEBUG_CLUSTER
+//#define DEBUG_CLUSTER
 namespace vg {
 
     SnarlSeedClusterer::SnarlSeedClusterer( MinimumDistanceIndex& dist_index) :
@@ -1608,11 +1608,12 @@ cerr << "  Maybe combining this cluster from the right" << endl;
                                         "(distances: " << std::get<1>(prev_snarl_cluster_fragment[i]) << ", " << std::get<2>(prev_snarl_cluster_fragment[i]) <<
                                         ") with distance between them " << distance_in_chain << endl; 
 #endif
-                            } else if (std::get<2>(prev_snarl_cluster_fragment[i]) != -1 && right_offset != -1) {
+                            } 
 #ifdef DEBUG_CLUSTER
+                            else if (std::get<2>(prev_snarl_cluster_fragment[i]) != -1 && right_offset != -1) {
                                 cerr << "\t\tDistance " << distance_in_chain << " to " << read_num << " " << std::get<0>(prev_snarl_cluster_fragment[i]) << " is too large" << endl;
-#endif
                             }
+#endif
                         }
                     }
 
@@ -1634,11 +1635,12 @@ cerr << "  Maybe combining this cluster from the right" << endl;
                                     " with another seed cluster" << " " << read_num << " " << seed_cluster_fragment.first << " " << 
                                     "(distances: " << seed_cluster_fragment.second << ", " << chain_length-seed_cluster_fragment.second+1 << ") with distance between them " << distance_in_chain << endl; 
 #endif
-                    } else if(seed_cluster_fragment.second != -1 && offset != -1) {
-#ifdef DEBUG_CLUSTER
-                        cerr << "\t\tDistance " << distance_in_chain << " to " << read_num << " " << seed_cluster_fragment.first << " is too large" << endl;
-#endif
                     }
+#ifdef DEBUG_CLUSTER
+                    else if (seed_cluster_fragment.second != -1 && offset != -1) {
+                        cerr << "\t\tDistance " << distance_in_chain << " to " << read_num << " " << seed_cluster_fragment.first << " is too large" << endl;
+                    }
+#endif
                     //Update the most recent fragment seed cluster
                     seed_cluster_fragment = make_pair(std::get<2>(seed_index)+tree_state.read_index_offsets[read_num], offset);
 
@@ -1686,11 +1688,12 @@ cerr << "  Maybe combining this cluster from the right" << endl;
                                     "(distances: " << offset << ", " << right_offset << ")" <<  
                                     " with snarl cluster with distance between them " << distance_in_chain << endl;
 #endif
-                        } else if (std::get<2>(prev_snarl_cluster_by_read[read_num][i]) != -1 && right_offset != -1) {
+                        } 
 #ifdef DEBUG_CLUSTER
+                        else if (std::get<2>(prev_snarl_cluster_by_read[read_num][i]) != -1 && right_offset != -1) {
                             cerr << "\t\tDistance " << distance_in_chain << " to it is too large" << endl;
-#endif
                         }
+#endif
                     }
                 }
 #ifdef DEBUG_CLUSTER
@@ -1725,11 +1728,12 @@ cerr << "  Maybe combining this cluster from the right" << endl;
                                 "(distances: " << offset << ", " << right_offset << ")" << 
                                 " with another seed cluster" << " with distance between them " << distance_in_chain << endl;
 #endif
-                } else if (seed_cluster_by_read[read_num].second != -1 && offset != -1) {
+                } 
 #ifdef DEBUG_CLUSTER
+                else if (seed_cluster_by_read[read_num].second != -1 && offset != -1) {
                     cerr << "\t\tDistance " << distance_in_chain << " to it is too large" << endl;
-#endif
                 }
+#endif
 
                 //Update the most recent seed cluster we've seen
                 seed_cluster_by_read[read_num] = make_pair(std::get<2>(seed_index), offset);
@@ -1806,11 +1810,12 @@ cerr << "  Maybe combining this cluster from the right" << endl;
                                         "(distances: " << std::get<1>(prev_snarl_cluster_fragment[i]) << ", " <<  std::get<2>(prev_snarl_cluster_fragment[i]) << 
                                         ") with distance between them " << distance_in_chain << endl;
 #endif
-                            } else if(std::get<2>(prev_snarl_cluster_fragment[i])  != -1 && offset != -1) {
+                            } 
 #ifdef DEBUG_CLUSTER
+                            else if(std::get<2>(prev_snarl_cluster_fragment[i])  != -1 && offset != -1) {
                                 cerr << "\t\tDistance " << distance_in_chain << " to " << read_num << " " << std::get<0>(prev_snarl_cluster_fragment[i]) << " is too large" << endl;
-#endif
                             }
+#endif
                         }
                     } 
                     //Always try to compare this to the most recent seed cluster
@@ -1829,11 +1834,12 @@ cerr << "  Maybe combining this cluster from the right" << endl;
                                 "(distances: " << seed_cluster_fragment.second << ", " <<   chain_length - seed_cluster_fragment.second + 1 << 
                                 ") with distance between them " << distance_in_chain << endl;
 #endif
-                    } else if (seed_cluster_fragment.second != -1 && offset != -1) {
+                    } 
 #ifdef DEBUG_CLUSTER
+                    else if (seed_cluster_fragment.second != -1 && offset != -1) {
                         cerr << "\t\tDistance " << distance_in_chain << " to " << read_num << " " << seed_cluster_fragment.first << " is too large" << endl;
-#endif
                     }
+#endif
                     snarl_cluster_fragment.emplace_back(std::get<2>(seed_index)+tree_state.read_index_offsets[read_num],
                         offset, min_not_minus_one(new_best_right, right_offset));
                 }
@@ -1874,11 +1880,12 @@ cerr << "  Maybe combining this cluster from the right" << endl;
                                     " (distances: " << offset << ", " << right_offset << ")" <<  
                                     " with snarl cluster with distance between them " << distance_in_chain<< endl;
 #endif
-                        } else if (std::get<2>(prev_snarl_cluster_by_read[read_num][i]) != -1 && offset != -1) {
+                        } 
 #ifdef DEBUG_CLUSTER
+                        else if (std::get<2>(prev_snarl_cluster_by_read[read_num][i]) != -1 && offset != -1) {
                             cerr << "\t\tDistance " << distance_in_chain << " to " << read_num << " " << std::get<0>(prev_snarl_cluster_by_read[read_num][i]) << " is too large" << endl;
-#endif
                         }
+#endif
                     }
 
                 }
@@ -1913,11 +1920,12 @@ cerr << "  Maybe combining this cluster from the right" << endl;
 #endif
 
                     right_offset = min_not_minus_one(right_offset, chain_length-seed_cluster_by_read[read_num].second+1);
-                } else if (seed_cluster_by_read[read_num].second != -1 && offset != -1) {
+                } 
 #ifdef DEBUG_CLUSTER
+                else if (seed_cluster_by_read[read_num].second != -1 && offset != -1) {
                     cerr << "\t\tDistance " << distance_in_chain << " to " << read_num << " " << seed_cluster_by_read[read_num].first << " is too large" << endl;
-#endif
                 }
+#endif
 
                 //Update the most recent cluster we've seen
                 snarl_cluster_by_read[read_num].emplace_back(new_cluster_head, offset, right_offset);
