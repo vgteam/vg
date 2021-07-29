@@ -26,6 +26,7 @@
 #include <gbwtgraph/gbwtgraph.h>
 #include <gbwtgraph/gbz.h>
 #include <gbwtgraph/path_cover.h>
+#include <gbwtgraph/gfa.h>
 #include <vg/io/vpkg.hpp>
 #include <gcsa/gcsa.h>
 #include <gcsa/algorithms.h>
@@ -81,7 +82,7 @@ static string to_string(const vg::IndexGroup& name) {
 namespace vg {
 
 
-IndexingParameters::MutableGraphImplementation IndexingParameters::mut_graph_impl = HashGraph;
+IndexingParameters::MutableGraphImplementation IndexingParameters::mut_graph_impl = PackedGraph;
 int IndexingParameters::max_node_size = 32;
 int IndexingParameters::pruning_max_node_degree = 128;
 int IndexingParameters::pruning_walk_length = 24;
@@ -334,6 +335,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("VCF w/ Phasing", "phased.vcf");
     registry.register_index("Insertion Sequence FASTA", "insertions.fasta");
     registry.register_index("Reference GFA", "gfa");
+    registry.register_index("Reference GFA w/ Haplotypes", "haplo.gfa");
     registry.register_index("GTF/GFF", "gff");
     
     /// Chunked inputs
@@ -373,10 +375,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("Haplotype-Transcript GBWT", "haplotx.gbwt");
     registry.register_index("Giraffe GBWT", "giraffe.gbwt");
     
-    registry.register_index("Snarls", "snarls");
+    registry.register_index("Giraffe Snarls", "snarls"); // snarls that may reflect the GFA->GBZ node IDs
     registry.register_index("Spliced Snarls", "spliced.snarls");
     
-    registry.register_index("Distance Index", "dist");
+    registry.register_index("Giraffe Distance Index", "dist"); // distances that may reflect the GFA->GBZ node IDs
     registry.register_index("Spliced Distance Index", "spliced.dist");
     
     registry.register_index("GBWTGraph", "gg");
@@ -456,6 +458,24 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         return vector<vector<string>>(1, inputs.front()->get_filenames());
     });
     registry.register_recipe({"Chunked VCF"}, {"Chunked VCF w/ Phasing"},
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
+        alias_graph.register_alias(*constructing.begin(), inputs[0]);
+        return vector<vector<string>>(1, inputs.front()->get_filenames());
+    });
+    
+    ////////////////////////////////////
+    // GFA Recipes
+    ////////////////////////////////////
+    
+#ifdef debug_index_registry_setup
+    cerr << "registering GFA recipes" << endl;
+#endif
+    
+    // alias a phased GFA as an unphased one
+    registry.register_recipe({"Reference GFA"}, {"Reference GFA w/ Haplotypes"},
                              [](const vector<const IndexFile*>& inputs,
                                 const IndexingPlan* plan,
                                 AliasGraph& alias_graph,
@@ -1621,7 +1641,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                  IndexingParameters::mut_graph_impl == IndexingParameters::ODGI);
         }
         catch (algorithms::GFAFormatError& e) {
-            cerr << "error:[IndexRegistry] Input GFA is not usuable in VG." << endl;
+            cerr << "error:[IndexRegistry] Input GFA is not usable in VG." << endl;
             cerr << e.what() << endl;
             exit(1);
         }
@@ -1638,6 +1658,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         all_outputs[1].push_back(output_name);
         return all_outputs;
     };
+    
+    
     
     // A meta-recipe to make VG and spliced VG files using the Constructor
     // Expects inputs to be ordered: FASTA, VCF[, GTF/GFF][, Insertion FASTA]
@@ -2348,7 +2370,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             unique_ptr<gbwt::DynamicGBWT> gbwt_index = haplotype_indexer->build_gbwt(parse_files);
             
-            save_gbwt(*gbwt_index, gbwt_name);
+            save_gbwt(*gbwt_index, gbwt_name, IndexingParameters::verbosity == IndexingParameters::Debug);
             
             gbwt_names[i] = gbwt_name;
         };
@@ -2456,7 +2478,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             cover = gbwt::GBWT(dynamic_index);
         }
         
-        save_gbwt(cover, output_name);
+        save_gbwt(cover, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
         output_names.push_back(output_name);
         return all_outputs;
     });
@@ -2499,7 +2521,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                       IndexingParameters::gbwt_sampling_interval,
                                                       IndexingParameters::verbosity >= IndexingParameters::Debug);
         
-        save_gbwt(cover, output_name);
+        save_gbwt(cover, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
         output_names.push_back(output_name);
         return all_outputs;
     });
@@ -2633,7 +2655,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             // save the haplotype transcript GBWT
             gbwt_builder.finish();
-            save_gbwt(gbwt_builder.index, gbwt_name);
+            save_gbwt(gbwt_builder.index, gbwt_name, IndexingParameters::verbosity == IndexingParameters::Debug);
             
             // write transcript origin info table
             transcriptome.write_info(&info_outfile, *haplotype_index, false);
@@ -2789,6 +2811,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         pruned_graph_names.resize(graph_names.size());
         
+        mutex unfold_lock;
+        
         auto prune_job = [&](int64_t i) {
             ifstream infile_vg;
             init_in(infile_vg, graph_names[i]);
@@ -2819,7 +2843,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             removed_complex = algorithms::prune_complex_with_head_tail(*graph, IndexingParameters::pruning_walk_length,
                                                                        IndexingParameters::pruning_max_edge_count);
             removed_subgraph = algorithms::prune_short_subgraphs(*graph, IndexingParameters::pruning_min_component_size);
-            
+
+
             if ((removed_high_degree != 0 || removed_complex != 0 || removed_subgraph != 0)
                 && (!paths.empty() || using_haplotypes)) {
                 // we've removed from this graph but there are paths/threads we could use
@@ -2848,12 +2873,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     // the same mapping
                     // TODO: it's a bit inelegant that i keep overwriting the mapping...
                     PhaseUnfolder unfolder(*unpruned_graph, *gbwt_index, max_node_id + 1);
-#pragma omp critical
-                    {
-                        unfolder.read_mapping(mapping_name);
-                        unfolder.unfold(*graph, IndexingParameters::verbosity >= IndexingParameters::Debug);
-                        unfolder.write_mapping(mapping_name);
-                    }
+                    unfold_lock.lock();
+                    unfolder.read_mapping(mapping_name);
+                    unfolder.unfold(*graph, IndexingParameters::verbosity >= IndexingParameters::Debug);
+                    unfolder.write_mapping(mapping_name);
+                    unfold_lock.unlock();
                 }
             }
             
@@ -2868,7 +2892,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             // we only need to load the GBWT once, so we take it out of the shared budget
             target_memory_usage -= get_file_size(gbwt_name);
         }
-        
         vector<pair<int64_t, int64_t>> approx_job_requirements;
         for (int64_t i = 0; i < graph_names.size(); ++i) {
             // for paths, double the memory because we'll probably need to re-load the graph to restore paths
@@ -3023,8 +3046,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         cerr << "saving GCSA/LCP pair" << endl;
 #endif
         
-        save_gcsa(gcsa_index, gcsa_output_name);
-        save_lcp(lcp_array, lcp_output_name);
+        save_gcsa(gcsa_index, gcsa_output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
+        save_lcp(lcp_array, lcp_output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
         
         gcsa_names.push_back(gcsa_output_name);
         lcp_names.push_back(lcp_output_name);
@@ -3072,32 +3095,21 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     ////////////////////////////////////
     
     // meta-recipe to find snarls
-    auto find_snarls = [&](const vector<const IndexFile*>& inputs,
+    auto find_snarls = [&](const HandleGraph& graph,
                            const IndexingPlan* plan,
                            const IndexGroup& constructing) {
-        
-        assert(inputs.size() == 1);
-        auto xg_filenames = inputs[0]->get_filenames();
-        assert(xg_filenames.size() == 1);
-        auto xg_filename = xg_filenames.front();
         
         assert(constructing.size() == 1);
         vector<vector<string>> all_outputs(constructing.size());
         auto output_snarls = *constructing.begin();
         auto& snarl_names = all_outputs[0];
         
-        ifstream infile;
-        init_in(infile, xg_filename);
-        
         string output_name = plan->output_filepath(output_snarls);
         ofstream outfile;
         init_out(outfile, output_name);
-        
-        // load graph
-        unique_ptr<PathHandleGraph> graph = vg::io::VPKG::load_one<PathHandleGraph>(infile);
-        
+                
         // find snarls
-        unique_ptr<SnarlFinder> snarl_finder = unique_ptr<SnarlFinder>(new IntegratedSnarlFinder(*graph));
+        unique_ptr<SnarlFinder> snarl_finder = unique_ptr<SnarlFinder>(new IntegratedSnarlFinder(graph));
         SnarlManager snarl_manager = snarl_finder->find_snarls_parallel();
         
         // traverse snarl tree and write them out
@@ -3122,8 +3134,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         snarl_names.push_back(output_name);
         return all_outputs;
     };
-    
-    registry.register_recipe({"Snarls"}, {"XG"},
+
+    registry.register_recipe({"Giraffe Snarls"}, {"Giraffe GBZ"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -3131,18 +3143,51 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Finding snarls in graph." << endl;
         }
-        return find_snarls(inputs, plan, constructing);
+        assert(inputs.size() == 1);
+        auto gbz_filenames = inputs[0]->get_filenames();
+        assert(gbz_filenames.size() == 1);
+        auto gbz_filename = gbz_filenames.front();
+        
+        ifstream infile;
+        init_in(infile, gbz_filename);
+        unique_ptr<gbwtgraph::GBZ> gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(infile);
+        
+        return find_snarls(gbz->graph, plan, constructing);
     });
+    
+    // TODO: disabling so that we can distinguish giraffe graphs that may have
+    // different node IDs from the GFA import
+//    registry.register_recipe({"Snarls"}, {"XG"},
+//                             [&](const vector<const IndexFile*>& inputs,
+//                                 const IndexingPlan* plan,
+//                                 AliasGraph& alias_graph,
+//                                 const IndexGroup& constructing) {
+//        if (IndexingParameters::verbosity != IndexingParameters::None) {
+//            cerr << "[IndexRegistry]: Finding snarls in graph." << endl;
+//        }
+//        return find_snarls(inputs, plan, constructing);
+//    });
     
     registry.register_recipe({"Spliced Snarls"}, {"Spliced XG"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
+        
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Finding snarls in spliced graph." << endl;
         }
-        return find_snarls(inputs, plan, constructing);
+        
+        assert(inputs.size() == 1);
+        auto graph_filenames = inputs[0]->get_filenames();
+        assert(graph_filenames.size() == 1);
+        auto graph_filename = graph_filenames.front();
+        
+        ifstream infile;
+        init_in(infile, graph_filename);
+        unique_ptr<HandleGraph> graph = vg::io::VPKG::load_one<HandleGraph>(infile);
+        
+        return find_snarls(*graph, plan, constructing);
     });
     
     ////////////////////////////////////
@@ -3150,34 +3195,29 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     ////////////////////////////////////
     
     // meta-recipe to make distance index
-    auto make_distance_index = [&](const vector<const IndexFile*>& inputs,
+    auto make_distance_index = [&](const HandleGraph& graph,
+                                   const IndexFile* snarl_input,
                                    const IndexingPlan* plan,
                                    const IndexGroup& constructing) {
         
-        assert(inputs.size() == 2);
-        auto snarls_filenames = inputs[0]->get_filenames();
-        auto xg_filenames = inputs[1]->get_filenames();
-        assert(xg_filenames.size() == 1);
+        auto snarls_filenames = snarl_input->get_filenames();
         assert(snarls_filenames.size() == 1);
         auto snarls_filename = snarls_filenames.front();
-        auto xg_filename = xg_filenames.front();
         
         assert(constructing.size() == 1);
         vector<vector<string>> all_outputs(constructing.size());
         auto dist_output = *constructing.begin();
         auto& output_names = all_outputs[0];
         
-        ifstream infile_graph, infile_snarls;
-        init_in(infile_graph, xg_filename);
+        ifstream infile_snarls;
         init_in(infile_snarls, snarls_filename);
         string output_name = plan->output_filepath(dist_output);
         ofstream outfile;
         init_out(outfile, output_name);
         
-        unique_ptr<HandleGraph> graph = vg::io::VPKG::load_one<HandleGraph>(infile_graph);
         unique_ptr<SnarlManager> snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(infile_snarls));
         
-        MinimumDistanceIndex distance_index(graph.get(), snarl_manager.get());
+        MinimumDistanceIndex distance_index(&graph, snarl_manager.get());
         
         vg::io::VPKG::save(distance_index, output_name);
         
@@ -3185,15 +3225,25 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         return all_outputs;
     };
     
-    registry.register_recipe({"Distance Index"}, {"Snarls", "XG"},
+    registry.register_recipe({"Giraffe Distance Index"}, {"Giraffe GBZ", "Giraffe Snarls"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
-            cerr << "[IndexRegistry]: Constructing distance index." << endl;
+            cerr << "[IndexRegistry]: Constructing distance index for Giraffe." << endl;
         }
-        return make_distance_index(inputs, plan, constructing);
+        
+        assert(inputs.size() == 2);
+        auto& gbz_filenames = inputs[0]->get_filenames();
+        assert(gbz_filenames.size() == 1);
+        auto gbz_filename = gbz_filenames.front();
+        
+        ifstream infile_gbz;
+        init_in(infile_gbz, gbz_filename);
+        unique_ptr<gbwtgraph::GBZ> gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(infile_gbz);
+        
+        return make_distance_index(gbz->graph, inputs[1], plan, constructing);
     });
     
     registry.register_recipe({"Spliced Distance Index"}, {"Spliced Snarls", "Spliced XG"},
@@ -3204,12 +3254,68 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing distance index for a spliced graph." << endl;
         }
-        return make_distance_index(inputs, plan, constructing);
+        
+        assert(inputs.size() == 2);
+        auto& graph_filenames = inputs[1]->get_filenames();
+        assert(graph_filenames.size() == 1);
+        auto graph_filename = graph_filenames.front();
+        
+        ifstream infile_graph;
+        init_in(infile_graph, graph_filename);
+        
+        unique_ptr<HandleGraph> graph = vg::io::VPKG::load_one<HandleGraph>(infile_graph);
+        
+        return make_distance_index(*graph, inputs[0], plan, constructing);
     });
     
     ////////////////////////////////////
     // GBZ Recipes
     ////////////////////////////////////
+    
+    registry.register_recipe({"Giraffe GBZ"}, {"Reference GFA w/ Haplotypes"},
+                             [&](const vector<const IndexFile*>& inputs,
+                                 const IndexingPlan* plan,
+                                 AliasGraph& alias_graph,
+                                 const IndexGroup& constructing) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            cerr << "[IndexRegistry]: Combining Giraffe GBWT and GBWTGraph into GBZ." << endl;
+        }
+        
+        assert(inputs.size() == 1);
+        if (inputs[0]->get_filenames().size() != 1) {
+            cerr << "error:[IndexRegistry] Graph construction does not support multiple GFAs at this time." << endl;
+            exit(1);
+        }
+        auto gfa_filename = inputs[0]->get_filenames().front();
+        
+        assert(constructing.size() == 1);
+        vector<vector<string>> all_outputs(constructing.size());
+        auto gbz_output = *constructing.begin();
+        auto& output_names = all_outputs[0];
+        
+        gbwtgraph::GFAParsingParameters params;
+        // note: there is a heuristic already in the construction that will probably perform
+        // better than a univeral override
+        //params.batch_size = IndexingParameters::gbwt_insert_batch_size;
+        params.sample_interval = IndexingParameters::gbwt_sampling_interval;
+        params.max_node_length = IndexingParameters::max_node_size;
+        params.show_progress = IndexingParameters::verbosity == IndexingParameters::Debug;
+        
+        // jointly generate the GBWT and record sequences
+        unique_ptr<gbwt::GBWT> gbwt_index;
+        unique_ptr<gbwtgraph::SequenceSource> seq_source;
+        tie(gbwt_index, seq_source) = gbwtgraph::gfa_to_gbwt(gfa_filename, params);
+        
+        // convert sequences into gbwt graph
+        gbwtgraph::GBWTGraph gbwt_graph(*gbwt_index, *seq_source);
+        
+        // save together as a GBZ
+        string output_name = plan->output_filepath(gbz_output);
+        save_gbz(*gbwt_index, gbwt_graph, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
+        output_names.push_back(output_name);
+        
+        return all_outputs;
+    });
 
     registry.register_recipe({"Giraffe GBZ"}, {"GBWTGraph", "Giraffe GBWT"},
                              [&](const vector<const IndexFile*>& inputs,
@@ -3234,10 +3340,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto& output_names = all_outputs[0];
 
         gbwtgraph::GBZ gbz;
-        load_gbz(gbz, gbwt_filename, gg_filename);
+        load_gbz(gbz, gbwt_filename, gg_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
 
         string output_name = plan->output_filepath(gbz_output);
-        save_gbz(gbz, output_name);
+        save_gbz(gbz, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
 
         output_names.push_back(output_name);
         return all_outputs;
@@ -3271,12 +3377,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto xg_index = vg::io::VPKG::load_one<xg::XG>(infile_xg);
 
         gbwtgraph::GBZ gbz;
-        load_gbwt(gbz.index, gbwt_filename);
+        load_gbwt(gbz.index, gbwt_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
         // TODO: could add simplification to replace XG index with a gbwt::SequenceSource here
         gbz.graph = gbwtgraph::GBWTGraph(gbz.index, *xg_index);
 
         string output_name = plan->output_filepath(gbz_output);
-        save_gbz(gbz, output_name);
+        save_gbz(gbz, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
 
         output_names.push_back(output_name);
         return all_outputs;
@@ -3288,7 +3394,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 
     // FIXME We may not always want to store the minimizer index. Rebuilding the index may be
     // faster than loading it from a network drive.
-    registry.register_recipe({"Minimizers"}, {"Distance Index", "Giraffe GBZ"},
+    registry.register_recipe({"Minimizers"}, {"Giraffe Distance Index", "Giraffe GBZ"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -3331,7 +3437,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         });
         
         string output_name = plan->output_filepath(minimizer_output);
-        save_minimizer(minimizers, output_name);
+        save_minimizer(minimizers, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
         
         output_names.push_back(output_name);
         return all_outputs;
@@ -3364,7 +3470,7 @@ vector<IndexName> VGIndexes::get_default_mpmap_indexes() {
 vector<IndexName> VGIndexes::get_default_giraffe_indexes() {
     vector<IndexName> indexes{
         "Giraffe GBZ",
-        "Distance Index",
+        "Giraffe Distance Index",
         "Minimizers"
     };
     return indexes;
@@ -3871,6 +3977,25 @@ bool IndexRegistry::vcf_is_phased(const string& filepath) {
     bcf_hdr_destroy(hdr);
     hts_close(file);
     return found_phased;
+}
+
+bool IndexRegistry::gfa_has_haplotypes(const string& filepath) {
+    if (IndexingParameters::verbosity >= IndexingParameters::Basic) {
+        cerr << "[IndexRegistry]: Checking for haplotype lines in GFA." << endl;
+    }
+    ifstream strm(filepath);
+    if (!strm) {
+        cerr << "error:[IndexRegistry] Could not open GFA file " << filepath << endl;
+        exit(1);
+    }
+    while (strm.good()) {
+        char line_type = strm.get();
+        if (line_type == 'W') {
+            return true;
+        }
+        strm.ignore(numeric_limits<streamsize>::max(), '\n');
+    }
+    return false;
 }
 
 vector<IndexGroup> IndexRegistry::dependency_order() const {

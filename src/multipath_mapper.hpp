@@ -40,6 +40,7 @@
 #include "algorithms/extract_containing_graph.hpp"
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/extract_extending_graph.hpp"
+#include "algorithms/locally_expand_graph.hpp"
 #include "algorithms/jump_along_path.hpp"
 #include "algorithms/ref_path_distance.hpp"
 
@@ -492,6 +493,11 @@ namespace vg {
                              clustergraph_t& cluster_graph,
                              multipath_alignment_t& multipath_aln_out,
                              const match_fanouts_t* fanouts) const;
+        
+        /// If any softclips could have arisen because not enough graph was extracted, extract
+        /// extra graph in those areas. Returns true if the graph was expanded.
+        bool expand_for_softclips(clustergraph_t& cluster_graph,
+                                  const multipath_alignment_t& multipath_aln) const;
         
         /// Removes the sections of an Alignment's path within snarls and re-aligns them with multiple traceback
         /// to create a multipath alignment with non-trivial topology.

@@ -640,7 +640,7 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Couldn't open distance index file " << optarg << endl;
                     exit(1); 
                 }
-                registry.provide("Distance Index", optarg);
+                registry.provide("Giraffe Distance Index", optarg);
                 break;
 
             case 'p':
@@ -1037,7 +1037,7 @@ int main_giraffe(int argc, char** argv) {
         {"XG", "xg"},
         {"Giraffe GBWT", "gbwt"},
         {"GBWTGraph", "gg"},
-        {"Distance Index", "dist"},
+        {"Giraffe Distance Index", "dist"},
         {"Minimizers", "min"}
     };
     for (auto& completed : registry.completed_indexes()) {
@@ -1111,7 +1111,7 @@ int main_giraffe(int argc, char** argv) {
     auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0));
 
     // Grab the distance index
-    auto distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(registry.require("Distance Index").at(0));
+    auto distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
 
     // Set up the mapper
     if (show_progress) {

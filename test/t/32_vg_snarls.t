@@ -5,13 +5,15 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 11
+plan tests 14
 
 vg view -J -v snarls/snarls.json > snarls.vg
-is $(vg snarls snarls.vg -r st.pb | vg view -R - | wc -l) 3 "vg snarls made right number of protobuf Snarls"
+vg snarls -t 1 snarls.vg -r st.pb > snarls.pb
+is $(vg view -R snarls.pb | wc -l) 3 "vg snarls made right number of protobuf Snarls"
 is $(vg view -E st.pb | wc -l) 6 "vg snarls made right number of protobuf SnarlTraversals"
+is $(vg view -R snarls.pb | jq -r '[(.start.node_id | tonumber), (.end.node_id | tonumber)] | min' | tr '\n' ',') "1,3,7," "vg snarls made snarls in the right order"
 
-rm -f st.pb
+rm -f snarls.pb st.pb
 
 vg index snarls.vg -x snarls.xg
 is $(vg snarls snarls.xg -r st.pb | vg view -R - | wc -l) 3 "vg snarls on xg made right number of protobuf Snarls"
@@ -60,13 +62,25 @@ vg snarls x.vg > xy.snarls
 vg snarls y.vg >> xy.snarls
 is $(vg snarls xy.vg | vg view -R - | wc -l) 35 "correct number of snarls when parallelizing on compoents"
 is $(vg snarls xy.vg | vg view -R - | wc -l) $(vg view -R xy.snarls | wc -l) "same number of snarls when parallelizing on components"
-rm -f xy.vg xy.snarls
-
+rm -f xy.vg xy.snarls x.vg y.vg
 
 # Find trivial snarls from a GBZ
 vg gbwt -g graph.gbz --gbz-format -G graphs/components_walks.gfa
 vg snarls -T graph.gbz > graph.snarls
 is $? 0 "GBZ graphs can be used for finding snarls"
 is $(vg view -R graph.snarls | wc -l) 5 "correct number of snarls in the GFA W-line example"
-
 rm -f graph.gbz graph.snarls
+
+# Check snarl output order in a more complex case.
+# Snarls need to come out in order along chains, recursing down and then coming back up to the right place in the chain.
+vg view -J -v snarls/nested.json > nested.vg
+vg snarls -t 1 -T nested.vg > nested.snarls
+# Could go either way first in the first snarl
+echo "1,2,5,5,7,3,9," > possibilities.txt
+echo "1,3,2,5,5,7,9," >> possibilities.txt
+GOT="$(vg view -R nested.snarls | jq -r '[(.start.node_id | tonumber), (.end.node_id | tonumber)] | min' | tr '\n' ',')"
+is $(echo $GOT | wc -c) 15 "vg snarls made the right snarls when dealing with nested chains"
+grep $GOT possibilities.txt >/dev/null
+is $? 0 "vg snarls made snarls in the right order when dealing with nested chains"
+rm -f nested.vg nested.snarls possibilities.txt
+
