@@ -284,7 +284,7 @@ var searchData=
   ['corresponding_5ffrom_5flength_749',['corresponding_from_length',['../namespacevg.html#a84d3002d98148b82b4f395c7b625b892',1,'vg']]],
   ['corresponding_5flength_5finternal_750',['corresponding_length_internal',['../namespacevg.html#a9dffafa4fdd05242ff4b73f5aafedd95',1,'vg']]],
   ['corresponding_5fto_5flength_751',['corresponding_to_length',['../namespacevg.html#a1fa02fa34866aee06ca1e3cead896b8d',1,'vg']]],
-  ['count_752',['count',['../classvg_1_1SmallBitset.html#af834de5870b38cc53768eb8ba9c60025',1,'vg::SmallBitset']]],
+  ['count_752',['count',['../classvg_1_1HandleGraphNodeSet.html#ab39b3c91e81b50028a4b7cef88b2a772',1,'vg::HandleGraphNodeSet::count()'],['../classvg_1_1SmallBitset.html#af834de5870b38cc53768eb8ba9c60025',1,'vg::SmallBitset::count()']]],
   ['count_5fhaplotypes_753',['count_haplotypes',['../classvg_1_1GenomeState.html#ab400687776bac0a85c3eab173354a48f',1,'vg::GenomeState::count_haplotypes(const pair&lt; const Snarl *, const Snarl * &gt; &amp;telomere_pair) const'],['../classvg_1_1GenomeState.html#a07dc4168e8469c98227847c4f168cc78',1,'vg::GenomeState::count_haplotypes(const Snarl *snarl) const']]],
   ['count_5fns_754',['count_Ns',['../classvg_1_1MaximalExactMatch.html#a63fc8de6080c763b6fd0639d1f4f8941',1,'vg::MaximalExactMatch']]],
   ['count_5fthreads_755',['count_threads',['../structGBWTConfig.html#a31e7a91a5698d2561b555bcdc1cf59d7',1,'GBWTConfig']]],
