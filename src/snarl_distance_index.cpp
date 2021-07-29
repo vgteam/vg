@@ -369,8 +369,11 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
 
                 //And get the distance values for the end node of the snarl in the chain
                 if (new_component) {
-                    //If this snarl wasn't start-end connected, then we start tracking the distance vectors
-                    //here
+                    //If this snarl wasn't start-end connected, then we start 
+                    //tracking the distance vectors here
+
+                    //Update the maximum distance
+                    temp_index.max_distance = std::max(temp_index.max_distance, temp_chain_record.prefix_sum.back());
 
                     //If this is the second component of the multicomponent chain, then remember the minimum length
                     if (curr_component == 1) {
@@ -443,8 +446,8 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             }
         }
         temp_index.max_distance = std::max(temp_index.max_distance, temp_chain_record.prefix_sum.back());
-        temp_index.max_distance = std::max(temp_index.max_distance, temp_chain_record.forward_loops.back());
-        temp_index.max_distance = std::max(temp_index.max_distance, temp_chain_record.backward_loops.front());
+        temp_index.max_distance = temp_chain_record.forward_loops.back() == std::numeric_limits<size_t>::max() ? temp_index.max_distance : std::max(temp_index.max_distance, temp_chain_record.forward_loops.back());
+        temp_index.max_distance = temp_chain_record.forward_loops.back() == std::numeric_limits<size_t>::max() ? temp_index.max_distance : std::max(temp_index.max_distance, temp_chain_record.backward_loops.front());
     }
 
 #ifdef debug_distance_indexing
