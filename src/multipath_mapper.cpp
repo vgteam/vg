@@ -4838,234 +4838,317 @@ namespace vg {
         
         return cluster_graphs_out;
     }
+
+    bool MultipathMapper::expand_for_softclips(clustergraph_t& cluster_graph,
+                                               const multipath_alignment_t& multipath_aln) const {
+        
+        // TODO: this post-hoc check might make it possible to extract less graph initially...
+        // but that could get fiddly when there is a mismatch at the graph boundary (makes soft clip)
+        // TODO: this should work on non-branching path tips, not node tips
+        
+        unordered_map<handle_t, int64_t> expansion_points;
+        auto& graph = *get<0>(cluster_graph);
+        
+        // find expansion points on source subpaths
+        for (auto i : multipath_aln.start()) {
+            const auto& mapping = multipath_aln.subpath(i).path().mapping().front();
+            const auto& edit = mapping.edit().front();
+            if (edit.from_length() == 0 && edit.to_length() != 0) {
+                // this is soft-clipped
+                size_t max_len = get_aligner()->longest_detectable_gap(multipath_aln.sequence().size(), edit.to_length());
+                if (mapping.position().offset() < max_len) {
+                    // the clipped sequence's alignment might not fit on this node
+                    handle_t handle = graph.get_handle(mapping.position().node_id(), mapping.position().is_reverse());
+                    bool is_source = graph.follow_edges(handle, true, [](const handle_t& h) {return false;});
+                    if (is_source) {
+                        // this soft clip might arise because we didn't extract enough graph
+                        auto flipped = graph.flip(handle);
+                        expansion_points[flipped] =  max<int64_t>(expansion_points[flipped],
+                                                                  max_len - mapping.position().offset());
+                    }
+                }
+            }
+        }
+        
+        // find expansion points on sink subpaths
+        for (const auto& subpath : multipath_aln.subpath()) {
+            if (subpath.next().empty()) {
+                const auto& mapping = subpath.path().mapping().back();
+                const auto& edit = mapping.edit().back();
+                if (edit.from_length() == 0 && edit.to_length() != 0) {
+                    // this is soft-clipped
+                    handle_t handle = graph.get_handle(mapping.position().node_id(), mapping.position().is_reverse());
+                    int64_t final_offset = mapping.position().offset() + mapping_from_length(mapping);
+                    size_t max_len = get_aligner()->longest_detectable_gap(multipath_aln.sequence().size(), edit.to_length());
+                    if (graph.get_length(handle) - final_offset < max_len) {
+                        // the clipped sequence's alignment might not fit on this node
+                        bool is_sink = graph.follow_edges(handle, false, [](const handle_t& h) {return false;});
+                        if (is_sink) {
+                            // this soft clip might arise because we didn't extract enough graph
+                            expansion_points[handle] =  max<int64_t>(expansion_points[handle],
+                                                                     max_len - (graph.get_length(handle) - final_offset));
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (!expansion_points.empty()) {
+            int64_t num_edges_before_expansion = graph.get_edge_count();
+            for (const pair<handle_t, int64_t>& expansion_point : expansion_points) {
+                // we might need to extend the subgraph here to get a full alignment
+                algorithms::locally_expand_graph(*xindex, graph, expansion_point.first, expansion_point.second);
+            }
+            return num_edges_before_expansion != graph.get_edge_count();
+        }
+        else {
+            return false;
+        }
+    }
     
     void MultipathMapper::multipath_align(const Alignment& alignment, clustergraph_t& cluster_graph,
                                           multipath_alignment_t& multipath_aln_out,
                                           const match_fanouts_t* fanouts) const {
 
-        auto graph = get<0>(cluster_graph).get();
-        auto& graph_mems = get<1>(cluster_graph);
-        
+        bool new_graph_material = true;
+        while (new_graph_material) {
+            // there are parts of this graph we haven't tried to align to yet
+            
+            multipath_aln_out.mutable_subpath()->clear();
+            multipath_aln_out.mutable_start()->clear();
+            
+            auto graph = get<0>(cluster_graph).get();
+            auto& graph_mems = get<1>(cluster_graph);
+            
 #ifdef debug_multipath_mapper_alignment
-        cerr << "constructing alignment graph for cluster of " << get<1>(cluster_graph).first.size() << " hits" << endl;
+            cerr << "constructing alignment graph for cluster of " << get<1>(cluster_graph).first.size() << " hits" << endl;
 #endif
-        
-        if (graph_mems.first.empty()) {
+            
+            if (graph_mems.first.empty()) {
 #ifdef debug_multipath_mapper_alignment
-            cerr << "cluster is empty, aborting" << endl;
+                cerr << "cluster is empty, aborting" << endl;
 #endif
-            transfer_read_metadata(alignment, multipath_aln_out);
-            return;
-        }
-        
-        // the longest path we could possibly align to (full gap and a full sequence)
-        auto aligner = get_aligner(!alignment.quality().empty());
-        size_t target_length = alignment.sequence().size() + min(aligner->longest_detectable_gap(alignment), max_alignment_gap);
-        
-        // check if we can get away with using only one strand of the graph
-        bool use_single_stranded = handlealgs::is_single_stranded(graph);
-        bool mem_strand = false;
-        if (use_single_stranded) {
-            mem_strand = is_rev(graph_mems.first[0].second);
-            for (size_t i = 1; i < graph_mems.first.size(); i++) {
-                if (is_rev(graph_mems.first[i].second) != mem_strand) {
-                    use_single_stranded = false;
-                    break;
+                transfer_read_metadata(alignment, multipath_aln_out);
+                return;
+            }
+            
+            // the longest path we could possibly align to (full gap and a full sequence)
+            auto aligner = get_aligner(!alignment.quality().empty());
+            size_t target_length = alignment.sequence().size() + min(aligner->longest_detectable_gap(alignment), max_alignment_gap);
+            
+            // check if we can get away with using only one strand of the graph
+            bool use_single_stranded = handlealgs::is_single_stranded(graph);
+            bool mem_strand = false;
+            if (use_single_stranded) {
+                mem_strand = is_rev(graph_mems.first[0].second);
+                for (size_t i = 1; i < graph_mems.first.size(); i++) {
+                    if (is_rev(graph_mems.first[i].second) != mem_strand) {
+                        use_single_stranded = false;
+                        break;
+                    }
                 }
             }
-        }
-        
-        // make the graph we need to align to
-#ifdef debug_multipath_mapper_alignment
-        cerr << "use_single_stranded: " << use_single_stranded << " mem_strand: " << mem_strand << endl;
-#endif
-        
-#ifdef debug_multipath_mapper_alignment
-        cerr << "initial alignment graph:" << endl;
-        graph->for_each_handle([&](const handle_t& h) {
-            cerr << graph->get_id(h) << " " << graph->get_sequence(h) << endl;
-            graph->follow_edges(h, false, [&](const handle_t& n) {
-                cerr << "\t-> " << graph->get_id(n) << " " << (graph->get_is_reverse(n) ? "-" : "+") << endl;
-            });
-            graph->follow_edges(h, true, [&](const handle_t& n) {
-                cerr << "\t " << graph->get_id(n) << " " << (graph->get_is_reverse(n) ? "-" : "+") << " <-" << endl;
-            });
-        });
-#endif
-        
-        // make our options for single stranded graphs
-        IdentityOverlay fwd_graph(graph);
-        ReverseGraph rev_graph(graph, true);
-        StrandSplitGraph split_graph(graph);
-        
-        // choose which one we want
-        ExpandingOverlayGraph* align_digraph = nullptr;
-        if (!use_single_stranded) {
-            align_digraph = &split_graph;
-        }
-        else if (mem_strand) {
-            align_digraph = &rev_graph;
-        }
-        else {
-            align_digraph = &fwd_graph;
-        }
-
-        // if necessary, convert from cyclic to acylic (can be expensive to construct, only do it
-        // if we need to)
-        
-        IdentityOverlay undagified(align_digraph);
-        unique_ptr<DagifiedGraph> dagified;
-        
-        ExpandingOverlayGraph* align_dag = nullptr;
-        if (handlealgs::is_directed_acyclic(align_digraph)) {
-            align_dag = &undagified;
-        }
-        else {
-#ifdef debug_multipath_mapper_alignment
-            cerr << "graph contains directed cycles, performing dagification" << endl;
-#endif
-            dagified = unique_ptr<DagifiedGraph>(new DagifiedGraph(align_digraph, target_length));
-            align_dag = dagified.get();
-        }
-        
-        // a function to translate from the transformed graphs ID space to the original graph's
-        function<pair<id_t, bool>(id_t)> translator = [&](const id_t& node_id) {
-            handle_t original = align_digraph->get_underlying_handle(align_dag->get_underlying_handle(align_dag->get_handle(node_id)));
-            return make_pair(graph->get_id(original), graph->get_is_reverse(original));
-        };
-        
-#ifdef debug_multipath_mapper_alignment
-        cerr << "final alignment graph:" << endl;
-        align_dag->for_each_handle([&](const handle_t& h) {
-            auto tr = translator(align_dag->get_id(h));
-            cerr << align_dag->get_id(h) << " (" << tr.first << (tr.second ? "-" : "+") << ") " << align_dag->get_sequence(h) << endl;
-            align_dag->follow_edges(h, false, [&](const handle_t& n) {
-                cerr << "\t-> " << align_dag->get_id(n) << " " << (align_dag->get_is_reverse(n) ? "-" : "+") << endl;
-            });
-            align_dag->follow_edges(h, true, [&](const handle_t& n) {
-                cerr << "\t " << align_dag->get_id(n) << " " << (align_dag->get_is_reverse(n) ? "-" : "+") << " <-" << endl;
-            });
-        });
-#endif
-        
-        // construct a graph that summarizes reachability between MEMs
-        
-#ifdef debug_multipath_mapper_alignment
-        cerr << "making multipath alignment MEM graph" << endl;
-#endif
-        
-        vector<size_t> hit_provenance;
-        MultipathAlignmentGraph multi_aln_graph(*align_dag, graph_mems, translator, hit_provenance,
-                                                max_branch_trim_length, gcsa, fanouts);
-        
-        {
-            // Compute a topological order over the graph
-            vector<size_t> topological_order;
-            multi_aln_graph.topological_sort(topological_order);
             
-            // it's sometimes possible for transitive edges to survive the original construction algorithm, so remove them
-            multi_aln_graph.remove_transitive_edges(topological_order);
+            // make the graph we need to align to
+#ifdef debug_multipath_mapper_alignment
+            cerr << "use_single_stranded: " << use_single_stranded << " mem_strand: " << mem_strand << endl;
+#endif
             
-            // prune this graph down the paths that have reasonably high likelihood
-            size_t size_before_prune = multi_aln_graph.size();
-            multi_aln_graph.prune_to_high_scoring_paths(alignment, aligner, max_suboptimal_path_score_ratio,
-                                                        topological_order, translator, hit_provenance);
+#ifdef debug_multipath_mapper_alignment
+            cerr << "initial alignment graph:" << endl;
+            graph->for_each_handle([&](const handle_t& h) {
+                cerr << graph->get_id(h) << " " << graph->get_sequence(h) << endl;
+                graph->follow_edges(h, false, [&](const handle_t& n) {
+                    cerr << "\t-> " << graph->get_id(n) << " " << (graph->get_is_reverse(n) ? "-" : "+") << endl;
+                });
+                graph->follow_edges(h, true, [&](const handle_t& n) {
+                    cerr << "\t " << graph->get_id(n) << " " << (graph->get_is_reverse(n) ? "-" : "+") << " <-" << endl;
+                });
+            });
+#endif
             
-            if (multi_aln_graph.size() != size_before_prune && do_spliced_alignment) {
-                // we pruned away some path nodes, so let's check if we pruned away any entire hits
-                // and, if so, un-claim them from this cluster
-                                
-                vector<bool> found(graph_mems.first.size(), false);
-                for (auto i : hit_provenance) {
-                    found[i] = true;
-                }
+            // make our options for single stranded graphs
+            IdentityOverlay fwd_graph(graph);
+            ReverseGraph rev_graph(graph, true);
+            StrandSplitGraph split_graph(graph);
+            
+            // choose which one we want
+            ExpandingOverlayGraph* align_digraph = nullptr;
+            if (!use_single_stranded) {
+                align_digraph = &split_graph;
+            }
+            else if (mem_strand) {
+                align_digraph = &rev_graph;
+            }
+            else {
+                align_digraph = &fwd_graph;
+            }
+            
+            // if necessary, convert from cyclic to acylic (can be expensive to construct, only do it
+            // if we need to)
+            
+            IdentityOverlay undagified(align_digraph);
+            unique_ptr<DagifiedGraph> dagified;
+            
+            ExpandingOverlayGraph* align_dag = nullptr;
+            if (handlealgs::is_directed_acyclic(align_digraph)) {
+                align_dag = &undagified;
+            }
+            else {
+#ifdef debug_multipath_mapper_alignment
+                cerr << "graph contains directed cycles, performing dagification" << endl;
+#endif
+                dagified = unique_ptr<DagifiedGraph>(new DagifiedGraph(align_digraph, target_length));
+                align_dag = dagified.get();
+            }
+            
+            // a function to translate from the transformed graphs ID space to the original graph's
+            function<pair<id_t, bool>(id_t)> translator = [&](const id_t& node_id) {
+                handle_t original = align_digraph->get_underlying_handle(align_dag->get_underlying_handle(align_dag->get_handle(node_id)));
+                return make_pair(graph->get_id(original), graph->get_is_reverse(original));
+            };
+            
+#ifdef debug_multipath_mapper_alignment
+            cerr << "final alignment graph:" << endl;
+            align_dag->for_each_handle([&](const handle_t& h) {
+                auto tr = translator(align_dag->get_id(h));
+                cerr << align_dag->get_id(h) << " (" << tr.first << (tr.second ? "-" : "+") << ") " << align_dag->get_sequence(h) << endl;
+                align_dag->follow_edges(h, false, [&](const handle_t& n) {
+                    cerr << "\t-> " << align_dag->get_id(n) << " " << (align_dag->get_is_reverse(n) ? "-" : "+") << endl;
+                });
+                align_dag->follow_edges(h, true, [&](const handle_t& n) {
+                    cerr << "\t " << align_dag->get_id(n) << " " << (align_dag->get_is_reverse(n) ? "-" : "+") << " <-" << endl;
+                });
+            });
+#endif
+            
+            // construct a graph that summarizes reachability between MEMs
+            
+#ifdef debug_multipath_mapper_alignment
+            cerr << "making multipath alignment MEM graph" << endl;
+#endif
+            
+            vector<size_t> hit_provenance;
+            MultipathAlignmentGraph multi_aln_graph(*align_dag, graph_mems, translator, hit_provenance,
+                                                    max_branch_trim_length, gcsa, fanouts);
+            
+            {
+                // Compute a topological order over the graph
+                vector<size_t> topological_order;
+                multi_aln_graph.topological_sort(topological_order);
                 
-                // if necessary remove the ones we didn't keep
-                size_t removed = 0;
-                for (size_t i = 0; i < graph_mems.first.size(); ++i) {
-                    if (!found[i]) {
+                // it's sometimes possible for transitive edges to survive the original construction algorithm, so remove them
+                multi_aln_graph.remove_transitive_edges(topological_order);
+                
+                // prune this graph down the paths that have reasonably high likelihood
+                size_t size_before_prune = multi_aln_graph.size();
+                multi_aln_graph.prune_to_high_scoring_paths(alignment, aligner, max_suboptimal_path_score_ratio,
+                                                            topological_order, translator, hit_provenance);
+                
+                if (multi_aln_graph.size() != size_before_prune && do_spliced_alignment) {
+                    // we pruned away some path nodes, so let's check if we pruned away any entire hits
+                    // and, if so, un-claim them from this cluster
+                    
+                    vector<bool> found(graph_mems.first.size(), false);
+                    for (auto i : hit_provenance) {
+                        found[i] = true;
+                    }
+                    
+                    // if necessary remove the ones we didn't keep
+                    size_t removed = 0;
+                    for (size_t i = 0; i < graph_mems.first.size(); ++i) {
+                        if (!found[i]) {
 #ifdef debug_multipath_alignment
-                        cerr << "completely pruned hit from cluster: " << graph_mems.first[i].second << " " << graph_mems.first[i].first->sequence() << endl;
+                            cerr << "completely pruned hit from cluster: " << graph_mems.first[i].second << " " << graph_mems.first[i].first->sequence() << endl;
 #endif
-                        ++removed;
+                            ++removed;
+                        }
+                        else if (removed) {
+                            graph_mems.first[i - removed] = graph_mems.first[i];
+                        }
                     }
-                    else if (removed) {
-                        graph_mems.first[i - removed] = graph_mems.first[i];
-                    }
+                    graph_mems.first.resize(graph_mems.first.size() - removed);
+                    
+                    // we may need to recompute the coverage of the cluster because some MEMs were pruned out of it
+                    set_read_coverage(cluster_graph);
                 }
-                graph_mems.first.resize(graph_mems.first.size() - removed);
-                
-                // we may need to recompute the coverage of the cluster because some MEMs were pruned out of it
-                set_read_coverage(cluster_graph);
             }
-        }
-        
-        if (snarl_manager || distance_index) {
-            // We want to do snarl cutting
             
-            if (!suppress_tail_anchors) {
-            
+            if (snarl_manager || distance_index) {
+                // We want to do snarl cutting
+                
+                if (!suppress_tail_anchors) {
+                    
 #ifdef debug_multipath_mapper_alignment
-                cerr << "Synthesizing tail anchors for snarl cutting" << endl;
+                    cerr << "Synthesizing tail anchors for snarl cutting" << endl;
 #endif
-
-                // Make fake anchor paths to cut the snarls out of in the tails
-                multi_aln_graph.synthesize_tail_anchors(alignment, *align_dag, aligner, min_tail_anchor_length, num_alt_alns,
-                                                        false, max_alignment_gap,
-                                                        use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0);
+                    
+                    // Make fake anchor paths to cut the snarls out of in the tails
+                    multi_aln_graph.synthesize_tail_anchors(alignment, *align_dag, aligner, min_tail_anchor_length, num_alt_alns,
+                                                            false, max_alignment_gap,
+                                                            use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0);
+                    
+                }
                 
-            }
-       
 #ifdef debug_multipath_mapper_alignment
-            cerr << "MultipathAlignmentGraph going into snarl cutting:" << endl;
+                cerr << "MultipathAlignmentGraph going into snarl cutting:" << endl;
+                multi_aln_graph.to_dot(cerr, &alignment);
+#endif
+                
+                // Do the snarl cutting, which modifies the nodes in the multipath alignment graph
+                if (max_snarl_cut_size) {
+                    multi_aln_graph.resect_snarls_from_paths(snarl_manager, distance_index, translator, max_snarl_cut_size);
+                }
+            }
+            
+            
+#ifdef debug_multipath_mapper_alignment
+            cerr << "MultipathAlignmentGraph going into alignment:" << endl;
             multi_aln_graph.to_dot(cerr, &alignment);
-#endif
-        
-            // Do the snarl cutting, which modifies the nodes in the multipath alignment graph
-            if (max_snarl_cut_size) {
-                multi_aln_graph.resect_snarls_from_paths(snarl_manager, distance_index, translator, max_snarl_cut_size);
+            
+            for (auto& ids : multi_aln_graph.get_connected_components()) {
+                cerr << "Component: ";
+                for (auto& id : ids) {
+                    cerr << id << " ";
+                }
+                cerr << endl;
             }
-        }
-
-
+#endif
+            
+            function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding = [&](const Alignment& seq, const HandleGraph& graph) {
+                size_t read_length = seq.sequence().size();
+                return read_length < band_padding_memo.size() ? band_padding_memo.at(read_length)
+                : size_t(band_padding_multiplier * sqrt(read_length)) + 1;
+            };
+            
+            // do the connecting alignments and fill out the multipath_alignment_t object
+            multi_aln_graph.align(alignment, *align_dag, aligner, true, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
+                                  use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0,
+                                  choose_band_padding, multipath_aln_out);
+            
+            // Note that we do NOT topologically order the multipath_alignment_t. The
+            // caller has to do that, after it is finished breaking it up into
+            // connected components or whatever.
+            
 #ifdef debug_multipath_mapper_alignment
-        cerr << "MultipathAlignmentGraph going into alignment:" << endl;
-        multi_aln_graph.to_dot(cerr, &alignment);
-        
-        for (auto& ids : multi_aln_graph.get_connected_components()) {
-            cerr << "Component: ";
-            for (auto& id : ids) {
-                cerr << id << " ";
+            cerr << "multipath alignment before translation: " << debug_string(multipath_aln_out) << endl;
+#endif
+            for (size_t j = 0; j < multipath_aln_out.subpath_size(); j++) {
+                translate_oriented_node_ids(*multipath_aln_out.mutable_subpath(j)->mutable_path(), translator);
             }
-            cerr << endl;
-        }
-#endif
-        
-        function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding = [&](const Alignment& seq, const HandleGraph& graph) {
-            size_t read_length = seq.sequence().size();
-            return read_length < band_padding_memo.size() ? band_padding_memo.at(read_length)
-                                                          : size_t(band_padding_multiplier * sqrt(read_length)) + 1;
-        };
-        
-        // do the connecting alignments and fill out the multipath_alignment_t object
-        multi_aln_graph.align(alignment, *align_dag, aligner, true, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
-                              use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0,
-                              choose_band_padding, multipath_aln_out);
-        
-        // Note that we do NOT topologically order the multipath_alignment_t. The
-        // caller has to do that, after it is finished breaking it up into
-        // connected components or whatever.
-        
+            
 #ifdef debug_multipath_mapper_alignment
-        cerr << "multipath alignment before translation: " << debug_string(multipath_aln_out) << endl;
+            cerr << "completed multipath alignment: " << debug_string(multipath_aln_out) << endl;
 #endif
-        for (size_t j = 0; j < multipath_aln_out.subpath_size(); j++) {
-            translate_oriented_node_ids(*multipath_aln_out.mutable_subpath(j)->mutable_path(), translator);
-        }
-        
+            
+            // check if we need to expand the graph to get a full alignment
+            new_graph_material = expand_for_softclips(cluster_graph, multipath_aln_out);
 #ifdef debug_multipath_mapper_alignment
-        cerr << "completed multipath alignment: " << debug_string(multipath_aln_out) << endl;
+            if (new_graph_material) {
+                cerr << "found soft clip near graph boundary, expanding subraph and re-aligning" << endl;
+            }
 #endif
+        }
     }
             
     void MultipathMapper::make_nontrivial_multipath_alignment(const Alignment& alignment, const HandleGraph& subgraph,
