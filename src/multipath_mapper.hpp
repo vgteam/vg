@@ -221,6 +221,11 @@ namespace vg {
         /// match algorithm
         using match_fanouts_t = unordered_map<const MaximalExactMatch*, deque<pair<string::const_iterator, char>>>;
         
+        /// Unique identifier for an unaligned splicing candidate. Specified by:
+        /// - Cluster candidate: (is read 1, cluster index, nullptr, pos_t())
+        /// - Hit candidate: (is read 1, -1, MEM, position)
+        using candidate_id_t = tuple<bool, int64_t, const MaximalExactMatch*, pos_t>;
+        
     protected:
         
         /// Enum for the strand of a splice alignment's splice motifs
@@ -460,8 +465,9 @@ namespace vg {
                                         const vector<pair<const MaximalExactMatch*, pos_t>>& hit_candidates,
                                         const pair<int64_t, int64_t>& primary_interval,
                                         bool searching_left,
-                                        vector<multipath_alignment_t>& candidates_out,
-                                        vector<double>& multiplicities_out,
+                                        bool is_read_1,
+                                        unordered_map<candidate_id_t, pair<multipath_alignment_t, double>>& unaligned_candidate_bank,
+                                        vector<candidate_id_t>& candidates_out,
                                         const match_fanouts_t* mem_fanouts = nullptr) const;
         
         /// Check whether splice segment candidates can form a statistically significant spliced
@@ -470,6 +476,7 @@ namespace vg {
                                     multipath_alignment_t& anchor_mp_aln, double& anchor_multiplicity,
                                     SpliceStrand& strand, int64_t num_candidates,
                                     const function<const multipath_alignment_t&(int64_t)>& get_candidate,
+                                    const function<double(int64_t)>& get_candidate_multiplicity,
                                     const function<multipath_alignment_t&&(int64_t)>& consume_candidate);
         
         /// Check if any of the unpaired spliced alignments can make pairs now
