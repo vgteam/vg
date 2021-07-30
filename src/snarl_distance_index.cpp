@@ -692,6 +692,7 @@ void populate_snarl_index(
                         if (!temp_snarl_record.distances.count(make_pair(start, next)) ) {
 
                             temp_snarl_record.distances[make_pair(start, next)] = current_distance;
+                            temp_snarl_record.max_distance = std::max(temp_snarl_record.max_distance, current_distance);
 #ifdef debug_distance_indexing
                             cerr << "           Adding distance between ranks " << start.first << " " << start.second << " and " << next.first << " " << next.second << ": " << current_distance << endl;
 #endif
