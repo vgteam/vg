@@ -447,7 +447,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
         }
         temp_index.max_distance = std::max(temp_index.max_distance, temp_chain_record.prefix_sum.back());
         temp_index.max_distance = temp_chain_record.forward_loops.back() == std::numeric_limits<size_t>::max() ? temp_index.max_distance : std::max(temp_index.max_distance, temp_chain_record.forward_loops.back());
-        temp_index.max_distance = temp_chain_record.forward_loops.back() == std::numeric_limits<size_t>::max() ? temp_index.max_distance : std::max(temp_index.max_distance, temp_chain_record.backward_loops.front());
+        temp_index.max_distance = temp_chain_record.forward_loops.back() == std::numeric_limits<size_t>::max() ? temp_index.max_distance : std::max(temp_index.max_distance, temp_chain_record.forward_loops.front());
     }
 
 #ifdef debug_distance_indexing
