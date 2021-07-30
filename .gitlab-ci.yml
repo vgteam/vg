@@ -99,8 +99,9 @@ build-job:
     - docker buildx build --platform=linux/amd64 --build-arg THREADS=8 --target test -f Dockerfile .
     # Connect so we can upload our images
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
-    # Keep trying to push until it works or we time out
-    - while ! docker buildx build --platform=linux/amd64 --build-arg THREADS=8 --target run --push -t "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" -f Dockerfile . ; do docker logout "${CI_REGISTRY}" ; sleep 30; docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}" ; done
+    # Keep trying to push until it works or we time out or run out of tries
+    - COUNT=0
+    - while ! docker buildx build --platform=linux/amd64 --build-arg THREADS=8 --target run --push -t "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" -f Dockerfile . ; do docker logout "${CI_REGISTRY}" ; sleep 30; docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}" ; sleep 30; ((COUNT+=1)); if [[ ${COUNT} == 10 ]] ; then exit 1; fi; done
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
 
