@@ -1926,6 +1926,25 @@ namespace vg {
                 }
             }
         }
+        else {
+            // We got no pairs that satisfy the distance requirements
+            
+            // revert to independent single ended mappings, but skip any rescues that we already tried
+            
+#ifdef debug_multipath_mapper
+            cerr << "could not find a consistent pair, reverting to single ended mapping" << endl;
+#endif
+            
+            vector<double> rescue_multiplicities;
+            proper_paired = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2, mems1,
+                                                                mems2, multipath_aln_pairs_out, cluster_pairs, rescue_multiplicities,
+                                                                fanouts1.get(), fanouts2.get());
+            
+            if (proper_paired) {
+                // we'll want to remember the multiplicities
+                pair_multiplicities = move(rescue_multiplicities);
+            }
+        }
         
         if (multipath_aln_pairs_out.empty()) {
             // we tried all of our tricks and still didn't find a mapping
