@@ -476,7 +476,7 @@ namespace vg {
                                     multipath_alignment_t& anchor_mp_aln, double& anchor_multiplicity,
                                     SpliceStrand& strand, int64_t num_candidates,
                                     const function<const multipath_alignment_t&(int64_t)>& get_candidate,
-                                    const function<double(int64_t)>& get_candidate_multiplicity,
+                                    const function<double(int64_t)>& get_multiplicity,
                                     const function<multipath_alignment_t&&(int64_t)>& consume_candidate);
         
         /// Check if any of the unpaired spliced alignments can make pairs now

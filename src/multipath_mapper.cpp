@@ -2142,7 +2142,7 @@ namespace vg {
                                                  multipath_alignment_t& anchor_mp_aln, double& anchor_multiplicity,
                                                  SpliceStrand& strand, int64_t num_candidates,
                                                  const function<const multipath_alignment_t&(int64_t)>& get_candidate,
-                                                 const function<double(int64_t)>& get_candidate_multiplicity,
+                                                 const function<double(int64_t)>& get_multiplicity,
                                                  const function<multipath_alignment_t&&(int64_t)>& consume_candidate) {
         
         /*
@@ -2484,8 +2484,8 @@ namespace vg {
         // TODO: ideally we'd probably try fixing it each way and see which is better
         strand = (splice_motifs.motif_is_reverse(best_join->motif_idx) ? Reverse : Forward);
 
-        anchor_multiplicity = min<double>(get_candidate_multiplicity(best_join->left_candidate_idx),
-                                          get_candidate_multiplicity(best_join->right_candidate_idx));
+        anchor_multiplicity = min<double>(get_multiplicity(best_join->left_candidate_idx),
+                                          get_multiplicity(best_join->right_candidate_idx));
         anchor_mp_aln = fuse_spliced_alignments(alignment,
                                                 consume_candidate(best_join->left_candidate_idx),
                                                 consume_candidate(best_join->right_candidate_idx),
@@ -2979,6 +2979,7 @@ namespace vg {
 #endif
             
             multipath_alignment_t& splice_anchor = multipath_alns_out[index[i]];
+            double& anchor_multiplicity = multiplicities[index[i]];
             
             if (optimal_alignment_score(splice_anchor) < min_score_to_attempt) {
                 // the rest of the alignments are too low-scoring to look at
@@ -3040,13 +3041,24 @@ namespace vg {
                 // set up functions for the spliced alignment decision process
                 
                 function<const multipath_alignment_t&(int64_t)> get_candidate = [&](int64_t i) -> const multipath_alignment_t& {
-                    return i < mp_aln_candidates.size() ? multipath_alns_out[mp_aln_candidates[i]]
-                                                        : unaligned_candidate_bank.at(unaligned_candidates[i - mp_aln_candidates.size()]).first;
+                    if (i < mp_aln_candidates.size()) {
+                        return multipath_alns_out[mp_aln_candidates[i]];
+                    }
+                    else {
+                        return unaligned_candidate_bank.at(unaligned_candidates[i - mp_aln_candidates.size()]).first;
+                    }
                 };
                 
-                function<double(int64_t)> get_candidate_multiplicity = [&](int64_t i) {
-                    return i < mp_aln_candidates.size() ? multiplicities[mp_aln_candidates[i]]
-                                                        : unaligned_candidate_bank.at(unaligned_candidates[i - mp_aln_candidates.size()]).second;
+                function<double(int64_t)> get_multiplicity = [&](int64_t i) {
+                    if (i < 0) {
+                        return anchor_multiplicity;
+                    }
+                    else if (i < mp_aln_candidates.size()) {
+                        return multiplicities[mp_aln_candidates[i]];
+                    }
+                    else {
+                        return unaligned_candidate_bank.at(unaligned_candidates[i - mp_aln_candidates.size()]).second;
+                    }
                 };
                 
                 // TODO: this solution is kinda ugly
@@ -3108,9 +3120,9 @@ namespace vg {
                     }
                 };
                 
-                bool did_splice = test_splice_candidates(alignment, do_left, splice_anchor, multiplicities[index[i]],
+                bool did_splice = test_splice_candidates(alignment, do_left, splice_anchor, anchor_multiplicity,
                                                          strand, mp_aln_candidates.size() + unaligned_candidates.size(),
-                                                         get_candidate, get_candidate_multiplicity, consume_candidate);
+                                                         get_candidate, get_multiplicity, consume_candidate);
                 
                 any_splices = any_splices || did_splice;
                 found_splice_for_anchor = found_splice_for_anchor || did_splice;
@@ -3174,6 +3186,7 @@ namespace vg {
             }
             
             auto& splice_anchor_pair = multipath_aln_pairs_out[index[i]];
+            double& anchor_multiplicity = pair_multiplicities[index[i]];
             if (optimal_alignment_score(splice_anchor_pair.first) < min_score_to_attempt_1
                 && optimal_alignment_score(splice_anchor_pair.second) < min_score_to_attempt_2) {
                 // the rest of the alignments are too low scoring to consider
@@ -3266,8 +3279,11 @@ namespace vg {
                         }
                     };
                     
-                    function<double (int64_t)> get_candidate_multiplicity = [&](int64_t i) -> double {
-                        if (i < mp_aln_candidates.size()) {
+                    function<double (int64_t)> get_multiplicity = [&](int64_t i) -> double {
+                        if (i < 0) {
+                            return anchor_multiplicity;
+                        }
+                        else if (i < mp_aln_candidates.size()) {
                             return pair_multiplicities[i];
                         }
                         else {
@@ -3361,9 +3377,9 @@ namespace vg {
                     };
                     
                     // see if we can actually make spliced alignments
-                    bool spliced_side = test_splice_candidates(*aln, do_left, *anchor_mp_aln, pair_multiplicities.front(),
+                    bool spliced_side = test_splice_candidates(*aln, do_left, *anchor_mp_aln, anchor_multiplicity,
                                                                strand, mp_aln_candidates.size() + unaligned_candidates.size(),
-                                                               get_candidate, get_candidate_multiplicity, consume_candidate);
+                                                               get_candidate, get_multiplicity, consume_candidate);
                     any_splices = any_splices || spliced_side;
                     found_splice_for_anchor = found_splice_for_anchor || spliced_side;
                 }
