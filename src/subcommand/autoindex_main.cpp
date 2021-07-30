@@ -210,7 +210,12 @@ int main_autoindex(int argc, char** argv) {
                 registry.provide("Insertion Sequence FASTA", optarg);
                 break;
             case 'g':
-                registry.provide("Reference GFA", optarg);
+                if (IndexRegistry::gfa_has_haplotypes(optarg)) {
+                    registry.provide("Reference GFA w/ Haplotypes", optarg);
+                }
+                else {
+                    registry.provide("Reference GFA", optarg);
+                }
                 break;
             case 'x':
                 registry.provide("GTF/GFF", optarg);

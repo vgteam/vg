@@ -13,7 +13,7 @@ vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
 vg index -x x.xg x.vg
 vg gbwt -x x.vg -o x.gbwt -v small/xy2.vcf.gz
 vg snarls -T x.vg > x.snarls
-vg index -s x.snarls -j x.dist -x x.xg
+vg index -s x.snarls -j x.dist x.xg
 
 # Default construction
 vg minimizer -o x.mi -g x.gbwt x.xg
@@ -36,7 +36,7 @@ is $(md5sum x.mi | cut -f 1 -d\ ) c69f4f2dfab192fc66055dcf2fa8a7da "setting -k -
 
 # Construction from GBWTGraph
 vg gbwt -x x.xg -g x.gg x.gbwt
-vg minimizer -t 1 -g x.gbwt -G -o x.mi x.gg
+vg minimizer -t 1 -g x.gbwt -o x.mi x.gg
 is $? 0 "construction from GBWTGraph"
 is $(md5sum x.mi | cut -f 1 -d\ ) 58b2bd98902df9acbe416bcfde649571 "construction is deterministic"
 
@@ -47,7 +47,7 @@ is $? 0 "construction from GBZ"
 is $(md5sum x.mi | cut -f 1 -d\ ) 58b2bd98902df9acbe416bcfde649571 "construction is deterministic"
 
 # Store payload in the index
-vg minimizer -t 1 -o x.mi -g x.gbwt -d x.dist -G x.gg
+vg minimizer -t 1 -o x.mi -g x.gbwt -d x.dist x.gg
 is $? 0 "construction with payload"
 is $(md5sum x.mi | cut -f 1 -d\ ) 58a6780c18921e4f6701b57fdb9c2e44 "construction is deterministic"
 

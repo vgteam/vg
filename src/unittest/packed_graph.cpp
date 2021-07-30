@@ -433,7 +433,8 @@ using namespace std;
             stringstream strm;
             graph.serialize(strm);
             strm.seekg(0);
-            bdsg::PackedGraph loaded(strm);
+            bdsg::PackedGraph loaded;
+            loaded.deserialize(strm);
             
             REQUIRE(handlealgs::are_equivalent_with_paths(&graph, &loaded));
         }

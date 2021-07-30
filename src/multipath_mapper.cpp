@@ -4936,6 +4936,7 @@ namespace vg {
         
         // TODO: this post-hoc check might make it possible to extract less graph initially...
         // but that could get fiddly when there is a mismatch at the graph boundary (makes soft clip)
+        // TODO: this should work on non-branching path tips, not node tips
         
         unordered_map<handle_t, int64_t> expansion_points;
         auto& graph = *get<0>(cluster_graph);

@@ -264,7 +264,7 @@ rm -f x.vg distIndex snarls.pb
 
 # Test distance index with GBZ
 vg gbwt -g graph.gbz --gbz-format -G graphs/components_walks.gfa
-vg snarls -T -Z graph.gbz > graph.snarls
+vg snarls -T graph.gbz > graph.snarls
 vg index -s graph.snarls -j graph.dist graph.gbz
 is $? 0 "distance index construction from GBZ"
 
