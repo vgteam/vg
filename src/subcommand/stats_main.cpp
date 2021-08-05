@@ -65,6 +65,7 @@ void help_stats(char** argv) {
          << "    -F, --format          graph format from {VG-Protobuf, PackedGraph, HashGraph, ODGI, XG}. " <<
         "Can't detect Protobuf if graph read from stdin" << endl
          << "    -D, --degree-dist     print degree distribution of the graph." << endl
+         << "    -p, --threads N       number of threads to use [all available]" << endl
          << "    -v, --verbose         output longer reports" << endl;
 }
 
@@ -128,7 +129,8 @@ int main_stats(int argc, char** argv) {
             {"overlap-all", no_argument, 0, 'O'},
             {"snarls", no_argument, 0, 'R'},
             {"format", no_argument, 0, 'F'},
-            {"degree-dist", no_argument, 0, 'D'}, 
+            {"degree-dist", no_argument, 0, 'D'},
+            {"threads", required_argument, 0, 'p'},
             {0, 0, 0, 0}
         };
 
@@ -233,6 +235,17 @@ int main_stats(int argc, char** argv) {
         case 'D':
             degree_dist = true;
             break;
+
+        case 'p':
+        {
+            int num_threads = parse<int>(optarg);
+            if (num_threads <= 0) {
+                cerr << "error:[vg stats] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
+                exit(1);
+            }
+            omp_set_num_threads(num_threads);
+            break;
+        }
 
         case 'h':
         case '?':
@@ -1030,13 +1043,13 @@ int main_stats(int argc, char** argv) {
         require_graph();
         
         // First compute the snarls
-        auto manager = IntegratedSnarlFinder(*graph).find_snarls();
+        auto manager = IntegratedSnarlFinder(*graph).find_snarls_parallel();
         
         // We will track depth for each snarl
         unordered_map<const Snarl*, size_t> depth;
 
         // TSV header
-        cout << "Start\tStart-Reversed\tEnd\tEnd-Reversed\tUltrabubble\tUnary\tShallow-Nodes\tShallow-Edges\tDeep-Nodes\tDeep-Edges\tDepth\tChildren\tChains\tChains-Children\tNet-Graph-Size\n";
+        cout << "Start\tStart-Reversed\tEnd\tEnd-Reversed\tUltrabubble\tUnary\tShallow-Nodes\tShallow-Edges\tShallow-bases\tDeep-Nodes\tDeep-Edges\tDeep-Bases\tDepth\tChildren\tChains\tChains-Children\tNet-Graph-Size\n";
         
         manager.for_each_snarl_preorder([&](const Snarl* snarl) {
             // Loop over all the snarls and print stats.
@@ -1051,11 +1064,21 @@ int main_stats(int argc, char** argv) {
 
             // Snarl size not including boundary nodes
             pair<unordered_set<vg::id_t>, unordered_set<vg::edge_t> > contents = manager.shallow_contents(snarl, *graph, false);
+            size_t num_bases = 0;
+            for (vg::id_t node_id : contents.first) {
+                num_bases += graph->get_length(graph->get_handle(node_id));
+            }
             cout << contents.first.size() << "\t";
             cout << contents.second.size() << "\t";
+            cout << num_bases << "\t";
             contents = manager.deep_contents(snarl, *graph, false);
+            num_bases = 0;
+            for (vg::id_t node_id : contents.first) {
+                num_bases += graph->get_length(graph->get_handle(node_id));
+            }
             cout << contents.first.size() << "\t";
             cout << contents.second.size() << "\t";
+            cout << num_bases << "\t";
             
             // Compute depth
             auto parent = manager.parent_of(snarl);
