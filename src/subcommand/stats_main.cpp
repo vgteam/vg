@@ -18,7 +18,7 @@
 #include "../algorithms/distance_to_head.hpp"
 #include "../algorithms/distance_to_tail.hpp"
 #include "../handle.hpp"
-#include "../cactus_snarl_finder.hpp"
+#include "../integrated_snarl_finder.hpp"
 #include "../annotation.hpp"
 
 #include "../path.hpp"
@@ -1030,17 +1030,32 @@ int main_stats(int argc, char** argv) {
         require_graph();
         
         // First compute the snarls
-        auto manager = CactusSnarlFinder(*graph).find_snarls();
+        auto manager = IntegratedSnarlFinder(*graph).find_snarls();
         
         // We will track depth for each snarl
         unordered_map<const Snarl*, size_t> depth;
+
+        // TSV header
+        cout << "Start\tStart-Reversed\tEnd\tEnd-Reversed\tUltrabubble\tUnary\tShallow-Nodes\tShallow-Edges\tDeep-Nodes\tDeep-Edges\tDepth\tChildren\tChains\tChains-Children\tNet-Graph-Size\n";
         
         manager.for_each_snarl_preorder([&](const Snarl* snarl) {
             // Loop over all the snarls and print stats.
+
+            // snarl
+            cout << snarl->start().node_id() << "\t" << snarl->start().backward() << "\t";
+            cout << snarl->end().node_id() << "\t" << snarl->end().backward() << "\t";
             
             // Snarl metadata
-            cout << "ultrabubble\t" << (snarl->type() == ULTRABUBBLE) << endl;
-            cout << "unary\t" << (snarl->type() == UNARY) << endl;
+            cout << (snarl->type() == ULTRABUBBLE) << "\t";
+            cout << (snarl->type() == UNARY) << "\t";
+
+            // Snarl size not including boundary nodes
+            pair<unordered_set<vg::id_t>, unordered_set<vg::edge_t> > contents = manager.shallow_contents(snarl, *graph, false);
+            cout << contents.first.size() << "\t";
+            cout << contents.second.size() << "\t";
+            contents = manager.deep_contents(snarl, *graph, false);
+            cout << contents.first.size() << "\t";
+            cout << contents.second.size() << "\t";
             
             // Compute depth
             auto parent = manager.parent_of(snarl);
@@ -1050,26 +1065,32 @@ int main_stats(int argc, char** argv) {
             } else {
                 depth[snarl] = depth[parent] + 1;
             }
-            cout << "depth\t" << depth[snarl] << endl;
+            cout << depth[snarl] << "\t";
             
             // Number of children (looking inside chains)
-            cout << "children\t" << manager.children_of(snarl).size() << endl;
+            cout << manager.children_of(snarl).size() << "\t";
             
             // Number of chains (including unary child snarls)
             // Will be 0 for leaves
             auto chains = manager.chains_of(snarl);
-            cout << "chains\t" << chains.size() << endl;
-            
-            for (auto& chain : chains) {
+            cout << chains.size() << "\t";
+
+            for (size_t i = 0; i < chains.size(); ++i) {
                 // Number of children in each chain
-                cout << "chain-size\t" << chain.size() << endl;
+                cout << chains[i].size();
+                if (i < chains.size() - 1) {
+                    cout << ",";
+                }
             }
+            if (chains.empty()) {
+                cout << "0";
+            }
+            cout << "\t";
             
             // Net graph info
             // Internal connectivity not important, we just want the size.
             auto netGraph = manager.net_graph_of(snarl, graph.get(), false);
-            cout << "net-graph-size\t" << netGraph.get_node_count() << endl;
-            
+            cout << netGraph.get_node_count() << endl;
         });
         
     }
