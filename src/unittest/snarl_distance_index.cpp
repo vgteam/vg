@@ -4248,8 +4248,25 @@ namespace vg {
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
             make_distance_index(&distance_index, &graph, &snarl_finder);
+
+            SECTION("Get all children") {
+                net_handle_t root_handle = distance_index.get_root();
+                net_handle_t top_chain_handle;
+                bool found_chain = false;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    REQUIRE(!found_chain);
+                    found_chain = true;
+                    top_chain_handle = child;
+                });
+                size_t child_count = 0;
+                distance_index.for_each_child(top_chain_handle, [&](const net_handle_t& child) {
+                    REQUIRE((distance_index.is_node(child) || distance_index.is_snarl(child)));
+                    child_count ++;
+                });
+                REQUIRE(child_count == 8);
+            }
         
-            SECTION("Create distance index") {
+            SECTION("Check distances") {
                 REQUIRE(distance_index.minimum_distance(1, false, 0,7, false, 0) == 8);
                 REQUIRE(distance_index.minimum_distance(1, false, 0,8, false, 0) == 9);
                 REQUIRE(distance_index.minimum_distance(1, false, 0,8, true, 0) == 9);
@@ -4309,13 +4326,11 @@ namespace vg {
                 REQUIRE(distance_index.minimum_distance(7, false, 0,1, true, 0) == 11);
         
                 SECTION("Save and load index") {
-                    char filename[] = "tmpXXXXXX";
-                    int tmpfd = mkstemp(filename);
-                    assert(tmpfd != -1);
-                    distance_index.save(tmpfd);
+                    string file = "test_graph.dist.new"; 
+                    distance_index.save(file);
 
 
-                    distance_index.load(tmpfd);
+                    distance_index.load(file);
                     
 
                     REQUIRE(distance_index.minimum_distance(1, false, 0,7, false, 0) == 8);

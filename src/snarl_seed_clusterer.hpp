@@ -2,14 +2,15 @@
 #define VG_SEED_CLUSTERER_HPP_INCLUDED
 
 #include "snarls.hpp"
-#include "min_distance.hpp"
+#include "snarl_distance_index.hpp"
 #include "hash_map.hpp"
 #include "small_bitset.hpp"
 #include <structures/union_find.hpp>
 
+
 namespace vg{
 
-class SnarlSeedClusterer {
+class NewSnarlSeedClusterer {
 
     public:
 
@@ -18,18 +19,6 @@ class SnarlSeedClusterer {
             pos_t  pos;
             size_t source; // Source minimizer.
 
-            //For nodes on boundary nodes of top-level chain
-            bool is_top_level_node;
-            size_t component; // Component id in the distance index.
-            size_t offset; // Offset in the root chain.
-
-            //For nodes on top-level simple bubbles
-            bool is_top_level_snarl;
-            size_t snarl_rank; //Rank of the snarl in the chain
-            size_t start_length; //Length of the snarl start node (relative to a fd traversal of the chain)
-            size_t end_length; //Length of the snarl end node
-            size_t node_length; //Length of the node the position is on
-            bool rev_in_chain; //True if this node is traversed backward in the chain
 
         };
 
@@ -42,7 +31,7 @@ class SnarlSeedClusterer {
             SmallBitset present; // Minimizers that are present in the cluster.
         };
 
-        SnarlSeedClusterer(MinimumDistanceIndex& dist_index);
+        NewSnarlSeedClusterer(SnarlDistanceIndex& distance_index);
 
         //TODO: I don't want to be too tied to the minimizer_mapper implementation with seed structs
 
@@ -51,7 +40,7 @@ class SnarlSeedClusterer {
         //between them (including both of the positions) is less than
         // the distance limit are in the same cluster
 
-        vector<Cluster> cluster_seeds ( const vector<Seed>& seeds, int64_t read_distance_limit) const;
+        vector<Cluster> cluster_seeds ( const vector<Seed>& seeds, size_t read_distance_limit) const;
         
         ///The same thing, but for paired end reads.
         //Given seeds from multiple reads of a fragment, cluster each read
@@ -65,7 +54,7 @@ class SnarlSeedClusterer {
         // Returns: For each read, a vector of clusters.
 
         vector<vector<Cluster>> cluster_seeds ( 
-                const vector<vector<Seed>>& all_seeds, int64_t read_distance_limit, int64_t fragment_distance_limit=0) const;
+                const vector<vector<Seed>>& all_seeds, size_t read_distance_limit, size_t fragment_distance_limit=0) const;
 
     private:
 
@@ -73,9 +62,9 @@ class SnarlSeedClusterer {
         //Actual clustering function that takes a vector of pointers to seeds
         tuple<vector<structures::UnionFind>, structures::UnionFind> cluster_seeds_internal ( 
                 const vector<const vector<Seed>*>& all_seeds,
-                int64_t read_distance_limit, int64_t fragment_distance_limit=0) const;
+                size_t read_distance_limit, size_t fragment_distance_limit=0) const;
 
-        MinimumDistanceIndex& dist_index;
+        SnarlDistanceIndex& distance_index;
 
         enum ChildNodeType {CHAIN, SNARL, NODE};
 
@@ -93,50 +82,6 @@ class SnarlSeedClusterer {
             }
         }
 
-        struct NetgraphNode {
-            //Represents a child node of a snarl's netgraph 
-
-
-            //node_id is the node id if the node is just a node, index into
-            //dist_index's snarl_indexes/chain_index if it is a snarl/chain
-            size_t node_id; 
-
-            //Is this a node, snarl, or chain
-            ChildNodeType node_type;
-
-            NetgraphNode(size_t node_id, ChildNodeType node_type) :
-                node_id(node_id), node_type(node_type) {
-            }
-
-            id_t id_in_parent(MinimumDistanceIndex& dist_index) const { 
-                //Get the id of this node in the parent netgraph
-                switch (node_type) {
-                case NODE:
-                    return node_id;
-                case SNARL:
-                    return dist_index.snarl_indexes[node_id].id_in_parent;
-                case CHAIN:
-                    return dist_index.chain_indexes[node_id].id_in_parent;
-                default:
-                    return 0;
-                }
-            }
-
-            size_t rank_in_parent(MinimumDistanceIndex& dist_index, id_t id) const {
-                //Get the forward rank of this node in the parent's netgraph
-                //to look up distances
-
-                size_t rank = node_type == NODE ? dist_index.get_primary_rank(id) :
-                                                  dist_index.get_secondary_rank(id);
-                if ( (node_type == SNARL && 
-                      dist_index.snarl_indexes[dist_index.get_primary_assignment(id)].rev_in_parent) ||
-                     (node_type == CHAIN && 
-                      dist_index.chain_indexes[dist_index.get_chain_assignment(id)].rev_in_parent)) {
-                    rank = rank % 2 == 0 ? rank + 1 : rank - 1;
-                }
-                return rank;
-            }
-        };
 
         struct NodeClusters {
             //All clusters of a snarl tree node
@@ -144,24 +89,34 @@ class SnarlSeedClusterer {
             // snarl/chain that is a node the parent snarl's netgraph,
             // or a snarl in a chain
 
+            //The snarl tree node that the clusters are on
+            net_handle_t containing_net_handle; 
+
 
             //set of the indices of heads of clusters (group ids in the 
             //union find)
             //TODO: Add cluster distances here
-            //pair of read index, seed index
-            hash_set<pair<size_t,size_t>> read_cluster_heads;
+            //maps pair of <read index, seed index> to pair of <left distance, right distance>
+            hash_map<pair<size_t,size_t>, pair<size_t, size_t>> read_cluster_heads;
 
             //The shortest distance from any seed in any cluster to the 
             //left/right end of the snarl tree node that contains these
             //clusters
-            int64_t fragment_best_left;
-            int64_t fragment_best_right;
-            vector<int64_t> read_best_left;
-            vector<int64_t> read_best_right;
+            size_t fragment_best_left = std::numeric_limits<size_t>::max();
+            size_t fragment_best_right = std::numeric_limits<size_t>::max();
+            vector<size_t> read_best_left;
+            vector<size_t> read_best_right;
+
+            //Distance from the start of the parent to the left of this node, etc
+            size_t distance_start_left = std::numeric_limits<size_t>::max();
+            size_t distance_start_right = std::numeric_limits<size_t>::max();
+            size_t distance_end_left = std::numeric_limits<size_t>::max();
+            size_t distance_end_right = std::numeric_limits<size_t>::max();
 
             //Constructor
             //read_count is the number of reads in a fragment (2 for paired end)
-            NodeClusters(size_t read_count) :
+            NodeClusters( net_handle_t net, size_t read_count) :
+                containing_net_handle(net),
                 fragment_best_left(-1), fragment_best_right(-1),
                 read_best_left(read_count, -1), read_best_right(read_count, -1){}
         };
@@ -182,8 +137,8 @@ class SnarlSeedClusterer {
 
             //The minimum distance between nodes for them to be put in the
             //same cluster
-            int64_t read_distance_limit;
-            int64_t fragment_distance_limit;
+            size_t read_distance_limit;
+            size_t fragment_distance_limit;
 
 
             //////////Data structures to hold clustering information
@@ -196,7 +151,8 @@ class SnarlSeedClusterer {
             //of the netgraph node of the cluster it belongs to
             //These values are only relevant for seeds that represent a cluster
             //in union_find_reads
-            vector<vector<pair<int64_t, int64_t>>> read_cluster_dists;
+            //TODO: I'm getting rid of this and putting it in the clusters themselves
+            //vector<vector<pair<size_t, size_t>>> read_cluster_dists;
 
 
 
@@ -208,27 +164,28 @@ class SnarlSeedClusterer {
             //The array is sorted.
             vector<vector<pair<id_t, size_t>>> node_to_seeds;
 
-            //Map from snarl (index into dist_index.snarl_indexes) i
-            //to the netgraph nodes contained in the snarl as well as the 
+            //Map from each snarl's net_handle_t to it's child net_handle_ts 
             //clusters at the node
-            hash_map<size_t,vector<pair<NetgraphNode, NodeClusters>>> snarl_to_nodes;
+            hash_map<net_handle_t,vector<NodeClusters>> snarl_to_children;
             
             //Map each chain to the snarls (only ones that contain seeds) that
             //comprise it. 
             //Snarls and chains represented as their indexes into 
-            //dist_index.chain/snarl_indexes
+            //distance_index.chain/snarl_indexes
             //Map maps the rank of the snarl to the snarl and snarl's clusters
             //  Since maps are ordered, it will be in the order of traversal
             //  of the snarls in the chain
-            hash_map<size_t, hash_map<size_t, pair<size_t, NodeClusters>>> chain_to_snarls;
+            hash_map<net_handle_t, vector<NodeClusters>> chain_to_children;
 
 
-            //Same structure as snarl_to_nodes but for the level of the snarl
+            //Same structure as chain_to_children but for the level of the snarl
             //tree above the current one
             //This gets updated as the current level is processed
-            hash_map<size_t,vector<pair<NetgraphNode,NodeClusters>>> parent_snarl_to_nodes;
+            hash_map<net_handle_t,vector<NodeClusters>> parent_chain_to_children;
 
 
+/*
+ * TODO: Not doing this anymore
             /////////////////// Hold the top-level clusters
 
 
@@ -244,16 +201,17 @@ class SnarlSeedClusterer {
             //the snarl (relative to the orientation in the chain
             //TODO: this is a mess
             //Only for top-level simple snarls, instead of snarl_to_nodes
-            vector<hash_map<size_t, vector<tuple<id_t, bool, int64_t, int64_t, int64_t>>>> simple_snarl_to_nodes_by_component;
+            vector<hash_map<size_t, vector<tuple<id_t, bool, size_t, size_t, size_t>>>> simple_snarl_to_nodes_by_component;
 
+*/
 
 
             /////////////////////////////////////////////////////////
 
             //Constructor takes in a pointer to the seeds, the distance limits, and 
             //the total number of seeds in all_seeds
-            TreeState (const vector<const vector<Seed>*>* all_seeds, int64_t read_distance_limit, 
-                       int64_t fragment_distance_limit, size_t seed_count) :
+            TreeState (const vector<const vector<Seed>*>* all_seeds, size_t read_distance_limit, 
+                       size_t fragment_distance_limit, size_t seed_count) :
                 all_seeds(all_seeds),
                 read_distance_limit(read_distance_limit),
                 fragment_distance_limit(fragment_distance_limit),
@@ -264,7 +222,6 @@ class SnarlSeedClusterer {
                     size_t size = all_seeds->at(i)->size();
                     size_t offset = read_index_offsets.back() + size;
                     read_index_offsets.push_back(offset);
-                    read_cluster_dists.emplace_back(size, make_pair(-1,-1));
                     node_to_seeds.emplace_back();
                     node_to_seeds.back().reserve(size);
                     read_union_find.emplace_back(size, false);
@@ -280,8 +237,7 @@ class SnarlSeedClusterer {
         //tree. snarl_to_nodes_by_level will be used to populate snarl_to_nodes
         //in the tree state as each level is processed
         void get_nodes( TreeState& tree_state,
-                        vector<hash_map<size_t, 
-                                  vector<pair<NetgraphNode, NodeClusters>>>>& snarl_to_nodes_by_level) const;
+                        vector<hash_map<net_handle_t, vector< NodeClusters>>>& chain_to_children_by_level) const;
 
         //Cluster all the snarls at the current level and update the tree_state
         //to add each of the snarls to the parent level
@@ -292,28 +248,27 @@ class SnarlSeedClusterer {
 
         //Cluster the seeds on the specified node
         NodeClusters cluster_one_node(TreeState& tree_state, 
-                                          id_t node_id, int64_t node_length) const; 
+                                          id_t node_id, size_t node_length) const; 
 
-
-        //Cluster the seeds in a snarl given by snarl_index_i, an index into
-        //dist_index.snarl_indexes
-        NodeClusters cluster_one_snarl(TreeState& tree_state,
-                                       size_t snarl_index_i) const;
+        //Cluster the seeds in a snarl given by its net handle
+        NodeClusters cluster_one_snarl(TreeState& tree_state, net_handle_t snarl_handle) const;
 
         //Cluster the seeds in a chain given by chain_index_i, an index into
-        //dist_index.chain_indexes
+        //distance_index.chain_indexes
         //If the depth is 0, also incorporate the top-level seeds from tree_state.top_level_seed_clusters
-        NodeClusters cluster_one_chain(TreeState& tree_state, size_t chain_i, size_t depth) const;
+        NodeClusters cluster_one_chain(TreeState& tree_state, net_handle_t chain_handle) const;
 
-        //Given a vector of only top level seeds, cluster them
-        void cluster_only_top_level_chain_seeds(TreeState& tree_state, vector<pair<size_t, size_t>>& seed_clusters) const;
+        //Compare two children of the parent and combine their clusters, to create clusters in the parent
+        //This assumes that the first node hasn't been seen before but the second one has, so all of the
+        //first node's clusters get added to the parent but assume that all of the second ones are already
+        //part of the parent
+        void compare_and_combine_cluster_on_child_structures(TreeState& tree_state, NodeClusters& child_clusters1,
+                NodeClusters& child_clusters2, NodeClusters& parent_clusters) const;
 
-        //For one simple snarl (a bubble where all non-boundary nodes only connect to the boundary nodes) 
-        //cluster its seeds and return the cluster heads
-        //Nodes if taken from tree_state.simple_snarl_to_nodes_by_component and each element in it is
-        //the node id of the node
-        hash_set<pair<size_t, size_t>> cluster_simple_snarl(TreeState& tree_state, vector<tuple<id_t, bool, int64_t, int64_t, int64_t>> nodes, int64_t loop_left, int64_t loop_right, int64_t snarl_length) const;
-
+        //Helper function to add to one of the cluster/snarl_to_children hash_maps.
+        //Adds parent -> child_cluster to the parent_to_child_map
+        void add_child_to_vector(hash_map<net_handle_t, vector<NodeClusters>>& parent_to_child_map, const net_handle_t& parent,
+            NodeClusters child_cluster) const;
 };
 }
 
