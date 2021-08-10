@@ -100,7 +100,7 @@ namespace vg {
 
             unique_ptr<gbwt::GBWT> empty_haplotype_index(new gbwt::GBWT());
 
-            std::stringstream transcript_stream;
+            stringstream transcript_stream;
             transcript_stream << "path1\t.\texon\t2\t7\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
             transcript_stream << "path1\t.\texon\t9\t10\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
             transcript_stream << "path1\t.\texon\t19\t21\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;

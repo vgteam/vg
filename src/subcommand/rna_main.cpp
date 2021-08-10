@@ -30,8 +30,8 @@ void help_rna(char** argv) {
 
          << "\nInput options:" << endl
 
-         << "    -n, --transcripts FILE     transcript file(s) in gtf/gff format; may repeat" << endl
-         << "    -m, --introns FILE         intron file(s) in bed format; may repeat " << endl
+         << "    -n, --transcripts FILE     transcript file(s) in gtf/gff format" << endl
+         << "    -m, --introns FILE         intron file(s) in bed format" << endl
          << "    -y, --feature-type NAME    parse only this feature type in the gtf/gff (parse all if empty) [exon]" << endl
          << "    -s, --transcript-tag NAME  use this attribute tag in the gtf/gff file(s) as id [transcript_id]" << endl
          << "    -l, --haplotypes FILE      project transcripts onto haplotypes in GBWT index file" << endl
@@ -41,6 +41,7 @@ void help_rna(char** argv) {
          << "    -e, --proj-embed-paths     project transcripts onto embedded haplotype paths" << endl
          << "    -c, --do-not-collapse      do not collapse identical transcripts across haplotypes" << endl
          << "    -d, --remove-non-gene      remove intergenic and intronic regions (deletes reference paths)" << endl
+         << "    -o, --do-not-sort          do not topological sort and compact splice graph" << endl
          << "    -r, --add-ref-paths        add reference transcripts as embedded paths in the splice graph" << endl
          << "    -a, --add-hap-paths        add haplotype transcripts as embedded paths in the splice graph" << endl
 
@@ -70,6 +71,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     bool proj_emded_paths = false;
     bool collapse_transcript_paths = true;
     bool remove_non_transcribed = false;
+    bool sort_collapse_graph = true;
     bool add_reference_transcript_paths = false;
     bool add_haplotype_transcript_paths = false;
     bool output_reference_transcript_paths = false;
@@ -94,6 +96,7 @@ int32_t main_rna(int32_t argc, char** argv) {
                 {"proj-embed-paths",  no_argument, 0, 'e'},
                 {"do-not-collapse",  no_argument, 0, 'c'},
                 {"remove-non-gene",  no_argument, 0, 'd'},
+                {"do-not-sort",  no_argument, 0, 'o'},
                 {"add-ref-paths",  no_argument, 0, 'r'},
                 {"add-hap-paths",  no_argument, 0, 'a'},
                 {"out-ref-paths",  no_argument, 0, 'u'},           
@@ -108,7 +111,7 @@ int32_t main_rna(int32_t argc, char** argv) {
             };
 
         int32_t option_index = 0;
-        c = getopt_long(argc, argv, "n:m:y:s:l:ercdraub:gf:i:t:ph?", long_options, &option_index);
+        c = getopt_long(argc, argv, "n:m:y:s:l:ercdoraub:gf:i:t:ph?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -147,6 +150,10 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         case 'd':
             remove_non_transcribed = true;
+            break;
+
+        case 'o':
+            sort_collapse_graph = false;
             break;
 
         case 'r':
@@ -207,6 +214,18 @@ int32_t main_rna(int32_t argc, char** argv) {
         return 1;       
     }
 
+    if (transcript_filenames.size() > 1) {
+
+        cerr << "[vg rna] ERROR: Only one transcript file is allowed as input in the recent version of vg rna. Please combine files before running vg rna." << endl;
+        return 1;       
+    }
+
+    if (intron_filenames.size() > 1) {
+
+        cerr << "[vg rna] ERROR: Only one intron file is allowed as input in the recent version of vg rna. Please combine files before running vg rna." << endl;
+        return 1;       
+    }
+
     if (remove_non_transcribed && !add_reference_transcript_paths && !add_haplotype_transcript_paths) {
 
         cerr << "[vg rna] WARNING: Reference paths are deleted when removing intergenic and intronic regions. Consider adding transcripts as embedded paths using --add-ref-paths and/or --add-hap-paths." << endl;
@@ -258,20 +277,20 @@ int32_t main_rna(int32_t argc, char** argv) {
 
     int32_t num_introns_added = 0;
 
-    // Add introns as novel splice-junctions to graph.
-    for (auto & filename: intron_filenames) {
+    if (!intron_filenames.empty()) {
 
-        get_input_file(filename, [&](istream& intron_stream) {
+        // Add introns as novel splice-junctions to graph.
+        get_input_file(intron_filenames.front(), [&](istream& intron_stream) {
             num_introns_added += transcriptome.add_intron_splice_junctions(intron_stream, haplotype_index, true);
         });
     }
 
     int32_t num_transcripts_added = 0;
 
-    // Add transcripts as novel exon boundaries and splice-junctions to graph.
-    for (auto & filename: transcript_filenames) {
+    if (!transcript_filenames.empty()) {
 
-        get_input_file(filename, [&](istream& transcript_stream) {
+        // Add transcripts as novel exon boundaries and splice-junctions to graph.
+        get_input_file(transcript_filenames.front(), [&](istream& transcript_stream) {
             num_transcripts_added += transcriptome.add_reference_transcripts(transcript_stream, haplotype_index, true);
         });
     }
@@ -279,7 +298,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     if (show_progress) { cerr << "[vg rna] " << num_introns_added << " introns and " << num_transcripts_added <<  " transcripts parsed, and graph augmented " << ((transcriptome.graph_node_updated()) ? "" : "(no novel exon boundaries) ") << "in " << gcsa::readTimer() - time_splice_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
 
 
-    if (!haplotype_index->empty() || proj_emded_paths) {
+    if (!transcript_filenames.empty() && (!haplotype_index->empty() || proj_emded_paths)) {
 
         double time_project_start = gcsa::readTimer();
         if (show_progress) { cerr << "[vg rna] Projecting haplotype-specfic transcripts ..." << endl; }
@@ -288,12 +307,9 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         // Add transcripts to transcriptome by projecting them onto embedded paths 
         // in a graph and/or haplotypes in a GBWT index.
-        for (auto & filename: transcript_filenames) {
-
-            get_input_file(filename, [&](istream& transcript_stream) {
-                num_transcripts_projected += transcriptome.add_haplotype_transcripts(transcript_stream, *haplotype_index, proj_emded_paths);
-            });
-        }
+        get_input_file(transcript_filenames.front(), [&](istream& transcript_stream) {
+            num_transcripts_projected += transcriptome.add_haplotype_transcripts(transcript_stream, *haplotype_index, proj_emded_paths);
+        });
 
         if (show_progress) { cerr << "[vg rna] " << num_transcripts_projected <<  " haplotype-specfic transcripts projected " << "in " << gcsa::readTimer() - time_project_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
     }
@@ -310,12 +326,15 @@ int32_t main_rna(int32_t argc, char** argv) {
     }
 
 
-    double time_sort_start = gcsa::readTimer();
-    if (show_progress) { cerr << "[vg rna] Topological sorting graph and compacting node ids ..." << endl; }
+    if (sort_collapse_graph) {
     
-    transcriptome.topological_sort_compact();
-    
-    if (show_progress) { cerr << "[vg rna] Splice graph sorted and compacted in " << gcsa::readTimer() - time_sort_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
+        double time_sort_start = gcsa::readTimer();
+        if (show_progress) { cerr << "[vg rna] Topological sorting graph and compacting node ids ..." << endl; }
+        
+        transcriptome.topological_sort_compact();
+        
+        if (show_progress) { cerr << "[vg rna] Splice graph sorted and compacted in " << gcsa::readTimer() - time_sort_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
+    }
 
 
     if (add_reference_transcript_paths || add_haplotype_transcript_paths) {
@@ -399,11 +418,11 @@ int32_t main_rna(int32_t argc, char** argv) {
         info_ostream.open(info_out_filename);
         info_ostream << "Name\tLength\tTranscript\tReference\tHaplotypes" << endl; 
 
-        transcriptome.write_reference_transcript_info(&info_ostream, *haplotype_index);
-        
+        transcriptome.write_haplotype_transcript_info(&info_ostream, *haplotype_index);
+
         if (output_reference_transcript_paths) {
 
-            transcriptome.write_haplotype_transcript_info(&info_ostream, *haplotype_index);
+            transcriptome.write_reference_transcript_info(&info_ostream, *haplotype_index);
         }
 
         info_ostream.close();

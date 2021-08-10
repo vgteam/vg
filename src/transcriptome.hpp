@@ -147,18 +147,18 @@ class Transcriptome {
 
         /// Adds splice-junstions from a intron BED file to the graph. 
         /// Optionally update haplotype GBWT index with new splice-junctions. 
-        /// Returns the number of introns added. 
+        /// Returns the number of introns parsed. 
         int32_t add_intron_splice_junctions(istream & intron_stream, unique_ptr<gbwt::GBWT> & haplotype_index, const bool update_haplotypes);
 
         /// Adds splice-junstions from a transcript gtf/gff3 file to the graph and
         /// creates reference transcript paths by projecting the transcript onto
         /// reference paths embedded in the graph. Optionally update haplotype GBWT 
-        /// index with new splice-junctions. Returns the number of transcripts added. 
+        /// index with new splice-junctions. Returns the number of transcripts parsed. 
         int32_t add_reference_transcripts(istream & transcript_stream, unique_ptr<gbwt::GBWT> & haplotype_index, const bool update_haplotypes);
 
         /// Adds haplotype-specific transcript paths by projecting transcripts in a 
         /// gtf/gff3 file onto either non-reference embedded paths and/or haplotypes
-        /// in a GBWT index. Returns the number of transcript paths added.   
+        /// in a GBWT index. Returns the number of haplotype transcript paths projected.   
         int32_t add_haplotype_transcripts(istream & transcript_stream, const gbwt::GBWT & haplotype_index, const bool proj_emded_paths);
 
         /// Returns the reference transcript paths.
@@ -280,10 +280,10 @@ class Transcriptome {
         /// paths contain no edits compared to the graph.
         list<CompletedTranscriptPath> construct_completed_transcript_paths(const list<EditedTranscriptPath> & edited_transcript_paths) const;
 
-        /// Adds completed reference transcripts paths from 
-        /// edited transcript paths to transcriptome. Checks 
-        /// that the paths contain no edits compared to the graph.
-        void add_completed_transcript_reference_paths(const list<EditedTranscriptPath> & edited_transcript_paths);
+        /// Adds reference transcripts paths from edited
+        /// transcript paths to transcriptome. Checks that
+        /// the paths contain no edits compared to the graph.
+        void add_transcript_reference_paths(const list<EditedTranscriptPath> & edited_transcript_paths);
 
         /// Convert a path to a vector of handles. Checks that 
         /// the path is complete (i.e. only consist of whole nodes).
@@ -296,7 +296,7 @@ class Transcriptome {
         /// Augments the graph with transcript path exon boundaries and 
         /// splice-junctions. Updates threads in gbwt index to match the augmented graph. 
         /// Adds edited transcript paths as reference transcript paths.
-        void augment_graph(const list<EditedTranscriptPath> & edited_transcript_paths, const bool break_at_transcript_ends, unique_ptr<gbwt::GBWT> & haplotype_index, const bool update_haplotypes);
+        void augment_graph(const list<EditedTranscriptPath> & edited_transcript_paths, const bool break_at_transcript_ends, unique_ptr<gbwt::GBWT> & haplotype_index, const bool update_haplotypes, const bool add_reference_transcript_paths);
 
         /// Update threads in gbwt index using graph translations. 
         void update_haplotype_index(unique_ptr<gbwt::GBWT> & haplotype_index, const unordered_map<gbwt::node_type, vector<pair<int32_t, gbwt::node_type> > > & translation_index) const;

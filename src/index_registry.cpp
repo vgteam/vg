@@ -2626,7 +2626,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             // load up the transcripts and add edges on the reference path
             size_t transcripts_added = transcriptome.add_reference_transcripts(infile_tx, haplotype_index, true);
-            assert(!transcriptome.graph_node_updated());
             
             if (broadcasting_txs && !path_names.empty() && transcripts_added == 0
                 && transcript_file_nonempty(tx_filenames[j])) {
