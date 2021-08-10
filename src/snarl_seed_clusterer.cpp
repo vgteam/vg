@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-//#define DEBUG_CLUSTER
+#define DEBUG_CLUSTER
 namespace vg {
 
     NewSnarlSeedClusterer::NewSnarlSeedClusterer( SnarlDistanceIndex& distance_index) :
@@ -370,15 +370,6 @@ cerr << "Nested positions: " << endl << "\t";
         if (chain_to_children_by_level.empty()) {
             chain_to_children_by_level.resize(1);
         }
-#ifdef DEBUG_CLUSTER
-        cerr << endl << "Top-level seeds:" << endl << "\t";
-        for (size_t component_num = 0 ; component_num < tree_state.top_level_seed_clusters.size() ; component_num++) {
-            for (pair<size_t, size_t> seed_index : tree_state.top_level_seed_clusters[component_num]) {
-                cerr << seed_index.first << ":" << tree_state.all_seeds->at(seed_index.first)->at(seed_index.second).pos << ", ";
-            }
-        }
-        cerr << endl;
-#endif
     }
 
 
@@ -395,13 +386,7 @@ cerr << "Nested positions: " << endl << "\t";
             net_handle_t snarl_handle = kv.first;
 
 #ifdef DEBUG_CLUSTER
-            cerr << "At depth " << depth << distance_index.net_handle_as_string(snarl_handle)
-                << " headed by " << snarl_index.id_in_parent
-                << " with children " << endl;
-            for (auto it2 : kv.second) {
-                cerr << "\t" << typeToString(it2.first.node_type)
-                     << " number " << it2.first.node_id << endl;
-            }
+            cerr << "At depth " << depth << ": " << distance_index.net_handle_as_string(snarl_handle) << endl;
 #endif
             if (!distance_index.is_root(distance_index.get_parent(snarl_handle))){
                 //If this snarl is in a chain, cluster and add let the
@@ -410,9 +395,8 @@ cerr << "Nested positions: " << endl << "\t";
                 add_child_to_vector(tree_state.parent_chain_to_children, distance_index.get_parent(snarl_handle), cluster_one_snarl(tree_state, snarl_handle));
 
 #ifdef DEBUG_CLUSTER
-                cerr << "Recording snarl number " << snarl_i << " headed by "
-                      << snarl_index.id_in_parent  << " as a child of chain number "
-                      << chain_assignment << " headed by " << snarl_index.parent_id << endl;
+                cerr << "Recording snarl " << distance_index.net_handle_as_string(snarl_handle)  << " as a child of "
+                      << distance_index.net_handle_as_string(distance_index.get_parent(snarl_handle)) << endl;
 #endif
 
             } 
@@ -429,11 +413,7 @@ cerr << "Nested positions: " << endl << "\t";
             net_handle_t chain_handle = kv.first;
 
 #ifdef DEBUG_CLUSTER
-            cerr << "At depth " << depth <<" " <<  distance_index.net_handle_as_string(chain_handle)
-                 << " with children " << endl;
-            for (auto it2 : kv.second) {
-                cerr << "\t snarl number " << it2.second.first << endl;
-            }
+            cerr << "At depth " << depth << ": " <<  distance_index.net_handle_as_string(chain_handle) << endl;
 #endif
 
             // Compute the clusters for the chain
@@ -442,13 +422,8 @@ cerr << "Nested positions: " << endl << "\t";
             } else {
                 add_child_to_vector(tree_state.snarl_to_children, distance_index.get_parent(chain_handle), cluster_one_chain(tree_state, chain_handle));
 #ifdef DEBUG_CLUSTER
-                cerr << "Recording chain number " << chain_i << " headed by "
-                     << distance_index.chain_indexes[chain_i].id_in_parent
-                    << " as a child of snarl number " << parent_snarl_i
-                    << " headed by " << parent_id << endl;
-                cerr << "Snarl number " << parent_snarl_i << " has "
-                    << tree_state.parent_snarl_to_nodes[parent_snarl_i].size()
-                    << " children now" << endl;
+                cerr << "Recording " << distance_index.net_handle_as_string(chain_handle)
+                    << " as a child of " << distance_index.net_handle_as_string(distance_index.get_parent(chain_handle)) << endl;
 #endif
             }
         }
@@ -536,14 +511,14 @@ cerr << "Nested positions: " << endl << "\t";
                 cerr << " for read num " << read_num << " best left: " << node_clusters.read_best_left[read_num] << " best right: " << node_clusters.read_best_right[read_num] << endl;
                 bool got_read_left=false;
                 bool got_read_right = false;
-                for (pair<size_t,size_t> c : node_clusters.read_cluster_heads) {
-                    if (c.first == read_num) {
-                        pair<size_t, size_t> dists = tree_state.read_cluster_heads.at(make_pair(c.first,c.second));
-                        cerr << "\t" << c.first << ":"<<c.second << ": left: " << dists.first << " right : " << dists.second << ": ";
+                for (pair<pair<size_t, size_t>, pair<size_t,size_t>> c : node_clusters.read_cluster_heads) {
+                    if (c.first.first == read_num) {
+                        pair<size_t, size_t> dists = c.second;
+                        cerr << "\t" << c.first.first << ":"<<c.first.second << ": left: " << c.second.first << " right : " << c.second.second << ": ";
                         bool has_seeds = false;
-                        for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first)->size() ; x++) {
-                            if (tree_state.read_union_find[c.first].find_group(x) == c.second) {
-                                cerr << tree_state.all_seeds->at(c.first)->at(x).pos << " ";
+                        for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first.first)->size() ; x++) {
+                            if (tree_state.read_union_find[c.first.first].find_group(x) == c.first.second) {
+                                cerr << tree_state.all_seeds->at(c.first.first)->at(x).pos << " ";
                                 has_seeds = true;
                             }
                         }
@@ -682,14 +657,14 @@ cerr << "Nested positions: " << endl << "\t";
             cerr << " for read num " << read_num << " best left: " << node_clusters.read_best_left[read_num] << " best right: " << node_clusters.read_best_right[read_num] << endl;
             bool got_read_left=false;
             bool got_read_right = false;
-            for (pair<size_t,size_t> c : node_clusters.read_cluster_heads) {
-                if (c.first == read_num) {
-                    pair<size_t, size_t> dists = tree_state.read_cluster_heads.at(make_pair(c.first,c.second));
-                    cerr << "\t" << c.first << ":"<<c.second << ": left: " << dists.first << " right : " << dists.second << ": ";
+            for (pair<pair<size_t, size_t>, pair<size_t,size_t>> c : node_clusters.read_cluster_heads) {
+                if (c.first.first == read_num) {
+                    pair<size_t, size_t> dists = c.second;
+                    cerr << "\t" << c.first.first << ":"<<c.first.second << ": left: " << dists.first << " right : " << dists.second << ": ";
                     bool has_seeds = false;
-                    for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first)->size() ; x++) {
-                        if (tree_state.read_union_find[c.first].find_group(x) == c.second) {
-                            cerr << tree_state.all_seeds->at(c.first)->at(x).pos << " ";
+                    for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first.first)->size() ; x++) {
+                        if (tree_state.read_union_find[c.first.first].find_group(x) == c.first.second) {
+                            cerr << tree_state.all_seeds->at(c.first.first)->at(x).pos << " ";
                             has_seeds = true;
                         }
                     }
@@ -710,8 +685,8 @@ cerr << "Nested positions: " << endl << "\t";
         }
         assert(got_left);
         assert(got_right);
-        for (pair<size_t, size_t> group_id : node_clusters.read_cluster_heads) {
-            assert (group_id.second == tree_state.read_union_find[group_id.first].find_group(group_id.second));
+        for (pair<pair<size_t, size_t>, pair<size_t, size_t>> group_id : node_clusters.read_cluster_heads) {
+            assert (group_id.first.second == tree_state.read_union_find[group_id.first.first].find_group(group_id.first.second));
         }
 #endif
         
@@ -886,6 +861,11 @@ cerr << "Nested positions: " << endl << "\t";
     //TODO: Make sure to add the first child's clusters to the parent before looking at pairs and calling this
     void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(TreeState& tree_state, NodeClusters& child_clusters1, 
         NodeClusters& child_clusters2, NodeClusters& parent_clusters) const {
+#ifdef DEBUG_CLUSTER
+        cerr << "Compare " << distance_index.net_handle_as_string(child_clusters1.containing_net_handle) 
+             << " and " << distance_index.net_handle_as_string(child_clusters2.containing_net_handle)
+             << " which are children of " << distance_index.net_handle_as_string(parent_clusters.containing_net_handle) << endl;
+#endif
 
         net_handle_t& parent_handle = parent_clusters.containing_net_handle;
         net_handle_t& child_handle1 = child_clusters1.containing_net_handle;
@@ -913,8 +893,11 @@ cerr << "Nested positions: " << endl << "\t";
             child_clusters1.distance_end_left += end_length; 
             child_clusters1.distance_end_right += end_length;
         }
-
-
+#ifdef DEBUG_CLUSTER
+        cerr << "\tFound distances between the two children: " << distance_left_left << " " << distance_left_right << " " << distance_right_right << " " << distance_right_left << endl;
+        cerr << "\tAnd distances from the ends of child1 to ends of parent: " << child_clusters1.distance_start_left << " " 
+             << child_clusters1.distance_start_right << " " << child_clusters1.distance_end_left << " " << child_clusters1.distance_end_right << endl;
+#endif
         /*
          * We're going to go through all clusters to see which can get combined. There will be up to four combined clusters (per read), 
          * one for each path between the two sides of the two nodes
@@ -983,6 +966,9 @@ cerr << "Nested positions: " << endl << "\t";
                 tree_state.fragment_union_find.union_groups(cluster_num+tree_state.read_index_offsets[read_num], 
                                                                     new_cluster_head_fragment);
                 new_cluster_right_right_fragment = tree_state.fragment_union_find.find_group(new_cluster_head_fragment);
+#ifdef DEBUG_CLUSTER
+                cerr << "\t\tCombining... new cluster head:" << new_cluster_head_and_distances.first.second << endl; 
+#endif
 
             } else if (tree_state.fragment_distance_limit != 0 && 
                         distance_between <= tree_state.fragment_distance_limit ) {
@@ -990,6 +976,9 @@ cerr << "Nested positions: " << endl << "\t";
                 tree_state.fragment_union_find.union_groups(cluster_num+tree_state.read_index_offsets[read_num], 
                                                                     new_cluster_head_fragment);
                 new_cluster_right_right_fragment = tree_state.fragment_union_find.find_group(new_cluster_head_fragment);
+#ifdef DEBUG_CLUSTER
+                cerr << "\t\tCombining only fragment" << endl;
+#endif
             }
         };
 
@@ -1008,16 +997,27 @@ cerr << "Nested positions: " << endl << "\t";
                 
 
             //Check if the left of 1 can connect with the left of 2
+#ifdef DEBUG_CLUSTER
+            cerr << "\tCheck any clusters in 1 going left to left of 2" << endl;
+#endif
             compare_and_combine_clusters (read_num, cluster_num, distances.first+distance_left_left+child_clusters2.read_best_left[read_num], distances_to_parent,
                 new_cluster_left_left_by_read[read_num], new_cluster_left_left_fragment);
-
             //Check if the left of 1 can connect with the right of 2
+#ifdef DEBUG_CLUSTER
+            cerr << "\tCheck any clusters in 1 going left to right of 2" << endl;
+#endif
             compare_and_combine_clusters (read_num, cluster_num, distances.first+distance_left_right+child_clusters2.read_best_right[read_num], distances_to_parent,
                 new_cluster_left_right_by_read[read_num], new_cluster_left_right_fragment);
             //Check if the right of 1 can connect with the right of 2
+#ifdef DEBUG_CLUSTER
+            cerr << "\tCheck any clusters in 1 going right to right of 2" << endl;
+#endif
             compare_and_combine_clusters (read_num, cluster_num, distances.second+distance_right_right+child_clusters2.read_best_right[read_num], distances_to_parent,
                 new_cluster_right_right_by_read[read_num], new_cluster_right_right_fragment);
             //Check if the right of 1 can connect with the left of 2
+#ifdef DEBUG_CLUSTER
+            cerr << "\tCheck any clusters in 1 going right to left of 2" << endl;
+#endif
             compare_and_combine_clusters (read_num, cluster_num, distances.second+distance_right_left+child_clusters2.read_best_left[read_num], distances_to_parent,
                 new_cluster_right_left_by_read[read_num], new_cluster_right_left_fragment);
 
@@ -1037,15 +1037,27 @@ cerr << "Nested positions: " << endl << "\t";
             pair<size_t, size_t> distances_to_parent = make_pair(new_dist_left, new_dist_right);
 
             //Check if the left of 1 can connect with the left of 2
+#ifdef DEBUG_CLUSTER
+            cerr << "\tCheck any clusters in 2 going left to left of 1" << endl;
+#endif
             compare_and_combine_clusters (read_num, cluster_num, distances.first+distance_left_left+child_clusters1.read_best_left[read_num], distances_to_parent,
                 new_cluster_left_left_by_read[read_num], new_cluster_left_left_fragment);
             //Check if the left of 1 can connect with the right of 2
+#ifdef DEBUG_CLUSTER
+            cerr << "\tCheck any clusters in 2 going right to left of 1" << endl;
+#endif
             compare_and_combine_clusters (read_num, cluster_num, distances.second+distance_left_right+child_clusters1.read_best_left[read_num], distances_to_parent,
                 new_cluster_left_right_by_read[read_num], new_cluster_left_right_fragment);
             //Check if the right of 1 can connect with the right of 2
+#ifdef DEBUG_CLUSTER
+            cerr << "\tCheck any clusters in 2 going right to right of 1" << endl;
+#endif
             compare_and_combine_clusters (read_num, cluster_num, distances.second+distance_right_right+child_clusters1.read_best_right[read_num], distances_to_parent,
                 new_cluster_right_right_by_read[read_num], new_cluster_right_right_fragment);
             //Check if the right of 1 can connect with the left of 2
+#ifdef DEBUG_CLUSTER
+            cerr << "\tCheck any clusters in 2 going left to right of 1" << endl;
+#endif
             compare_and_combine_clusters (read_num, cluster_num, distances.first+distance_right_left+child_clusters1.read_best_right[read_num], distances_to_parent,
                 new_cluster_right_left_by_read[read_num], new_cluster_right_left_fragment);
         }
@@ -1128,7 +1140,8 @@ cerr << "Nested positions: " << endl << "\t";
 
 #ifdef DEBUG_CLUSTER
                 cerr << "Comparing two children of " << distance_index.net_handle_as_string(snarl_handle) << ": " 
-                     << distance_index.net_handle_as_string(child_handle_i) << " and " << distance_index.net_handle_as_tring(child_handle_j) << endl;
+                     << distance_index.net_handle_as_string(child_clusters_i.containing_net_handle) << " and " 
+                     << distance_index.net_handle_as_string(child_clusters_j.containing_net_handle) << endl;
                      
 
 
@@ -1150,15 +1163,15 @@ cerr << "Nested positions: " << endl << "\t";
             bool got_read_left=false;
             bool got_read_right = false;
             bool any_clusters = false;
-            for (pair<size_t,size_t> c : snarl_clusters.read_cluster_heads) {
-                if (c.first == read_num) {
+            for (pair<pair<size_t, size_t>, pair<size_t,size_t>> c : snarl_clusters.read_cluster_heads) {
+                if (c.first.first == read_num) {
                     any_clusters = true;
-                    pair<size_t, size_t> dists = tree_state.read_cluster_dists[c.first][c.second];
-                    cerr << "\t" << c.first << ":"<<c.second << ": left: " << dists.first << " right : " << dists.second << ": ";
+                    pair<size_t, size_t> dists = c.second;
+                    cerr << "\t" << c.first.first << ":"<<c.first.second << ": left: " << dists.first << " right : " << dists.second << ": ";
                     bool has_seeds = false;
-                    for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first)->size() ; x++) {
-                        if (tree_state.read_union_find[c.first].find_group(x) == c.second) {
-                            cerr << tree_state.all_seeds->at(c.first)->at(x).pos << " ";
+                    for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first.first)->size() ; x++) {
+                        if (tree_state.read_union_find[c.first.first].find_group(x) == c.first.second) {
+                            cerr << tree_state.all_seeds->at(c.first.first)->at(x).pos << " ";
                             has_seeds = true;
                         }
                     }
@@ -1180,8 +1193,8 @@ cerr << "Nested positions: " << endl << "\t";
         assert(got_left);
         assert(got_right);
 
-        for (pair<size_t, size_t> group_id : snarl_clusters.read_cluster_heads) {
-            assert (group_id.second == tree_state.read_union_find[group_id.first].find_group(group_id.second));
+        for (pair<pair<size_t, size_t>, pair<size_t, size_t>> group_id : snarl_clusters.read_cluster_heads) {
+            assert (group_id.first.second == tree_state.read_union_find[group_id.first.first].find_group(group_id.first.second));
         }
 #endif
         return snarl_clusters;
