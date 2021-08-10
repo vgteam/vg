@@ -16,28 +16,90 @@ using namespace std;
 
 //#define transcriptome_debug
 
-Transcriptome::Transcriptome(unique_ptr<MutablePathDeletableHandleGraph>&& graph) :
-    _splice_graph(move(graph))
+bool operator==(const Exon & lhs, const Exon & rhs) { 
+
+    return (lhs.coordinates == rhs.coordinates && 
+            lhs.border_offsets == rhs.border_offsets && 
+            lhs.border_steps == rhs.border_steps);
+}
+
+bool operator!=(const Exon & lhs, const Exon & rhs) { 
+
+    return !(lhs == rhs);
+}
+
+bool operator<(const Exon & lhs, const Exon & rhs) { 
+
+    if (lhs.coordinates.first != rhs.coordinates.first) {
+
+        return (lhs.coordinates.first < rhs.coordinates.first);    
+    } 
+
+    if (lhs.coordinates.second != rhs.coordinates.second) {
+
+        return (lhs.coordinates.second < rhs.coordinates.second);    
+    } 
+
+    return false;
+}
+
+bool operator==(const Transcript & lhs, const Transcript & rhs) { 
+
+    return (lhs.name == rhs.name &&
+            lhs.is_reverse == rhs.is_reverse &&
+            lhs.chrom == rhs.chrom && 
+            lhs.chrom_length == rhs.chrom_length && 
+            lhs.exons == rhs.exons);
+}
+
+bool operator!=(const Transcript & lhs, const Transcript & rhs) { 
+
+    return !(lhs == rhs);
+}
+
+bool operator<(const Transcript & lhs, const Transcript & rhs) { 
+
+    if (lhs.chrom != rhs.chrom) {
+
+        return (lhs.chrom < rhs.chrom);    
+    } 
+
+    if (lhs.exons != rhs.exons) {
+
+        return (lhs.exons < rhs.exons);    
+    } 
+    
+    if (lhs.is_reverse != rhs.is_reverse) {
+
+        return (lhs.is_reverse < rhs.is_reverse);    
+    } 
+
+    return false;
+}
+
+Transcriptome::Transcriptome(unique_ptr<MutablePathDeletableHandleGraph>&& graph_in) :
+    _graph(move(graph_in))
 {
-    _splice_graph_node_updated = false;
-    if (!_splice_graph) {
+    _graph_node_updated = false;
+    if (!_graph) {
         cerr << "[transcriptome] ERROR: Could not load graph." << endl;
         exit(1);
     }
 }
 
-int32_t Transcriptome::add_intron_splice_junctions(istream & intron_stream, unique_ptr<gbwt::GBWT> & haplotype_index) {
+int32_t Transcriptome::add_intron_splice_junctions(istream & intron_stream, unique_ptr<gbwt::GBWT> & haplotype_index, const bool update_haplotypes) {
 
 #ifdef transcriptome_debug
     double time_parsing_1 = gcsa::readTimer();
     cerr << "DEBUG parsing start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif
 
-    // Create path position overlay of splice graph
-    bdsg::PositionOverlay graph_path_pos_overlay(_splice_graph.get());
+    // Create path position overlay of graph
+    bdsg::PositionOverlay graph_path_pos_overlay(_graph.get());
 
     // Parse introns in BED format.
     auto introns = parse_introns(intron_stream, graph_path_pos_overlay);
+    sort(introns.begin(), introns.end());
 
 #ifdef transcriptome_debug
     cerr << "DEBUG parsing end: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
@@ -62,35 +124,39 @@ int32_t Transcriptome::add_intron_splice_junctions(istream & intron_stream, uniq
 
     if (has_novel_exon_boundaries(edited_transcript_paths, false)) {
 
-        // Augment splice graph with new exon boundaries 
-        // and splice-junction edges.
-        augment_splice_graph(&edited_transcript_paths, haplotype_index, false);
+        // Augment graph with new exon boundaries and splice-junction edges. 
+        // Adds the edited transcript paths as reference transcript paths.
+        augment_graph(edited_transcript_paths, false, haplotype_index, update_haplotypes);
     
     } else {
 
-        // Augment splice graph with new splice-junction edges.
+        // Augment graph with new splice-junction edges. 
         add_splice_junction_edges(edited_transcript_paths);
+    
+        // Adds reference transcript paths.
+        add_completed_transcript_reference_paths(edited_transcript_paths);
     }
 
 #ifdef transcriptome_debug
     cerr << "DEBUG augment end: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
-    return introns.size();
+    return edited_transcript_paths.size();
 }
 
-int32_t Transcriptome::add_transcript_splice_junctions(istream & transcript_stream, unique_ptr<gbwt::GBWT> & haplotype_index) {
+int32_t Transcriptome::add_reference_transcripts(istream & transcript_stream, unique_ptr<gbwt::GBWT> & haplotype_index, const bool update_haplotypes) {
 
 #ifdef transcriptome_debug
     double time_parsing_1 = gcsa::readTimer();
     cerr << "DEBUG parsing start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif
 
-    // Create path position overlay of splice graph
-    bdsg::PositionOverlay graph_path_pos_overlay(_splice_graph.get());
+    // Create path position overlay of graph
+    bdsg::PositionOverlay graph_path_pos_overlay(_graph.get());
 
     // Parse transcripts in gtf/gff3 format.
     auto transcripts = parse_transcripts(transcript_stream, graph_path_pos_overlay);
+    sort(transcripts.begin(), transcripts.end());
 
 #ifdef transcriptome_debug
     cerr << "DEBUG parsing end: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
@@ -115,24 +181,27 @@ int32_t Transcriptome::add_transcript_splice_junctions(istream & transcript_stre
 
     if (has_novel_exon_boundaries(edited_transcript_paths, true)) {
 
-        // Augment splice graph with new exon boundaries 
-        // and splice-junction edges.
-        augment_splice_graph(&edited_transcript_paths, haplotype_index, true);
+        // Augment graph with new exon boundaries and splice-junction edges. 
+        // Adds the edited transcript paths as reference transcript paths.
+        augment_graph(edited_transcript_paths, true, haplotype_index, update_haplotypes);
     
     } else {
 
-        // Augment splice graph with new splice-junction edges.
+        // Augment graph with new splice-junction edges.
         add_splice_junction_edges(edited_transcript_paths);
+        
+        // Adds reference transcript paths.
+        add_completed_transcript_reference_paths(edited_transcript_paths);
     }
 
 #ifdef transcriptome_debug
     cerr << "DEBUG augment end: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
-    return transcripts.size();
+    return edited_transcript_paths.size();
 }
 
-int32_t Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBWT & haplotype_index) {
+int32_t Transcriptome::add_haplotype_transcripts(istream & transcript_stream, const gbwt::GBWT & haplotype_index, const bool proj_emded_paths) {
 
 #ifdef transcriptome_debug
     double time_parsing_1 = gcsa::readTimer();
@@ -140,7 +209,7 @@ int32_t Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::
 #endif
 
     // Create path position overlay of splice graph
-    bdsg::PositionOverlay graph_path_pos_overlay(_splice_graph.get());
+    bdsg::PositionOverlay graph_path_pos_overlay(_graph.get());
 
     // Parse transcripts in gtf/gff3 format.
     auto transcripts = parse_transcripts(transcript_stream, graph_path_pos_overlay);
@@ -154,21 +223,21 @@ int32_t Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::
     cerr << "DEBUG project and add start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
-    // Save number of transcript paths before adding new.
-    auto pre_num_transcript_paths = _transcript_paths.size();
+    // Save number of haplotype transcript paths before adding new.
+    auto pre_num_haplotype_transcript_paths = _haplotype_transcript_paths.size();
 
     // Project and add transcripts to transcriptome.
-    project_and_add_transcripts(transcripts, haplotype_index, graph_path_pos_overlay, mean_node_length());
+    project_haplotype_transcripts(transcripts, haplotype_index, graph_path_pos_overlay, proj_emded_paths, mean_node_length());
 
     // Augment splice graph with new splice-junction edges.    
-    add_splice_junction_edges(_transcript_paths);
+    add_splice_junction_edges(_haplotype_transcript_paths);
 
 #ifdef transcriptome_debug
     cerr << "DEBUG project and add end: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
-    assert(_transcript_paths.size() >= pre_num_transcript_paths);
-    return (_transcript_paths.size() - pre_num_transcript_paths);
+    assert(_haplotype_transcript_paths.size() >= pre_num_haplotype_transcript_paths);
+    return (_haplotype_transcript_paths.size() - pre_num_haplotype_transcript_paths);
 }
 
 vector<Transcript> Transcriptome::parse_introns(istream & intron_stream, const bdsg::PositionOverlay & graph_path_pos_overlay) const {
@@ -194,7 +263,7 @@ vector<Transcript> Transcriptome::parse_introns(istream & intron_stream, const b
             continue;
         }
 
-        if (!_splice_graph->has_path(chrom)) {
+        if (!_graph->has_path(chrom)) {
             if (error_on_missing_path) {
                 cerr << "[transcriptome] ERROR: Chromomsome path \"" << chrom << "\" not found in graph (line " << line_number << ")." << endl;
                 exit(1);
@@ -229,7 +298,7 @@ vector<Transcript> Transcriptome::parse_introns(istream & intron_stream, const b
         }
 
         // Create "intron" transcript.
-        introns.emplace_back(Transcript("", is_reverse, chrom, graph_path_pos_overlay.get_path_length(_splice_graph->get_path_handle(chrom))));
+        introns.emplace_back(Transcript("", is_reverse, chrom, graph_path_pos_overlay.get_path_length(_graph->get_path_handle(chrom))));
 
         // Add intron boundaries as flanking exons to current "intron" transcript.
         add_exon(&(introns.back()), make_pair(spos - 1, spos - 1), graph_path_pos_overlay);
@@ -277,7 +346,7 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream,
             continue;
         }
 
-        if (!_splice_graph->has_path(chrom)) {
+        if (!_graph->has_path(chrom)) {
             if (error_on_missing_path) {
                 cerr << "[transcriptome] ERROR: Chromomsome path \"" << chrom << "\" not found in graph (line " << line_number << ")." << endl;
                 exit(1);
@@ -345,14 +414,14 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream,
         // Is this a new transcript.
         if (transcripts.empty()) {
 
-            transcripts.emplace_back(Transcript(transcript_id, is_reverse, chrom, graph_path_pos_overlay.get_path_length(_splice_graph->get_path_handle(chrom))));
+            transcripts.emplace_back(Transcript(transcript_id, is_reverse, chrom, graph_path_pos_overlay.get_path_length(_graph->get_path_handle(chrom))));
         
         // Is this a new transcript.
         } else if (transcripts.back().name != transcript_id) {
 
             // Reorder reversed order exons.
             reorder_exons(&transcripts.back());
-            transcripts.emplace_back(Transcript(transcript_id, is_reverse, chrom, graph_path_pos_overlay.get_path_length(_splice_graph->get_path_handle(chrom))));
+            transcripts.emplace_back(Transcript(transcript_id, is_reverse, chrom, graph_path_pos_overlay.get_path_length(_graph->get_path_handle(chrom))));
         }
 
         assert(transcripts.back().is_reverse == is_reverse);
@@ -374,7 +443,7 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream,
 
 float Transcriptome::mean_node_length() const {
 
-    return static_cast<float>(_splice_graph->get_total_length()) / _splice_graph->get_node_count();
+    return static_cast<float>(_graph->get_total_length()) / _graph->get_node_count();
 }
 
 void Transcriptome::add_exon(Transcript * transcript, const pair<int32_t, int32_t> & exon_pos, const bdsg::PositionOverlay & graph_path_pos_overlay) const {
@@ -390,7 +459,7 @@ void Transcriptome::add_exon(Transcript * transcript, const pair<int32_t, int32_
     // offset if it is the first or last on the path.
     const pair<uint32_t, uint32_t> exon_border_pos = make_pair(max(0, exon_pos.first - 1), min(static_cast<int32_t>(transcript->chrom_length) - 1, exon_pos.second + 1));
 
-    auto path_handle = _splice_graph->get_path_handle(transcript->chrom);
+    auto path_handle = _graph->get_path_handle(transcript->chrom);
 
     // Find path positions of exon node borders (start - 1 and end + 1).
     auto chrom_path_start_step = graph_path_pos_overlay.get_step_at_position(path_handle, exon_border_pos.first);
@@ -470,11 +539,14 @@ void Transcriptome::construct_edited_transcript_paths_callback(list<EditedTransc
         const Transcript & transcript = transcripts.at(transcripts_idx);
 
         // Construct edited transcript paths.
-        auto new_edited_transcript_paths = project_transcript_embedded(transcript, graph_path_pos_overlay, true);
+        auto new_edited_transcript_paths = project_transcript_embedded(transcript, graph_path_pos_overlay, true, false);
 
         if (!new_edited_transcript_paths.empty()) {
 
-            assert(!new_edited_transcript_paths.front().reference_origin.empty());
+            assert(new_edited_transcript_paths.size() == 1);
+            new_edited_transcript_paths.front().name = new_edited_transcript_paths.front().transcript_origin;
+
+            thread_edited_transcript_paths.emplace_back(new_edited_transcript_paths.front());
 
             const Path & transcript_path = new_edited_transcript_paths.front().path;
 
@@ -493,8 +565,6 @@ void Transcriptome::construct_edited_transcript_paths_callback(list<EditedTransc
                     thread_edited_transcript_paths.emplace_back(exon_path_right);
                 }
             }
-
-            thread_edited_transcript_paths.splice(thread_edited_transcript_paths.end(), new_edited_transcript_paths);
         }
 
         transcripts_idx += num_threads;
@@ -505,7 +575,7 @@ void Transcriptome::construct_edited_transcript_paths_callback(list<EditedTransc
     edited_transcript_paths_mutex->unlock();
 }
 
-void Transcriptome::project_and_add_transcripts(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const bdsg::PositionOverlay & graph_path_pos_overlay, const float mean_node_length) {
+void Transcriptome::project_haplotype_transcripts(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool proj_emded_paths, const float mean_node_length) {
 
     vector<thread> projection_threads;
     projection_threads.reserve(num_threads);
@@ -513,7 +583,7 @@ void Transcriptome::project_and_add_transcripts(const vector<Transcript> & trans
     // Spawn projection threads.
     for (size_t thread_idx = 0; thread_idx < num_threads; thread_idx++) {
 
-        projection_threads.push_back(thread(&Transcriptome::project_and_add_transcripts_callback, this, thread_idx, ref(transcripts), ref(haplotype_index), ref(graph_path_pos_overlay), mean_node_length));
+        projection_threads.push_back(thread(&Transcriptome::project_haplotype_transcripts_callback, this, thread_idx, ref(transcripts), ref(haplotype_index), ref(graph_path_pos_overlay), proj_emded_paths, mean_node_length));
     }
 
     // Join projection threads.   
@@ -523,7 +593,7 @@ void Transcriptome::project_and_add_transcripts(const vector<Transcript> & trans
     }
 }
 
-void Transcriptome::project_and_add_transcripts_callback(const int32_t thread_idx, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const bdsg::PositionOverlay & graph_path_pos_overlay, const float mean_node_length) {
+void Transcriptome::project_haplotype_transcripts_callback(const int32_t thread_idx, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool proj_emded_paths, const float mean_node_length) {
 
     list<CompletedTranscriptPath> thread_completed_transcript_paths;
 
@@ -542,10 +612,10 @@ void Transcriptome::project_and_add_transcripts_callback(const int32_t thread_id
             completed_transcript_paths = construct_completed_transcript_paths(project_transcript_gbwt(transcript, haplotype_index, mean_node_length)); 
         }
 
-        if (use_all_paths || use_reference_paths) { 
+        if (proj_emded_paths) { 
 
             // Project transcript onto embedded paths.
-            auto new_completed_transcript_paths = construct_completed_transcript_paths(project_transcript_embedded(transcript, graph_path_pos_overlay, false));
+            auto new_completed_transcript_paths = construct_completed_transcript_paths(project_transcript_embedded(transcript, graph_path_pos_overlay, false, true));
 
             // Combine and optionally remove redundant paths.
             append_transcript_paths(&completed_transcript_paths, &new_completed_transcript_paths, collapse_transcript_paths);
@@ -558,15 +628,8 @@ void Transcriptome::project_and_add_transcripts_callback(const int32_t thread_id
 
             // Set transcript path name. The name contains the original transcript name/id 
             // and a unique index for each non-reference transcript copy.
-            if (thread_completed_transcript_paths_it->reference_origin.empty()) {
-
-                thread_completed_transcript_paths_it->name = thread_completed_transcript_paths_it->transcript_origin + "_" + to_string(transcript_path_idx);
-                ++transcript_path_idx;
-
-            } else {
-
-                thread_completed_transcript_paths_it->name = thread_completed_transcript_paths_it->transcript_origin;                
-            }
+            thread_completed_transcript_paths_it->name = thread_completed_transcript_paths_it->transcript_origin + "_" + to_string(transcript_path_idx);
+            ++transcript_path_idx;
 
             ++thread_completed_transcript_paths_it;
         }
@@ -575,17 +638,17 @@ void Transcriptome::project_and_add_transcripts_callback(const int32_t thread_id
         transcripts_idx += num_threads;
     }
 
-    // Add transcript paths to transcriptome.
-    mutex_transcript_paths.lock();
+    // Add haplotype transcript paths to transcriptome.
+    mutex_haplotype_transcript_paths.lock();
 
-    _transcript_paths.reserve(_transcript_paths.size() + thread_completed_transcript_paths.size());
+    _haplotype_transcript_paths.reserve(_haplotype_transcript_paths.size() + thread_completed_transcript_paths.size());
 
     for (auto & transcript_path: thread_completed_transcript_paths) {
 
-        _transcript_paths.emplace_back(move(transcript_path));
+        _haplotype_transcript_paths.emplace_back(move(transcript_path));
     }
 
-    mutex_transcript_paths.unlock();
+    mutex_haplotype_transcript_paths.unlock();
 }
 
 list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcript & cur_transcript, const gbwt::GBWT & haplotype_index, const float mean_node_length) const {
@@ -605,7 +668,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
         const Exon & cur_exon = cur_transcript.exons.at(exon_idx);
 
         // Add node exon boundary ids
-        exon_node_ids.emplace_back(_splice_graph->get_id(_splice_graph->get_handle_of_step(cur_exon.border_steps.first)), _splice_graph->get_id(_splice_graph->get_handle_of_step(cur_exon.border_steps.second)));
+        exon_node_ids.emplace_back(_graph->get_id(_graph->get_handle_of_step(cur_exon.border_steps.first)), _graph->get_id(_graph->get_handle_of_step(cur_exon.border_steps.second)));
 
         // Calculate expected number of nodes between exon start and end.
         const int32_t expected_length = ceil((cur_exon.coordinates.second - cur_exon.coordinates.first + 1) / mean_node_length);
@@ -717,7 +780,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
                 assert(haplotype.first.at(exon_idx).at(exon_node_idx) != gbwt::ENDMARKER);
 
                 auto node_id = gbwt::Node::id(haplotype.first.at(exon_idx).at(exon_node_idx));
-                auto node_length = _splice_graph->get_length(_splice_graph->get_handle(node_id, false));
+                auto node_length = _graph->get_length(_graph->get_handle(node_id, false));
 
                 int32_t offset = 0;
 
@@ -783,7 +846,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
             if (cur_transcript.is_reverse) {
 
                 // Reverse complement transcript paths that are on the '-' strand.
-                reverse_complement_path_in_place(&(edited_transcript_paths.back().path), [&](size_t node_id) {return _splice_graph->get_length(_splice_graph->get_handle(node_id, false));});
+                reverse_complement_path_in_place(&(edited_transcript_paths.back().path), [&](size_t node_id) {return _graph->get_length(_graph->get_handle(node_id, false));});
             }
 
             // Copy paths if collapse of identical transcript paths is not wanted.
@@ -923,7 +986,9 @@ vector<pair<exon_nodes_t, thread_ids_t> > Transcriptome::get_exon_haplotypes(con
     return exon_haplotypes;
 }
 
-list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Transcript & cur_transcript, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool reference_only) const {
+list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Transcript & cur_transcript, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool use_reference_paths, const bool use_haplotype_paths) const {
+
+    assert(use_reference_paths || use_haplotype_paths);
 
     vector<multimap<path_handle_t, step_handle_t> > exon_start_node_path_steps;
     vector<multimap<path_handle_t, step_handle_t> > exon_end_node_path_steps;
@@ -934,10 +999,10 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
     // Get embedded path ids and node mappings for all exon border nodes in transcript.
     for (auto & exon: cur_transcript.exons) {
 
-        auto exon_path_handle = _splice_graph->get_path_handle_of_step(exon.border_steps.first);
-        assert(exon_path_handle == _splice_graph->get_path_handle_of_step(exon.border_steps.second));
+        auto exon_path_handle = _graph->get_path_handle_of_step(exon.border_steps.first);
+        assert(exon_path_handle == _graph->get_path_handle_of_step(exon.border_steps.second));
 
-        assert(cur_transcript.chrom == _splice_graph->get_path_name(exon_path_handle));
+        assert(cur_transcript.chrom == _graph->get_path_name(exon_path_handle));
 
         exon_start_node_path_steps.emplace_back(multimap<path_handle_t, step_handle_t>());
         exon_start_node_path_steps.back().emplace(exon_path_handle, exon.border_steps.first);
@@ -945,27 +1010,27 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
         exon_end_node_path_steps.emplace_back(multimap<path_handle_t, step_handle_t>());
         exon_end_node_path_steps.back().emplace(exon_path_handle, exon.border_steps.second);
 
-        if (!reference_only) {
+        if (use_haplotype_paths) {
 
-            auto start_border_is_reverse = _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(exon.border_steps.first));
+            auto start_border_is_reverse = _graph->get_is_reverse(_graph->get_handle_of_step(exon.border_steps.first));
 
-            _splice_graph->for_each_step_on_handle(_splice_graph->get_handle_of_step(exon.border_steps.first), [&](const step_handle_t & step) {
+            _graph->for_each_step_on_handle(_graph->get_handle_of_step(exon.border_steps.first), [&](const step_handle_t & step) {
 
                 // Do not allow multiple lengths due to cycles for reference exon.
-                auto step_path_handle = _splice_graph->get_path_handle_of_step(step);
-                if (step_path_handle != exon_path_handle && _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(step)) == start_border_is_reverse) {
+                auto step_path_handle = _graph->get_path_handle_of_step(step);
+                if (step_path_handle != exon_path_handle && _graph->get_is_reverse(_graph->get_handle_of_step(step)) == start_border_is_reverse) {
 
                     exon_start_node_path_steps.back().emplace(step_path_handle, step);
                 }
             });
 
-            auto end_border_is_reverse = _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(exon.border_steps.second));
+            auto end_border_is_reverse = _graph->get_is_reverse(_graph->get_handle_of_step(exon.border_steps.second));
 
-            _splice_graph->for_each_step_on_handle(_splice_graph->get_handle_of_step(exon.border_steps.second), [&](const step_handle_t & step) {
+            _graph->for_each_step_on_handle(_graph->get_handle_of_step(exon.border_steps.second), [&](const step_handle_t & step) {
 
                 // Do not allow multiple lengths due to cycles for reference exon.
-                auto step_path_handle = _splice_graph->get_path_handle_of_step(step);
-                if (step_path_handle != exon_path_handle && _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(step)) == end_border_is_reverse) {
+                auto step_path_handle = _graph->get_path_handle_of_step(step);
+                if (step_path_handle != exon_path_handle && _graph->get_is_reverse(_graph->get_handle_of_step(step)) == end_border_is_reverse) {
 
                     exon_end_node_path_steps.back().emplace(step_path_handle, step);
                 }
@@ -984,7 +1049,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
             continue;
         }
 
-        const auto path_origin_name = _splice_graph->get_path_name(path_steps_start.first);
+        const auto path_origin_name = _graph->get_path_name(path_steps_start.first);
 
         // Skip alternative allele paths (_alt).
         if (Paths::is_alt(path_origin_name)) {
@@ -992,8 +1057,14 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
             continue;
         }
 
-        // Construct only transcript paths originating from a reference chromosome/contig.
-        if (path_origin_name != cur_transcript.chrom && !use_all_paths) {
+        // Do not construct transcript paths originating from a reference chromosome/contig.
+        if (path_origin_name == cur_transcript.chrom && !use_reference_paths) {
+
+            continue;
+        }
+
+        // Do not construct transcript paths originating from a haplotype.
+        if (path_origin_name != cur_transcript.chrom && !use_haplotype_paths) {
 
             continue;
         }
@@ -1003,21 +1074,13 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
         // Construct transcript path and set transcript origin name.
         cur_edited_transcript_paths.emplace_back(cur_transcript.name);
 
-        // Does transcript path originate from a reference chromosome/contig.
-        if (path_origin_name == cur_transcript.chrom) {
+        if (cur_edited_transcript_paths.back().path_origin_names.empty()) {
 
-            cur_edited_transcript_paths.back().reference_origin = path_origin_name;
+            cur_edited_transcript_paths.back().path_origin_names = path_origin_name;
 
         } else {
 
-            if (cur_edited_transcript_paths.back().path_origin_names.empty()) {
-
-                cur_edited_transcript_paths.back().path_origin_names = path_origin_name;
-
-            } else {
-
-                cur_edited_transcript_paths.back().path_origin_names.append("," + path_origin_name);
-            }
+            cur_edited_transcript_paths.back().path_origin_names.append("," + path_origin_name);
         }
 
         bool is_partial = false;
@@ -1068,7 +1131,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
 
                 // Exons with different border node orientations are currently not supported.
                 // TODO: Add support for this special case.
-                if (_splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_start_step)) != _splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_end_step))) {
+                if (_graph->get_is_reverse(_graph->get_handle_of_step(haplotype_path_start_step)) != _graph->get_is_reverse(_graph->get_handle_of_step(haplotype_path_end_step))) {
 
                     is_partial = true;
                     break;
@@ -1077,11 +1140,11 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                 // Swap start and end steps if in reverse order on path
                 if (graph_path_pos_overlay.get_position_of_step(haplotype_path_start_step) > graph_path_pos_overlay.get_position_of_step(haplotype_path_end_step)) {
 
-                    assert(border_offsets.first + 1 == _splice_graph->get_length(_splice_graph->get_handle_of_step(haplotype_path_start_step)));
+                    assert(border_offsets.first + 1 == _graph->get_length(_graph->get_handle_of_step(haplotype_path_start_step)));
                     assert(border_offsets.second == 0);
 
                     swap(haplotype_path_start_step, haplotype_path_end_step);
-                    border_offsets.first = _splice_graph->get_length(_splice_graph->get_handle_of_step(haplotype_path_start_step)) - 1;
+                    border_offsets.first = _graph->get_length(_graph->get_handle_of_step(haplotype_path_start_step)) - 1;
                 }
 
                 Path exon_path;
@@ -1089,7 +1152,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
 
                 while (true) {
 
-                    auto node_length = _splice_graph->get_length(_splice_graph->get_handle_of_step(haplotype_path_start_step));
+                    auto node_length = _graph->get_length(_graph->get_handle_of_step(haplotype_path_start_step));
                     int32_t offset = 0;
 
                     // Adjust start position from exon border (last position in upstream intron)
@@ -1099,7 +1162,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                         if (border_offsets.first + 1 == node_length) {
 
                             assert(haplotype_path_start_step != haplotype_path_end_step);
-                            haplotype_path_start_step = _splice_graph->get_next_step(haplotype_path_start_step);
+                            haplotype_path_start_step = _graph->get_next_step(haplotype_path_start_step);
 
                             is_first_step = false;
                             continue;
@@ -1134,9 +1197,9 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                     auto new_mapping = exon_path.add_mapping();
                     new_mapping->set_rank(exon_path.mapping_size());
 
-                    new_mapping->mutable_position()->set_node_id(_splice_graph->get_id(_splice_graph->get_handle_of_step(haplotype_path_start_step)));
+                    new_mapping->mutable_position()->set_node_id(_graph->get_id(_graph->get_handle_of_step(haplotype_path_start_step)));
                     new_mapping->mutable_position()->set_offset(offset);
-                    new_mapping->mutable_position()->set_is_reverse(_splice_graph->get_is_reverse(_splice_graph->get_handle_of_step(haplotype_path_start_step)));
+                    new_mapping->mutable_position()->set_is_reverse(_graph->get_is_reverse(_graph->get_handle_of_step(haplotype_path_start_step)));
 
                     // Add new edit representing a complete match.
                     auto new_edit = new_mapping->add_edit();
@@ -1145,7 +1208,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                     
                     if (haplotype_path_start_step == haplotype_path_end_step) { break; }
 
-                    haplotype_path_start_step = _splice_graph->get_next_step(haplotype_path_start_step);
+                    haplotype_path_start_step = _graph->get_next_step(haplotype_path_start_step);
                     is_first_step = false;
                 }
 
@@ -1208,7 +1271,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_embedded(const Tran
                     // Reverse complement transcript paths that are on the '-' strand.
                     if (cur_transcript.is_reverse) {
 
-                        reverse_complement_path_in_place(&(cur_edited_transcript_paths_it->path), [&](size_t node_id) {return _splice_graph->get_length(_splice_graph->get_handle(node_id, false));});
+                        reverse_complement_path_in_place(&(cur_edited_transcript_paths_it->path), [&](size_t node_id) {return _graph->get_length(_graph->get_handle(node_id, false));});
                     } 
                 }
 
@@ -1239,14 +1302,6 @@ void Transcriptome::append_transcript_paths(list<CompletedTranscriptPath> * comp
                     if (completed_transcript_path.transcript_origin != new_completed_transcript_path.transcript_origin) {
 
                         cerr << "[transcriptome] WARNING: Different transcripts collaped (" << completed_transcript_path.transcript_origin << " & " << new_completed_transcript_path.transcript_origin << ")" << endl;
-                    }
-
-                    assert(completed_transcript_path.reference_origin == new_completed_transcript_path.reference_origin || completed_transcript_path.reference_origin.empty() || new_completed_transcript_path.reference_origin.empty());
-
-                    // Merge reference origin name.
-                    if (completed_transcript_path.reference_origin.empty()) {
-
-                        completed_transcript_path.reference_origin = new_completed_transcript_path.reference_origin;
                     }
 
                     // Merge haplotype origin ids.
@@ -1288,13 +1343,25 @@ list<CompletedTranscriptPath> Transcriptome::construct_completed_transcript_path
         completed_transcript_paths.emplace_back(transcript_path.transcript_origin);
 
         completed_transcript_paths.back().name = transcript_path.name;
-        completed_transcript_paths.back().reference_origin = transcript_path.reference_origin;
         completed_transcript_paths.back().haplotype_origin_ids = transcript_path.haplotype_origin_ids;
         completed_transcript_paths.back().path_origin_names = transcript_path.path_origin_names;
         completed_transcript_paths.back().path = path_to_handles(transcript_path.path);
     }
 
     return completed_transcript_paths;     
+}
+
+void Transcriptome::add_completed_transcript_reference_paths(const list<EditedTranscriptPath> & edited_transcript_paths) {
+
+    for (auto & transcript_path: edited_transcript_paths) {
+
+        _reference_transcript_paths.emplace_back(transcript_path.transcript_origin);
+
+        _reference_transcript_paths.back().name = transcript_path.name;
+        _reference_transcript_paths.back().haplotype_origin_ids = transcript_path.haplotype_origin_ids;
+        _reference_transcript_paths.back().path_origin_names = transcript_path.path_origin_names;
+        _reference_transcript_paths.back().path = path_to_handles(transcript_path.path);
+    }
 }
 
 vector<handle_t> Transcriptome::path_to_handles(const Path & path) const {
@@ -1304,13 +1371,13 @@ vector<handle_t> Transcriptome::path_to_handles(const Path & path) const {
 
     for (auto mapping: path.mapping()) {
 
-        auto handle = _splice_graph->get_handle(mapping.position().node_id(), mapping.position().is_reverse());
+        auto handle = _graph->get_handle(mapping.position().node_id(), mapping.position().is_reverse());
 
         // Check that the path only consist of whole nodes (complete).        
         assert(mapping.edit_size() == 1);
         assert(edit_is_match(mapping.edit(0)));
         assert(mapping.position().offset() == 0);
-        assert(mapping.edit(0).from_length() == _splice_graph->get_length(handle));
+        assert(mapping.edit(0).from_length() == _graph->get_length(handle));
 
         handle_path.emplace_back(handle);
     }
@@ -1325,7 +1392,7 @@ bool Transcriptome::has_novel_exon_boundaries(const list<EditedTranscriptPath> &
         for (size_t i = 0; i < transcript_path.path.mapping_size(); i++) {
 
             auto & cur_mapping = transcript_path.path.mapping(i);
-            auto cur_handle = _splice_graph->get_handle(cur_mapping.position().node_id(), cur_mapping.position().is_reverse());
+            auto cur_handle = _graph->get_handle(cur_mapping.position().node_id(), cur_mapping.position().is_reverse());
             
             assert(cur_mapping.edit_size() == 1);
             assert(edit_is_match(cur_mapping.edit(0)));
@@ -1333,7 +1400,7 @@ bool Transcriptome::has_novel_exon_boundaries(const list<EditedTranscriptPath> &
             // Do not check if left boundary of start exon is novel.
             if (!include_transcript_ends && i == 0) {
 
-                if (cur_mapping.position().offset() + cur_mapping.edit(0).from_length() != _splice_graph->get_length(cur_handle)) {
+                if (cur_mapping.position().offset() + cur_mapping.edit(0).from_length() != _graph->get_length(cur_handle)) {
 
                     return true;
                 }
@@ -1347,7 +1414,7 @@ bool Transcriptome::has_novel_exon_boundaries(const list<EditedTranscriptPath> &
                 }
 
             // Check if both boundaries are novel.
-            } else if (cur_mapping.position().offset() > 0 || cur_mapping.edit(0).from_length() != _splice_graph->get_length(cur_handle)) {
+            } else if (cur_mapping.position().offset() > 0 || cur_mapping.edit(0).from_length() != _graph->get_length(cur_handle)) {
 
                 return true;
             }
@@ -1357,47 +1424,35 @@ bool Transcriptome::has_novel_exon_boundaries(const list<EditedTranscriptPath> &
     return false;
 }
 
-void Transcriptome::augment_splice_graph(list<EditedTranscriptPath> * edited_transcript_paths, unique_ptr<gbwt::GBWT> & haplotype_index, const bool break_at_transcript_ends) {
+void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_transcript_paths, const bool break_at_transcript_ends, unique_ptr<gbwt::GBWT> & haplotype_index, const bool update_haplotypes) {
 
-    assert(_transcript_paths.empty());
-    _splice_graph_node_updated = true;
+    assert(_reference_transcript_paths.empty());
+    assert(_haplotype_transcript_paths.empty());
+
+    _graph_node_updated = true;
 
     // Move paths to data structure compatible with augment.
     vector<Path> edited_paths;
-    edited_paths.reserve(edited_transcript_paths->size());
+    edited_paths.reserve(edited_transcript_paths.size());
 
-    for (auto & transcript_path: *edited_transcript_paths) {
+    for (auto & transcript_path: edited_transcript_paths) {
 
         edited_paths.emplace_back(move(transcript_path.path));
     }
-
-    if (haplotype_index->empty()) {
-
-        // Augment splice graph with edited paths. 
-        augment(static_cast<MutablePathMutableHandleGraph *>(_splice_graph.get()), edited_paths, "GAM", nullptr, "", false, break_at_transcript_ends);
-      
-    } else {
-
-        vector<Translation> translations;
 
 #ifdef transcriptome_debug
     double time_edit_1 = gcsa::readTimer();
     cerr << "\tDEBUG edit start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif
 
-        // Augment splice graph with edited paths. 
-        augment(static_cast<MutablePathMutableHandleGraph *>(_splice_graph.get()), edited_paths, "GAM", &translations, "", false, break_at_transcript_ends);
+    vector<Translation> translations;
+
+    // Augment graph with edited paths. 
+    augment(static_cast<MutablePathMutableHandleGraph *>(_graph.get()), edited_paths, "GAM", &translations, "", false, break_at_transcript_ends);
 
 #ifdef transcriptome_debug
     cerr << "\tDEBUG edit end: " << gcsa::readTimer() - time_edit_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
-
-        // Update threads in gbwt index to match new augmented graph.
-        update_haplotype_index(haplotype_index, translations);
-    }
-}
-
-void Transcriptome::update_haplotype_index(unique_ptr<gbwt::GBWT> & haplotype_index, const vector<Translation> & translations) const {
 
 #ifdef transcriptome_debug
     double time_translation_1 = gcsa::readTimer();
@@ -1433,6 +1488,63 @@ void Transcriptome::update_haplotype_index(unique_ptr<gbwt::GBWT> & haplotype_in
     cerr << "\tDEBUG translation end: " << gcsa::readTimer() - time_translation_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
+    if (!haplotype_index->empty() && update_haplotypes) {
+
+        // Update threads in gbwt index to match new augmented graph.
+        update_haplotype_index(haplotype_index, translation_index);
+    }
+
+    for (auto & transcript_path: edited_transcript_paths) {
+
+        if (transcript_path.transcript_origin.empty()) {
+
+            continue;
+        }
+
+        _reference_transcript_paths.emplace_back(transcript_path.transcript_origin);
+
+        _reference_transcript_paths.back().name = transcript_path.name;
+        _reference_transcript_paths.back().haplotype_origin_ids = transcript_path.haplotype_origin_ids;
+        _reference_transcript_paths.back().path_origin_names = transcript_path.path_origin_names;
+
+        for (auto mapping: transcript_path.path.mapping()) {
+
+            auto mapping_node_id = mapping.position().node_id();
+            auto mapping_offset = mapping.position().offset();
+            auto mapping_is_reverse = mapping.position().is_reverse();
+            auto mapping_length = mapping_to_length(mapping);
+
+            assert(mapping_length > 0);
+            assert(mapping_length == mapping_from_length(mapping));
+
+            auto translation_index_it = translation_index.find(mapping_to_gbwt(mapping));
+
+            if (translation_index_it != translation_index.end()) {
+
+                // First node id is the same (new node offset is larger than 0). 
+                if (mapping_offset == 0 & translation_index_it->second.front().first > 0) {
+
+                    _reference_transcript_paths.back().path.emplace_back(_graph->get_handle(mapping_node_id, mapping_is_reverse));
+                }
+
+                // Add new nodes.
+                for (auto & new_node: translation_index_it->second) {
+
+                    if (new_node.first >= mapping_offset && new_node.first < mapping_offset + mapping_length) {
+                        _reference_transcript_paths.back().path.emplace_back(_graph->get_handle(gbwt::Node::id(new_node.second), mapping_is_reverse));
+                    }
+                }
+
+            } else {
+
+                _reference_transcript_paths.back().path.emplace_back(_graph->get_handle(mapping_node_id, mapping_is_reverse));
+            }
+        }
+    }
+}
+
+void Transcriptome::update_haplotype_index(unique_ptr<gbwt::GBWT> & haplotype_index, const unordered_map<gbwt::node_type, vector<pair<int32_t, gbwt::node_type> > > & translation_index) const {
+
 #ifdef transcriptome_debug
     double time_update_1 = gcsa::readTimer();
     cerr << "\tDEBUG update start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
@@ -1442,7 +1554,7 @@ void Transcriptome::update_haplotype_index(unique_ptr<gbwt::GBWT> & haplotype_in
 
     // Silence GBWT index construction. 
     gbwt::Verbosity::set(gbwt::Verbosity::SILENT); 
-    gbwt::GBWTBuilder gbwt_builder(gbwt::bit_length(gbwt::Node::encode(_splice_graph->max_node_id(), true)));
+    gbwt::GBWTBuilder gbwt_builder(gbwt::bit_length(gbwt::Node::encode(_graph->max_node_id(), true)));
 
     // Transfer metadata
     gbwt_builder.index.addMetadata();
@@ -1508,11 +1620,11 @@ void Transcriptome::add_splice_junction_edges(const list<EditedTranscriptPath> &
             auto & prev_mapping = transcript_path.path.mapping(i - 1);
             auto & cur_mapping = transcript_path.path.mapping(i);
 
-            auto prev_handle = _splice_graph->get_handle(prev_mapping.position().node_id(), prev_mapping.position().is_reverse());
-            auto cur_handle = _splice_graph->get_handle(cur_mapping.position().node_id(), cur_mapping.position().is_reverse());
+            auto prev_handle = _graph->get_handle(prev_mapping.position().node_id(), prev_mapping.position().is_reverse());
+            auto cur_handle = _graph->get_handle(cur_mapping.position().node_id(), cur_mapping.position().is_reverse());
             
             // Ensure the edge exists.
-            _splice_graph->create_edge(prev_handle, cur_handle);
+            _graph->create_edge(prev_handle, cur_handle);
         }
     }
 }
@@ -1524,37 +1636,49 @@ void Transcriptome::add_splice_junction_edges(const vector<CompletedTranscriptPa
         for (size_t i = 1; i < transcript_path.path.size(); i++) {
             
             // Ensure the edge exists.
-            _splice_graph->create_edge(transcript_path.path.at(i - 1), transcript_path.path.at(i));
+            _graph->create_edge(transcript_path.path.at(i - 1), transcript_path.path.at(i));
         }
     }
 }
 
-const vector<CompletedTranscriptPath> & Transcriptome::transcript_paths() const {
+const vector<CompletedTranscriptPath> & Transcriptome::reference_transcript_paths() const {
 
-    return _transcript_paths;
+    return _reference_transcript_paths;
 }
 
-int32_t Transcriptome::size() const {
+const vector<CompletedTranscriptPath> & Transcriptome::haplotype_transcript_paths() const {
 
-    return _transcript_paths.size();
+    return _haplotype_transcript_paths;
 }
 
-const MutablePathDeletableHandleGraph & Transcriptome::splice_graph() const {
+const MutablePathDeletableHandleGraph & Transcriptome::graph() const {
 
-    return *_splice_graph;
+    return *_graph;
 }
 
-bool Transcriptome::splice_graph_node_updated() const {
+bool Transcriptome::graph_node_updated() const {
 
-    return _splice_graph_node_updated;
+    return _graph_node_updated;
 }
 
-void Transcriptome::remove_non_transcribed(const bool new_reference_paths) {
+void Transcriptome::collect_transcribed_nodes(unordered_set<nid_t> * transcribed_nodes, const vector<CompletedTranscriptPath> & transcript_paths) const {
+
+    for (auto & transcript_path: transcript_paths) {
+
+        assert(transcript_path.path.size() > 0);
+        for (auto & handle: transcript_path.path) {
+
+            transcribed_nodes->emplace(_graph->get_id(handle));
+        }    
+    } 
+}
+
+void Transcriptome::remove_non_transcribed() {
 
     vector<path_handle_t> path_handles;
-    path_handles.reserve(_splice_graph->get_path_count());
+    path_handles.reserve(_graph->get_path_count());
 
-    assert(_splice_graph->for_each_path_handle([&](const path_handle_t & path_handle) {
+    assert(_graph->for_each_path_handle([&](const path_handle_t & path_handle) {
 
         path_handles.emplace_back(path_handle);
     }));    
@@ -1562,30 +1686,24 @@ void Transcriptome::remove_non_transcribed(const bool new_reference_paths) {
     // Remove all paths.
     for (auto & path_handle: path_handles) {
 
-        _splice_graph->destroy_path(path_handle);
+        _graph->destroy_path(path_handle);
     }
 
-    assert(_splice_graph->get_path_count() == 0);
+    assert(_graph->get_path_count() == 0);
 
     // Find all nodes that are in a transcript path.
     unordered_set<nid_t> transcribed_nodes;
 
-    for (auto & transcript_path: _transcript_paths) {
-
-        assert(transcript_path.path.size() > 0);
-        for (auto & handle: transcript_path.path) {
-
-            transcribed_nodes.emplace(_splice_graph->get_id(handle));
-        }    
-    }
+    collect_transcribed_nodes(&transcribed_nodes, _reference_transcript_paths);
+    collect_transcribed_nodes(&transcribed_nodes, _haplotype_transcript_paths);
 
     vector<handle_t> non_transcribed_handles;
-    non_transcribed_handles.reserve(_splice_graph->get_node_count() - transcribed_nodes.size());
+    non_transcribed_handles.reserve(_graph->get_node_count() - transcribed_nodes.size());
 
     // Collect all nodes that are not in a transcript path.
-    assert(_splice_graph->for_each_handle([&](const handle_t & handle) {
+    assert(_graph->for_each_handle([&](const handle_t & handle) {
         
-        if (transcribed_nodes.count(_splice_graph->get_id(handle)) == 0) {
+        if (transcribed_nodes.count(_graph->get_id(handle)) == 0) {
 
             non_transcribed_handles.emplace_back(handle); 
         } 
@@ -1594,187 +1712,246 @@ void Transcriptome::remove_non_transcribed(const bool new_reference_paths) {
     for (auto & handle: non_transcribed_handles) {
 
         // Delete node and in/out edges. 
-        _splice_graph->destroy_handle(handle);
+        _graph->destroy_handle(handle);
     }
 
-    assert(_splice_graph->get_node_count() == transcribed_nodes.size());
+    assert(_graph->get_node_count() == transcribed_nodes.size());
 }
 
-void Transcriptome::compact_ordered() {
+void Transcriptome::update_transcript_path_node_handles(vector<CompletedTranscriptPath> * transcript_paths, const unordered_map<handle_t, handle_t> & update_index) {
 
-    assert(_transcript_paths.empty());
-    _splice_graph->apply_ordering(handlealgs::topological_order(_splice_graph.get()), true);
+    for (auto & transcript_path: *transcript_paths) {
+
+        for (auto & handle: transcript_path.path) {
+
+            if (_graph->get_is_reverse(handle)) {
+
+                handle = _graph->flip(update_index.at(_graph->flip(handle)));
+
+            } else {
+
+                handle = update_index.at(handle);
+            }
+        }
+    }
 }
 
-int32_t Transcriptome::embed_transcript_paths(const bool add_reference_paths, const bool add_non_reference_paths) {
+void Transcriptome::topological_sort_compact() {
+
+    auto new_order = handlealgs::topological_order(_graph.get());
+    assert(new_order.size() == _graph->get_node_count());
+
+    unordered_map<handle_t, handle_t> update_index; 
+    uint64_t order_idx = 1;
+
+    for (auto handle: new_order) {
+        
+        assert(update_index.emplace(handle, _graph->get_handle(order_idx, false)).second);
+        ++order_idx;
+    }
+
+    _graph->apply_ordering(new_order, true);
+
+    update_transcript_path_node_handles(&_reference_transcript_paths, update_index);
+    update_transcript_path_node_handles(&_haplotype_transcript_paths, update_index);
+}
+
+int32_t Transcriptome::embed_transcript_paths(const vector<CompletedTranscriptPath> & transcript_paths) {
 
     int32_t num_embedded_paths = 0;
 
     // Add transcript paths to graph
-    for (auto & transcript_path: _transcript_paths) {
+    for (auto & transcript_path: transcript_paths) {
 
-        assert(!transcript_path.reference_origin.empty() || !transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty());
+        assert(!transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty());
+        ++num_embedded_paths;
 
-        if ((add_reference_paths && !transcript_path.reference_origin.empty()) || (add_non_reference_paths && (!transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty()))) {
+        assert(!_graph->has_path(transcript_path.name));
+        auto path_handle = _graph->create_path_handle(transcript_path.name);
 
-            ++num_embedded_paths;
+        for (auto & handle: transcript_path.path) {
 
-            assert(!_splice_graph->has_path(transcript_path.name));
-            auto path_handle = _splice_graph->create_path_handle(transcript_path.name);
-
-            for (auto & handle: transcript_path.path) {
-
-                _splice_graph->append_step(path_handle, handle);
-            }
+            _graph->append_step(path_handle, handle);
         }
     }
 
     return num_embedded_paths;
 }
 
-int32_t Transcriptome::add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool output_reference_transcripts, const bool add_bidirectional) const {
+int32_t Transcriptome::embed_reference_transcript_paths() {
+
+    return embed_transcript_paths(_reference_transcript_paths);
+}
+
+int32_t Transcriptome::embed_haplotype_transcript_paths() {
+
+    return embed_transcript_paths(_haplotype_transcript_paths);
+}
+
+int32_t Transcriptome::add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool add_bidirectional, const vector<CompletedTranscriptPath> & transcript_paths) const {
 
     int32_t num_added_threads = 0;
 
     vector<string> sample_names;
-    sample_names.reserve(size());
+    sample_names.reserve(transcript_paths.size());
 
-    assert(!gbwt_builder->index.hasMetadata());
-    gbwt_builder->index.addMetadata();
+    if (!gbwt_builder->index.hasMetadata()) {
 
-    for (auto & transcript_path: _transcript_paths) {
+        gbwt_builder->index.addMetadata();
+    }
 
-        assert(!transcript_path.reference_origin.empty() || !transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty());
+    // Get current number of haplotypes in GBWT index.
+    auto pre_num_haplotypes = gbwt_builder->index.metadata.haplotypes();
 
-        if (output_reference_transcripts || !transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty()) {
+    for (auto & transcript_path: transcript_paths) {
 
-            ++num_added_threads;
+        assert(!transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty());
+        ++num_added_threads;
 
-            // Convert transcript path to GBWT thread.
-            gbwt::vector_type gbwt_thread(transcript_path.path.size());
-            for (size_t i = 0; i < transcript_path.path.size(); i++) {
+        // Convert transcript path to GBWT thread.
+        gbwt::vector_type gbwt_thread(transcript_path.path.size());
+        for (size_t i = 0; i < transcript_path.path.size(); i++) {
 
-                gbwt_thread[i] = handle_to_gbwt(*_splice_graph, transcript_path.path.at(i));
-            }
-
-            // Insert transcript path as thread into GBWT index.
-            gbwt_builder->insert(gbwt_thread, add_bidirectional);
-
-            // Insert transcript path name into GBWT index.
-            gbwt_builder->index.metadata.addPath(sample_names.size(), 0, 0, 0);
-            sample_names.emplace_back(transcript_path.name);
+            gbwt_thread[i] = handle_to_gbwt(*_graph, transcript_path.path.at(i));
         }
+
+        // Insert transcript path as thread into GBWT index.
+        gbwt_builder->insert(gbwt_thread, add_bidirectional);
+
+        // Insert transcript path name into GBWT index.
+        gbwt_builder->index.metadata.addPath(pre_num_haplotypes + sample_names.size(), 0, 0, 0);
+        sample_names.emplace_back(transcript_path.name);
     }
 
     // Set number number of haplotypes and transcript path name in metadata.
-    gbwt_builder->index.metadata.setHaplotypes(size());
-    gbwt_builder->index.metadata.setSamples(sample_names);
+    gbwt_builder->index.metadata.setHaplotypes(pre_num_haplotypes + sample_names.size());
+    gbwt_builder->index.metadata.addSamples(sample_names);
 
     return num_added_threads;
 }
 
-int32_t Transcriptome::write_sequences(ostream * fasta_ostream, const bool output_reference_transcripts) const {
+int32_t Transcriptome::add_reference_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool add_bidirectional) const {
+
+    return add_transcripts_to_gbwt(gbwt_builder, add_bidirectional, _reference_transcript_paths);
+}
+
+int32_t Transcriptome::add_haplotype_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool add_bidirectional) const {
+
+    return add_transcripts_to_gbwt(gbwt_builder, add_bidirectional, _haplotype_transcript_paths);
+}
+
+int32_t Transcriptome::write_sequences(ostream * fasta_ostream, const vector<CompletedTranscriptPath> & transcript_paths) const {
 
     int32_t num_written_sequences = 0;
 
-    for (auto & transcript_path: _transcript_paths) {
+    for (auto & transcript_path: transcript_paths) {
 
-        assert(!transcript_path.reference_origin.empty() || !transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty());
+        assert(!transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty());
+        ++num_written_sequences;
 
-        if (output_reference_transcripts || !transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty()) {
+        // Construct transcript path sequence.
+        string transcript_path_sequence = "";
+        for (auto & handle: transcript_path.path) {
 
-            ++num_written_sequences;
-
-            // Construct transcript path sequence.
-            string transcript_path_sequence = "";
-            for (auto & handle: transcript_path.path) {
-
-                transcript_path_sequence += _splice_graph->get_sequence(handle);
-            }
-
-            // Write transcript path name and sequence.
-            write_fasta_sequence(transcript_path.name, transcript_path_sequence, *fasta_ostream);
+            transcript_path_sequence += _graph->get_sequence(handle);
         }
+
+        // Write transcript path name and sequence.
+        write_fasta_sequence(transcript_path.name, transcript_path_sequence, *fasta_ostream);
     }
 
     return num_written_sequences;
 }
 
-int32_t Transcriptome::write_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const bool output_reference_transcripts) const {
+int32_t Transcriptome::write_reference_sequences(ostream * fasta_ostream) const {
+
+    return write_sequences(fasta_ostream, _reference_transcript_paths);
+}
+
+int32_t Transcriptome::write_haplotype_sequences(ostream * fasta_ostream) const {
+
+    return write_sequences(fasta_ostream, _haplotype_transcript_paths);
+}
+
+int32_t Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const vector<CompletedTranscriptPath> & transcript_paths, const bool is_reference_transcript_paths) const {
 
     int32_t num_written_info = 0;
 
-    *tsv_ostream << "Name\tLength\tTranscript\tReference\tHaplotypes" << endl; 
+    for (auto & transcript_path: transcript_paths) {
 
-    for (auto & transcript_path: _transcript_paths) {
+        assert(!transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty());
+        ++num_written_info;
 
-        assert(!transcript_path.reference_origin.empty() || !transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty());
+        // Get transcript path length.
+        int32_t transcript_path_length = 0;
+        for (auto & handle: transcript_path.path) {
 
-        if (output_reference_transcripts || !transcript_path.haplotype_origin_ids.empty() || !transcript_path.path_origin_names.empty()) {
-
-            ++num_written_info;
-
-            // Get transcript path length.
-            int32_t transcript_path_length = 0;
-            for (auto & handle: transcript_path.path) {
-
-                transcript_path_length += _splice_graph->get_length(handle);
-            }
-
-            *tsv_ostream << transcript_path.name;
-            *tsv_ostream << "\t" << transcript_path_length;
-            *tsv_ostream << "\t" << transcript_path.transcript_origin;
-
-            if (transcript_path.reference_origin.empty()) {
-
-                *tsv_ostream << "\t-";
-            
-            } else {
-
-                *tsv_ostream << "\t" << transcript_path.reference_origin;
-            }
-
-            if (transcript_path.haplotype_origin_ids.empty() && transcript_path.path_origin_names.empty()) {
-
-                *tsv_ostream << "\t-";            
-
-            } else {
-
-                *tsv_ostream << "\t";
-                bool is_first = true;
-
-                for (auto & id: transcript_path.haplotype_origin_ids) {
-
-                    if (!is_first) {
-
-                        *tsv_ostream << ",";
-                    } 
-
-                    is_first = false;             
-                    *tsv_ostream << thread_name(haplotype_index, id);
-                }
-
-                if (!transcript_path.path_origin_names.empty()) {
-
-                    if (!is_first) {
-
-                        *tsv_ostream << ",";
-                    } 
-
-                    *tsv_ostream << transcript_path.path_origin_names;
-                }
-            }
-
-            *tsv_ostream << endl;
+            transcript_path_length += _graph->get_length(handle);
         }
+
+        *tsv_ostream << transcript_path.name;
+        *tsv_ostream << "\t" << transcript_path_length;
+        *tsv_ostream << "\t" << transcript_path.transcript_origin;
+
+        if (is_reference_transcript_paths) {
+
+            *tsv_ostream << "\t" << transcript_path.path_origin_names;
+        
+        } else {
+
+            *tsv_ostream << "\t-";
+        }
+
+        if (transcript_path.haplotype_origin_ids.empty() && transcript_path.path_origin_names.empty()) {
+
+            *tsv_ostream << "\t-";            
+
+        } else {
+
+            *tsv_ostream << "\t";
+            bool is_first = true;
+
+            for (auto & id: transcript_path.haplotype_origin_ids) {
+
+                if (!is_first) {
+
+                    *tsv_ostream << ",";
+                } 
+
+                is_first = false;             
+                *tsv_ostream << thread_name(haplotype_index, id);
+            }
+
+            if (!transcript_path.path_origin_names.empty()) {
+
+                if (!is_first) {
+
+                    *tsv_ostream << ",";
+                } 
+
+                *tsv_ostream << transcript_path.path_origin_names;
+            }
+        }
+
+        *tsv_ostream << endl;
     }
 
     return num_written_info;
 }
 
-void Transcriptome::write_splice_graph(ostream * graph_ostream) const {
+int32_t Transcriptome::write_reference_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index) const {
 
-    vg::io::save_handle_graph(_splice_graph.get(), *graph_ostream);
+    return write_transcript_info(tsv_ostream, haplotype_index, _reference_transcript_paths, true);
+}
+
+int32_t Transcriptome::write_haplotype_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index) const {
+
+    return write_transcript_info(tsv_ostream, haplotype_index, _haplotype_transcript_paths, false);
+}
+
+void Transcriptome::write_graph(ostream * graph_ostream) const {
+
+    vg::io::save_handle_graph(_graph.get(), *graph_ostream);
 }
 
 }
