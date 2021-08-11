@@ -273,6 +273,9 @@ public:
     /// Determine if a VCF file is phased or not
     static bool vcf_is_phased(const string& filepath);
     
+    /// Determine if a GFA has haplotypes as W-lines
+    static bool gfa_has_haplotypes(const string& filepath);
+    
     /// Discard any provided or constructed indexes
     void reset();
     

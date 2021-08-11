@@ -40,6 +40,7 @@
 #include "algorithms/extract_containing_graph.hpp"
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/extract_extending_graph.hpp"
+#include "algorithms/locally_expand_graph.hpp"
 #include "algorithms/jump_along_path.hpp"
 #include "algorithms/ref_path_distance.hpp"
 
@@ -219,6 +220,11 @@ namespace vg {
         /// Represents the mismatches that were allowed in "MEMs" from the fanout
         /// match algorithm
         using match_fanouts_t = unordered_map<const MaximalExactMatch*, deque<pair<string::const_iterator, char>>>;
+        
+        /// Unique identifier for an unaligned splicing candidate. Specified by:
+        /// - Cluster candidate: (is read 1, cluster index, nullptr, pos_t())
+        /// - Hit candidate: (is read 1, -1, MEM, position)
+        using candidate_id_t = tuple<bool, int64_t, const MaximalExactMatch*, pos_t>;
         
     protected:
         
@@ -459,8 +465,9 @@ namespace vg {
                                         const vector<pair<const MaximalExactMatch*, pos_t>>& hit_candidates,
                                         const pair<int64_t, int64_t>& primary_interval,
                                         bool searching_left,
-                                        vector<multipath_alignment_t>& candidates_out,
-                                        vector<double>& multiplicities_out,
+                                        bool is_read_1,
+                                        unordered_map<candidate_id_t, pair<multipath_alignment_t, double>>& unaligned_candidate_bank,
+                                        vector<candidate_id_t>& candidates_out,
                                         const match_fanouts_t* mem_fanouts = nullptr) const;
         
         /// Check whether splice segment candidates can form a statistically significant spliced
@@ -469,6 +476,7 @@ namespace vg {
                                     multipath_alignment_t& anchor_mp_aln, double& anchor_multiplicity,
                                     SpliceStrand& strand, int64_t num_candidates,
                                     const function<const multipath_alignment_t&(int64_t)>& get_candidate,
+                                    const function<double(int64_t)>& get_multiplicity,
                                     const function<multipath_alignment_t&&(int64_t)>& consume_candidate);
         
         /// Check if any of the unpaired spliced alignments can make pairs now
@@ -492,6 +500,11 @@ namespace vg {
                              clustergraph_t& cluster_graph,
                              multipath_alignment_t& multipath_aln_out,
                              const match_fanouts_t* fanouts) const;
+        
+        /// If any softclips could have arisen because not enough graph was extracted, extract
+        /// extra graph in those areas. Returns true if the graph was expanded.
+        bool expand_for_softclips(clustergraph_t& cluster_graph,
+                                  const multipath_alignment_t& multipath_aln) const;
         
         /// Removes the sections of an Alignment's path within snarls and re-aligns them with multiple traceback
         /// to create a multipath alignment with non-trivial topology.

@@ -150,6 +150,16 @@ struct GBWTHandler {
 
 //------------------------------------------------------------------------------
 
+/// Rebuild the GBWT by applying all provided mappings. Each mapping is a pair
+/// (original subpath, new subpath). If the original subpath is empty, the
+/// mapping is ignored. If there are multiple applicable mappings, the first one
+/// will be used.
+/// TODO: We could provide construction parameters and an option to parallelize
+/// by contig.
+gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index, const std::vector<std::pair<gbwt::vector_type, gbwt::vector_type>>& mappings);
+
+//------------------------------------------------------------------------------
+
 /// Return the list of thread ids / gbwt path ids for the given sample.
 std::vector<gbwt::size_type> threads_for_sample(const gbwt::GBWT& gbwt_index, const std::string& sample_name);
 
@@ -196,7 +206,7 @@ unordered_map<nid_t, vector<nid_t>> load_translation_map(ifstream& input_stream)
 /// Load a translation file (created with vg gbwt --translation) and return a backwards mapping
 /// of chopped node to original segment position (id,offset pair)
 /// NOTE: hopefully this is just a short-term hack, and we get a general interface baked into
-//        the handlegraphs themselves
+///       the handlegraphs themselves
 unordered_map<nid_t, pair<nid_t, size_t>> load_translation_back_map(HandleGraph& graph, ifstream& input_stream);
 
 //------------------------------------------------------------------------------
