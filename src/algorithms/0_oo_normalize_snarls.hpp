@@ -28,6 +28,8 @@ class SnarlNormalizer {
     // GBWT graph with snarls to normalize, includes the embedded threads needed for the
     // GBWTPathFinder approach.
     const gbwtgraph::GBWTGraph &_haploGraph;
+    map<list<id_t>, list<id_t>> gbwt_changelog;
+
     // the maximum number of threads allowed to align in a given snarl. If the number of
     // threads exceeds this threshold, the snarl is skipped.
     int _max_alignment_size;
@@ -40,8 +42,7 @@ class SnarlNormalizer {
     // finding information on original graph:
     //////////////////////////////////////////////////////////////////////////////////////
 
-    SubHandleGraph extract_subgraph(const HandleGraph &graph, id_t start_id,
-                                    id_t end_id, const bool backwards);
+    SubHandleGraph extract_subgraph(const HandleGraph &graph, const id_t &leftmost_id, const id_t &rightmost_id);
                                     
     vector<int> check_handle_as_start_of_path_seq(const string &handle_seq,
                                                   const string &path_seq);
@@ -52,11 +53,13 @@ class SnarlNormalizer {
 
     VG align_source_to_sink_haplotypes(const unordered_set<string>& source_to_sink_haplotypes);
 
-    void integrate_snarl(SubHandleGraph &old_snarl, const HandleGraph &new_snarl,
+    pair<handle_t, handle_t> integrate_snarl(SubHandleGraph &old_snarl, const HandleGraph &new_snarl,
                          vector<pair<step_handle_t, step_handle_t>>& embedded_paths,
                          const id_t &source_id, const id_t &sink_id, const bool backwards);
 
     handle_t overwrite_node_id(const id_t& old_node_id, const id_t& new_node_id);
+
+    void log_gbwt_changes(const unordered_set<string> &old_paths, const HandleGraph &new_snarl);
 
     bool source_and_sink_handles_map_properly(
         const HandleGraph &graph, const id_t &new_source_id, const id_t &new_sink_id,

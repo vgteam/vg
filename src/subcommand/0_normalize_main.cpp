@@ -277,7 +277,7 @@ int main_normalize(int argc, char **argv) {
 
     if (normalize_type!="none") {
         // Save the modified graph
-        vg::io::save_handle_graph(graph.get(), std::cout);
+        // vg::io::save_handle_graph(graph.get(), std::cout);
         
         //todo: maybe rewrite to mimic mod_main.
         // vg::io::VPKG::save(*dynamic_cast<bdsg::HashGraph *>(graph.get()), cout);
