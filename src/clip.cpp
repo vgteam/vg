@@ -156,8 +156,86 @@ static path_handle_t create_path_fragment(MutablePathMutableHandleGraph* graph, 
     return subpath_handle;
 }
 
+// note: clip-vg.cpp has a more general version (if ever needed) that can cut nodes on path positions
+void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph, unordered_set<nid_t> to_delete,
+                                 int64_t min_fragment_len,
+                                 unordered_map<string, size_t>* fragments_per_path) {
+      // chop the paths    
+    vector<path_handle_t> path_handles;
+    graph->for_each_path_handle([&](path_handle_t path_handle) {
+            path_handles.push_back(path_handle);
+        });    
+    for (path_handle_t& path_handle : path_handles) {
+
+        string path_name = graph->get_path_name(path_handle);
+#ifdef debug
+        cerr << "processing path " << path_name << endl;
+#endif
+        int64_t path_offset = 0;
+        auto sp_parse = Paths::parse_subpath_name(path_name);
+        if (get<0>(sp_parse)) {
+            path_name = get<1>(sp_parse);
+            path_offset = get<2>(sp_parse);
+        }
+
+        int64_t cur_step_offset = path_offset;
+        step_handle_t start_step = graph->path_begin(path_handle);
+        int64_t start_step_offset = cur_step_offset;
+        step_handle_t prev_step;
+        step_handle_t end_step = graph->path_end(path_handle);
+        bool in_path = !to_delete.count(graph->get_id(graph->get_handle_of_step(start_step)));
+        bool was_chopped = false;
+        for (step_handle_t cur_step = start_step; cur_step != end_step; cur_step = graph->get_next_step(cur_step)) {
+            handle_t cur_handle = graph->get_handle_of_step(cur_step);
+            nid_t cur_id = graph->get_id(cur_handle);
+            bool step_deleted = to_delete.count(cur_id);
+            if (in_path && step_deleted && cur_step_offset > start_step_offset) {
+                // we hit a deleted node: make a path fragment for eveything to it
+                if (cur_step_offset - start_step_offset >= min_fragment_len) {
+                    create_path_fragment(graph, path_name, start_step, cur_step, start_step_offset, cur_step_offset);
+                    if (fragments_per_path) {
+                        ++(*fragments_per_path)[path_name];
+                    }
+                }
+            }
+            if (!in_path && !step_deleted) {
+                // we hit the first undeleted node after a run of deleteions, start a new fragment
+                start_step_offset = cur_step_offset;
+                start_step = cur_step;
+            }
+            in_path = !step_deleted;
+            cur_step_offset += graph->get_length(cur_handle);
+            prev_step = cur_step;
+            was_chopped = was_chopped || step_deleted;
+        }
+
+        if (was_chopped && in_path && cur_step_offset > start_step_offset) {
+            // get that last fragment
+            if (cur_step_offset - start_step_offset >= min_fragment_len) {
+                create_path_fragment(graph, path_name, start_step, graph->path_end(path_handle), start_step_offset, cur_step_offset);
+                if (fragments_per_path) {
+                    ++(*fragments_per_path)[path_name];
+                }
+            }
+        }
+
+        if (was_chopped) {
+            graph->destroy_path(path_handle);
+        }
+    }
+
+    // finally, delete the nodes
+    DeletableHandleGraph* del_graph = dynamic_cast<DeletableHandleGraph*>(graph);
+    for (nid_t node_id : to_delete) {
+        handle_t handle = graph->get_handle(node_id);
+        assert(graph->steps_of_handle(handle).empty());
+        dynamic_cast<DeletableHandleGraph*>(graph)->destroy_handle(handle);
+    }    
+
+}
+
 void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
-                           SnarlManager& snarl_manager, bool include_endpoints, bool verbose) {
+                           SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len, bool verbose) {
 
     // find all nodes in the snarl that are not on the reference interval (reference path name from containing interval)
     unordered_set<nid_t> to_delete;
@@ -189,85 +267,71 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
         });
 
     if (verbose) {
+        cerr << "[vg-clip]: Removing " << to_delete.size() << " nodes from snarls in regions" << endl;
         for (const auto& kv : clip_counts) {
             cerr << "[vg-clip]: Removing " << kv.second << " nodes due to intervals on path " << kv.first << endl;
         }
         clip_counts.clear();
     }
     
-    // chop the paths    
-    vector<path_handle_t> path_handles;
-    graph->for_each_path_handle([&](path_handle_t path_handle) {
-            path_handles.push_back(path_handle);
-        });    
-    for (path_handle_t& path_handle : path_handles) {
-
-        string path_name = graph->get_path_name(path_handle);
-#ifdef debug
-        cerr << "processing path " << path_name << endl;
-#endif
-        int64_t path_offset = 0;
-        auto sp_parse = Paths::parse_subpath_name(path_name);
-        if (get<0>(sp_parse)) {
-            path_name = get<1>(sp_parse);
-            path_offset = get<2>(sp_parse);
-        }
-
-        int64_t cur_step_offset = path_offset;
-        step_handle_t start_step = graph->path_begin(path_handle);
-        int64_t start_step_offset = cur_step_offset;
-        step_handle_t prev_step;
-        step_handle_t end_step = graph->path_end(path_handle);
-        bool in_path = !to_delete.count(graph->get_id(graph->get_handle_of_step(start_step)));
-        bool was_chopped = false;
-        for (step_handle_t cur_step = start_step; cur_step != end_step; cur_step = graph->get_next_step(cur_step)) {
-            handle_t cur_handle = graph->get_handle_of_step(cur_step);
-            nid_t cur_id = graph->get_id(cur_handle);
-            bool step_deleted = to_delete.count(cur_id);
-            if (in_path && step_deleted && cur_step_offset > start_step_offset) {
-                // we hit a deleted node: make a path fragment for eveything to it
-                create_path_fragment(graph, path_name, start_step, cur_step, start_step_offset, cur_step_offset);
-                ++clip_counts[path_name];
-            }
-            if (!in_path && !step_deleted) {
-                // we hit the first undeleted node after a run of deleteions, start a new fragment
-                start_step_offset = cur_step_offset;
-                start_step = cur_step;
-            }
-            in_path = !step_deleted;
-            cur_step_offset += graph->get_length(cur_handle);
-            prev_step = cur_step;
-            was_chopped = was_chopped || step_deleted;
-        }
-
-        if (was_chopped && in_path && cur_step_offset > start_step_offset) {
-            // get that last fragment
-            create_path_fragment(graph, path_name, start_step, graph->path_end(path_handle), start_step_offset, cur_step_offset);
-            ++clip_counts[path_name];
-        }
-
-        if (was_chopped) {
-            graph->destroy_path(path_handle);                
-        }
-    }
-
+    // cut out the nodes and chop up paths
+    delete_nodes_and_chop_paths(graph, to_delete, min_fragment_len, verbose ? &clip_counts : nullptr);
+    
+    
     if (verbose) {
         for (const auto& kv : clip_counts) {
             cerr << "[vg-clip]: Creating " << kv.second << " fragments from path" << kv.first << endl;
         }
         clip_counts.clear();
     }
-
-    // finally, delete the nodes
-    DeletableHandleGraph* del_graph = dynamic_cast<DeletableHandleGraph*>(graph);
-    for (nid_t node_id : to_delete) {
-        handle_t handle = graph->get_handle(node_id);
-        assert(graph->steps_of_handle(handle).empty());
-        dynamic_cast<DeletableHandleGraph*>(graph)->destroy_handle(handle);
-    }    
 }
 
+void clip_low_depth_nodes(MutablePathMutableHandleGraph* graph, int64_t min_depth, const string& ref_prefix,
+                          int64_t min_fragment_len, bool verbose) {
 
+    // find all nodes in the snarl that are not on the reference interval (reference path name from containing interval)
+    unordered_set<nid_t> to_delete;
+
+    // just for logging
+    unordered_map<string, size_t> clip_counts;
+
+    graph->for_each_handle([&](handle_t handle) {
+            bool on_ref = false;
+            size_t depth = 0;
+            graph->for_each_step_on_handle(handle, [&](step_handle_t step_handle) {
+                    ++depth;
+                    if (depth > min_depth || on_ref) {
+                        return false;
+                    }
+                    if (!ref_prefix.empty()) {
+                        string path_name = graph->get_path_name(graph->get_path_handle_of_step(step_handle));
+                        if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
+                            on_ref = true;
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+            if (!on_ref && depth < min_depth) {
+                to_delete.insert(graph->get_id(handle));
+            }
+        });
+    
+    if (verbose) {
+        cerr << "[vg-clip]: Removing " << to_delete.size() << " nodes with path coverage less than " << min_depth << endl;
+    }
+
+    // cut out the nodes and chop up paths
+    delete_nodes_and_chop_paths(graph, to_delete, min_fragment_len, verbose ? &clip_counts : nullptr);
+        
+    if (verbose) {
+        for (const auto& kv : clip_counts) {
+            cerr << "[vg-clip]: Creating " << kv.second << " fragments from path" << kv.first << endl;
+        }
+        clip_counts.clear();
+    }
+    
+}
 
 
 }

@@ -25,6 +25,16 @@ void visit_contained_snarls(PathPositionHandleGraph* graph, const vector<Region>
                             bool include_endpoints,
                             function<void(const Snarl*, const step_handle_t&, const step_handle_t&, const Region*)> visit_fn);
 
+/*
+ * Cut nodes out of a graph, and chop up any paths that contain them, using (and resolving) supbath
+ * naming conventions from Paths class in path.hpp
+ * If a chopped path has a fragment with length < min_fragment_len, don't bother writing the new path
+ * The fragments_per_path map is optional, and will collect some stats if present
+ */
+void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph, unordered_set<nid_t> to_delete,
+                                 int64_t min_fragment_len,
+                                 unordered_map<string, size_t>* fragments_per_path = nullptr);
+
 
 /**
  * If a given bed region spans a snarl (overlaps its end nodes, and forms a traversal)
@@ -33,9 +43,16 @@ void visit_contained_snarls(PathPositionHandleGraph* graph, const vector<Region>
  * IMPORTANT: for any given snarl, the first region that contains it is used.  
  */
 void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
-                           SnarlManager& snarl_manager, bool include_endpoints, bool verbose);
+                           SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len, bool verbose);
 
 
+/**
+ * Clip out nodes that don't pass depth threshold (depth < min_depth).  
+ * "depth" is the number of paths that step on the node. 
+ * Nodes on path with given prefix ignored (todo: should really switch to regex or something)
+ */
+void clip_low_depth_nodes(MutablePathMutableHandleGraph* graph, int64_t min_depth, const string& ref_prefix,
+                          int64_t min_fragment_len, bool verbose);    
 
                                                       
 }

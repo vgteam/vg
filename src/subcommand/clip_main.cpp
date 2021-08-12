@@ -23,10 +23,11 @@ void help_clip(char** argv) {
        << "bed clipping options: " << endl
        << "    -b, --bed FILE            Clip out alt-alleles in snarls that are contained in a region from given BED file" << endl
        << "depth clipping options: " << endl
-       << "    -d, --depth N             Clip out alt-alleles with average depth below N" << endl
+       << "    -d, --depth N             Clip out nodes with average depth below N" << endl
        << "    -P, --path-prefix STRING  Do not clip out alleles on paths beginning with given prefix." << endl
        << "general options: " << endl
        << "    -r, --snarls FILE         Snarls (from vg snarls) to avoid recomputing " << endl
+       << "    -m, --min-fragment-len N  Don't write novel path fragment if it less than N bp long" << endl
        << "    -t, --threads N           number of threads to use (only used to computing snarls) [default: all available]" << endl
        << "    -v, --verbose             Print some logging messages" << endl
        << endl;
@@ -38,6 +39,7 @@ int main_clip(int argc, char** argv) {
     string snarls_path;
     string ref_prefix;
     int64_t min_depth = 0;
+    int64_t min_fragment_len = 0;
     bool verbose = false;
     int input_count = 0;
 
@@ -56,13 +58,14 @@ int main_clip(int argc, char** argv) {
             {"depth", required_argument, 0, 'd'},
             {"path-prefix", required_argument, 0, 'P'},
             {"snarls", required_argument, 0, 'r'},
+            {"min-fragment-len", required_argument, 0, 'm'},
             {"threads", required_argument, 0, 't'},
             {"verbose", required_argument, 0, 'v'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hb:d:P:r:t:v",
+        c = getopt_long (argc, argv, "hb:d:P:r:m:t:v",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -89,6 +92,9 @@ int main_clip(int argc, char** argv) {
             break;            
         case 'r':
             snarls_path = optarg;
+            break;
+        case 'm':
+            min_fragment_len = stol(optarg);
             break;
         case 'v':
             verbose = true;
@@ -117,27 +123,27 @@ int main_clip(int argc, char** argv) {
     string graph_path = get_input_file_name(optind, argc, argv);
     unique_ptr<MutablePathMutableHandleGraph> graph = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(graph_path);
 
-    // Load or compute the snarls
-    unique_ptr<SnarlManager> snarl_manager;
-    if (!snarls_path.empty()) {
-        ifstream snarl_file(snarls_path.c_str());
-        if (!snarl_file) {
-            cerr << "Error [vg clip]: Unable to load snarls file: " << snarls_path << endl;
-            return 1;
-        }
-        snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
-        if (verbose) {
-            cerr << "[vg clip]: Loaded " << snarl_manager->num_snarls() << " snarls" << endl;
-        }
-    } else {
-        IntegratedSnarlFinder finder(*graph);
-        snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
-        if (verbose) {
-            cerr << "[vg clip]: Computed " << snarl_manager->num_snarls() << " snarls" << endl;
-        }
-    }
-
     if (!bed_path.empty()) {
+        // Load or compute the snarls
+        unique_ptr<SnarlManager> snarl_manager;
+        if (!snarls_path.empty()) {
+            ifstream snarl_file(snarls_path.c_str());
+            if (!snarl_file) {
+                cerr << "Error [vg clip]: Unable to load snarls file: " << snarls_path << endl;
+                return 1;
+            }
+            snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
+            if (verbose) {
+                cerr << "[vg clip]: Loaded " << snarl_manager->num_snarls() << " snarls" << endl;
+            }
+        } else {
+            IntegratedSnarlFinder finder(*graph);
+            snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
+            if (verbose) {
+                cerr << "[vg clip]: Computed " << snarl_manager->num_snarls() << " snarls" << endl;
+            }
+        }
+        
         // load the bed file
         vector<Region> bed_regions;
         parse_bed_regions(bed_path, bed_regions);
@@ -150,12 +156,12 @@ int main_clip(int argc, char** argv) {
         PathPositionHandleGraph* pp_graph = overlay_helper.apply(graph.get());
 
         // run the clipping
-        clip_contained_snarls(graph.get(), pp_graph, bed_regions, *snarl_manager, false, verbose);
+        clip_contained_snarls(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_fragment_len, verbose);
     }
 
     if (min_depth > 0) {
         // run the clipping
-        //clip_low_depth_traversals(graph.get(), min_depth, *snarl_manager, hardmask);
+        clip_low_depth_nodes(graph.get(), min_depth, ref_prefix, min_fragment_len, verbose);
     }
         
     // write the graph
