@@ -623,9 +623,7 @@ multipath_alignment_t from_hit(const Alignment& alignment, const HandleGraph& gr
             edit->set_sequence(string(mem.end, alignment.sequence().end()));
         }
     }
-    Path proto_path;
-    to_proto_path(*path, proto_path);
-    subpath->set_score(scorer.score_partial_alignment(alignment, graph, proto_path,
+    subpath->set_score(scorer.score_partial_alignment(alignment, graph, *path,
                                                       alignment.sequence().begin()));
     
     identify_start_subpaths(multipath_aln);
@@ -640,7 +638,7 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
 #endif
     
     const Path& path = aln.path();
-    Path dummy_path;
+    path_t dummy_path;
     
     tuple<pos_t, int64_t, int32_t> return_val;
     
@@ -663,7 +661,7 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                 cerr << "after mapping " << i << ", remaining length " << len << endl;
 #endif
                 
-                *dummy_path.add_mapping() = path.mapping(i);
+                from_proto_mapping(path.mapping(i), *dummy_path.add_mapping());
                 --i;
             }
             if (i < 0) {
@@ -672,14 +670,15 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
 #endif
                 get<0>(return_val) = initial_position(path);
                 get<1>(return_val) = path_to_length(path);
-                dummy_path = path;
+                dummy_path.clear_mapping();
+                from_proto_path(path, dummy_path);
                 copied_full_path = true;
             }
             else {
                 const Mapping& mapping = path.mapping(i);
                 int64_t j = mapping.edit_size() - 1;
                 int64_t from_length = 0;
-                Mapping* dummy_mapping = nullptr;
+                path_mapping_t* dummy_mapping = nullptr;
                 while (j >= 0 && (len > mapping.edit(j).to_length()
                                   || mapping.edit(j).from_length() == 0)) {
                     auto to_length = mapping.edit(j).to_length();
@@ -693,7 +692,7 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                     if (!dummy_mapping) {
                         dummy_mapping = dummy_path.add_mapping();
                     }
-                    *dummy_mapping->add_edit() = mapping.edit(j);
+                    from_proto_edit(mapping.edit(j), *dummy_mapping->add_edit());
                     --j;
                 }
                 if (j >= 0 && len > 0) {
@@ -708,7 +707,7 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                     if (!dummy_mapping) {
                         dummy_mapping = dummy_path.add_mapping();
                     }
-                    Edit* dummy_edit = dummy_mapping->add_edit();
+                    auto* dummy_edit = dummy_mapping->add_edit();
                     dummy_edit->set_from_length(last_from_length);
                     dummy_edit->set_to_length(len);
                     if (!mapping.edit(j).sequence().empty()) {
@@ -720,7 +719,7 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                 get_is_rev(get<0>(return_val)) = position.is_reverse();
                 get_offset(get<0>(return_val)) = position.offset() + mapping_from_length(mapping) - from_length;
                 if (dummy_mapping) {
-                    *dummy_mapping->mutable_position() = make_position(get<0>(return_val));
+                    from_proto_position(mapping.position(), *dummy_mapping->mutable_position());
                 }
             }
         }
@@ -741,7 +740,7 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                 cerr << "after mapping " << i << ", remaining length " << len << endl;
 #endif
                 
-                *dummy_path.add_mapping() = path.mapping(i);
+                from_proto_mapping(path.mapping(i), *dummy_path.add_mapping());
                 ++i;
             }
             if (i == path.mapping_size()) {
@@ -750,14 +749,15 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
 #endif
                 get<0>(return_val) = final_position(path);
                 get<1>(return_val) = path_to_length(path);
-                dummy_path = path;
+                dummy_path.clear_mapping();
+                from_proto_path(path, dummy_path);
                 copied_full_path = true;
             }
             else {
                 const Mapping& mapping = path.mapping(i);
                 int64_t j = 0;
                 int64_t from_length = 0;
-                Mapping* dummy_mapping = nullptr;
+                path_mapping_t* dummy_mapping = nullptr;
                 while (j < mapping.edit_size() && (len > mapping.edit(j).to_length()
                                                    || mapping.edit(j).from_length() == 0)) {
                     auto to_length = mapping.edit(j).to_length();
@@ -771,9 +771,9 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                     
                     if (!dummy_mapping) {
                         dummy_mapping = dummy_path.add_mapping();
-                        *dummy_mapping->mutable_position() = mapping.position();
+                        from_proto_position(mapping.position(), *dummy_mapping->mutable_position());
                     }
-                    *dummy_mapping->add_edit() = mapping.edit(j);
+                    from_proto_edit(mapping.edit(j), *dummy_mapping->add_edit());
                     ++j;
                 }
                 if (j != mapping.edit_size() && len > 0) {
@@ -787,9 +787,9 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                     
                     if (!dummy_mapping) {
                         dummy_mapping = dummy_path.add_mapping();
-                        *dummy_mapping->mutable_position() = mapping.position();
+                        from_proto_position(mapping.position(), *dummy_mapping->mutable_position());
                     }
-                    Edit* dummy_edit = dummy_mapping->add_edit();
+                    auto* dummy_edit = dummy_mapping->add_edit();
                     dummy_edit->set_from_length(last_from_length);
                     dummy_edit->set_to_length(len);
                     if (!mapping.edit(j).sequence().empty()) {
@@ -815,7 +815,7 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                      *dummy_path.mutable_mapping(dummy_path.mapping_size() - i - 1));
             }
             // the final mapping was also built in reverse
-            Mapping* mapping = dummy_path.mutable_mapping(0);
+            auto* mapping = dummy_path.mutable_mapping(0);
             for (size_t i = 0, end = mapping->edit_size() / 2; i < end; ++i) {
                 swap(*mapping->mutable_edit(i),
                      *mapping->mutable_edit(mapping->edit_size() - i - 1));
@@ -919,13 +919,13 @@ bool trim_path(path_t* path, bool from_left, int64_t mapping_idx, int64_t edit_i
     return do_trim;
 }
 
-pair<pair<Path, int32_t>, pair<Path, int32_t>> split_splice_segment(const Alignment& splice_segment,
-                                                                    const tuple<int64_t, int64_t, int64_t>& left_trace,
-                                                                    const tuple<int64_t, int64_t, int64_t>& right_trace,
-                                                                    int64_t splice_junction_idx,
-                                                                    const GSSWAligner& scorer,
-                                                                    const HandleGraph& graph) {
-
+pair<pair<path_t, int32_t>, pair<path_t, int32_t>> split_splice_segment(const Alignment& splice_segment,
+                                                                        const tuple<int64_t, int64_t, int64_t>& left_trace,
+                                                                        const tuple<int64_t, int64_t, int64_t>& right_trace,
+                                                                        int64_t splice_junction_idx,
+                                                                        const GSSWAligner& scorer,
+                                                                        const HandleGraph& graph) {
+    
 #ifdef debug_linker_split
     cerr << "splitting splice segment " << pb2json(splice_segment) << endl;
     cerr << "split is at index " << splice_junction_idx << endl;
@@ -935,7 +935,7 @@ pair<pair<Path, int32_t>, pair<Path, int32_t>> split_splice_segment(const Alignm
     
     // TODO: make the scoring robust to hanging indels at the trace positions
     
-    pair<pair<Path, int32_t>, pair<Path, int32_t>> return_val;
+    pair<pair<path_t, int32_t>, pair<path_t, int32_t>> return_val;
     auto& left_path = return_val.first.first;
     
     // walk the part of the splice segment before the trace on the left side
@@ -946,7 +946,7 @@ pair<pair<Path, int32_t>, pair<Path, int32_t>> split_splice_segment(const Alignm
     }
     // special logic to handle the mapping with the traced location
     if (get<0>(left_trace) < splice_junction_idx) {
-        Mapping* post_trace_mapping = nullptr;
+        path_mapping_t* post_trace_mapping = nullptr;
         size_t trace_leading_from_length = 0;
         const auto& trace_mapping = splice_segment.path().mapping(get<0>(left_trace));
         for (int64_t j = 0; j < get<1>(left_trace); ++j) {
@@ -976,7 +976,7 @@ pair<pair<Path, int32_t>, pair<Path, int32_t>> split_splice_segment(const Alignm
             if (!post_trace_mapping) {
                 post_trace_mapping = left_path.add_mapping();
             }
-            *post_trace_mapping->add_edit() = trace_mapping.edit(j);
+            from_proto_edit(trace_mapping.edit(j), *post_trace_mapping->add_edit());
         }
         if (post_trace_mapping) {
             const auto& trace_pos = trace_mapping.position();
@@ -994,11 +994,11 @@ pair<pair<Path, int32_t>, pair<Path, int32_t>> split_splice_segment(const Alignm
             continue;
         }
         auto left_mapping = left_path.add_mapping();
-        *left_mapping->mutable_position() = mapping.position();
+        from_proto_position(mapping.position(), *left_mapping->mutable_position());
         for (size_t j = 0; j < mapping.edit_size(); ++j) {
             const auto& edit = mapping.edit(j);
             if (edit.from_length() != 0 || edit.to_length() != 0) {
-                *left_mapping->add_edit() = edit;
+                from_proto_edit(edit, *left_mapping->add_edit());
                 left_to_length += edit.to_length();
             }
         }
@@ -1012,11 +1012,11 @@ pair<pair<Path, int32_t>, pair<Path, int32_t>> split_splice_segment(const Alignm
             continue;
         }
         auto right_mapping = right_path.add_mapping();
-        *right_mapping->mutable_position() = mapping.position();
+        from_proto_position(mapping.position(), *right_mapping->mutable_position());
         for (size_t j = 0; j < mapping.edit_size(); ++j) {
             const auto& edit = mapping.edit(j);
             if (edit.from_length() != 0 || edit.to_length() != 0) {
-                *right_mapping->add_edit() = edit;
+                from_proto_edit(edit, *right_mapping->add_edit());
             }
         }
     }
@@ -1027,9 +1027,9 @@ pair<pair<Path, int32_t>, pair<Path, int32_t>> split_splice_segment(const Alignm
         (get<1>(right_trace) != 0 || get<2>(right_trace) != 0)) {
         auto pre_trace_mapping = right_path.add_mapping();
         const auto& trace_mapping = splice_segment.path().mapping(get<0>(right_trace));
-        *pre_trace_mapping->mutable_position() = trace_mapping.position();
+        from_proto_position(trace_mapping.position(), *pre_trace_mapping->mutable_position());
         for (int64_t j = 0; j < get<1>(right_trace); ++j) {
-            *pre_trace_mapping->add_edit() = trace_mapping.edit(j);
+            from_proto_edit(trace_mapping.edit(j), *pre_trace_mapping->add_edit());
         }
         if (get<1>(right_trace) < trace_mapping.edit_size() && get<2>(right_trace) != 0) {
             const auto& trace_edit = trace_mapping.edit(get<1>(right_trace));
@@ -1287,9 +1287,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
             auto path = left_mp_aln.mutable_subpath(i)->mutable_path();
             bool trimmed = trim_path(path, false, m, e, b);
             if (trimmed) {
-                Path proto_path;
-                to_proto_path(*path, proto_path);
-                int32_t new_score = scorer.score_partial_alignment(alignment, graph, proto_path,
+                int32_t new_score = scorer.score_partial_alignment(alignment, graph, *path,
                                                                    alignment.sequence().begin() + left_to_length[i]);
                 left_mp_aln.mutable_subpath(i)->set_score(new_score);
             }
@@ -1366,7 +1364,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
         
         auto subpath = left_mp_aln.add_subpath();
         subpath->set_score(splice_segment_halves.first.second);
-        from_proto_path(splice_segment_halves.first.first, *subpath->mutable_path());
+        *subpath->mutable_path() = move(splice_segment_halves.first.first);
     }
     
     if (splice_segment_halves.second.first.mapping_size() != 0) {
@@ -1388,7 +1386,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
         
         auto subpath = left_mp_aln.add_subpath();
         subpath->set_score(splice_segment_halves.second.second);
-        from_proto_path(splice_segment_halves.second.first, *subpath->mutable_path());
+        *subpath->mutable_path() = move(splice_segment_halves.second.first);
     }
     
 #ifdef debug_fusing
@@ -1458,9 +1456,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
             bool trimmed = trim_path(path, true, m, e, b);
             if (trimmed) {
                 int64_t new_to_len = path_to_length(*path);
-                Path proto_path;
-                to_proto_path(*path, proto_path);
-                int32_t new_score = scorer.score_partial_alignment(alignment, graph, proto_path,
+                int32_t new_score = scorer.score_partial_alignment(alignment, graph, *path,
                                                                    (alignment.sequence().begin() + right_to_length[i]
                                                                     + to_len - new_to_len));
                 right_mp_aln.mutable_subpath(i)->set_score(new_score);

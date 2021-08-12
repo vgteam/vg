@@ -305,6 +305,12 @@ namespace vg {
                     size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier,
                     size_t min_paths, unordered_set<size_t>* sources = nullptr);
         
+        /// If a list of aligned subsequences are identifical in a prefix/suffix, remove that
+        /// prefix/suffix from all of the alignments and return it as a separate alignment.
+        /// If there is no shared prefix/suffix, returns an empty path with 0 score.
+        static pair<path_t, int32_t> zip_alignments(vector<pair<path_t, int32_t>>& alt_alns, bool from_left,
+                                                    const Alignment& alignment, const HandleGraph& align_graph,
+                                                    string::const_iterator begin, const GSSWAligner* aligner);
         
         /// Memo for the transcendental pessimistic tail gap function (thread local to maintain thread-safety)
         static thread_local unordered_map<double, vector<int64_t>> pessimistic_tail_gap_memo;

@@ -75,4 +75,10 @@ string debug_string(const position_t& pos) {
     return to_return;
 }
 
+void from_proto_position(const Position& from, position_t& to) {
+    to.set_node_id(from.node_id());
+    to.set_offset(from.offset());
+    to.set_is_reverse(from.is_reverse());
+}
+
 }
