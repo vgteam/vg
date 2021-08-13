@@ -14,12 +14,12 @@ using namespace std;
 // then return it (or nullptr if none found)
 // also return the snarl's interval (as pair of offsets) in the path
 // this logic is mostly lifted from deconstructor which does the same thing to get vcf coordinates.
-static pair<const Region*, pair<step_handle_t, step_handle_t>> get_containing_region(PathPositionHandleGraph* graph,
-                                                                                     PathTraversalFinder& trav_finder,
-                                                                                     const Snarl* snarl,
-                                                                                     unordered_map<string, IntervalTree<int64_t, const Region*>>& contig_to_interval_tree,
-                                                                                     bool include_endpoints) {
-
+static tuple<const Region*, step_handle_t, step_handle_t, bool> get_containing_region(PathPositionHandleGraph* graph,
+                                                                                      PathTraversalFinder& trav_finder,
+                                                                                      const Snarl* snarl,
+                                                                                      unordered_map<string, IntervalTree<int64_t, const Region*>>& contig_to_interval_tree,
+                                                                                      bool include_endpoints) {
+    
     // every path through the snarl
     pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > travs = trav_finder.find_path_traversals(*snarl);
 
@@ -70,17 +70,16 @@ static pair<const Region*, pair<step_handle_t, step_handle_t>> get_containing_re
         auto overlapping_intervals = interval_tree.findOverlapping(first_path_pos, last_path_pos);
         for (auto& interval : overlapping_intervals) {
             if (interval.start <= first_path_pos && interval.stop >= last_path_pos) {
-                return make_pair(interval.value, make_pair(start_step, end_step));
+                return make_tuple(interval.value, start_step, end_step, !use_start);
             }
-        }
-                                                                                                                     
+        }                                  
     }
-    return make_pair(nullptr, make_pair(step_handle_t(), step_handle_t()));
+    return make_tuple(nullptr, step_handle_t(), step_handle_t(), false);
 }
 
 void visit_contained_snarls(PathPositionHandleGraph* graph, const vector<Region>& regions, SnarlManager& snarl_manager,
                             bool include_endpoints,
-                            function<void(const Snarl*, const step_handle_t&, const step_handle_t&, const Region*)> visit_fn) {
+                            function<void(const Snarl*, step_handle_t, step_handle_t, bool, const Region*)> visit_fn) {
 
     // make an interval tree of regions for each contig
     unordered_map<string, vector<IntervalTree<int64_t, const Region*>::interval>> region_intervals;
@@ -127,8 +126,8 @@ void visit_contained_snarls(PathPositionHandleGraph* graph, const vector<Region>
             while (!todo.empty()) {
                 for (auto next_snarl : todo) {
                     auto containing_region_info = get_containing_region(graph, trav_finder, next_snarl, contig_to_interval_tree, include_endpoints);
-                    if (containing_region_info.first != nullptr) {
-                        visit_fn(next_snarl, containing_region_info.second.first, containing_region_info.second.second, containing_region_info.first);
+                    if (get<0>(containing_region_info)  != nullptr) {
+                        visit_fn(next_snarl, get<1>(containing_region_info), get<2>(containing_region_info), get<3>(containing_region_info), get<0>(containing_region_info));
                     } else {
                         const vector<const Snarl*>& children = snarl_manager.children_of(next_snarl);
                         next.insert(next.end(), children.begin(), children.end());
@@ -156,9 +155,9 @@ static path_handle_t create_path_fragment(MutablePathMutableHandleGraph* graph, 
     return subpath_handle;
 }
 
-// note: clip-vg.cpp has a more general version (if ever needed) that can cut nodes on path positions
-void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph, unordered_set<nid_t> to_delete,
-                                 int64_t min_fragment_len,
+// note: clip-vg.cpp has a more general version (if ever needed) that can chop nodes on path positions
+void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph, const unordered_set<nid_t>& nodes_to_delete,
+                                 const unordered_set<edge_t>& edges_to_delete, int64_t min_fragment_len,
                                  unordered_map<string, size_t>* fragments_per_path) {
       // chop the paths    
     vector<path_handle_t> path_handles;
@@ -183,19 +182,28 @@ void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph, unordered
         int64_t start_step_offset = cur_step_offset;
         step_handle_t prev_step;
         step_handle_t end_step = graph->path_end(path_handle);
-        bool in_path = !to_delete.count(graph->get_id(graph->get_handle_of_step(start_step)));
+        bool in_path = !nodes_to_delete.count(graph->get_id(graph->get_handle_of_step(start_step)));
         bool was_chopped = false;
         for (step_handle_t cur_step = start_step; cur_step != end_step; cur_step = graph->get_next_step(cur_step)) {
             handle_t cur_handle = graph->get_handle_of_step(cur_step);
             nid_t cur_id = graph->get_id(cur_handle);
-            bool step_deleted = to_delete.count(cur_id);
-            if (in_path && step_deleted && cur_step_offset > start_step_offset) {
-                // we hit a deleted node: make a path fragment for eveything to it
-                if (cur_step_offset - start_step_offset >= min_fragment_len) {
-                    create_path_fragment(graph, path_name, start_step, cur_step, start_step_offset, cur_step_offset);
-                    if (fragments_per_path) {
-                        ++(*fragments_per_path)[path_name];
+            bool step_deleted = nodes_to_delete.count(cur_id);
+            bool edge_deleted = false;
+            if (in_path && cur_step_offset > start_step_offset) {
+                if (!step_deleted) {
+                    edge_deleted = edges_to_delete.count(graph->edge_handle(graph->get_handle_of_step(prev_step), cur_handle));
+                }
+                if (step_deleted || edge_deleted) {
+                    // we hit a deleted node (or edge): make a path fragment for eveything to it
+                    if (step_deleted || cur_step_offset - start_step_offset >= min_fragment_len) {
+                        create_path_fragment(graph, path_name, start_step, cur_step, start_step_offset, cur_step_offset);
+                        if (fragments_per_path) {
+                            ++(*fragments_per_path)[path_name];
+                        }
                     }
+                }
+                if (edge_deleted) { // need to handle this case by popping off the path now
+                    in_path = false;
                 }
             }
             if (!in_path && !step_deleted) {
@@ -206,7 +214,7 @@ void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph, unordered
             in_path = !step_deleted;
             cur_step_offset += graph->get_length(cur_handle);
             prev_step = cur_step;
-            was_chopped = was_chopped || step_deleted;
+            was_chopped = was_chopped || step_deleted || edge_deleted;
         }
 
         if (was_chopped && in_path && cur_step_offset > start_step_offset) {
@@ -224,12 +232,17 @@ void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph, unordered
         }
     }
 
-    // finally, delete the nodes
     DeletableHandleGraph* del_graph = dynamic_cast<DeletableHandleGraph*>(graph);
-    for (nid_t node_id : to_delete) {
+    // delete the edges
+    for (edge_t edge : edges_to_delete) {
+        del_graph->destroy_edge(edge);
+    }
+    
+    // finally, delete the nodes    
+    for (nid_t node_id : nodes_to_delete) {
         handle_t handle = graph->get_handle(node_id);
         assert(graph->steps_of_handle(handle).empty());
-        dynamic_cast<DeletableHandleGraph*>(graph)->destroy_handle(handle);
+        del_graph->destroy_handle(handle);
     }    
 
 }
@@ -238,36 +251,54 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
                            SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len, bool verbose) {
 
     // find all nodes in the snarl that are not on the reference interval (reference path name from containing interval)
-    unordered_set<nid_t> to_delete;
+    unordered_set<nid_t> nodes_to_delete;
+
+    // and all the edges
+    unordered_set<edge_t> edges_to_delete;
 
     // just for logging
     unordered_map<string, size_t> clip_counts;
     
-    visit_contained_snarls(pp_graph, regions, snarl_manager, include_endpoints, [&](const Snarl* snarl, const step_handle_t& start_step, const step_handle_t& end_step, const Region* containing_region) {
+    visit_contained_snarls(pp_graph, regions, snarl_manager, include_endpoints, [&](const Snarl* snarl, step_handle_t start_step, step_handle_t end_step,
+                                                                                    bool steps_reversed, const Region* containing_region) {
 
 #ifdef debug
             cerr << "Clipping snarl " << pb2json(*snarl) << " because it lies in region "
                  << containing_region->seq << ":" << containing_region->start << "-" << containing_region->end << endl;
+            cerr << "Passed in steps are " << pp_graph->get_id(pp_graph->get_handle_of_step(start_step)) << ":" << pp_graph->get_is_reverse(pp_graph->get_handle_of_step(start_step)) << " - "
+                 << pp_graph->get_id(pp_graph->get_handle_of_step(end_step)) << ":" << pp_graph->get_is_reverse(pp_graph->get_handle_of_step(end_step)) << endl;
 #endif
 
             unordered_set<nid_t> whitelist;
-            step_handle_t past_end_step = pp_graph->get_next_step(end_step);            
-            for (step_handle_t step = start_step ; step != past_end_step; step = graph->get_next_step(step)) {
-                whitelist.insert(pp_graph->get_id(pp_graph->get_handle_of_step(step)));
+            if (steps_reversed) {
+                step_handle_t past_end_step = pp_graph->get_previous_step(end_step);            
+                for (step_handle_t step = start_step ; step != past_end_step; step = graph->get_previous_step(step)) {
+                    whitelist.insert(pp_graph->get_id(pp_graph->get_handle_of_step(step)));
+                }
+            } else {
+                step_handle_t past_end_step = pp_graph->get_next_step(end_step);            
+                for (step_handle_t step = start_step ; step != past_end_step; step = graph->get_next_step(step)) {
+                    whitelist.insert(pp_graph->get_id(pp_graph->get_handle_of_step(step)));
+                }
             }
 
             pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(snarl, *pp_graph, false);
             for (id_t node_id : contents.first) {
                 if (!whitelist.count(node_id)) {
-                    to_delete.insert(node_id);
+                    nodes_to_delete.insert(node_id);
                     ++clip_counts[containing_region->seq];
                 }
             }
-            
+            // since we're deleting all alt alleles, the only edge that could be left is a snarl-spanning deletion
+            edge_t deletion_edge = graph->edge_handle(graph->get_handle(snarl->start().node_id(), snarl->start().backward()),
+                                                      graph->get_handle(snarl->end().node_id(), snarl->end().backward()));
+            if (graph->has_edge(deletion_edge)) {
+                edges_to_delete.insert(deletion_edge);
+            }
         });
 
     if (verbose) {
-        cerr << "[vg-clip]: Removing " << to_delete.size() << " nodes from snarls in regions" << endl;
+        cerr << "[vg-clip]: Removing " << nodes_to_delete.size() << " nodes and " << edges_to_delete.size() << " edges from snarls in regions" << endl;
         for (const auto& kv : clip_counts) {
             cerr << "[vg-clip]: Removing " << kv.second << " nodes due to intervals on path " << kv.first << endl;
         }
@@ -275,8 +306,7 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
     }
     
     // cut out the nodes and chop up paths
-    delete_nodes_and_chop_paths(graph, to_delete, min_fragment_len, verbose ? &clip_counts : nullptr);
-    
+    delete_nodes_and_chop_paths(graph, nodes_to_delete, edges_to_delete, min_fragment_len, verbose ? &clip_counts : nullptr);
     
     if (verbose) {
         for (const auto& kv : clip_counts) {
@@ -322,7 +352,7 @@ void clip_low_depth_nodes(MutablePathMutableHandleGraph* graph, int64_t min_dept
     }
 
     // cut out the nodes and chop up paths
-    delete_nodes_and_chop_paths(graph, to_delete, min_fragment_len, verbose ? &clip_counts : nullptr);
+    delete_nodes_and_chop_paths(graph, to_delete, {}, min_fragment_len, verbose ? &clip_counts : nullptr);
         
     if (verbose) {
         for (const auto& kv : clip_counts) {

@@ -19,11 +19,11 @@ using namespace std;
  * Visit each snarl if it is fully contained in at least one region from the input set.
  * Only the top-most snarl is visited.
  * The parameters to visit_fn are: 
- *    <the snarl, start_step, end_step, the containing input region>
+ *    <the snarl, start_step, end_step, steps_reversed, the containing input region>
  */
 void visit_contained_snarls(PathPositionHandleGraph* graph, const vector<Region>& regions, SnarlManager& snarl_manager,
                             bool include_endpoints,
-                            function<void(const Snarl*, const step_handle_t&, const step_handle_t&, const Region*)> visit_fn);
+                            function<void(const Snarl*, step_handle_t, step_handle_t, bool, const Region*)> visit_fn);
 
 /*
  * Cut nodes out of a graph, and chop up any paths that contain them, using (and resolving) supbath
@@ -31,7 +31,9 @@ void visit_contained_snarls(PathPositionHandleGraph* graph, const vector<Region>
  * If a chopped path has a fragment with length < min_fragment_len, don't bother writing the new path
  * The fragments_per_path map is optional, and will collect some stats if present
  */
-void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph, unordered_set<nid_t> to_delete,
+void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph,
+                                 const unordered_set<nid_t>& nodes_to_delete,
+                                 const unordered_set<edge_t>& edges_to_delete,
                                  int64_t min_fragment_len,
                                  unordered_map<string, size_t>* fragments_per_path = nullptr);
 
