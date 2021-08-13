@@ -360,7 +360,37 @@ void clip_low_depth_nodes(MutablePathMutableHandleGraph* graph, int64_t min_dept
         }
         clip_counts.clear();
     }
-    
+
+    // use the reference path prefix (if given) to clip out components that aren't anchored to it
+    // (this would take care of above filter, but we leave that one as it's not dependent on path name)
+    if (!ref_prefix.empty()) {
+        size_t removed_node_count = 0;
+        size_t removed_component_count = 0;
+        vector<unordered_set<nid_t>> components = handlealgs::weakly_connected_components(graph);
+        for (auto& component : components) {
+            bool ref_anchored = false;
+            for (auto ni = component.begin(); !ref_anchored && ni != component.end(); ++ni) {
+                vector<step_handle_t> steps = graph->steps_of_handle(graph->get_handle(*ni));
+                for (size_t si = 0; !ref_anchored && si < steps.size(); ++si) {
+                    string step_path_name = graph->get_path_name(graph->get_path_handle_of_step(steps[si]));
+                    if (step_path_name.substr(0, ref_prefix.length()) == ref_prefix) {
+                        ref_anchored = true;
+                    }
+                }
+            }
+            if (!ref_anchored) {
+                ++removed_component_count;
+                for (auto node_id : component) {
+                    handle_t node_handle = graph->get_handle(node_id);
+                    dynamic_cast<DeletableHandleGraph*>(graph)->destroy_handle(node_handle);
+                    ++removed_node_count;
+                }
+            }
+        }
+        if (verbose) {
+            cerr << "[vg-clip]: Removing " << removed_node_count << " nodes in " << removed_component_count << " disconnected components" << endl;
+        }
+    }
 }
 
 
