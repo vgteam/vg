@@ -310,7 +310,7 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
     
     if (verbose) {
         for (const auto& kv : clip_counts) {
-            cerr << "[vg-clip]: Creating " << kv.second << " fragments from path" << kv.first << endl;
+            cerr << "[vg-clip]: Creating " << kv.second << " fragments from path " << kv.first << endl;
         }
         clip_counts.clear();
     }
