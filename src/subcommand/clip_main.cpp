@@ -18,15 +18,15 @@ using namespace vg::io;
 
 void help_clip(char** argv) {
   cerr << "usage: " << argv[0] << " [options] <graph>" << endl
-       << "Chop out path intervals from a vg graph" << endl
+       << "Chop out variation within path intervals of a vg graph" << endl
        << endl
-       << "bed clipping options: " << endl
-       << "    -b, --bed FILE            Clip out alt-alleles in snarls that are contained in a region from given BED file" << endl
+       << "input options: " << endl
+       << "    -b, --bed FILE            BED regions corresponding to path intervals of the graph to target" << endl
+       << "    -r, --snarls FILE         Snarls from vg snarls (recomputed if not given).  Snarls used to identify subgraphs within target intervals" << endl
        << "depth clipping options: " << endl
        << "    -d, --depth N             Clip out nodes with average depth below N" << endl
-       << "    -P, --path-prefix STRING  Do not clip out alleles on paths beginning with given prefix." << endl
+       << "    -P, --path-prefix STRING  Do not clip out alleles on paths beginning with given prefix (references must be specified either with -P or -b). " << endl
        << "general options: " << endl
-       << "    -r, --snarls FILE         Snarls (from vg snarls) to avoid recomputing " << endl
        << "    -m, --min-fragment-len N  Don't write novel path fragment if it less than N bp long" << endl
        << "    -t, --threads N           number of threads to use (only used to computing snarls) [default: all available]" << endl
        << "    -v, --verbose             Print some logging messages" << endl
@@ -38,10 +38,10 @@ int main_clip(int argc, char** argv) {
     string bed_path;
     string snarls_path;
     string ref_prefix;
-    int64_t min_depth = 0;
+    int64_t min_depth = -1;
     int64_t min_fragment_len = 0;
     bool verbose = false;
-    int input_count = 0;
+    bool depth_clipping = false;
 
     if (argc == 2) {
         help_clip(argv);
@@ -81,11 +81,9 @@ int main_clip(int argc, char** argv) {
             return 0;
         case 'b':
             bed_path = optarg;
-            ++input_count;
             break;
         case 'd':
-            min_depth = stol(optarg);
-            ++input_count;
+            min_depth = parse<size_t>(optarg);
             break;
         case 'P':
             ref_prefix = optarg;
@@ -94,7 +92,7 @@ int main_clip(int argc, char** argv) {
             snarls_path = optarg;
             break;
         case 'm':
-            min_fragment_len = stol(optarg);
+            min_fragment_len = parse<int>(optarg);
             break;
         case 'v':
             verbose = true;
@@ -114,8 +112,13 @@ int main_clip(int argc, char** argv) {
         }
     }
 
-    if (input_count != 1) {
-        cerr << "error:[vg clip] Exactly one of -b or -d must be specified to select what to clip" << endl;
+    if (min_depth >= 0) {
+        if (bed_path.empty() == ref_prefix.empty()) {
+            cerr << "error:[vg-clip] Depth clipping (-d) requires reference intervals specified with one of -b or -P" << endl;
+            return 1;
+        }
+    } else if (bed_path.empty()) {
+        cerr << "error:[vg-clip] BED intervals must be specified with -b" << endl;
         return 1;
     }
 
@@ -123,9 +126,18 @@ int main_clip(int argc, char** argv) {
     string graph_path = get_input_file_name(optind, argc, argv);
     unique_ptr<MutablePathMutableHandleGraph> graph = vg::io::VPKG::load_one<MutablePathMutableHandleGraph>(graph_path);
 
+    // optional overlay only needed with bed regions input
+    bdsg::PathPositionOverlayHelper overlay_helper;
+    PathPositionHandleGraph* pp_graph = nullptr;
+
+    unique_ptr<SnarlManager> snarl_manager;
+    vector<Region> bed_regions;
+    
     if (!bed_path.empty()) {
-        // Load or compute the snarls
-        unique_ptr<SnarlManager> snarl_manager;
+        // need path positions to intersect with regions
+        pp_graph = overlay_helper.apply(graph.get());
+        
+        // Load or compute the snarls which are required for targetting bed regions
         if (!snarls_path.empty()) {
             ifstream snarl_file(snarls_path.c_str());
             if (!snarl_file) {
@@ -145,23 +157,25 @@ int main_clip(int argc, char** argv) {
         }
         
         // load the bed file
-        vector<Region> bed_regions;
         parse_bed_regions(bed_path, bed_regions);
         if (verbose) {
             cerr << "[vg clip]: Loaded " << bed_regions.size() << " BED regions" << endl;
         }
-
-        // need path positions
-        bdsg::PathPositionOverlayHelper overlay_helper;
-        PathPositionHandleGraph* pp_graph = overlay_helper.apply(graph.get());
-
-        // run the clipping
-        clip_contained_snarls(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_fragment_len, verbose);
     }
 
-    if (min_depth > 0) {
-        // run the clipping
-        clip_low_depth_nodes(graph.get(), min_depth, ref_prefix, min_fragment_len, verbose);
+    if (min_depth >= 0) {
+        // run the depth clipping       
+        if (bed_regions.empty()) {            
+            // do the whole graph
+            clip_low_depth_nodes(graph.get(), min_depth, ref_prefix, min_fragment_len, verbose);
+        } else {
+            // do the contained snarls
+            clip_contained_low_depth_nodes(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_depth, min_fragment_len, verbose);
+        }
+        
+    } else {
+        // run the alt-allele clipping
+        clip_contained_snarls(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_fragment_len, verbose);
     }
         
     // write the graph

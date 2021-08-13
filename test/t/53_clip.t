@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 7
+plan tests 13
 
 vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - > hla.vg
 
@@ -41,12 +41,33 @@ is $(vg view clip.vg | grep ^L | wc -l) "65" "Just one edge filtered"
 rm -f region.bed clip.vg
 
 # clip out low coverage node
-vg clip hla.vg -d 4 > clip.vg
+vg clip hla.vg -d 4 -P "gi|568815551:1054737-1055734" > clip.vg
 vg validate clip.vg
 is "$?" 0 "clipped graph is valid"
 is $(vg view clip.vg | grep ^S | wc -l) "49" "Just one node filtered"
 
 rm -f clip.vg
+
+# clip out out-of-bounds low coverage node
+printf "gi|568815551:1054737-1055734\t5\t25\n" > region.bed
+vg clip hla.vg -b region.bed -d 4 > clip.vg
+vg validate clip.vg
+is "$?" 0 "clipped graph is valid"
+vg view hla.vg | sort > hla.gfa
+vg view clip.vg | sort > clip.gfa
+diff hla.gfa clip.gfa
+is "$?" 0 "clipping bad region changes nothing"
+
+rm -f clip.vg hla.gfa clip.gfa
+
+# clip out in-bounds low coverage node
+printf "gi|568815551:1054737-1055734\t600\t650\n" > region.bed
+vg clip hla.vg -b region.bed -d 4 > clip.vg
+vg validate clip.vg
+is "$?" 0 "clipped graph is valid"
+is $(vg view clip.vg | grep ^S | wc -l) "49" "Just one node filtered"
+
+rm -f region.bed clip.vg
 
 rm -f hla.vg
 
