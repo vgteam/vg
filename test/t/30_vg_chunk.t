@@ -98,9 +98,9 @@ is "$?" 0 "components finds subgraphs"
 
 rm -f xy.vg x.vg y.vg x_nodes.txt y_nodes.txt convert path_chunk_x.hg  convert path_chunk_y.hg pc_x_nodes.txt pc_y_nodes.txt x_paths.txt pc_x_paths.txt components_chunk_0.vg components_chunk_1.vg comp_0_nodes.txt comp_1_nodes.txt comp_nodes.txt nodes.txt x.gam y.gam xy.gam path_chunk_x.gam path_chunk_y.gam
 
-vg gbwt -x reversing/threadsplosion-threads.vg --index-paths --paths-as-samples -o threadsplosion.gbwt
+vg gbwt -x reversing/threadsplosion-threads.gfa --index-paths --paths-as-samples -o threadsplosion.gbwt
 
-vg chunk -x reversing/threadsplosion-ref.vg -G threadsplosion.gbwt -T -p GRCh38.chr16:107 -l 2 -c 1 -b chunk >/dev/null
+vg chunk -x reversing/threadsplosion-ref.gfa -G threadsplosion.gbwt -T -p GRCh38.chr16:107 -l 2 -c 1 -b chunk >/dev/null
 is "$(cat chunk_0_GRCh38.chr16*.txt | grep thread | wc -l)" "2" "a single SNP in an unsorted and unoriented graph can produce no more than 2 distinct haplotypes"
 rm -f threadsplosion.gbwt chunk_0_GRCh38.chr16*.txt
 
