@@ -22,10 +22,10 @@ void help_clip(char** argv) {
        << endl
        << "input options: " << endl
        << "    -b, --bed FILE            BED regions corresponding to path intervals of the graph to target" << endl
-       << "    -r, --snarls FILE         Snarls from vg snarls (recomputed if not given).  Snarls used to identify subgraphs within target intervals" << endl
+       << "    -r, --snarls FILE         Snarls from vg snarls (recomputed if not given; only needed with -b). Snarls used to identify subgraphs to clip within target intervals" << endl
        << "depth clipping options: " << endl
-       << "    -d, --depth N             Clip out nodes with average depth below N" << endl
-       << "    -P, --path-prefix STRING  Do not clip out alleles on paths beginning with given prefix (references must be specified either with -P or -b). " << endl
+       << "    -d, --depth N             Clip out nodes with path depth below N" << endl
+       << "    -P, --path-prefix STRING  Do not clip out alleles on paths beginning with given prefix (such references must be specified either with -P or -b). " << endl
        << "general options: " << endl
        << "    -m, --min-fragment-len N  Don't write novel path fragment if it less than N bp long" << endl
        << "    -t, --threads N           number of threads to use (only used to computing snarls) [default: all available]" << endl
