@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['anno_5ftype_5ft_10963',['anno_type_t',['../classvg_1_1multipath__alignment__t.html#a6949ef73371981a69cc9223e44e8095e',1,'vg::multipath_alignment_t']]]
+  ['anno_5ftype_5ft_10985',['anno_type_t',['../classvg_1_1multipath__alignment__t.html#a6949ef73371981a69cc9223e44e8095e',1,'vg::multipath_alignment_t']]]
 ];
