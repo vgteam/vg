@@ -2000,6 +2000,120 @@ namespace vg {
             }
         }
     }
+
+    vector<pair<size_t, size_t>> MultipathAlignmentGraph::get_keep_segments(path_t& path,
+                                                                            SnarlManager* cutting_snarls,
+                                                                            MinimumDistanceIndex* dist_index,
+                                                                            const function<pair<id_t, bool>(id_t)>& project,
+                                                                            int64_t max_snarl_cut_size) const {
+        
+        // this list holds the beginning of the current segment at each depth in the snarl hierarchy
+        // as we traverse the exact match, the beginning is recorded in both sequence distance and node index
+        list<pair<size_t, size_t>> level_segment_begin;
+        level_segment_begin.emplace_back(0, 0);
+        
+        // we record which segments we are going to cut out of the match here
+        vector<pair<size_t, size_t>> cut_segments;
+        
+        auto curr_level = level_segment_begin.begin();
+        size_t prefix_length = 0;
+        for (size_t j = 0, last = path.mapping_size() - 1; j <= last; j++) {
+            const position_t& position = path.mapping(j).position();
+            const auto& projection = project(position.node_id());
+            id_t projected_id = projection.first;
+            bool projected_rev = (projection.second != position.is_reverse());
+            
+            if (j > 0) {
+                // we have entered this node on this iteration
+                if (into_cutting_snarl(projected_id, !projected_rev, cutting_snarls, dist_index)) {
+                    // as we enter this node, we are leaving the snarl we were in
+                    
+                    // since we're going up a level, we need to check whether we need to cut out the segment we've traversed
+                    if (prefix_length - curr_level->first <= max_snarl_cut_size) {
+                        cut_segments.emplace_back(curr_level->second, j);
+                    }
+                    
+                    curr_level++;
+                    if (curr_level == level_segment_begin.end()) {
+                        // we were already at the highest level seen so far, so we need to add a new one
+                        // the entire previous part of the match is contained in this level, so we start
+                        // the segment from 0
+                        curr_level = level_segment_begin.insert(level_segment_begin.end(), pair<size_t, size_t>(0, 0));
+                    }
+                }
+            }
+            
+            // cross to the other side of the node
+            prefix_length += mapping_from_length(path.mapping(j));
+            
+            if (j < last) {
+                // we are going to leave this node next iteration
+                if (into_cutting_snarl(projected_id, projected_rev, cutting_snarls, dist_index)) {
+                    // as we leave this node, we are entering a new deeper snarl
+                    
+                    // the segment in the new level will begin at the end of the current node
+                    if (curr_level == level_segment_begin.begin()) {
+                        // we are already at the lowest level seen so far, so we need to add a new one
+                        level_segment_begin.emplace_front(prefix_length, j + 1);
+                        curr_level--;
+                    }
+                    else {
+                        // the lower level is in the record already, so we update its segment start
+                        curr_level--;
+                        *curr_level = make_pair(prefix_length, j + 1);
+                    }
+                }
+            }
+        }
+        
+        // check the final segment for a cut unless we're at the highest level in the match
+        auto last = level_segment_begin.end();
+        last--;
+        if ((prefix_length - curr_level->first <= max_snarl_cut_size) && curr_level != last) {
+            cut_segments.emplace_back(curr_level->second, path.mapping_size());
+        }
+        
+#ifdef debug_multipath_alignment
+        cerr << "found " << cut_segments.size() << " cut segments:" << endl;
+        for (auto seg : cut_segments) {
+            cerr << "\t" << seg.first << ":" << seg.second << endl;
+        }
+#endif
+        vector<pair<size_t, size_t>> keep_segments;
+        if (!cut_segments.empty()) {
+            
+            // we may have decided to cut the segments of both a parent and child snarl, so now we
+            // collapse the list of intervals, which is sorted on the end index by construction
+            //
+            // snarl nesting properties guarantee that there will be at least one node between any
+            // cut segments that are not nested, so we don't need to deal with the case where the
+            // segments are partially overlapping (i.e. it's a bit easier than the general interval
+            // intersection problem)
+            size_t curr_keep_seg_end = path.mapping_size();
+            auto riter = cut_segments.rbegin();
+            if (riter->second == curr_keep_seg_end) {
+                // don't add an empty keep segment in the first position
+                curr_keep_seg_end = riter->first;
+                riter++;
+            }
+            for (; riter != cut_segments.rend(); riter++) {
+                if (riter->second < curr_keep_seg_end) {
+                    // this is a new interval
+                    keep_segments.emplace_back(riter->second, curr_keep_seg_end);
+                    curr_keep_seg_end = riter->first;
+                }
+            }
+            if (curr_keep_seg_end > 0) {
+                // we are not cutting off the left tail, so add a keep segment for it
+                keep_segments.emplace_back(0, curr_keep_seg_end);
+            }
+            
+            // the keep segments are now stored last-to-first, let's reverse them to their more natural ordering
+            reverse(keep_segments.begin(), keep_segments.end());
+        }
+        
+        return keep_segments;
+    }
     
     void MultipathAlignmentGraph::resect_snarls_from_paths(SnarlManager* cutting_snarls,
                                                            MinimumDistanceIndex* dist_index,
@@ -2026,114 +2140,13 @@ namespace vg {
             cerr << "cutting node at index " << i << " with path " << debug_string(*path) << endl;
 #endif
             
-            // this list holds the beginning of the current segment at each depth in the snarl hierarchy
-            // as we traverse the exact match, the beginning is recorded in both sequence distance and node index
-            list<pair<size_t, size_t>> level_segment_begin;
-            level_segment_begin.emplace_back(0, 0);
-            
-            // we record which segments we are going to cut out of the match here
-            vector<pair<size_t, size_t>> cut_segments;
-            
-            auto curr_level = level_segment_begin.begin();
-            size_t prefix_length = 0;
-            for (size_t j = 0, last = path->mapping_size() - 1; j <= last; j++) {
-                const position_t& position = path->mapping(j).position();
-                const auto& projection = project(position.node_id());
-                id_t projected_id = projection.first;
-                bool projected_rev = (projection.second != position.is_reverse());
-                
-                if (j > 0) {
-                    // we have entered this node on this iteration
-                    if (into_cutting_snarl(projected_id, !projected_rev, cutting_snarls, dist_index)) {
-                        // as we enter this node, we are leaving the snarl we were in
-                        
-                        // since we're going up a level, we need to check whether we need to cut out the segment we've traversed
-                        if (prefix_length - curr_level->first <= max_snarl_cut_size) {
-                            cut_segments.emplace_back(curr_level->second, j);
-                        }
-                        
-                        curr_level++;
-                        if (curr_level == level_segment_begin.end()) {
-                            // we were already at the highest level seen so far, so we need to add a new one
-                            // the entire previous part of the match is contained in this level, so we start
-                            // the segment from 0
-                            curr_level = level_segment_begin.insert(level_segment_begin.end(), make_pair(0, 0));
-                        }
-                    }
-                }
-                
-                // cross to the other side of the node
-                prefix_length += mapping_from_length(path->mapping(j));
-                
-                if (j < last) {
-                    // we are going to leave this node next iteration
-                    if (into_cutting_snarl(projected_id, projected_rev, cutting_snarls, dist_index)) {
-                        // as we leave this node, we are entering a new deeper snarl
-                        
-                        // the segment in the new level will begin at the end of the current node
-                        if (curr_level == level_segment_begin.begin()) {
-                            // we are already at the lowest level seen so far, so we need to add a new one
-                            level_segment_begin.emplace_front(prefix_length, j + 1);
-                            curr_level--;
-                        }
-                        else {
-                            // the lower level is in the record already, so we update its segment start
-                            curr_level--;
-                            *curr_level = make_pair(prefix_length, j + 1);
-                        }
-                    }
-                }
-            }
-            
-            // check the final segment for a cut unless we're at the highest level in the match
-            auto last = level_segment_begin.end();
-            last--;
-            if ((prefix_length - curr_level->first <= max_snarl_cut_size) && curr_level != last) {
-                cut_segments.emplace_back(curr_level->second, path->mapping_size());
-            }
-            
-#ifdef debug_multipath_alignment
-            cerr << "found " << cut_segments.size() << " cut segments:" << endl;
-            for (auto seg : cut_segments) {
-                cerr << "\t" << seg.first << ":" << seg.second << endl;
-            }
-#endif
+            auto keep_segments = get_keep_segments(*path, cutting_snarls, dist_index, project, max_snarl_cut_size);
             
             // did we cut out any segments?
-            if (!cut_segments.empty()) {
-                
-                // we may have decided to cut the segments of both a parent and child snarl, so now we
-                // collapse the list of intervals, which is sorted on the end index by construction
-                //
-                // snarl nesting properties guarantee that there will be at least one node between any
-                // cut segments that are not nested, so we don't need to deal with the case where the
-                // segments are partially overlapping (i.e. it's a bit easier than the general interval
-                // intersection problem)
-                vector<pair<size_t, size_t>> keep_segments;
-                size_t curr_keep_seg_end = path->mapping_size();
-                auto riter = cut_segments.rbegin();
-                if (riter->second == curr_keep_seg_end) {
-                    // don't add an empty keep segment in the first position
-                    curr_keep_seg_end = riter->first;
-                    riter++;
-                }
-                for (; riter != cut_segments.rend(); riter++) {
-                    if (riter->second < curr_keep_seg_end) {
-                        // this is a new interval
-                        keep_segments.emplace_back(riter->second, curr_keep_seg_end);
-                        curr_keep_seg_end = riter->first;
-                    }
-                }
-                if (curr_keep_seg_end > 0) {
-                    // we are not cutting off the left tail, so add a keep segment for it
-                    keep_segments.emplace_back(0, curr_keep_seg_end);
-                }
-                
-                // the keep segments are now stored last-to-first, let's reverse them to their more natural ordering
-                reverse(keep_segments.begin(), keep_segments.end());
+            if (!keep_segments.empty()) {
                 
                 // record the data stored on the original path node
-                path_t original_path = *path;
+                path_t original_path = move(*path);
                 string::const_iterator original_begin = path_node->begin;
                 string::const_iterator original_end = path_node->end;
                 vector<pair<size_t, size_t>> forward_edges = move(path_node->edges);
@@ -4134,15 +4147,26 @@ namespace vg {
     
     void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
                                         bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
-                                        double pessimistic_tail_gap_multiplier, size_t band_padding, multipath_alignment_t& multipath_aln_out,
-                                        bool allow_negative_scores) {
+                                        double pessimistic_tail_gap_multiplier, bool simplify_topologies, size_t unmergeable_len,
+                                        size_t band_padding, multipath_alignment_t& multipath_aln_out, bool allow_negative_scores) {
         
         // don't dynamically choose band padding, shim constant value into a function type
         function<size_t(const Alignment&,const HandleGraph&)> constant_padding = [&](const Alignment& seq, const HandleGraph& graph) {
             return band_padding;
         };
-        align(alignment, align_graph, aligner, score_anchors_as_matches, max_alt_alns, dynamic_alt_alns,
-              max_gap, pessimistic_tail_gap_multiplier, constant_padding, multipath_aln_out, allow_negative_scores);
+        align(alignment,
+              align_graph,
+              aligner,
+              score_anchors_as_matches,
+              max_alt_alns,
+              dynamic_alt_alns,
+              max_gap,
+              pessimistic_tail_gap_multiplier,
+              simplify_topologies,
+              unmergeable_len,
+              constant_padding,
+              multipath_aln_out,
+              allow_negative_scores);
     }
 
     pair<path_t, int32_t> MultipathAlignmentGraph::zip_alignments(vector<pair<path_t, int32_t>>& alt_alns, bool from_left,
@@ -4532,8 +4556,9 @@ namespace vg {
     
     void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
                                         bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
-                                        double pessimistic_tail_gap_multiplier, function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
-                                        multipath_alignment_t& multipath_aln_out, const bool allow_negative_scores) {
+                                        double pessimistic_tail_gap_multiplier, bool simplify_topologies, size_t unmergeable_len,
+                                        function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
+                                        multipath_alignment_t& multipath_aln_out, bool allow_negative_scores) {
         
         // Can only align if edges are present.
         assert(has_reachability_edges);
@@ -4844,6 +4869,8 @@ namespace vg {
         
         // Now do the tails
         
+        unordered_set<size_t> prohibited_merges;
+        
         // We need to know what subpaths are real sources
         unordered_set<size_t> sources;
         
@@ -4856,7 +4883,7 @@ namespace vg {
         // Handle the right tails
         for (auto& kv : tail_alignments[true]) {
             // For each sink subpath number
-            const size_t& j = kv.first;
+            size_t j = kv.first;
             // And the tail alignments from it
             vector<Alignment>& alt_alignments = kv.second;
             
@@ -5162,6 +5189,19 @@ namespace vg {
 #endif
                 multipath_aln_out.add_start(j);
             }
+        }
+        
+        if (simplify_topologies) {
+#ifdef debug_multipath_alignment
+            cerr << "merging non-branching subpaths" << endl;
+            size_t num_pre_merge = multipath_aln_out.subpath_size();
+#endif
+            
+            merge_non_branching_subpaths(multipath_aln_out, &prohibited_merges);
+            
+#ifdef debug_multipath_alignment
+            cerr << "reduce from " << num_pre_merge << " to " << multipath_aln_out.subpath_size() << " subpaths during merge" << endl;
+#endif
         }
     }
     
@@ -5543,7 +5583,7 @@ namespace vg {
     }
 
     bool MultipathAlignmentGraph::into_cutting_snarl(id_t node_id, bool is_rev,
-                                                     SnarlManager* snarl_manager, MinimumDistanceIndex* dist_index) {
+                                                     SnarlManager* snarl_manager, MinimumDistanceIndex* dist_index) const {
         
         if (dist_index) {
             auto result = dist_index->into_which_snarl(node_id, is_rev);

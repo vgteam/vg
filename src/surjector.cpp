@@ -1614,8 +1614,16 @@ using namespace std;
             
             // align the intervening segments and store the result in a multipath alignment
             multipath_alignment_t mp_aln;
-            mp_aln_graph.align(source, split_path_graph, get_aligner(), false, 1, false, numeric_limits<int64_t>::max(),
-                               false, 1, mp_aln, allow_negative_scores);
+            mp_aln_graph.align(source, split_path_graph, get_aligner(),
+                               false,                                    // anchors as matches
+                               1,                                        // max alt alns
+                               false,                                    // dynamic alt alns
+                               numeric_limits<int64_t>::max(),           // max gap
+                               0.0,                                      // pessimistic tail gap multiplier
+                               false,                                    // simplify topologies
+                               0,                                        // unmergeable len
+                               1,                                        // band padding
+                               mp_aln, allow_negative_scores);
             topologically_order_subpaths(mp_aln);
             
             if (preserve_tail_indel_anchors) {
