@@ -1436,8 +1436,8 @@ int main_mpmap(int argc, char** argv) {
     time_t time_start;
     auto progress_boilerplate = [&]() {
         stringstream strm;
-        strm.precision(1);
         strm << fixed;
+        strm.precision(0);
         if (!clock_init) {
             time(&time_start);
             strm << 0.0 << " s";
@@ -1451,6 +1451,7 @@ int main_mpmap(int argc, char** argv) {
                 strm << secs << " s";
             }
             else {
+                strm.precision(1);
                 double mins = secs / 60.0;
                 if (mins <= 60.0) {
                     strm << mins << " m";
@@ -2137,7 +2138,8 @@ int main_mpmap(int argc, char** argv) {
     // FASTQ input
     if (!fastq_name_1.empty()) {
         if (!suppress_progress) {
-            cerr << progress_boilerplate() << "Mapping reads from " << (fastq_name_1 == "-" ? "STDIN" : fastq_name_1) << (fastq_name_2.empty() ? "" : " and " + (fastq_name_2 == "-" ? "STDIN" : fastq_name_2)) << " using " << thread_count << " threads" << endl;
+            
+            cerr << progress_boilerplate() << "Mapping reads from " << (fastq_name_1 == "-" ? "STDIN" : fastq_name_1) << (fastq_name_2.empty() ? "" : " and " + (fastq_name_2 == "-" ? "STDIN" : fastq_name_2)) << " using " << thread_count << " thread" << (thread_count > 1 ? "s" : "") << endl;
         }
         
         if (interleaved_input) {
@@ -2156,7 +2158,7 @@ int main_mpmap(int argc, char** argv) {
     // GAM input
     if (!gam_file_name.empty()) {
         if (!suppress_progress) {
-            cerr << progress_boilerplate() << "Mapping reads from " << (gam_file_name == "-" ? "STDIN" : gam_file_name) << " using " << thread_count << " threads" << endl;
+            cerr << progress_boilerplate() << "Mapping reads from " << (gam_file_name == "-" ? "STDIN" : gam_file_name) << " using " << thread_count << " thread" << (thread_count > 1 ? "s" : "")  << endl;
         }
         
         function<void(istream&)> execute = [&](istream& gam_in) {

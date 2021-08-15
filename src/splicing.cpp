@@ -826,7 +826,7 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
         begin = aln.sequence().begin();
     }
 #ifdef debug_trimming
-    cerr << "scoring trimmed subpath " << pb2json(dummy_path) << ", with substring " << (begin - aln.sequence().begin()) << ":" << (begin - aln.sequence().begin()) + get<1>(return_val) << endl;
+    cerr << "scoring trimmed subpath " << debug_string(dummy_path) << ", with substring " << (begin - aln.sequence().begin()) << ":" << (begin - aln.sequence().begin()) + get<1>(return_val) << endl;
 #endif
     
     get<2>(return_val) = aligner.score_partial_alignment(aln, graph, dummy_path, begin);
@@ -1055,8 +1055,8 @@ pair<pair<path_t, int32_t>, pair<path_t, int32_t>> split_splice_segment(const Al
                                                               true);
     
 #ifdef debug_linker_split
-    cerr << "left partial score " << return_val.first.second << ", partial path " << pb2json(return_val.first.first) << endl;
-    cerr << "right partial score " << return_val.second.second << ", partial path " << pb2json(return_val.second.first) << endl;
+    cerr << "left partial score " << return_val.first.second << ", partial path " << debug_string(return_val.first.first) << endl;
+    cerr << "right partial score " << return_val.second.second << ", partial path " << debug_string(return_val.second.first) << endl;
 #endif
     
     // deletions can span the splice junction, in which case they will have been scored incorrectly
@@ -1104,8 +1104,9 @@ pair<pair<path_t, int32_t>, pair<path_t, int32_t>> split_splice_segment(const Al
             // a little bit, but i think it's worth it to have a good alignment across the
             // splice junction)
             int32_t total_gap_score = scorer.score_gap(left_del_size + right_del_size);
-            return_val.first.second += (total_gap_score / 2 - scorer.score_gap(left_del_size));
-            return_val.second.second += (total_gap_score  - total_gap_score / 2 - scorer.score_gap(right_del_size));
+            int32_t left_gap_score = (left_del_size * total_gap_score) / (left_del_size + right_del_size);
+            return_val.first.second += (left_gap_score - scorer.score_gap(left_del_size));
+            return_val.second.second += (total_gap_score  - left_gap_score - scorer.score_gap(right_del_size));
             
 #ifdef debug_linker_split
             cerr << "re-divided deletion score, now left score " << return_val.first.second << ", right score " << return_val.second.second << endl;
@@ -1350,13 +1351,17 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
     
 #ifdef debug_fusing
     cerr << "split the linker:" << endl;
-    cerr << "left score " << splice_segment_halves.first.second << ", path " << pb2json(splice_segment_halves.first.first) << endl;
-    cerr << "right score " << splice_segment_halves.second.second << ", path " << pb2json(splice_segment_halves.second.first) << endl;
+    cerr << "left score " << splice_segment_halves.first.second << ", path " << debug_string(splice_segment_halves.first.first) << endl;
+    cerr << "right score " << splice_segment_halves.second.second << ", path " << debug_string(splice_segment_halves.second.first) << endl;
 #endif
     
-    if (splice_segment_halves.first.first.mapping_size() != 0) {
+    bool have_left_linker = !splice_segment_halves.first.first.mapping().empty();
+    bool have_right_linker = !splice_segment_halves.second.first.mapping().empty();
+    
+    if (have_left_linker) {
         for (const auto& left_loc : left_mp_aln_trace) {
             auto i = get<0>(left_loc) - left_removed_so_far[get<0>(left_loc)];
+            // TODO: shouldn't this always be >= 0? the linker's attachment should be preserved...
             if (i < left_mp_aln.subpath_size()) {
                 left_mp_aln.mutable_subpath(i)->add_next(left_mp_aln.subpath_size());
             }
@@ -1367,8 +1372,8 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
         *subpath->mutable_path() = move(splice_segment_halves.first.first);
     }
     
-    if (splice_segment_halves.second.first.mapping_size() != 0) {
-        if (splice_segment_halves.first.first.mapping_size() == 0) {
+    if (have_right_linker) {
+        if (!have_left_linker) {
             // we skipped the left side of the splice, so connect to the left splice points
             for (const auto& left_loc : left_mp_aln_trace) {
                 auto i = get<0>(left_loc) - left_removed_so_far[get<0>(left_loc)];
@@ -1473,7 +1478,7 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
                     }
                 }
             }
-            else if (splice_segment_halves.second.first.mapping_size() == 0) {
+            else if (!have_right_linker) {
                 // the splice segment on the right side is empty, make connection the the left side
                 auto connection = left_mp_aln.mutable_subpath(right_subpaths_begin - 1)->add_connection();
                 connection->set_next(left_mp_aln.subpath_size());
