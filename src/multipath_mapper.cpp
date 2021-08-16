@@ -5160,7 +5160,7 @@ namespace vg {
                 // prune this graph down the paths that have reasonably high likelihood
                 size_t size_before_prune = multi_aln_graph.size();
                 multi_aln_graph.prune_to_high_scoring_paths(alignment, aligner, max_suboptimal_path_score_ratio,
-                                                            topological_order, translator, hit_provenance);
+                                                            topological_order, hit_provenance);
                 
                 if (multi_aln_graph.size() != size_before_prune && do_spliced_alignment) {
                     // we pruned away some path nodes, so let's check if we pruned away any entire hits
@@ -5235,13 +5235,14 @@ namespace vg {
             function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding = [&](const Alignment& seq, const HandleGraph& graph) {
                 size_t read_length = seq.sequence().size();
                 return read_length < band_padding_memo.size() ? band_padding_memo.at(read_length)
-                : size_t(band_padding_multiplier * sqrt(read_length)) + 1;
+                                                              : size_t(band_padding_multiplier * sqrt(read_length)) + 1;
             };
             
             // do the connecting alignments and fill out the multipath_alignment_t object
             multi_aln_graph.align(alignment, *align_dag, aligner, true, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
                                   use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0, simplify_topologies,
-                                  max_tail_merge_supress_length, choose_band_padding, multipath_aln_out);
+                                  max_tail_merge_supress_length, choose_band_padding, multipath_aln_out, snarl_manager,
+                                  distance_index, &translator);
             
             // Note that we do NOT topologically order the multipath_alignment_t. The
             // caller has to do that, after it is finished breaking it up into

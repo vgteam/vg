@@ -1623,7 +1623,11 @@ using namespace std;
                                false,                                    // simplify topologies
                                0,                                        // unmergeable len
                                1,                                        // band padding
-                               mp_aln, allow_negative_scores);
+                               mp_aln,                                   // output
+                               nullptr,                                  // snarl manager
+                               nullptr,                                  // distance index
+                               nullptr,                                  // projector
+                               allow_negative_scores);
             topologically_order_subpaths(mp_aln);
             
             if (preserve_tail_indel_anchors) {

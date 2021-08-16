@@ -2001,11 +2001,11 @@ namespace vg {
         }
     }
 
-    vector<pair<size_t, size_t>> MultipathAlignmentGraph::get_keep_segments(path_t& path,
-                                                                            SnarlManager* cutting_snarls,
-                                                                            MinimumDistanceIndex* dist_index,
-                                                                            const function<pair<id_t, bool>(id_t)>& project,
-                                                                            int64_t max_snarl_cut_size) const {
+    vector<pair<size_t, size_t>> MultipathAlignmentGraph::get_cut_segments(path_t& path,
+                                                                           SnarlManager* cutting_snarls,
+                                                                           MinimumDistanceIndex* dist_index,
+                                                                           const function<pair<id_t, bool>(id_t)>& project,
+                                                                           int64_t max_snarl_cut_size) const {
         
         // this list holds the beginning of the current segment at each depth in the snarl hierarchy
         // as we traverse the exact match, the beginning is recorded in both sequence distance and node index
@@ -2079,40 +2079,9 @@ namespace vg {
             cerr << "\t" << seg.first << ":" << seg.second << endl;
         }
 #endif
-        vector<pair<size_t, size_t>> keep_segments;
-        if (!cut_segments.empty()) {
-            
-            // we may have decided to cut the segments of both a parent and child snarl, so now we
-            // collapse the list of intervals, which is sorted on the end index by construction
-            //
-            // snarl nesting properties guarantee that there will be at least one node between any
-            // cut segments that are not nested, so we don't need to deal with the case where the
-            // segments are partially overlapping (i.e. it's a bit easier than the general interval
-            // intersection problem)
-            size_t curr_keep_seg_end = path.mapping_size();
-            auto riter = cut_segments.rbegin();
-            if (riter->second == curr_keep_seg_end) {
-                // don't add an empty keep segment in the first position
-                curr_keep_seg_end = riter->first;
-                riter++;
-            }
-            for (; riter != cut_segments.rend(); riter++) {
-                if (riter->second < curr_keep_seg_end) {
-                    // this is a new interval
-                    keep_segments.emplace_back(riter->second, curr_keep_seg_end);
-                    curr_keep_seg_end = riter->first;
-                }
-            }
-            if (curr_keep_seg_end > 0) {
-                // we are not cutting off the left tail, so add a keep segment for it
-                keep_segments.emplace_back(0, curr_keep_seg_end);
-            }
-            
-            // the keep segments are now stored last-to-first, let's reverse them to their more natural ordering
-            reverse(keep_segments.begin(), keep_segments.end());
-        }
         
-        return keep_segments;
+        
+        return cut_segments;
     }
     
     void MultipathAlignmentGraph::resect_snarls_from_paths(SnarlManager* cutting_snarls,
@@ -2140,10 +2109,41 @@ namespace vg {
             cerr << "cutting node at index " << i << " with path " << debug_string(*path) << endl;
 #endif
             
-            auto keep_segments = get_keep_segments(*path, cutting_snarls, dist_index, project, max_snarl_cut_size);
+            auto cut_segments = get_cut_segments(*path, cutting_snarls, dist_index, project, max_snarl_cut_size);
             
             // did we cut out any segments?
-            if (!keep_segments.empty()) {
+            if (!cut_segments.empty()) {
+                
+                vector<pair<size_t, size_t>> keep_segments;
+                
+                // we may have decided to cut the segments of both a parent and child snarl, so now we
+                // collapse the list of intervals, which is sorted on the end index by construction
+                //
+                // snarl nesting properties guarantee that there will be at least one node between any
+                // cut segments that are not nested, so we don't need to deal with the case where the
+                // segments are partially overlapping (i.e. it's a bit easier than the general interval
+                // intersection problem)
+                size_t curr_keep_seg_end = path->mapping_size();
+                auto riter = cut_segments.rbegin();
+                if (riter->second == curr_keep_seg_end) {
+                    // don't add an empty keep segment in the first position
+                    curr_keep_seg_end = riter->first;
+                    riter++;
+                }
+                for (; riter != cut_segments.rend(); riter++) {
+                    if (riter->second < curr_keep_seg_end) {
+                        // this is a new interval
+                        keep_segments.emplace_back(riter->second, curr_keep_seg_end);
+                        curr_keep_seg_end = riter->first;
+                    }
+                }
+                if (curr_keep_seg_end > 0) {
+                    // we are not cutting off the left tail, so add a keep segment for it
+                    keep_segments.emplace_back(0, curr_keep_seg_end);
+                }
+                
+                // the keep segments are now stored last-to-first, let's reverse them to their more natural ordering
+                reverse(keep_segments.begin(), keep_segments.end());
                 
                 // record the data stored on the original path node
                 path_t original_path = move(*path);
@@ -4018,7 +4018,6 @@ namespace vg {
     
     void MultipathAlignmentGraph::prune_to_high_scoring_paths(const Alignment& alignment, const GSSWAligner* aligner,
                                                               double max_suboptimal_score_ratio, const vector<size_t>& topological_order,
-                                                              function<pair<id_t, bool>(id_t)>& translator,
                                                               vector<size_t>& path_node_provenance) {
         
         // Can only prune when edges exist.
@@ -4145,10 +4144,12 @@ namespace vg {
 #endif
     }
     
-    void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
-                                        bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
-                                        double pessimistic_tail_gap_multiplier, bool simplify_topologies, size_t unmergeable_len,
-                                        size_t band_padding, multipath_alignment_t& multipath_aln_out, bool allow_negative_scores) {
+void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
+                                    bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
+                                    double pessimistic_tail_gap_multiplier, bool simplify_topologies, size_t unmergeable_len,
+                                    size_t band_padding, multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls,
+                                    MinimumDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
+                                    bool allow_negative_scores) {
         
         // don't dynamically choose band padding, shim constant value into a function type
         function<size_t(const Alignment&,const HandleGraph&)> constant_padding = [&](const Alignment& seq, const HandleGraph& graph) {
@@ -4166,6 +4167,9 @@ namespace vg {
               unmergeable_len,
               constant_padding,
               multipath_aln_out,
+              cutting_snarls,
+              dist_index,
+              project,
               allow_negative_scores);
     }
 
@@ -4558,7 +4562,9 @@ namespace vg {
                                         bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
                                         double pessimistic_tail_gap_multiplier, bool simplify_topologies, size_t unmergeable_len,
                                         function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
-                                        multipath_alignment_t& multipath_aln_out, bool allow_negative_scores) {
+                                        multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls,
+                                        MinimumDistanceIndex* dist_index, const function<pair<id_t, bool>(id_t)>* project,
+                                        bool allow_negative_scores) {
         
         // Can only align if edges are present.
         assert(has_reachability_edges);
@@ -4593,6 +4599,9 @@ namespace vg {
                 subpath->set_score(aligner->score_partial_alignment(alignment, align_graph, path_node.path, path_node.begin));
             }
         }
+        
+        // the indexes of subpaths that we will not allow to merge at non-branching paths
+        unordered_set<size_t> prohibited_merges;
         
         // we use this function to remove alignments that follow the same path, keeping only the highest scoring one
         auto deduplicate_alt_alns = [](vector<Alignment>& alt_alns, bool leftward, bool rightward) -> vector<pair<path_t, int32_t>> {
@@ -4670,6 +4679,89 @@ namespace vg {
             // remove the duplicates at the end
             deduplicated.erase(new_end, deduplicated.end());
             return deduplicated;
+        };
+        
+        // add the alignment as subpath(s), possibly cutting it at snarl boundaries and marking
+        // those cuts as prohibited to merge. the subpaths are created in order at the end of
+        // the subpath vector and have edges between them
+        auto add_and_permanently_cut = [&](pair<path_t, int32_t>& aln, string::const_iterator begin) {
+            
+#ifdef debug_multipath_alignment
+            cerr << "assessing need to permanently cut path" << endl;
+            cerr << debug_string(aln.first) << endl;
+#endif
+            
+            // the intervals of the path that are inside snarls
+            auto cut_segments = get_cut_segments(aln.first, cutting_snarls,dist_index, *project,
+                                                 unmergeable_len);
+            
+            // collect the indexes after potential cuts
+            vector<size_t> segment_boundaries;
+            segment_boundaries.reserve(cut_segments.size() * 2);
+            for (auto& cut_segment : cut_segments) {
+                segment_boundaries.push_back(cut_segment.first);
+                if (cut_segment.second != cut_segment.first) {
+                    segment_boundaries.push_back(cut_segment.second);
+                }
+            }
+            // make sure their in order (only ever not in order if there are nested snarls)
+            if (!is_sorted(segment_boundaries.begin(), segment_boundaries.end())) {
+                sort(segment_boundaries.begin(), segment_boundaries.end());
+            }
+            // don't allow edge-spanning deletions to be broken up (breaks dynamic programmability of scores)
+            auto end = remove_if(segment_boundaries.begin(), segment_boundaries.end(), [&](size_t i) {
+                return (aln.first.mapping(i - 1).edit().back().to_length() == 0 &&
+                        aln.first.mapping(i).edit().front().to_length() == 0);
+            });
+            
+#ifdef debug_multipath_alignment
+            cerr << "need to cut path before mappings:" << endl;
+            for (auto it = segment_boundaries.begin(); it != end; ++it) {
+                cerr << "\t" << *it << endl;
+            }
+#endif
+            
+            if (segment_boundaries.begin() == end) {
+                // we don't actually want to cut up this alignment at all
+                auto subpath = multipath_aln_out.add_subpath();
+                *subpath->mutable_path() = move(aln.first);
+                subpath->set_score(aln.second);
+            }
+            else {
+                // make a subpath for the first segment, but don't do anything with it
+                size_t first_idx = multipath_aln_out.subpath_size();
+                multipath_aln_out.add_subpath();
+                
+                for (auto it = segment_boundaries.begin(), next = segment_boundaries.begin() + 1; it != end; ++it, ++next) {
+                    // add an unmergeable link from previous subpath
+                    multipath_aln_out.mutable_subpath()->back().add_next(multipath_aln_out.subpath_size());
+                    prohibited_merges.insert(multipath_aln_out.subpath_size() - 1);
+                    // move path into the subpath
+                    auto subpath = multipath_aln_out.add_subpath();
+                    for (size_t i = *it, n = (next == end ? aln.first.mapping_size() : *next); i < n; ++i) {
+                        *subpath->mutable_path()->add_mapping() = move(*aln.first.mutable_mapping(i));
+                    }
+                }
+                // get the subpath here in case the vector reallocates
+                auto first_subpath = multipath_aln_out.mutable_subpath(first_idx);
+                aln.first.mutable_mapping()->resize(segment_boundaries.front());
+                *first_subpath->mutable_path() = move(aln.first);
+                
+                // score the individual segments
+                auto b = begin;
+                for (size_t i = first_idx; i < multipath_aln_out.subpath_size(); ++i) {
+                    auto subpath = multipath_aln_out.mutable_subpath(i);
+                    subpath->set_score(aligner->score_partial_alignment(alignment, align_graph, subpath->path(), b));
+                    b += path_to_length(subpath->path());
+                }
+                
+#ifdef debug_multipath_alignment
+                for (auto i = first_idx; i < multipath_aln_out.subpath_size(); ++i) {
+                    cerr << "added permanently cut subpath " <<  i << endl;
+                    cerr << debug_string(multipath_aln_out.subpath(i)) << endl;
+                }
+#endif
+            }
         };
         
 #ifdef debug_multipath_alignment
@@ -4869,8 +4961,6 @@ namespace vg {
         
         // Now do the tails
         
-        unordered_set<size_t> prohibited_merges;
-        
         // We need to know what subpaths are real sources
         unordered_set<size_t> sources;
         
@@ -4882,19 +4972,16 @@ namespace vg {
         
         // Handle the right tails
         for (auto& kv : tail_alignments[true]) {
-            // For each sink subpath number
+            // For each sink subpath number with its alignments
             size_t j = kv.first;
-            // And the tail alignments from it
-            vector<Alignment>& alt_alignments = kv.second;
             
             // remove alignments with the same path
-            auto deduplicated = deduplicate_alt_alns(alt_alignments, false, true);
+            auto deduplicated = deduplicate_alt_alns(kv.second, false, true);
         
             PathNode& path_node = path_nodes.at(j);
             pos_t end_pos = final_position(path_node.path);
             
             size_t sink_idx = j;
-            auto sink_subpath = multipath_aln_out.mutable_subpath(j);
             
             // zip together identical prefixes and suffixes of the tail alignment
             pair<path_t, int32_t> left_zip_aln, right_zip_aln;
@@ -4903,30 +4990,33 @@ namespace vg {
                 left_zip_aln = zip_alignments(deduplicated, true, alignment, align_graph, path_node.end, aligner);
             }
             
+            string::const_iterator tail_begin = path_node.end;
             if (!left_zip_aln.first.mapping().empty()) {
                 // we were able to zip a prefix of the tails together
                 
-                sink_subpath->add_next(multipath_aln_out.subpath_size());
+                multipath_aln_out.mutable_subpath(sink_idx)->add_next(multipath_aln_out.subpath_size());
                 sink_idx = multipath_aln_out.subpath_size();
                 
-                sink_subpath = multipath_aln_out.add_subpath();
-                *sink_subpath->mutable_path() = move(left_zip_aln.first);
-                sink_subpath->set_score(left_zip_aln.second);
+                auto subpath = multipath_aln_out.add_subpath();
+                *subpath->mutable_path() = move(left_zip_aln.first);
+                subpath->set_score(left_zip_aln.second);
                 
-                auto first_mapping = sink_subpath->mutable_path()->mutable_mapping(0);
+                auto first_mapping = subpath->mutable_path()->mutable_mapping(0);
                 if (first_mapping->position().node_id() == id(end_pos)) {
                     first_mapping->mutable_position()->set_offset(offset(end_pos));
                 }
                 
-                // the zipped alignment is now the sink
-                end_pos = final_position(sink_subpath->path());
+                // the zipped alignment is now the attachment point
+                end_pos = final_position(subpath->path());
+                tail_begin += path_to_length(subpath->path());
+                
 #ifdef debug_multipath_alignment
                 cerr << "left zipped alignment from " << j << " to right tail" << " at index " << multipath_aln_out.subpath_size() - 1 <<  ":" << endl;
-                cerr << debug_string(*sink_subpath) << endl;
+                cerr << debug_string(*subpath) << endl;
 #endif
             }
             
-            // add in the
+            // add in the non-redundant middle of the alignments
             bool zip_to_zip_connection = false;
             size_t frayed_tips_begin = multipath_aln_out.subpath_size();
             for (auto& tail_alignment : deduplicated) {
@@ -4937,22 +5027,30 @@ namespace vg {
                     continue;
                 }
                 
-                sink_subpath->add_next(multipath_aln_out.subpath_size());
+                multipath_aln_out.mutable_subpath(sink_idx)->add_next(multipath_aln_out.subpath_size());
                 
-                auto tail_subpath = multipath_aln_out.add_subpath();
-                *tail_subpath->mutable_path() = move(tail_alignment.first);
-                tail_subpath->set_score(tail_alignment.second);
-                
-                // get the pointer again in case the vector reallocated
-                sink_subpath = multipath_aln_out.mutable_subpath(sink_idx);
-                
-                auto first_mapping = tail_subpath->mutable_path()->mutable_mapping(0);
+                // TODO: kind of inelegant that i'm relying on there being no zipped alignments
+                // and therefore no path that relies on frayed_tips_begin:frayed_tips_end being a
+                // a slice of subpaths that align the same sequence
+                subpath_t* subpath = nullptr;
+                if (deduplicated.size() == 1 && tail_alignment.first.mapping_size() > 1) {
+                    // this tail might have soft-clip issues, check if we need to cut it
+                    size_t first_idx = multipath_aln_out.subpath_size();
+                    add_and_permanently_cut(tail_alignment, tail_begin);
+                    subpath = multipath_aln_out.mutable_subpath(first_idx);
+                }
+                else {
+                    subpath = multipath_aln_out.add_subpath();
+                    *subpath->mutable_path() = move(tail_alignment.first);
+                    subpath->set_score(tail_alignment.second);
+                }
 
+                auto first_mapping = subpath->mutable_path()->mutable_mapping(0);
                 if (first_mapping->position().node_id() == id(end_pos)) {
                     first_mapping->mutable_position()->set_offset(offset(end_pos));
                 }
                 else if (right_zip_aln.first.mapping().empty()
-                         && tail_subpath->path().mapping_size() == 1 && first_mapping->edit_size() == 1
+                         && subpath->path().mapping_size() == 1 && first_mapping->edit_size() == 1
                          && first_mapping->edit(0).from_length() == 0 && first_mapping->edit(0).to_length() != 0
                          && first_mapping->position().node_id() != id(end_pos)) {
                     // this is a pure soft-clip on the beginning of the next node, we'll move it to the end
@@ -4964,12 +5062,13 @@ namespace vg {
                 }
 #ifdef debug_multipath_alignment
                 cerr << "subpath from " << sink_idx << " to right tail at index " << multipath_aln_out.subpath_size() - 1 <<  ":" << endl;
-                cerr << debug_string(*tail_subpath) << endl;
+                cerr << debug_string(*subpath) << endl;
 #endif
             }
             size_t frayed_tips_end = multipath_aln_out.subpath_size();
             
             if (!right_zip_aln.first.mapping().empty()) {
+                
                 if (right_zip_aln.first.mapping_size() == 1
                     && right_zip_aln.first.mapping(0).edit_size() == 1
                     && right_zip_aln.first.mapping(0).edit(0).from_length() == 0
@@ -4989,7 +5088,7 @@ namespace vg {
                     if (zip_to_zip_connection) {
                         // we can't add this edit to the left zipped alignment because it has sucessor
                         // subpaths, need to add it as a separate subpath
-                        sink_subpath->add_next(multipath_aln_out.subpath_size());
+                        multipath_aln_out.mutable_subpath(sink_idx)->add_next(multipath_aln_out.subpath_size());
                         
                         auto tail_subpath = multipath_aln_out.add_subpath();
                         auto mapping = tail_subpath->mutable_path()->add_mapping();
@@ -4999,16 +5098,13 @@ namespace vg {
                         pos->set_node_id(id(end_pos));
                         pos->set_is_reverse(is_rev(end_pos));
                         pos->set_offset(offset(end_pos));
-                        sink_subpath->set_score(0);
+                        tail_subpath->set_score(0);
                         
 #ifdef debug_multipath_alignment
                         cerr << "right zipped softclip subpath from " << sink_idx << " to right tail at index " << multipath_aln_out.subpath_size() - 1 <<  ":" << endl;
                         cerr << debug_string(*tail_subpath) << endl;
 #endif
                     }
-                    
-                    // there's no sink anymore, it's a frayed end
-                    sink_subpath = nullptr;
                 }
                 else {
                     // add edges from all of the alt alns to the zipped tail
@@ -5019,32 +5115,25 @@ namespace vg {
                         multipath_aln_out.mutable_subpath(sink_idx)->add_next(multipath_aln_out.subpath_size());
                     }
                     
-                    // an arbitrary choice of a predecessor (this will only come into play
-                    // if the previous paths end mid-node, in which case all of them must
+                    // possibly cut up the final subpath to mitigate soft-clip issues
+                    tail_begin += path_to_length(multipath_aln_out.subpath(frayed_tips_begin).path());
+                    add_and_permanently_cut(right_zip_aln, tail_begin);
+                    auto tail_subpath = &multipath_aln_out.mutable_subpath()->back();
+                    
+                    // an arbitrary choice of a predecessor (this only matters if
+                    // the previous paths end mid-node, in which case all of them must
                     // end on that node)
                     end_pos = final_position(multipath_aln_out.subpath(frayed_tips_begin).path());
-                    
-                    auto tail_subpath = multipath_aln_out.add_subpath();
-                    *tail_subpath->mutable_path() = move(right_zip_aln.first);
-                    tail_subpath->set_score(right_zip_aln.second);
-                    
                     auto first_mapping = tail_subpath->mutable_path()->mutable_mapping(0);
                     if (first_mapping->position().node_id() == id(end_pos)) {
                         first_mapping->mutable_position()->set_offset(offset(end_pos));
                     }
                     // note: don't need to check for softclips because that is handled separately above
-                    
-                    // the zipped end is now the sink
-                    sink_subpath = tail_subpath;
 #ifdef debug_multipath_alignment
                     cerr << "right zipped alignment from " << sink_idx << " to right tail at index " << multipath_aln_out.subpath_size() - 1 <<  ":" << endl;
                     cerr << debug_string(*tail_subpath) << endl;
 #endif
                 }
-            }
-            else {
-                // there's no sink anymore
-                sink_subpath = nullptr;
             }
         }
                 
@@ -5056,10 +5145,10 @@ namespace vg {
             if (path_node.begin != alignment.sequence().begin()) {
                 
                 // There should be some alignments
-                vector<Alignment>& alt_alignments = tail_alignments[false][j];
                 // remove alignments with the same path
-                auto deduplicated = deduplicate_alt_alns(alt_alignments, true, false);
+                auto deduplicated = deduplicate_alt_alns(tail_alignments[false][j], true, false);
                 
+                // collapse identical prefixes/suffixes of the alignments
                 pair<path_t, int32_t> left_zip_aln, right_zip_aln;
                 if (deduplicated.size() > 1) {
                     right_zip_aln = zip_alignments(deduplicated, false, alignment, align_graph, alignment.sequence().begin(), aligner);
@@ -5102,9 +5191,21 @@ namespace vg {
                         multipath_aln_out.add_start(multipath_aln_out.subpath_size());
                     }
                     
-                    auto tail_subpath = multipath_aln_out.add_subpath();
-                    *tail_subpath->mutable_path() = move(tail_alignment.first);
-                    tail_subpath->set_score(tail_alignment.second);
+                    // TODO: kind of inelegant that i'm relying on there being no zipped alignments
+                    // and therefore no path that relies on frayed_tips_begin:frayed_tips_end being a
+                    // a slice of subpaths that align the same sequence
+                    if (deduplicated.size() == 1 && tail_alignment.first.mapping_size() > 1) {
+                        // this tail might have soft-clip issues, check if we need to cut it
+                        size_t first_idx = multipath_aln_out.subpath_size();
+                        add_and_permanently_cut(tail_alignment, alignment.sequence().begin());
+                    }
+                    else {
+                        auto subpath = multipath_aln_out.add_subpath();
+                        *subpath->mutable_path() = move(tail_alignment.first);
+                        subpath->set_score(tail_alignment.second);
+                    }
+                    
+                    auto tail_subpath = &multipath_aln_out.mutable_subpath()->back();
                     
                     tail_subpath->add_next(source_idx);
                     
@@ -5166,19 +5267,19 @@ namespace vg {
                         
                         multipath_aln_out.add_start(multipath_aln_out.subpath_size());
                         
-                        auto tail_subpath = multipath_aln_out.add_subpath();
-                        *tail_subpath->mutable_path() = move(left_zip_aln.first);
-                        tail_subpath->set_score(left_zip_aln.second);
+                        add_and_permanently_cut(left_zip_aln, alignment.sequence().begin());
+                        
+                        auto subpath = &multipath_aln_out.mutable_subpath()->back();
                         
                         for (size_t i = frayed_tips_begin; i < frayed_tips_end; ++i) {
-                            tail_subpath->add_next(i);
+                            subpath->add_next(i);
                         }
                         if (zip_to_zip_connection) {
-                            tail_subpath->add_next(source_idx);
+                            subpath->add_next(source_idx);
                         }
 #ifdef debug_multipath_alignment
                         cerr << "left zipped subpath from " << source_idx << " to left tail at index " << multipath_aln_out.subpath_size() - 1 <<  ":" << endl;
-                        cerr << debug_string(*tail_subpath) << endl;
+                        cerr << debug_string(*subpath) << endl;
 #endif
                     }
                 }
