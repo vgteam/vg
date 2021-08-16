@@ -181,6 +181,8 @@ Private Member Functions</h2></td></tr>
 Static Private Member Functions</h2></td></tr>
 <tr class="memitem:a114d073d4422c085a2c5768b6f165001"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a114d073d4422c085a2c5768b6f165001">trim_and_check_for_empty</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, bool trim_Ns, <a class="el" href="classvg_1_1PathNode.html">PathNode</a> &amp;<a class="el" href="namespacevg.html#a3bd8aa63fec8b9f6c3ed5808689975e6">path_node</a>, bool preserve_tail_anchors, int64_t *removed_start_from_length=nullptr, int64_t *removed_end_from_length=nullptr)</td></tr>
 <tr class="separator:a114d073d4422c085a2c5768b6f165001"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a96a24f6cbdc09cf0098251f8b61baf4a"><td class="memItemLeft" align="right" valign="top">static pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a96a24f6cbdc09cf0098251f8b61baf4a">zip_alignments</a> (vector&lt; pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt;&gt; &amp;alt_alns, bool from_left, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, string::const_iterator begin, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner)</td></tr>
+<tr class="separator:a96a24f6cbdc09cf0098251f8b61baf4a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
@@ -1936,6 +1938,67 @@ Static Private Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Remove the ends of paths, up to a maximum length, if they cause the path to extend past a branch point in the graph. </p>
+
+</div>
+</div>
+<a id="a96a24f6cbdc09cf0098251f8b61baf4a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a96a24f6cbdc09cf0098251f8b61baf4a">&#9670;&nbsp;</a></span>zip_alignments()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt; vg::MultipathAlignmentGraph::zip_alignments </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>alt_alns</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>from_left</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>align_graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">string::const_iterator&#160;</td>
+          <td class="paramname"><em>begin</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *&#160;</td>
+          <td class="paramname"><em>aligner</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>If a list of aligned subsequences are identifical in a prefix/suffix, remove that prefix/suffix from all of the alignments and return it as a separate alignment. If there is no shared prefix/suffix, returns an empty path with 0 score. </p>
 
 </div>
 </div>

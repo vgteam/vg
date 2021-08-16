@@ -121,9 +121,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ad6bac86acf59cc8edd4969bd671fcf5d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a952bb420992b5e5e4c81388b015caf97"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a952bb420992b5e5e4c81388b015caf97">score_full_length_bonus</a> (bool left_side, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment) const =0</td></tr>
 <tr class="separator:a952bb420992b5e5e4c81388b015caf97"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a90edd8f3e5f816377e5391abcafd6457"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a90edd8f3e5f816377e5391abcafd6457">score_partial_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, string::const_iterator seq_begin, bool no_read_end_scoring=false) const =0</td></tr>
-<tr class="memdesc:a90edd8f3e5f816377e5391abcafd6457"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compute the score of a path against the given range of subsequence with the given qualities.  <a href="classvg_1_1GSSWAligner.html#a90edd8f3e5f816377e5391abcafd6457">More...</a><br /></td></tr>
-<tr class="separator:a90edd8f3e5f816377e5391abcafd6457"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adc950708e8d5ff812a838116c6b50910"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#adc950708e8d5ff812a838116c6b50910">score_partial_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="classvg_1_1path__t.html">path_t</a> &amp;path, string::const_iterator seq_begin, bool no_read_end_scoring=false) const =0</td></tr>
+<tr class="memdesc:adc950708e8d5ff812a838116c6b50910"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compute the score of a path against the given range of subsequence with the given qualities.  <a href="classvg_1_1GSSWAligner.html#adc950708e8d5ff812a838116c6b50910">More...</a><br /></td></tr>
+<tr class="separator:adc950708e8d5ff812a838116c6b50910"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a616923bd568fa23d20c0e3a019d650ea"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a616923bd568fa23d20c0e3a019d650ea">score_gap</a> (size_t gap_length) const</td></tr>
 <tr class="memdesc:a616923bd568fa23d20c0e3a019d650ea"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the score of an insert or deletion of the given length.  <a href="classvg_1_1GSSWAligner.html#a616923bd568fa23d20c0e3a019d650ea">More...</a><br /></td></tr>
 <tr class="separator:a616923bd568fa23d20c0e3a019d650ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1874,8 +1874,8 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a90edd8f3e5f816377e5391abcafd6457"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a90edd8f3e5f816377e5391abcafd6457">&#9670;&nbsp;</a></span>score_partial_alignment()</h2>
+<a id="adc950708e8d5ff812a838116c6b50910"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adc950708e8d5ff812a838116c6b50910">&#9670;&nbsp;</a></span>score_partial_alignment()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1898,7 +1898,7 @@ Protected Member Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1path__t.html">path_t</a> &amp;&#160;</td>
           <td class="paramname"><em>path</em>, </td>
         </tr>
         <tr>
@@ -1928,7 +1928,7 @@ Protected Member Functions</h2></td></tr>
 
 <p>Compute the score of a path against the given range of subsequence with the given qualities. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1QualAdjAligner.html#ab614ba226a9fb4aa9132cd2b8032efad">vg::QualAdjAligner</a>, and <a class="el" href="classvg_1_1Aligner.html#a1e682385c145db43d9148a981b4ff7dc">vg::Aligner</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1QualAdjAligner.html#aba298db3a8925219193a648acbc03c61">vg::QualAdjAligner</a>, and <a class="el" href="classvg_1_1Aligner.html#a96f588104e8746299206bd74598dea68">vg::Aligner</a>.</p>
 
 </div>
 </div>
