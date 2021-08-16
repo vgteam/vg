@@ -140,8 +140,6 @@ int main_normalize(int argc, char **argv) {
       break;
 
     case 'n':
-      // can be "all" (default), "one", or "none" (latter for if you just want
-      // to run evaluate) //todo: make better!
       normalize_type = optarg;
       break;
 
