@@ -17,7 +17,7 @@ void print_handles_in_snarl(const HandleGraph& graph, const id_t& source, const 
 }
 
 
-SnarlAnalyzer::SnarlAnalyzer(const HandleGraph& graph, ifstream &snarl_stream, bool skip_source_sink /*= true*/)
+SnarlAnalyzer::SnarlAnalyzer(const HandleGraph& graph, ifstream &snarl_stream, bool skip_source_sink)
     :_graph(graph) 
 {
     // extract the stats on each snarl in the _graph.
@@ -56,6 +56,12 @@ SnarlAnalyzer::SnarlAnalyzer(const HandleGraph& graph, ifstream &snarl_stream, b
         _snarl_sizes.push_back(snarl_size);
     }
 
+    // TODO: if desired, include this count of all snarls, including non-top-level.
+    // int general_count = 0;
+    // snarl_manager->for_each_snarl_preorder([&](const vg::Snarl * ignored){
+    //     general_count++;
+    // });
+    // cerr << "number of total snarls in graph: " << general_count << endl;
 
 }
 

@@ -22,6 +22,8 @@
 #include "../types.hpp"
 #include "extract_containing_graph.hpp"
 
+#include "multipath_mapper.hpp"
+
 /*
 TODO: allow for snarls that have haplotypes that begin or end in the middle of the snarl
 
@@ -99,6 +101,7 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
         // }
         
         if (num_snarls_touched == stop_size){
+            cerr << "breakpoint here" << endl;
             break;
         } else {
             num_snarls_touched++;
@@ -278,7 +281,7 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
     tuple<unordered_set<string>, vector<vector<handle_t>>, unordered_set<handle_t>> haplotypes;
     SnarlSequenceFinder sequence_finder = SnarlSequenceFinder(_graph, snarl, _haploGraph, source_id, sink_id, backwards);
     
-    unordered_set<string> source_to_sink_gbwt_paths;
+    vector<pair<vector<id_t>, string>> source_to_sink_gbwt_paths;
     if (_path_finder == "GBWT") {
         tuple<vector<vector<handle_t>>, vector<vector<handle_t>>, unordered_set<handle_t>>
             gbwt_haplotypes = sequence_finder.find_gbwt_haps();
@@ -294,7 +297,21 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
         // Convert the haplotypes from vector<handle_t> format to string format.
         get<0>(haplotypes) = format_handle_haplotypes_to_strings(get<0>(gbwt_haplotypes));
         //todo: possibly remove the duplicate storage of gbwt info in source_to_sink_gbwt_paths, by finding a way to only pass the gbwt info to the "log_gbwt_changes" function. (currently, get<0>haplotypes will also include any source-to-sink paths embedded in the graph.)
-        unordered_set<string> source_to_sink_gbwt_paths (get<0>(haplotypes));
+        //deep copy of gbwt_haplotypes.
+        for (vector<handle_t> hap_handles : get<0>(gbwt_haplotypes))
+        {
+            string hap_str;
+            vector<id_t> hap_ids;
+            for (handle_t &handle : hap_handles) 
+            {
+                hap_ids.emplace_back(_graph.get_id(handle));
+                hap_str += _graph.get_sequence(handle);
+            }
+            
+            pair<vector<id_t>, string> hap = make_pair(hap_ids, hap_str);
+            source_to_sink_gbwt_paths.emplace_back(hap);
+        }
+
         get<1>(haplotypes) = get<1>(gbwt_haplotypes);
         get<2>(haplotypes) = get<2>(gbwt_haplotypes);
         // cerr << "haplotypes after formatting to strings: " << endl;
@@ -415,21 +432,30 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
         // Align the new snarl:
         VG new_snarl = align_source_to_sink_haplotypes(get<0>(haplotypes));
 
-        // //getting graph of any type, except non-mutable graphs (e.g., xg)
-        // unique_ptr<MutablePathDeletableHandleGraph> graph;
-        // get_input_file(optind, argc, argv, [&](istream &in) {
-        //     graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
-        // });
 
         //preprocess new_snarl for log_gbwt_changes:
         bool single_stranded = handlealgs::is_single_stranded(&new_snarl);
-        bool dag = handlealgs::is_single_stranded(&new_snarl);
+        VG* single_stranded_snarl;
+        if (!single_stranded) 
+        {
+            handlealgs::split_strands(&new_snarl, single_stranded_snarl);
+            // handlealgs::SplitStrandOverlay(new_snarl)
+        }
+        else
+        {
+            single_stranded_snarl=&new_snarl;
+        }
 
-        // if (!single_stranded) 
+        //todo: skipping dagification because I require the input snarl to be a DAG, and I don't think alignments of sequences should produce DAGs.
+        // bool dag = handlealgs::is_directed_acyclic(&new_snarl);
+        // if (!dag)
         // {
-        //     handlealgs::SplitStrandOverlay(new_snarl)
+        //     handlealgs::dagify(single_stranded_snarl, dagified_snarl, );
         // }
+        // else
+        // {
 
+        // }
 
         // count the number of bases in the snarl.
         new_snarl.for_each_handle([&](const handle_t handle) {
@@ -445,10 +471,7 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
         // make a subhandlegraph of the normalized snarl to find the new gbwt paths in the graph.
         SubHandleGraph integrated_snarl = extract_subgraph(_graph, _graph.get_id(new_left_right.first), _graph.get_id(new_left_right.second));
 
-        
-
         log_gbwt_changes(source_to_sink_gbwt_paths, integrated_snarl);
-        
 
         // Print a heads-up about snarls that require an alignment with a greater number of 
         // threads than _big_snarl_alignment_job, so the user knows if they are hung up on a 
@@ -1040,11 +1063,32 @@ handle_t SnarlNormalizer::overwrite_node_id(const id_t& old_node_id, const id_t&
  * @param  {HandleGraph} new_snarl  : the normalized portion of the graph. Probably a 
  * subhandlegraph.
  */
-void SnarlNormalizer::log_gbwt_changes(const unordered_set<string> &old_paths, const HandleGraph &new_snarl) {
-    // cerr << "test" << endl;   
+void SnarlNormalizer::log_gbwt_changes(const vector<pair<vector<id_t>, string>>& source_to_sink_gbwt_paths, const HandleGraph &new_snarl){
+    //todo: move Aligner to initialization of object, since I'm not supposed to make a new one each time I do alignments.
+    Aligner aligner = Aligner();
+    // cerr << "in log_gbwt_changes" << endl;
+    // cerr << old_paths.size() << endl;
+    for (auto path : source_to_sink_gbwt_paths)
+    {
+        Alignment alignment;
+        alignment.set_sequence(path.second);
+        aligner.align_global_banded(alignment, new_snarl,0, false);
+        // cerr << "ALIGNMENT PATH FOR " << path << ":" << endl;
+        vector<id_t> alignment_full_path;
+        for (auto mapping : alignment.path().mapping())
+        {
+            alignment_full_path.emplace_back(mapping.position().node_id());
+            // cerr << "mapping.position().node_id() " << mapping.position().node_id() << endl;
+        }
+        _gbwt_changelog.emplace(path.first, alignment_full_path);
+        // cerr << pb2json(alignment.path()) << endl << alignment.query_position() << endl << alignment.path().mapping().begin() << endl << endl;
+        // alignment.path().mapping()
+    }
+    
+    // use banded global aligner. optimizations for finidng one perfect match from source to sink.
 
-// use banded global aligner. optimizations for finidng one perfect match from source to sink.
 }
+
 
 
 

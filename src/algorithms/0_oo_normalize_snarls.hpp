@@ -28,12 +28,12 @@ class SnarlNormalizer {
     // GBWT graph with snarls to normalize, includes the embedded threads needed for the
     // GBWTPathFinder approach.
     const gbwtgraph::GBWTGraph &_haploGraph;
-    map<list<id_t>, list<id_t>> gbwt_changelog;
+    map<vector<id_t>, vector<id_t>> _gbwt_changelog;
 
     // the maximum number of threads allowed to align in a given snarl. If the number of
     // threads exceeds this threshold, the snarl is skipped.
-    int _max_alignment_size;
-    int _max_handle_size;
+    const int &_max_alignment_size;
+    const int &_max_handle_size;
     const string &_path_finder;
     //todo: either make this an optional argument for the class, or remove as a debug var.
     bool _full_log_print = false; // for printing info that isn't necessarily something gone wrong.
@@ -59,7 +59,7 @@ class SnarlNormalizer {
 
     handle_t overwrite_node_id(const id_t& old_node_id, const id_t& new_node_id);
 
-    void log_gbwt_changes(const unordered_set<string> &old_paths, const HandleGraph &new_snarl);
+    void log_gbwt_changes(const vector<pair<vector<id_t>, string>>& source_to_sink_gbwt_paths, const HandleGraph &new_snarl);
 
     bool source_and_sink_handles_map_properly(
         const HandleGraph &graph, const id_t &new_source_id, const id_t &new_sink_id,
