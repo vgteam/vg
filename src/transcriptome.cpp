@@ -631,7 +631,7 @@ list<EditedTranscriptPath> Transcriptome::construct_reference_transcript_paths_g
             if (!chrom_transcript_sets.empty()) {
 
                 // Set size of previous set.
-                chrom_transcript_sets.back().second = i - chrom_transcript_sets.back().first + 1;
+                chrom_transcript_sets.back().second = i - chrom_transcript_sets.back().first;
             }
 
             chrom_transcript_sets.emplace_back(i, 0);
@@ -641,7 +641,14 @@ list<EditedTranscriptPath> Transcriptome::construct_reference_transcript_paths_g
 
     // Set size of last set.
     chrom_transcript_sets.back().second = transcripts.size() - chrom_transcript_sets.back().first;    
-    sort(chrom_transcript_sets.begin(), chrom_transcript_sets.end(), sort_pair_by_second);
+    sort(chrom_transcript_sets.rbegin(), chrom_transcript_sets.rend(), sort_pair_by_second);
+
+    cerr << transcripts.size() << endl;
+
+    for (auto & bla: chrom_transcript_sets) {
+
+        cerr << bla.first << " " << bla.second << endl;
+    }
 
     assert(haplotype_index.bidirectional());
     assert(haplotype_index.hasMetadata());
@@ -698,6 +705,12 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
     while (chrom_transcript_sets_idx < chrom_transcript_sets.size()) {
 
         const pair<uint32_t, uint32_t> & transcript_set = chrom_transcript_sets.at(chrom_transcript_sets_idx);
+
+        edited_transcript_paths_mutex->lock();
+
+        cerr << num_threads << " " << thread_idx << " " << chrom_transcript_sets_idx << " " << transcript_set.first << " " << transcript_set.second << " " << transcripts.at(transcript_set.first).chrom << endl;
+
+        edited_transcript_paths_mutex->unlock();
 
         assert(transcript_set.second > 0);
         uint32_t transcript_idx = transcript_set.first;
