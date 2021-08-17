@@ -4681,6 +4681,9 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             return deduplicated;
         };
         
+        // TODO: i wonder if it would be cleaner/more general to use branches rather than snarls
+        // as the condition here...
+        
         // add the alignment as subpath(s), possibly cutting it at snarl boundaries and marking
         // those cuts as prohibited to merge. the subpaths are created in order at the end of
         // the subpath vector and have edges between them
@@ -4695,12 +4698,14 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             auto cut_segments = get_cut_segments(aln.first, cutting_snarls,dist_index, *project,
                                                  unmergeable_len);
             
-            // collect the indexes after potential cuts
+            // collect the (internal) indexes that follow cuts
             vector<size_t> segment_boundaries;
             segment_boundaries.reserve(cut_segments.size() * 2);
             for (auto& cut_segment : cut_segments) {
-                segment_boundaries.push_back(cut_segment.first);
-                if (cut_segment.second != cut_segment.first) {
+                if (cut_segment.first != 0) {
+                    segment_boundaries.push_back(cut_segment.first);
+                }
+                if (cut_segment.second != cut_segment.first && cut_segment.second != aln.first.mapping_size()) {
                     segment_boundaries.push_back(cut_segment.second);
                 }
             }
@@ -5135,6 +5140,18 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
 #endif
                 }
             }
+            
+            // TODO: no option to merge if the match is long enough...
+            if (deduplicated.size() == 1) {
+                // the tail alignment could be merged with its attachment point
+                const auto& attachment = multipath_aln_out.subpath(sink_idx).path().mapping().back();
+                const auto& pos = attachment.position();
+                if (pos.offset() + mapping_from_length(attachment) == align_graph.get_length(align_graph.get_handle(pos.node_id()))
+                    && into_cutting_snarl(pos.node_id(), pos.is_reverse(), cutting_snarls, dist_index)) {
+                    // the tail is the start of an alignment into a snarl
+                    prohibited_merges.insert(sink_idx);
+                }
+            }
         }
                 
         // Now handle the left tails.
@@ -5283,6 +5300,17 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
 #endif
                     }
                 }
+                
+                // TODO: no option to merge if the match is long enough...
+                if (deduplicated.size() == 1) {
+                    // the tail alignment could be merged with its attachment point
+                    const auto& attachment = multipath_aln_out.subpath(source_idx).path().mapping().front();
+                    const auto& pos = attachment.position();
+                    if (pos.offset() == 0 && into_cutting_snarl(pos.node_id(), !pos.is_reverse(), cutting_snarls, dist_index)) {
+                        // the tail is the start of an alignment into a snarl
+                        prohibited_merges.insert(frayed_tips_begin);
+                    }
+                }
             }
             else {
 #ifdef debug_multipath_alignment
@@ -5337,15 +5365,18 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         to_dot(cerr);
 #endif
         
+        // TODO: magic number
+        int64_t anchor_low_cmplx_len = 16;
+        
         // multiplier to account for low complexity sequences
-        auto low_complexity_multiplier = [](const Alignment& aln) {
+        auto low_complexity_multiplier = [](string::const_iterator begin, string::const_iterator end) {
             // TODO: magic numbers
             static const double seq_cmplx_alpha = 0.05;
             static const double max_multiplier = 32.0;
-            SeqComplexity<2> complexity(aln.sequence());
+            SeqComplexity<2> complexity(begin, end);
             if (complexity.p_value(1) < seq_cmplx_alpha || complexity.p_value(2) < seq_cmplx_alpha) {
                 double repetitiveness = max(complexity.repetitiveness(1), complexity.repetitiveness(2));
-                double low_complexity_len = repetitiveness * aln.sequence().size();
+                double low_complexity_len = repetitiveness * (end - begin);
                 // TODO: empirically-derived function, not very principled
                 return max(1.0, min(max_multiplier, 0.05 * low_complexity_len * low_complexity_len));
             }
@@ -5457,7 +5488,14 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                         cerr << "align right with gssw" << endl;
 #endif
                         
-                        double multiplier = low_complexity_multiplier(right_tail_sequence);
+                        // TODO: it would be cleaner to handle these in one multiplier, but i already tuned
+                        // this for the tails and i don't feel like doing that again...
+                        double tail_multiplier = low_complexity_multiplier(right_tail_sequence.sequence().begin(),
+                                                                           right_tail_sequence.sequence().end());
+                        double anchor_multiplier = low_complexity_multiplier(max(path_node.end - anchor_low_cmplx_len,
+                                                                                 alignment.sequence().begin()),
+                                                                             path_node.end);
+                        double multiplier = max(tail_multiplier, anchor_multiplier);
                         if (multiplier != 1.0) {
                             num_alt_alns = round(multiplier * num_alt_alns);
 #ifdef debug_multipath_alignment
@@ -5569,7 +5607,12 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
 #ifdef debug_multipath_alignment
                             cerr << "align left with gssw" << endl;
 #endif
-                            double multiplier = low_complexity_multiplier(left_tail_sequence);
+                            double anchor_multiplier = low_complexity_multiplier(path_node.begin,
+                                                                                 min(path_node.begin + anchor_low_cmplx_len,
+                                                                                     alignment.sequence().end()));
+                            double tail_multiplier = low_complexity_multiplier(left_tail_sequence.sequence().begin(),
+                                                                               left_tail_sequence.sequence().end());
+                            double multiplier = max(tail_multiplier, anchor_multiplier);
                             if (multiplier != 1.0) {
                                 num_alt_alns = round(multiplier * num_alt_alns);
 #ifdef debug_multipath_alignment
