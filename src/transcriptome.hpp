@@ -154,7 +154,7 @@ class Transcriptome {
         /// creates reference transcript paths by projecting the transcript onto
         /// reference paths embedded in the graph. Optionally update haplotype GBWT 
         /// index with new splice-junctions. Returns the number of transcripts parsed. 
-        int32_t add_reference_transcripts(istream & transcript_stream, unique_ptr<gbwt::GBWT> & haplotype_index, const bool update_haplotypes);
+        int32_t add_reference_transcripts(istream & transcript_stream, unique_ptr<gbwt::GBWT> & haplotype_index, const bool update_haplotypes, const bool use_haplotype_paths);
 
         /// Adds haplotype-specific transcript paths by projecting transcripts in a 
         /// gtf/gff3 file onto either non-reference embedded paths and/or haplotypes
@@ -235,25 +235,32 @@ class Transcriptome {
         vector<Transcript> parse_introns(istream & intron_stream, const bdsg::PositionOverlay & graph_path_pos_overlay) const;
 
         /// Parse gtf/gff3 file of transcripts.
-        vector<Transcript> parse_transcripts(istream & transcript_stream, const bdsg::PositionOverlay & graph_path_pos_overlay) const;
+        vector<Transcript> parse_transcripts(istream & transcript_stream, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool use_haplotype_paths) const;
 
         /// Returns the the mean node length of the graph
         float mean_node_length() const;
 
-        /// Finds the position of each end of a exon on a path in the  
-        /// graph and adds the exon to a transcript.
+        /// Adds the exon coordinates to a transcript.
+        void add_exon(Transcript * transcript, const pair<int32_t, int32_t> & exon_pos) const;
+
+        /// Adds the exon coordinates to a transcript and finds the 
+        /// position of each end of a exon on the contig path in the graph.
         void add_exon(Transcript * transcript, const pair<int32_t, int32_t> & exon_pos, const bdsg::PositionOverlay & graph_path_pos_overlay) const;
 
         /// Reverses exon order if the transcript is on the reverse strand and the exons 
         /// are ordered in reverse.
         void reorder_exons(Transcript * transcript) const;
 
-        /// Constructs edited transcript paths from a set of 
-        /// reference transcripts. 
-        list<EditedTranscriptPath> construct_edited_transcript_paths(const vector<Transcript> & transcripts, const bdsg::PositionOverlay & graph_path_pos_overlay) const;
+        /// Constructs edited reference transcript paths from a set of 
+        /// transcripts using embedded graph paths.
+        list<EditedTranscriptPath> construct_reference_transcript_paths(const vector<Transcript> & transcripts, const bdsg::PositionOverlay & graph_path_pos_overlay) const;
 
         /// Threaded edited transcript path construction.
-        void construct_edited_transcript_paths_callback(list<EditedTranscriptPath> * edited_transcript_paths, mutex * edited_transcript_paths_mutex, const bdsg::PositionOverlay & graph_path_pos_overlay, const int32_t thread_idx, const vector<Transcript> & transcripts) const;
+        void construct_reference_transcript_paths_callback(list<EditedTranscriptPath> * edited_transcript_paths, mutex * edited_transcript_paths_mutex, const bdsg::PositionOverlay & graph_path_pos_overlay, const int32_t thread_idx, const vector<Transcript> & transcripts) const;
+
+        /// Constructs edited reference transcript paths from a set of 
+        /// transcripts using haplotype paths in GBWT index.
+        list<EditedTranscriptPath> construct_reference_transcript_paths(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index) const;
 
         /// Constructs haplotype transcript paths by projecting transcripts onto
         /// embedded paths in a graph and/or haplotypes in a GBWT index. 

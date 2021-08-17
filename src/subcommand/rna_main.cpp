@@ -38,6 +38,7 @@ void help_rna(char** argv) {
 
          << "\nConstruction options:" << endl
 
+         << "    -j, --use-hap-ref          use haplotype paths in GBWT index as reference sequences" << endl
          << "    -e, --proj-embed-paths     project transcripts onto embedded haplotype paths" << endl
          << "    -c, --do-not-collapse      do not collapse identical transcripts across haplotypes" << endl
          << "    -d, --remove-non-gene      remove intergenic and intronic regions (deletes reference paths)" << endl
@@ -68,6 +69,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     string feature_type = "exon";
     string transcript_tag = "transcript_id";
     string haplotypes_filename;
+    bool use_hap_ref = false;
     bool proj_emded_paths = false;
     bool collapse_transcript_paths = true;
     bool remove_non_transcribed = false;
@@ -93,6 +95,7 @@ int32_t main_rna(int32_t argc, char** argv) {
                 {"feature-type",  no_argument, 0, 'y'},
                 {"transcript-tag",  no_argument, 0, 's'},
                 {"haplotypes",  no_argument, 0, 'l'},
+                {"use-hap-ref",  no_argument, 0, 'j'},
                 {"proj-embed-paths",  no_argument, 0, 'e'},
                 {"do-not-collapse",  no_argument, 0, 'c'},
                 {"remove-non-gene",  no_argument, 0, 'd'},
@@ -111,7 +114,7 @@ int32_t main_rna(int32_t argc, char** argv) {
             };
 
         int32_t option_index = 0;
-        c = getopt_long(argc, argv, "n:m:y:s:l:ercdoraub:gf:i:t:ph?", long_options, &option_index);
+        c = getopt_long(argc, argv, "n:m:y:s:l:jercdoraub:gf:i:t:ph?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -138,6 +141,10 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         case 'l':
             haplotypes_filename = optarg;
+            break;
+
+        case 'j':
+            use_hap_ref = true;
             break;
 
         case 'e':
@@ -291,14 +298,14 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         // Add transcripts as novel exon boundaries and splice-junctions to graph.
         get_input_file(transcript_filenames.front(), [&](istream& transcript_stream) {
-            num_transcripts_added += transcriptome.add_reference_transcripts(transcript_stream, haplotype_index, true);
+            num_transcripts_added += transcriptome.add_reference_transcripts(transcript_stream, haplotype_index, !use_hap_ref, use_hap_ref);
         });
     }
 
     if (show_progress) { cerr << "[vg rna] " << num_introns_added << " introns and " << num_transcripts_added <<  " transcripts parsed, and graph augmented " << ((transcriptome.graph_node_updated()) ? "" : "(no novel exon boundaries) ") << "in " << gcsa::readTimer() - time_splice_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
 
 
-    if (!transcript_filenames.empty() && (!haplotype_index->empty() || proj_emded_paths)) {
+    if (!transcript_filenames.empty() && (!haplotype_index->empty() || proj_emded_paths) && !use_hap_ref) {
 
         double time_project_start = gcsa::readTimer();
         if (show_progress) { cerr << "[vg rna] Projecting haplotype-specfic transcripts ..." << endl; }
@@ -385,6 +392,8 @@ int32_t main_rna(int32_t argc, char** argv) {
 
             transcriptome.add_reference_transcripts_to_gbwt(&gbwt_builder, gbwt_add_bidirectional);
         }
+
+        assert(gbwt_builder.index.hasMetadata());
 
         // Finish contruction and recode index.
         gbwt_builder.finish();
