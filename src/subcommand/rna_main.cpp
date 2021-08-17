@@ -38,7 +38,7 @@ void help_rna(char** argv) {
 
          << "\nConstruction options:" << endl
 
-         << "    -j, --use-hap-ref          use haplotype paths in GBWT index as reference sequences" << endl
+         << "    -j, --use-hap-ref          use haplotype paths in GBWT index as reference sequences (disables projection)" << endl
          << "    -e, --proj-embed-paths     project transcripts onto embedded haplotype paths" << endl
          << "    -c, --do-not-collapse      do not collapse identical transcripts across haplotypes" << endl
          << "    -d, --remove-non-gene      remove intergenic and intronic regions (deletes reference paths)" << endl

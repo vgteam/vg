@@ -253,14 +253,17 @@ class Transcriptome {
 
         /// Constructs edited reference transcript paths from a set of 
         /// transcripts using embedded graph paths.
-        list<EditedTranscriptPath> construct_reference_transcript_paths(const vector<Transcript> & transcripts, const bdsg::PositionOverlay & graph_path_pos_overlay) const;
+        list<EditedTranscriptPath> construct_reference_transcript_paths_embedded(const vector<Transcript> & transcripts, const bdsg::PositionOverlay & graph_path_pos_overlay) const;
 
-        /// Threaded edited transcript path construction.
-        void construct_reference_transcript_paths_callback(list<EditedTranscriptPath> * edited_transcript_paths, mutex * edited_transcript_paths_mutex, const bdsg::PositionOverlay & graph_path_pos_overlay, const int32_t thread_idx, const vector<Transcript> & transcripts) const;
+        /// Threaded reference transcript path construction using embedded paths.
+        void construct_reference_transcript_paths_embedded_callback(list<EditedTranscriptPath> * edited_transcript_paths, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<Transcript> & transcripts, const bdsg::PositionOverlay & graph_path_pos_overlay) const;
 
         /// Constructs edited reference transcript paths from a set of 
-        /// transcripts using haplotype paths in GBWT index.
-        list<EditedTranscriptPath> construct_reference_transcript_paths(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index) const;
+        /// transcripts using haplotype paths in a GBWT index.
+        list<EditedTranscriptPath> construct_reference_transcript_paths_gbwt(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index) const;
+
+        /// Threaded reference transcript path construction using GBWT haplotype paths.
+        void construct_reference_transcript_paths_gbwt_callback(list<EditedTranscriptPath> * edited_transcript_paths, unordered_map<gbwt::node_type, vector<EditedTranscriptPath *> > * edited_transcript_paths_index, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<pair<uint32_t, uint32_t> > & chrom_transcript_sets, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const unordered_map<string, map<uint32_t, uint32_t> > & haplotype_name_index) const;
 
         /// Constructs haplotype transcript paths by projecting transcripts onto
         /// embedded paths in a graph and/or haplotypes in a GBWT index. 
