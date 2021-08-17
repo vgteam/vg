@@ -213,17 +213,17 @@ namespace vg {
                     REQUIRE(int_hap_transcript_paths.at(2) == vector<uint64_t>({14, 16, 24, 26}));
                     REQUIRE(int_hap_transcript_paths.back() == vector<uint64_t>({27, 25, 23, 11, 9, 5}));
 
-                    // assert(transcriptome.graph().for_each_handle([&](const handle_t & handle) {
+                    assert(transcriptome.graph().for_each_handle([&](const handle_t & handle) {
 
-                    //     cerr << bdsg::as_integer(handle) << endl;
-                    // }));
+                        cerr << bdsg::as_integer(handle) << endl;
+                    }));
 
-                    // cerr << endl;
+                    cerr << endl;
 
-                    // assert(transcriptome.graph().for_each_edge([&](const edge_t & edge) {
+                    assert(transcriptome.graph().for_each_edge([&](const edge_t & edge) {
 
-                    //     cerr << bdsg::as_integer(edge.first) << " " << bdsg::as_integer(edge.second)<< endl;
-                    // }));
+                        cerr << bdsg::as_integer(edge.first) << " " << bdsg::as_integer(edge.second)<< endl;
+                    }));
 
                     REQUIRE(transcriptome.graph().get_node_count() == 9);
                     REQUIRE(transcriptome.graph().get_edge_count() == 11);
