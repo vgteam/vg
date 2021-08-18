@@ -106,10 +106,10 @@ namespace vg {
             transcript_stream << "path1\t.\texon\t2\t7\t.\t+\t.\ttranscript_id \"transcript1\"; exon_number 1;" << endl;
             transcript_stream << "path1\t.\texon\t9\t10\t.\t+\t.\ttranscript_id \"transcript1\"; exon_number 2;" << endl;
             transcript_stream << "path1\t.\texon\t19\t21\t.\t+\t.\ttranscript_id \"transcript1\"; exon_number 3;" << endl;
-            transcript_stream << "path1\t.\texon\t2\t7\t.\t-\t.\ttranscript_id \"transcript2\"; exon_number 1;" << endl;
-            transcript_stream << "path1\t.\texon\t16\t21\t.\t-\t.\ttranscript_id \"transcript2\"; exon_number 2;" << endl;
-            transcript_stream << "path1\t.\texon\t9\t11\t.\t+\t.\ttranscript_id \"transcript3\"; exon_number 1;" << endl;
-            transcript_stream << "path1\t.\texon\t18\t21\t.\t+\t.\ttranscript_id \"transcript3\"; exon_number 2;" << endl;
+            transcript_stream << "path1\t.\texon\t2\t7\t.\t-\t.\texon_number 1; transcript_id \"transcript2\";" << endl;
+            transcript_stream << "path1\t.\texon\t16\t21\t.\t-\t.\texon_number 2; transcript_id \"transcript2\";" << endl;
+            transcript_stream << "path1\t.\texon\t9\t11\t.\t+\t.\ttranscript_id \"transcript3\";" << endl;
+            transcript_stream << "path1\t.\texon\t18\t21\t.\t+\t.\ttranscript_id \"transcript3\";" << endl;
 
             SECTION("Transcriptome can add splice-junctions and reference transcript paths") {
 
@@ -293,10 +293,10 @@ namespace vg {
                 transcript_stream2 << "path1\t.\texon\t2\t7\t.\t+\t.\ttranscript_id=transcript1;exon_number=0" << endl;
                 transcript_stream2 << "path1\t.\texon\t9\t10\t.\t+\t.\ttranscript_id=transcript1;exon_number=1" << endl;
                 transcript_stream2 << "path1\t.\texon\t19\t21\t.\t+\t.\ttranscript_id=transcript1;exon_number=2" << endl;
-                transcript_stream2 << "path1\t.\texon\t16\t21\t.\t-\t.\ttranscript_id=transcript2;ID=exon:transcript2:0" << endl;
-                transcript_stream2 << "path1\t.\texon\t2\t7\t.\t-\t.\ttranscript_id=transcript2;ID=exon:transcript2:1" << endl;
-                transcript_stream2 << "path1\t.\texon\t9\t11\t.\t+\t.\ttranscript_id=transcript3;ID=exon:transcript3:0" << endl;
-                transcript_stream2 << "path1\t.\texon\t18\t21\t.\t+\t.\ttranscript_id=transcript3;ID=exon:transcript3:1" << endl;
+                transcript_stream2 << "path1\t.\texon\t16\t21\t.\t-\t.\tID=exon:transcript2:0;transcript_id=transcript2;" << endl;
+                transcript_stream2 << "path1\t.\texon\t2\t7\t.\t-\t.\tID=exon:transcript2:1;transcript_id=transcript2" << endl;
+                transcript_stream2 << "path1\t.\texon\t9\t11\t.\t+\t.\ttranscript_id=transcript3" << endl;
+                transcript_stream2 << "path1\t.\texon\t18\t21\t.\t+\t.\ttranscript_id=transcript3" << endl;
 
                 transcriptome.add_reference_transcripts(transcript_stream2, empty_haplotype_index, false, false);
                 transcriptome.topological_sort_compact();

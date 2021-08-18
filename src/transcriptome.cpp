@@ -338,6 +338,38 @@ vector<Transcript> Transcriptome::parse_introns(istream & intron_stream, const b
     return introns;
 }
 
+string Transcriptome::parse_attribute_value(const string & attribute, const string & name) const {
+
+    string value = "";
+
+    const uint32_t attribute_start_pos = (attribute.front() == ' ');
+
+    if (attribute.substr(attribute_start_pos, name.size()) == name) {
+
+        if (attribute.substr(name.size(), 1) == "=") {
+
+            assert(attribute_start_pos == 0);
+            value = attribute.substr(name.size() + 1);
+
+        } else {
+
+            if (attribute.substr(attribute_start_pos + name.size() + 1, 1) == "\"") {
+
+                value = attribute.substr(attribute_start_pos + name.size() + 2);
+
+                assert(value.back() == '\"');
+                value.pop_back();
+
+            } else {
+
+                value = attribute.substr(attribute_start_pos + name.size() + 1);
+            }
+        }
+    }
+
+    return value;
+}
+
 vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool use_haplotype_paths) const {
 
     vector<Transcript> transcripts;
@@ -350,24 +382,7 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream,
     string pos;
     string strand;
     string attributes;
-
-    smatch regex_id_match;
-    smatch regex_en_match;
-
-    // Regex used to extract transcript name/id from gtf file.
-    regex regex_id_exp_gtf(transcript_tag + "\\s{1}\"?([^\"]+)\"?;?");
-
-    // Regex used to extract transcript name/id from gff file.
-    regex regex_id_exp_gff(transcript_tag + "={1}([^;]+);?");
-
-    // Regex used to extract transcript exon number from gtf file.
-    regex regex_en_exp_gtf("exon_number\\s{1}\"?([0-9]+)\"?;?");
-
-    // Regex used to extract transcript exon number from gff file.
-    regex regex_en_exp_gff("exon_number={1}([0-9]+);?");
-
-    // Regex used to extract transcript exon id from gff file.
-    regex regex_ei_exp_gff("ID={1}([^;]+);?");
+    string attribute;
 
     bool zero_based_exon_number = false;
 
@@ -433,29 +448,61 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream,
         // Skip frame column.
         transcript_stream.ignore(numeric_limits<streamsize>::max(), '\t');  
 
-        assert(getline(transcript_stream, attributes, '\n'));
-
         string transcript_id = "";
-        bool is_gtf_format = true;
+        int32_t exon_number = -1;
 
-        // Get transcript name/id from gtf attribute column using regex.
-        if (std::regex_search(attributes, regex_id_match, regex_id_exp_gtf)) {
+        assert(getline(transcript_stream, attributes, '\n'));
+        stringstream attributes_ss(attributes);    
 
-            assert(regex_id_match.size() == 2);
-            transcript_id = regex_id_match[1];
+        while (getline(attributes_ss, attribute, ';')) {
 
-        // Get transcript name/id from gff attribute column using regex.        
-        } else if (std::regex_search(attributes, regex_id_match, regex_id_exp_gff)) {
+            if (attribute.empty()) {
 
-            assert(regex_id_match.size() == 2);
-            transcript_id = regex_id_match[1];
+                break;
+            }
 
-            is_gtf_format = false;
+            if (transcript_id.empty()) {
+
+                transcript_id = parse_attribute_value(attribute, transcript_tag);
+            }
+
+            if (exon_number < 0) {
+
+                auto exon_number_str = parse_attribute_value(attribute, "exon_number");
+
+                if (exon_number_str.empty()) {
+
+                    auto exon_id = parse_attribute_value(attribute, "ID");
+
+                    if (!exon_id.empty()) {
+
+                        string element;
+                        auto exon_id_ss = stringstream(exon_id);
+
+                        getline(exon_id_ss, element, ':');   
+                        assert(element == "exon");     
+
+                        getline(exon_id_ss, element, ':');
+                        getline(exon_id_ss, element, ':');   
+
+                        exon_number = stoi(element);
+                    }
+
+                } else {
+
+                    exon_number = stoi(exon_number_str);
+                }
+            }
+
+            if (!transcript_id.empty() && exon_number >= 0) {
+
+                break;
+            }
         }
 
         if (transcript_id.empty()) {
 
-            cerr << "[transcriptome] ERROR: Tag \"" << transcript_tag << "\" not found in attributes \"" << attributes << "\" (line " << line_number << ")." << endl;
+            cerr << "[transcriptome] ERROR: Tag \"" << transcript_tag << "\" not found in attributes (line " << line_number << ")." << endl;
             exit(1);
         }
 
@@ -483,43 +530,6 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream,
             add_exon(transcript, make_pair(spos, epos), graph_path_pos_overlay);
         }
 
-        int32_t exon_number = -1;
-
-        if (is_gtf_format) {
-
-            // Get exon number from gtf attribute column using regex.
-            if (std::regex_search(attributes, regex_en_match, regex_en_exp_gtf)) {
-
-                assert(regex_en_match.size() == 2);
-                exon_number = stoi(regex_en_match[1]);
-            }
-
-        } else {
-
-            // Get exon number from gff attribute column using regex.
-            if (std::regex_search(attributes, regex_en_match, regex_en_exp_gff)) {
-
-                assert(regex_en_match.size() == 2);
-                exon_number = stoi(regex_en_match[1]);
-
-            } else if (std::regex_search(attributes, regex_en_match, regex_ei_exp_gff)) {
-
-                assert(regex_en_match.size() == 2);
-
-                string element;
-                auto exon_id_ss = stringstream(regex_en_match[1]);
-
-                getline(exon_id_ss, element, ':');   
-                assert(element == "exon");     
-
-                getline(exon_id_ss, element, ':');   
-                assert(element ==transcript->name);
-
-                getline(exon_id_ss, element, ':');   
-                exon_number = stoi(element);
-            }
-        }
-
         if (exon_number >= 0) {
 
             if (transcripts.size() == 1 && transcript->exons.size() == 1) {
@@ -529,7 +539,7 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream,
 
             if (transcript->exons.size() - static_cast<uint32_t>(zero_based_exon_number) != exon_number) {
 
-                cerr << "[transcriptome] ERROR: Exons are not in correct order according to attributes \"" << attributes << "\" (line " << line_number << ")." << endl;
+                cerr << "[transcriptome] ERROR: Exons are not in correct order according to attributes (line " << line_number << ")." << endl;
                 exit(1); 
             } 
         }
@@ -911,9 +921,6 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
 
     edited_transcript_paths_mutex->lock();
 
-    cerr << endl;
-    cerr << thread_edited_transcript_paths.size() << endl;
-
     // Add unique transcript paths only.
     if (collapse_transcript_paths) {
 
@@ -964,8 +971,6 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
             }
         }
     } 
-
-    cerr << thread_edited_transcript_paths.size() << endl;
 
     edited_transcript_paths->splice(edited_transcript_paths->end(), thread_edited_transcript_paths);
     edited_transcript_paths_mutex->unlock();
@@ -1834,30 +1839,52 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
 
     _graph_node_updated = true;
 
-    // Move paths to data structure compatible with augment.
-    vector<Path> edited_paths;
-    edited_paths.reserve(edited_transcript_paths.size());
+    // Create set of exon_boundary paths to augment graph with.
+    vector<Path> exon_boundary_paths;
+    exon_boundary_paths.reserve(edited_transcript_paths.size());
 
     for (auto & transcript_path: edited_transcript_paths) {
 
-        // Add adjecent same node exons as single paths to ensure boundary breaking
-        for (size_t i = 1; i < transcript_path.path.mapping_size(); ++i) {
+        if (transcript_path.path.mapping_size() > 2) {
 
-            if (transcript_path.path.mapping(i - 1).position().node_id() == transcript_path.path.mapping(i).position().node_id()) {
+            for (size_t i = 1; i < transcript_path.path.mapping_size(); ++i) {
 
-                edited_paths.emplace_back(Path());
-                *(edited_paths.back().add_mapping()) = transcript_path.path.mapping(i - 1);
+                const Mapping & prev_mapping = transcript_path.path.mapping(i - 1);
+                const Mapping & cur_mapping = transcript_path.path.mapping(i);
 
-                edited_paths.emplace_back(Path());
-                *(edited_paths.back().add_mapping()) = transcript_path.path.mapping(i);
+                // Add splice-junction.
+                if (cur_mapping.position().offset() > 0 || prev_mapping.position().offset() + mapping_to_length(prev_mapping) < _graph->get_length(_graph->get_handle(prev_mapping.position().node_id(), false))) {
+
+                    exon_boundary_paths.emplace_back(Path());
+                    *(exon_boundary_paths.back().add_mapping()) = prev_mapping;
+                    *(exon_boundary_paths.back().add_mapping()) = cur_mapping;                               
+                
+                } else if (break_at_transcript_ends) {
+
+                    // Add transcript start boundary.
+                    if (i == 1) {
+
+                        exon_boundary_paths.emplace_back(Path());
+                        *(exon_boundary_paths.back().add_mapping()) = prev_mapping;
+                    }
+                
+                    // Add transcript end boundary.
+                    if (i == transcript_path.path.mapping_size() - 1) {
+
+                        exon_boundary_paths.emplace_back(Path());
+                        *(exon_boundary_paths.back().add_mapping()) = cur_mapping;
+                    }           
+                }   
             }
-        }
 
-        edited_paths.emplace_back(move(transcript_path.path));
+        } else {
+
+            exon_boundary_paths.emplace_back(move(transcript_path.path));
+        }
     }
 
 #ifdef transcriptome_debug
-    cerr << "\tDEBUG Created " << edited_paths.size() << " paths: " << gcsa::readTimer() - time_convert_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG Created " << exon_boundary_paths.size() << " exon boundary paths: " << gcsa::readTimer() - time_convert_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
@@ -1868,10 +1895,10 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
     vector<Translation> translations;
 
     // Augment graph with edited paths. 
-    augment(static_cast<MutablePathMutableHandleGraph *>(_graph.get()), edited_paths, "GAM", &translations, "", false, break_at_transcript_ends);
+    augment(static_cast<MutablePathMutableHandleGraph *>(_graph.get()), exon_boundary_paths, "GAM", &translations, "", false, break_at_transcript_ends);
 
 #ifdef transcriptome_debug
-    cerr << "\tDEBUG Augmented graph: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG Augmented graph with " << translations.size() << " translations: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
@@ -1881,20 +1908,41 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
 
     unordered_map<gbwt::node_type, vector<pair<int32_t, gbwt::node_type> > > translation_index;
 
-    // Create translation index 
-    for (auto & translation: translations) {
+    #pragma omp parallel num_threads(num_threads)
+    {
+        unordered_map<gbwt::node_type, vector<pair<int32_t, gbwt::node_type> > > thread_translation_index;
 
-        assert(translation.from().mapping_size() == 1);
-        assert(translation.to().mapping_size() == 1);
+        // Create translation index 
+        #pragma omp for schedule(static)
+        for (size_t i = 0; i < translations.size(); ++i) {
 
-        auto & from_mapping = translation.from().mapping(0);
-        auto & to_mapping = translation.to().mapping(0);
+            const Translation & translation = translations.at(i);
 
-        // Only store changes
-        if (!google::protobuf::util::MessageDifferencer::Equals(from_mapping, to_mapping)) {
+            assert(translation.from().mapping_size() == 1);
+            assert(translation.to().mapping_size() == 1);
 
-            auto translation_index_it = translation_index.emplace(mapping_to_gbwt(from_mapping), vector<pair<int32_t, gbwt::node_type> >());
-            translation_index_it.first->second.emplace_back(from_mapping.position().offset(), mapping_to_gbwt(to_mapping));
+            auto & from_mapping = translation.from().mapping(0);
+            auto & to_mapping = translation.to().mapping(0);
+
+            // Only store changes
+            if (!google::protobuf::util::MessageDifferencer::Equals(from_mapping, to_mapping)) {
+
+                auto thread_translation_index_it = thread_translation_index.emplace(mapping_to_gbwt(from_mapping), vector<pair<int32_t, gbwt::node_type> >());
+                thread_translation_index_it.first->second.emplace_back(from_mapping.position().offset(), mapping_to_gbwt(to_mapping));
+            }
+        }
+
+        #pragma omp critical
+        {
+            for (auto & translation: thread_translation_index) {
+
+                auto translation_index_it = translation_index.emplace(translation.first, translation.second);
+
+                if (!translation_index_it.second) {
+
+                    translation_index_it.first->second.insert(translation_index_it.first->second.end(), translation.second.begin(), translation.second.end());
+                }
+            }
         }
     }
 
@@ -1929,56 +1977,63 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
     cerr << "\tDEBUG Updating (paths) start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif
 
-    if (add_reference_transcript_paths) {
+    vector<CompletedTranscriptPath> updated_transcript_paths;
+    updated_transcript_paths.reserve(edited_transcript_paths.size());
 
-        // Update paths to match new augmented graph and add them
-        // as reference transcript paths.
-        for (auto & transcript_path: edited_transcript_paths) {
+    // Update paths to match new augmented graph and add them
+    // as reference transcript paths.
+    for (auto & transcript_path: edited_transcript_paths) {
 
-            _reference_transcript_paths.emplace_back(transcript_path.transcript_origin);
+        updated_transcript_paths.emplace_back(transcript_path.transcript_origin);
 
-            _reference_transcript_paths.back().name = transcript_path.name;
-            _reference_transcript_paths.back().haplotype_origin_ids = transcript_path.haplotype_origin_ids;
-            _reference_transcript_paths.back().path_origin_names = transcript_path.path_origin_names;
+        updated_transcript_paths.back().name = transcript_path.name;
+        updated_transcript_paths.back().haplotype_origin_ids = transcript_path.haplotype_origin_ids;
+        updated_transcript_paths.back().path_origin_names = transcript_path.path_origin_names;
 
-            for (auto mapping: transcript_path.path.mapping()) {
+        for (auto mapping: transcript_path.path.mapping()) {
 
-                auto mapping_node_id = mapping.position().node_id();
-                auto mapping_offset = mapping.position().offset();
-                auto mapping_is_reverse = mapping.position().is_reverse();
-                auto mapping_length = mapping_to_length(mapping);
+            auto mapping_node_id = mapping.position().node_id();
+            auto mapping_offset = mapping.position().offset();
+            auto mapping_is_reverse = mapping.position().is_reverse();
+            auto mapping_length = mapping_to_length(mapping);
 
-                assert(mapping_length > 0);
-                assert(mapping_length == mapping_from_length(mapping));
+            assert(mapping_length > 0);
+            assert(mapping_length == mapping_from_length(mapping));
 
-                auto translation_index_it = translation_index.find(mapping_to_gbwt(mapping));
+            auto translation_index_it = translation_index.find(mapping_to_gbwt(mapping));
 
-                if (translation_index_it != translation_index.end()) {
+            if (translation_index_it != translation_index.end()) {
 
-                    // First node id is the same (new node offset is larger than 0). 
-                    if (mapping_offset == 0 & translation_index_it->second.front().first > 0) {
+                // First node id is the same (new node offset is larger than 0). 
+                if (mapping_offset == 0 & translation_index_it->second.front().first > 0) {
 
-                        _reference_transcript_paths.back().path.emplace_back(_graph->get_handle(mapping_node_id, mapping_is_reverse));
-                    }
-
-                    // Add new nodes.
-                    for (auto & new_node: translation_index_it->second) {
-
-                        if (new_node.first >= mapping_offset && new_node.first < mapping_offset + mapping_length) {
-                            _reference_transcript_paths.back().path.emplace_back(_graph->get_handle(gbwt::Node::id(new_node.second), mapping_is_reverse));
-                        }
-                    }
-
-                } else {
-
-                    _reference_transcript_paths.back().path.emplace_back(_graph->get_handle(mapping_node_id, mapping_is_reverse));
+                    updated_transcript_paths.back().path.emplace_back(_graph->get_handle(mapping_node_id, mapping_is_reverse));
                 }
+
+                // Add new nodes.
+                for (auto & new_node: translation_index_it->second) {
+
+                    if (new_node.first >= mapping_offset && new_node.first < mapping_offset + mapping_length) {
+                        updated_transcript_paths.back().path.emplace_back(_graph->get_handle(gbwt::Node::id(new_node.second), mapping_is_reverse));
+                    }
+                }
+
+            } else {
+
+                updated_transcript_paths.back().path.emplace_back(_graph->get_handle(mapping_node_id, mapping_is_reverse));
             }
         }
     }
 
+    add_splice_junction_edges(updated_transcript_paths);
+
+    if (add_reference_transcript_paths) {
+
+        _reference_transcript_paths = move(updated_transcript_paths);
+    }
+
 #ifdef transcriptome_debug
-    cerr << "\tDEBUG Updated " << _reference_transcript_paths.size() << " transcript paths: " << gcsa::readTimer() - time_update_2 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG Updated " << updated_transcript_paths.size() << " transcript paths: " << gcsa::readTimer() - time_update_2 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif  
 }
 
