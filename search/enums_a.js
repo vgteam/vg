@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['path_5fcover_5fmode_11004',['path_cover_mode',['../structGBWTConfig.html#a6607b41ac0d4eaad9b9ec03e4513a8e1',1,'GBWTConfig']]],
-  ['pruningmode_11005',['PruningMode',['../prune__main_8cpp.html#a2c77251411bc109287b491299718e248',1,'prune_main.cpp']]]
+  ['path_5fcover_5fmode_11006',['path_cover_mode',['../structGBWTConfig.html#a6607b41ac0d4eaad9b9ec03e4513a8e1',1,'GBWTConfig']]],
+  ['pruningmode_11007',['PruningMode',['../prune__main_8cpp.html#a2c77251411bc109287b491299718e248',1,'prune_main.cpp']]]
 ];

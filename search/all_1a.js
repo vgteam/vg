@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['zip_5falignments_5229',['zip_alignments',['../classvg_1_1MultipathAlignmentGraph.html#a96a24f6cbdc09cf0098251f8b61baf4a',1,'vg::MultipathAlignmentGraph']]]
+  ['zip_5falignments_5230',['zip_alignments',['../classvg_1_1MultipathAlignmentGraph.html#a96a24f6cbdc09cf0098251f8b61baf4a',1,'vg::MultipathAlignmentGraph']]]
 ];
