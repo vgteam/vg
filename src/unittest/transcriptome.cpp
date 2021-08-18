@@ -103,13 +103,13 @@ namespace vg {
             unique_ptr<gbwt::GBWT> empty_haplotype_index(new gbwt::GBWT());
 
             stringstream transcript_stream;
-            transcript_stream << "path1\t.\texon\t2\t7\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
-            transcript_stream << "path1\t.\texon\t9\t10\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
-            transcript_stream << "path1\t.\texon\t19\t21\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
-            transcript_stream << "path1\t.\texon\t2\t7\t.\t-\t.\ttranscript_id \"transcript2\";" << endl;
-            transcript_stream << "path1\t.\texon\t16\t21\t.\t-\t.\ttranscript_id \"transcript2\";" << endl;
-            transcript_stream << "path1\t.\texon\t9\t11\t.\t+\t.\ttranscript_id \"transcript3\";" << endl;
-            transcript_stream << "path1\t.\texon\t18\t21\t.\t+\t.\ttranscript_id \"transcript3\";" << endl;
+            transcript_stream << "path1\t.\texon\t2\t7\t.\t+\t.\ttranscript_id \"transcript1\"; exon_number 1;" << endl;
+            transcript_stream << "path1\t.\texon\t9\t10\t.\t+\t.\ttranscript_id \"transcript1\"; exon_number 2;" << endl;
+            transcript_stream << "path1\t.\texon\t19\t21\t.\t+\t.\ttranscript_id \"transcript1\"; exon_number 3;" << endl;
+            transcript_stream << "path1\t.\texon\t2\t7\t.\t-\t.\ttranscript_id \"transcript2\"; exon_number 1;" << endl;
+            transcript_stream << "path1\t.\texon\t16\t21\t.\t-\t.\ttranscript_id \"transcript2\"; exon_number 2;" << endl;
+            transcript_stream << "path1\t.\texon\t9\t11\t.\t+\t.\ttranscript_id \"transcript3\"; exon_number 1;" << endl;
+            transcript_stream << "path1\t.\texon\t18\t21\t.\t+\t.\ttranscript_id \"transcript3\"; exon_number 2;" << endl;
 
             SECTION("Transcriptome can add splice-junctions and reference transcript paths") {
 
@@ -213,18 +213,6 @@ namespace vg {
                     REQUIRE(int_hap_transcript_paths.at(2) == vector<uint64_t>({14, 16, 24, 26}));
                     REQUIRE(int_hap_transcript_paths.back() == vector<uint64_t>({27, 25, 23, 11, 9, 5}));
 
-                    assert(transcriptome.graph().for_each_handle([&](const handle_t & handle) {
-
-                        cerr << bdsg::as_integer(handle) << endl;
-                    }));
-
-                    cerr << endl;
-
-                    assert(transcriptome.graph().for_each_edge([&](const edge_t & edge) {
-
-                        cerr << bdsg::as_integer(edge.first) << " " << bdsg::as_integer(edge.second)<< endl;
-                    }));
-
                     REQUIRE(transcriptome.graph().get_node_count() == 9);
                     REQUIRE(transcriptome.graph().get_edge_count() == 11);
                     REQUIRE(transcriptome.graph().get_path_count() == 0);                
@@ -297,6 +285,39 @@ namespace vg {
                     REQUIRE(int_hap_transcript_paths.at(2) == vector<uint64_t>({14, 16, 24, 26}));
                     REQUIRE(int_hap_transcript_paths.back() == vector<uint64_t>({27, 25, 23, 11, 9, 5}));
                 }
+            }
+
+            SECTION("Transcriptome can parse gff3 file and reorder reverse exons") {
+
+                stringstream transcript_stream2;
+                transcript_stream2 << "path1\t.\texon\t2\t7\t.\t+\t.\ttranscript_id=transcript1;exon_number=0" << endl;
+                transcript_stream2 << "path1\t.\texon\t9\t10\t.\t+\t.\ttranscript_id=transcript1;exon_number=1" << endl;
+                transcript_stream2 << "path1\t.\texon\t19\t21\t.\t+\t.\ttranscript_id=transcript1;exon_number=2" << endl;
+                transcript_stream2 << "path1\t.\texon\t16\t21\t.\t-\t.\ttranscript_id=transcript2;ID=exon:transcript2:0" << endl;
+                transcript_stream2 << "path1\t.\texon\t2\t7\t.\t-\t.\ttranscript_id=transcript2;ID=exon:transcript2:1" << endl;
+                transcript_stream2 << "path1\t.\texon\t9\t11\t.\t+\t.\ttranscript_id=transcript3;ID=exon:transcript3:0" << endl;
+                transcript_stream2 << "path1\t.\texon\t18\t21\t.\t+\t.\ttranscript_id=transcript3;ID=exon:transcript3:1" << endl;
+
+                transcriptome.add_reference_transcripts(transcript_stream2, empty_haplotype_index, false, false);
+                transcriptome.topological_sort_compact();
+
+                REQUIRE(transcriptome.graph_node_updated());
+
+                REQUIRE(transcriptome.graph().get_node_count() == 13);
+                REQUIRE(transcriptome.graph().get_edge_count() == 18);
+                REQUIRE(transcriptome.graph().get_path_count() == 4);
+
+                REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path1")) == 12);
+                REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path2")) == 10);
+                REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path3")) == 12);
+                REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path4")) == 10);
+
+                REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
+                auto int_ref_transcript_paths = transcript_paths_to_int_vectors(transcriptome.reference_transcript_paths());
+
+                REQUIRE(int_ref_transcript_paths.front() == vector<uint64_t>({4, 6, 10, 14, 26}));
+                REQUIRE(int_ref_transcript_paths.at(1) == vector<uint64_t>({14, 16, 24, 26}));
+                REQUIRE(int_ref_transcript_paths.back() == vector<uint64_t>({27, 25, 23, 11, 7, 5}));
             }
 
             SECTION("Transcriptome can add splice-junctions and update GBWT threads") {
