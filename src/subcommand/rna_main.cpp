@@ -338,11 +338,15 @@ int32_t main_rna(int32_t argc, char** argv) {
         double time_sort_start = gcsa::readTimer();
         if (show_progress) { cerr << "[vg rna] Topological sorting graph and compacting node ids ..." << endl; }
         
-        transcriptome.topological_sort_compact();
-        
-        if (show_progress) { cerr << "[vg rna] Splice graph sorted and compacted in " << gcsa::readTimer() - time_sort_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
-    }
+        if (transcriptome.topological_sort_compact()) {
 
+            if (show_progress) { cerr << "[vg rna] Splice graph sorted and compacted in " << gcsa::readTimer() - time_sort_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
+
+        } else {
+
+            if (show_progress) { cerr << "[vg rna] WARNING: Can only sort and compact node ids for a graph in the PackedGraph format" << endl; };            
+        }        
+    }
 
     if (add_reference_transcript_paths || add_haplotype_transcript_paths) {
 

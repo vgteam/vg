@@ -176,8 +176,9 @@ class Transcriptome {
         /// Removes non-transcribed (not in transcript paths) nodes.
         void remove_non_transcribed();
 
-        /// Topological sorts graph and compacts node ids.
-        void topological_sort_compact();
+        /// Topological sorts graph and compacts node ids. Only works for 
+        /// graphs in the PackedGraph format. Return false if not sorted.
+        bool topological_sort_compact();
 
         /// Embeds reference transcript paths in the graph.  
         /// Returns the number of paths embedded.

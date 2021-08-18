@@ -103,7 +103,7 @@ int32_t Transcriptome::add_intron_splice_junctions(istream & intron_stream, uniq
 
 #ifdef transcriptome_debug
     double time_parsing_1 = gcsa::readTimer();
-    cerr << "DEBUG Parsing start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG Parsing start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif
 
     // Create path position overlay of graph
@@ -114,24 +114,24 @@ int32_t Transcriptome::add_intron_splice_junctions(istream & intron_stream, uniq
     sort(introns.begin(), introns.end());
 
 #ifdef transcriptome_debug
-    cerr << "DEBUG Parsed " << introns.size() << " introns: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG Parsed " << introns.size() << " introns: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
     double time_project_1 = gcsa::readTimer();
-    cerr << "DEBUG Construction start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG Construction start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
     // Construct edited reference intron paths using embedded graph paths.
     auto edited_transcript_paths = construct_reference_transcript_paths_embedded(introns, graph_path_pos_overlay);
 
 #ifdef transcriptome_debug
-    cerr << "DEBUG Constructed " << edited_transcript_paths.size() << " intron paths: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG Constructed " << edited_transcript_paths.size() << " intron paths: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
     double time_augment_1 = gcsa::readTimer();
-    cerr << "DEBUG Updating start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG Updating start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
     if (has_novel_exon_boundaries(edited_transcript_paths, false)) {
@@ -146,7 +146,7 @@ int32_t Transcriptome::add_intron_splice_junctions(istream & intron_stream, uniq
     }
 
 #ifdef transcriptome_debug
-    cerr << "DEBUG Updated graph: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG Updated graph: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
     return introns.size();
@@ -156,7 +156,7 @@ int32_t Transcriptome::add_reference_transcripts(istream & transcript_stream, un
 
 #ifdef transcriptome_debug
     double time_parsing_1 = gcsa::readTimer();
-    cerr << "DEBUG Parsing start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG Parsing start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif
 
     bdsg::PositionOverlay graph_path_pos_overlay;
@@ -172,12 +172,12 @@ int32_t Transcriptome::add_reference_transcripts(istream & transcript_stream, un
     sort(transcripts.begin(), transcripts.end());
 
 #ifdef transcriptome_debug
-    cerr << "DEBUG Parsed " << transcripts.size() << " transcripts: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG Parsed " << transcripts.size() << " transcripts: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
     double time_project_1 = gcsa::readTimer();
-    cerr << "DEBUG Construction start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG Construction start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
     list<EditedTranscriptPath> edited_transcript_paths;
@@ -194,12 +194,12 @@ int32_t Transcriptome::add_reference_transcripts(istream & transcript_stream, un
     } 
 
 #ifdef transcriptome_debug
-    cerr << "DEBUG Constructed " << edited_transcript_paths.size() << " transcript paths: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG Constructed " << edited_transcript_paths.size() << " transcript paths: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
     double time_augment_1 = gcsa::readTimer();
-    cerr << "DEBUG Updating start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG Updating start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
     if (has_novel_exon_boundaries(edited_transcript_paths, true)) {
@@ -215,7 +215,7 @@ int32_t Transcriptome::add_reference_transcripts(istream & transcript_stream, un
     }
 
 #ifdef transcriptome_debug
-    cerr << "DEBUG Updated graph: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG Updated graph: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
     return transcripts.size();
@@ -225,7 +225,7 @@ int32_t Transcriptome::add_haplotype_transcripts(istream & transcript_stream, co
 
 #ifdef transcriptome_debug
     double time_parsing_1 = gcsa::readTimer();
-    cerr << "DEBUG Parsing start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG Parsing start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif
 
     // Create path position overlay of splice graph
@@ -236,12 +236,12 @@ int32_t Transcriptome::add_haplotype_transcripts(istream & transcript_stream, co
     sort(transcripts.begin(), transcripts.end());
 
 #ifdef transcriptome_debug
-    cerr << "DEBUG Parsed " << transcripts.size() << " transcripts: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG Parsed " << transcripts.size() << " transcripts: " << gcsa::readTimer() - time_parsing_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
     double time_project_1 = gcsa::readTimer();
-    cerr << "DEBUG Projection start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG Projection start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
     // Save number of haplotype transcript paths before adding new.
@@ -254,7 +254,7 @@ int32_t Transcriptome::add_haplotype_transcripts(istream & transcript_stream, co
     add_splice_junction_edges(_haplotype_transcript_paths);
 
 #ifdef transcriptome_debug
-    cerr << "DEBUG Projected " << _haplotype_transcript_paths.size() - pre_num_haplotype_transcript_paths << " transcript paths: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\tDEBUG Projected " << _haplotype_transcript_paths.size() - pre_num_haplotype_transcript_paths << " transcript paths: " << gcsa::readTimer() - time_project_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
     assert(_haplotype_transcript_paths.size() >= pre_num_haplotype_transcript_paths);
@@ -1831,7 +1831,7 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
 
 #ifdef transcriptome_debug
     double time_convert_1 = gcsa::readTimer();
-    cerr << "\tDEBUG Creation start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\t\tDEBUG Creation start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif
 
     assert(_reference_transcript_paths.empty());
@@ -1884,12 +1884,12 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
     }
 
 #ifdef transcriptome_debug
-    cerr << "\tDEBUG Created " << exon_boundary_paths.size() << " exon boundary paths: " << gcsa::readTimer() - time_convert_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\t\tDEBUG Created " << exon_boundary_paths.size() << " exon boundary paths: " << gcsa::readTimer() - time_convert_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
     double time_augment_1 = gcsa::readTimer();
-    cerr << "\tDEBUG Augmention start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\t\tDEBUG Augmention start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif
 
     vector<Translation> translations;
@@ -1898,12 +1898,12 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
     augment(static_cast<MutablePathMutableHandleGraph *>(_graph.get()), exon_boundary_paths, "GAM", &translations, "", false, break_at_transcript_ends);
 
 #ifdef transcriptome_debug
-    cerr << "\tDEBUG Augmented graph with " << translations.size() << " translations: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\t\tDEBUG Augmented graph with " << translations.size() << " translations: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
     double time_index_1 = gcsa::readTimer();
-    cerr << "\tDEBUG Indexing start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\t\tDEBUG Indexing start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif
 
     unordered_map<gbwt::node_type, vector<pair<int32_t, gbwt::node_type> > > translation_index;
@@ -1953,28 +1953,28 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
     }
 
 #ifdef transcriptome_debug
-    cerr << "\tDEBUG Indexed " << translation_index.size() << " translated nodes: " << gcsa::readTimer() - time_index_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\t\tDEBUG Indexed " << translation_index.size() << " translated nodes: " << gcsa::readTimer() - time_index_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
     if (!haplotype_index->empty() && update_haplotypes) {
 
 #ifdef transcriptome_debug
     double time_update_1 = gcsa::readTimer();
-    cerr << "\tDEBUG Updating (GBWT) start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\t\tDEBUG Updating (GBWT) start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif
 
         // Update haplotypes in gbwt index to match new augmented graph.
         update_haplotype_index(haplotype_index, translation_index);
 
 #ifdef transcriptome_debug
-    cerr << "\tDEBUG Updated " << haplotype_index->sequences() / 2 << " haplotype paths: " << gcsa::readTimer() - time_update_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\t\tDEBUG Updated " << haplotype_index->sequences() / 2 << " haplotype paths: " << gcsa::readTimer() - time_update_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
     } 
 
 #ifdef transcriptome_debug
     double time_update_2 = gcsa::readTimer();
-    cerr << "\tDEBUG Updating (paths) start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\t\tDEBUG Updating (paths) start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif
 
     vector<CompletedTranscriptPath> updated_transcript_paths;
@@ -2033,7 +2033,7 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
     }
 
 #ifdef transcriptome_debug
-    cerr << "\tDEBUG Updated " << updated_transcript_paths.size() << " transcript paths: " << gcsa::readTimer() - time_update_2 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\t\tDEBUG Updated " << _reference_transcript_paths.size() << " transcript paths: " << gcsa::readTimer() - time_update_2 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif  
 }
 
@@ -2205,40 +2205,118 @@ void Transcriptome::remove_non_transcribed() {
 
 void Transcriptome::update_transcript_path_node_handles(vector<CompletedTranscriptPath> * transcript_paths, const unordered_map<handle_t, handle_t> & update_index) {
 
-    for (auto & transcript_path: *transcript_paths) {
+    #pragma omp parallel num_threads(num_threads)
+    {
+        // Update transcript paths 
+        #pragma omp for schedule(static)
+        for (size_t i = 0; i < transcript_paths->size(); ++i) {
 
-        for (auto & handle: transcript_path.path) {
+            for (auto & handle: transcript_paths->at(i).path) {
 
-            if (_graph->get_is_reverse(handle)) {
+                if (_graph->get_is_reverse(handle)) {
 
-                handle = _graph->flip(update_index.at(_graph->flip(handle)));
+                    auto update_index_it = update_index.find(_graph->flip(handle));
 
-            } else {
+                    if (update_index_it == update_index.end()) {
 
-                handle = update_index.at(handle);
+                        #pragma omp critical
+                        {
+                            cerr << endl;
+                            cerr << transcript_paths->at(i).name << endl;
+                            cerr << _graph->get_id(_graph->flip(handle)) << " " << _graph->get_is_reverse(_graph->flip(handle)) << endl;
+                            cerr << _graph->get_id(handle) << " " << _graph->get_is_reverse(handle) << endl;
+                        }
+                    }
+
+                    handle = _graph->flip(update_index.at(_graph->flip(handle)));
+
+                } else {
+
+                    auto update_index_it = update_index.find(handle);
+
+                    if (update_index_it == update_index.end()) {
+
+                        #pragma omp critical
+                        {
+                            cerr << endl;
+                            cerr << transcript_paths->at(i).name << endl;
+                            cerr << _graph->get_id(handle) << " " << _graph->get_is_reverse(handle) << endl;
+                        }
+                    }
+
+                    handle = update_index.at(handle);
+                }
             }
         }
     }
 }
 
-void Transcriptome::topological_sort_compact() {
+bool Transcriptome::topological_sort_compact() {
+
+    if (dynamic_cast<bdsg::PackedGraph*>(_graph.get()) == nullptr) {
+
+        return false;
+    }
+
+#ifdef transcriptome_debug
+    double time_sort_1 = gcsa::readTimer();
+    cerr << "\tDEBUG Sorting start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif
 
     auto new_order = handlealgs::topological_order(_graph.get());
     assert(new_order.size() == _graph->get_node_count());
+
+#ifdef transcriptome_debug
+    cerr << "\tDEBUG Sorted " << new_order.size() << " nodes: " << gcsa::readTimer() - time_sort_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif 
+
+#ifdef transcriptome_debug
+    double time_index_1 = gcsa::readTimer();
+    cerr << "\tDEBUG Indexing start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif
 
     unordered_map<handle_t, handle_t> update_index; 
     uint32_t order_idx = 1;
 
     for (auto handle: new_order) {
+
+        if (_graph->get_is_reverse(handle)) {
+
+            cerr << _graph->get_id(handle) << endl;
+        }
         
         assert(update_index.emplace(handle, _graph->get_handle(order_idx, false)).second);
         ++order_idx;
     }
 
+#ifdef transcriptome_debug
+    cerr << "\tDEBUG Indexed " << update_index.size() << " node updates: " << gcsa::readTimer() - time_index_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif 
+
+#ifdef transcriptome_debug
+    double time_update_1 = gcsa::readTimer();
+    cerr << "\tDEBUG Updating (graph) start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif
+
     _graph->apply_ordering(new_order, true);
+
+#ifdef transcriptome_debug
+    cerr << "\tDEBUG Updated graph: " << gcsa::readTimer() - time_update_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif 
+
+#ifdef transcriptome_debug
+    double time_update_2 = gcsa::readTimer();
+    cerr << "\tDEBUG Updating (paths) start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif
 
     update_transcript_path_node_handles(&_reference_transcript_paths, update_index);
     update_transcript_path_node_handles(&_haplotype_transcript_paths, update_index);
+
+#ifdef transcriptome_debug
+    cerr << "\tDEBUG Updated " << _reference_transcript_paths.size() + _haplotype_transcript_paths.size() << " transcript paths: " << gcsa::readTimer() - time_update_2 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+#endif 
+
+    return true;
 }
 
 int32_t Transcriptome::embed_transcript_paths(const vector<CompletedTranscriptPath> & transcript_paths) {
