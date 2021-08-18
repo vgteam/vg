@@ -11,7 +11,7 @@ class SnarlSequenceFinder {
     virtual ~SnarlSequenceFinder() = default;
 
     SnarlSequenceFinder(const PathHandleGraph & graph, const SubHandleGraph &snarl,
-                   const gbwtgraph::GBWTGraph &haploGraph, const id_t &source_id, 
+                   const gbwtgraph::GBWTGraph &gbwt_graph, const id_t &source_id, 
                    const id_t &sink_id, const bool &backwards);
 
     tuple<vector<vector<handle_t>>, vector<vector<handle_t>>, unordered_set<handle_t>>
@@ -29,7 +29,7 @@ class SnarlSequenceFinder {
     const SubHandleGraph &_snarl;
     // GBWT graph with snarls to normalize, includes the embedded threads needed for the
     // GBWTPathFinder approach.
-    const gbwtgraph::GBWTGraph &_haploGraph;
+    const gbwtgraph::GBWTGraph &_gbwt_graph;
     const id_t &_source_id; 
     const id_t &_sink_id; 
     const bool &_backwards;

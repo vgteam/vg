@@ -38,9 +38,9 @@ namespace vg {
 namespace algorithms{
 SnarlSequenceFinder::SnarlSequenceFinder(const PathHandleGraph & graph, 
                                const SubHandleGraph &snarl,
-                               const gbwtgraph::GBWTGraph &haploGraph, 
+                               const gbwtgraph::GBWTGraph &gbwt_graph, 
                                const id_t &source_id, const id_t &sink_id, const bool &backwards)
-    : _graph(graph), _haploGraph(haploGraph), _snarl(snarl), _source_id(source_id), _sink_id(sink_id), _backwards(backwards) {}
+    : _graph(graph), _gbwt_graph(gbwt_graph), _snarl(snarl), _source_id(source_id), _sink_id(sink_id), _backwards(backwards) {}
 
 // TODO: test that it successfully extracts any haplotypes that start/end in the middle of
 // TODO:    the snarl.
@@ -72,13 +72,13 @@ SnarlSequenceFinder::find_gbwt_haps() {
     */
     vector<pair<vector<handle_t>, gbwt::SearchState>> haplotype_queue;
 
-    // source and sink handle for _haploGraph:
-    handle_t source_handle = _haploGraph.get_handle(leftmost_id);
-    handle_t sink_handle = _haploGraph.get_handle(rightmost_id);
+    // source and sink handle for _gbwt_graph:
+    handle_t source_handle = _gbwt_graph.get_handle(leftmost_id);
+    handle_t sink_handle = _gbwt_graph.get_handle(rightmost_id);
 
     // place source in haplotype_queue.
     vector<handle_t> source_handle_vec(1, source_handle);
-    gbwt::SearchState source_state = _haploGraph.get_state(source_handle);
+    gbwt::SearchState source_state = _gbwt_graph.get_state(source_handle);
     haplotype_queue.push_back(make_pair(source_handle_vec, source_state));
 
     // touched_handles contains all handles that have been touched by the
@@ -104,7 +104,7 @@ SnarlSequenceFinder::find_gbwt_haps() {
         // for (auto hap : haplotype_queue) {
         //     cerr << "size: " << hap.first.size() << endl << "handle_ids: ";
         //     for (handle_t handle : hap.first) {
-        //         cerr << _haploGraph.get_id(handle) << " ";
+        //         cerr << _gbwt_graph.get_id(handle) << " ";
         //     }
         //     cerr << endl;
         // }
@@ -117,7 +117,7 @@ SnarlSequenceFinder::find_gbwt_haps() {
         // get all the subsequent search_states that immediately follow the searchstate
         // from cur_haplotype.
         vector<gbwt::SearchState> next_searches;
-        _haploGraph.follow_paths(cur_haplotype.second,
+        _gbwt_graph.follow_paths(cur_haplotype.second,
                                  [&](const gbwt::SearchState next_search) -> bool {
                                      next_searches.push_back(next_search);
                                      return true;
@@ -131,7 +131,7 @@ SnarlSequenceFinder::find_gbwt_haps() {
             // haplotypes_from_source_to_sink if haplotype extends to sink, or place in
             // the other_haplotypes if haplotype ends before reaching sink.
             for (gbwt::SearchState next_search : next_searches) {
-                handle_t next_handle = _haploGraph.node_to_handle(next_search.node);
+                handle_t next_handle = _gbwt_graph.node_to_handle(next_search.node);
                 // if (!_snarl.has_edge(cur_haplotype.first.back(), next_handle)) {
                 //     if (incorrect_connections.find(
                 //             _snarl.edge_handle(cur_haplotype.first.back(), next_handle)) ==
@@ -140,8 +140,8 @@ SnarlSequenceFinder::find_gbwt_haps() {
                 //             << " and sink " << _sink_id
                 //             << " has a thread that incorrectly connects two nodes that "
                 //                "don't have any edge connecting them. These two nodes are "
-                //             << _haploGraph.get_id(cur_haplotype.first.back()) << " and "
-                //             << _haploGraph.get_id(next_handle)
+                //             << _gbwt_graph.get_id(cur_haplotype.first.back()) << " and "
+                //             << _gbwt_graph.get_id(next_handle)
                 //             << ". This thread connection will be ignored." << endl;
                 //         incorrect_connections.emplace(
                 //             _snarl.edge_handle(cur_haplotype.first.back(), next_handle));
@@ -165,7 +165,7 @@ SnarlSequenceFinder::find_gbwt_haps() {
                 next_handle_vec.push_back(next_handle);
 
                 // if new_handle is the sink, put in haplotypes_from_source_to_sink
-                if (_haploGraph.get_id(next_handle) == rightmost_id) {
+                if (_gbwt_graph.get_id(next_handle) == rightmost_id) {
                     haplotypes_from_source_to_sink.push_back(next_handle_vec);
                 } else // keep extending the haplotype!
                 {
@@ -185,11 +185,11 @@ SnarlSequenceFinder::find_gbwt_haps() {
 
         }
         // if next_handle is the "sink"/rightmost_id, put in haplotypes_from_source_to_sink
-        else if (_haploGraph.get_id(
-                     _haploGraph.node_to_handle(next_searches.back().node)) == rightmost_id) {
+        else if (_gbwt_graph.get_id(
+                     _gbwt_graph.node_to_handle(next_searches.back().node)) == rightmost_id) {
             // Then we need to add cur_haplotype + next_search to
             // haplotypes_from_source_to_sink.
-            handle_t next_handle = _haploGraph.node_to_handle(next_searches.back().node);
+            handle_t next_handle = _gbwt_graph.node_to_handle(next_searches.back().node);
             cur_haplotype.first.push_back(next_handle);
             haplotypes_from_source_to_sink.push_back(cur_haplotype.first);
 
@@ -201,7 +201,7 @@ SnarlSequenceFinder::find_gbwt_haps() {
         // haplotype_queue.
         else {
             // get the next_handle from the one next_search.
-            handle_t next_handle = _haploGraph.node_to_handle(next_searches.back().node);
+            handle_t next_handle = _gbwt_graph.node_to_handle(next_searches.back().node);
 
             // modify cur_haplotype with next_handle and next_search.
             cur_haplotype.first.push_back(next_handle);
@@ -225,14 +225,15 @@ SnarlSequenceFinder::find_gbwt_haps() {
     move(haplotypes_not_starting_at_source.begin(),
          haplotypes_not_starting_at_source.end(), back_inserter(other_haplotypes));
 
-    // //todo: debug_statement
-    // cerr << "lets look through all the haplotypes after extraction:" << endl;
-    // for (vector<handle_t> hap_vec : haplotypes_from_source_to_sink) {
-    //     cerr << "new hap:" << endl;
-    //     for (handle_t handle : hap_vec){
-    //         cerr << _haploGraph.get_id(handle) << " " << _haploGraph.get_sequence(handle) << endl;
-    //     }
-    // }
+    //todo: debug_statement
+    cerr << "lets look through all the haplotypes after extraction:" << endl;
+    for (vector<handle_t> hap_vec : haplotypes_from_source_to_sink) {
+        cerr << "new hap:" << endl;
+        for (handle_t handle : hap_vec){
+            cerr << _gbwt_graph.get_id(handle) << " " << _graph.get_sequence(_graph.get_handle(_gbwt_graph.get_id(handle))) << endl;
+            // cerr << _gbwt_graph.get_id(handle) << " " << _gbwt_graph.get_sequence(handle) << endl;
+        }
+    }
 
     return tuple<vector<vector<handle_t>>, vector<vector<handle_t>>,
                  unordered_set<handle_t>>{haplotypes_from_source_to_sink,
@@ -244,9 +245,7 @@ SnarlSequenceFinder::find_gbwt_haps() {
 // handles connected to the snarl by threads that start after the source handle. (Threads
 // that merely end before the sink handle are addressed in extract_gbwt_haplotypes).
 // Arguments:
-//      _haploGraph: the GBWTgraph containing the haplotype threads.
 //      touched_handles: any handles found in the snarl so far.
-//      sink_id: the id of the final handle in the snarl.
 // Returns:
 //      a vector of haplotypes in vector<handle_t> format that start in the middle of the
 //      snarl.
@@ -280,7 +279,7 @@ SnarlSequenceFinder::find_haplotypes_not_at_source(unordered_set<handle_t> &touc
 
     // We don't need to ever check the sink handle, since paths from the sink handle
     // extend beyond snarl.
-    handle_t sink_handle = _haploGraph.get_handle(rightmost_id);
+    handle_t sink_handle = _gbwt_graph.get_handle(rightmost_id);
     // touched_handles.erase(sink_handle);
 
     // Nested function for making a new_search. Identifies threads starting at a given
@@ -290,12 +289,12 @@ SnarlSequenceFinder::find_haplotypes_not_at_source(unordered_set<handle_t> &touc
     auto make_new_search = [&](handle_t handle) {
         // Are there any new threads starting at this handle?
         gbwt::SearchState new_search =
-            _haploGraph.index->prefix(_haploGraph.handle_to_node(handle));
+            _gbwt_graph.index->prefix(_gbwt_graph.handle_to_node(handle));
         if (!new_search.empty()) {
             // Then add them to haplotype_queue.
-            _haploGraph.follow_paths(
+            _gbwt_graph.follow_paths(
                 new_search, [&](const gbwt::SearchState &next_search) -> bool {
-                    handle_t next_handle = _haploGraph.node_to_handle(next_search.node);
+                    handle_t next_handle = _gbwt_graph.node_to_handle(next_search.node);
 
                     /// check to make sure that the thread isn't already finished:
                     // if next_handle is the sink, or if this thread is only one handle
@@ -343,14 +342,14 @@ SnarlSequenceFinder::find_haplotypes_not_at_source(unordered_set<handle_t> &touc
             // get all the subsequent search_states that immediately follow the
             // searchstate from cur_haplotype.
             vector<gbwt::SearchState> next_searches;
-            _haploGraph.follow_paths(cur_haplotype.second,
+            _gbwt_graph.follow_paths(cur_haplotype.second,
                                      [&](const gbwt::SearchState &next_search) -> bool {
                                          next_searches.push_back(next_search);
                                          return true;
                                      });
 
             for (gbwt::SearchState next_search : next_searches) {
-                handle_t next_handle = _haploGraph.node_to_handle(next_search.node);
+                handle_t next_handle = _gbwt_graph.node_to_handle(next_search.node);
 
                 // if next_search is empty, then we've fallen off the thread,
                 // and cur_haplotype can be placed in finished_haplotypes as is for this
@@ -361,7 +360,7 @@ SnarlSequenceFinder::find_haplotypes_not_at_source(unordered_set<handle_t> &touc
 
                 // if next_search is on the sink_handle,
                 // then cur_haplotype.first + next_search goes to finished_haplotypes.
-                else if (_haploGraph.get_id(next_handle) == rightmost_id) {
+                else if (_gbwt_graph.get_id(next_handle) == rightmost_id) {
 
                     // copy over the vector<handle_t> of cur_haplotype:
                     vector<handle_t> next_handle_vec(cur_haplotype.first);

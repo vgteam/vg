@@ -5,7 +5,6 @@
 #include <string>
 #include <gbwtgraph/gbwtgraph.h>
 
-
 namespace vg {
 namespace algorithms {
 
@@ -13,8 +12,9 @@ class SnarlNormalizer {
   public:
     virtual ~SnarlNormalizer() = default;
 
-    SnarlNormalizer(MutablePathDeletableHandleGraph &graph, const gbwtgraph::GBWTGraph &haploGraph,
-                    const int& _max_handle_size, const int &max_alignment_size = INT_MAX, //TODO: add a _max_handle_length default length
+    SnarlNormalizer(MutablePathDeletableHandleGraph &graph, const gbwt::GBWT &gbwt,
+                    const string& output_gbwt, const int& _max_handle_size, 
+                    const int &max_alignment_size = INT_MAX, //TODO: add a _max_handle_length default length
                     const string &path_finder = "GBWT" /*alternative is "exhaustive"*/);
 
     virtual void normalize_top_level_snarls(ifstream &snarl_stream);
@@ -27,8 +27,12 @@ class SnarlNormalizer {
     MutablePathDeletableHandleGraph &_graph;
     // GBWT graph with snarls to normalize, includes the embedded threads needed for the
     // GBWTPathFinder approach.
-    const gbwtgraph::GBWTGraph &_haploGraph;
-    map<vector<id_t>, vector<id_t>> _gbwt_changelog;
+    const gbwt::GBWT &_gbwt;
+    const gbwtgraph::GBWTGraph &_gbwt_graph;
+    const string &_output_gbwt;
+    // vector<pair<vector<std::uint32_t>, vector<std::uint32_t>>> _gbwt_changelog; //todo: delete this
+    // vector<pair<vector<id_t>, vector<id_t>>> _gbwt_changelog;
+    vector<pair<gbwt::vector_type, gbwt::vector_type>> _gbwt_changelog;
 
     // the maximum number of threads allowed to align in a given snarl. If the number of
     // threads exceeds this threshold, the snarl is skipped.
@@ -59,7 +63,7 @@ class SnarlNormalizer {
 
     handle_t overwrite_node_id(const id_t& old_node_id, const id_t& new_node_id);
 
-    void log_gbwt_changes(const vector<pair<vector<id_t>, string>>& source_to_sink_gbwt_paths, const HandleGraph &new_snarl);
+    void log_gbwt_changes(const vector<pair<vector<gbwt::vector_type::value_type>, string>>& source_to_sink_gbwt_paths, const HandleGraph &new_snarl);
 
     bool source_and_sink_handles_map_properly(
         const HandleGraph &graph, const id_t &new_source_id, const id_t &new_sink_id,

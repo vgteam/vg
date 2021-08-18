@@ -12,6 +12,7 @@
 #include <seqan/graph_msa.h>
 
 #include <gbwtgraph/gbwtgraph.h>
+#include "../gbwt_helper.hpp"
 
 #include "../gbwt_helper.hpp"
 #include "../handle.hpp"
@@ -47,12 +48,13 @@ namespace algorithms{
 */
 
 SnarlNormalizer::SnarlNormalizer(MutablePathDeletableHandleGraph &graph,
-                                 const gbwtgraph::GBWTGraph &haploGraph,
+                                 const gbwt::GBWT &gbwt,
+                                 const string &output_gbwt,
                                  const int& max_handle_size, 
                                  const int &max_alignment_size /*= MAX_INT*/,
                                  const string &path_finder /*= "GBWT"*/)
-    : _haploGraph(haploGraph), _graph(graph), _max_alignment_size(max_alignment_size),
-      _max_handle_size(max_handle_size), _path_finder(path_finder) {}
+    : _graph(graph), _gbwt(gbwt), _output_gbwt(output_gbwt), _max_alignment_size(max_alignment_size),
+      _max_handle_size(max_handle_size), _path_finder(path_finder), _gbwt_graph(gbwtgraph::GBWTGraph(_gbwt, _graph)){}
 
 
 /**
@@ -117,7 +119,11 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
         {
             cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
         }
-        
+        cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
+        cerr << "seq from snarl number " << snarl_num << " with source at: " << _graph.get_sequence(_graph.get_handle(roots->start().node_id())) << " and sink at: " << _graph.get_sequence(_graph.get_handle(roots->end().node_id())) << endl;
+        // cerr << "seq from snarl number (using gbwt) " << snarl_num << " with source at: " << _gbwt_graph.get_sequence(_gbwt_graph.get_handle(roots->start().node_id())) << " and sink at: " << _gbwt_graph.get_sequence(_gbwt_graph.get_handle(roots->end().node_id())) << endl;
+
+        cerr << "backwards value? " << roots->start().backward() << endl;
         // if (roots->start().node_id() == 3881494) {
             // cerr << "root backwards?" << roots->start().backward() << endl;
             // cerr << "disambiguating snarl #"
@@ -177,6 +183,12 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
     cerr << "amount of sequence in normalized snarls after normalization: "
          << snarl_sequence_change.second << endl;
 
+    cerr << "generating gbwt for normalized graph..." << endl;
+
+    gbwt::GBWT output_gbwt = rebuild_gbwt(_gbwt, _gbwt_changelog);
+
+    cerr << "finished generating gbwt." << endl;
+
     //todo: debug_statement for extracting snarl of interest.
     // VG outGraph;
     // pos_t source_pos = make_pos_t(269695, false, 0);
@@ -188,6 +200,8 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
     // outGraph.serialize_to_ostream(cout);
 
     delete snarl_manager;
+
+    
 }
 
 /**
@@ -279,9 +293,9 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
     // 1: a vector of all the other haps in the snarl (in vector<handle_t> format)
     // 2: a vector of all the handles ever touched by the SnarlSequenceFinder.
     tuple<unordered_set<string>, vector<vector<handle_t>>, unordered_set<handle_t>> haplotypes;
-    SnarlSequenceFinder sequence_finder = SnarlSequenceFinder(_graph, snarl, _haploGraph, source_id, sink_id, backwards);
+    SnarlSequenceFinder sequence_finder = SnarlSequenceFinder(_graph, snarl, _gbwt_graph, source_id, sink_id, backwards);
     
-    vector<pair<vector<id_t>, string>> source_to_sink_gbwt_paths;
+    vector<pair<gbwt::vector_type, string>> source_to_sink_gbwt_paths;
     if (_path_finder == "GBWT") {
         tuple<vector<vector<handle_t>>, vector<vector<handle_t>>, unordered_set<handle_t>>
             gbwt_haplotypes = sequence_finder.find_gbwt_haps();
@@ -301,14 +315,17 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
         for (vector<handle_t> hap_handles : get<0>(gbwt_haplotypes))
         {
             string hap_str;
-            vector<id_t> hap_ids;
+            gbwt::vector_type hap_ids;
             for (handle_t &handle : hap_handles) 
             {
-                hap_ids.emplace_back(_graph.get_id(handle));
-                hap_str += _graph.get_sequence(handle);
+                cerr << "id of node: " << _gbwt_graph.get_id(handle) << endl;
+                cerr << "sequence of node: " << _graph.get_sequence(_graph.get_handle(_gbwt_graph.get_id(handle))) << endl;
+                hap_ids.emplace_back(_gbwt_graph.handle_to_node(handle));
+                // hap_str += _gbwt_graph.get_sequence(handle);
+                hap_str += _graph.get_sequence(_graph.get_handle(_gbwt_graph.get_id(handle)));
             }
             
-            pair<vector<id_t>, string> hap = make_pair(hap_ids, hap_str);
+            pair<gbwt::vector_type, string> hap = make_pair(hap_ids, hap_str);
             source_to_sink_gbwt_paths.emplace_back(hap);
         }
 
@@ -446,7 +463,7 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
             single_stranded_snarl=&new_snarl;
         }
 
-        //todo: skipping dagification because I require the input snarl to be a DAG, and I don't think alignments of sequences should produce DAGs.
+        //todo: skipping dagification because I require the input snarl to be a DAG, and I don't think alignments of sequences should produce non-DAGs.
         // bool dag = handlealgs::is_directed_acyclic(&new_snarl);
         // if (!dag)
         // {
@@ -539,7 +556,7 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
 // haplotypes of
 //      format string (which is the concatenated sequences in the handles).
 // Arguments:
-//      _haploGraph: a gbwtgraph::GBWTGraph which contains the handles in vector< handle_t
+//      _gbwt_graph: a gbwtgraph::GBWTGraph which contains the handles in vector< handle_t
 //      > haplotypes. haplotypte_handle_vectors: a vector of haplotypes in vector<
 //      handle_t > format.
 // Returns: a vector of haplotypes of format string (which is the concatenated sequences
@@ -1063,7 +1080,7 @@ handle_t SnarlNormalizer::overwrite_node_id(const id_t& old_node_id, const id_t&
  * @param  {HandleGraph} new_snarl  : the normalized portion of the graph. Probably a 
  * subhandlegraph.
  */
-void SnarlNormalizer::log_gbwt_changes(const vector<pair<vector<id_t>, string>>& source_to_sink_gbwt_paths, const HandleGraph &new_snarl){
+void SnarlNormalizer::log_gbwt_changes(const vector<pair<gbwt::vector_type, string>>& source_to_sink_gbwt_paths, const HandleGraph &new_snarl){
     //todo: move Aligner to initialization of object, since I'm not supposed to make a new one each time I do alignments.
     Aligner aligner = Aligner();
     // cerr << "in log_gbwt_changes" << endl;
@@ -1074,13 +1091,15 @@ void SnarlNormalizer::log_gbwt_changes(const vector<pair<vector<id_t>, string>>&
         alignment.set_sequence(path.second);
         aligner.align_global_banded(alignment, new_snarl,0, false);
         // cerr << "ALIGNMENT PATH FOR " << path << ":" << endl;
-        vector<id_t> alignment_full_path;
+        gbwt::vector_type alignment_full_path;
         for (auto mapping : alignment.path().mapping())
         {
-            alignment_full_path.emplace_back(mapping.position().node_id());
+            // gbwt::Node::encode(id, is_reverse)
+            // mapping.position().
+            alignment_full_path.emplace_back(gbwt::Node::encode(mapping.position().node_id(), mapping.position().is_reverse()));
             // cerr << "mapping.position().node_id() " << mapping.position().node_id() << endl;
         }
-        _gbwt_changelog.emplace(path.first, alignment_full_path);
+        _gbwt_changelog.emplace_back(path.first, alignment_full_path);
         // cerr << pb2json(alignment.path()) << endl << alignment.query_position() << endl << alignment.path().mapping().begin() << endl << endl;
         // alignment.path().mapping()
     }

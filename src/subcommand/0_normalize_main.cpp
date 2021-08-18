@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include <gbwtgraph/gbwtgraph.h>
+#include "../gbwt_helper.hpp"
 
 #include "subcommand.hpp"
 
@@ -13,7 +14,6 @@
 // <bdsg/hash...>
 #include "../../include/bdsg/hash_graph.hpp"
 #include "../../include/vg/io/vpkg.hpp"
-#include "../gbwt_helper.hpp"
 
 #include "../io/save_handle_graph.hpp"
 
@@ -28,7 +28,7 @@ using namespace vg::subcommand;
 
 void help_normalize(char **argv) {
   cerr
-      << "usage: " << argv[0] << " normalize [options] <graph.vg> >[mod.vg]"
+      << "usage: " << argv[0] << " normalize [options] <graph.vg> >[normalized.vg]"
       << endl
       << "Modifies snarls, outputs modified on stdout." << endl
       << endl
@@ -36,6 +36,7 @@ void help_normalize(char **argv) {
       << "    -g, --gbwt       gbwt corresponding to hashgraph." << endl
       << "    -s, --snarls       snarls file corresponding to hashgraph."
       << endl
+      << "    -o, --output_gbwt   name for the gbwt corresponding to the normalized graph. Default is normalized.gbwt."
       << "    -n, --normalize_type        can be either 'all' or 'one'. "
          "Default is 'all'. If 'all', all top-level snarls in the graph are "
          "normalized. If 'one', only the one specified snarl is normalized."
@@ -91,6 +92,7 @@ int main_normalize(int argc, char **argv) {
       INT_MAX; // default cutoff used to be 200 threads in a snarl.
   string gbwt;
   string snarls;
+  string output_gbwt = "normalized.gbwt";
   string normalize_type = "all";
   int source = NULL; // todo: do something other than NULL to avoid the compiler
                      // warnings.
@@ -110,6 +112,7 @@ int main_normalize(int argc, char **argv) {
         {{"help", no_argument, 0, 'h'},
          {"gbwt", required_argument, 0, 'g'},
          {"snarls", required_argument, 0, 's'},
+         {"output_gbwt", required_argument, 0, 'o'},
          {"normalize_type", required_argument, 0, 'n'},
          {"source", required_argument, 0, 'a'},
          {"sink", required_argument, 0, 'b'},
@@ -122,7 +125,7 @@ int main_normalize(int argc, char **argv) {
          {0, 0, 0, 0}};
 
     int option_index = 0;
-    c = getopt_long(argc, argv, "hg:s:n:a:b:pm:i:kh:x", long_options,
+    c = getopt_long(argc, argv, "hg:s:o:n:a:b:pm:i:kh:x", long_options,
                     &option_index);
 
     // Detect the end of the options.
@@ -137,6 +140,10 @@ int main_normalize(int argc, char **argv) {
 
     case 's':
       snarls = optarg;
+      break;
+
+    case 'o':
+      output_gbwt = optarg;
       break;
 
     case 'n':
@@ -194,8 +201,7 @@ int main_normalize(int argc, char **argv) {
     graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
   });
 
-  if (normalize_type != "all" && normalize_type != "one" &&
-      normalize_type != "none") {
+  if (normalize_type != "all" && normalize_type != "one") {
     cerr << "please enter a valid normalize_type: all or one." << endl;
   }
 
@@ -209,7 +215,7 @@ int main_normalize(int argc, char **argv) {
     // Load the GBWT from its container
     unique_ptr<gbwt::GBWT> gbwt;
     gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
-    gbwtgraph::GBWTGraph haploGraph = gbwtgraph::GBWTGraph(*gbwt, *graph);
+    // gbwtgraph::GBWTGraph haploGraph = gbwtgraph::GBWTGraph(*gbwt, *graph);
 
     std::ifstream snarl_stream;
     string snarl_file = snarls;
@@ -224,7 +230,7 @@ int main_normalize(int argc, char **argv) {
     auto start = chrono::high_resolution_clock::now();
 
     algorithms::SnarlNormalizer normalizer = algorithms::SnarlNormalizer(
-        *graph, haploGraph, max_alignment_size, max_handle_size);
+        *graph, *gbwt, output_gbwt, max_alignment_size, max_handle_size);
 
     if (normalize_type == "all") {
       normalizer.normalize_top_level_snarls(snarl_stream);
