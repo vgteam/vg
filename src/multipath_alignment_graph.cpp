@@ -4144,6 +4144,391 @@ namespace vg {
         align(alignment, align_graph, aligner, score_anchors_as_matches, max_alt_alns, dynamic_alt_alns,
               max_gap, pessimistic_tail_gap_multiplier, constant_padding, multipath_aln_out, allow_negative_scores);
     }
+
+    pair<path_t, int32_t> MultipathAlignmentGraph::zip_alignments(vector<pair<path_t, int32_t>>& alt_alns, bool from_left,
+                                                                  const Alignment& alignment, const HandleGraph& align_graph,
+                                                                  string::const_iterator begin, const GSSWAligner* aligner) {
+#ifdef debug_multipath_alignment
+        cerr << "attempting to zip alignments from " << (from_left ? "left" : "right") << endl;
+        for (auto& alt_aln : alt_alns) {
+            cerr << debug_string(alt_aln.first) << endl;
+        }
+#endif
+        
+        pair<path_t, int32_t> return_val;
+        
+        int64_t i, j, incr;
+        auto& path_1 = alt_alns.front().first;
+        if (from_left) {
+            incr = 1;
+            i = 0;
+            j = 0;
+        }
+        else {
+            incr = -1;
+            i = path_1.mapping_size() - 1;
+            if (i >= 0) {
+                j = path_1.mapping(i).edit_size() - 1;
+            }
+            else {
+                j = 0;
+            }
+        }
+        // past-the-last index of the longest match that concludes in a match/mismatvch
+        int64_t last_aligned_i, last_aligned_j;
+        
+        // walk the first path to check for full prefix/suffix matches
+        bool found_mismatch = false, in_indel = false;
+        while (i >= 0 && i < path_1.mapping_size()) {
+            // check to make sure the positions of all of the alts match at this mapping
+            const auto& mapping_1 = path_1.mapping(i);
+            // start from the appropriate side of the mapping and check for matches of indels
+            if (from_left) {
+                j = 0;
+            }
+            else {
+                j = mapping_1.edit_size() - 1;
+            }
+            const auto& pos_1 = mapping_1.position();
+            auto offset_1 = from_left ? pos_1.offset() : pos_1.offset() + mapping_from_length(mapping_1);
+            for (size_t k = 1; k < alt_alns.size(); ++k) {
+                //cerr << "checking for matching position on aln " << k << endl;
+                const auto& path_2 = alt_alns[k].first;
+                int64_t i2;
+                if (from_left) {
+                    i2 = i;
+                }
+                else {
+                    i2 = path_2.mapping_size() - path_1.mapping_size() + i;
+                }
+                if (i2 < 0 || i2 >= path_2.mapping_size()) {
+                    //cerr << "no corresponding mapping in alt aln " << k << endl;
+                    found_mismatch = true;
+                    break;
+                }
+                const auto& mapping_2 = path_2.mapping(i2);
+                const auto& pos_2 = mapping_2.position();
+                if (pos_1.node_id() != pos_2.node_id()
+                    || pos_2.is_reverse() != pos_2.is_reverse()
+                    || (from_left ? pos_2.offset() : pos_2.offset() + mapping_from_length(mapping_2)) != offset_1) {
+                    //cerr << "positions mismatch" << endl;
+                    found_mismatch = true;
+                    break;
+                }
+            }
+            if (found_mismatch) {
+                break;
+            }
+            while(j >= 0 && j < path_1.mapping(i).edit_size()) {
+                const auto& edit_1 = mapping_1.edit(j);
+                //cerr << "checking for matches to edit " << i << " " << j << ": " << debug_string(edit_1) << endl;
+                if (!in_indel) {
+                    // we've matched up to here and the most recent match wasn't an indel
+                    last_aligned_i = i;
+                    last_aligned_j = j;
+                }
+                // check whether all of the other paths match the first path at the next edit
+                bool found_unmatchable = false;
+                for (size_t k = 1; k < alt_alns.size() && !found_mismatch; ++k) {
+                    auto& path_2 = alt_alns[k].first;
+                    // find the corresponding mapping index
+                    int64_t i2;
+                    if (from_left) {
+                        i2 = i;
+                    }
+                    else {
+                        i2 = path_2.mapping_size() - path_1.mapping_size() + i;
+                    }
+                    
+                    if (i2 < 0 || i2 >= path_2.mapping_size()) {
+                        //cerr << "no corresponding mapping in alt aln " << k << endl;
+                        found_mismatch = true;
+                        break;
+                    }
+                    const auto& mapping_2 = path_2.mapping(i2);
+                    // find the corresponding edit index
+                    int64_t j2;
+                    if (from_left) {
+                        j2 = j;
+                    }
+                    else {
+                        j2 = mapping_2.edit_size() - mapping_1.edit_size() + j;
+                    }
+                    if (j2 < 0 || j2 >= mapping_2.edit_size()) {
+                        //cerr << "no corresponding edit in alt aln " << k << endl;
+                        found_mismatch = true;
+                        break;
+                    }
+                    const auto& edit_2 = mapping_2.edit(j2);
+                    //cerr << "comparing to alt aln " << k << " edit " << i2 << " " << j2 << ": " << debug_string(edit_2) << endl;
+                    found_mismatch = (edit_1 != edit_2);
+                    if ((from_left && j + 1 == mapping_1.edit_size()) || (!from_left && j == 0)) {
+                        // check if there will be edits in this mapping that we won't hit by using the indexes
+                        // of edits on path 1
+                        found_unmatchable = found_unmatchable || (mapping_1.edit_size() != mapping_2.edit_size());
+                    }
+                }
+                if (found_mismatch) {
+                    break;
+                }
+                else {
+                    j += incr;
+                    in_indel = (edit_1.from_length() == 0 || edit_1.to_length() == 0);
+                    if (found_unmatchable) {
+                        found_mismatch = true;
+                        break;
+                    }
+                }
+            }
+            if (found_mismatch) {
+                break;
+            }
+            else {
+                i += incr;
+                if (from_left || i < 0) {
+                    j = 0;
+                }
+                else {
+                    j = path_1.mapping(i).edit_size() - 1;
+                }
+            }
+        }
+        
+        if (in_indel) {
+            //cerr << "last match is in an indel" << endl;
+            // the match concluded in an insertion or deletion, we need to make sure it doesn't
+            // continue onto the next edit
+            bool all_nexts_aligned = true;
+            if (i >= 0 && i < path_1.mapping_size()) {
+                // we didn't match the entire first path, so we need to actually check
+                const auto& edit = path_1.mapping(i).edit(j);
+                all_nexts_aligned = (edit.from_length() != 0 && edit.to_length() != 0);
+            }
+            for (size_t k = 1; k < alt_alns.size() && all_nexts_aligned; ++k) {
+                auto& path_2 = alt_alns[k].first;
+                int64_t i2 = path_2.mapping_size() - path_1.mapping_size() + i;
+                if (i2 >= 0 && i2 < path_2.mapping_size()) {
+                    // we didn't run through the full path
+                    const auto& mapping_2 = path_2.mapping(i2);
+                    int64_t j2 = mapping_2.edit_size() - path_1.mapping(i).edit_size() + j;
+                    if (j2 >= 0 && j2 < mapping_2.edit_size()) {
+                        // we didn't run through the full mapping
+                        const auto& edit = mapping_2.edit(j2);
+                        all_nexts_aligned = (edit.from_length() != 0 && edit.to_length() != 0);
+                    }
+                }
+            }
+            if (!all_nexts_aligned) {
+                // we need to backtrack to the last aligned base
+                i = last_aligned_i;
+                j = last_aligned_j;
+            }
+        }
+        
+        
+        if ((from_left && (i != 0 || j != 0)) ||
+             (!from_left && (i != path_1.mapping_size() - 1 || j != path_1.mapping().back().edit_size() - 1))) {
+            //cerr << "matched up to " << i << " " << j << endl;
+            // we matched part of the path across all alternate alignments, we can zip it up
+            
+            // delete the corresponding parts from all the other paths
+            for (int64_t k = 1; k < alt_alns.size(); ++k) {
+                //cerr << "deleting from aln " << k << endl;
+                auto& path_2 = alt_alns[k].first;
+                if (from_left) {
+                    // we have to remove part of the path from the beginning of the existing paths
+                    int64_t num_mappings, num_edits;
+                    if (j == 0) {
+                        if (path_1.mapping(i - 1).edit_size() == path_2.mapping(i - 1).edit_size()) {
+                            // this is the past-the-last on the mapping
+                            num_mappings = i;
+                            num_edits = 0;
+                        }
+                        else {
+                            // the full mapping on path 1 didn't use up the final mapping on path 2
+                            num_mappings = i - 1;
+                            num_edits = path_1.mapping(i - 1).edit_size();
+                        }
+                    }
+                    else {
+                        if (i < path_2.mapping_size() && j == path_2.mapping(i).edit_size()) {
+                            // past-the-last beyond the end of this mapping
+                            num_mappings = i + 1;
+                            num_edits = 0;
+                        }
+                        else {
+                            // past-the-last in the middle of this mapping
+                            num_mappings = i;
+                            num_edits = j;
+                        }
+                    }
+                    //cerr << "deleting " << num_mappings << " mappings and " << num_edits << " from the left" << endl;
+                    
+                    if (num_mappings < path_2.mapping_size() && num_edits != 0) {
+                        // we have to remove part of the mapping
+                        auto mapping = path_2.mutable_mapping(i);
+                        int64_t from_len = 0;
+                        for (int64_t l = 0; l < num_edits; ++l) {
+                            from_len += mapping->edit(l).from_length();
+                        }
+                        mapping->mutable_edit()->erase(mapping->mutable_edit()->begin(),
+                                                       mapping->mutable_edit()->begin() + num_edits);
+                        mapping->mutable_position()->set_offset(mapping->position().offset() + from_len);
+                    }
+                    // remove any full mappings that are shared
+                    path_2.mutable_mapping()->erase(path_2.mutable_mapping()->begin(),
+                                                    path_2.mutable_mapping()->begin() + num_mappings);
+                }
+                else {
+                    // we remove from the back, more complicated because of needing to translate indexes
+                    
+                    int64_t i2 = path_2.mapping_size() - path_1.mapping_size() + i;
+                    int64_t num_mappings, num_edits;
+                    if (i2 < 0) {
+                        // we delete all of path 2
+                        num_mappings = path_2.mapping_size();
+                        num_edits = 0;
+                    }
+                    else if (i < 0) {
+                        // we ran through path 1 but not path 2
+                        if (path_1.mapping().front().edit_size() == path_2.mapping(i2 + 1).edit_size()) {
+                            // we ran through the full mapping on path 2
+                            num_mappings = path_1.mapping_size();
+                            num_edits = 0;
+                        }
+                        else {
+                            // we didn't run through the entire mapping on path 2
+                            num_mappings = path_1.mapping_size() - 1;
+                            num_edits = path_1.mapping().front().edit_size();
+                        }
+                    }
+                    else {
+                        // both of the ending mappings can be indexed
+                        const auto& mapping_1 = path_1.mapping(i);
+                        if (j == mapping_1.edit_size() - 1) {
+                            // mismatch at the beginning of a mapping on path 1
+                            if (path_1.mapping(i + 1).edit_size() == path_2.mapping(i2 + 1).edit_size()) {
+                                // the previous mappings on both paths end at the same edit
+                                num_mappings = path_1.mapping_size() - i - 1;
+                                num_edits = 0;
+                            }
+                            else {
+                                // we didn't run through the entire mapping on path 2
+                                num_mappings = path_1.mapping_size() - i - 2;
+                                num_edits = path_1.mapping(i + 1).edit_size();
+                            }
+                        }
+                        else {
+                            // the mismatch happened after at least one edit in this mapping on path 1
+                            int64_t j2 = path_2.mapping(i2).edit_size() - mapping_1.edit_size() + j;
+                            if (j2 < 0) {
+                                // past-the-last beyond the end of this mapping
+                                num_mappings = path_1.mapping_size() - i;
+                                num_edits = 0;
+                            }
+                            else {
+                                // past-the-last in the middle of this mapping
+                                num_mappings = path_1.mapping_size() - i - 1;
+                                num_edits = mapping_1.edit_size() - j - 1;
+                            }
+                        }
+                    }
+                    //cerr << "deleting " << num_mappings << " mappings and " << num_edits << " from the right" << endl;
+                    
+                    // delete the number of mappings and edits we decided
+                    path_2.mutable_mapping()->resize(path_2.mapping_size() - num_mappings);
+                    if (num_edits) {
+                        auto& mapping_2 = path_2.mutable_mapping()->back();
+                        mapping_2.mutable_edit()->resize(mapping_2.edit_size() - num_edits);
+                    }
+                }
+            }
+            
+            // figure out how much of the primary to move over to the zipped alignment
+            int64_t k, num_mappings, num_edits;
+            if (from_left) {
+                k = 0;
+                num_mappings = i;
+                num_edits = j;
+                if (i < path_1.mapping_size() && j >= path_1.mapping(i).edit_size()) {
+                    ++num_mappings;
+                    num_edits = 0;
+                }
+            }
+            else {
+                k = path_1.mapping_size() - 1;
+                num_mappings = k - i;
+                num_edits = 0;
+                if (j < 0) {
+                    ++num_mappings;
+                }
+                else if (i >= 0) {
+                    num_edits = path_1.mapping(i).edit_size() - j - 1;
+                }
+            }
+            //cerr << "need to copy " << num_mappings << " full mappings and " << num_edits << " edits" << endl;
+            // copy to the zipped alignment
+            for (int64_t m = 0; m < num_mappings; k += incr, ++m) {
+                //cerr << "copy mapping " << debug_string(*path_1.mutable_mapping(k)) << endl;
+                *return_val.first.add_mapping() = move(*path_1.mutable_mapping(k));
+            }
+            if (num_edits != 0) {
+                auto mapping = path_1.mutable_mapping(k);
+                int64_t mapping_len = mapping_from_length(*mapping);
+                auto pos = mapping->mutable_position();
+                auto copy_mapping = return_val.first.add_mapping();
+                auto copy_pos = copy_mapping->mutable_position();
+                for (int64_t l = from_left ? 0 : mapping->edit_size() - 1, e = 0; e < num_edits; l += incr, ++e) {
+                    auto edit = mapping->mutable_edit(l);
+                    //cerr << "copy edit " << debug_string(*edit) << endl;
+                    *copy_mapping->add_edit() = move(*edit);
+                }
+                if (from_left) {
+                    mapping->mutable_edit()->erase(mapping->mutable_edit()->begin(),
+                                                   mapping->mutable_edit()->begin() + num_edits);
+                    *copy_pos = *pos;
+                    pos->set_offset(pos->offset() + mapping_from_length(*copy_mapping));
+                }
+                else {
+                    // the edits were added in reverse order, switch them back
+                    reverse(copy_mapping->mutable_edit()->begin(), copy_mapping->mutable_edit()->end());
+                    
+                    mapping->mutable_edit()->resize(mapping->edit_size() - num_edits);
+                    copy_pos->set_node_id(pos->node_id());
+                    copy_pos->set_is_reverse(pos->is_reverse());
+                    copy_pos->set_offset(pos->offset() + (mapping_len - mapping_from_length(*copy_mapping)));
+                }
+            }
+            
+            string::const_iterator alignment_begin;
+            if (from_left) {
+                path_1.mutable_mapping()->erase(path_1.mutable_mapping()->begin(),
+                                                path_1.mutable_mapping()->begin() + num_mappings);
+                alignment_begin = begin;
+            }
+            else {
+                // the mappings were added in reverse order, switch them back
+                reverse(return_val.first.mutable_mapping()->begin(), return_val.first.mutable_mapping()->end());
+                
+                path_1.mutable_mapping()->resize(path_1.mapping_size() - num_mappings);
+                alignment_begin = begin + path_to_length(path_1);
+            }
+            
+            // score the zipped alignment
+            return_val.second = aligner->score_partial_alignment(alignment, align_graph, return_val.first, alignment_begin);
+            
+            // remove this part of the score from the alt alignments
+            for (auto& alt_aln : alt_alns) {
+                alt_aln.second -= return_val.second;
+            }
+#ifdef debug_multipath_alignment
+            cerr << "successfully made zipped alignment with score " << return_val.second << endl;
+            cerr << debug_string(return_val.first) << endl;
+#endif
+        }
+        
+        return return_val;
+    }
     
     void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
                                         bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
@@ -4159,6 +4544,7 @@ namespace vg {
 #ifdef debug_multipath_alignment
         cerr << "transferred over read information" << endl;
 #endif
+        // TODO: could I get away with moving the paths instead of copying them?
         
         // add a subpath for each of the exact match nodes
         if (score_anchors_as_matches) {
@@ -4179,12 +4565,7 @@ namespace vg {
                 PathNode& path_node = path_nodes.at(j);
                 subpath_t* subpath = multipath_aln_out.add_subpath();
                 *subpath->mutable_path() = path_node.path;
-                
-                // TODO: should not leave it like this
-                Path proto_path;
-                to_proto_path(path_node.path, proto_path);
-                
-                subpath->set_score(aligner->score_partial_alignment(alignment, align_graph, proto_path, path_node.begin));
+                subpath->set_score(aligner->score_partial_alignment(alignment, align_graph, path_node.path, path_node.begin));
             }
         }
         
@@ -4445,7 +4826,7 @@ namespace vg {
                     }
                     
 #ifdef debug_multipath_alignment
-                    cerr << "subpath from " << j << " to " << edge.first << ":" << endl;
+                    cerr << "subpath from " << j << " to " << edge.first << " at index " << multipath_aln_out.subpath_size() - 1 <<  ":" << endl;
                     cerr << debug_string(*connecting_subpath) << endl;
 #endif
                 }
@@ -4483,43 +4864,160 @@ namespace vg {
             auto deduplicated = deduplicate_alt_alns(alt_alignments, false, true);
         
             PathNode& path_node = path_nodes.at(j);
-            
-            subpath_t* sink_subpath = multipath_aln_out.mutable_subpath(j);
-            
-            const path_mapping_t& final_mapping = path_node.path.mapping(path_node.path.mapping_size() - 1);
-            
             pos_t end_pos = final_position(path_node.path);
             
+            size_t sink_idx = j;
+            auto sink_subpath = multipath_aln_out.mutable_subpath(j);
+            
+            // zip together identical prefixes and suffixes of the tail alignment
+            pair<path_t, int32_t> left_zip_aln, right_zip_aln;
+            if (deduplicated.size() > 1) {
+                right_zip_aln = zip_alignments(deduplicated, false, alignment, align_graph, path_node.end, aligner);
+                left_zip_aln = zip_alignments(deduplicated, true, alignment, align_graph, path_node.end, aligner);
+            }
+            
+            if (!left_zip_aln.first.mapping().empty()) {
+                // we were able to zip a prefix of the tails together
+                
+                sink_subpath->add_next(multipath_aln_out.subpath_size());
+                sink_idx = multipath_aln_out.subpath_size();
+                
+                sink_subpath = multipath_aln_out.add_subpath();
+                *sink_subpath->mutable_path() = move(left_zip_aln.first);
+                sink_subpath->set_score(left_zip_aln.second);
+                
+                auto first_mapping = sink_subpath->mutable_path()->mutable_mapping(0);
+                if (first_mapping->position().node_id() == id(end_pos)) {
+                    first_mapping->mutable_position()->set_offset(offset(end_pos));
+                }
+                
+                // the zipped alignment is now the sink
+                end_pos = final_position(sink_subpath->path());
+#ifdef debug_multipath_alignment
+                cerr << "left zipped alignment from " << j << " to right tail" << " at index " << multipath_aln_out.subpath_size() - 1 <<  ":" << endl;
+                cerr << debug_string(*sink_subpath) << endl;
+#endif
+            }
+            
+            // add in the
+            bool zip_to_zip_connection = false;
+            size_t frayed_tips_begin = multipath_aln_out.subpath_size();
             for (auto& tail_alignment : deduplicated) {
+                
+                if (tail_alignment.first.mapping().empty()) {
+                    // it's possible that an entire tail get's swallowed up in zipping
+                    zip_to_zip_connection = true;
+                    continue;
+                }
                 
                 sink_subpath->add_next(multipath_aln_out.subpath_size());
                 
-                subpath_t* tail_subpath = multipath_aln_out.add_subpath();
+                auto tail_subpath = multipath_aln_out.add_subpath();
                 *tail_subpath->mutable_path() = move(tail_alignment.first);
                 tail_subpath->set_score(tail_alignment.second);
                 
                 // get the pointer again in case the vector reallocated
-                sink_subpath = multipath_aln_out.mutable_subpath(j);
+                sink_subpath = multipath_aln_out.mutable_subpath(sink_idx);
                 
-                path_mapping_t* first_mapping = tail_subpath->mutable_path()->mutable_mapping(0);
+                auto first_mapping = tail_subpath->mutable_path()->mutable_mapping(0);
 
-                if (first_mapping->position().node_id() == final_mapping.position().node_id()) {
+                if (first_mapping->position().node_id() == id(end_pos)) {
                     first_mapping->mutable_position()->set_offset(offset(end_pos));
                 }
-                else if (tail_subpath->path().mapping_size() == 1 && first_mapping->edit_size() == 1
-                         && first_mapping->edit(0).from_length() == 0 && first_mapping->edit(0).to_length() > 0
-                         && first_mapping->position().node_id() != final_mapping.position().node_id()) {
+                else if (right_zip_aln.first.mapping().empty()
+                         && tail_subpath->path().mapping_size() == 1 && first_mapping->edit_size() == 1
+                         && first_mapping->edit(0).from_length() == 0 && first_mapping->edit(0).to_length() != 0
+                         && first_mapping->position().node_id() != id(end_pos)) {
                     // this is a pure soft-clip on the beginning of the next node, we'll move it to the end
                     // of the match node to match invariants expected by other parts of the code base
                     position_t* pos = first_mapping->mutable_position();
-                    pos->set_node_id(final_mapping.position().node_id());
-                    pos->set_is_reverse(final_mapping.position().is_reverse());
-                    pos->set_offset(final_mapping.position().offset() + mapping_from_length(final_mapping));
+                    pos->set_node_id(id(end_pos));
+                    pos->set_is_reverse(is_rev(end_pos));
+                    pos->set_offset(offset(end_pos));
                 }
 #ifdef debug_multipath_alignment
-                cerr << "subpath from " << j << " to right tail:" << endl;
+                cerr << "subpath from " << sink_idx << " to right tail at index " << multipath_aln_out.subpath_size() - 1 <<  ":" << endl;
                 cerr << debug_string(*tail_subpath) << endl;
 #endif
+            }
+            size_t frayed_tips_end = multipath_aln_out.subpath_size();
+            
+            if (!right_zip_aln.first.mapping().empty()) {
+                if (right_zip_aln.first.mapping_size() == 1
+                    && right_zip_aln.first.mapping(0).edit_size() == 1
+                    && right_zip_aln.first.mapping(0).edit(0).from_length() == 0
+                    && right_zip_aln.first.mapping(0).edit(0).to_length() != 0) {
+                    
+                    // this subpath is a soft-clip, to match the expectations of other code we need to
+                    // relocate this edit onto the other subpaths (more complicated than in the tail
+                    // alignment because there might be multiple previous nodes)
+                    
+                    auto edit = right_zip_aln.first.mutable_mapping(0)->mutable_edit(0);
+                    
+                    // add an edit to the tails
+                    for (size_t i = frayed_tips_begin; i < frayed_tips_end; ++i) {
+                        *multipath_aln_out.mutable_subpath(i)->mutable_path()->mutable_mapping()->back().add_edit() = *edit;
+                    }
+                    
+                    if (zip_to_zip_connection) {
+                        // we can't add this edit to the left zipped alignment because it has sucessor
+                        // subpaths, need to add it as a separate subpath
+                        sink_subpath->add_next(multipath_aln_out.subpath_size());
+                        
+                        auto tail_subpath = multipath_aln_out.add_subpath();
+                        auto mapping = tail_subpath->mutable_path()->add_mapping();
+                        *mapping->add_edit() = move(*edit);
+                        
+                        auto pos = mapping->mutable_position();
+                        pos->set_node_id(id(end_pos));
+                        pos->set_is_reverse(is_rev(end_pos));
+                        pos->set_offset(offset(end_pos));
+                        sink_subpath->set_score(0);
+                        
+#ifdef debug_multipath_alignment
+                        cerr << "right zipped softclip subpath from " << sink_idx << " to right tail at index " << multipath_aln_out.subpath_size() - 1 <<  ":" << endl;
+                        cerr << debug_string(*tail_subpath) << endl;
+#endif
+                    }
+                    
+                    // there's no sink anymore, it's a frayed end
+                    sink_subpath = nullptr;
+                }
+                else {
+                    // add edges from all of the alt alns to the zipped tail
+                    for (size_t i = frayed_tips_begin; i < frayed_tips_end; ++i) {
+                        multipath_aln_out.mutable_subpath(i)->add_next(multipath_aln_out.subpath_size());
+                    }
+                    if (zip_to_zip_connection) {
+                        multipath_aln_out.mutable_subpath(sink_idx)->add_next(multipath_aln_out.subpath_size());
+                    }
+                    
+                    // an arbitrary choice of a predecessor (this will only come into play
+                    // if the previous paths end mid-node, in which case all of them must
+                    // end on that node)
+                    end_pos = final_position(multipath_aln_out.subpath(frayed_tips_begin).path());
+                    
+                    auto tail_subpath = multipath_aln_out.add_subpath();
+                    *tail_subpath->mutable_path() = move(right_zip_aln.first);
+                    tail_subpath->set_score(right_zip_aln.second);
+                    
+                    auto first_mapping = tail_subpath->mutable_path()->mutable_mapping(0);
+                    if (first_mapping->position().node_id() == id(end_pos)) {
+                        first_mapping->mutable_position()->set_offset(offset(end_pos));
+                    }
+                    // note: don't need to check for softclips because that is handled separately above
+                    
+                    // the zipped end is now the sink
+                    sink_subpath = tail_subpath;
+#ifdef debug_multipath_alignment
+                    cerr << "right zipped alignment from " << sink_idx << " to right tail at index " << multipath_aln_out.subpath_size() - 1 <<  ":" << endl;
+                    cerr << debug_string(*tail_subpath) << endl;
+#endif
+                }
+            }
+            else {
+                // there's no sink anymore
+                sink_subpath = nullptr;
             }
         }
                 
@@ -4534,27 +5032,127 @@ namespace vg {
                 vector<Alignment>& alt_alignments = tail_alignments[false][j];
                 // remove alignments with the same path
                 auto deduplicated = deduplicate_alt_alns(alt_alignments, true, false);
+                
+                pair<path_t, int32_t> left_zip_aln, right_zip_aln;
+                if (deduplicated.size() > 1) {
+                    right_zip_aln = zip_alignments(deduplicated, false, alignment, align_graph, alignment.sequence().begin(), aligner);
+                    left_zip_aln = zip_alignments(deduplicated, true, alignment, align_graph, alignment.sequence().begin(), aligner);
+                }
                                 
-                const path_mapping_t& first_mapping = path_node.path.mapping(0);
+                size_t source_idx = j;
+                auto first_mapping = &path_node.path.mapping().front();
+                
+                if (!right_zip_aln.first.mapping().empty()) {
+                    // we were able to zip a prefix of the tails together
+                    
+                    source_idx = multipath_aln_out.subpath_size();
+                    
+                    auto zip_subpath = multipath_aln_out.add_subpath();
+                    *zip_subpath->mutable_path() = move(right_zip_aln.first);
+                    zip_subpath->set_score(right_zip_aln.second);
+                    
+                    first_mapping = &zip_subpath->path().mapping().front();
+                    zip_subpath->add_next(j);
+                    
+#ifdef debug_multipath_alignment
+                    cerr << "right zipped alignment from " << j << " to left tail at index " << multipath_aln_out.subpath_size() - 1 <<  ":" << endl;
+                    cerr << debug_string(*zip_subpath) << endl;
+#endif
+                }
+                
+                bool zip_to_zip_connection = false;
+                size_t frayed_tips_begin = multipath_aln_out.subpath_size();
                 for (auto& tail_alignment : deduplicated) {
-                    subpath_t* tail_subpath = multipath_aln_out.add_subpath();
+                    if (tail_alignment.first.mapping().empty()) {
+                        // it's possible that an entire tail get's swallowed up in zipping
+                        zip_to_zip_connection = true;
+                        continue;
+                    }
+                    
+                    if (left_zip_aln.first.mapping().empty()) {
+                        // the left part of these alignments hasn't been zipped, so this
+                        // is a start
+                        multipath_aln_out.add_start(multipath_aln_out.subpath_size());
+                    }
+                    
+                    auto tail_subpath = multipath_aln_out.add_subpath();
                     *tail_subpath->mutable_path() = move(tail_alignment.first);
                     tail_subpath->set_score(tail_alignment.second);
                     
-                    tail_subpath->add_next(j);
-                    multipath_aln_out.add_start(multipath_aln_out.subpath_size() - 1);
+                    tail_subpath->add_next(source_idx);
                     
 #ifdef debug_multipath_alignment
-                    cerr << "subpath from " << j << " to left tail:" << endl;
+                    cerr << "subpath from " << source_idx << " to left tail at index " << multipath_aln_out.subpath_size() - 1 <<  ":" << endl;
                     cerr << debug_string(*tail_subpath) << endl;
 #endif
                     path_mapping_t* final_mapping = tail_subpath->mutable_path()->mutable_mapping(tail_subpath->path().mapping_size() - 1);
                     if (tail_subpath->path().mapping_size() == 1 && final_mapping->edit_size() == 1
                         && final_mapping->edit(0).from_length() == 0 && final_mapping->edit(0).to_length() > 0
-                        && final_mapping->position().node_id() != first_mapping.position().node_id()) {
+                        && final_mapping->position().node_id() != first_mapping->position().node_id()) {
                         // this is a pure soft clip on the end of the previous node, so we move it over to the
                         // beginning of the match node to match invariants in rest of code base
-                        *final_mapping->mutable_position() = first_mapping.position();
+                        *final_mapping->mutable_position() = first_mapping->position();
+                    }
+                }
+                size_t frayed_tips_end = multipath_aln_out.subpath_size();
+                
+                if (!left_zip_aln.first.mapping().empty()) {
+                    if (left_zip_aln.first.mapping_size() == 1
+                        && left_zip_aln.first.mapping(0).edit_size() == 1
+                        && left_zip_aln.first.mapping(0).edit(0).from_length() == 0
+                        && left_zip_aln.first.mapping(0).edit(0).to_length() != 0) {
+                        
+                        // this is a pure soft clip, we need to attach it to the adjacent nodes
+                        // to maintain expected invariants (because they might start on different
+                        // nodes)
+                        
+                        auto edit = &left_zip_aln.first.mutable_mapping()->front().mutable_edit()->front();
+                        
+                        // add edit to subpaths and add starts
+                        for (size_t i = frayed_tips_begin; i < frayed_tips_end; ++i) {
+                            auto edits = multipath_aln_out.mutable_subpath(i)->mutable_path()->mutable_mapping()->front().mutable_edit();
+                            edits->insert(edits->begin(), *edit);
+                            multipath_aln_out.add_start(i);
+                        }
+                        
+                        if (zip_to_zip_connection) {
+                            // add subpath for soft clip (can't be added to existing path because it
+                            // has sucessor subpaths, need to add it as a separate subpath
+                            
+                            multipath_aln_out.add_start(multipath_aln_out.subpath_size());
+                            
+                            auto subpath = multipath_aln_out.add_subpath();
+                            subpath->add_next(source_idx);
+                            
+                            auto mapping = subpath->mutable_path()->add_mapping();
+                            *mapping->add_edit() = move(*edit);
+                            
+                            *mapping->mutable_position() = multipath_aln_out.subpath(source_idx).path().mapping().front().position();
+                            subpath->set_score(0);
+#ifdef debug_multipath_alignment
+                            cerr << "left zipped soft clip subpath from " << source_idx << " to left tail at index " << multipath_aln_out.subpath_size() - 1 <<  ":" << endl;
+                            cerr << debug_string(*subpath) << endl;
+#endif
+                        }
+                    }
+                    else {
+                        
+                        multipath_aln_out.add_start(multipath_aln_out.subpath_size());
+                        
+                        auto tail_subpath = multipath_aln_out.add_subpath();
+                        *tail_subpath->mutable_path() = move(left_zip_aln.first);
+                        tail_subpath->set_score(left_zip_aln.second);
+                        
+                        for (size_t i = frayed_tips_begin; i < frayed_tips_end; ++i) {
+                            tail_subpath->add_next(i);
+                        }
+                        if (zip_to_zip_connection) {
+                            tail_subpath->add_next(source_idx);
+                        }
+#ifdef debug_multipath_alignment
+                        cerr << "left zipped subpath from " << source_idx << " to left tail at index " << multipath_aln_out.subpath_size() - 1 <<  ":" << endl;
+                        cerr << debug_string(*tail_subpath) << endl;
+#endif
                     }
                 }
             }

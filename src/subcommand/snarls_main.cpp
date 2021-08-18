@@ -267,7 +267,19 @@ int main_snarl(int argc, char** argv) {
     
     // Load up all the snarls
     SnarlManager snarl_manager = snarl_finder->find_snarls_parallel();
-    vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
+    
+    // Get all snarls in top level chains, in chain order
+    vector<const Snarl*> snarl_roots;
+    
+    snarl_manager.for_each_top_level_chain([&](const Chain* chain) {
+        // For each top level chain of 1 or more snarls
+        for(auto here = chain_begin(*chain); here != chain_end(*chain); ++here) {
+            // For each snarl in the chain in order
+            // Remember to visit it (ignoring chain-relative orientation)
+            snarl_roots.push_back(here->first);
+        }
+    });
+    
     if (fill_path_names){
         // This finder needs a vg::VG
         trav_finder.reset(new PathBasedTraversalFinder(*path_handle_graph, snarl_manager));
@@ -395,8 +407,8 @@ int main_snarl(int argc, char** argv) {
                 vg::io::write_buffered(trav_stream, traversal_buffer, buffer_size);
             }
             
-            // Sort the child snarls by node ID?
             if (sort_snarls) {
+                // Sort the child snarls by node ID
                 vector<const Snarl*> children = snarl_manager.children_of(snarl);
                 std::sort(children.begin(), children.end(), [](const Snarl* snarl_1, const Snarl* snarl_2) {
                     return snarl_1->start().node_id() < snarl_2->end().node_id();
@@ -407,8 +419,13 @@ int main_snarl(int argc, char** argv) {
                 }
             }
             else {
-                for (const Snarl* child_snarl : snarl_manager.children_of(snarl)) {
-                    stack.push_back(child_snarl);
+                // Visit the child chains in contiguous blocks
+                for (auto chain : snarl_manager.chains_of(snarl)) {
+                    // For every child chain
+                    for (auto here = chain_rbegin(chain); here != chain_rend(chain); ++here) {
+                        // Stack up its child snarls in reverse order, so we visit them in forward order
+                        stack.push_back(here->first);
+                    }
                 }
             }
         }
