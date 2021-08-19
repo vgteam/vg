@@ -749,7 +749,7 @@ list<EditedTranscriptPath> Transcriptome::construct_reference_transcript_paths_g
     }
 
     list<EditedTranscriptPath> edited_transcript_paths;
-    spp::sparse_hash_map<pair<gbwt::node_type, gbwt::node_type>, vector<EditedTranscriptPath *>, NodePairHash> edited_transcript_paths_index;
+    spp::sparse_hash_map<Path, EditedTranscriptPath *, PathMappingHash> edited_transcript_paths_index;
 
     mutex edited_transcript_paths_mutex;
 
@@ -771,7 +771,7 @@ list<EditedTranscriptPath> Transcriptome::construct_reference_transcript_paths_g
     return edited_transcript_paths;
 }
 
-void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<EditedTranscriptPath> * edited_transcript_paths, spp::sparse_hash_map<pair<gbwt::node_type, gbwt::node_type>, vector<EditedTranscriptPath *>, NodePairHash> * edited_transcript_paths_index, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<pair<uint32_t, uint32_t> > & chrom_transcript_sets, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const spp::sparse_hash_map<string, map<uint32_t, uint32_t> > & haplotype_name_index) const {
+void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<EditedTranscriptPath> * edited_transcript_paths, spp::sparse_hash_map<Path, EditedTranscriptPath *, PathMappingHash> * edited_transcript_paths_index, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<pair<uint32_t, uint32_t> > & chrom_transcript_sets, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const spp::sparse_hash_map<string, map<uint32_t, uint32_t> > & haplotype_name_index) const {
 
     int32_t chrom_transcript_sets_idx = thread_idx;
 
@@ -944,47 +944,30 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
 
             while (thread_edited_transcript_paths_it != thread_edited_transcript_paths.end()) {
 
-                bool new_path_unqiue = true;
+                auto edited_transcript_paths_index_it = edited_transcript_paths_index->emplace(thread_edited_transcript_paths_it->path, nullptr);
 
-                // Find all transcript paths starting on the same node.
-                auto node_pair = make_pair(mapping_to_gbwt(thread_edited_transcript_paths_it->path.mapping(0)), mapping_to_gbwt(thread_edited_transcript_paths_it->path.mapping(thread_edited_transcript_paths_it->path.mapping_size() - 1)));
-                auto edited_transcript_paths_index_it = edited_transcript_paths_index->find(node_pair);
+                if (!edited_transcript_paths_index_it.second) {
 
-                if (edited_transcript_paths_index_it != edited_transcript_paths_index->end()) {
+                    assert(edited_transcript_paths_index_it.first->second);
 
-                    for (auto & edited_transcript_path: edited_transcript_paths_index_it->second) {
+                    assert(thread_edited_transcript_paths_it->haplotype_origin_ids.size() == 1);
+                    assert(edited_transcript_paths_index_it.first->second->haplotype_origin_ids.size() >= 1);
 
-                        // Check if two paths are identical.
-                        if (thread_edited_transcript_paths_it->path == edited_transcript_path->path) {
+                    // Check if paths are from different haplotypes.
+                    if (thread_edited_transcript_paths_it->haplotype_origin_ids.front() != edited_transcript_paths_index_it.first->second->haplotype_origin_ids.back()) {
 
-                            assert(thread_edited_transcript_paths_it->haplotype_origin_ids.size() == 1);
-                            assert(edited_transcript_path->haplotype_origin_ids.size() >= 1);
+                        // Merge haplotype origin ids.
+                        edited_transcript_paths_index_it.first->second->haplotype_origin_ids.emplace_back(thread_edited_transcript_paths_it->haplotype_origin_ids.front());
 
-                            // Check if paths are from different haplotypes.
-                            if (thread_edited_transcript_paths_it->haplotype_origin_ids.front() != edited_transcript_path->haplotype_origin_ids.back()) {
-
-                                // Merge haplotype origin ids.
-                                edited_transcript_path->haplotype_origin_ids.emplace_back(thread_edited_transcript_paths_it->haplotype_origin_ids.front());
-
-                                new_path_unqiue = false;
-                                break;
-                            }
-                        }
+                        // Delete non-unique transcript path.
+                        thread_edited_transcript_paths_it = thread_edited_transcript_paths.erase(thread_edited_transcript_paths_it);
                     }
-                }
-
-                if (new_path_unqiue) {
-
-                    auto edited_transcript_paths_index_it = edited_transcript_paths_index->emplace(node_pair, vector<EditedTranscriptPath *>());
-                    edited_transcript_paths_index_it.first->second.emplace_back(&(*thread_edited_transcript_paths_it));
-
-                    ++thread_edited_transcript_paths_it;
-
+                
                 } else {
 
-                    // Delete transcript path if not unique.
-                    thread_edited_transcript_paths_it = thread_edited_transcript_paths.erase(thread_edited_transcript_paths_it);
-                }
+                    edited_transcript_paths_index_it.first->second = &(*thread_edited_transcript_paths_it);
+                    ++thread_edited_transcript_paths_it;
+                } 
             }
         } 
 

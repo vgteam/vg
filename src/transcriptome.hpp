@@ -116,18 +116,6 @@ struct CompletedTranscriptPath : public TranscriptPath {
     CompletedTranscriptPath(const string & transcript_origin_in) : TranscriptPath(transcript_origin_in) {}
 };
 
-struct NodePairHash
-{
-    size_t operator()(const pair<gbwt::node_type, gbwt::node_type> & node_pair) const
-    {
-        size_t seed = 0;
-        spp::hash_combine(seed, node_pair.first);
-        spp::hash_combine(seed, node_pair.second);
-
-        return seed;
-    }
-};
-
 struct PathMappingHash
 {
     size_t operator()(const Path & path) const
@@ -142,11 +130,10 @@ struct PathMappingHash
 
             for (auto & edit: mapping.edit()) {
 
-                spp::hash_combine(seed, edit.from_length());
                 spp::hash_combine(seed, edit.to_length());
+                spp::hash_combine(seed, edit.from_length());
                 spp::hash_combine(seed, edit.sequence());
             }
-
         }
 
         return seed;
@@ -299,7 +286,7 @@ class Transcriptome {
         list<EditedTranscriptPath> construct_reference_transcript_paths_gbwt(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index) const;
 
         /// Threaded reference transcript path construction using GBWT haplotype paths.
-        void construct_reference_transcript_paths_gbwt_callback(list<EditedTranscriptPath> * edited_transcript_paths, spp::sparse_hash_map<pair<gbwt::node_type, gbwt::node_type>, vector<EditedTranscriptPath *>, NodePairHash> * edited_transcript_paths_index, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<pair<uint32_t, uint32_t> > & chrom_transcript_sets, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const spp::sparse_hash_map<string, map<uint32_t, uint32_t> > & haplotype_name_index) const;
+        void construct_reference_transcript_paths_gbwt_callback(list<EditedTranscriptPath> * edited_transcript_paths, spp::sparse_hash_map<Path, EditedTranscriptPath *, PathMappingHash> * edited_transcript_paths_index, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<pair<uint32_t, uint32_t> > & chrom_transcript_sets, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const spp::sparse_hash_map<string, map<uint32_t, uint32_t> > & haplotype_name_index) const;
 
         /// Constructs haplotype transcript paths by projecting transcripts onto
         /// embedded paths in a graph and/or haplotypes in a GBWT index. 
