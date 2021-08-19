@@ -2215,34 +2215,9 @@ void Transcriptome::update_transcript_path_node_handles(vector<CompletedTranscri
 
                 if (_graph->get_is_reverse(handle)) {
 
-                    auto update_index_it = update_index.find(_graph->flip(handle));
-
-                    if (update_index_it == update_index.end()) {
-
-                        #pragma omp critical
-                        {
-                            cerr << endl;
-                            cerr << transcript_paths->at(i).name << endl;
-                            cerr << _graph->get_id(_graph->flip(handle)) << " " << _graph->get_is_reverse(_graph->flip(handle)) << endl;
-                            cerr << _graph->get_id(handle) << " " << _graph->get_is_reverse(handle) << endl;
-                        }
-                    }
-
                     handle = _graph->flip(update_index.at(_graph->flip(handle)));
 
                 } else {
-
-                    auto update_index_it = update_index.find(handle);
-
-                    if (update_index_it == update_index.end()) {
-
-                        #pragma omp critical
-                        {
-                            cerr << endl;
-                            cerr << transcript_paths->at(i).name << endl;
-                            cerr << _graph->get_id(handle) << " " << _graph->get_is_reverse(handle) << endl;
-                        }
-                    }
 
                     handle = update_index.at(handle);
                 }
@@ -2279,13 +2254,16 @@ bool Transcriptome::topological_sort_compact() {
     uint32_t order_idx = 1;
 
     for (auto handle: new_order) {
-
+          
         if (_graph->get_is_reverse(handle)) {
 
-            cerr << _graph->get_id(handle) << endl;
+            assert(update_index.emplace(_graph->flip(handle), _graph->get_handle(order_idx, false)).second);
+
+        } else {
+
+            assert(update_index.emplace(handle, _graph->get_handle(order_idx, false)).second);
         }
-        
-        assert(update_index.emplace(handle, _graph->get_handle(order_idx, false)).second);
+
         ++order_idx;
     }
 
