@@ -348,6 +348,7 @@ int32_t main_rna(int32_t argc, char** argv) {
         }        
     }
 
+
     if (add_reference_transcript_paths || add_haplotype_transcript_paths) {
 
         double time_add_start = gcsa::readTimer();

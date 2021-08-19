@@ -1816,31 +1816,80 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
 
     _graph_node_updated = true;
 
-    // Create set paths to augment graph with.
-    vector<Path> augment_paths;
-    augment_paths.reserve(edited_transcript_paths.size());
+    vector<const Path *> transcript_paths;
+    transcript_paths.reserve(edited_transcript_paths.size());
 
-    for (auto & transcript_path: edited_transcript_paths) { 
+    for (auto & transcript_path: edited_transcript_paths) {
 
-        for (size_t i = 1; i < transcript_path.path.mapping_size(); ++i) {
-
-            const Mapping & prev_mapping = transcript_path.path.mapping(i - 1);
-            const Mapping & cur_mapping = transcript_path.path.mapping(i);
-
-            // Ensure adjacent exon split.
-            if (prev_mapping.position().node_id() == cur_mapping.position().node_id()) {
-
-                augment_paths.emplace_back(Path());
-                *(augment_paths.back().add_mapping()) = prev_mapping;
-                *(augment_paths.back().add_mapping()) = cur_mapping;         
-            }   
-        }
-
-        augment_paths.emplace_back(move(transcript_path.path));
+        transcript_paths.emplace_back(&(transcript_path.path));
     }
 
+    // Create set of exon boundary paths to augment graph with.
+    vector<Path> exon_boundary_paths;
+    spp::sparse_hash_set<Path, PathMappingHash> exon_boundary_paths_index;
+
+    #pragma omp parallel num_threads(num_threads)
+    {
+        vector<Path> thread_exon_boundary_paths;
+
+        // Create translation index 
+        #pragma omp for schedule(static)
+        for (size_t i = 0; i < transcript_paths.size(); ++i) {
+
+            const Path * transcript_path = transcript_paths.at(i);
+
+            if (transcript_path->mapping_size() > 2) {
+
+                for (size_t j = 1; j < transcript_path->mapping_size(); ++j) {
+
+                    const Mapping & prev_mapping = transcript_path->mapping(j - 1);
+                    const Mapping & cur_mapping = transcript_path->mapping(j);
+
+                    // Add splice-junction.
+                    if (cur_mapping.position().offset() > 0 || prev_mapping.position().offset() + mapping_to_length(prev_mapping) < _graph->get_length(_graph->get_handle(prev_mapping.position().node_id(), false))) {
+
+                        thread_exon_boundary_paths.emplace_back(Path());
+                        *(thread_exon_boundary_paths.back().add_mapping()) = prev_mapping;
+                        *(thread_exon_boundary_paths.back().add_mapping()) = cur_mapping;   
+
+                    } else if (break_at_transcript_ends) {
+
+                         // Add transcript start boundary.
+                        if (j == 1) {
+
+                            thread_exon_boundary_paths.emplace_back(Path());
+                            *(thread_exon_boundary_paths.back().add_mapping()) = prev_mapping;    
+                        }
+
+                        // Add transcript end boundary.
+                        if (j == transcript_path->mapping_size() - 1) {
+
+                            thread_exon_boundary_paths.emplace_back(Path());
+                            *(thread_exon_boundary_paths.back().add_mapping()) = cur_mapping;
+                        }           
+                    }   
+                }
+
+            } else {
+
+                thread_exon_boundary_paths.emplace_back(*transcript_path);
+            }
+        }
+
+        #pragma omp critical
+        {
+            for (auto & path: thread_exon_boundary_paths) {
+
+                if (exon_boundary_paths_index.emplace(path).second) {
+
+                    exon_boundary_paths.emplace_back(path);
+                }
+            }
+        }
+    }   
+
 #ifdef transcriptome_debug
-    cerr << "\t\tDEBUG Created " << augment_paths.size() << " augment paths: " << gcsa::readTimer() - time_convert_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
+    cerr << "\t\tDEBUG Created " << exon_boundary_paths.size() << " exon boundary paths: " << gcsa::readTimer() - time_convert_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif 
 
 #ifdef transcriptome_debug
@@ -1851,7 +1900,7 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
     vector<Translation> translations;
 
     // Augment graph with edited paths. 
-    augment(static_cast<MutablePathMutableHandleGraph *>(_graph.get()), augment_paths, "GAM", &translations, "", false, break_at_transcript_ends);
+    augment(static_cast<MutablePathMutableHandleGraph *>(_graph.get()), exon_boundary_paths, "GAM", &translations, "", false, break_at_transcript_ends);
 
 #ifdef transcriptome_debug
     cerr << "\t\tDEBUG Augmented graph with " << translations.size() << " translations: " << gcsa::readTimer() - time_augment_1 << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
