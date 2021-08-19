@@ -444,23 +444,24 @@ namespace vg {
                     REQUIRE(int_ref_transcript_paths.at(1) == vector<uint64_t>({14, 16, 24, 26}));
                     REQUIRE(int_ref_transcript_paths.back() == vector<uint64_t>({27, 25, 23, 11, 7, 5}));
                 }
-                
-                SECTION("Transcriptome can collapse redundant GBWT annotated reference transcript paths") {
+         
+                SECTION("Transcriptome can collapse redundant GBWT annotated reference transcript paths across haplotypes") {
 
-                    transcript_stream << "path2\t.\texon\t2\t7\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
-                    transcript_stream << "path2\t.\texon\t9\t10\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
-                    transcript_stream << "path2\t.\texon\t16\t18\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
-                    transcript_stream << "path2\t.\texon\t9\t11\t.\t+\t.\ttranscript_id \"transcript5\";" << endl;
-                    transcript_stream << "path2\t.\texon\t15\t18\t.\t+\t.\ttranscript_id \"transcript5\";" << endl;
+                    transcript_stream << "path2\t.\texon\t2\t7\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
+                    transcript_stream << "path2\t.\texon\t9\t10\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
+                    transcript_stream << "path2\t.\texon\t16\t18\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
+                    transcript_stream << "path2\t.\texon\t9\t11\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
+                    transcript_stream << "path2\t.\texon\t15\t18\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
 
                     transcriptome.add_reference_transcripts(transcript_stream, haplotype_index, false, true);
                     transcriptome.topological_sort_compact();
 
-                    REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
+                    REQUIRE(transcriptome.reference_transcript_paths().size() == 4);
                     auto int_ref_transcript_paths = transcript_paths_to_int_vectors(transcriptome.reference_transcript_paths());
 
                     REQUIRE(int_ref_transcript_paths.front() == vector<uint64_t>({4, 6, 10, 14, 26}));
                     REQUIRE(int_ref_transcript_paths.at(1) == vector<uint64_t>({14, 16, 24, 26}));
+                    REQUIRE(int_ref_transcript_paths.at(2) == vector<uint64_t>({14, 16, 24, 26}));
                     REQUIRE(int_ref_transcript_paths.back() == vector<uint64_t>({27, 25, 23, 11, 7, 5}));
                 }
 
@@ -488,4 +489,3 @@ namespace vg {
         }
     }
 }
-

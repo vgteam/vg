@@ -116,30 +116,6 @@ struct CompletedTranscriptPath : public TranscriptPath {
     CompletedTranscriptPath(const string & transcript_origin_in) : TranscriptPath(transcript_origin_in) {}
 };
 
-struct PathMappingHash
-{
-    size_t operator()(const Path & path) const
-    {
-        size_t seed = 0;
-
-        for (auto & mapping: path.mapping()) {
-    
-            spp::hash_combine(seed, mapping.position().node_id());
-            spp::hash_combine(seed, mapping.position().offset());
-            spp::hash_combine(seed, mapping.position().is_reverse());
-
-            for (auto & edit: mapping.edit()) {
-
-                spp::hash_combine(seed, edit.to_length());
-                spp::hash_combine(seed, edit.from_length());
-                spp::hash_combine(seed, edit.sequence());
-            }
-        }
-
-        return seed;
-    }
-};
-
 /**
  * Class that defines a transcriptome represented by a set of transcript paths.
  */
@@ -279,21 +255,24 @@ class Transcriptome {
         list<EditedTranscriptPath> construct_reference_transcript_paths_embedded(const vector<Transcript> & transcripts, const bdsg::PositionOverlay & graph_path_pos_overlay) const;
 
         /// Threaded reference transcript path construction using embedded paths.
-        void construct_reference_transcript_paths_embedded_callback(list<EditedTranscriptPath> * edited_transcript_paths, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<Transcript> & transcripts, const bdsg::PositionOverlay & graph_path_pos_overlay) const;
+        void construct_reference_transcript_paths_embedded_callback(list<EditedTranscriptPath> * edited_transcript_paths, spp::sparse_hash_map<string, vector<EditedTranscriptPath *> > * edited_transcript_paths_index, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<Transcript> & transcripts, const bdsg::PositionOverlay & graph_path_pos_overlay) const;
+
+        /// Projects transcripts onto embedded paths in a graph and returns the resulting transcript paths.
+        list<EditedTranscriptPath> project_transcript_embedded(const Transcript & cur_transcript, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool use_reference_paths, const bool use_haplotype_paths) const;
 
         /// Constructs edited reference transcript paths from a set of 
         /// transcripts using haplotype paths in a GBWT index.
         list<EditedTranscriptPath> construct_reference_transcript_paths_gbwt(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index) const;
 
         /// Threaded reference transcript path construction using GBWT haplotype paths.
-        void construct_reference_transcript_paths_gbwt_callback(list<EditedTranscriptPath> * edited_transcript_paths, spp::sparse_hash_map<Path, EditedTranscriptPath *, PathMappingHash> * edited_transcript_paths_index, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<pair<uint32_t, uint32_t> > & chrom_transcript_sets, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const spp::sparse_hash_map<string, map<uint32_t, uint32_t> > & haplotype_name_index) const;
+        void construct_reference_transcript_paths_gbwt_callback(list<EditedTranscriptPath> * edited_transcript_paths, spp::sparse_hash_map<string, vector<EditedTranscriptPath *> > * edited_transcript_paths_index, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<pair<uint32_t, uint32_t> > & chrom_transcript_sets, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const spp::sparse_hash_map<string, map<uint32_t, uint32_t> > & haplotype_name_index) const;
 
         /// Constructs haplotype transcript paths by projecting transcripts onto
         /// embedded paths in a graph and/or haplotypes in a GBWT index. 
         void project_haplotype_transcripts(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool proj_emded_paths, const float mean_node_length);
 
         /// Threaded haplotype transcript projecting.
-        void project_haplotype_transcripts_callback(const int32_t thread_idx, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool proj_emded_paths, const float mean_node_length);
+        void project_haplotype_transcripts_callback(spp::sparse_hash_map<string, vector<CompletedTranscriptPath *> > * completed_transcript_paths_index, const int32_t thread_idx, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool proj_emded_paths, const float mean_node_length);
 
         /// Projects transcripts onto haplotypes in a GBWT index and returns the resulting transcript paths.
         list<EditedTranscriptPath> project_transcript_gbwt(const Transcript & cur_transcript, const gbwt::GBWT & haplotype_index, const float mean_node_length) const;
@@ -302,11 +281,10 @@ class Transcriptome {
         /// resulting paths and the corresponding haplotype ids for each path.
         vector<pair<exon_nodes_t, thread_ids_t> > get_exon_haplotypes(const vg::id_t start_node, const vg::id_t end_node, const gbwt::GBWT & haplotype_index, const int32_t expected_length) const;
 
-        /// Projects transcripts onto embedded paths in a graph and returns the resulting transcript paths.
-        list<EditedTranscriptPath> project_transcript_embedded(const Transcript & cur_transcript, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool use_reference_paths, const bool use_haplotype_paths) const;
-
-        /// Adds new transcript paths to current set. Has argument to only add unique paths.
-        void append_transcript_paths(list<CompletedTranscriptPath> * completed_transcript_path, list<CompletedTranscriptPath> * new_completed_transcript_paths, const bool add_unqiue_paths_only) const;
+        /// Adds new transcript paths to current set and optionally collapses 
+        /// transcripts paths identical across reference and haplotype paths.
+        template <class T>
+        void append_transcript_paths(list<T> * transcript_paths, spp::sparse_hash_map<string, vector<T*> > * transcript_paths_index, list<T> * new_transcript_paths, const string & name_index_prefix) const;
 
         /// Constructs completed transcripts paths from 
         /// edited transcript paths. Checks that the

@@ -40,7 +40,7 @@ void help_rna(char** argv) {
 
          << "    -j, --use-hap-ref          use haplotype paths in GBWT index as reference sequences (disables projection)" << endl
          << "    -e, --proj-embed-paths     project transcripts onto embedded haplotype paths" << endl
-         << "    -c, --do-not-collapse      do not collapse identical transcripts across haplotypes" << endl
+         << "    -c, --do-not-collapse      do not collapse transcripts paths identical across reference and haplotype paths" << endl
          << "    -d, --remove-non-gene      remove intergenic and intronic regions (deletes reference paths)" << endl
          << "    -o, --do-not-sort          do not topological sort and compact splice graph" << endl
          << "    -r, --add-ref-paths        add reference transcripts as embedded paths in the splice graph" << endl
@@ -429,7 +429,7 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         ofstream info_ostream;
         info_ostream.open(info_out_filename);
-        info_ostream << "Name\tLength\tTranscript\tReference\tHaplotypes" << endl; 
+        info_ostream << "Name\tLength\tTranscript\tReferences/Haplotypes" << endl; 
 
         transcriptome.write_haplotype_transcript_info(&info_ostream, *haplotype_index);
 
