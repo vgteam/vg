@@ -4,16 +4,19 @@
 
 #include <algorithm>
 #include <mutex>
+#include <functional>
 
 #include <google/protobuf/util/message_differencer.h>
 #include <gbwt/dynamic_gbwt.h>
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <handlegraph/mutable_path_mutable_handle_graph.hpp>
-#include "bdsg/overlays/path_position_overlays.hpp"
+#include <bdsg/overlays/path_position_overlays.hpp>
+#include <sparsepp/spp.h>
 
 #include "../vg.hpp"
 #include "../types.hpp"
+#include "../gbwt_helper.hpp"
 
 namespace vg {
 
@@ -41,10 +44,6 @@ struct Exon {
     pair<step_handle_t, step_handle_t> border_steps;
 };
 
-bool operator==(const Exon & lhs, const Exon & rhs);
-bool operator!=(const Exon & lhs, const Exon & rhs);
-bool operator<(const Exon & lhs, const Exon & rhs);
-
 /**
  * Data structure that defines a transcript annotation.
  */
@@ -70,10 +69,6 @@ struct Transcript {
         assert(chrom_length > 0);
     }
 };
-
-bool operator==(const Transcript & lhs, const Transcript & rhs);
-bool operator!=(const Transcript & lhs, const Transcript & rhs);
-bool operator<(const Transcript & lhs, const Transcript & rhs);
 
 /**
  * Data structure that defines a base transcript path.
@@ -119,6 +114,43 @@ struct CompletedTranscriptPath : public TranscriptPath {
     vector<handle_t> path;
 
     CompletedTranscriptPath(const string & transcript_origin_in) : TranscriptPath(transcript_origin_in) {}
+};
+
+struct NodePairHash
+{
+    size_t operator()(const pair<gbwt::node_type, gbwt::node_type> & node_pair) const
+    {
+        size_t seed = 0;
+        spp::hash_combine(seed, node_pair.first);
+        spp::hash_combine(seed, node_pair.second);
+
+        return seed;
+    }
+};
+
+struct PathMappingHash
+{
+    size_t operator()(const Path & path) const
+    {
+        size_t seed = 0;
+
+        for (auto & mapping: path.mapping()) {
+    
+            spp::hash_combine(seed, mapping.position().node_id());
+            spp::hash_combine(seed, mapping.position().offset());
+            spp::hash_combine(seed, mapping.position().is_reverse());
+
+            for (auto & edit: mapping.edit()) {
+
+                spp::hash_combine(seed, edit.from_length());
+                spp::hash_combine(seed, edit.to_length());
+                spp::hash_combine(seed, edit.sequence());
+            }
+
+        }
+
+        return seed;
+    }
 };
 
 /**
@@ -267,7 +299,7 @@ class Transcriptome {
         list<EditedTranscriptPath> construct_reference_transcript_paths_gbwt(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index) const;
 
         /// Threaded reference transcript path construction using GBWT haplotype paths.
-        void construct_reference_transcript_paths_gbwt_callback(list<EditedTranscriptPath> * edited_transcript_paths, unordered_map<gbwt::node_type, vector<EditedTranscriptPath *> > * edited_transcript_paths_index, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<pair<uint32_t, uint32_t> > & chrom_transcript_sets, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const unordered_map<string, map<uint32_t, uint32_t> > & haplotype_name_index) const;
+        void construct_reference_transcript_paths_gbwt_callback(list<EditedTranscriptPath> * edited_transcript_paths, spp::sparse_hash_map<pair<gbwt::node_type, gbwt::node_type>, vector<EditedTranscriptPath *>, NodePairHash> * edited_transcript_paths_index, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<pair<uint32_t, uint32_t> > & chrom_transcript_sets, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const spp::sparse_hash_map<string, map<uint32_t, uint32_t> > & haplotype_name_index) const;
 
         /// Constructs haplotype transcript paths by projecting transcripts onto
         /// embedded paths in a graph and/or haplotypes in a GBWT index. 
@@ -313,17 +345,17 @@ class Transcriptome {
         void augment_graph(const list<EditedTranscriptPath> & edited_transcript_paths, const bool break_at_transcript_ends, unique_ptr<gbwt::GBWT> & haplotype_index, const bool update_haplotypes, const bool add_reference_transcript_paths);
 
         /// Update threads in gbwt index using graph translations. 
-        void update_haplotype_index(unique_ptr<gbwt::GBWT> & haplotype_index, const unordered_map<gbwt::node_type, vector<pair<int32_t, gbwt::node_type> > > & translation_index) const;
+        void update_haplotype_index(unique_ptr<gbwt::GBWT> & haplotype_index, const spp::sparse_hash_map<gbwt::node_type, vector<pair<int32_t, gbwt::node_type> > > & translation_index) const;
 
         /// Adds transcript path splice-junction edges to the graph
         void add_splice_junction_edges(const list<EditedTranscriptPath> & edited_transcript_paths);
         void add_splice_junction_edges(const vector<CompletedTranscriptPath> & completed_transcript_paths);
 
         /// Collects all unique nodes in a set of transcript paths and adds them to a set.
-        void collect_transcribed_nodes(unordered_set<nid_t> * transcribed_nodes, const vector<CompletedTranscriptPath> & transcript_paths) const;
+        void collect_transcribed_nodes(spp::sparse_hash_set<nid_t> * transcribed_nodes, const vector<CompletedTranscriptPath> & transcript_paths) const;
 
         /// Update node handles in transcript paths.
-        void update_transcript_path_node_handles(vector<CompletedTranscriptPath> * transcript_paths, const unordered_map<handle_t, handle_t> & update_index);
+        void update_transcript_path_node_handles(vector<CompletedTranscriptPath> * transcript_paths, const spp::sparse_hash_map<handle_t, handle_t> & update_index);
 
         /// Embeds transcript paths in the graph.  
         /// Returns the number of paths embedded.
@@ -343,5 +375,6 @@ class Transcriptome {
 };
 
 }
+
 
 #endif

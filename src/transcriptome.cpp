@@ -4,7 +4,6 @@
 #include "../io/save_handle_graph.hpp"
 
 #include "transcriptome.hpp"
-#include "../gbwt_helper.hpp"
 #include "../augment.hpp"
 #include "../utility.hpp"
 
@@ -82,6 +81,26 @@ bool operator<(const Transcript & lhs, const Transcript & rhs) {
     } 
 
     return false;
+}
+
+bool operator==(const Mapping & lhs, const Mapping & rhs) { 
+
+    return google::protobuf::util::MessageDifferencer::Equals(lhs, rhs);
+}
+
+bool operator!=(const Mapping & lhs, const Mapping & rhs) { 
+
+    return !(lhs == rhs);
+}
+
+bool operator==(const Path & lhs, const Path & rhs) { 
+
+    return google::protobuf::util::MessageDifferencer::Equals(lhs, rhs);
+}
+
+bool operator!=(const Path & lhs, const Path & rhs) { 
+
+    return !(lhs == rhs);
 }
 
 bool sort_pair_by_second(const pair<uint32_t, uint32_t> & lhs, const pair<uint32_t, uint32_t> & rhs) {
@@ -373,7 +392,7 @@ string Transcriptome::parse_attribute_value(const string & attribute, const stri
 vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool use_haplotype_paths) const {
 
     vector<Transcript> transcripts;
-    unordered_map<string, uint32_t> transcripts_index;
+    spp::sparse_hash_map<string, uint32_t> transcripts_index;
 
     int32_t line_number = 0;
 
@@ -712,7 +731,7 @@ list<EditedTranscriptPath> Transcriptome::construct_reference_transcript_paths_g
     assert(haplotype_index.metadata.hasPathNames());
     assert(haplotype_index.metadata.hasContigNames());
 
-    unordered_map<string, map<uint32_t, uint32_t> > haplotype_name_index;
+    spp::sparse_hash_map<string, map<uint32_t, uint32_t> > haplotype_name_index;
 
     // Create index mapping haplotype contig names to GBWT sequence ids and offsets.
     for (size_t i = 0; i < haplotype_index.sequences(); i++) {
@@ -730,7 +749,7 @@ list<EditedTranscriptPath> Transcriptome::construct_reference_transcript_paths_g
     }
 
     list<EditedTranscriptPath> edited_transcript_paths;
-    unordered_map<gbwt::node_type, vector<EditedTranscriptPath *> > edited_transcript_paths_index;
+    spp::sparse_hash_map<pair<gbwt::node_type, gbwt::node_type>, vector<EditedTranscriptPath *>, NodePairHash> edited_transcript_paths_index;
 
     mutex edited_transcript_paths_mutex;
 
@@ -752,13 +771,13 @@ list<EditedTranscriptPath> Transcriptome::construct_reference_transcript_paths_g
     return edited_transcript_paths;
 }
 
-void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<EditedTranscriptPath> * edited_transcript_paths, unordered_map<gbwt::node_type, vector<EditedTranscriptPath *> > * edited_transcript_paths_index, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<pair<uint32_t, uint32_t> > & chrom_transcript_sets, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const unordered_map<string, map<uint32_t, uint32_t> > & haplotype_name_index) const {
-
-    list<EditedTranscriptPath> thread_edited_transcript_paths;
+void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<EditedTranscriptPath> * edited_transcript_paths, spp::sparse_hash_map<pair<gbwt::node_type, gbwt::node_type>, vector<EditedTranscriptPath *>, NodePairHash> * edited_transcript_paths_index, mutex * edited_transcript_paths_mutex, const int32_t thread_idx, const vector<pair<uint32_t, uint32_t> > & chrom_transcript_sets, const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const spp::sparse_hash_map<string, map<uint32_t, uint32_t> > & haplotype_name_index) const {
 
     int32_t chrom_transcript_sets_idx = thread_idx;
 
     while (chrom_transcript_sets_idx < chrom_transcript_sets.size()) {
+
+        list<EditedTranscriptPath> thread_edited_transcript_paths;
 
         const pair<uint32_t, uint32_t> & transcript_set = chrom_transcript_sets.at(chrom_transcript_sets_idx);
 
@@ -915,65 +934,65 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
                 break;
             }
         }
+    
+        edited_transcript_paths_mutex->lock();
 
-        chrom_transcript_sets_idx += num_threads;
-    }
+        // Add unique transcript paths only.
+        if (collapse_transcript_paths) {
 
-    edited_transcript_paths_mutex->lock();
+            auto thread_edited_transcript_paths_it = thread_edited_transcript_paths.begin();
 
-    // Add unique transcript paths only.
-    if (collapse_transcript_paths) {
+            while (thread_edited_transcript_paths_it != thread_edited_transcript_paths.end()) {
 
-        auto thread_edited_transcript_paths_it = thread_edited_transcript_paths.begin();
+                bool new_path_unqiue = true;
 
-        while (thread_edited_transcript_paths_it != thread_edited_transcript_paths.end()) {
+                // Find all transcript paths starting on the same node.
+                auto node_pair = make_pair(mapping_to_gbwt(thread_edited_transcript_paths_it->path.mapping(0)), mapping_to_gbwt(thread_edited_transcript_paths_it->path.mapping(thread_edited_transcript_paths_it->path.mapping_size() - 1)));
+                auto edited_transcript_paths_index_it = edited_transcript_paths_index->find(node_pair);
 
-            bool new_path_unqiue = true;
+                if (edited_transcript_paths_index_it != edited_transcript_paths_index->end()) {
 
-            // Find all transcript paths starting on the same node.
-            auto start_node = mapping_to_gbwt(thread_edited_transcript_paths_it->path.mapping(0));
-            auto edited_transcript_paths_index_it = edited_transcript_paths_index->find(start_node);
+                    for (auto & edited_transcript_path: edited_transcript_paths_index_it->second) {
 
-            if (edited_transcript_paths_index_it != edited_transcript_paths_index->end()) {
+                        // Check if two paths are identical.
+                        if (thread_edited_transcript_paths_it->path == edited_transcript_path->path) {
 
-                for (auto & edited_transcript_path: edited_transcript_paths_index_it->second) {
+                            assert(thread_edited_transcript_paths_it->haplotype_origin_ids.size() == 1);
+                            assert(edited_transcript_path->haplotype_origin_ids.size() >= 1);
 
-                    // Check if two paths are identical.
-                    if (google::protobuf::util::MessageDifferencer::Equals(edited_transcript_path->path, thread_edited_transcript_paths_it->path)) {
+                            // Check if paths are from different haplotypes.
+                            if (thread_edited_transcript_paths_it->haplotype_origin_ids.front() != edited_transcript_path->haplotype_origin_ids.back()) {
 
-                        assert(edited_transcript_path->haplotype_origin_ids.size() >= 1);
-                        assert(thread_edited_transcript_paths_it->haplotype_origin_ids.size() == 1);
+                                // Merge haplotype origin ids.
+                                edited_transcript_path->haplotype_origin_ids.emplace_back(thread_edited_transcript_paths_it->haplotype_origin_ids.front());
 
-                        // Check if paths are from different haplotypes.
-                        if (find(edited_transcript_path->haplotype_origin_ids.begin(), edited_transcript_path->haplotype_origin_ids.end(), thread_edited_transcript_paths_it->haplotype_origin_ids.front()) == edited_transcript_path->haplotype_origin_ids.end()) {
-
-                            // Merge haplotype origin ids.
-                            edited_transcript_path->haplotype_origin_ids.emplace_back(thread_edited_transcript_paths_it->haplotype_origin_ids.front());
-
-                            new_path_unqiue = false;
-                            break;
+                                new_path_unqiue = false;
+                                break;
+                            }
                         }
                     }
                 }
+
+                if (new_path_unqiue) {
+
+                    auto edited_transcript_paths_index_it = edited_transcript_paths_index->emplace(node_pair, vector<EditedTranscriptPath *>());
+                    edited_transcript_paths_index_it.first->second.emplace_back(&(*thread_edited_transcript_paths_it));
+
+                    ++thread_edited_transcript_paths_it;
+
+                } else {
+
+                    // Delete transcript path if not unique.
+                    thread_edited_transcript_paths_it = thread_edited_transcript_paths.erase(thread_edited_transcript_paths_it);
+                }
             }
+        } 
 
-            if (new_path_unqiue) {
+        edited_transcript_paths->splice(edited_transcript_paths->end(), thread_edited_transcript_paths);
+        edited_transcript_paths_mutex->unlock();
 
-                auto edited_transcript_paths_index_it = edited_transcript_paths_index->emplace(start_node, vector<EditedTranscriptPath *>());
-                edited_transcript_paths_index_it.first->second.emplace_back(&(*thread_edited_transcript_paths_it));
-
-                ++thread_edited_transcript_paths_it;
-
-            } else {
-
-                // Delete transcript path if not unique.
-                thread_edited_transcript_paths_it = thread_edited_transcript_paths.erase(thread_edited_transcript_paths_it);
-            }
-        }
-    } 
-
-    edited_transcript_paths->splice(edited_transcript_paths->end(), thread_edited_transcript_paths);
-    edited_transcript_paths_mutex->unlock();
+        chrom_transcript_sets_idx += num_threads;
+    }
 }
 
 void Transcriptome::project_haplotype_transcripts(const vector<Transcript> & transcripts, const gbwt::GBWT & haplotype_index, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool proj_emded_paths, const float mean_node_length) {
@@ -1096,7 +1115,7 @@ list<EditedTranscriptPath> Transcriptome::project_transcript_gbwt(const Transcri
             for (auto & exon_haplotype: exon_haplotypes) {
 
                 assert(!exon_haplotype.first.empty());
-                unordered_map<int32_t, uint32_t> extended_haplotypes;
+                spp::sparse_hash_map<int32_t, uint32_t> extended_haplotypes;
 
                 for (auto & haplotype_id: exon_haplotype.second) {
 
@@ -1282,7 +1301,7 @@ vector<pair<exon_nodes_t, thread_ids_t> > Transcriptome::get_exon_haplotypes(con
     const int32_t termination_frequency = ceil(0.1 * expected_length);
 
     // Get ids for haplotypes that contain the end node.
-    unordered_set<int32_t> end_haplotype_ids;
+    spp::sparse_hash_set<int32_t> end_haplotype_ids;
     for (auto & haplotype_id: haplotype_index.locate(haplotype_index.find(gbwt::Node::encode(end_node, false)))) {
 
         end_haplotype_ids.emplace(haplotype_id);
@@ -1841,7 +1860,7 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
 
     // Create set of exon_boundary paths to augment graph with.
     vector<Path> exon_boundary_paths;
-    exon_boundary_paths.reserve(edited_transcript_paths.size());
+    spp::sparse_hash_set<Path, PathMappingHash> exon_boundary_paths_index;
 
     for (auto & transcript_path: edited_transcript_paths) {
 
@@ -1857,7 +1876,12 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
 
                     exon_boundary_paths.emplace_back(Path());
                     *(exon_boundary_paths.back().add_mapping()) = prev_mapping;
-                    *(exon_boundary_paths.back().add_mapping()) = cur_mapping;                               
+                    *(exon_boundary_paths.back().add_mapping()) = cur_mapping;   
+
+                    if (!exon_boundary_paths_index.emplace(exon_boundary_paths.back()).second) {
+
+                        exon_boundary_paths.pop_back();
+                    }                         
                 
                 } else if (break_at_transcript_ends) {
 
@@ -1866,6 +1890,11 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
 
                         exon_boundary_paths.emplace_back(Path());
                         *(exon_boundary_paths.back().add_mapping()) = prev_mapping;
+
+                        if (!exon_boundary_paths_index.emplace(exon_boundary_paths.back()).second) {
+
+                            exon_boundary_paths.pop_back();
+                        }      
                     }
                 
                     // Add transcript end boundary.
@@ -1873,13 +1902,21 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
 
                         exon_boundary_paths.emplace_back(Path());
                         *(exon_boundary_paths.back().add_mapping()) = cur_mapping;
+
+                        if (!exon_boundary_paths_index.emplace(exon_boundary_paths.back()).second) {
+
+                            exon_boundary_paths.pop_back();
+                        } 
                     }           
                 }   
             }
 
         } else {
 
-            exon_boundary_paths.emplace_back(move(transcript_path.path));
+            if (exon_boundary_paths_index.emplace(transcript_path.path).second) {
+
+                exon_boundary_paths.emplace_back(move(transcript_path.path));
+            } 
         }
     }
 
@@ -1906,11 +1943,11 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
     cerr << "\t\tDEBUG Indexing start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif
 
-    unordered_map<gbwt::node_type, vector<pair<int32_t, gbwt::node_type> > > translation_index;
+    spp::sparse_hash_map<gbwt::node_type, vector<pair<int32_t, gbwt::node_type> > > translation_index;
 
     #pragma omp parallel num_threads(num_threads)
     {
-        unordered_map<gbwt::node_type, vector<pair<int32_t, gbwt::node_type> > > thread_translation_index;
+        spp::sparse_hash_map<gbwt::node_type, vector<pair<int32_t, gbwt::node_type> > > thread_translation_index;
 
         // Create translation index 
         #pragma omp for schedule(static)
@@ -1925,7 +1962,7 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
             auto & to_mapping = translation.to().mapping(0);
 
             // Only store changes
-            if (!google::protobuf::util::MessageDifferencer::Equals(from_mapping, to_mapping)) {
+            if (from_mapping != to_mapping) {
 
                 auto thread_translation_index_it = thread_translation_index.emplace(mapping_to_gbwt(from_mapping), vector<pair<int32_t, gbwt::node_type> >());
                 thread_translation_index_it.first->second.emplace_back(from_mapping.position().offset(), mapping_to_gbwt(to_mapping));
@@ -2037,7 +2074,7 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
 #endif  
 }
 
-void Transcriptome::update_haplotype_index(unique_ptr<gbwt::GBWT> & haplotype_index, const unordered_map<gbwt::node_type, vector<pair<int32_t, gbwt::node_type> > > & translation_index) const {
+void Transcriptome::update_haplotype_index(unique_ptr<gbwt::GBWT> & haplotype_index, const spp::sparse_hash_map<gbwt::node_type, vector<pair<int32_t, gbwt::node_type> > > & translation_index) const {
 
     assert(haplotype_index->bidirectional());
 
@@ -2146,7 +2183,7 @@ bool Transcriptome::graph_node_updated() const {
     return _graph_node_updated;
 }
 
-void Transcriptome::collect_transcribed_nodes(unordered_set<nid_t> * transcribed_nodes, const vector<CompletedTranscriptPath> & transcript_paths) const {
+void Transcriptome::collect_transcribed_nodes(spp::sparse_hash_set<nid_t> * transcribed_nodes, const vector<CompletedTranscriptPath> & transcript_paths) const {
 
     for (auto & transcript_path: transcript_paths) {
 
@@ -2177,7 +2214,7 @@ void Transcriptome::remove_non_transcribed() {
     assert(_graph->get_path_count() == 0);
 
     // Find all nodes that are in a transcript path.
-    unordered_set<nid_t> transcribed_nodes;
+    spp::sparse_hash_set<nid_t> transcribed_nodes;
 
     collect_transcribed_nodes(&transcribed_nodes, _reference_transcript_paths);
     collect_transcribed_nodes(&transcribed_nodes, _haplotype_transcript_paths);
@@ -2203,7 +2240,7 @@ void Transcriptome::remove_non_transcribed() {
     assert(_graph->get_node_count() == transcribed_nodes.size());
 }
 
-void Transcriptome::update_transcript_path_node_handles(vector<CompletedTranscriptPath> * transcript_paths, const unordered_map<handle_t, handle_t> & update_index) {
+void Transcriptome::update_transcript_path_node_handles(vector<CompletedTranscriptPath> * transcript_paths, const spp::sparse_hash_map<handle_t, handle_t> & update_index) {
 
     #pragma omp parallel num_threads(num_threads)
     {
@@ -2250,7 +2287,7 @@ bool Transcriptome::topological_sort_compact() {
     cerr << "\tDEBUG Indexing start: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
 #endif
 
-    unordered_map<handle_t, handle_t> update_index; 
+    spp::sparse_hash_map<handle_t, handle_t> update_index; 
     uint32_t order_idx = 1;
 
     for (auto handle: new_order) {
