@@ -230,12 +230,17 @@ int main_normalize(int argc, char **argv) {
     auto start = chrono::high_resolution_clock::now();
 
     algorithms::SnarlNormalizer normalizer = algorithms::SnarlNormalizer(
-        *graph, *gbwt, output_gbwt, max_alignment_size, max_handle_size);
+        *graph, *gbwt, max_alignment_size, max_handle_size);
 
-    if (normalize_type == "all") {
-      normalizer.normalize_top_level_snarls(snarl_stream);
-    } else if (normalize_type == "one") {
-      if (source == NULL && sink == NULL) {
+    if (normalize_type == "all") 
+    {
+      gbwt::GBWT normalized_gbwt = normalizer.normalize_top_level_snarls(snarl_stream);
+      //todo: output normalized_gbwt
+    }
+    else if (normalize_type == "one")
+    {
+      if (source == NULL && sink == NULL) 
+      {
         cerr << "ERROR: please provide a source and sink for the snarl you "
                 "want to normalize."
              << endl;
@@ -244,14 +249,17 @@ int main_normalize(int argc, char **argv) {
       vector<int> error_record =
           normalizer.normalize_snarl(source, sink, paths_right_to_left);
       if (!(error_record[0] || error_record[1] || error_record[2] ||
-            error_record[3] || error_record[6])) {
+            error_record[3] || error_record[6])) 
+      {
         cerr << "snarl starting at " << source << " and ending at " << sink
              << " normalized." << endl;
         cerr << "amount of sequence in normalized snarl before normalization: "
              << error_record[4] << endl;
         cerr << "amount of sequence in normalized snarl after normalization: "
              << error_record[5] << endl;
-      } else {
+      } 
+      else 
+      {
         // todo: make it so it only prints the relevant message:
         cerr << "snarl skipped because...\nthey exceeded the size limit ("
              << error_record[0] << " snarls),\n"

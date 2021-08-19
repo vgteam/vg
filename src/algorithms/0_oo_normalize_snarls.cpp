@@ -49,11 +49,10 @@ namespace algorithms{
 
 SnarlNormalizer::SnarlNormalizer(MutablePathDeletableHandleGraph &graph,
                                  const gbwt::GBWT &gbwt,
-                                 const string &output_gbwt,
                                  const int& max_handle_size, 
                                  const int &max_alignment_size /*= MAX_INT*/,
                                  const string &path_finder /*= "GBWT"*/)
-    : _graph(graph), _gbwt(gbwt), _output_gbwt(output_gbwt), _max_alignment_size(max_alignment_size),
+    : _graph(graph), _gbwt(gbwt), _max_alignment_size(max_alignment_size),
       _max_handle_size(max_handle_size), _path_finder(path_finder), _gbwt_graph(gbwtgraph::GBWTGraph(_gbwt, _graph)){}
 
 
@@ -61,7 +60,7 @@ SnarlNormalizer::SnarlNormalizer(MutablePathDeletableHandleGraph &graph,
  * Iterates over all top-level snarls in _graph, and normalizes them.
  * @param snarl_stream file stream from .snarl.pb output of vg snarls
 */
-void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
+gbwt::GBWT SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
     // cerr << "disambiguate_top_level_snarls" << endl;
     SnarlManager *snarl_manager = new SnarlManager(snarl_stream);
 
@@ -121,6 +120,13 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
         }
         cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
         cerr << "seq from snarl number " << snarl_num << " with source at: " << _graph.get_sequence(_graph.get_handle(roots->start().node_id())) << " and sink at: " << _graph.get_sequence(_graph.get_handle(roots->end().node_id())) << endl;
+        nid_t test = roots->start().node_id();
+        gbwtgraph::GBWTGraph gbwt_graph_2 = gbwtgraph::GBWTGraph(_gbwt, _graph);
+        cerr << "test" << test << endl;
+        cerr << "graph range" << gbwt_graph_2.min_node_id() << " " <<  gbwt_graph_2.max_node_id() <<endl ;
+        cerr << "graph range of original graph" << _gbwt_graph.min_node_id() << " " <<  _gbwt_graph.max_node_id() <<endl ;
+        // cerr << "gbwt graph investigation: " << _gbwt_graph.has_node(test) << endl;
+        cerr << _gbwt_graph.get_length(_gbwt_graph.get_handle(roots->start().node_id())) << endl;
         // cerr << "seq from snarl number (using gbwt) " << snarl_num << " with source at: " << _gbwt_graph.get_sequence(_gbwt_graph.get_handle(roots->start().node_id())) << " and sink at: " << _gbwt_graph.get_sequence(_gbwt_graph.get_handle(roots->end().node_id())) << endl;
 
         cerr << "backwards value? " << roots->start().backward() << endl;
@@ -200,8 +206,10 @@ void SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
     // outGraph.serialize_to_ostream(cout);
 
     delete snarl_manager;
-
     
+    return output_gbwt;
+
+
 }
 
 /**

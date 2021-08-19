@@ -131,6 +131,7 @@ SnarlSequenceFinder::find_gbwt_haps() {
             // haplotypes_from_source_to_sink if haplotype extends to sink, or place in
             // the other_haplotypes if haplotype ends before reaching sink.
             for (gbwt::SearchState next_search : next_searches) {
+                //todo: this may drop is_reverse data! Gotta include that here.
                 handle_t next_handle = _gbwt_graph.node_to_handle(next_search.node);
                 // if (!_snarl.has_edge(cur_haplotype.first.back(), next_handle)) {
                 //     if (incorrect_connections.find(
