@@ -1816,75 +1816,32 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
 
     _graph_node_updated = true;
 
-    vector<const Path *> transcript_paths;
-    transcript_paths.reserve(edited_transcript_paths.size());
+    // Create set of exon boundary paths to augment graph with.
+    vector<Path> exon_boundary_paths;
+    spp::sparse_hash_set<Mapping, MappingHash> exon_boundary_mapping_index;
 
     for (auto & transcript_path: edited_transcript_paths) {
 
-        transcript_paths.emplace_back(&(transcript_path.path));
-    }
+        for (size_t j = 0; j < transcript_path.path.mapping_size(); ++j) {
 
-    // Create set of exon boundary paths to augment graph with.
-    vector<Path> exon_boundary_paths;
-    spp::sparse_hash_set<Path, PathMappingHash> exon_boundary_paths_index;
+            const Mapping & mapping = transcript_path.path.mapping(j);
 
-    #pragma omp parallel num_threads(num_threads)
-    {
-        vector<Path> thread_exon_boundary_paths;
+            const auto mapping_length = mapping_to_length(mapping);
+            assert(mapping_length == mapping_from_length(mapping));
 
-        // Create translation index 
-        #pragma omp for schedule(static)
-        for (size_t i = 0; i < transcript_paths.size(); ++i) {
+            // Add exon boundary path.
+            if (mapping.position().offset() > 0 || mapping.position().offset() + mapping_length < _graph->get_length(_graph->get_handle(mapping.position().node_id(), false))) {
 
-            const Path * transcript_path = transcript_paths.at(i);
+                exon_boundary_paths.emplace_back(Path());
+                *(exon_boundary_paths.back().add_mapping()) = mapping; 
+                exon_boundary_paths.back().mutable_mapping(0)->set_rank(1);
 
-            if (transcript_path->mapping_size() > 2) {
-
-                for (size_t j = 1; j < transcript_path->mapping_size(); ++j) {
-
-                    const Mapping & prev_mapping = transcript_path->mapping(j - 1);
-                    const Mapping & cur_mapping = transcript_path->mapping(j);
-
-                    // Add splice-junction.
-                    if (cur_mapping.position().offset() > 0 || prev_mapping.position().offset() + mapping_to_length(prev_mapping) < _graph->get_length(_graph->get_handle(prev_mapping.position().node_id(), false))) {
-
-                        thread_exon_boundary_paths.emplace_back(Path());
-                        *(thread_exon_boundary_paths.back().add_mapping()) = prev_mapping;
-                        *(thread_exon_boundary_paths.back().add_mapping()) = cur_mapping;   
-
-                    } else if (break_at_transcript_ends) {
-
-                         // Add transcript start boundary.
-                        if (j == 1) {
-
-                            thread_exon_boundary_paths.emplace_back(Path());
-                            *(thread_exon_boundary_paths.back().add_mapping()) = prev_mapping;    
-                        }
-
-                        // Add transcript end boundary.
-                        if (j == transcript_path->mapping_size() - 1) {
-
-                            thread_exon_boundary_paths.emplace_back(Path());
-                            *(thread_exon_boundary_paths.back().add_mapping()) = cur_mapping;
-                        }           
-                    }   
+                // Remove if already added.
+                if (!exon_boundary_mapping_index.emplace(exon_boundary_paths.back().mapping(0)).second) {
+                
+                    exon_boundary_paths.pop_back();
                 }
-
-            } else {
-
-                thread_exon_boundary_paths.emplace_back(*transcript_path);
-            }
-        }
-
-        #pragma omp critical
-        {
-            for (auto & path: thread_exon_boundary_paths) {
-
-                if (exon_boundary_paths_index.emplace(path).second) {
-
-                    exon_boundary_paths.emplace_back(path);
-                }
-            }
+            }  
         }
     }   
 

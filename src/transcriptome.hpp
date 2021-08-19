@@ -116,28 +116,23 @@ struct CompletedTranscriptPath : public TranscriptPath {
     CompletedTranscriptPath(const string & transcript_origin_in) : TranscriptPath(transcript_origin_in) {}
 };
 
-struct PathMappingHash
- {
-     size_t operator()(const Path & path) const
-     {
-         size_t seed = 0;
+struct MappingHash
+{
+    size_t operator()(const Mapping & mapping) const
+    {
+        size_t seed = 0;
 
-         for (auto & mapping: path.mapping()) {
+        spp::hash_combine(seed, mapping.position().node_id());
+        spp::hash_combine(seed, mapping.position().offset());
+        spp::hash_combine(seed, mapping.position().is_reverse());
 
-             spp::hash_combine(seed, mapping.position().node_id());
-             spp::hash_combine(seed, mapping.position().offset());
-             spp::hash_combine(seed, mapping.position().is_reverse());
+        for (auto & edit: mapping.edit()) {
 
-             for (auto & edit: mapping.edit()) {
+            spp::hash_combine(seed, edit.to_length());
+        }
 
-                 spp::hash_combine(seed, edit.to_length());
-                 spp::hash_combine(seed, edit.from_length());
-                 spp::hash_combine(seed, edit.sequence());
-             }
-         }
-
-         return seed;
-     }
+        return seed;
+    }
  };
 
 /**
