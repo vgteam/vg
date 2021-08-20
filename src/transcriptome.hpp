@@ -168,7 +168,7 @@ class Transcriptome {
         /// creates reference transcript paths by projecting the transcript onto
         /// reference paths embedded in the graph. Optionally update haplotype GBWT 
         /// index with new splice-junctions. Returns the number of transcripts parsed. 
-        int32_t add_reference_transcripts(istream & transcript_stream, unique_ptr<gbwt::GBWT> & haplotype_index, const bool update_haplotypes, const bool use_haplotype_paths);
+        int32_t add_reference_transcripts(istream & transcript_stream, unique_ptr<gbwt::GBWT> & haplotype_index, const bool use_haplotype_paths, const bool update_haplotypes);
 
         /// Adds haplotype-specific transcript paths by projecting transcripts in a 
         /// gtf/gff3 file onto either non-reference embedded paths and/or haplotypes
@@ -184,15 +184,19 @@ class Transcriptome {
         /// Returns the graph.
         const MutablePathDeletableHandleGraph & graph() const; 
 
-        /// Returns true if nodes in the graph have been updated (e.g. split) since parsed.
-        bool graph_node_updated() const;
-
         /// Removes non-transcribed (not in transcript paths) nodes.
-        void remove_non_transcribed();
+        void remove_non_transcribed_nodes();
+
+        /// Chop nodes so that they are not longer than the supplied 
+        /// maximum node length. Returns number of chopped nodes.
+        uint32_t chop_nodes(const uint32_t max_node_length);
 
         /// Topological sorts graph and compacts node ids. Only works for 
         /// graphs in the PackedGraph format. Return false if not sorted.
-        bool topological_sort_compact();
+        bool sort_compact_nodes();
+
+        /// Returns true if nodes in the graph have been updated (e.g. split) since parsed.
+        bool nodes_updated() const;
 
         /// Embeds reference transcript paths in the graph.  
         /// Returns the number of paths embedded.
@@ -244,16 +248,16 @@ class Transcriptome {
         mutex mutex_graph;
 
         /// Have nodes in the graph been updated (e.g. split) since parsed.
-        bool _graph_node_updated;
+        bool _nodes_updated;
 
         /// Parse BED file of introns.
         vector<Transcript> parse_introns(istream & intron_stream, const bdsg::PositionOverlay & graph_path_pos_overlay) const;
 
+        /// Parse gtf/gff3 file of transcripts.
+        vector<Transcript> parse_transcripts(istream & transcript_stream, const bdsg::PositionOverlay & graph_path_pos_overlay, const gbwt::GBWT & haplotype_index, const bool use_haplotype_paths) const;
+
         /// Parse gtf/gff3 attribute value.
         string parse_attribute_value(const string & attribute, const string & name) const;
-
-        /// Parse gtf/gff3 file of transcripts.
-        vector<Transcript> parse_transcripts(istream & transcript_stream, const bdsg::PositionOverlay & graph_path_pos_overlay, const bool use_haplotype_paths) const;
 
         /// Returns the the mean node length of the graph
         float mean_node_length() const;
@@ -338,7 +342,10 @@ class Transcriptome {
         /// Collects all unique nodes in a set of transcript paths and adds them to a set.
         void collect_transcribed_nodes(spp::sparse_hash_set<nid_t> * transcribed_nodes, const vector<CompletedTranscriptPath> & transcript_paths) const;
 
-        /// Update node handles in transcript paths.
+        /// Split node handles in transcript paths according to index.
+        void split_transcript_path_node_handles(vector<CompletedTranscriptPath> * transcript_paths, const spp::sparse_hash_map<handle_t, vector<handle_t> > & split_index);
+
+        /// Update node handles in transcript paths according to index.
         void update_transcript_path_node_handles(vector<CompletedTranscriptPath> * transcript_paths, const spp::sparse_hash_map<handle_t, handle_t> & update_index);
 
         /// Embeds transcript paths in the graph.  

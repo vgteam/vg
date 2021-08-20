@@ -36,6 +36,25 @@ namespace vg {
             return int_vectors;
         }
 
+        vector<string> transcript_paths_to_sequences(const vector<CompletedTranscriptPath> & transcript_paths, const MutablePathDeletableHandleGraph & graph) {
+
+            vector<string> sequences;
+            sequences.reserve(transcript_paths.size());
+
+            for (auto & transcript_path: transcript_paths) {
+
+                sequences.emplace_back("");
+
+                for (auto & handle: transcript_path.path) {
+
+                    sequences.back() += graph.get_sequence(handle);
+                }
+            }
+
+            sort(sequences.begin(), sequences.end());
+            return sequences;
+        }
+
         TEST_CASE("Transcriptome can add splice-junctions and project transcripts", "[transcriptome]") {
          
             unique_ptr<MutablePathDeletableHandleGraph> graph(new bdsg::PackedGraph);
@@ -89,7 +108,7 @@ namespace vg {
             REQUIRE(transcriptome.reference_transcript_paths().size() == 0);
             REQUIRE(transcriptome.haplotype_transcript_paths().size() == 0);
 
-            REQUIRE(!transcriptome.graph_node_updated());
+            REQUIRE(!transcriptome.nodes_updated());
 
             REQUIRE(transcriptome.graph().get_node_count() == 6);
             REQUIRE(transcriptome.graph().get_edge_count() == 7);
@@ -114,9 +133,10 @@ namespace vg {
             SECTION("Transcriptome can add splice-junctions and reference transcript paths") {
 
                 transcriptome.add_reference_transcripts(transcript_stream, empty_haplotype_index, false, false);
-                transcriptome.topological_sort_compact();
+                REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
 
-                REQUIRE(transcriptome.graph_node_updated());
+                REQUIRE(transcriptome.sort_compact_nodes());
+                REQUIRE(transcriptome.nodes_updated());
 
                 REQUIRE(transcriptome.graph().get_node_count() == 13);
                 REQUIRE(transcriptome.graph().get_edge_count() == 18);
@@ -127,12 +147,17 @@ namespace vg {
                 REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path3")) == 12);
                 REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path4")) == 10);
 
-                REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
                 auto int_ref_transcript_paths = transcript_paths_to_int_vectors(transcriptome.reference_transcript_paths());
 
                 REQUIRE(int_ref_transcript_paths.front() == vector<uint64_t>({4, 6, 10, 14, 26}));
                 REQUIRE(int_ref_transcript_paths.at(1) == vector<uint64_t>({14, 16, 24, 26}));
                 REQUIRE(int_ref_transcript_paths.back() == vector<uint64_t>({27, 25, 23, 11, 7, 5}));
+
+                auto seq_ref_transcript_paths = transcript_paths_to_sequences(transcriptome.reference_transcript_paths(), transcriptome.graph());
+
+                REQUIRE(seq_ref_transcript_paths.front() == "AAACCTTTAAA");
+                REQUIRE(seq_ref_transcript_paths.at(1) == "TTTAAAA");
+                REQUIRE(seq_ref_transcript_paths.back() == "TTTTGGAGGTTT");
 
                 REQUIRE(transcriptome.haplotype_transcript_paths().size() == 0);
 
@@ -142,32 +167,36 @@ namespace vg {
                 SECTION("Transcriptome can project transcripts onto haplotype embedded paths") {
 
                     transcriptome.add_haplotype_transcripts(transcript_stream, *empty_haplotype_index, true);
-
-                    REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
-                    auto int_ref_transcript_paths2 = transcript_paths_to_int_vectors(transcriptome.reference_transcript_paths());
-
-                    REQUIRE(int_ref_transcript_paths == int_ref_transcript_paths2);
-
                     REQUIRE(transcriptome.haplotype_transcript_paths().size() == 4);
+                    
+                    auto int_ref_transcript_paths2 = transcript_paths_to_int_vectors(transcriptome.reference_transcript_paths());
+                    REQUIRE(int_ref_transcript_paths == int_ref_transcript_paths2);
+                    
                     auto int_hap_transcript_paths = transcript_paths_to_int_vectors(transcriptome.haplotype_transcript_paths());
 
                     REQUIRE(int_hap_transcript_paths.front() == vector<uint64_t>({4, 6, 10, 14, 26}));
                     REQUIRE(int_hap_transcript_paths.at(1) == vector<uint64_t>({4, 8, 10, 14, 26}));
                     REQUIRE(int_hap_transcript_paths.at(2) == vector<uint64_t>({14, 16, 24, 26}));
                     REQUIRE(int_hap_transcript_paths.back() == vector<uint64_t>({27, 25, 23, 11, 9, 5}));
+
+                    auto seq_hap_transcript_paths = transcript_paths_to_sequences(transcriptome.haplotype_transcript_paths(), transcriptome.graph());
+
+                    REQUIRE(seq_hap_transcript_paths.front() == "AAACCTTTAAA");
+                    REQUIRE(seq_hap_transcript_paths.at(1) == "AAAGTTTAAA");
+                    REQUIRE(seq_hap_transcript_paths.at(2) == "TTTAAAA");
+                    REQUIRE(seq_hap_transcript_paths.back() == "TTTTGGACTTT");
                 }
 
                 SECTION("Transcriptome can project transcripts onto haplotype embedded paths and not collapse redundant paths") {
 
                     transcriptome.collapse_transcript_paths = false;
+                    
                     transcriptome.add_haplotype_transcripts(transcript_stream, *empty_haplotype_index, true);
+                    REQUIRE(transcriptome.haplotype_transcript_paths().size() == 5);
 
-                    REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
                     auto int_ref_transcript_paths2 = transcript_paths_to_int_vectors(transcriptome.reference_transcript_paths());
-
                     REQUIRE(int_ref_transcript_paths == int_ref_transcript_paths2);
 
-                    REQUIRE(transcriptome.haplotype_transcript_paths().size() == 5);
                     auto int_hap_transcript_paths = transcript_paths_to_int_vectors(transcriptome.haplotype_transcript_paths());
 
                     REQUIRE(int_hap_transcript_paths.front() == vector<uint64_t>({4, 6, 10, 14, 26}));
@@ -175,6 +204,72 @@ namespace vg {
                     REQUIRE(int_hap_transcript_paths.at(2) == vector<uint64_t>({4, 8, 10, 14, 26}));
                     REQUIRE(int_hap_transcript_paths.at(3) == vector<uint64_t>({14, 16, 24, 26}));
                     REQUIRE(int_hap_transcript_paths.back() == vector<uint64_t>({27, 25, 23, 11, 9, 5}));
+
+                    auto seq_hap_transcript_paths = transcript_paths_to_sequences(transcriptome.haplotype_transcript_paths(), transcriptome.graph());
+
+                    REQUIRE(seq_hap_transcript_paths.front() == "AAACCTTTAAA");
+                    REQUIRE(seq_hap_transcript_paths.at(1) == "AAAGTTTAAA");
+                    REQUIRE(seq_hap_transcript_paths.at(2) == "AAAGTTTAAA");
+                    REQUIRE(seq_hap_transcript_paths.at(3) == "TTTAAAA");
+                    REQUIRE(seq_hap_transcript_paths.back() == "TTTTGGACTTT");
+                }
+
+                SECTION("Transcriptome can remove non-transcribed nodes") {
+
+                    transcriptome.add_haplotype_transcripts(transcript_stream, *empty_haplotype_index, true);
+                    REQUIRE(transcriptome.haplotype_transcript_paths().size() == 4);
+
+                    transcriptome.remove_non_transcribed_nodes();
+
+                    REQUIRE(transcriptome.graph().get_node_count() == 9);
+                    REQUIRE(transcriptome.graph().get_edge_count() == 11);
+                    REQUIRE(transcriptome.graph().get_path_count() == 0);   
+
+                    auto int_ref_transcript_paths2 = transcript_paths_to_int_vectors(transcriptome.reference_transcript_paths());
+                    REQUIRE(int_ref_transcript_paths == int_ref_transcript_paths2);
+
+                    auto int_hap_transcript_paths = transcript_paths_to_int_vectors(transcriptome.haplotype_transcript_paths());
+
+                    REQUIRE(int_hap_transcript_paths.front() == vector<uint64_t>({4, 6, 10, 14, 26}));
+                    REQUIRE(int_hap_transcript_paths.at(1) == vector<uint64_t>({4, 8, 10, 14, 26}));
+                    REQUIRE(int_hap_transcript_paths.at(2) == vector<uint64_t>({14, 16, 24, 26}));
+                    REQUIRE(int_hap_transcript_paths.back() == vector<uint64_t>({27, 25, 23, 11, 9, 5}));             
+
+                    auto seq_hap_transcript_paths = transcript_paths_to_sequences(transcriptome.haplotype_transcript_paths(), transcriptome.graph());
+
+                    REQUIRE(seq_hap_transcript_paths.front() == "AAACCTTTAAA");
+                    REQUIRE(seq_hap_transcript_paths.at(1) == "AAAGTTTAAA");
+                    REQUIRE(seq_hap_transcript_paths.at(2) == "TTTAAAA");
+                    REQUIRE(seq_hap_transcript_paths.back() == "TTTTGGACTTT");
+                }
+
+                SECTION("Transcriptome can chop long nodes") {
+
+                    REQUIRE(transcriptome.chop_nodes(2) == 3);
+
+                    REQUIRE(transcriptome.sort_compact_nodes());
+                    REQUIRE(transcriptome.nodes_updated());
+
+                    REQUIRE(transcriptome.graph().get_node_count() == 16);
+                    REQUIRE(transcriptome.graph().get_edge_count() == 21);
+                    REQUIRE(transcriptome.graph().get_path_count() == 4);
+
+                    REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path1")) == 15);
+                    REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path2")) == 13);
+                    REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path3")) == 15);
+                    REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path4")) == 13);
+
+                    auto int_ref_transcript_paths = transcript_paths_to_int_vectors(transcriptome.reference_transcript_paths());
+
+                    REQUIRE(int_ref_transcript_paths.front() == vector<uint64_t>({4, 6, 8, 12, 16, 30, 32}));
+                    REQUIRE(int_ref_transcript_paths.at(1) == vector<uint64_t>({16, 18, 28, 30, 32}));
+                    REQUIRE(int_ref_transcript_paths.back() == vector<uint64_t>({33, 31, 29, 27, 13, 9, 7, 5}));
+
+                    auto seq_ref_transcript_paths = transcript_paths_to_sequences(transcriptome.reference_transcript_paths(), transcriptome.graph());
+
+                    REQUIRE(seq_ref_transcript_paths.front() == "AAACCTTTAAA");
+                    REQUIRE(seq_ref_transcript_paths.at(1) == "TTTAAAA");
+                    REQUIRE(seq_ref_transcript_paths.back() == "TTTTGGAGGTTT");
                 }
 
                 SECTION("Transcriptome can add transcript paths to graph") {
@@ -189,33 +284,6 @@ namespace vg {
 
                     transcriptome.embed_haplotype_transcript_paths();
                     REQUIRE(transcriptome.graph().get_path_count() == 11);  
-                }
-
-                SECTION("Transcriptome can remove non-transcribed nodes") {
-
-                    transcriptome.add_haplotype_transcripts(transcript_stream, *empty_haplotype_index, true);
-
-                    REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
-                    REQUIRE(transcriptome.haplotype_transcript_paths().size() == 4);
-
-                    transcriptome.remove_non_transcribed();
-
-                    REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
-                    auto int_ref_transcript_paths2 = transcript_paths_to_int_vectors(transcriptome.reference_transcript_paths());
-
-                    REQUIRE(int_ref_transcript_paths == int_ref_transcript_paths2);
-
-                    REQUIRE(transcriptome.haplotype_transcript_paths().size() == 4);
-                    auto int_hap_transcript_paths = transcript_paths_to_int_vectors(transcriptome.haplotype_transcript_paths());
-
-                    REQUIRE(int_hap_transcript_paths.front() == vector<uint64_t>({4, 6, 10, 14, 26}));
-                    REQUIRE(int_hap_transcript_paths.at(1) == vector<uint64_t>({4, 8, 10, 14, 26}));
-                    REQUIRE(int_hap_transcript_paths.at(2) == vector<uint64_t>({14, 16, 24, 26}));
-                    REQUIRE(int_hap_transcript_paths.back() == vector<uint64_t>({27, 25, 23, 11, 9, 5}));
-
-                    REQUIRE(transcriptome.graph().get_node_count() == 9);
-                    REQUIRE(transcriptome.graph().get_edge_count() == 11);
-                    REQUIRE(transcriptome.graph().get_path_count() == 0);                
                 }
 
                 gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
@@ -264,26 +332,39 @@ namespace vg {
                 SECTION("Transcriptome can project transcripts onto GBWT haplotypes") {
 
                     transcriptome.add_haplotype_transcripts(transcript_stream, *haplotype_index, false);
-
                     REQUIRE(transcriptome.haplotype_transcript_paths().size() == 3);
+
                     auto int_hap_transcript_paths = transcript_paths_to_int_vectors(transcriptome.haplotype_transcript_paths());
 
                     REQUIRE(int_hap_transcript_paths.front() == vector<uint64_t>({4, 8, 10, 14, 26}));
                     REQUIRE(int_hap_transcript_paths.at(1) == vector<uint64_t>({14, 16, 24, 26}));
                     REQUIRE(int_hap_transcript_paths.back() == vector<uint64_t>({27, 25, 23, 11, 9, 5}));
+
+                    auto seq_hap_transcript_paths = transcript_paths_to_sequences(transcriptome.haplotype_transcript_paths(), transcriptome.graph());
+
+                    REQUIRE(seq_hap_transcript_paths.front() == "AAAGTTTAAA");
+                    REQUIRE(seq_hap_transcript_paths.at(1) == "TTTAAAA");
+                    REQUIRE(seq_hap_transcript_paths.back() == "TTTTGGACTTT");
                 }
 
                 SECTION("Transcriptome can project transcripts onto embedded paths and GBWT haplotypes") {
 
                     transcriptome.add_haplotype_transcripts(transcript_stream, *haplotype_index, true);
-
                     REQUIRE(transcriptome.haplotype_transcript_paths().size() == 4);
+
                     auto int_hap_transcript_paths = transcript_paths_to_int_vectors(transcriptome.haplotype_transcript_paths());
 
                     REQUIRE(int_hap_transcript_paths.front() == vector<uint64_t>({4, 6, 10, 14, 26}));
                     REQUIRE(int_hap_transcript_paths.at(1) == vector<uint64_t>({4, 8, 10, 14, 26}));
                     REQUIRE(int_hap_transcript_paths.at(2) == vector<uint64_t>({14, 16, 24, 26}));
                     REQUIRE(int_hap_transcript_paths.back() == vector<uint64_t>({27, 25, 23, 11, 9, 5}));
+
+                    auto seq_hap_transcript_paths = transcript_paths_to_sequences(transcriptome.haplotype_transcript_paths(), transcriptome.graph());
+
+                    REQUIRE(seq_hap_transcript_paths.front() == "AAACCTTTAAA");
+                    REQUIRE(seq_hap_transcript_paths.at(1) == "AAAGTTTAAA");
+                    REQUIRE(seq_hap_transcript_paths.at(2) == "TTTAAAA");
+                    REQUIRE(seq_hap_transcript_paths.back() == "TTTTGGACTTT");
                 }
             }
 
@@ -299,9 +380,10 @@ namespace vg {
                 transcript_stream2 << "path1\t.\texon\t18\t21\t.\t+\t.\ttranscript_id=transcript3" << endl;
 
                 transcriptome.add_reference_transcripts(transcript_stream2, empty_haplotype_index, false, false);
-                transcriptome.topological_sort_compact();
+                REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
 
-                REQUIRE(transcriptome.graph_node_updated());
+                REQUIRE(transcriptome.sort_compact_nodes());
+                REQUIRE(transcriptome.nodes_updated());
 
                 REQUIRE(transcriptome.graph().get_node_count() == 13);
                 REQUIRE(transcriptome.graph().get_edge_count() == 18);
@@ -312,12 +394,17 @@ namespace vg {
                 REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path3")) == 12);
                 REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path4")) == 10);
 
-                REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
                 auto int_ref_transcript_paths = transcript_paths_to_int_vectors(transcriptome.reference_transcript_paths());
 
                 REQUIRE(int_ref_transcript_paths.front() == vector<uint64_t>({4, 6, 10, 14, 26}));
                 REQUIRE(int_ref_transcript_paths.at(1) == vector<uint64_t>({14, 16, 24, 26}));
                 REQUIRE(int_ref_transcript_paths.back() == vector<uint64_t>({27, 25, 23, 11, 7, 5}));
+
+                auto seq_ref_transcript_paths = transcript_paths_to_sequences(transcriptome.reference_transcript_paths(), transcriptome.graph());
+
+                REQUIRE(seq_ref_transcript_paths.front() == "AAACCTTTAAA");
+                REQUIRE(seq_ref_transcript_paths.at(1) == "TTTAAAA");
+                REQUIRE(seq_ref_transcript_paths.back() == "TTTTGGAGGTTT");
             }
 
             SECTION("Transcriptome can add splice-junctions and update GBWT threads") {
@@ -352,20 +439,27 @@ namespace vg {
                 haplotype_index->load(gbwt_stream);
                 REQUIRE(haplotype_index->bidirectional());
 
-                transcriptome.add_reference_transcripts(transcript_stream, haplotype_index, true, false);
+                transcriptome.add_reference_transcripts(transcript_stream, haplotype_index, false, true);
 
                 transcript_stream.clear();
                 transcript_stream.seekg(0,ios::beg);
 
                 transcriptome.add_haplotype_transcripts(transcript_stream, *haplotype_index, false);
-                transcriptome.topological_sort_compact();
-
                 REQUIRE(transcriptome.haplotype_transcript_paths().size() == 3);
+
+                REQUIRE(transcriptome.sort_compact_nodes());
+
                 auto int_hap_transcript_paths = transcript_paths_to_int_vectors(transcriptome.haplotype_transcript_paths());
 
                 REQUIRE(int_hap_transcript_paths.front() == vector<uint64_t>({4, 8, 10, 14, 26}));
                 REQUIRE(int_hap_transcript_paths.at(1) == vector<uint64_t>({14, 16, 24, 26}));
                 REQUIRE(int_hap_transcript_paths.back() == vector<uint64_t>({27, 25, 23, 11, 9, 5}));
+
+                auto seq_hap_transcript_paths = transcript_paths_to_sequences(transcriptome.haplotype_transcript_paths(), transcriptome.graph());
+
+                REQUIRE(seq_hap_transcript_paths.front() == "AAAGTTTAAA");
+                REQUIRE(seq_hap_transcript_paths.at(1) == "TTTAAAA");
+                REQUIRE(seq_hap_transcript_paths.back() == "TTTTGGACTTT");
             }
 
             SECTION("Transcriptome can use GBWT haplotype transcript annotations") {
@@ -423,10 +517,11 @@ namespace vg {
 
                 SECTION("Transcriptome can add splice-junctions and reference transcript paths using GBWT haplotypes") {
 
-                    transcriptome.add_reference_transcripts(transcript_stream, haplotype_index, false, true);
-                    transcriptome.topological_sort_compact();
-
-                    REQUIRE(transcriptome.graph_node_updated());
+                    transcriptome.add_reference_transcripts(transcript_stream, haplotype_index, true, false);
+                    REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
+                    
+                    REQUIRE(transcriptome.sort_compact_nodes());
+                    REQUIRE(transcriptome.nodes_updated());
 
                     REQUIRE(transcriptome.graph().get_node_count() == 13);
                     REQUIRE(transcriptome.graph().get_edge_count() == 18);
@@ -437,12 +532,17 @@ namespace vg {
                     REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path3")) == 12);
                     REQUIRE(transcriptome.graph().get_step_count(transcriptome.graph().get_path_handle("path4")) == 10);
 
-                    REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
                     auto int_ref_transcript_paths = transcript_paths_to_int_vectors(transcriptome.reference_transcript_paths());
 
                     REQUIRE(int_ref_transcript_paths.front() == vector<uint64_t>({4, 6, 10, 14, 26}));
                     REQUIRE(int_ref_transcript_paths.at(1) == vector<uint64_t>({14, 16, 24, 26}));
                     REQUIRE(int_ref_transcript_paths.back() == vector<uint64_t>({27, 25, 23, 11, 7, 5}));
+
+                    auto seq_ref_transcript_paths = transcript_paths_to_sequences(transcriptome.reference_transcript_paths(), transcriptome.graph());
+
+                    REQUIRE(seq_ref_transcript_paths.front() == "AAACCTTTAAA");
+                    REQUIRE(seq_ref_transcript_paths.at(1) == "TTTAAAA");
+                    REQUIRE(seq_ref_transcript_paths.back() == "TTTTGGAGGTTT");
                 }
          
                 SECTION("Transcriptome can collapse redundant GBWT annotated reference transcript paths across haplotypes") {
@@ -453,37 +553,54 @@ namespace vg {
                     transcript_stream << "path2\t.\texon\t9\t11\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
                     transcript_stream << "path2\t.\texon\t15\t18\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
 
-                    transcriptome.add_reference_transcripts(transcript_stream, haplotype_index, false, true);
-                    transcriptome.topological_sort_compact();
-
+                    transcriptome.add_reference_transcripts(transcript_stream, haplotype_index, true, false);
                     REQUIRE(transcriptome.reference_transcript_paths().size() == 4);
+
+                    REQUIRE(transcriptome.sort_compact_nodes());
+
                     auto int_ref_transcript_paths = transcript_paths_to_int_vectors(transcriptome.reference_transcript_paths());
 
                     REQUIRE(int_ref_transcript_paths.front() == vector<uint64_t>({4, 6, 10, 14, 26}));
                     REQUIRE(int_ref_transcript_paths.at(1) == vector<uint64_t>({14, 16, 24, 26}));
                     REQUIRE(int_ref_transcript_paths.at(2) == vector<uint64_t>({14, 16, 24, 26}));
                     REQUIRE(int_ref_transcript_paths.back() == vector<uint64_t>({27, 25, 23, 11, 7, 5}));
+
+                    auto seq_ref_transcript_paths = transcript_paths_to_sequences(transcriptome.reference_transcript_paths(), transcriptome.graph());
+
+                    REQUIRE(seq_ref_transcript_paths.front() == "AAACCTTTAAA");
+                    REQUIRE(seq_ref_transcript_paths.at(1) == "TTTAAAA");
+                    REQUIRE(seq_ref_transcript_paths.at(2) == "TTTAAAA");
+                    REQUIRE(seq_ref_transcript_paths.back() == "TTTTGGAGGTTT");
                 }
 
                 SECTION("Transcriptome can construct GBWT annotated reference transcript paths spanning multiple broken contigs") {
 
-                    transcript_stream << "path3\t.\texon\t9\t10\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
-                    transcript_stream << "path3\t.\texon\t19\t21\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
+                    transcript_stream << "path3\t.\texon\t9\t10\t.\t-\t.\ttranscript_id \"transcript4\";" << endl;
+                    transcript_stream << "path3\t.\texon\t19\t21\t.\t-\t.\ttranscript_id \"transcript4\";" << endl;
                     transcript_stream << "path3\t.\texon\t9\t11\t.\t+\t.\ttranscript_id \"transcript5\";" << endl;
                     transcript_stream << "path3\t.\texon\t16\t21\t.\t+\t.\ttranscript_id \"transcript5\";" << endl;
                     transcript_stream << "path3\t.\texon\t19\t21\t.\t+\t.\ttranscript_id \"transcript6\";" << endl;
 
-                    transcriptome.add_reference_transcripts(transcript_stream, haplotype_index, false, true);
-                    transcriptome.topological_sort_compact();
-
+                    transcriptome.add_reference_transcripts(transcript_stream, haplotype_index, true, false);
                     REQUIRE(transcriptome.reference_transcript_paths().size() == 5);
+
+                    REQUIRE(transcriptome.sort_compact_nodes());
+
                     auto int_ref_transcript_paths = transcript_paths_to_int_vectors(transcriptome.reference_transcript_paths());
 
                     REQUIRE(int_ref_transcript_paths.front() == vector<uint64_t>({4, 6, 10, 14, 26}));
                     REQUIRE(int_ref_transcript_paths.at(1) == vector<uint64_t>({14, 16, 24, 26}));
-                    REQUIRE(int_ref_transcript_paths.at(2) == vector<uint64_t>({14, 26}));
-                    REQUIRE(int_ref_transcript_paths.at(3) == vector<uint64_t>({26}));
+                    REQUIRE(int_ref_transcript_paths.at(2) == vector<uint64_t>({26}));
+                    REQUIRE(int_ref_transcript_paths.at(3) == vector<uint64_t>({27, 15}));
                     REQUIRE(int_ref_transcript_paths.back() == vector<uint64_t>({27, 25, 23, 11, 7, 5}));
+
+                    auto seq_ref_transcript_paths = transcript_paths_to_sequences(transcriptome.reference_transcript_paths(), transcriptome.graph());
+
+                    REQUIRE(seq_ref_transcript_paths.front() == "AAA");
+                    REQUIRE(seq_ref_transcript_paths.at(1) == "AAACCTTTAAA");
+                    REQUIRE(seq_ref_transcript_paths.at(2) == "TTTAA");
+                    REQUIRE(seq_ref_transcript_paths.at(3) == "TTTAAAA");
+                    REQUIRE(seq_ref_transcript_paths.back() == "TTTTGGAGGTTT");
                 }
             }
         }
