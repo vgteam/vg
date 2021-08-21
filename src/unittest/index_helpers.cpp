@@ -69,6 +69,25 @@ TEST_CASE("GBWT reconstruction", "[index_helpers]") {
         check_paths(index, truth);
     }
 
+    SECTION("reverse replacements") {
+        std::vector<gbwt::vector_type> source {
+            short_path, alt_path, short_path
+        };
+        gbwt::GBWT index = get_gbwt(source);
+        std::vector<std::pair<gbwt::vector_type, gbwt::vector_type>> mappings {
+            { { 9 }, { } }, // delete 4
+            { { 15, 13 }, { 15 } }, // delete 6 if followed by 7
+            { { 17, 13 }, { 17, 21, 13 } }, // visit 10 between 6 and 8
+        };
+        std::vector<gbwt::vector_type> truth {
+            { 2, 10, 14, 18 },
+            { 2, 4, 10, 12, 20, 16, 18 },
+            { 2, 10, 14, 18 },
+        };
+        index = rebuild_gbwt(index, mappings);
+        check_paths(index, truth);
+    }
+
     SECTION("impossible replacements") {
         std::vector<gbwt::vector_type> source {
             short_path, alt_path, short_path

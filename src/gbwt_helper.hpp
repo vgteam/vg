@@ -154,6 +154,17 @@ struct GBWTHandler {
 /// (original subpath, new subpath). If the original subpath is empty, the
 /// mapping is ignored. If there are multiple applicable mappings, the first one
 /// will be used.
+///
+/// The mappings will be applied in both orientations. Subpaths
+///
+/// { gbwt::Node::encode(a, false), gbwt::Node::encode(b, true), gbwt::Node::encode(c, true) }
+///
+/// and
+///
+/// { gbwt::Node::encode(c, false), gbwt::Node::encode(b, false), gbwt::Node::encode(a, true) }
+///
+/// are equivalent.
+///
 /// TODO: We could provide construction parameters and an option to parallelize
 /// by contig.
 gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index, const std::vector<std::pair<gbwt::vector_type, gbwt::vector_type>>& mappings);
