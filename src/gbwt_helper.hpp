@@ -155,15 +155,8 @@ struct GBWTHandler {
 /// mapping is ignored. If there are multiple applicable mappings, the first one
 /// will be used.
 ///
-/// The mappings will be applied in both orientations. Subpaths
-///
-/// { gbwt::Node::encode(a, false), gbwt::Node::encode(b, true), gbwt::Node::encode(c, true) }
-///
-/// and
-///
-/// { gbwt::Node::encode(c, false), gbwt::Node::encode(b, false), gbwt::Node::encode(a, true) }
-///
-/// are equivalent.
+/// The mappings will be applied in both orientations. The reverse mapping replaces
+/// the reverse of the original subpath with the reverse of the new subpath.
 ///
 /// TODO: We could provide construction parameters and an option to parallelize
 /// by contig.
