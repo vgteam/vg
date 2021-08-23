@@ -1205,6 +1205,21 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 
 
     NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, net_handle_t chain_handle) const {
+        if (distance_index.is_trivial_chain(chain_handle)){
+            //If this is just a node pretending to be a chain, cluster the node and claim it's a chain
+            
+            //This will hold the clusters of the chain
+            assert(tree_state.chain_to_children[chain_handle].size() == 1); 
+
+            NodeClusters& child_cluster = tree_state.chain_to_children[chain_handle].back();
+            cluster_one_node(tree_state, child_cluster);
+
+            NodeClusters chain_clusters = std::move(child_cluster);
+            chain_clusters.containing_net_handle = chain_handle;
+
+            return chain_clusters;
+
+        }
 
 
 #ifdef DEBUG_CLUSTER
