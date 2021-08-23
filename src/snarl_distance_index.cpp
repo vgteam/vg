@@ -76,6 +76,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
         temp_chain.start_node_rev = graph->get_is_reverse(chain_start_handle);
         temp_chain.children.emplace_back(SnarlDistanceIndex::TEMP_NODE, node_id);
 
+
         //And the node record itself
         auto& temp_node = temp_index.temp_node_records.at(node_id-temp_index.min_node_id);
         temp_node.node_id = node_id;
@@ -110,10 +111,8 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             temp_chain_record.end_node_rev = false;
         }
 
-        //TODO: Add root-level snarls
         if (stack.empty()) {
             //If this was the last thing on the stack, then this was a root
-            temp_chain_record.tree_depth = 1;
 
             //Check to see if there is anything connected to the ends of the chain
             vector<id_t> reachable_nodes;
@@ -178,7 +177,6 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             auto& parent_snarl_record = temp_index.temp_snarl_records.at(temp_chain_record.parent.second);
             temp_chain_record.rank_in_parent = parent_snarl_record.children.size() + 2;
             parent_snarl_record.children.emplace_back(chain_index);
-            temp_chain_record.tree_depth = parent_snarl_record.tree_depth + 1;
         }
 
         temp_index.max_index_size += temp_chain_record.get_max_record_length();
@@ -198,11 +196,13 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
 #ifdef debug_distance_indexing
         cerr << "  Starting new snarl at " << graph->get_id(snarl_start_handle) << (graph->get_is_reverse(snarl_start_handle) ? " reverse" : " forward") << endl;
 #endif
+        auto& parent = stack.back();
         stack.emplace_back(SnarlDistanceIndex::TEMP_SNARL, temp_index.temp_snarl_records.size());
         temp_index.temp_snarl_records.emplace_back();
         temp_index.temp_snarl_records.back().start_node_id = graph->get_id(snarl_start_handle);
         temp_index.temp_snarl_records.back().start_node_rev = graph->get_is_reverse(snarl_start_handle);
         temp_index.temp_snarl_records.back().start_node_length = graph->get_length(snarl_start_handle);
+
     },
     [&](handle_t snarl_end_handle){
         /*This gets called at the end of the snarl facing out
@@ -241,8 +241,6 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             auto& temp_chain = temp_index.temp_chain_records.at(stack.back().second);
             temp_chain.children.emplace_back(snarl_index);
             temp_chain.children.emplace_back(SnarlDistanceIndex::TEMP_NODE, node_id);
-            temp_snarl_record.tree_depth = temp_chain.tree_depth + 1;
-            temp_index.max_tree_depth = std::max(temp_index.max_tree_depth, temp_snarl_record.tree_depth);
 
         }
 

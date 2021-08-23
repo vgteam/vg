@@ -55,14 +55,16 @@ namespace vg {
             }
             SECTION("Traverse the graph") {
                 net_handle_t root_handle = distance_index.get_root();
-                net_handle_t chain_handle;
+                net_handle_t child_handle;
                 size_t root_child_count = 0;
                 distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
-                    REQUIRE(distance_index.is_node(child));
-                    chain_handle = child;
+                    REQUIRE(distance_index.is_chain(child));
+                    child_handle = child;
                     root_child_count++;
+                    REQUIRE(distance_index.get_depth(child) == 1);
                 });
                 REQUIRE(root_child_count == 1);
+                REQUIRE(distance_index.get_depth(root_handle) == 0);
 
             }
         }
@@ -111,6 +113,7 @@ namespace vg {
 
             //Handle for first node facing in
             net_handle_t n1_fd = distance_index.get_net(graph.get_handle(1, false), &graph); 
+            REQUIRE(distance_index.get_depth(n1_fd) == 1);
 
             //Make sure that we really got the right handle
             REQUIRE(distance_index.get_handle(n1_fd, &graph) == graph.get_handle(1, false));
@@ -118,6 +121,7 @@ namespace vg {
             //Handle for top level chain of just one node
             net_handle_t chain1 = distance_index.get_parent(n1_fd);
             REQUIRE(distance_index.is_chain(chain1));
+            REQUIRE(distance_index.get_depth(chain1) == 1);
             size_t child_i = 0;
             net_handle_t top_snarl;
             vector<net_handle_t> child_handles;//This should be start node, snarl, end node
@@ -125,13 +129,16 @@ namespace vg {
                 if (child_i == 0) {
                     REQUIRE(distance_index.is_node(child));
                     REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == 1);
+                    REQUIRE(distance_index.get_depth(child) == 1);
                 } else if (child_i == 1) {
                     REQUIRE(distance_index.is_snarl(child));
                     child_handles.emplace_back(child);
                     top_snarl = child;
+                    REQUIRE(distance_index.get_depth(child) == 2);
                 } else if (child_i == 2) {
                     REQUIRE(distance_index.is_node(child));
                     REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == 8);
+                    REQUIRE(distance_index.get_depth(child) == 1);
                 } else {
                     //The chain should only contain two nodes and a snarl
                     REQUIRE(false);
@@ -161,11 +168,13 @@ namespace vg {
                 //The snarl 1,8 has one child (not counting the boundary nodes)
                 size_t node_count = 0;
                 REQUIRE(distance_index.is_snarl(top_snarl));
+                REQUIRE(distance_index.get_depth(top_snarl) == 2);
                 net_handle_t child;
                 distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
                     node_count++;
                     REQUIRE( distance_index.canonical(distance_index.get_parent(handle))
                             == distance_index.canonical(top_snarl));
+                    REQUIRE(distance_index.get_depth(handle) == 3);
                     child=handle;
                     return true;
                 });

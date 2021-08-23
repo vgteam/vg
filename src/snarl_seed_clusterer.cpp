@@ -95,6 +95,7 @@ namespace vg {
          */
 #ifdef DEBUG_CLUSTER
 cerr << endl << endl << endl << endl << "New cluster calculation:" << endl;
+cerr << "\tread distance limit: " << read_distance_limit << " and fragment distance limit: " << fragment_distance_limit << endl;
 #endif
         if (fragment_distance_limit != 0 &&
             fragment_distance_limit < read_distance_limit) {
@@ -270,7 +271,7 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
     void NewSnarlSeedClusterer::get_nodes( TreeState& tree_state,
               vector<hash_map<net_handle_t,vector<NodeClusters>>>& chain_to_children_by_level) const {
 #ifdef DEBUG_CLUSTER
-cerr << "Nested positions: " << endl << "\t";
+cerr << "Add all seeds to nodes: " << endl << "\t";
 #endif
 
         //Helper function to insert a NodeClusters into a sorted vector<NodeClusters> where the vector contains only 
@@ -327,7 +328,8 @@ cerr << "Nested positions: " << endl << "\t";
                      }
                      insert_in_order(chain_to_children_by_level[depth][parent],
                                      NodeClusters(distance_index.get_node_net_handle(id), tree_state.all_seeds->size()));
-                 } 
+                 } else {
+                 }
 //                }
                 /* TODO: This uses cached distance index information, which I might put back but hopefully it won't be necessary anymore
                  * else if (seeds->at(i).is_top_level_node) {
@@ -430,16 +432,15 @@ cerr << "Nested positions: " << endl << "\t";
     }
 
 
-    NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_node(
-                       TreeState& tree_state,
-                       id_t node_id, size_t node_length) const {
+    void NewSnarlSeedClusterer::cluster_one_node(
+                       TreeState& tree_state, NodeClusters& node_clusters) const {
 #ifdef DEBUG_CLUSTER
-        cerr << "Finding clusters on node " << node_id << " which has length " <<
-        node_length << endl;
+        cerr << "Finding clusters on node " << distance_index.net_handle_as_string(node_clusters.containing_net_handle) << endl;
 #endif
 
-        //Final clusters on the node that we will be returning
-        NodeClusters node_clusters(distance_index.get_node_net_handle(node_id), tree_state.all_seeds->size());
+        size_t node_length = distance_index.node_length(node_clusters.containing_net_handle);
+        nid_t node_id = distance_index.node_id(node_clusters.containing_net_handle);
+
 
         if (tree_state.read_distance_limit > node_length) {
             //If the limit is greater than the node length, then all the
@@ -493,7 +494,7 @@ cerr << "Nested positions: " << endl << "\t";
 
                     //Record the new cluster
                     group_id = tree_state.read_union_find[read_num].find_group(group_id);
-                    node_clusters.read_cluster_heads.at(make_pair(read_num, group_id))=  
+                    node_clusters.read_cluster_heads[make_pair(read_num, group_id)] =  
                         make_pair(node_clusters.read_best_left[read_num],node_clusters.read_best_right[read_num]);
 
                     if (tree_state.fragment_distance_limit != 0) {
@@ -541,7 +542,7 @@ cerr << "Nested positions: " << endl << "\t";
             assert(got_right);
 
 #endif
-            return node_clusters;
+            return;
         }
 
 
@@ -619,7 +620,7 @@ cerr << "Nested positions: " << endl << "\t";
                 //This becomes a new read cluster
                 if (read_last_cluster[read_num] != std::numeric_limits<size_t>::max()) {
                     //Record the previous cluster
-                    node_clusters.read_cluster_heads.at(make_pair(read_num, read_last_cluster[read_num])) = 
+                    node_clusters.read_cluster_heads[make_pair(read_num, read_last_cluster[read_num])] = 
                         make_pair(read_first_offset[read_num], node_length - read_last_offset[read_num] + 1);
                 }
                 read_last_cluster[read_num] = seed_num;
@@ -642,7 +643,7 @@ cerr << "Nested positions: " << endl << "\t";
         }
         for (size_t i = 0 ; i < read_last_cluster.size() ; i++) {
             if (read_last_cluster[i] != std::numeric_limits<size_t>::max()) {
-                node_clusters.read_cluster_heads.at(make_pair(i, read_last_cluster[i])) =
+                node_clusters.read_cluster_heads[make_pair(i, read_last_cluster[i])] =
                     make_pair(read_first_offset[i], node_length-read_last_offset[i]+1);
             }
         }
@@ -689,9 +690,8 @@ cerr << "Nested positions: " << endl << "\t";
             assert (group_id.first.second == tree_state.read_union_find[group_id.first.first].find_group(group_id.first.second));
         }
 #endif
+        return;
         
-        return node_clusters;
-
     };
 
 
@@ -950,6 +950,7 @@ cerr << "Nested positions: " << endl << "\t";
                 } else {
                     //Combine with old cluster head
                     tree_state.read_union_find.at(read_num).union_groups(cluster_num, new_cluster_head_and_distances.first.second);
+                    cerr << "Unioning read " << read_num << " seeds " << cluster_num << " and " << new_cluster_head_and_distances.first.second << endl;
 
                     //Update distances
                     size_t new_best_left = std::min(old_distances.first, new_cluster_head_and_distances.second.first);
@@ -962,20 +963,21 @@ cerr << "Nested positions: " << endl << "\t";
                 //Remember to erase this cluster head
                 to_erase.emplace_back(read_num, cluster_num);
 
-                //Also union fragment and update its head
-                tree_state.fragment_union_find.union_groups(cluster_num+tree_state.read_index_offsets[read_num], 
-                                                                    new_cluster_head_fragment);
-                new_cluster_right_right_fragment = tree_state.fragment_union_find.find_group(new_cluster_head_fragment);
 #ifdef DEBUG_CLUSTER
                 cerr << "\t\tCombining... new cluster head:" << new_cluster_head_and_distances.first.second << endl; 
 #endif
 
-            } else if (tree_state.fragment_distance_limit != 0 && 
+            }
+            if (tree_state.fragment_distance_limit != 0 && 
                         distance_between <= tree_state.fragment_distance_limit ) {
                 //Just union the fragment
-                tree_state.fragment_union_find.union_groups(cluster_num+tree_state.read_index_offsets[read_num], 
-                                                                    new_cluster_head_fragment);
-                new_cluster_right_right_fragment = tree_state.fragment_union_find.find_group(new_cluster_head_fragment);
+                if (new_cluster_head_fragment == std::numeric_limits<size_t>::max()) {
+                    new_cluster_head_fragment =cluster_num+tree_state.read_index_offsets[read_num];
+                } else {
+                    tree_state.fragment_union_find.union_groups(cluster_num+tree_state.read_index_offsets[read_num], 
+                                                                        new_cluster_head_fragment);
+                    new_cluster_head_fragment = tree_state.fragment_union_find.find_group(new_cluster_head_fragment);
+                }
 #ifdef DEBUG_CLUSTER
                 cerr << "\t\tCombining only fragment" << endl;
 #endif
@@ -1022,7 +1024,7 @@ cerr << "Nested positions: " << endl << "\t";
                 new_cluster_right_left_by_read[read_num], new_cluster_right_left_fragment);
 
             //Also add this cluster to the parent
-            parent_clusters.read_cluster_heads.at(make_pair(read_num, cluster_num)) = distances_to_parent;
+            parent_clusters.read_cluster_heads[make_pair(read_num, cluster_num)] = distances_to_parent;
         }
 
         /*Now go through clusters on the second child, and see if they can be combined with clusters on the first child
@@ -1072,16 +1074,16 @@ cerr << "Nested positions: " << endl << "\t";
         //And add back in the new cluster heads
         for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++) {
             if (new_cluster_left_left_by_read.at(read_num).first.first != std::numeric_limits<size_t>::max()) {
-                parent_clusters.read_cluster_heads.at(new_cluster_left_left_by_read.at(read_num).first) = new_cluster_left_left_by_read.at(read_num).second;
+                parent_clusters.read_cluster_heads[new_cluster_left_left_by_read.at(read_num).first] = new_cluster_left_left_by_read.at(read_num).second;
             }
             if (new_cluster_right_right_by_read.at(read_num).first.first != std::numeric_limits<size_t>::max()) {
-                parent_clusters.read_cluster_heads.at(new_cluster_right_right_by_read.at(read_num).first) = new_cluster_right_right_by_read.at(read_num).second;
+                parent_clusters.read_cluster_heads[new_cluster_right_right_by_read.at(read_num).first] = new_cluster_right_right_by_read.at(read_num).second;
             }
             if (new_cluster_left_right_by_read.at(read_num).first.first != std::numeric_limits<size_t>::max()) {
-                parent_clusters.read_cluster_heads.at(new_cluster_left_right_by_read.at(read_num).first) = new_cluster_left_right_by_read.at(read_num).second;
+                parent_clusters.read_cluster_heads[new_cluster_left_right_by_read.at(read_num).first] = new_cluster_left_right_by_read.at(read_num).second;
             }
             if (new_cluster_right_left_by_read.at(read_num).first.first != std::numeric_limits<size_t>::max()) {
-                parent_clusters.read_cluster_heads.at(new_cluster_right_left_by_read.at(read_num).first) = new_cluster_right_left_by_read.at(read_num).second;
+                parent_clusters.read_cluster_heads[new_cluster_right_left_by_read.at(read_num).first] = new_cluster_right_left_by_read.at(read_num).second;
             }
         }
 
@@ -1247,6 +1249,11 @@ cerr << "Nested positions: " << endl << "\t";
             /*
              * Snarls and nodes are in the order that they are traversed in the chain
              */
+            cerr << "On chain child " << distance_index.net_handle_as_string(child_clusters.containing_net_handle) << endl;
+
+            if (distance_index.is_node(child_clusters.containing_net_handle)){
+                cluster_one_node(tree_state, child_clusters);
+            }
 
             //Go through all child clusters since we last saw a node cluster
             for (NodeClusters* previous_child_node : last_child_clusters) {

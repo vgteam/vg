@@ -117,8 +117,9 @@ class NewSnarlSeedClusterer {
             //read_count is the number of reads in a fragment (2 for paired end)
             NodeClusters( net_handle_t net, size_t read_count) :
                 containing_net_handle(net),
-                fragment_best_left(-1), fragment_best_right(-1),
-                read_best_left(read_count, -1), read_best_right(read_count, -1){}
+                fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
+                read_best_left(read_count, std::numeric_limits<size_t>::max()), 
+                read_best_right(read_count, std::numeric_limits<size_t>::max()){}
         };
 
 
@@ -247,8 +248,7 @@ class NewSnarlSeedClusterer {
         void cluster_chain_level(TreeState& tree_state, size_t depth) const;
 
         //Cluster the seeds on the specified node
-        NodeClusters cluster_one_node(TreeState& tree_state, 
-                                          id_t node_id, size_t node_length) const; 
+        void cluster_one_node(TreeState& tree_state, NodeClusters& node_clusters) const; 
 
         //Cluster the seeds in a snarl given by its net handle
         NodeClusters cluster_one_snarl(TreeState& tree_state, net_handle_t snarl_handle) const;
