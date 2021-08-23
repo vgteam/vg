@@ -154,6 +154,10 @@ struct GBWTHandler {
 /// (original subpath, new subpath). If the original subpath is empty, the
 /// mapping is ignored. If there are multiple applicable mappings, the first one
 /// will be used.
+///
+/// The mappings will be applied in both orientations. The reverse mapping replaces
+/// the reverse of the original subpath with the reverse of the new subpath.
+///
 /// TODO: We could provide construction parameters and an option to parallelize
 /// by contig.
 gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index, const std::vector<std::pair<gbwt::vector_type, gbwt::vector_type>>& mappings);

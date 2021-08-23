@@ -253,6 +253,10 @@ gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index, const std::vector<std::pai
             continue;
         }
         mappings_by_first_node[mapping.first.front()].push_back(mapping);
+        std::pair<gbwt::vector_type, gbwt::vector_type> reverse;
+        gbwt::reversePath(mapping.first, reverse.first);
+        gbwt::reversePath(mapping.second, reverse.second);
+        mappings_by_first_node[reverse.first.front()].push_back(reverse);
         for (auto node : mapping.second) {
             node_width = std::max(node_width, static_cast<gbwt::size_type>(sdsl::bits::length(node)));
         }

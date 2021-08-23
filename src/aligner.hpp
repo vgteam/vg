@@ -14,6 +14,7 @@
 #include "Variant.h"
 #include "Fasta.h"
 #include "handle.hpp"
+#include "path.hpp"
 #include "dozeu_interface.hpp"
 #include "deletion_aligner.hpp"
 
@@ -182,7 +183,7 @@ namespace vg {
         virtual int32_t score_full_length_bonus(bool left_side, const Alignment& alignment) const = 0;
                 
         /// Compute the score of a path against the given range of subsequence with the given qualities.
-        virtual int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
+        virtual int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const path_t& path,
                                                 string::const_iterator seq_begin, bool no_read_end_scoring = false) const = 0;
         
         /// Returns the score of an insert or deletion of the given length
@@ -370,7 +371,7 @@ namespace vg {
         
         int32_t score_full_length_bonus(bool left_side, const Alignment& alignment) const;
 
-        int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
+        int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const path_t& path,
                                         string::const_iterator seq_begin, bool no_read_end_scoring = false) const;
         
     private:
@@ -429,7 +430,7 @@ namespace vg {
         
         int32_t score_full_length_bonus(bool left_side, const Alignment& alignment) const;
         
-        int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
+        int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const path_t& path,
                                         string::const_iterator seq_begin, bool no_read_end_scoring = false) const;
         
         
