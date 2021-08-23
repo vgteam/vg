@@ -112,8 +112,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aca7bc3f6c3de6fc3df3adabf3161260c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aeb9c58b7f20245a4c400dd14e8488069"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aeb9c58b7f20245a4c400dd14e8488069">remove_transitive_edges</a> (const vector&lt; size_t &gt; &amp;topological_order)</td></tr>
 <tr class="separator:aeb9c58b7f20245a4c400dd14e8488069"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a239c38d8a17430ba78769d8365a06250"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a239c38d8a17430ba78769d8365a06250">prune_to_high_scoring_paths</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, double max_suboptimal_score_ratio, const vector&lt; size_t &gt; &amp;topological_order, function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; &amp;translator, vector&lt; size_t &gt; &amp;path_node_provenance)</td></tr>
-<tr class="separator:a239c38d8a17430ba78769d8365a06250"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8164834df4fc94907fb96b06062c9514"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a8164834df4fc94907fb96b06062c9514">prune_to_high_scoring_paths</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, double max_suboptimal_score_ratio, const vector&lt; size_t &gt; &amp;topological_order, vector&lt; size_t &gt; &amp;path_node_provenance)</td></tr>
+<tr class="separator:a8164834df4fc94907fb96b06062c9514"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af112f1a5af47cf079a163eec1c2e31f4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#af112f1a5af47cf079a163eec1c2e31f4">clear_reachability_edges</a> ()</td></tr>
 <tr class="separator:af112f1a5af47cf079a163eec1c2e31f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac3199fb5e097873e2635e3fb34a8eafe"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#ac3199fb5e097873e2635e3fb34a8eafe">trim_to_branch_points</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, size_t max_trim_length=1)</td></tr>
@@ -125,10 +125,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a2bf6b811ae4c3f0c993d3ac4a11359f0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a2bf6b811ae4c3f0c993d3ac4a11359f0">add_reachability_edges</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;vg, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; &amp;project, const unordered_multimap&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;&gt; &amp;injection_trans, vector&lt; size_t &gt; *path_node_provenance=nullptr)</td></tr>
 <tr class="memdesc:a2bf6b811ae4c3f0c993d3ac4a11359f0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add edges between reachable nodes and split nodes at overlaps.  <a href="classvg_1_1MultipathAlignmentGraph.html#a2bf6b811ae4c3f0c993d3ac4a11359f0">More...</a><br /></td></tr>
 <tr class="separator:a2bf6b811ae4c3f0c993d3ac4a11359f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a52c1bb4cb82113f39ba9add321df0bd6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a52c1bb4cb82113f39ba9add321df0bd6">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, size_t band_padding, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln_out, bool allow_negative_scores=false)</td></tr>
-<tr class="separator:a52c1bb4cb82113f39ba9add321df0bd6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aff97950a92d65c6a9128e1ea31f15238"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aff97950a92d65c6a9128e1ea31f15238">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; band_padding_function, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln_out, bool allow_negative_scores=false)</td></tr>
-<tr class="separator:aff97950a92d65c6a9128e1ea31f15238"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aad9c76dd69aa8865f83423696aea48d0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aad9c76dd69aa8865f83423696aea48d0">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, bool simplify_topologies, size_t unmergeable_len, size_t band_padding, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln_out, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *cutting_snarls=nullptr, <a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *dist_index=nullptr, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; *project=nullptr, bool allow_negative_scores=false)</td></tr>
+<tr class="separator:aad9c76dd69aa8865f83423696aea48d0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5cfdae9d486658d8f3e33a5928ab7596"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a5cfdae9d486658d8f3e33a5928ab7596">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, bool simplify_topologies, size_t unmergeable_len, function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; band_padding_function, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln_out, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *cutting_snarls=nullptr, <a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *dist_index=nullptr, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; *project=nullptr, bool allow_negative_scores=false)</td></tr>
+<tr class="separator:a5cfdae9d486658d8f3e33a5928ab7596"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a90ff13eb09622a6f5fa9238f6ec4950b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a90ff13eb09622a6f5fa9238f6ec4950b">to_dot</a> (ostream &amp;out, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> *alignment=nullptr) const</td></tr>
 <tr class="separator:a90ff13eb09622a6f5fa9238f6ec4950b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af4fc215d24f20c5ddc3916024c7ab62b"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#af4fc215d24f20c5ddc3916024c7ab62b">get_connected_components</a> () const</td></tr>
@@ -171,9 +171,12 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:adba05a33bf075eb3eb7260e229245f06"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4c591d080bc48994fcdb2c9dc08d34a1"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a4c591d080bc48994fcdb2c9dc08d34a1">pessimistic_tail_gap</a> (int64_t tail_length, double multiplier)</td></tr>
 <tr class="separator:a4c591d080bc48994fcdb2c9dc08d34a1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae39fc4facc82ed4afe6f91e1aede6216"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#ae39fc4facc82ed4afe6f91e1aede6216">into_cutting_snarl</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> node_id, bool <a class="el" href="namespacevg.html#aac725dd44bc5a8f540554d4b1882c1fe">is_rev</a>, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *snarl_manager, <a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *dist_index)</td></tr>
-<tr class="memdesc:ae39fc4facc82ed4afe6f91e1aede6216"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if we're pointing into a snarl that we want to cut out of paths.  <a href="classvg_1_1MultipathAlignmentGraph.html#ae39fc4facc82ed4afe6f91e1aede6216">More...</a><br /></td></tr>
-<tr class="separator:ae39fc4facc82ed4afe6f91e1aede6216"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2c60392cf8b881d5a734c938e24978c1"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a2c60392cf8b881d5a734c938e24978c1">into_cutting_snarl</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> node_id, bool <a class="el" href="namespacevg.html#aac725dd44bc5a8f540554d4b1882c1fe">is_rev</a>, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *snarl_manager, <a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *dist_index) const</td></tr>
+<tr class="memdesc:a2c60392cf8b881d5a734c938e24978c1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if we're pointing into a snarl that we want to cut out of paths.  <a href="classvg_1_1MultipathAlignmentGraph.html#a2c60392cf8b881d5a734c938e24978c1">More...</a><br /></td></tr>
+<tr class="separator:a2c60392cf8b881d5a734c938e24978c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a981e3895795dd7956e24f57c2e3fb429"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; size_t, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a981e3895795dd7956e24f57c2e3fb429">get_cut_segments</a> (<a class="el" href="classvg_1_1path__t.html">path_t</a> &amp;path, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *cutting_snarls, <a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *dist_index, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; &amp;project, int64_t max_snarl_cut_size) const</td></tr>
+<tr class="memdesc:a981e3895795dd7956e24f57c2e3fb429"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the intervals of the path that lie inside of snarls.  <a href="classvg_1_1MultipathAlignmentGraph.html#a981e3895795dd7956e24f57c2e3fb429">More...</a><br /></td></tr>
+<tr class="separator:a981e3895795dd7956e24f57c2e3fb429"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aba2fbcf9b7fb1368cdb033d3ecc69bf0"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; bool, unordered_map&lt; size_t, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aba2fbcf9b7fb1368cdb033d3ecc69bf0">align_tails</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, size_t min_paths, unordered_set&lt; size_t &gt; *sources=nullptr)</td></tr>
 <tr class="separator:aba2fbcf9b7fb1368cdb033d3ecc69bf0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -784,8 +787,8 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aff97950a92d65c6a9128e1ea31f15238"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aff97950a92d65c6a9128e1ea31f15238">&#9670;&nbsp;</a></span>align() <span class="overload">[1/2]</span></h2>
+<a id="a5cfdae9d486658d8f3e33a5928ab7596"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5cfdae9d486658d8f3e33a5928ab7596">&#9670;&nbsp;</a></span>align() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -841,6 +844,18 @@ Static Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>simplify_topologies</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>unmergeable_len</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt;&#160;</td>
           <td class="paramname"><em>band_padding_function</em>, </td>
         </tr>
@@ -849,6 +864,24 @@ Static Private Attributes</h2></td></tr>
           <td></td>
           <td class="paramtype"><a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
           <td class="paramname"><em>multipath_aln_out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *&#160;</td>
+          <td class="paramname"><em>cutting_snarls</em> = <code>nullptr</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *&#160;</td>
+          <td class="paramname"><em>dist_index</em> = <code>nullptr</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; *&#160;</td>
+          <td class="paramname"><em>project</em> = <code>nullptr</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -868,8 +901,8 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a52c1bb4cb82113f39ba9add321df0bd6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a52c1bb4cb82113f39ba9add321df0bd6">&#9670;&nbsp;</a></span>align() <span class="overload">[2/2]</span></h2>
+<a id="aad9c76dd69aa8865f83423696aea48d0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aad9c76dd69aa8865f83423696aea48d0">&#9670;&nbsp;</a></span>align() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -925,6 +958,18 @@ Static Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>simplify_topologies</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>unmergeable_len</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">size_t&#160;</td>
           <td class="paramname"><em>band_padding</em>, </td>
         </tr>
@@ -933,6 +978,24 @@ Static Private Attributes</h2></td></tr>
           <td></td>
           <td class="paramtype"><a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
           <td class="paramname"><em>multipath_aln_out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *&#160;</td>
+          <td class="paramname"><em>cutting_snarls</em> = <code>nullptr</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *&#160;</td>
+          <td class="paramname"><em>dist_index</em> = <code>nullptr</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; *&#160;</td>
+          <td class="paramname"><em>project</em> = <code>nullptr</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -1373,8 +1436,64 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ae39fc4facc82ed4afe6f91e1aede6216"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae39fc4facc82ed4afe6f91e1aede6216">&#9670;&nbsp;</a></span>into_cutting_snarl()</h2>
+<a id="a981e3895795dd7956e24f57c2e3fb429"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a981e3895795dd7956e24f57c2e3fb429">&#9670;&nbsp;</a></span>get_cut_segments()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; pair&lt; size_t, size_t &gt; &gt; vg::MultipathAlignmentGraph::get_cut_segments </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1path__t.html">path_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *&#160;</td>
+          <td class="paramname"><em>cutting_snarls</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *&#160;</td>
+          <td class="paramname"><em>dist_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>project</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>max_snarl_cut_size</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Returns the intervals of the path that lie inside of snarls. </p>
+
+</div>
+</div>
+<a id="a2c60392cf8b881d5a734c938e24978c1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2c60392cf8b881d5a734c938e24978c1">&#9670;&nbsp;</a></span>into_cutting_snarl()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1409,7 +1528,7 @@ Static Private Attributes</h2></td></tr>
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td></td>
+          <td></td><td> const</td>
         </tr>
       </table>
   </td>
@@ -1546,8 +1665,8 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a239c38d8a17430ba78769d8365a06250"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a239c38d8a17430ba78769d8365a06250">&#9670;&nbsp;</a></span>prune_to_high_scoring_paths()</h2>
+<a id="a8164834df4fc94907fb96b06062c9514"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8164834df4fc94907fb96b06062c9514">&#9670;&nbsp;</a></span>prune_to_high_scoring_paths()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1575,12 +1694,6 @@ Static Private Attributes</h2></td></tr>
           <td></td>
           <td class="paramtype">const vector&lt; size_t &gt; &amp;&#160;</td>
           <td class="paramname"><em>topological_order</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>translator</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>

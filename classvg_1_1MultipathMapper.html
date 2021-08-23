@@ -136,6 +136,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ad3848a9b82e967ca119dd94add068597"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ad3848a9b82e967ca119dd94add068597">set_min_softclip_length_for_splice</a> (size_t length)</td></tr>
 <tr class="memdesc:ad3848a9b82e967ca119dd94add068597"><td class="mdescLeft">&#160;</td><td class="mdescRight">How big of a softclip should lead us to attempt spliced alignment?  <a href="classvg_1_1MultipathMapper.html#ad3848a9b82e967ca119dd94add068597">More...</a><br /></td></tr>
 <tr class="separator:ad3848a9b82e967ca119dd94add068597"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3db9d73e2a4b296df8df495c028a615b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a3db9d73e2a4b296df8df495c028a615b">set_max_merge_supression_length</a> ()</td></tr>
+<tr class="memdesc:a3db9d73e2a4b296df8df495c028a615b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Decide how long of a tail alignment we want before we allow its subpath to be merged.  <a href="classvg_1_1MultipathMapper.html#a3db9d73e2a4b296df8df495c028a615b">More...</a><br /></td></tr>
+<tr class="separator:a3db9d73e2a4b296df8df495c028a615b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1BaseMapper"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1BaseMapper')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1BaseMapper.html">vg::BaseMapper</a></td></tr>
 <tr class="memitem:a9a924463193888114237a20617f9485e inherit pub_methods_classvg_1_1BaseMapper"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a9a924463193888114237a20617f9485e">BaseMapper</a> (<a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *xidex, gcsa::GCSA *g, gcsa::LCPArray *a, <a class="el" href="classhaplo_1_1ScoreProvider.html">haplo::ScoreProvider</a> *<a class="el" href="classvg_1_1BaseMapper.html#af69ce88df203124121b71bdfdc6f3694">haplo_score_provider</a>=nullptr)</td></tr>
 <tr class="separator:a9a924463193888114237a20617f9485e inherit pub_methods_classvg_1_1BaseMapper"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -202,6 +205,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:ac2613ce4eada04721a135673d2d86981"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a507872f1a20d6b0e34b6f9b8dac2639f"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a507872f1a20d6b0e34b6f9b8dac2639f">max_snarl_cut_size</a> = 5</td></tr>
 <tr class="separator:a507872f1a20d6b0e34b6f9b8dac2639f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8de58bf1942c4aa16b762554268d3e3d"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a8de58bf1942c4aa16b762554268d3e3d">max_tail_merge_supress_length</a> = 4</td></tr>
+<tr class="separator:a8de58bf1942c4aa16b762554268d3e3d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad4c0e1fea285f378ef5c7eb23e9baf89"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ad4c0e1fea285f378ef5c7eb23e9baf89">suppress_tail_anchors</a> = false</td></tr>
 <tr class="separator:ad4c0e1fea285f378ef5c7eb23e9baf89"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9616c4b8786af795cfd1f007c5e0c1dc"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a9616c4b8786af795cfd1f007c5e0c1dc">min_tail_anchor_length</a> = 3</td></tr>
@@ -3650,6 +3655,25 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a3db9d73e2a4b296df8df495c028a615b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3db9d73e2a4b296df8df495c028a615b">&#9670;&nbsp;</a></span>set_max_merge_supression_length()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MultipathMapper::set_max_merge_supression_length </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Decide how long of a tail alignment we want before we allow its subpath to be merged. </p>
+
+</div>
+</div>
 <a id="ad3848a9b82e967ca119dd94add068597"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ad3848a9b82e967ca119dd94add068597">&#9670;&nbsp;</a></span>set_min_softclip_length_for_splice()</h2>
 
@@ -4649,6 +4673,20 @@ Additional Inherited Members</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">double vg::MultipathMapper::max_suboptimal_path_score_ratio = 2.0</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a8de58bf1942c4aa16b762554268d3e3d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8de58bf1942c4aa16b762554268d3e3d">&#9670;&nbsp;</a></span>max_tail_merge_supress_length</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MultipathMapper::max_tail_merge_supress_length = 4</td>
         </tr>
       </table>
 </div><div class="memdoc">

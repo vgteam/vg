@@ -1479,6 +1479,9 @@ Functions</h2></td></tr>
 <tr class="separator:a3fd7485742302c90960d1c8a8d3e6185"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9ab59092397ce6ec3e694c658408b465"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9ab59092397ce6ec3e694c658408b465">flank_penalty</a> (size_t length, const std::vector&lt; <a class="el" href="namespacevg.html#a1aa2d026eb3edc0c692e19e5a493feef">pareto_point</a> &gt; &amp;frontier, const <a class="el" href="classvg_1_1Aligner.html">Aligner</a> *aligner)</td></tr>
 <tr class="separator:a9ab59092397ce6ec3e694c658408b465"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab1dcbe73351c8eaeea745f4b5191b8f0"><td class="memItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab1dcbe73351c8eaeea745f4b5191b8f0">subpath_topological_order</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, bool do_index)</td></tr>
+<tr class="memdesc:ab1dcbe73351c8eaeea745f4b5191b8f0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return either the vector of topological order by index or the vector of indexes within the topological order.  <a href="namespacevg.html#ab1dcbe73351c8eaeea745f4b5191b8f0">More...</a><br /></td></tr>
+<tr class="separator:ab1dcbe73351c8eaeea745f4b5191b8f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3ca9ccb5a2301ed1ce48f6334b3c4937"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3ca9ccb5a2301ed1ce48f6334b3c4937">topologically_order_subpaths</a> (<a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln)</td></tr>
 <tr class="memdesc:a3ca9ccb5a2301ed1ce48f6334b3c4937"><td class="mdescLeft">&#160;</td><td class="mdescRight">Put subpaths in topological order (assumed to be true for other algorithms)  <a href="namespacevg.html#a3ca9ccb5a2301ed1ce48f6334b3c4937">More...</a><br /></td></tr>
 <tr class="separator:a3ca9ccb5a2301ed1ce48f6334b3c4937"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1550,9 +1553,8 @@ Functions</h2></td></tr>
 <tr class="separator:a0582a68dfa130c9f0a2bdaa1c7ac5ef5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad6476e86221a660dda1fa85254e9436d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad6476e86221a660dda1fa85254e9436d">transfer_proto_metadata</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;from, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;to)</td></tr>
 <tr class="separator:ad6476e86221a660dda1fa85254e9436d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5f1b7c78c90897e87896612991b83139"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5f1b7c78c90897e87896612991b83139">merge_non_branching_subpaths</a> (<a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln)</td></tr>
-<tr class="memdesc:a5f1b7c78c90897e87896612991b83139"><td class="mdescLeft">&#160;</td><td class="mdescRight">Merges non-branching paths in a multipath alignment in place.  <a href="namespacevg.html#a5f1b7c78c90897e87896612991b83139">More...</a><br /></td></tr>
-<tr class="separator:a5f1b7c78c90897e87896612991b83139"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a86fd22ae591c4923588d20b9b5c52e43"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a86fd22ae591c4923588d20b9b5c52e43">merge_non_branching_subpaths</a> (<a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const unordered_set&lt; size_t &gt; *prohibited_merges)</td></tr>
+<tr class="separator:a86fd22ae591c4923588d20b9b5c52e43"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a68859b86cb7465d17ca9cb68553a8e4c"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a68859b86cb7465d17ca9cb68553a8e4c">connected_components</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln)</td></tr>
 <tr class="separator:a68859b86cb7465d17ca9cb68553a8e4c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2b9703408d4c7160e8d9e83303c4d1c7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2b9703408d4c7160e8d9e83303c4d1c7">extract_sub_multipath_alignment</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const vector&lt; int64_t &gt; &amp;subpath_indexes, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;sub_multipath_aln)</td></tr>
@@ -13548,8 +13550,8 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
 
 </div>
 </div>
-<a id="a5f1b7c78c90897e87896612991b83139"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5f1b7c78c90897e87896612991b83139">&#9670;&nbsp;</a></span>merge_non_branching_subpaths()</h2>
+<a id="a86fd22ae591c4923588d20b9b5c52e43"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a86fd22ae591c4923588d20b9b5c52e43">&#9670;&nbsp;</a></span>merge_non_branching_subpaths()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -13558,13 +13560,22 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
           <td class="memname">void vg::merge_non_branching_subpaths </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>multipath_aln</em></td><td>)</td>
+          <td class="paramname"><em>multipath_aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">const unordered_set&lt; size_t &gt; *&#160;</td>
+          <td class="paramname"><em>prohibited_merges</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Merges non-branching paths in a multipath alignment in place. </p>
+<p>Merges non-branching paths in a multipath alignment in place Does not assume topological order among subpaths </p>
 
 </div>
 </div>
@@ -19611,6 +19622,36 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="ab1dcbe73351c8eaeea745f4b5191b8f0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab1dcbe73351c8eaeea745f4b5191b8f0">&#9670;&nbsp;</a></span>subpath_topological_order()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt;size_t&gt; vg::subpath_topological_order </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>multipath_aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>do_index</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Return either the vector of topological order by index or the vector of indexes within the topological order. </p>
 
 </div>
 </div>
