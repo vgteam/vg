@@ -161,6 +161,22 @@ int main_clip(int argc, char** argv) {
         if (verbose) {
             cerr << "[vg clip]: Loaded " << bed_regions.size() << " BED regions" << endl;
         }
+        vector<Region> bed_regions_in_graph;
+        for (const Region& region : bed_regions) {
+            if (graph->has_path(region.seq)) {
+                bed_regions_in_graph.push_back(region);
+            }
+        }
+        if (bed_regions_in_graph.size() != bed_regions.size()) {
+            if (verbose) {
+                cerr << "[vg clip]: Dropped " << (bed_regions.size() - bed_regions_in_graph.size()) << " BED regions whose sequence names do not correspond to paths in the graph" << endl;
+            }
+            if (bed_regions_in_graph.empty()) {
+                cerr << "error:[vg-clip] No BED region found that lies on path in graph (use vg paths -Lv to list paths that are in the graph)" << endl;
+                return 1;
+            }
+        }
+        swap(bed_regions, bed_regions_in_graph);
     }
 
     if (min_depth >= 0) {

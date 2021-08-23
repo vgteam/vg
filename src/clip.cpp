@@ -298,10 +298,12 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
         });
 
     if (verbose) {
-        cerr << "[vg-clip]: Removing " << nodes_to_delete.size() << " nodes and " << edges_to_delete.size() << " edges from snarls in regions" << endl;
-        for (const auto& kv : clip_counts) {
-            cerr << "[vg-clip]: Removing " << kv.second << " nodes due to intervals on path " << kv.first << endl;
+        if (clip_counts.size() > 1) {
+            for (const auto& kv : clip_counts) {
+                cerr << "[vg-clip]: Removing " << kv.second << " nodes due to intervals on path " << kv.first << endl;
+            }
         }
+        cerr << "[vg-clip]: Removing total of " << nodes_to_delete.size() << " nodes and " << edges_to_delete.size() << " edges from snarls in regions" << endl;
         clip_counts.clear();
     }
     
