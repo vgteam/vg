@@ -2019,7 +2019,7 @@ namespace vg {
         size_t prefix_length = 0;
         for (size_t j = 0, last = path.mapping_size() - 1; j <= last; j++) {
             const position_t& position = path.mapping(j).position();
-            const auto& projection = project(position.node_id());
+            auto projection = project(position.node_id());
             id_t projected_id = projection.first;
             bool projected_rev = (projection.second != position.is_reverse());
             
@@ -4694,25 +4694,28 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             cerr << debug_string(aln.first) << endl;
 #endif
             
-            // the intervals of the path that are inside snarls
-            auto cut_segments = get_cut_segments(aln.first, cutting_snarls,dist_index, *project,
-                                                 unmergeable_len);
-            
-            // collect the (internal) indexes that follow cuts
             vector<size_t> segment_boundaries;
-            segment_boundaries.reserve(cut_segments.size() * 2);
-            for (auto& cut_segment : cut_segments) {
-                if (cut_segment.first != 0) {
-                    segment_boundaries.push_back(cut_segment.first);
+            if (project && (cutting_snarls || dist_index)) {
+                // the intervals of the path that are inside snarls
+                auto cut_segments = get_cut_segments(aln.first, cutting_snarls, dist_index, *project,
+                                                     unmergeable_len);
+                
+                // collect the (internal) indexes that follow cuts
+                segment_boundaries.reserve(cut_segments.size() * 2);
+                for (auto& cut_segment : cut_segments) {
+                    if (cut_segment.first != 0) {
+                        segment_boundaries.push_back(cut_segment.first);
+                    }
+                    if (cut_segment.second != cut_segment.first && cut_segment.second != aln.first.mapping_size()) {
+                        segment_boundaries.push_back(cut_segment.second);
+                    }
                 }
-                if (cut_segment.second != cut_segment.first && cut_segment.second != aln.first.mapping_size()) {
-                    segment_boundaries.push_back(cut_segment.second);
+                // make sure they're in order (only ever not in order if there are nested snarls)
+                if (!is_sorted(segment_boundaries.begin(), segment_boundaries.end())) {
+                    sort(segment_boundaries.begin(), segment_boundaries.end());
                 }
             }
-            // make sure their in order (only ever not in order if there are nested snarls)
-            if (!is_sorted(segment_boundaries.begin(), segment_boundaries.end())) {
-                sort(segment_boundaries.begin(), segment_boundaries.end());
-            }
+            
             // don't allow edge-spanning deletions to be broken up (breaks dynamic programmability of scores)
             auto end = remove_if(segment_boundaries.begin(), segment_boundaries.end(), [&](size_t i) {
                 return (aln.first.mapping(i - 1).edit().back().to_length() == 0 &&
@@ -5142,12 +5145,13 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             }
             
             // TODO: no option to merge if the match is long enough...
-            if (deduplicated.size() == 1) {
+            if (deduplicated.size() == 1 && project && (dist_index || cutting_snarls)) {
                 // the tail alignment could be merged with its attachment point
                 const auto& attachment = multipath_aln_out.subpath(sink_idx).path().mapping().back();
                 const auto& pos = attachment.position();
+                auto projected = (*project)(pos.node_id());
                 if (pos.offset() + mapping_from_length(attachment) == align_graph.get_length(align_graph.get_handle(pos.node_id()))
-                    && into_cutting_snarl(pos.node_id(), pos.is_reverse(), cutting_snarls, dist_index)) {
+                    && into_cutting_snarl(projected.first, projected.second != pos.is_reverse(), cutting_snarls, dist_index)) {
                     // the tail is the start of an alignment into a snarl
                     prohibited_merges.insert(sink_idx);
                 }
@@ -5302,11 +5306,13 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 }
                 
                 // TODO: no option to merge if the match is long enough...
-                if (deduplicated.size() == 1) {
+                if (deduplicated.size() == 1 && project && (dist_index || cutting_snarls)) {
                     // the tail alignment could be merged with its attachment point
                     const auto& attachment = multipath_aln_out.subpath(source_idx).path().mapping().front();
                     const auto& pos = attachment.position();
-                    if (pos.offset() == 0 && into_cutting_snarl(pos.node_id(), !pos.is_reverse(), cutting_snarls, dist_index)) {
+                    auto projected = (*project)(pos.node_id());
+                    if (pos.offset() == 0 && into_cutting_snarl(projected.first, projected.second == pos.is_reverse(),
+                                                                cutting_snarls, dist_index)) {
                         // the tail is the start of an alignment into a snarl
                         prohibited_merges.insert(frayed_tips_begin);
                     }

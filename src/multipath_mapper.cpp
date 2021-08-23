@@ -5120,7 +5120,7 @@ namespace vg {
             }
             
             // a function to translate from the transformed graphs ID space to the original graph's
-            function<pair<id_t, bool>(id_t)> translator = [&](const id_t& node_id) {
+            function<pair<id_t, bool>(id_t)> translator = [&](const id_t node_id) {
                 handle_t original = align_digraph->get_underlying_handle(align_dag->get_underlying_handle(align_dag->get_handle(node_id)));
                 return make_pair(graph->get_id(original), graph->get_is_reverse(original));
             };
