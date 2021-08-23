@@ -49,11 +49,12 @@ namespace algorithms{
 
 SnarlNormalizer::SnarlNormalizer(MutablePathDeletableHandleGraph &graph,
                                  const gbwt::GBWT &gbwt,
+                                 const gbwtgraph::GBWTGraph &gbwt_graph,
                                  const int& max_handle_size, 
                                  const int &max_alignment_size /*= MAX_INT*/,
                                  const string &path_finder /*= "GBWT"*/)
     : _graph(graph), _gbwt(gbwt), _max_alignment_size(max_alignment_size),
-      _max_handle_size(max_handle_size), _path_finder(path_finder), _gbwt_graph(gbwtgraph::GBWTGraph(_gbwt, _graph)){}
+      _max_handle_size(max_handle_size), _path_finder(path_finder), _gbwt_graph(gbwt_graph){}
 
 
 /**
@@ -87,19 +88,19 @@ gbwt::GBWT SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
 
     pair<int, int> snarl_sequence_change;
 
-    // //todo: debug_code
-    int stop_size = 3;
+    //todo: debug_code
+    int stop_size = 1;
     int num_snarls_touched = 0;
 
-    // int skip_first_few = 7;
-    // int skipped = 0;
+    int skip_first_few = 3;
+    int skipped = 0;
     int snarl_num = 0;
     for (auto roots : snarl_roots) {
         snarl_num++;
-        // if (skipped < skip_first_few){
-        //     skipped++;
-        //     continue;
-        // }
+        if (skipped < skip_first_few){
+            skipped++;
+            continue;
+        }
         
         if (num_snarls_touched == stop_size){
             cerr << "breakpoint here" << endl;
@@ -108,7 +109,7 @@ gbwt::GBWT SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
             num_snarls_touched++;
         }
         //todo: debug_print:
-        // cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
+        cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
 
         if (_full_log_print)
         {
@@ -118,18 +119,14 @@ gbwt::GBWT SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
         {
             cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
         }
-        cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
-        cerr << "seq from snarl number " << snarl_num << " with source at: " << _graph.get_sequence(_graph.get_handle(roots->start().node_id())) << " and sink at: " << _graph.get_sequence(_graph.get_handle(roots->end().node_id())) << endl;
-        nid_t test = roots->start().node_id();
-        gbwtgraph::GBWTGraph gbwt_graph_2 = gbwtgraph::GBWTGraph(_gbwt, _graph);
-        cerr << "test" << test << endl;
-        cerr << "graph range" << gbwt_graph_2.min_node_id() << " " <<  gbwt_graph_2.max_node_id() <<endl ;
-        cerr << "graph range of original graph" << _gbwt_graph.min_node_id() << " " <<  _gbwt_graph.max_node_id() <<endl ;
-        // cerr << "gbwt graph investigation: " << _gbwt_graph.has_node(test) << endl;
-        cerr << _gbwt_graph.get_length(_gbwt_graph.get_handle(roots->start().node_id())) << endl;
+        // cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
+        // cerr << "seq from snarl number " << snarl_num << " with source at: " << _graph.get_sequence(_graph.get_handle(roots->start().node_id())) << " and sink at: " << _graph.get_sequence(_graph.get_handle(roots->end().node_id())) << endl;
+        // cerr << "graph range of original graph " << _gbwt_graph.min_node_id() << " " <<  _gbwt_graph.max_node_id() <<endl ;
+        // // cerr << "gbwt graph investigation: " << _gbwt_graph.has_node(test) << endl;
+        // cerr << _gbwt_graph.get_length(_gbwt_graph.get_handle(roots->start().node_id())) << endl;
         // cerr << "seq from snarl number (using gbwt) " << snarl_num << " with source at: " << _gbwt_graph.get_sequence(_gbwt_graph.get_handle(roots->start().node_id())) << " and sink at: " << _gbwt_graph.get_sequence(_gbwt_graph.get_handle(roots->end().node_id())) << endl;
 
-        cerr << "backwards value? " << roots->start().backward() << endl;
+        // cerr << "backwards value? " << roots->start().backward() << endl;
         // if (roots->start().node_id() == 3881494) {
             // cerr << "root backwards?" << roots->start().backward() << endl;
             // cerr << "disambiguating snarl #"
@@ -191,7 +188,67 @@ gbwt::GBWT SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
 
     cerr << "generating gbwt for normalized graph..." << endl;
 
+    cerr << "_gbwt_changelog size: " << _gbwt_changelog.size() << endl;
+
+    for (auto& entry : _gbwt_changelog)
+    {
+        // if (entry.first.size() - entry.second.size() == 2) //export a good snarl for debugging.
+        // {
+        cerr << "old_nodes: " << endl;
+        for (auto node : entry.first)
+        {
+            cerr << _gbwt_graph.get_id(_gbwt_graph.node_to_handle(node)) << " " << _gbwt_graph.get_is_reverse(_gbwt_graph.node_to_handle(node)) << endl;
+        }
+    
+        cerr << "new_nodes: " << endl;
+        for (auto node : entry.second)
+        {
+            cerr << _gbwt_graph.get_id(_gbwt_graph.node_to_handle(node)) << " " << _gbwt_graph.get_is_reverse(_gbwt_graph.node_to_handle(node)) << endl;
+        }
+        // }
+        
+    //     if (false)
+    //     {
+
+    //         cerr << "hi" << endl;
+    //     }
+    //     for (auto new_node : entry.second)
+    //     {
+    //         cerr << "graph contains the new nodes? " << _graph.contains(_gbwt_graph.get_id(_gbwt_graph.node_to_handle(new_node))) << endl;
+
+    //     }
+        // cerr << "size of entries: " << entry.first.size() << " " << entry.second.size() << endl;
+        // if (_gbwt.find(entry.first.begin(), entry.first.end()).empty())
+        // {
+        //     cerr << "found empty path!" << endl;
+        //     cerr << "size of entries: " << entry.first.size() << " " << entry.second.size() << endl;
+            
+        //     for (auto item : entry.first)
+        //     {
+        //         cerr << "seq in node: " << _gbwt_graph.get_sequence(_gbwt_graph.node_to_handle(item)) << endl;
+        //         entry.second.push_back(item);
+        //     }
+        // }
+        // cerr << _gbwt.find(entry.first.begin(), entry.first.end()) << endl;
+        // for (auto item : entry.first)
+        // {
+        //     cerr << "item" << endl;
+            // cerr << "seq in node: " << _gbwt_graph.get_sequence(_gbwt_graph.node_to_handle(item)) << endl;
+            // entry.second.push_back(item);
+        // }
+    }
+    // for (auto& entry : _gbwt_changelog)
+    // {
+    //     cerr << "2nd size of entries: " << entry.first.size() << " " << entry.second.size() << endl;
+    // }
+    // cerr << _gbwt.empty() << _gbwt_changelog.empty() << endl;
     gbwt::GBWT output_gbwt = rebuild_gbwt(_gbwt, _gbwt_changelog);
+    
+    // cerr << "output have second path?" << endl;
+    // for (auto& entry : _gbwt_changelog)
+    // {
+    //     cerr << _gbwt.find(entry.second.begin(), entry.second.end()).empty() << endl;
+    // }
 
     cerr << "finished generating gbwt." << endl;
 
@@ -326,17 +383,25 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
             gbwt::vector_type hap_ids;
             for (handle_t &handle : hap_handles) 
             {
-                cerr << "id of node: " << _gbwt_graph.get_id(handle) << endl;
-                cerr << "sequence of node: " << _graph.get_sequence(_graph.get_handle(_gbwt_graph.get_id(handle))) << endl;
+                // cerr << "id of node: " << _gbwt_graph.get_id(handle) << endl;
+                // cerr << "sequence of node: " << _gbwt_graph.get_sequence(handle) << endl;
                 hap_ids.emplace_back(_gbwt_graph.handle_to_node(handle));
                 // hap_str += _gbwt_graph.get_sequence(handle);
-                hap_str += _graph.get_sequence(_graph.get_handle(_gbwt_graph.get_id(handle)));
+                hap_str += _gbwt_graph.get_sequence(handle);
             }
             
             pair<gbwt::vector_type, string> hap = make_pair(hap_ids, hap_str);
             source_to_sink_gbwt_paths.emplace_back(hap);
         }
+        // for (auto item : source_to_sink_gbwt_paths)
+        // {
+        //     for (auto nid : item.first)
+        //     {
+        //         cerr << "is the handle is-reverse? of the handles in 'before': " << _graph.get_is_reverse(_graph.get_handle(_gbwt_graph.get_id(_gbwt_graph.node_to_handle(nid)), _gbwt_graph.get_is_reverse(_gbwt_graph.node_to_handle(nid)))) << endl;
 
+        //     }
+
+        // }
         get<1>(haplotypes) = get<1>(gbwt_haplotypes);
         get<2>(haplotypes) = get<2>(gbwt_haplotypes);
         // cerr << "haplotypes after formatting to strings: " << endl;
@@ -564,9 +629,8 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
 // haplotypes of
 //      format string (which is the concatenated sequences in the handles).
 // Arguments:
-//      _gbwt_graph: a gbwtgraph::GBWTGraph which contains the handles in vector< handle_t
 //      > haplotypes. haplotypte_handle_vectors: a vector of haplotypes in vector<
-//      handle_t > format.
+//      handle_t > format. the handles are from the _gbwt_graph.
 // Returns: a vector of haplotypes of format string (which is the concatenated sequences
 // in the handles).
 unordered_set<string> SnarlNormalizer::format_handle_haplotypes_to_strings(
@@ -575,7 +639,7 @@ unordered_set<string> SnarlNormalizer::format_handle_haplotypes_to_strings(
     for (vector<handle_t> haplotype_handles : haplotype_handle_vectors) {
         string hap;
         for (handle_t &handle : haplotype_handles) {
-            hap += _graph.get_sequence(handle);
+            hap += _gbwt_graph.get_sequence(handle);
         }
         haplotype_strings.emplace(hap);
     }

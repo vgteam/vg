@@ -131,7 +131,6 @@ SnarlSequenceFinder::find_gbwt_haps() {
             // haplotypes_from_source_to_sink if haplotype extends to sink, or place in
             // the other_haplotypes if haplotype ends before reaching sink.
             for (gbwt::SearchState next_search : next_searches) {
-                //todo: this may drop is_reverse data! Gotta include that here.
                 handle_t next_handle = _gbwt_graph.node_to_handle(next_search.node);
                 // if (!_snarl.has_edge(cur_haplotype.first.back(), next_handle)) {
                 //     if (incorrect_connections.find(
@@ -226,15 +225,15 @@ SnarlSequenceFinder::find_gbwt_haps() {
     move(haplotypes_not_starting_at_source.begin(),
          haplotypes_not_starting_at_source.end(), back_inserter(other_haplotypes));
 
-    //todo: debug_statement
-    cerr << "lets look through all the haplotypes after extraction:" << endl;
-    for (vector<handle_t> hap_vec : haplotypes_from_source_to_sink) {
-        cerr << "new hap:" << endl;
-        for (handle_t handle : hap_vec){
-            cerr << _gbwt_graph.get_id(handle) << " " << _graph.get_sequence(_graph.get_handle(_gbwt_graph.get_id(handle))) << endl;
-            // cerr << _gbwt_graph.get_id(handle) << " " << _gbwt_graph.get_sequence(handle) << endl;
-        }
-    }
+    // //todo: debug_statement
+    // cerr << "lets look through all the haplotypes after extraction:" << endl;
+    // for (vector<handle_t> hap_vec : haplotypes_from_source_to_sink) {
+    //     cerr << "new hap:" << endl;
+    //     for (handle_t handle : hap_vec){
+    //         // cerr << _gbwt_graph.get_id(handle) << " " << _graph.get_sequence(_graph.get_handle(_gbwt_graph.get_id(handle))) << endl;
+    //         cerr << _gbwt_graph.get_id(handle) << " " << _gbwt_graph.get_sequence(handle) << endl; //note: this print *must* work if you want a working gbwt_graph.
+    //     }
+    // }
 
     return tuple<vector<vector<handle_t>>, vector<vector<handle_t>>,
                  unordered_set<handle_t>>{haplotypes_from_source_to_sink,

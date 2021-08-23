@@ -215,7 +215,7 @@ int main_normalize(int argc, char **argv) {
     // Load the GBWT from its container
     unique_ptr<gbwt::GBWT> gbwt;
     gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
-    // gbwtgraph::GBWTGraph haploGraph = gbwtgraph::GBWTGraph(*gbwt, *graph);
+    gbwtgraph::GBWTGraph gbwt_graph = gbwtgraph::GBWTGraph(*gbwt, *graph);
 
     std::ifstream snarl_stream;
     string snarl_file = snarls;
@@ -230,12 +230,26 @@ int main_normalize(int argc, char **argv) {
     auto start = chrono::high_resolution_clock::now();
 
     algorithms::SnarlNormalizer normalizer = algorithms::SnarlNormalizer(
-        *graph, *gbwt, max_alignment_size, max_handle_size);
+        *graph, *gbwt, gbwt_graph, max_alignment_size, max_handle_size);
 
     if (normalize_type == "all") 
     {
+
+      // gbwt_graph.get_handle()
+      
       gbwt::GBWT normalized_gbwt = normalizer.normalize_top_level_snarls(snarl_stream);
-      //todo: output normalized_gbwt
+      save_gbwt(normalized_gbwt, output_gbwt, true);
+
+  //     //todo: delete this secondary normalize:
+  //     algorithms::SnarlNormalizer normalizer = algorithms::SnarlNormalizer(
+  //       *graph, *gbwt, gbwt_graph, max_alignment_size, max_handle_size);
+  // // getting graph of any type, except non-mutable graphs (e.g., xg)
+  // unique_ptr<MutablePathDeletableHandleGraph> graph;
+  // get_input_file(optind, argc, argv, [&](istream &in) {
+  //   graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
+  // });
+
+
     }
     else if (normalize_type == "one")
     {
@@ -274,7 +288,7 @@ int main_normalize(int argc, char **argv) {
       }
     }
     // // run test code on all snarls in graph. (non obj-oriented code)
-    // disambiguate_top_level_snarls(*graph, haploGraph, snarl_stream,
+    // disambiguate_top_level_snarls(*graph, gbwt_graph, snarl_stream,
     // max_alignment_size);
 
     // Record end time

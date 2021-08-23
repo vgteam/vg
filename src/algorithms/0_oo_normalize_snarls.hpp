@@ -12,7 +12,7 @@ class SnarlNormalizer {
   public:
     virtual ~SnarlNormalizer() = default;
 
-    SnarlNormalizer(MutablePathDeletableHandleGraph &graph, const gbwt::GBWT &gbwt,
+    SnarlNormalizer(MutablePathDeletableHandleGraph &graph, const gbwt::GBWT &gbwt, const gbwtgraph::GBWTGraph & gbwt_graph,
                     const int& _max_handle_size, 
                     const int &max_alignment_size = INT_MAX, //TODO: add a _max_handle_length default length
                     const string &path_finder = "GBWT" /*alternative is "exhaustive"*/);
@@ -29,6 +29,8 @@ class SnarlNormalizer {
     // GBWTPathFinder approach.
     const gbwt::GBWT &_gbwt;
     const gbwtgraph::GBWTGraph &_gbwt_graph;
+    // const gbwtgraph::GBWTGraph _gbwt_graph = gbwtgraph::GBWTGraph(_gbwt, _graph);
+    // const gbwtgraph::GBWTGraph &_gbwt_graph = gbwtgraph::GBWTGraph(_gbwt, _graph);
     // vector<pair<vector<std::uint32_t>, vector<std::uint32_t>>> _gbwt_changelog; //todo: delete this
     // vector<pair<vector<id_t>, vector<id_t>>> _gbwt_changelog;
     vector<pair<gbwt::vector_type, gbwt::vector_type>> _gbwt_changelog;
