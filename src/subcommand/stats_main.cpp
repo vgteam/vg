@@ -20,6 +20,7 @@
 #include "../handle.hpp"
 #include "../cactus_snarl_finder.hpp"
 #include "../annotation.hpp"
+#include "../min_distance.hpp"
 
 #include "../path.hpp"
 #include "../statistics.hpp"
@@ -40,32 +41,33 @@ using namespace vg::algorithms;
 void help_stats(char** argv) {
     cerr << "usage: " << argv[0] << " stats [options] [<graph file>]" << endl
          << "options:" << endl
-         << "    -z, --size            size of graph" << endl
-         << "    -N, --node-count      number of nodes in graph" << endl
-         << "    -E, --edge-count      number of edges in graph" << endl
-         << "    -l, --length          length of sequences in graph" << endl
-         << "    -L, --self-loops      number of self-loops" << endl
-         << "    -s, --subgraphs       describe subgraphs of graph" << endl
-         << "    -H, --heads           list the head nodes of the graph" << endl
-         << "    -T, --tails           list the tail nodes of the graph" << endl
-         << "    -e, --nondeterm       list the nondeterministic edge sets" << endl
-         << "    -c, --components      print the strongly connected components of the graph" << endl
-         << "    -A, --is-acyclic      print if the graph is acyclic or not" << endl
-         << "    -n, --node ID         consider node with the given id" << endl
-         << "    -d, --to-head         show distance to head for each provided node" << endl
-         << "    -t, --to-tail         show distance to head for each provided node" << endl
-         << "    -a, --alignments FILE compute stats for reads aligned to the graph" << endl
-         << "    -r, --node-id-range   X:Y where X and Y are the smallest and largest "
+         << "    -z, --size             size of graph" << endl
+         << "    -N, --node-count       number of nodes in graph" << endl
+         << "    -E, --edge-count       number of edges in graph" << endl
+         << "    -l, --length           length of sequences in graph" << endl
+         << "    -L, --self-loops       number of self-loops" << endl
+         << "    -s, --subgraphs        describe subgraphs of graph" << endl
+         << "    -H, --heads            list the head nodes of the graph" << endl
+         << "    -T, --tails            list the tail nodes of the graph" << endl
+         << "    -e, --nondeterm        list the nondeterministic edge sets" << endl
+         << "    -c, --components       print the strongly connected components of the graph" << endl
+         << "    -A, --is-acyclic       print if the graph is acyclic or not" << endl
+         << "    -n, --node ID          consider node with the given id" << endl
+         << "    -d, --to-head          show distance to head for each provided node" << endl
+         << "    -t, --to-tail          show distance to head for each provided node" << endl
+         << "    -a, --alignments FILE  compute stats for reads aligned to the graph" << endl
+         << "    -r, --node-id-range    X:Y where X and Y are the smallest and largest "
         "node id in the graph, respectively" << endl
-         << "    -o, --overlap PATH    for each overlapping path mapping in the graph write a table:" << endl
-         << "                              PATH, other_path, rank1, rank2" << endl
-         << "                          multiple allowed; limit comparison to those provided" << endl
-         << "    -O, --overlap-all     print overlap table for the cartesian product of paths" << endl
-         << "    -R, --snarls          print statistics for each snarl" << endl
-         << "    -F, --format          graph format from {VG-Protobuf, PackedGraph, HashGraph, ODGI, XG}. " <<
-        "Can't detect Protobuf if graph read from stdin" << endl
-         << "    -D, --degree-dist     print degree distribution of the graph." << endl
-         << "    -v, --verbose         output longer reports" << endl;
+         << "    -o, --overlap PATH     for each overlapping path mapping in the graph write a table:" << endl
+         << "                               PATH, other_path, rank1, rank2" << endl
+         << "                           multiple allowed; limit comparison to those provided" << endl
+         << "    -O, --overlap-all      print overlap table for the cartesian product of paths" << endl
+         << "    -R, --snarls           print statistics for each snarl" << endl
+         << "    -F, --format           graph format from {VG-Protobuf, PackedGraph, HashGraph, ODGI, XG}. " <<
+        "Can't detect Protobuf if graph  read from stdin" << endl
+         << "    -D, --degree-dist      print degree distribution of the graph." << endl
+         << "    -b, --dist-snarls FILE print the sizes and depths of the snarls in a given distance index." << endl
+         << "    -v, --verbose          output longer reports" << endl;
 }
 
 int main_stats(int argc, char** argv) {
@@ -100,6 +102,7 @@ int main_stats(int argc, char** argv) {
     bool snarl_stats = false;
     bool format = false;
     bool degree_dist = false;
+    string distance_index_filename;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -129,11 +132,12 @@ int main_stats(int argc, char** argv) {
             {"snarls", no_argument, 0, 'R'},
             {"format", no_argument, 0, 'F'},
             {"degree-dist", no_argument, 0, 'D'}, 
+            {"dist-snarls", required_argument, 0, 'b'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlLsHTecdtn:NEa:vAro:ORFD",
+        c = getopt_long (argc, argv, "hzlLsHTecdtn:NEa:vAro:ORFDb:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -233,6 +237,8 @@ int main_stats(int argc, char** argv) {
         case 'D':
             degree_dist = true;
             break;
+        case 'b':
+            distance_index_filename = optarg;
 
         case 'h':
         case '?':
@@ -1072,6 +1078,15 @@ int main_stats(int argc, char** argv) {
             
         });
         
+    }
+
+    if (!distance_index_filename.empty()) {
+        //Print snarl stats from a distance index
+        ifstream infile;
+        infile.open(distance_index_filename);
+        auto distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(infile);
+        distance_index->print_snarl_stats();
+        infile.close();
     }
 
     return 0;
