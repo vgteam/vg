@@ -719,8 +719,11 @@ void MinimizerMapper::process_until_threshold_c(const vector<Item>& items, const
         indexes_in_order.push_back(i);
     }
     
-    // Put the highest scores first
-    std::sort(indexes_in_order.begin(), indexes_in_order.end(), comparator);
+    // Put the highest scores first, but shuffle ties so reads spray evenly
+    // across equally good mappings
+    sort_shuffling_ties(indexes_in_order.begin(), indexes_in_order.end(), comparator, [&](size_t index) {
+        return make_shuffle_seed(items.at(index));
+    });
 
     // Retain items only if their score is at least as good as this
     double cutoff = items.size() == 0 ? 0 : get_score(indexes_in_order[0]) - threshold;
