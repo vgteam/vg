@@ -1559,17 +1559,17 @@ int32_t Aligner::score_full_length_bonus(bool left_side, const Alignment& alignm
     return full_length_bonus;
 }
 
-int32_t Aligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
+int32_t Aligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const path_t& path,
                                          string::const_iterator seq_begin, bool no_read_end_scoring) const {
     
     int32_t score = 0;
     string::const_iterator read_pos = seq_begin;
     bool in_deletion = false;
     for (size_t i = 0; i < path.mapping_size(); i++) {
-        const Mapping& mapping = path.mapping(i);
+        const auto& mapping = path.mapping(i);
         
         for (size_t j = 0; j < mapping.edit_size(); j++) {
-            const Edit& edit = mapping.edit(j);
+            const auto& edit = mapping.edit(j);
             
             if (edit.from_length() > 0) {
                 if (edit.to_length() > 0) {
@@ -2255,7 +2255,7 @@ int32_t QualAdjAligner::score_full_length_bonus(bool left_side, const Alignment&
                                    alignment.quality().begin());
 }
 
-int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
+int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const path_t& path,
                                                 string::const_iterator seq_begin, bool no_read_end_scoring) const {
     
     int32_t score = 0;
@@ -2264,7 +2264,7 @@ int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, cons
     
     bool in_deletion = false;
     for (size_t i = 0; i < path.mapping_size(); i++) {
-        const Mapping& mapping = path.mapping(i);
+        const auto& mapping = path.mapping(i);
         
         // get the sequence of this node on the proper strand
         string node_seq = graph.get_sequence(graph.get_handle(mapping.position().node_id(),
@@ -2273,7 +2273,7 @@ int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, cons
         string::const_iterator ref_pos = node_seq.begin() + mapping.position().offset();
         
         for (size_t j = 0; j < mapping.edit_size(); j++) {
-            const Edit& edit = mapping.edit(j);
+            const auto& edit = mapping.edit(j);
             
             if (edit.from_length() > 0) {
                 if (edit.to_length() > 0) {
