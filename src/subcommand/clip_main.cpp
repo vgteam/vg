@@ -172,8 +172,7 @@ int main_clip(int argc, char** argv) {
                 cerr << "[vg clip]: Dropped " << (bed_regions.size() - bed_regions_in_graph.size()) << " BED regions whose sequence names do not correspond to paths in the graph" << endl;
             }
             if (bed_regions_in_graph.empty()) {
-                cerr << "error:[vg-clip] No BED region found that lies on path in graph (use vg paths -Lv to list paths that are in the graph)" << endl;
-                return 1;
+                cerr << "warning:[vg-clip] No BED region found that lies on path in graph (use vg paths -Lv to list paths that are in the graph)" << endl;
             }
         }
         swap(bed_regions, bed_regions_in_graph);
@@ -181,7 +180,7 @@ int main_clip(int argc, char** argv) {
 
     if (min_depth >= 0) {
         // run the depth clipping       
-        if (bed_regions.empty()) {            
+        if (bed_path.empty()) {            
             // do the whole graph
             clip_low_depth_nodes(graph.get(), min_depth, ref_prefix, min_fragment_len, verbose);
         } else {

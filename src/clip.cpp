@@ -37,42 +37,45 @@ static tuple<const Region*, step_handle_t, step_handle_t, bool> get_containing_r
             path_offset = get<2>(sp_parse);
         }
 
-        IntervalTree<int64_t, const Region*>& interval_tree = contig_to_interval_tree.at(path_name);
+        if (contig_to_interval_tree.count(path_name)) {
 
-        // first_path_pos computation copied from deconstructor.cpp (it does not include the start node)
-        step_handle_t start_step = step_pair.first;
-        step_handle_t end_step = step_pair.second;
-        handle_t start_handle = graph->get_handle_of_step(start_step);
-        handle_t end_handle = graph->get_handle_of_step(end_step);
-        size_t start_pos = graph->get_position_of_step(start_step);
-        size_t end_pos = graph->get_position_of_step(end_step);
-        bool use_start = start_pos < end_pos;
-        handle_t first_path_handle = use_start ? start_handle : end_handle;
-        int64_t first_path_pos = use_start ? start_pos : end_pos;
-        // Get the first visit of our snarl traversal
-        const Visit& first_trav_visit = use_start ? ref_trav.visit(0) : ref_trav.visit(ref_trav.visit_size() - 1);
-        if ((use_start && first_trav_visit.backward() == graph->get_is_reverse(first_path_handle)) ||
-            (!use_start && first_trav_visit.backward() != graph->get_is_reverse(first_path_handle))) {
-            // Our path and traversal have consistent orientation.  leave off the end of the start node going forward
-            first_path_pos += graph->get_length(first_path_handle);
-        }
+            IntervalTree<int64_t, const Region*>& interval_tree = contig_to_interval_tree.at(path_name);
 
-        size_t length_from_start = 0;
-        for (size_t j = 1; j < ref_trav.visit_size() - 1; ++j) {
-            length_from_start += graph->get_length(graph->get_handle(ref_trav.visit(j).node_id()));
-        }
-
-        if (include_endpoints) {
-            first_path_pos -= graph->get_length(first_path_handle);
-            length_from_start += graph->get_length(graph->get_handle(ref_trav.visit(ref_trav.visit_size() - 1).node_id()));
-        }
-        int64_t last_path_pos = length_from_start == 0 ? first_path_pos : first_path_pos + length_from_start - 1;
-        auto overlapping_intervals = interval_tree.findOverlapping(first_path_pos, last_path_pos);
-        for (auto& interval : overlapping_intervals) {
-            if (interval.start <= first_path_pos && interval.stop >= last_path_pos) {
-                return make_tuple(interval.value, start_step, end_step, !use_start);
+            // first_path_pos computation copied from deconstructor.cpp (it does not include the start node)
+            step_handle_t start_step = step_pair.first;
+            step_handle_t end_step = step_pair.second;
+            handle_t start_handle = graph->get_handle_of_step(start_step);
+            handle_t end_handle = graph->get_handle_of_step(end_step);
+            size_t start_pos = graph->get_position_of_step(start_step);
+            size_t end_pos = graph->get_position_of_step(end_step);
+            bool use_start = start_pos < end_pos;
+            handle_t first_path_handle = use_start ? start_handle : end_handle;
+            int64_t first_path_pos = use_start ? start_pos : end_pos;
+            // Get the first visit of our snarl traversal
+            const Visit& first_trav_visit = use_start ? ref_trav.visit(0) : ref_trav.visit(ref_trav.visit_size() - 1);
+            if ((use_start && first_trav_visit.backward() == graph->get_is_reverse(first_path_handle)) ||
+                (!use_start && first_trav_visit.backward() != graph->get_is_reverse(first_path_handle))) {
+                // Our path and traversal have consistent orientation.  leave off the end of the start node going forward
+                first_path_pos += graph->get_length(first_path_handle);
             }
-        }                                  
+
+            size_t length_from_start = 0;
+            for (size_t j = 1; j < ref_trav.visit_size() - 1; ++j) {
+                length_from_start += graph->get_length(graph->get_handle(ref_trav.visit(j).node_id()));
+            }
+
+            if (include_endpoints) {
+                first_path_pos -= graph->get_length(first_path_handle);
+                length_from_start += graph->get_length(graph->get_handle(ref_trav.visit(ref_trav.visit_size() - 1).node_id()));
+            }
+            int64_t last_path_pos = length_from_start == 0 ? first_path_pos : first_path_pos + length_from_start - 1;
+            auto overlapping_intervals = interval_tree.findOverlapping(first_path_pos, last_path_pos);
+            for (auto& interval : overlapping_intervals) {
+                if (interval.start <= first_path_pos && interval.stop >= last_path_pos) {
+                    return make_tuple(interval.value, start_step, end_step, !use_start);
+                }
+            }
+        }
     }
     return make_tuple(nullptr, step_handle_t(), step_handle_t(), false);
 }
