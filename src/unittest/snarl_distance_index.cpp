@@ -134,7 +134,7 @@ namespace vg {
                     REQUIRE(distance_index.is_snarl(child));
                     child_handles.emplace_back(child);
                     top_snarl = child;
-                    REQUIRE(distance_index.get_depth(child) == 2);
+                    REQUIRE(distance_index.get_depth(child) == 1);
                 } else if (child_i == 2) {
                     REQUIRE(distance_index.is_node(child));
                     REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == 8);
@@ -168,13 +168,13 @@ namespace vg {
                 //The snarl 1,8 has one child (not counting the boundary nodes)
                 size_t node_count = 0;
                 REQUIRE(distance_index.is_snarl(top_snarl));
-                REQUIRE(distance_index.get_depth(top_snarl) == 2);
+                REQUIRE(distance_index.get_depth(top_snarl) == 1);
                 net_handle_t child;
                 distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
                     node_count++;
                     REQUIRE( distance_index.canonical(distance_index.get_parent(handle))
                             == distance_index.canonical(top_snarl));
-                    REQUIRE(distance_index.get_depth(handle) == 3);
+                    REQUIRE(distance_index.get_depth(handle) == 2);
                     child=handle;
                     return true;
                 });
@@ -252,6 +252,45 @@ namespace vg {
                 REQUIRE(distance_index.is_chain(chain18));
                 net_handle_t root = distance_index.get_parent(chain18);
                 REQUIRE(distance_index.is_root(root));
+            }
+            SECTION("Depths and parents are correct") {
+                net_handle_t node4 = distance_index.get_net(graph.get_handle(n4->id(), false), &graph); 
+                REQUIRE(distance_index.get_depth(node4) == 4);
+
+                net_handle_t chain4 = distance_index.get_parent(node4);
+                REQUIRE(distance_index.is_chain(chain4));
+                REQUIRE(distance_index.is_trivial_chain(chain4));
+                REQUIRE(distance_index.get_depth(chain4) == 4);
+
+                net_handle_t snarl35 = distance_index.get_parent(chain4);
+                REQUIRE(distance_index.is_snarl(snarl35));
+                REQUIRE(distance_index.get_depth(snarl35) == 3);
+                
+                net_handle_t chain35 = distance_index.get_parent(snarl35);
+                REQUIRE(distance_index.is_chain(chain35));
+                REQUIRE(distance_index.get_depth(chain35) == 3);
+
+                net_handle_t snarl27 = distance_index.get_parent(chain35);
+                REQUIRE(distance_index.is_snarl(snarl27));
+                REQUIRE(distance_index.get_depth(snarl27) == 2);
+                
+                net_handle_t chain27 = distance_index.get_parent(snarl27);
+                REQUIRE(distance_index.is_chain(chain27));
+                REQUIRE(distance_index.get_depth(chain27) == 2);
+
+                net_handle_t snarl18 = distance_index.get_parent(chain27);
+                REQUIRE(distance_index.is_snarl(snarl18));
+                REQUIRE(distance_index.get_depth(snarl18) == 1);
+                
+                net_handle_t chain18 = distance_index.get_parent(snarl18);
+                REQUIRE(distance_index.is_chain(chain18));
+                REQUIRE(distance_index.get_depth(chain18) == 1);
+
+                net_handle_t root = distance_index.get_parent(chain18);
+                REQUIRE(distance_index.is_root(root));
+                REQUIRE(distance_index.get_depth(root) == 0);
+
+
             }
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(

@@ -291,7 +291,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                    return val < vector_item_rank;
                });
             //Add the item to the vector in sorted order
-            input_vector.insert(insert_itr, item);
+            input_vector.insert(insert_itr, std::move(item));
         };
 
         // Assign each seed to a node.
@@ -392,7 +392,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 #endif
             if (!distance_index.is_root(distance_index.get_parent(snarl_handle))){
                 //If this snarl is in a chain, cluster and add let the
-                //tree state know which chain it belongs to
+                //tree state know which chain it belongs to (in order)
 
                 add_child_to_vector(tree_state.parent_chain_to_children, distance_index.get_parent(snarl_handle), cluster_one_snarl(tree_state, snarl_handle));
 
@@ -940,6 +940,10 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
         //the relevant combined cluster head for the fragment
         auto compare_and_combine_clusters = [&] (size_t read_num, size_t cluster_num, size_t distance_between, pair<size_t, size_t> old_distances,
                 pair<pair<size_t, size_t>, pair<size_t, size_t>>& new_cluster_head_and_distances, size_t& new_cluster_head_fragment){
+            if (read_num == new_cluster_head_and_distances.first.first && cluster_num ==  new_cluster_head_and_distances.first.second) {
+                //If this is the same as the old cluster head, then don't bother trying to compare
+                return;
+            }
 
             if (distance_between <= tree_state.read_distance_limit) {
                 //If this can be combined with the given combined cluster
@@ -950,7 +954,6 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 } else {
                     //Combine with old cluster head
                     tree_state.read_union_find.at(read_num).union_groups(cluster_num, new_cluster_head_and_distances.first.second);
-                    cerr << "Unioning read " << read_num << " seeds " << cluster_num << " and " << new_cluster_head_and_distances.first.second << endl;
 
                     //Update distances
                     size_t new_best_left = std::min(old_distances.first, new_cluster_head_and_distances.second.first);
@@ -1207,6 +1210,10 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
     NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, net_handle_t chain_handle) const {
         if (distance_index.is_trivial_chain(chain_handle)){
             //If this is just a node pretending to be a chain, cluster the node and claim it's a chain
+#ifdef DEBUG_CLUSTER
+            cerr << "Clustering a chain that is really just a node, so just cluster the node" << endl;
+#endif
+
             
             //This will hold the clusters of the chain
             assert(tree_state.chain_to_children[chain_handle].size() == 1); 
@@ -1224,6 +1231,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 
 #ifdef DEBUG_CLUSTER
         cerr << "Cluster chain " << distance_index.net_handle_as_string(chain_handle) << endl;
+        cerr << "\t chain has " << tree_state.chain_to_children[chain_handle].size() << " children" << endl;
 #endif
 
         /*Go through the chain child by child 
@@ -1272,6 +1280,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 
             //Go through all child clusters since we last saw a node cluster
             for (NodeClusters* previous_child_node : last_child_clusters) {
+                cerr << "\tcompare to previously seen child" << distance_index.net_handle_as_string(previous_child_node->containing_net_handle) << endl;
 
                 compare_and_combine_cluster_on_child_structures(tree_state, child_clusters, 
                         *previous_child_node, chain_clusters);
@@ -1301,10 +1310,37 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
     void NewSnarlSeedClusterer::add_child_to_vector(hash_map<net_handle_t, vector<NodeClusters>>& parent_to_child_map, const net_handle_t& parent,
             NodeClusters child_cluster) const {
         if (parent_to_child_map.count(parent) == 0) {
+            //Make sure that parent shows up in the hash_map
             vector<NodeClusters> empty_vector;
             parent_to_child_map.emplace(parent, std::move(empty_vector));
         }
-        parent_to_child_map.at(parent).emplace_back(std::move(child_cluster));
+        if (distance_index.is_snarl(parent)){
+            //If the parent is a snarl, then the order doesn't matter
+            parent_to_child_map.at(parent).emplace_back(std::move(child_cluster));
+        } else {
+            assert(distance_index.is_chain(parent));
+            //Helper function to insert a NodeClusters into a sorted vector<NodeClusters> where the vector contains only 
+            //children of the same chain. The items will be sorted by their position in the chain (determined by their
+            //rank_in_parent)
+            auto insert_in_order = [&](vector<NodeClusters>& input_vector, NodeClusters& item) {
+                size_t old_dist = input_vector.size();
+            
+                //The rank of the item we're inserting is its rank in its parent
+                //The rank is really the offset of the record in it's parent, so it doesn't matter what 
+                //the value is except that it will be increasing as we walk along the chain
+                size_t item_rank = distance_index.rank_in_parent(item.containing_net_handle);
+                //Get an iterator to where the thing we're inserting should go in the vector 
+                std::vector<NodeClusters>::iterator insert_itr = std::upper_bound(input_vector.begin(), input_vector.end(),
+                   item_rank, [&](size_t val, NodeClusters vector_item) {
+                       //This should return true if the vector_item goes after the item with rank val
+                       size_t vector_item_rank = distance_index.rank_in_parent(vector_item.containing_net_handle);
+                       return val < vector_item_rank;
+                   });
+                //Add the item to the vector in sorted order
+                input_vector.insert(insert_itr, std::move(item));
+            };
+            insert_in_order(parent_to_child_map.at(parent), child_cluster);
+        }
     }
 /*
     void NewSnarlSeedClusterer::cluster_only_top_level_chain_seeds(TreeState& tree_state, 
