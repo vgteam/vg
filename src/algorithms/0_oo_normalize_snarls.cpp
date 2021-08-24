@@ -88,28 +88,40 @@ gbwt::GBWT SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
 
     pair<int, int> snarl_sequence_change;
 
-    //todo: debug_code
-    int stop_size = 1;
-    int num_snarls_touched = 0;
+    // //todo: debug_code
+    // int stop_size = 1;
+    // int num_snarls_touched = 0;
 
-    int skip_first_few = 3;
-    int skipped = 0;
+    // int skip_first_few = 22529;
+    // int skipped = 0;
+    
     int snarl_num = 0;
     for (auto roots : snarl_roots) {
         snarl_num++;
-        if (skipped < skip_first_few){
-            skipped++;
-            continue;
-        }
         
-        if (num_snarls_touched == stop_size){
-            cerr << "breakpoint here" << endl;
-            break;
-        } else {
-            num_snarls_touched++;
-        }
-        //todo: debug_print:
-        cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
+        // if (skipped < skip_first_few){
+        //     skipped++;
+        //     continue;
+        // }
+        
+        // if (num_snarls_touched == stop_size){
+        //     cerr << "breakpoint here" << endl;
+        //     break;
+        // } else {
+        //     num_snarls_touched++;
+        // }
+
+        // //todo: debug_print:
+        // // if (roots->start().node_id()!=3775521)
+        // if (snarl_num!=22530 && snarl_num!=22529)
+        // {
+        //     continue;
+        // }
+        // else
+        // {
+        //     cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
+        // }
+        // cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
 
         if (_full_log_print)
         {
@@ -188,55 +200,55 @@ gbwt::GBWT SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
 
     cerr << "generating gbwt for normalized graph..." << endl;
 
-    cerr << "_gbwt_changelog size: " << _gbwt_changelog.size() << endl;
+    // cerr << "_gbwt_changelog size: " << _gbwt_changelog.size() << endl;
 
-    for (auto& entry : _gbwt_changelog)
-    {
-        // if (entry.first.size() - entry.second.size() == 2) //export a good snarl for debugging.
-        // {
-        cerr << "old_nodes: " << endl;
-        for (auto node : entry.first)
-        {
-            cerr << _gbwt_graph.get_id(_gbwt_graph.node_to_handle(node)) << " " << _gbwt_graph.get_is_reverse(_gbwt_graph.node_to_handle(node)) << endl;
-        }
+    // for (auto& entry : _gbwt_changelog)
+    // {
+    //     // if (entry.first.size() - entry.second.size() == 2) //export a good snarl for debugging.
+    //     // {
+    //     cerr << "old_nodes: " << endl;
+    //     for (auto node : entry.first)
+    //     {
+    //         cerr << _gbwt_graph.get_id(_gbwt_graph.node_to_handle(node)) << " " << _gbwt_graph.get_is_reverse(_gbwt_graph.node_to_handle(node)) << endl;
+    //     }
     
-        cerr << "new_nodes: " << endl;
-        for (auto node : entry.second)
-        {
-            cerr << _gbwt_graph.get_id(_gbwt_graph.node_to_handle(node)) << " " << _gbwt_graph.get_is_reverse(_gbwt_graph.node_to_handle(node)) << endl;
-        }
-        // }
+    //     cerr << "new_nodes: " << endl;
+    //     for (auto node : entry.second)
+    //     {
+    //         cerr << _gbwt_graph.get_id(_gbwt_graph.node_to_handle(node)) << " " << _gbwt_graph.get_is_reverse(_gbwt_graph.node_to_handle(node)) << endl;
+    //     }
+    //     // }
         
-    //     if (false)
-    //     {
+    // //     if (false)
+    // //     {
 
-    //         cerr << "hi" << endl;
-    //     }
-    //     for (auto new_node : entry.second)
-    //     {
-    //         cerr << "graph contains the new nodes? " << _graph.contains(_gbwt_graph.get_id(_gbwt_graph.node_to_handle(new_node))) << endl;
+    // //         cerr << "hi" << endl;
+    // //     }
+    // //     for (auto new_node : entry.second)
+    // //     {
+    // //         cerr << "graph contains the new nodes? " << _graph.contains(_gbwt_graph.get_id(_gbwt_graph.node_to_handle(new_node))) << endl;
 
-    //     }
-        // cerr << "size of entries: " << entry.first.size() << " " << entry.second.size() << endl;
-        // if (_gbwt.find(entry.first.begin(), entry.first.end()).empty())
-        // {
-        //     cerr << "found empty path!" << endl;
-        //     cerr << "size of entries: " << entry.first.size() << " " << entry.second.size() << endl;
+    // //     }
+    //     // cerr << "size of entries: " << entry.first.size() << " " << entry.second.size() << endl;
+    //     // if (_gbwt.find(entry.first.begin(), entry.first.end()).empty())
+    //     // {
+    //     //     cerr << "found empty path!" << endl;
+    //     //     cerr << "size of entries: " << entry.first.size() << " " << entry.second.size() << endl;
             
-        //     for (auto item : entry.first)
-        //     {
-        //         cerr << "seq in node: " << _gbwt_graph.get_sequence(_gbwt_graph.node_to_handle(item)) << endl;
-        //         entry.second.push_back(item);
-        //     }
-        // }
-        // cerr << _gbwt.find(entry.first.begin(), entry.first.end()) << endl;
-        // for (auto item : entry.first)
-        // {
-        //     cerr << "item" << endl;
-            // cerr << "seq in node: " << _gbwt_graph.get_sequence(_gbwt_graph.node_to_handle(item)) << endl;
-            // entry.second.push_back(item);
-        // }
-    }
+    //     //     for (auto item : entry.first)
+    //     //     {
+    //     //         cerr << "seq in node: " << _gbwt_graph.get_sequence(_gbwt_graph.node_to_handle(item)) << endl;
+    //     //         entry.second.push_back(item);
+    //     //     }
+    //     // }
+    //     // cerr << _gbwt.find(entry.first.begin(), entry.first.end()) << endl;
+    //     // for (auto item : entry.first)
+    //     // {
+    //     //     cerr << "item" << endl;
+    //         // cerr << "seq in node: " << _gbwt_graph.get_sequence(_gbwt_graph.node_to_handle(item)) << endl;
+    //         // entry.second.push_back(item);
+    //     // }
+    // }
     // for (auto& entry : _gbwt_changelog)
     // {
     //     cerr << "2nd size of entries: " << entry.first.size() << " " << entry.second.size() << endl;
@@ -387,7 +399,8 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
                 // cerr << "sequence of node: " << _gbwt_graph.get_sequence(handle) << endl;
                 hap_ids.emplace_back(_gbwt_graph.handle_to_node(handle));
                 // hap_str += _gbwt_graph.get_sequence(handle);
-                hap_str += _gbwt_graph.get_sequence(handle);
+                hap_str += _graph.get_sequence(handle);
+                // cerr << "hap_str: " << hap_str << endl;
             }
             
             pair<gbwt::vector_type, string> hap = make_pair(hap_ids, hap_str);
@@ -522,6 +535,10 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
         // Align the new snarl:
         VG new_snarl = align_source_to_sink_haplotypes(get<0>(haplotypes));
 
+        //todo: remove debug:
+        
+        
+
 
         //preprocess new_snarl for log_gbwt_changes:
         bool single_stranded = handlealgs::is_single_stranded(&new_snarl);
@@ -639,7 +656,8 @@ unordered_set<string> SnarlNormalizer::format_handle_haplotypes_to_strings(
     for (vector<handle_t> haplotype_handles : haplotype_handle_vectors) {
         string hap;
         for (handle_t &handle : haplotype_handles) {
-            hap += _gbwt_graph.get_sequence(handle);
+            // hap += _gbwt_graph.get_sequence(handle);
+            hap += _graph.get_sequence(handle);
         }
         haplotype_strings.emplace(hap);
     }
@@ -771,6 +789,7 @@ VG SnarlNormalizer::align_source_to_sink_haplotypes(
 
     pair<vector<handle_t>, vector<handle_t>> source_and_sink =
         debug_get_sources_and_sinks(snarl);
+
 
     // TODO: throw exception(?) instead of cerr, or remove these messages if I'm confident
     // TODO:    code works.

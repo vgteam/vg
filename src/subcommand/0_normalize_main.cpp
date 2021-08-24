@@ -201,7 +201,7 @@ int main_normalize(int argc, char **argv) {
     graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
   });
 
-  if (normalize_type != "all" && normalize_type != "one") {
+  if (normalize_type != "all" && normalize_type != "one" &&  normalize_type != "none") {
     cerr << "please enter a valid normalize_type: all or one." << endl;
   }
 
