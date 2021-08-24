@@ -43,10 +43,10 @@ using namespace vg::io;
 /// Automatically applies per-thread buffering, but needs to know how many OMP
 /// threads will be in use.
 unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, 
-                                                   const vector<path_handle_t>& paths, size_t max_threads,
+                                                   const vector<tuple<path_handle_t, size_t, size_t>>& paths, size_t max_threads,
                                                    const HandleGraph* graph = nullptr, bool hts_raw = false,
                                                    bool hts_spliced = false);
-                                                   
+
 /**
  * Produce a list of path handles in a fixed order, suitable for use with
  * get_alignment_emitter_with_surjection(), by parsing a file. The file may be
@@ -58,14 +58,24 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
  *
  * TODO: Be able to generate the autosomes human-sort, X, Y, MT order typical
  * of references.
+ *
+ * The tuple is <path, path length in graph, base path length>
+ * For a subpath (ie chr1[1000-10000]) the base path length would be that of chr1
+ * This information needs to come from the user in order to be correct, but 
+ * if it's not specified, it'll be guessed from the graph
  */
-vector<path_handle_t> get_sequence_dictionary(const string& filename, const PathPositionHandleGraph& graph);
-                                                   
-                                                   
+vector<tuple<path_handle_t, size_t, size_t>> get_sequence_dictionary(const string& filename, const PathPositionHandleGraph& graph);                                                   
+
 /**
- * Given a list of path handles, extract the names and lengths of all of them in order.
+ * Given a list of path handles and size info (from get_sequence_dictionary), return two things:
+ *  1) names and lengths of all of base paths in order.
+ *  2) a mapping of path names to length (reflects paths in the graph including subpaths) 
+ *
+ * If subpath_support is set to false, there won't be a distinction. 
  */
-vector<pair<string, int64_t>> extract_path_metadata(const vector<path_handle_t>& paths, const PathPositionHandleGraph& graph);
+pair<vector<pair<string, int64_t>>, unordered_map<string, int64_t>> extract_path_metadata(
+    const vector<tuple<path_handle_t, size_t, size_t>>& paths,  const PathPositionHandleGraph& graph,
+    bool subpath_support = false);
 
 /*
  * A class that can write SAM/BAM/CRAM files from parallel threads
@@ -78,7 +88,8 @@ public:
     /// groups for the header will be guessed from the first reads. HTSlib
     /// positions will be read from the alignments' refpos, and the alignments
     /// must be surjected.
-    HTSWriter(const string& filename, const string& format, const vector<pair<string, int64_t>>& path_order_and_length, size_t max_threads);
+    HTSWriter(const string& filename, const string& format, const vector<pair<string, int64_t>>& path_order_and_length,
+              const unordered_map<string, int64_t>& subpath_to_length, size_t max_threads);
     
     /// Tear down an HTSWriter and destroy HTSlib structures.
     ~HTSWriter();
@@ -105,8 +116,9 @@ protected:
     
     /// Store the path names and lengths in the order to put them in the header.
     vector<pair<string, int64_t>> path_order_and_length;
-    /// Index into that by path name
-    map<string, vector<pair<string, int64_t>>::iterator> path_index;
+    /// With subpath support, the above list will store base path inoformation for the header
+    /// The actual path lengths go here:
+    unordered_map<string, int64_t> subpath_to_length;
     
     /// To back our samFile*s, we need the hFILE* objects wrapping our C++
     /// streams. We need to manually flush these after HTS headers are written,
@@ -176,7 +188,8 @@ public:
     /// reads. HTSlib positions will be read from the alignments' refpos, and
     /// the alignments must be surjected.
     HTSAlignmentEmitter(const string& filename, const string& format,
-                        const vector<pair<string, int64_t>>& path_order_and_length, size_t max_threads);
+                        const vector<pair<string, int64_t>>& path_order_and_length,
+                        const unordered_map<string, int64_t>& subpath_to_length, size_t max_threads);
     
     /// Tear down an HTSAlignmentEmitter and destroy HTSlib structures.
     ~HTSAlignmentEmitter() = default;
@@ -225,6 +238,7 @@ public:
     
     SplicedHTSAlignmentEmitter(const string& filename, const string& format,
                                const vector<pair<string, int64_t>>& path_order_and_length,
+                               const unordered_map<string, int64_t>& subpath_to_length,
                                const PathPositionHandleGraph& graph,
                                size_t max_threads);
     
