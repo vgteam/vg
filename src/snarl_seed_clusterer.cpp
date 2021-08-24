@@ -938,14 +938,15 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
         //the distances to the ends of the parent for the cluster head, a reference
         //to the current cluster head and distances of the potential combined cluster (pair<pair<>pair<>> which will be updated if it gets combined),
         //the relevant combined cluster head for the fragment
-        auto compare_and_combine_clusters = [&] (size_t read_num, size_t cluster_num, size_t distance_between, pair<size_t, size_t> old_distances,
-                pair<pair<size_t, size_t>, pair<size_t, size_t>>& new_cluster_head_and_distances, size_t& new_cluster_head_fragment){
+        auto compare_and_combine_clusters = [&] (size_t read_num, size_t cluster_num, size_t distance_between_reads, 
+                size_t distance_between_fragments, pair<size_t, size_t> old_distances, pair<pair<size_t, size_t>, 
+                pair<size_t, size_t>>& new_cluster_head_and_distances, size_t& new_cluster_head_fragment){
             if (read_num == new_cluster_head_and_distances.first.first && cluster_num ==  new_cluster_head_and_distances.first.second) {
                 //If this is the same as the old cluster head, then don't bother trying to compare
                 return;
             }
 
-            if (distance_between <= tree_state.read_distance_limit) {
+            if (distance_between_reads <= tree_state.read_distance_limit) {
                 //If this can be combined with the given combined cluster
                 if (new_cluster_head_and_distances.first.first == std::numeric_limits<size_t>::max()){
                     //new cluster head
@@ -972,7 +973,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 
             }
             if (tree_state.fragment_distance_limit != 0 && 
-                        distance_between <= tree_state.fragment_distance_limit ) {
+                        distance_between_fragments <= tree_state.fragment_distance_limit ) {
                 //Just union the fragment
                 if (new_cluster_head_fragment == std::numeric_limits<size_t>::max()) {
                     new_cluster_head_fragment =cluster_num+tree_state.read_index_offsets[read_num];
@@ -1010,6 +1011,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 #endif
             compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.first,distance_left_left,child_clusters2.read_best_left[read_num]}), 
+                SnarlDistanceIndex::sum({distances.first,distance_left_left,child_clusters2.fragment_best_left}), 
                 distances_to_parent,
                 new_cluster_left_left_by_read[read_num], new_cluster_left_left_fragment);
             //Check if the left of 1 can connect with the right of 2
@@ -1018,6 +1020,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 #endif
             compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.first,distance_left_right,child_clusters2.read_best_right[read_num]}), 
+                SnarlDistanceIndex::sum({distances.first,distance_left_right,child_clusters2.fragment_best_right}), 
                 distances_to_parent, new_cluster_left_right_by_read[read_num], new_cluster_left_right_fragment);
             //Check if the right of 1 can connect with the right of 2
 #ifdef DEBUG_CLUSTER
@@ -1025,6 +1028,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 #endif
             compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.second,distance_right_right,child_clusters2.read_best_right[read_num]}), 
+                SnarlDistanceIndex::sum({distances.second,distance_right_right,child_clusters2.fragment_best_right}), 
                 distances_to_parent,new_cluster_right_right_by_read[read_num], new_cluster_right_right_fragment);
             //Check if the right of 1 can connect with the left of 2
 #ifdef DEBUG_CLUSTER
@@ -1032,6 +1036,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 #endif
             compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.second,distance_right_left,child_clusters2.read_best_left[read_num]}), 
+                SnarlDistanceIndex::sum({distances.second,distance_right_left,child_clusters2.fragment_best_left}), 
                 distances_to_parent, new_cluster_right_left_by_read[read_num], new_cluster_right_left_fragment);
 
             //Also add this cluster to the parent
@@ -1057,6 +1062,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 #endif
             compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.first,distance_left_left,child_clusters1.read_best_left[read_num]}), 
+                SnarlDistanceIndex::sum({distances.first,distance_left_left,child_clusters1.fragment_best_left}), 
                 distances_to_parent, new_cluster_left_left_by_read[read_num], new_cluster_left_left_fragment);
             //Check if the left of 1 can connect with the right of 2
 #ifdef DEBUG_CLUSTER
@@ -1064,6 +1070,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 #endif
             compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.second,distance_left_right,child_clusters1.read_best_left[read_num]}),
+                SnarlDistanceIndex::sum({distances.second,distance_left_right,child_clusters1.fragment_best_left}),
                 distances_to_parent, new_cluster_left_right_by_read[read_num], new_cluster_left_right_fragment);
             //Check if the right of 1 can connect with the right of 2
 #ifdef DEBUG_CLUSTER
@@ -1071,6 +1078,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 #endif
             compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.second,distance_right_right,child_clusters1.read_best_right[read_num]}),
+                SnarlDistanceIndex::sum({distances.second,distance_right_right,child_clusters1.fragment_best_right}),
                 distances_to_parent, new_cluster_right_right_by_read[read_num], new_cluster_right_right_fragment);
             //Check if the right of 1 can connect with the left of 2
 #ifdef DEBUG_CLUSTER
@@ -1078,6 +1086,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 #endif
             compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.first,distance_right_left,child_clusters1.read_best_right[read_num]}),
+                SnarlDistanceIndex::sum({distances.first,distance_right_left,child_clusters1.fragment_best_right}),
                 distances_to_parent, new_cluster_right_left_by_read[read_num], new_cluster_right_left_fragment);
         }
 
