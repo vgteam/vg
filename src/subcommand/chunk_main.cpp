@@ -651,6 +651,12 @@ int main_chunk(int argc, char** argv) {
                 for (; trace_start_step != trace_end_step; trace_start_step = graph->get_next_step(trace_start_step)) {
                     ++trace_steps;
                 }
+                // haplotype_extender is forward only.  until it's made bidirectional, try to
+                // detect backward paths and trace them backwards.  this will not cover all possible cases though.
+                if (graph->get_is_reverse(graph->get_handle_of_step(trace_start_step)) &&
+                    graph->get_is_reverse(graph->get_handle_of_step(trace_end_step))) {
+                    trace_start = graph->get_id(graph->get_handle_of_step(trace_end_step));
+                }
             }
             Graph g;
             trace_haplotypes_and_paths(*graph, *gbwt_index.get(), trace_start, trace_steps,
