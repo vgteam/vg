@@ -92,8 +92,8 @@ Inheritance diagram for vg::HTSWriter:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a53526e96c9d7aa637003eff1d81cf9e1"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSWriter.html#a53526e96c9d7aa637003eff1d81cf9e1">HTSWriter</a> (const string &amp;filename, const string &amp;<a class="el" href="classvg_1_1HTSWriter.html#a4c549b347cd3dba4710e1a195445a8b0">format</a>, const vector&lt; pair&lt; string, int64_t &gt;&gt; &amp;<a class="el" href="classvg_1_1HTSWriter.html#a2b0a5d9268a4b4901a699f82d857d6e2">path_order_and_length</a>, size_t max_threads)</td></tr>
-<tr class="separator:a53526e96c9d7aa637003eff1d81cf9e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8257b1e35ac5abf92b43b8a823c66aa5"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSWriter.html#a8257b1e35ac5abf92b43b8a823c66aa5">HTSWriter</a> (const string &amp;filename, const string &amp;<a class="el" href="classvg_1_1HTSWriter.html#a4c549b347cd3dba4710e1a195445a8b0">format</a>, const vector&lt; pair&lt; string, int64_t &gt;&gt; &amp;<a class="el" href="classvg_1_1HTSWriter.html#a2b0a5d9268a4b4901a699f82d857d6e2">path_order_and_length</a>, const unordered_map&lt; string, int64_t &gt; &amp;<a class="el" href="classvg_1_1HTSWriter.html#a24dca4e57dcfb498da8f18946194f600">subpath_to_length</a>, size_t max_threads)</td></tr>
+<tr class="separator:a8257b1e35ac5abf92b43b8a823c66aa5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8be4096c91ac54b168828071b814104d"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSWriter.html#a8be4096c91ac54b168828071b814104d">~HTSWriter</a> ()</td></tr>
 <tr class="memdesc:a8be4096c91ac54b168828071b814104d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Tear down an <a class="el" href="classvg_1_1HTSWriter.html">HTSWriter</a> and destroy HTSlib structures.  <a href="classvg_1_1HTSWriter.html#a8be4096c91ac54b168828071b814104d">More...</a><br /></td></tr>
 <tr class="separator:a8be4096c91ac54b168828071b814104d"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -128,9 +128,8 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:a2b0a5d9268a4b4901a699f82d857d6e2"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; string, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSWriter.html#a2b0a5d9268a4b4901a699f82d857d6e2">path_order_and_length</a></td></tr>
 <tr class="memdesc:a2b0a5d9268a4b4901a699f82d857d6e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Store the path names and lengths in the order to put them in the header.  <a href="classvg_1_1HTSWriter.html#a2b0a5d9268a4b4901a699f82d857d6e2">More...</a><br /></td></tr>
 <tr class="separator:a2b0a5d9268a4b4901a699f82d857d6e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afb2f00586bbc8693f32848ba7d15176f"><td class="memItemLeft" align="right" valign="top">map&lt; string, vector&lt; pair&lt; string, int64_t &gt; &gt;::iterator &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSWriter.html#afb2f00586bbc8693f32848ba7d15176f">path_index</a></td></tr>
-<tr class="memdesc:afb2f00586bbc8693f32848ba7d15176f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Index into that by path name.  <a href="classvg_1_1HTSWriter.html#afb2f00586bbc8693f32848ba7d15176f">More...</a><br /></td></tr>
-<tr class="separator:afb2f00586bbc8693f32848ba7d15176f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a24dca4e57dcfb498da8f18946194f600"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; string, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSWriter.html#a24dca4e57dcfb498da8f18946194f600">subpath_to_length</a></td></tr>
+<tr class="separator:a24dca4e57dcfb498da8f18946194f600"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad6b1fd5c6e6dc4f91601f115bd1e7410"><td class="memItemLeft" align="right" valign="top">vector&lt; hFILE * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSWriter.html#ad6b1fd5c6e6dc4f91601f115bd1e7410">backing_files</a></td></tr>
 <tr class="separator:ad6b1fd5c6e6dc4f91601f115bd1e7410"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a57a7f16757fc6ce944636d69c48903cb"><td class="memItemLeft" align="right" valign="top">vector&lt; samFile * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSWriter.html#a57a7f16757fc6ce944636d69c48903cb">sam_files</a></td></tr>
@@ -156,8 +155,8 @@ Static Protected Attributes</h2></td></tr>
 <tr class="separator:a00ebb72aacf4587e3d95a3a359da3323"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a53526e96c9d7aa637003eff1d81cf9e1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a53526e96c9d7aa637003eff1d81cf9e1">&#9670;&nbsp;</a></span>HTSWriter() <span class="overload">[1/3]</span></h2>
+<a id="a8257b1e35ac5abf92b43b8a823c66aa5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8257b1e35ac5abf92b43b8a823c66aa5">&#9670;&nbsp;</a></span>HTSWriter() <span class="overload">[1/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -179,6 +178,12 @@ Static Protected Attributes</h2></td></tr>
           <td></td>
           <td class="paramtype">const vector&lt; pair&lt; string, int64_t &gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>path_order_and_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_map&lt; string, int64_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>subpath_to_length</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -667,30 +672,6 @@ Static Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="afb2f00586bbc8693f32848ba7d15176f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afb2f00586bbc8693f32848ba7d15176f">&#9670;&nbsp;</a></span>path_index</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">map&lt;string, vector&lt;pair&lt;string, int64_t&gt; &gt;::iterator&gt; vg::HTSWriter::path_index</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Index into that by path name. </p>
-
-</div>
-</div>
 <a id="a2b0a5d9268a4b4901a699f82d857d6e2"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a2b0a5d9268a4b4901a699f82d857d6e2">&#9670;&nbsp;</a></span>path_order_and_length</h2>
 
@@ -758,6 +739,29 @@ Static Protected Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>We also need a header string. Not atomic, because by the time we read it we know the header is ready and nobody is writing to it. </p>
+
+</div>
+</div>
+<a id="a24dca4e57dcfb498da8f18946194f600"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a24dca4e57dcfb498da8f18946194f600">&#9670;&nbsp;</a></span>subpath_to_length</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">unordered_map&lt;string, int64_t&gt; vg::HTSWriter::subpath_to_length</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>With subpath support, the above list will store base path inoformation for the header The actual path lengths go here: </p>
 
 </div>
 </div>

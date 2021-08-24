@@ -210,7 +210,7 @@ var searchData=
   ['extract_5fmaximal_5fgraph_1209',['extract_maximal_graph',['../classvg_1_1MultipathMapper.html#a2688faa30ec227f9c9266ce37ce5ca6b',1,'vg::MultipathMapper']]],
   ['extract_5foverlapping_5fpaths_1210',['extract_overlapping_paths',['../classvg_1_1Surjector.html#a160910efa71892d87e316fe86d668150',1,'vg::Surjector::extract_overlapping_paths(const PathPositionHandleGraph *graph, const Alignment &amp;source, const unordered_set&lt; path_handle_t &gt; &amp;surjection_paths) const'],['../classvg_1_1Surjector.html#a75f94ffa222c74f6e77edbeb55e775b0',1,'vg::Surjector::extract_overlapping_paths(const PathPositionHandleGraph *graph, const multipath_alignment_t &amp;source, const unordered_set&lt; path_handle_t &gt; &amp;surjection_paths, unordered_map&lt; path_handle_t, vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt;&gt; &amp;connections_out) const']]],
   ['extract_5fpath_5fcomponent_1211',['extract_path_component',['../classvg_1_1PathChunker.html#aca0d2bec2834fdc534d42238a0a53b46',1,'vg::PathChunker']]],
-  ['extract_5fpath_5fmetadata_1212',['extract_path_metadata',['../namespacevg.html#a40a4773c4ca6593f42fec5817a1614fa',1,'vg']]],
+  ['extract_5fpath_5fmetadata_1212',['extract_path_metadata',['../namespacevg.html#aa381cdc7f966379fc7cc9ea11257f632',1,'vg']]],
   ['extract_5fpath_5frange_1213',['extract_path_range',['../namespacevg_1_1algorithms.html#a6da60961fae57a5568354ef5b541bcf7',1,'vg::algorithms']]],
   ['extract_5frescue_5fgraph_1214',['extract_rescue_graph',['../classvg_1_1MultipathMapper.html#abbe3a65d5493fa016e9e1e0025678db2',1,'vg::MultipathMapper']]],
   ['extract_5frestrained_5fgraph_1215',['extract_restrained_graph',['../classvg_1_1MultipathMapper.html#a282d59b6aa693b4f454ab25c5f7f328c',1,'vg::MultipathMapper']]],
