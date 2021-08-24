@@ -765,10 +765,13 @@ namespace vg {
         // get the position to jump from and the distance to jump
         Alignment opt_anchoring_aln;
         optimal_alignment(multipath_aln, opt_anchoring_aln);
+        
+        if (opt_anchoring_aln.path().mapping_size() == 0) {
+            return;
+        }
                 
         if (get_rescue_graph_from_paths || !distance_index) {
             // we're either not using the distance index or we don't have one
-            
             pos_t pos_from = rescue_forward ? initial_position(opt_anchoring_aln.path()) : final_position(opt_anchoring_aln.path());
             int64_t jump_dist = rescue_forward ? fragment_length_distr.mean() : -fragment_length_distr.mean();
             
@@ -2271,6 +2274,9 @@ namespace vg {
         // examine the region along the possible splice region of the anchor
         Alignment opt;
         optimal_alignment(anchor_mp_aln, opt);
+        if (opt.path().mapping_size() == 0) {
+            return false;
+        }
         auto anchor_pos = trimmed_end(opt, max_splice_overhang, !searching_left, *xindex,
                                       *get_aligner(!opt.quality().empty()));
         
@@ -2311,6 +2317,12 @@ namespace vg {
             
             Alignment candidate_opt;
             optimal_alignment(candidate, candidate_opt);
+            if (candidate_opt.path().mapping_size() == 0) {
+#ifdef debug_multipath_mapper
+                cerr << "skipping negative scoring candidate " << i << endl;
+#endif
+                continue;
+            }
             
             auto candidate_pos = trimmed_end(candidate_opt, max_splice_overhang, searching_left, *xindex,
                                              *get_aligner(!opt.quality().empty()));
@@ -3448,13 +3460,20 @@ namespace vg {
         bool found_consistent = false;
         auto attempt_to_pair = [&](size_t i, size_t j) {
 
-            Alignment opt_1;
+            if (multipath_alns_1[i].subpath_size() == 0 || multipath_alns_2[j].subpath_size() == 0) {
+                return;
+            }
+            
+            Alignment opt_1, opt_2;
             optimal_alignment(multipath_alns_1[i], opt_1);
+            optimal_alignment(multipath_alns_2[j], opt_2);
+            if (opt_1.path().mapping_size() == 0 || opt_2.path().mapping_size() == 0) {
+                return;
+            }
+            
             pos_t inner_pos_1 = final_position(opt_1.path());
             int64_t aligned_length_1 = path_from_length(opt_1.path());
             
-            Alignment opt_2;
-            optimal_alignment(multipath_alns_2[j], opt_2);
             pos_t inner_pos_2 = initial_position(opt_2.path());
             int64_t aligned_length_2 = path_from_length(opt_2.path());
 
@@ -5910,7 +5929,7 @@ namespace vg {
     
     int32_t MultipathMapper::compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method,
                                                                      bool have_qualities, const vector<double>* multiplicities) const {
-   
+        
         // We should never actually compute a MAPQ with the None method. If we try, it means something has gone wrong.
         assert(mapq_method != None);
    
@@ -6113,10 +6132,10 @@ namespace vg {
             Alignment aln1, aln2;
             optimal_alignment(multipath_aln_pairs[i].first, aln1);
             optimal_alignment(multipath_aln_pairs[i].second, aln2);
-            auto start1 = aln1.path().mapping(0).position().node_id();
-            auto start2 = aln2.path().mapping(0).position().node_id();
+            int64_t id1 = aln1.path().mapping_size() ? aln1.path().mapping(0).position().node_id() : multipath_aln_pairs[i].first.subpath(0).path().mapping(0).position().node_id();
+            int64_t id2 = aln2.path().mapping_size() ? aln2.path().mapping(0).position().node_id() : multipath_aln_pairs[i].second.subpath(0).path().mapping(0).position().node_id();
         
-            cerr << "\tpos:" << start1 << "(" << aln1.score() << ")-" << start2 << "(" << aln2.score() << ")"
+            cerr << "\tpos:" << id1 << "(" << aln1.score() << ")-" << id2 << "(" << aln2.score() << ")"
                 << " align:" << optimal_alignment_score(multipath_aln_pairs[i].first) + optimal_alignment_score(multipath_aln_pairs[i].second)
                 << ", length: " << cluster_pairs[i].second;
             cerr << ", combined: " << scores[i];
