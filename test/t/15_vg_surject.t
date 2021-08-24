@@ -147,14 +147,14 @@ vg index j.sub.vg -g j.sub.gcsa
 vg map -x j.sub.vg -g j.sub.gcsa -s TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA > r.sub.gam
 vg surject -x j.sub.vg r.sub.gam -s > r.sub.sam
 
-sed r.sam -e 's/LN:1001/LN:1501/g' -e 's/161/661/g' > r.manual.sam
+cat r.sam | sed -e 's/LN:1001/LN:1501/g' -e 's/161/661/g' > r.manual.sam
 diff r.manual.sam r.sub.sam
 is "$?" 0 "vg surject correctly handles subpath suffix in path name"
 
 printf "x\t2000\n" > path_info.tsv
 rm -f r.sub.sam r.manual.sam
 vg surject -x j.sub.vg r.sub.gam -s --ref-paths path_info.tsv > r.sub.sam
-sed r.sam -e 's/LN:1001/LN:2000/g' -e 's/161/661/g' > r.manual.sam
+cat r.sam | sed -e 's/LN:1001/LN:2000/g' -e 's/161/661/g' > r.manual.sam
 diff r.manual.sam r.sub.sam
 is "$?" 0 "vg surject correctly fetches base path length from input file"
 
