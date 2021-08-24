@@ -76,6 +76,33 @@ string Paths::make_subpath_name(const string& path_name, size_t offset, size_t e
     return out_name;
 }
 
+size_t Paths::get_base_length(const PathHandleGraph* graph, const string& path_name) {
+
+    size_t max_pos = 0;
+
+    // this returns the minimum length that can hold all the subpaths we find
+    // but the only way to get the true length would be to have stored it elsewhere
+    graph->for_each_path_handle([&](path_handle_t path_handle) {
+            string cur_path_name = graph->get_path_name(path_handle);
+            auto subpath_info = parse_subpath_name(cur_path_name);
+            if ((get<0>(subpath_info) && get<1>(subpath_info) == path_name) || cur_path_name == path_name) {
+                size_t end_pos = 0;
+                if (get<3>(subpath_info) > 0) {
+                    end_pos = get<3>(subpath_info) + 1; // convert inclusive end position to length
+                } else {
+                    graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
+                            end_pos += graph->get_length(graph->get_handle_of_step(step_handle));
+                        });
+                    if (get<0>(subpath_info)) {
+                        end_pos += get<2>(subpath_info);
+                    }
+                }
+                max_pos = std::max(max_pos, end_pos);
+            }
+        });
+    
+    return max_pos;
+}
 
 mapping_t::mapping_t(void) : traversal(0), length(0), rank(1) { }
 
