@@ -615,11 +615,12 @@ protected:
     
     /**
      * Given a vector of items, a function to get the score of each, a
-     * score-difference-from-the-best cutoff, and a min and max processed item
-     * count, process items in descending score order by calling process_item
-     * with the item's number, until min_count items are processed and either
-     * max_count items are processed or the score difference threshold is hit
-     * (or we run out of items).
+     * score-difference-from-the-best cutoff, a min and max processed item
+     * count, and a function to get a sort-shuffling seed for breaking ties,
+     * process items in descending score order by calling process_item with the
+     * item's number, until min_count items are processed and either max_count
+     * items are processed or the score difference threshold is hit (or we run
+     * out of items).
      *
      * If process_item returns false, the item is skipped and does not count
      * against min_count or max_count.
@@ -633,6 +634,7 @@ protected:
     template<typename Item, typename Score = double>
     void process_until_threshold_a(const vector<Item>& items, const function<Score(size_t)>& get_score,
         double threshold, size_t min_count, size_t max_count,
+        const function<string(void)>& get_seed,
         const function<bool(size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const;
@@ -643,6 +645,7 @@ protected:
     template<typename Item, typename Score = double>
     void process_until_threshold_b(const vector<Item>& items, const vector<Score>& scores,
         double threshold, size_t min_count, size_t max_count,
+        const function<string(void)>& get_seed,
         const function<bool(size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const;
@@ -655,6 +658,7 @@ protected:
     void process_until_threshold_c(const vector<Item>& items, const function<Score(size_t)>& get_score,
         const function<bool(size_t, size_t)>& comparator,
         double threshold, size_t min_count, size_t max_count,
+        const function<string(void)>& get_seed,
         const function<bool(size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const;
@@ -679,18 +683,20 @@ protected:
 template<typename Item, typename Score>
 void MinimizerMapper::process_until_threshold_a(const vector<Item>& items, const function<Score(size_t)>& get_score,
     double threshold, size_t min_count, size_t max_count,
+    const function<string(void)>& get_seed,
     const function<bool(size_t)>& process_item,
     const function<void(size_t)>& discard_item_by_count,
     const function<void(size_t)>& discard_item_by_score) const {
 
     process_until_threshold_c<Item, Score>(items, get_score, [&](size_t a, size_t b) -> bool {
         return (get_score(a) > get_score(b));
-    },threshold, min_count, max_count, process_item, discard_item_by_count, discard_item_by_score);
+    },threshold, min_count, max_count, get_seed, process_item, discard_item_by_count, discard_item_by_score);
 }
 
 template<typename Item, typename Score>
 void MinimizerMapper::process_until_threshold_b(const vector<Item>& items, const vector<Score>& scores,
     double threshold, size_t min_count, size_t max_count,
+    const function<string(void)>& get_seed,
     const function<bool(size_t)>& process_item,
     const function<void(size_t)>& discard_item_by_count,
     const function<void(size_t)>& discard_item_by_score) const {
@@ -701,13 +707,14 @@ void MinimizerMapper::process_until_threshold_b(const vector<Item>& items, const
         return scores[i];
     }, [&](size_t a, size_t b) -> bool {
         return (scores[a] > scores[b]);
-    },threshold, min_count, max_count, process_item, discard_item_by_count, discard_item_by_score);
+    },threshold, min_count, max_count, get_seed, process_item, discard_item_by_count, discard_item_by_score);
 }
 
 template<typename Item, typename Score>
 void MinimizerMapper::process_until_threshold_c(const vector<Item>& items, const function<Score(size_t)>& get_score,
         const function<bool(size_t, size_t)>& comparator,
         double threshold, size_t min_count, size_t max_count,
+        const function<string(void)>& get_seed,
         const function<bool(size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const {
@@ -719,11 +726,9 @@ void MinimizerMapper::process_until_threshold_c(const vector<Item>& items, const
         indexes_in_order.push_back(i);
     }
     
-    // Put the highest scores first, but shuffle ties so reads spray evenly
+    // Put the highest scores first, but shuffle top ties so reads spray evenly
     // across equally good mappings
-    sort_shuffling_ties(indexes_in_order.begin(), indexes_in_order.end(), comparator, [&](size_t index) {
-        return make_shuffle_seed(items.at(index));
-    });
+    sort_shuffling_ties(indexes_in_order.begin(), indexes_in_order.end(), comparator, get_seed);
 
     // Retain items only if their score is at least as good as this
     double cutoff = items.size() == 0 ? 0 : get_score(indexes_in_order[0]) - threshold;

@@ -339,19 +339,24 @@ void deterministic_shuffle(RandomIt begin, RandomIt end, const string& seed) {
     deterministic_shuffle(begin, end, seedNumber);
 }
 
+// For seed generation, we aren't just using our normal hash functions, because
+// we want it to be more semantic and not dependent on memory addresses.
+
 /// Make seeds for Alignments based on their sequences.
 inline string make_shuffle_seed(const Alignment& aln) {
     return aln.sequence();
 }
 
-/// Make seeds for Alignments based on their sequences.
-inline string make_shuffle_seed(const Alignment* aln) {
-    return aln->sequence();
+/// Make seeds for pointers to things we can make seeds for.
+template<typename T>
+inline string make_shuffle_seed(const T* ptr) {
+    return make_shuffle_seed(*ptr);
 }
 
-/// Make seeds for pairs of Alignments based on their concatenated sequences
-inline string make_shuffle_seed(const pair<Alignment, Alignment>* alns) {
-    return alns->first.sequence() + alns->second.sequence();
+/// Make seeds for pairs of things we can make seeds for.
+template<typename T1, typename T2>
+inline string make_shuffle_seed(const pair<T1, T2>& p) {
+    return make_shuffle_seed(p.first) + make_shuffle_seed(p.second);
 }
 
 /// Do a deterministic shuffle with automatic seed determination.
@@ -361,8 +366,11 @@ void deterministic_shuffle(RandomIt begin, RandomIt end) {
 }
 
 /**
- * Sort the items between the two given random-access iterators, as with std::sort.
- * Deterministically shuffle the ties, if any, at the top end, using the given seed generator function.
+ * Sort the items between the two given random-access iterators, as with
+ * std::sort. Deterministically shuffle the ties, if any, at the top end, using
+ * the given nullary seed generator function. The seed generator function will
+ * only be called if there are any ties, and should return a string or uint32_t
+ * seed.
  */
 template<class RandomIt, class Compare, class MakeSeed>
 void sort_shuffling_ties(RandomIt begin, RandomIt end, Compare comp, MakeSeed seed) {
@@ -385,21 +393,23 @@ void sort_shuffling_ties(RandomIt begin, RandomIt end, Compare comp, MakeSeed se
     
     if (begin != ties_end) {
         // Shuffle the ties.
-        deterministic_shuffle(begin, ties_end, seed(*begin));
+        deterministic_shuffle(begin, ties_end, seed());
     }
 
 }
 
 /**
- * Sort the items between the two given random-access iterators, as with std::sort.
- * Deterministically shuffle the ties, if any, at the top end, using automatic seed determination.
+ * Sort the items between the two given random-access iterators, as with
+ * std::sort. Deterministically shuffle the ties, if any, at the top end, using
+ * automatic seed determination as defined by a make_shuffle_seed() overload
+ * for the collection's item type.
  */
 template<class RandomIt, class Compare>
 void sort_shuffling_ties(RandomIt begin, RandomIt end, Compare comp) {
     
     // Make the seed using the pre-defined seed making approaches
-    sort_shuffling_ties(begin, end, comp, [](decltype (*begin)& item) {
-        return make_shuffle_seed(item);
+    sort_shuffling_ties(begin, end, comp, [&]() {
+        return make_shuffle_seed(*begin);
     });
 
 }
