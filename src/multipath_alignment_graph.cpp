@@ -1098,7 +1098,7 @@ namespace vg {
                 return path_nodes[overlapping_group[i]].begin + to_length[i];
             };
             // go from heap record to mapping
-            auto next_mapping = [&](const pair<size_t, size_t>& a) {
+            auto next_mapping = [&](const pair<size_t, size_t>& a) -> const path_mapping_t& {
                 return path_nodes[overlapping_group[a.first]].path.mapping(a.second);
             };
             // go from index within overlapping group to path length in mappings
