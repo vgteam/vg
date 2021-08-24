@@ -4,6 +4,7 @@
 #include <vg/io/vpkg.hpp>
 
 #include <sstream>
+#include <unordered_map>
 
 namespace vg {
 
@@ -235,6 +236,72 @@ void GBWTHandler::clear() {
     this->compressed = gbwt::GBWT();
     this->dynamic = gbwt::DynamicGBWT();
     this->in_use = index_none;
+}
+
+//------------------------------------------------------------------------------
+
+gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index, const std::vector<std::pair<gbwt::vector_type, gbwt::vector_type>>& mappings) {
+    if (gbwt_index.empty() || mappings.empty()) {
+        return gbwt_index;
+    }
+
+    // Partition the mappings by the first node and determine node width.
+    gbwt::size_type node_width = sdsl::bits::length(gbwt_index.sigma() - 1);
+    std::unordered_map<gbwt::node_type, std::vector<std::pair<gbwt::vector_type, gbwt::vector_type>>> mappings_by_first_node;
+    for (auto& mapping : mappings) {
+        if (mapping.first.empty()) {
+            continue;
+        }
+        mappings_by_first_node[mapping.first.front()].push_back(mapping);
+        std::pair<gbwt::vector_type, gbwt::vector_type> reverse;
+        gbwt::reversePath(mapping.first, reverse.first);
+        gbwt::reversePath(mapping.second, reverse.second);
+        mappings_by_first_node[reverse.first.front()].push_back(reverse);
+        for (auto node : mapping.second) {
+            node_width = std::max(node_width, static_cast<gbwt::size_type>(sdsl::bits::length(node)));
+        }
+    }
+
+    // Build the new GBWT.
+    gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
+    gbwt::GBWTBuilder builder(node_width);
+    for (gbwt::size_type id = 0; id < gbwt_index.sequences(); id += 2) {
+        gbwt::vector_type path = gbwt_index.extract(id);
+        gbwt::vector_type mapped;
+        size_t i = 0;
+        while (i < path.size()) {
+            auto iter = mappings_by_first_node.find(path[i]);
+            bool found = false;
+            if (iter != mappings_by_first_node.end()) {
+                for (auto& mapping : iter->second) {
+                    size_t j = 1;
+                    while (j < mapping.first.size() && i + j < path.size() && mapping.first[j] == path[i + j]) {
+                        j++;
+                    }
+                    if (j >= mapping.first.size()) {
+                        mapped.insert(mapped.end(), mapping.second.begin(), mapping.second.end());
+                        i += j;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found) {
+                mapped.push_back(path[i]);
+                i++;
+            }
+        }
+        builder.insert(mapped, true);
+    }
+    builder.finish();
+
+    // Copy the metadata.
+    if (gbwt_index.hasMetadata()) {
+        builder.index.addMetadata();
+        builder.index.metadata = gbwt_index.metadata;
+    }
+
+    return gbwt::GBWT(builder.index);
 }
 
 //------------------------------------------------------------------------------

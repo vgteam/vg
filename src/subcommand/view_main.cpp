@@ -45,8 +45,7 @@ void help_view(char** argv) {
          << "    -c, --json-stream          streaming conversion of a VG format graph in line delimited JSON format" << endl
          << "                               (this cannot be loaded directly via -J)" << endl
 
-         << "    -G, --gam                  output GAM format (vg alignment format: Graph " << endl
-         << "                               Alignment/Map)" << endl
+         << "    -G, --gam                  output GAM format (vg alignment format: Graph Alignment/Map)" << endl
          << "    -Z, --translation-in       input is a graph translation description" << endl
 
          << "    -t, --turtle               output RDF/turtle format (can not be loaded by VG)" << endl
@@ -688,6 +687,14 @@ int main_view(int argc, char** argv) {
             else if (output_type == "json") {
                 json_helper.write(cout, true);
             }
+            else if (output_type == "dot") {
+                MultipathAlignment proto_mp_aln;
+                while (json_helper.get_read_fn()(proto_mp_aln)) {
+                    multipath_alignment_t mp_aln;
+                    from_proto_multipath_alignment(proto_mp_aln, mp_aln);
+                    view_multipath_alignment_as_dot(std::cout, mp_aln, true);
+                }
+            }
             else {
                 cerr << "[vg view] error: Unrecognized output format for MultipathAlignment (GAMP)" << endl;
                 return 1;
@@ -738,7 +745,17 @@ int main_view(int argc, char** argv) {
             }
             else if (output_type == "json") {
                 function<void(MultipathAlignment&)> lambda = [&](MultipathAlignment& mp_aln) {
-                    cout << pb2json(mp_aln) << endl;
+                    cout << pb2json(mp_aln) << '\n';
+                };
+                get_input_file(file_name, [&](istream& in) {
+                    vg::io::for_each(in, lambda);
+                });
+            }
+            else if (output_type == "dot") {
+                function<void(MultipathAlignment&)> lambda = [&](MultipathAlignment& proto_mp_aln) {
+                    multipath_alignment_t mp_aln;
+                    from_proto_multipath_alignment(proto_mp_aln, mp_aln);
+                    view_multipath_alignment_as_dot(std::cout, mp_aln, true);
                 };
                 get_input_file(file_name, [&](istream& in) {
                     vg::io::for_each(in, lambda);

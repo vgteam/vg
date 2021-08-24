@@ -57,7 +57,7 @@ void help_mpmap(char** argv) {
     << "  -f, --fastq FILE          input FASTQ (possibly gzipped), can be given twice for paired ends (for stdin use -)" << endl
     << "  -i, --interleaved         input contains interleaved paired ends" << endl
     << "algorithm presets:" << endl
-    << "  -n, --nt-type TYPE        sequence type preset: 'DNA' for genomic data, 'RNA' for transcriptomic data [DNA]" << endl
+    << "  -n, --nt-type TYPE        sequence type preset: 'DNA' for genomic data, 'RNA' for transcriptomic data [RNA]" << endl
     << "  -l, --read-length TYPE    read length preset: 'very-short', 'short', or 'long' (approx. <50bp, 50-500bp, and >500bp) [short]" << endl
     << "  -e, --error-rate TYPE     error rate preset: 'low' or 'high' (approx. PHRED >20 and <20) [low]" << endl
     << "output:" << endl
@@ -78,11 +78,11 @@ void help_mpmap(char** argv) {
     << "advanced options:" << endl
     << "algorithm:" << endl
     //<< "  -v, --tvs-clusterer          use the target value search-based clusterer (requires a distance index from -d)" << endl
-    //<< "  -X, --snarl-max-cut INT      do not align to extra paths in a snarl if there is an exact match this long (0 for no limit) [5]" << endl
     //<< "  -a, --alt-paths INT          align to (up to) this many alternate paths in snarls [10]" << endl
     //<< "      --suppress-tail-anchors  don't produce extra anchors when aligning to alternate paths in snarls" << endl
     //<< "  -T, --same-strand            read pairs are from the same strand of the DNA/RNA molecule" << endl
     << "  -a, --agglomerate-alns    combine separate multipath alignments into one (possibly disconnected) alignment" << endl
+    << "  -X, --not-spliced         do not form spliced alignments, even if aligning with --nt-type 'rna'" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
     << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
     << "  -b, --frag-sample INT     look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
@@ -162,7 +162,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_MAX_RESCUE_P_VALUE 1029
     #define OPT_ALT_PATHS 1030
     #define OPT_SUPPRESS_SUPPRESSION 1031
-    #define OPT_NOT_SPLICED 1032
+    #define OPT_SNARL_MAX_CUT 1032
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -304,7 +304,7 @@ int main_mpmap(int argc, char** argv) {
     string out_format = "GAMP";
 
     // default presets
-    string nt_type = "dna";
+    string nt_type = "rna";
     string read_length = "short";
     string error_rate = "low";
     
@@ -336,7 +336,7 @@ int main_mpmap(int argc, char** argv) {
             {"synth-tail-anchors", no_argument, 0, OPT_SUPPRESS_TAIL_ANCHORS},
             {"suppress-suppression", no_argument, 0, OPT_SUPPRESS_SUPPRESSION},
             {"tvs-clusterer", no_argument, 0, 'v'},
-            {"snarl-max-cut", required_argument, 0, 'X'},
+            {"snarl-max-cut", required_argument, 0, OPT_SNARL_MAX_CUT},
             {"alt-paths", required_argument, 0, OPT_ALT_PATHS},
             {"frag-sample", required_argument, 0, 'b'},
             {"frag-mean", required_argument, 0, 'I'},
@@ -381,7 +381,7 @@ int main_mpmap(int argc, char** argv) {
             {"drop-subgraph", required_argument, 0, 'C'},
             {"prune-exp", required_argument, 0, OPT_PRUNE_EXP},
             {"long-read-scoring", no_argument, 0, 'E'},
-            {"not-spliced", no_argument, 0, OPT_NOT_SPLICED},
+            {"not-spliced", no_argument, 0, 'X'},
             {"read-length", required_argument, 0, 'l'},
             {"nt-type", required_argument, 0, 'n'},
             {"error-rate", required_argument, 0, 'e'},
@@ -399,7 +399,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:iS:s:vX:u:b:I:D:BP:Q:UpM:r:W:K:F:c:C:R:En:l:e:q:z:w:o:y:L:mAt:a",
+        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:iS:s:vXu:b:I:D:BP:Q:UpM:r:W:K:F:c:C:R:En:l:e:q:z:w:o:y:L:mAt:a",
                          long_options, &option_index);
 
 
@@ -550,7 +550,7 @@ int main_mpmap(int argc, char** argv) {
                 use_min_dist_clusterer = false;
                 break;
                 
-            case 'X':
+            case OPT_SNARL_MAX_CUT:
                 snarl_cut_size = parse<int>(optarg);
                 break;
                 
@@ -727,7 +727,7 @@ int main_mpmap(int argc, char** argv) {
                 read_length = "long";
                 break;
                 
-            case OPT_NOT_SPLICED:
+            case 'X':
                 override_spliced_alignment = true;
                 break;
                 
@@ -929,8 +929,6 @@ int main_mpmap(int argc, char** argv) {
             // we'll allow multicomponent alignments so that the two sides of a shRNA
             // can be one alignment
             suppress_multicomponent_splitting = true;
-            // miRNA aren't spliced like mRNA
-            do_spliced_alignment = false;
         }
     }
     else if (nt_type != "dna") {
@@ -1438,8 +1436,8 @@ int main_mpmap(int argc, char** argv) {
     time_t time_start;
     auto progress_boilerplate = [&]() {
         stringstream strm;
-        strm.precision(1);
         strm << fixed;
+        strm.precision(0);
         if (!clock_init) {
             time(&time_start);
             strm << 0.0 << " s";
@@ -1453,6 +1451,7 @@ int main_mpmap(int argc, char** argv) {
                 strm << secs << " s";
             }
             else {
+                strm.precision(1);
                 double mins = secs / 60.0;
                 if (mins <= 60.0) {
                     strm << mins << " m";
@@ -2139,7 +2138,8 @@ int main_mpmap(int argc, char** argv) {
     // FASTQ input
     if (!fastq_name_1.empty()) {
         if (!suppress_progress) {
-            cerr << progress_boilerplate() << "Mapping reads from " << (fastq_name_1 == "-" ? "STDIN" : fastq_name_1) << (fastq_name_2.empty() ? "" : " and " + (fastq_name_2 == "-" ? "STDIN" : fastq_name_2)) << " using " << thread_count << " threads" << endl;
+            
+            cerr << progress_boilerplate() << "Mapping reads from " << (fastq_name_1 == "-" ? "STDIN" : fastq_name_1) << (fastq_name_2.empty() ? "" : " and " + (fastq_name_2 == "-" ? "STDIN" : fastq_name_2)) << " using " << thread_count << " thread" << (thread_count > 1 ? "s" : "") << endl;
         }
         
         if (interleaved_input) {
@@ -2158,7 +2158,7 @@ int main_mpmap(int argc, char** argv) {
     // GAM input
     if (!gam_file_name.empty()) {
         if (!suppress_progress) {
-            cerr << progress_boilerplate() << "Mapping reads from " << (gam_file_name == "-" ? "STDIN" : gam_file_name) << " using " << thread_count << " threads" << endl;
+            cerr << progress_boilerplate() << "Mapping reads from " << (gam_file_name == "-" ? "STDIN" : gam_file_name) << " using " << thread_count << " thread" << (thread_count > 1 ? "s" : "")  << endl;
         }
         
         function<void(istream&)> execute = [&](istream& gam_in) {
