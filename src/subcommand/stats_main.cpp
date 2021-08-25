@@ -241,7 +241,7 @@ int main_stats(int argc, char** argv) {
             break;
         case 'b':
             distance_index_filename = optarg;
-
+            break;
         case 'p':
         {
             int num_threads = parse<int>(optarg);
