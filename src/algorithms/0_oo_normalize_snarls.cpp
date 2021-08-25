@@ -399,7 +399,7 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
                 // cerr << "sequence of node: " << _gbwt_graph.get_sequence(handle) << endl;
                 hap_ids.emplace_back(_gbwt_graph.handle_to_node(handle));
                 // hap_str += _gbwt_graph.get_sequence(handle);
-                hap_str += _graph.get_sequence(handle);
+                hap_str += _graph.get_sequence(_graph.get_handle(_gbwt_graph.get_id(handle), _gbwt_graph.get_is_reverse(handle)));
                 // cerr << "hap_str: " << hap_str << endl;
             }
             
@@ -657,7 +657,7 @@ unordered_set<string> SnarlNormalizer::format_handle_haplotypes_to_strings(
         string hap;
         for (handle_t &handle : haplotype_handles) {
             // hap += _gbwt_graph.get_sequence(handle);
-            hap += _graph.get_sequence(handle);
+            hap += _graph.get_sequence(_graph.get_handle(_gbwt_graph.get_id(handle), _gbwt_graph.get_is_reverse(handle)));
         }
         haplotype_strings.emplace(hap);
     }
