@@ -33,7 +33,7 @@ void help_clip(char** argv) {
        << "general options: " << endl
        << "    -P, --path-prefix STRING  Do not clip out alleles on paths beginning with given prefix (such references must be specified either with -P or -b). " << endl
        << "    -m, --min-fragment-len N  Don't write novel path fragment if it less than N bp long" << endl
-       << "    -B, --output-bed          Write BED file of affected intervals instead of clipped graph (currently only supported by snarl complexity clipping)" << endl
+       << "    -B, --output-bed          Write BED-style file of affected intervals instead of clipped graph. Columns 4-8 are: snarl, node-count, edge-count, avg-degree" << endl
        << "    -t, --threads N           number of threads to use (only used to computing snarls) [default: all available]" << endl
        << "    -v, --verbose             Print some logging messages" << endl
        << endl;

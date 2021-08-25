@@ -255,8 +255,10 @@ void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph, const uno
 static bool snarl_is_complex(PathPositionHandleGraph* graph, const Snarl* snarl,
                              const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents,
                              int64_t ref_interval_length, const Region& region, size_t max_nodes, size_t max_edges,
-                             double max_avg_degree, double max_reflen_prop) {
+                             double max_avg_degree, double max_reflen_prop, double& out_avg_degree) {
 
+    out_avg_degree = -1.;
+    
     // if our snarl is to big vs the reference path, we do not process it
     if (max_reflen_prop > 0 && max_reflen_prop < 1) {
         assert(graph->has_path(region.seq));
@@ -270,33 +272,22 @@ static bool snarl_is_complex(PathPositionHandleGraph* graph, const Snarl* snarl,
         }
     }
 
-    // check the easy stats
-    if (contents.first.size() > max_nodes || contents.second.size() > max_edges) {
-#ifdef debug
-        cerr << "snarl " << pb2json(*snarl) << " with " << contents.first.size() << " nodes and " << contents.second.size() << " edges "
-             << "exceeds respective thresholds of " << max_nodes << " and " << max_edges << endl;
-#endif
-        return true;
+    // check the stats
+    bool filter_on = max_nodes > 0 || max_edges > 0 | max_avg_degree > 0.;
+    bool complex_nodes = max_nodes > contents.first.size();
+    bool complex_edges = max_edges > contents.second.size();
+    bool complex_degree = true;
+    size_t total_degree = 0;
+    for (id_t node_id : contents.first) {
+        handle_t handle = graph->get_handle(node_id);
+        total_degree += graph->get_degree(handle, true) + graph->get_degree(handle, false);
     }
-
-    // check the degree stats
-    if (max_avg_degree < numeric_limits<double>::max()) {
-        size_t total_degree = 0;
-        for (id_t node_id : contents.first) {
-            handle_t handle = graph->get_handle(node_id);
-            total_degree += graph->get_degree(handle, true) + graph->get_degree(handle, false);
-        }
-        // degree averaged over node sides to be a bit more intuitive, hence 2X in denominator:
-        double avg_degree = (double)total_degree / (2. *(double)contents.first.size());
-        if (avg_degree > max_avg_degree) {
-#ifdef debug
-            cerr << "snarl " << pb2json(*snarl) << " with avg degree " << avg_degree << " exceeds threshold of " << max_avg_degree << endl;
-#endif
-            return true;
-        }
-    }
-
-    return false;
+    // degree averaged over node sides to be a bit more intuitive, hence 2X in denominator:
+    out_avg_degree = (double)total_degree / (2. *(double)contents.first.size());
+    complex_degree = out_avg_degree > max_avg_degree;        
+    
+    // todo: we could look at doing an AND instead of OR here?
+    return !filter_on || complex_nodes || complex_edges || complex_degree;
 }
 
 void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
@@ -342,9 +333,13 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
             }
 
             pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(snarl, *pp_graph, false);
-            if (snarl_is_complex(pp_graph, snarl, contents, ref_interval_length, *containing_region, max_nodes, max_edges, max_avg_degree, max_reflen_prop)) {
+            double avg_degree = -1;
+            if (snarl_is_complex(pp_graph, snarl, contents, ref_interval_length, *containing_region, max_nodes, max_edges, max_avg_degree, max_reflen_prop, avg_degree)) {
                 if (out_bed) {
-                    cout << containing_region->seq << "\t" << start_pos << "\t" << (end_pos + 1) << "\t" << pb2json(*snarl) << "\n";
+                    string snarl_name = (snarl->start().backward() ? "<" : ">") + std::to_string(snarl->start().node_id()) +
+                        (snarl->end().backward() ? "<" : ">") + std::to_string(snarl->end().node_id());
+                    cout << containing_region->seq << "\t" << start_pos << "\t" << (end_pos + 1) << "\t" << snarl_name << "\t"
+                         << contents.first.size() << "\t" << contents.second.size() << "\t" << avg_degree << "\n";
                 } else {
                     for (id_t node_id : contents.first) {
                         if (!whitelist.count(node_id)) {
