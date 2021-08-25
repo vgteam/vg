@@ -1848,7 +1848,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 
                 // add the splice edges
                 auto dummy = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
-                size_t transcripts_added = transcriptome.add_reference_transcripts(infile_tx, dummy, false, false);
+                size_t transcripts_added = transcriptome.add_reference_transcripts(vector<istream *>({&infile_tx}), dummy, false, false);
                 
 #ifdef debug_index_registry_recipes
                 cerr << "spliced graph has " << transcriptome.splice_graph().get_node_count() << " nodes" << endl;
@@ -2625,7 +2625,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             transcriptome.transcript_tag = IndexingParameters::gff_transcript_tag;
             
             // load up the transcripts and add edges on the reference path
-            size_t transcripts_added = transcriptome.add_reference_transcripts(infile_tx, haplotype_index, false, true);
+            size_t transcripts_added = transcriptome.add_reference_transcripts(vector<istream *>({&infile_tx}), haplotype_index, false, true);
             
             if (broadcasting_txs && !path_names.empty() && transcripts_added == 0
                 && transcript_file_nonempty(tx_filenames[j])) {
@@ -2640,7 +2640,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             infile_tx.seekg(0);
             
             // add edges on other haplotypes
-            size_t num_transcripts_projected = transcriptome.add_haplotype_transcripts(infile_tx, *haplotype_index, false);
+            size_t num_transcripts_projected = transcriptome.add_haplotype_transcripts(vector<istream *>({&infile_tx}), *haplotype_index, false);
             
             // init the haplotype transcript GBWT
             size_t node_width = gbwt::bit_length(gbwt::Node::encode(transcriptome.graph().max_node_id(), true));

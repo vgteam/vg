@@ -132,7 +132,7 @@ namespace vg {
 
             SECTION("Transcriptome can add splice-junctions and reference transcript paths") {
 
-                transcriptome.add_reference_transcripts(transcript_stream, empty_haplotype_index, false, false);
+                transcriptome.add_reference_transcripts(vector<istream *>({&transcript_stream}), empty_haplotype_index, false, false);
                 REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
 
                 REQUIRE(transcriptome.sort_compact_nodes());
@@ -166,7 +166,7 @@ namespace vg {
 
                 SECTION("Transcriptome can project transcripts onto haplotype embedded paths") {
 
-                    transcriptome.add_haplotype_transcripts(transcript_stream, *empty_haplotype_index, true);
+                    transcriptome.add_haplotype_transcripts(vector<istream *>({&transcript_stream}), *empty_haplotype_index, true);
                     REQUIRE(transcriptome.haplotype_transcript_paths().size() == 4);
                     
                     auto int_ref_transcript_paths2 = transcript_paths_to_int_vectors(transcriptome.reference_transcript_paths());
@@ -191,7 +191,7 @@ namespace vg {
 
                     transcriptome.collapse_transcript_paths = false;
                     
-                    transcriptome.add_haplotype_transcripts(transcript_stream, *empty_haplotype_index, true);
+                    transcriptome.add_haplotype_transcripts(vector<istream *>({&transcript_stream}), *empty_haplotype_index, true);
                     REQUIRE(transcriptome.haplotype_transcript_paths().size() == 5);
 
                     auto int_ref_transcript_paths2 = transcript_paths_to_int_vectors(transcriptome.reference_transcript_paths());
@@ -216,7 +216,7 @@ namespace vg {
 
                 SECTION("Transcriptome can remove non-transcribed nodes") {
 
-                    transcriptome.add_haplotype_transcripts(transcript_stream, *empty_haplotype_index, true);
+                    transcriptome.add_haplotype_transcripts(vector<istream *>({&transcript_stream}), *empty_haplotype_index, true);
                     REQUIRE(transcriptome.haplotype_transcript_paths().size() == 4);
 
                     transcriptome.remove_non_transcribed_nodes();
@@ -280,7 +280,7 @@ namespace vg {
                     transcriptome.embed_haplotype_transcript_paths();
                     REQUIRE(transcriptome.graph().get_path_count() == 7);  
 
-                    transcriptome.add_haplotype_transcripts(transcript_stream, *empty_haplotype_index, true);
+                    transcriptome.add_haplotype_transcripts(vector<istream *>({&transcript_stream}), *empty_haplotype_index, true);
 
                     transcriptome.embed_haplotype_transcript_paths();
                     REQUIRE(transcriptome.graph().get_path_count() == 11);  
@@ -331,7 +331,7 @@ namespace vg {
 
                 SECTION("Transcriptome can project transcripts onto GBWT haplotypes") {
 
-                    transcriptome.add_haplotype_transcripts(transcript_stream, *haplotype_index, false);
+                    transcriptome.add_haplotype_transcripts(vector<istream *>({&transcript_stream}), *haplotype_index, false);
                     REQUIRE(transcriptome.haplotype_transcript_paths().size() == 3);
 
                     auto int_hap_transcript_paths = transcript_paths_to_int_vectors(transcriptome.haplotype_transcript_paths());
@@ -349,7 +349,7 @@ namespace vg {
 
                 SECTION("Transcriptome can project transcripts onto embedded paths and GBWT haplotypes") {
 
-                    transcriptome.add_haplotype_transcripts(transcript_stream, *haplotype_index, true);
+                    transcriptome.add_haplotype_transcripts(vector<istream *>({&transcript_stream}), *haplotype_index, true);
                     REQUIRE(transcriptome.haplotype_transcript_paths().size() == 4);
 
                     auto int_hap_transcript_paths = transcript_paths_to_int_vectors(transcriptome.haplotype_transcript_paths());
@@ -379,7 +379,7 @@ namespace vg {
                 transcript_stream2 << "path1\t.\texon\t9\t11\t.\t+\t.\ttranscript_id=transcript3" << endl;
                 transcript_stream2 << "path1\t.\texon\t18\t21\t.\t+\t.\ttranscript_id=transcript3" << endl;
 
-                transcriptome.add_reference_transcripts(transcript_stream2, empty_haplotype_index, false, false);
+                transcriptome.add_reference_transcripts(vector<istream *>({&transcript_stream2}), empty_haplotype_index, false, false);
                 REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
 
                 REQUIRE(transcriptome.sort_compact_nodes());
@@ -439,12 +439,12 @@ namespace vg {
                 haplotype_index->load(gbwt_stream);
                 REQUIRE(haplotype_index->bidirectional());
 
-                transcriptome.add_reference_transcripts(transcript_stream, haplotype_index, false, true);
+                transcriptome.add_reference_transcripts(vector<istream *>({&transcript_stream}), haplotype_index, false, true);
 
                 transcript_stream.clear();
                 transcript_stream.seekg(0,ios::beg);
 
-                transcriptome.add_haplotype_transcripts(transcript_stream, *haplotype_index, false);
+                transcriptome.add_haplotype_transcripts(vector<istream *>({&transcript_stream}), *haplotype_index, false);
                 REQUIRE(transcriptome.haplotype_transcript_paths().size() == 3);
 
                 REQUIRE(transcriptome.sort_compact_nodes());
@@ -517,7 +517,7 @@ namespace vg {
 
                 SECTION("Transcriptome can add splice-junctions and reference transcript paths using GBWT haplotypes") {
 
-                    transcriptome.add_reference_transcripts(transcript_stream, haplotype_index, true, false);
+                    transcriptome.add_reference_transcripts(vector<istream *>({&transcript_stream}), haplotype_index, true, false);
                     REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
                     
                     REQUIRE(transcriptome.sort_compact_nodes());
@@ -547,13 +547,14 @@ namespace vg {
          
                 SECTION("Transcriptome can collapse redundant GBWT annotated reference transcript paths across haplotypes") {
 
-                    transcript_stream << "path2\t.\texon\t2\t7\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
-                    transcript_stream << "path2\t.\texon\t9\t10\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
-                    transcript_stream << "path2\t.\texon\t16\t18\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
-                    transcript_stream << "path2\t.\texon\t9\t11\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
-                    transcript_stream << "path2\t.\texon\t15\t18\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
+                    stringstream transcript_stream2;
+                    transcript_stream2 << "path2\t.\texon\t2\t7\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
+                    transcript_stream2 << "path2\t.\texon\t9\t10\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
+                    transcript_stream2 << "path2\t.\texon\t16\t18\t.\t+\t.\ttranscript_id \"transcript1\";" << endl;
+                    transcript_stream2 << "path2\t.\texon\t9\t11\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
+                    transcript_stream2 << "path2\t.\texon\t15\t18\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
 
-                    transcriptome.add_reference_transcripts(transcript_stream, haplotype_index, true, false);
+                    transcriptome.add_reference_transcripts(vector<istream *>({&transcript_stream, &transcript_stream2}), haplotype_index, true, false);
                     REQUIRE(transcriptome.reference_transcript_paths().size() == 4);
 
                     REQUIRE(transcriptome.sort_compact_nodes());
@@ -581,7 +582,7 @@ namespace vg {
                     transcript_stream << "path3\t.\texon\t16\t21\t.\t+\t.\ttranscript_id \"transcript5\";" << endl;
                     transcript_stream << "path3\t.\texon\t19\t21\t.\t+\t.\ttranscript_id \"transcript6\";" << endl;
 
-                    transcriptome.add_reference_transcripts(transcript_stream, haplotype_index, true, false);
+                    transcriptome.add_reference_transcripts(vector<istream *>({&transcript_stream}), haplotype_index, true, false);
                     REQUIRE(transcriptome.reference_transcript_paths().size() == 5);
 
                     REQUIRE(transcriptome.sort_compact_nodes());

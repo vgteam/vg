@@ -118,7 +118,7 @@ Transcriptome::Transcriptome(unique_ptr<MutablePathDeletableHandleGraph>&& graph
     }
 }
 
-int32_t Transcriptome::add_intron_splice_junctions(istream & intron_stream, unique_ptr<gbwt::GBWT> & haplotype_index, const bool update_haplotypes) {
+int32_t Transcriptome::add_intron_splice_junctions(vector<istream *> intron_streams, unique_ptr<gbwt::GBWT> & haplotype_index, const bool update_haplotypes) {
 
 #ifdef transcriptome_debug
     double time_parsing_1 = gcsa::readTimer();
@@ -128,8 +128,20 @@ int32_t Transcriptome::add_intron_splice_junctions(istream & intron_stream, uniq
     // Create path position overlay of graph
     bdsg::PositionOverlay graph_path_pos_overlay(_graph.get());
 
-    // Parse introns in BED format.
-    auto introns = parse_introns(intron_stream, graph_path_pos_overlay);
+    vector<Transcript> introns;
+
+    for (auto & intron_stream: intron_streams) {
+
+        // Parse introns in BED format.
+        parse_introns(&introns, intron_stream, graph_path_pos_overlay);
+    }
+
+    if (introns.empty()) {
+
+        cerr << "[transcriptome] ERROR: No intron parsed" << endl;
+        exit(1);        
+    }
+
     sort(introns.begin(), introns.end());
 
 #ifdef transcriptome_debug
@@ -171,7 +183,7 @@ int32_t Transcriptome::add_intron_splice_junctions(istream & intron_stream, uniq
     return introns.size();
 }
 
-int32_t Transcriptome::add_reference_transcripts(istream & transcript_stream, unique_ptr<gbwt::GBWT> & haplotype_index, const bool use_haplotype_paths, const bool update_haplotypes) {
+int32_t Transcriptome::add_reference_transcripts(vector<istream *> transcript_streams, unique_ptr<gbwt::GBWT> & haplotype_index, const bool use_haplotype_paths, const bool update_haplotypes) {
 
 #ifdef transcriptome_debug
     double time_parsing_1 = gcsa::readTimer();
@@ -186,8 +198,20 @@ int32_t Transcriptome::add_reference_transcripts(istream & transcript_stream, un
         graph_path_pos_overlay = bdsg::PositionOverlay(_graph.get());  
     }
 
-    // Parse transcripts in gtf/gff3 format.
-    auto transcripts = parse_transcripts(transcript_stream, graph_path_pos_overlay, *haplotype_index, use_haplotype_paths);
+    vector<Transcript> transcripts;
+
+    for (auto & transcript_stream: transcript_streams) {
+
+        // Parse transcripts in gtf/gff3 format.
+        parse_transcripts(&transcripts, transcript_stream, graph_path_pos_overlay, *haplotype_index, use_haplotype_paths);
+    }
+
+    if (transcripts.empty()) {
+
+        cerr << "[transcriptome] ERROR: No transcripts parsed (remember to set feature type \"-y\" in vg rna or \"-f\" in vg autoindex)" << endl;
+        exit(1);        
+    }
+
     sort(transcripts.begin(), transcripts.end());
 
 #ifdef transcriptome_debug
@@ -240,7 +264,7 @@ int32_t Transcriptome::add_reference_transcripts(istream & transcript_stream, un
     return transcripts.size();
 }
 
-int32_t Transcriptome::add_haplotype_transcripts(istream & transcript_stream, const gbwt::GBWT & haplotype_index, const bool proj_emded_paths) {
+int32_t Transcriptome::add_haplotype_transcripts(vector<istream *> transcript_streams, const gbwt::GBWT & haplotype_index, const bool proj_emded_paths) {
 
 #ifdef transcriptome_debug
     double time_parsing_1 = gcsa::readTimer();
@@ -250,8 +274,20 @@ int32_t Transcriptome::add_haplotype_transcripts(istream & transcript_stream, co
     // Create path position overlay of splice graph
     bdsg::PositionOverlay graph_path_pos_overlay(_graph.get());
 
-    // Parse transcripts in gtf/gff3 format.
-    auto transcripts = parse_transcripts(transcript_stream, graph_path_pos_overlay, haplotype_index, false);
+    vector<Transcript> transcripts;
+
+    for (auto & transcript_stream: transcript_streams) {
+
+        // Parse transcripts in gtf/gff3 format.
+        parse_transcripts(&transcripts, transcript_stream, graph_path_pos_overlay, haplotype_index, false);
+    }
+
+    if (transcripts.empty()) {
+
+        cerr << "[transcriptome] ERROR: No transcripts parsed (remember to set feature type \"-y\" in vg rna or \"-f\" in vg autoindex)" << endl;
+        exit(1);        
+    }
+    
     sort(transcripts.begin(), transcripts.end());
 
 #ifdef transcriptome_debug
@@ -280,9 +316,7 @@ int32_t Transcriptome::add_haplotype_transcripts(istream & transcript_stream, co
     return (_haplotype_transcript_paths.size() - pre_num_haplotype_transcript_paths);
 }
 
-vector<Transcript> Transcriptome::parse_introns(istream & intron_stream, const bdsg::PositionOverlay & graph_path_pos_overlay) const {
-
-    vector<Transcript> introns;
+void Transcriptome::parse_introns(vector<Transcript> * introns, istream * intron_stream, const bdsg::PositionOverlay & graph_path_pos_overlay) const {
 
     int32_t line_number = 0;
 
@@ -291,15 +325,15 @@ vector<Transcript> Transcriptome::parse_introns(istream & intron_stream, const b
     string end;
     string strand;
 
-    while (intron_stream.good()) {
+    while (intron_stream->good()) {
 
         line_number += 1;
-        getline(intron_stream, chrom, '\t');
+        getline(*intron_stream, chrom, '\t');
 
         // Skip header.
         if (chrom.empty() || chrom.front() == '#') {
 
-            intron_stream.ignore(numeric_limits<streamsize>::max(), '\n');
+            intron_stream->ignore(numeric_limits<streamsize>::max(), '\n');
             continue;
         }
 
@@ -313,16 +347,16 @@ vector<Transcript> Transcriptome::parse_introns(istream & intron_stream, const b
             }
             else {
                 // seek to the end of the line
-                intron_stream.ignore(numeric_limits<streamsize>::max(), '\n');
+                intron_stream->ignore(numeric_limits<streamsize>::max(), '\n');
                 continue;
             }
         }
 
         // Parse start and end intron position and convert end to inclusive.
-        assert(getline(intron_stream, pos, '\t'));
+        assert(getline(*intron_stream, pos, '\t'));
         int32_t spos = stoi(pos);
         
-        assert(getline(intron_stream, end));
+        assert(getline(*intron_stream, end));
         auto end_ss = stringstream(end);
         assert(getline(end_ss, pos, '\t'));
         int32_t epos = stoi(pos) - 1;
@@ -341,23 +375,15 @@ vector<Transcript> Transcriptome::parse_introns(istream & intron_stream, const b
         }
 
         // Create "intron" transcript.
-        introns.emplace_back(Transcript("", is_reverse, chrom, graph_path_pos_overlay.get_path_length(_graph->get_path_handle(chrom))));
+        introns->emplace_back(Transcript("", is_reverse, chrom, graph_path_pos_overlay.get_path_length(_graph->get_path_handle(chrom))));
 
         // Add intron boundaries as flanking exons to current "intron" transcript.
-        add_exon(&(introns.back()), make_pair(spos - 1, spos - 1), graph_path_pos_overlay);
-        add_exon(&(introns.back()), make_pair(epos + 1, epos + 1), graph_path_pos_overlay);
+        add_exon(&(introns->back()), make_pair(spos - 1, spos - 1), graph_path_pos_overlay);
+        add_exon(&(introns->back()), make_pair(epos + 1, epos + 1), graph_path_pos_overlay);
     }
-
-    if (introns.empty()) {
-
-        cerr << "[transcriptome] ERROR: No intron parsed" << endl;
-        exit(1);        
-    }
-
-    return introns;
 }
 
-vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream, const bdsg::PositionOverlay & graph_path_pos_overlay, const gbwt::GBWT & haplotype_index, const bool use_haplotype_paths) const {
+void Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istream * transcript_stream, const bdsg::PositionOverlay & graph_path_pos_overlay, const gbwt::GBWT & haplotype_index, const bool use_haplotype_paths) const {
 
     spp::sparse_hash_map<string, uint32_t> chrom_lengths;
 
@@ -389,7 +415,6 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream,
         }));
     }
 
-    vector<Transcript> transcripts;
     spp::sparse_hash_map<string, uint32_t> transcripts_index;
 
     int32_t line_number = 0;
@@ -403,15 +428,15 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream,
 
     bool zero_based_exon_number = false;
 
-    while (transcript_stream.good()) {
+    while (transcript_stream->good()) {
 
         line_number += 1;
-        getline(transcript_stream, chrom, '\t');
+        getline(*transcript_stream, chrom, '\t');
 
         // Skip header.
         if (chrom.empty() || chrom.front() == '#') {
 
-            transcript_stream.ignore(numeric_limits<streamsize>::max(), '\n');
+            transcript_stream->ignore(numeric_limits<streamsize>::max(), '\n');
             continue;
         }
 
@@ -427,44 +452,44 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream,
             } else {
 
                 // Seek to the end of the line.
-                transcript_stream.ignore(numeric_limits<streamsize>::max(), '\n');
+                transcript_stream->ignore(numeric_limits<streamsize>::max(), '\n');
                 continue;
             }
         }
 
-        transcript_stream.ignore(numeric_limits<streamsize>::max(), '\t');         
-        assert(getline(transcript_stream, feature, '\t'));
+        transcript_stream->ignore(numeric_limits<streamsize>::max(), '\t');         
+        assert(getline(*transcript_stream, feature, '\t'));
 
         // Select only relevant feature types.
         if (feature != feature_type && !feature_type.empty()) {
 
-            transcript_stream.ignore(numeric_limits<streamsize>::max(), '\n');  
+            transcript_stream->ignore(numeric_limits<streamsize>::max(), '\n');  
             continue;
         }
 
         // Parse start and end exon position and convert to 0-base.
-        assert(getline(transcript_stream, pos, '\t'));
+        assert(getline(*transcript_stream, pos, '\t'));
         int32_t spos = stoi(pos) - 1;
-        assert(getline(transcript_stream, pos, '\t'));
+        assert(getline(*transcript_stream, pos, '\t'));
         int32_t epos = stoi(pos) - 1;
 
         assert(spos <= epos);
 
         // Skip score column.
-        transcript_stream.ignore(numeric_limits<streamsize>::max(), '\t');  
+        transcript_stream->ignore(numeric_limits<streamsize>::max(), '\t');  
         
         // Parse strand and set whether it is reverse.
-        assert(getline(transcript_stream, strand, '\t'));
+        assert(getline(*transcript_stream, strand, '\t'));
         assert(strand == "+" || strand == "-");
         bool is_reverse = (strand == "-") ? true : false;
 
         // Skip frame column.
-        transcript_stream.ignore(numeric_limits<streamsize>::max(), '\t');  
+        transcript_stream->ignore(numeric_limits<streamsize>::max(), '\t');  
 
         string transcript_id = "";
         int32_t exon_number = -1;
 
-        assert(getline(transcript_stream, attributes, '\n'));
+        assert(getline(*transcript_stream, attributes, '\n'));
         stringstream attributes_ss(attributes);    
 
         while (getline(attributes_ss, attribute, ';')) {
@@ -519,15 +544,15 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream,
             exit(1);
         }
 
-        auto transcripts_index_it = transcripts_index.emplace(transcript_id + "_" + to_string(is_reverse) + "_" + chrom, transcripts.size());
+        auto transcripts_index_it = transcripts_index.emplace(transcript_id, transcripts->size());
 
         // Is this a new transcript.
         if (transcripts_index_it.second) {
 
-            transcripts.emplace_back(Transcript(transcript_id, is_reverse, chrom, chrom_lengths_it->second));
+            transcripts->emplace_back(Transcript(transcript_id, is_reverse, chrom, chrom_lengths_it->second));
         }
 
-        Transcript * transcript = &(transcripts.at(transcripts_index_it.first->second));
+        Transcript * transcript = &(transcripts->at(transcripts_index_it.first->second));
 
         assert(transcript->name == transcript_id);
         assert(transcript->is_reverse == is_reverse);
@@ -547,7 +572,7 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream,
 
         if (exon_number >= 0) {
 
-            if (transcripts.size() == 1 && transcript->exons.size() == 1) {
+            if (transcripts->size() == 1 && transcript->exons.size() == 1) {
 
                 zero_based_exon_number = (exon_number == 0) ? true : false;
             }
@@ -560,19 +585,11 @@ vector<Transcript> Transcriptome::parse_transcripts(istream & transcript_stream,
         }
     }
 
-    if (transcripts.empty()) {
-
-        cerr << "[transcriptome] ERROR: No transcripts parsed (remember to set feature type \"-y\" in vg rna or \"-f\" in vg autoindex)" << endl;
-        exit(1);        
-    }
-
-    for (auto & transcript: transcripts) {
+    for (auto & transcript_idx: transcripts_index) {
 
         // Reorder reversed order exons.
-        reorder_exons(&transcript);
+        reorder_exons(&(transcripts->at(transcript_idx.second)));
     }
-
-    return transcripts;
 }
 
 string Transcriptome::parse_attribute_value(const string & attribute, const string & name) const {
@@ -2224,7 +2241,7 @@ void Transcriptome::split_transcript_path_node_handles(vector<CompletedTranscrip
                         
                             new_transcript_path.emplace_back(_graph->flip(*split_handle_rit));
                         }
-                        
+
                     } else {
 
                         new_transcript_path.emplace_back(handle);

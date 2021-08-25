@@ -159,21 +159,21 @@ class Transcriptome {
         /// Treat a missing path in the transcripts/introns as a data error
         bool error_on_missing_path = true;
 
-        /// Adds splice-junstions from a intron BED file to the graph. 
+        /// Adds splice-junstions from intron BED files to the graph. 
         /// Optionally update haplotype GBWT index with new splice-junctions. 
         /// Returns the number of introns parsed. 
-        int32_t add_intron_splice_junctions(istream & intron_stream, unique_ptr<gbwt::GBWT> & haplotype_index, const bool update_haplotypes);
+        int32_t add_intron_splice_junctions(vector<istream *> intron_streams, unique_ptr<gbwt::GBWT> & haplotype_index, const bool update_haplotypes);
 
-        /// Adds splice-junstions from a transcript gtf/gff3 file to the graph and
+        /// Adds splice-junstions from transcript gtf/gff3 files to the graph and
         /// creates reference transcript paths by projecting the transcript onto
         /// reference paths embedded in the graph. Optionally update haplotype GBWT 
         /// index with new splice-junctions. Returns the number of transcripts parsed. 
-        int32_t add_reference_transcripts(istream & transcript_stream, unique_ptr<gbwt::GBWT> & haplotype_index, const bool use_haplotype_paths, const bool update_haplotypes);
+        int32_t add_reference_transcripts(vector<istream *> transcript_streams, unique_ptr<gbwt::GBWT> & haplotype_index, const bool use_haplotype_paths, const bool update_haplotypes);
 
-        /// Adds haplotype-specific transcript paths by projecting transcripts in a 
-        /// gtf/gff3 file onto either non-reference embedded paths and/or haplotypes
+        /// Adds haplotype-specific transcript paths by projecting transcripts in
+        /// gtf/gff3 files onto either non-reference embedded paths and/or haplotypes
         /// in a GBWT index. Returns the number of haplotype transcript paths projected.   
-        int32_t add_haplotype_transcripts(istream & transcript_stream, const gbwt::GBWT & haplotype_index, const bool proj_emded_paths);
+        int32_t add_haplotype_transcripts(vector<istream *> transcript_streams, const gbwt::GBWT & haplotype_index, const bool proj_emded_paths);
 
         /// Returns the reference transcript paths.
         const vector<CompletedTranscriptPath> & reference_transcript_paths() const;
@@ -251,10 +251,10 @@ class Transcriptome {
         bool _nodes_updated;
 
         /// Parse BED file of introns.
-        vector<Transcript> parse_introns(istream & intron_stream, const bdsg::PositionOverlay & graph_path_pos_overlay) const;
+        void parse_introns(vector<Transcript> * introns, istream * intron_stream, const bdsg::PositionOverlay & graph_path_pos_overlay) const;
 
         /// Parse gtf/gff3 file of transcripts.
-        vector<Transcript> parse_transcripts(istream & transcript_stream, const bdsg::PositionOverlay & graph_path_pos_overlay, const gbwt::GBWT & haplotype_index, const bool use_haplotype_paths) const;
+        void parse_transcripts(vector<Transcript> * transcripts, istream * transcript_stream, const bdsg::PositionOverlay & graph_path_pos_overlay, const gbwt::GBWT & haplotype_index, const bool use_haplotype_paths) const;
 
         /// Parse gtf/gff3 attribute value.
         string parse_attribute_value(const string & attribute, const string & name) const;
