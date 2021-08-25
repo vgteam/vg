@@ -49,9 +49,9 @@ int main_clip(int argc, char** argv) {
     bool verbose = false;
     bool depth_clipping = false;
 
-    size_t max_nodes = numeric_limits<size_t>::max();
-    size_t max_edges = numeric_limits<size_t>::max();
-    double max_avg_degree = numeric_limits<double>::max();
+    size_t max_nodes = 0;
+    size_t max_edges = 0;
+    double max_avg_degree = 0.;
     double max_reflen_prop = numeric_limits<double>::max();
     bool out_bed = false;
     bool snarl_option = false;

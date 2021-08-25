@@ -360,6 +360,9 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
                     }
                 }
             }
+#ifdef debug
+            cerr << "snarl was not deemed complex enough to clip" << endl;
+#endif
         });
 
     if (verbose && !out_bed) {
