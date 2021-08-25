@@ -20,7 +20,7 @@
 namespace vg {
 namespace unittest {
     TEST_CASE( "looping chain of nested unary snarls",
-                   "[cluster][bug]" ) {
+                   "[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -109,7 +109,7 @@ namespace unittest {
         }
     }
     TEST_CASE( "chain with loop",
-                   "[cluster]" ) {
+                   "[cluster][bug]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
