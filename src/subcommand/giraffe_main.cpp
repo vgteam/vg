@@ -358,6 +358,7 @@ void help_giraffe(char** argv) {
     << "  --fragment-stdev FLOAT        force the fragment length distribution to have this standard deviation (requires --fragment-mean)" << endl
     << "  --paired-distance-limit FLOAT cluster pairs of read using a distance limit FLOAT standard deviations greater than the mean [2.0]" << endl
     << "  --rescue-subgraph-size FLOAT  search for rescued alignments FLOAT standard deviations greater than the mean [4.0]" << endl
+    << "  --rescue-seed-limit INT       attempt rescue with at most INT seeds [100]" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
     << "  -t, --threads INT             number of mapping threads to use" << endl;
@@ -380,8 +381,9 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_FRAGMENT_STDEV 1006
     #define OPT_CLUSTER_STDEV 1007
     #define OPT_RESCUE_STDEV 1008
-    #define OPT_REF_PATHS 1009
-    #define OPT_SHOW_WORK 1010
+    #define OPT_RESCUE_SEED_LIMIT 1009
+    #define OPT_REF_PATHS 1010
+    #define OPT_SHOW_WORK 1011
     
 
     // initialize parameters with their default options
@@ -441,6 +443,8 @@ int main_giraffe(int argc, char** argv) {
     double cluster_stdev = 2.0;
     //How many stdevs do we look out when rescuing? 
     double rescue_stdev = 4.0;
+    // Attempt rescue with up to this many seeds.
+    size_t rescue_seed_limit = 100;
     // How many pairs should we be willing to buffer before giving up on fragment length estimation?
     size_t MAX_BUFFERED_PAIRS = 100000;
     // What sample name if any should we apply?
@@ -535,6 +539,7 @@ int main_giraffe(int argc, char** argv) {
             {"rescue-algorithm", required_argument, 0, 'A'},
             {"paired-distance-limit", required_argument, 0, OPT_CLUSTER_STDEV },
             {"rescue-subgraph-size", required_argument, 0, OPT_RESCUE_STDEV },
+            {"rescue-seed-limit", required_argument, 0, OPT_RESCUE_SEED_LIMIT},
             {"max-fragment-length", required_argument, 0, 'L' },
             {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN },
             {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
@@ -903,6 +908,10 @@ int main_giraffe(int argc, char** argv) {
 
             case OPT_RESCUE_STDEV:
                 rescue_stdev = parse<double>(optarg);
+                break;
+
+            case OPT_RESCUE_SEED_LIMIT:
+                rescue_seed_limit = parse<size_t>(optarg);
                 break;
 
             case OPT_TRACK_PROVENANCE:
@@ -1274,12 +1283,14 @@ int main_giraffe(int argc, char** argv) {
             }
             cerr << "--paired-distance-limit " << cluster_stdev << endl;
             cerr << "--rescue-subgraph-size " << rescue_stdev << endl;
+            cerr << "--rescue-seed-limit " << rescue_seed_limit << endl;
             cerr << "--rescue-attempts " << rescue_attempts << endl;
             cerr << "--rescue-algorithm " << algorithm_names[rescue_algorithm] << endl;
         }
         minimizer_mapper.max_fragment_length = fragment_length;
         minimizer_mapper.paired_distance_stdevs = cluster_stdev;
         minimizer_mapper.rescue_subgraph_stdevs = rescue_stdev;
+        minimizer_mapper.rescue_seed_limit = rescue_seed_limit;
         minimizer_mapper.max_rescue_attempts = rescue_attempts;
         minimizer_mapper.rescue_algorithm = rescue_algorithm;
 
