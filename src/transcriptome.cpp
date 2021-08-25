@@ -572,7 +572,7 @@ void Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istream 
 
         if (exon_number >= 0) {
 
-            if (transcripts->size() == 1 && transcript->exons.size() == 1) {
+            if (transcripts_index.size() == 1 && transcript->exons.size() == 1) {
 
                 zero_based_exon_number = (exon_number == 0) ? true : false;
             }
