@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['decomposition_5fsource_5ft_10930',['decomposition_source_t',['../classhandlegraph_1_1BuildableSnarlDecomposition.html#a5e521833234f94ccd3d4874d361a858b',1,'handlegraph::BuildableSnarlDecomposition']]],
-  ['deletablehandlegraph_10931',['DeletableHandleGraph',['../namespacevg.html#aa6df851edf21daea75fc6dc1dd81a78f',1,'vg']]],
-  ['duration_10932',['duration',['../classvg_1_1Watchdog.html#aba6d996685d0d7939c5ff17176710233',1,'vg::Watchdog']]]
+  ['decomposition_5fsource_5ft_10943',['decomposition_source_t',['../classhandlegraph_1_1BuildableSnarlDecomposition.html#a5e521833234f94ccd3d4874d361a858b',1,'handlegraph::BuildableSnarlDecomposition']]],
+  ['deletablehandlegraph_10944',['DeletableHandleGraph',['../namespacevg.html#aa6df851edf21daea75fc6dc1dd81a78f',1,'vg']]],
+  ['duration_10945',['duration',['../classvg_1_1Watchdog.html#aba6d996685d0d7939c5ff17176710233',1,'vg::Watchdog']]]
 ];

@@ -200,6 +200,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a411fb85396b07aab41fabc8e34b92481"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a411fb85396b07aab41fabc8e34b92481">rescue_subgraph_stdevs</a> = 4.0</td></tr>
 <tr class="memdesc:a411fb85396b07aab41fabc8e34b92481"><td class="mdescLeft">&#160;</td><td class="mdescRight">How many stdevs from the mean do we extract a subgraph from?  <a href="classvg_1_1MinimizerMapper.html#a411fb85396b07aab41fabc8e34b92481">More...</a><br /></td></tr>
 <tr class="separator:a411fb85396b07aab41fabc8e34b92481"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0a0c7111b38792069bb74af9b74b0978"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a0a0c7111b38792069bb74af9b74b0978">rescue_seed_limit</a> = 100</td></tr>
+<tr class="memdesc:a0a0c7111b38792069bb74af9b74b0978"><td class="mdescLeft">&#160;</td><td class="mdescRight">Do not attempt rescue if there are more seeds in the rescue subgraph.  <a href="classvg_1_1MinimizerMapper.html#a0a0c7111b38792069bb74af9b74b0978">More...</a><br /></td></tr>
+<tr class="separator:a0a0c7111b38792069bb74af9b74b0978"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0985bcf3a1ed28098bf0271b251dd6e2"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a0985bcf3a1ed28098bf0271b251dd6e2">max_rescue_attempts</a> = 15</td></tr>
 <tr class="memdesc:a0985bcf3a1ed28098bf0271b251dd6e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">For paired end mapping, how many times should we attempt rescue (per read)?  <a href="classvg_1_1MinimizerMapper.html#a0985bcf3a1ed28098bf0271b251dd6e2">More...</a><br /></td></tr>
 <tr class="separator:a0985bcf3a1ed28098bf0271b251dd6e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -3013,6 +3016,22 @@ template&lt;typename Item , typename Score &gt; </div>
 </div><div class="memdoc">
 
 <p>The algorithm used for rescue. </p>
+
+</div>
+</div>
+<a id="a0a0c7111b38792069bb74af9b74b0978"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0a0c7111b38792069bb74af9b74b0978">&#9670;&nbsp;</a></span>rescue_seed_limit</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MinimizerMapper::rescue_seed_limit = 100</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Do not attempt rescue if there are more seeds in the rescue subgraph. </p>
 
 </div>
 </div>
