@@ -184,6 +184,9 @@ class NewSnarlSeedClusterer {
             //This gets updated as the current level is processed
             hash_map<net_handle_t,vector<NodeClusters>> parent_chain_to_children;
 
+            //This holds all the child clusters of the root
+            vector<NodeClusters> root_children;
+
 
 /*
  * TODO: Not doing this anymore
@@ -242,10 +245,10 @@ class NewSnarlSeedClusterer {
 
         //Cluster all the snarls at the current level and update the tree_state
         //to add each of the snarls to the parent level
-        void cluster_snarl_level(TreeState& tree_state, size_t depth) const;
+        void cluster_snarl_level(TreeState& tree_state) const;
 
         //Cluster all the chains at the current level
-        void cluster_chain_level(TreeState& tree_state, size_t depth) const;
+        void cluster_chain_level(TreeState& tree_state) const;
 
         //Cluster the seeds on the specified node
         void cluster_one_node(TreeState& tree_state, NodeClusters& node_clusters) const; 
@@ -258,12 +261,15 @@ class NewSnarlSeedClusterer {
         //If the depth is 0, also incorporate the top-level seeds from tree_state.top_level_seed_clusters
         NodeClusters cluster_one_chain(TreeState& tree_state, net_handle_t chain_handle) const;
 
+        //Cluster in the root 
+        void cluster_root(TreeState& tree_state) const;
+
         //Compare two children of the parent and combine their clusters, to create clusters in the parent
         //This assumes that the first node hasn't been seen before but the second one has, so all of the
         //first node's clusters get added to the parent but assume that all of the second ones are already
         //part of the parent
         void compare_and_combine_cluster_on_child_structures(TreeState& tree_state, NodeClusters& child_clusters1,
-                NodeClusters& child_clusters2, NodeClusters& parent_clusters) const;
+                NodeClusters& child_clusters2, NodeClusters& parent_clusters, bool is_root=false) const;
 
         //Helper function to add to one of the cluster/snarl_to_children hash_maps.
         //Adds parent -> child_cluster to the parent_to_child_map
