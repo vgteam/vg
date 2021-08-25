@@ -274,8 +274,8 @@ static bool snarl_is_complex(PathPositionHandleGraph* graph, const Snarl* snarl,
 
     // check the stats
     bool filter_on = max_nodes > 0 || max_edges > 0 | max_avg_degree > 0.;
-    bool complex_nodes = max_nodes > contents.first.size();
-    bool complex_edges = max_edges > contents.second.size();
+    bool complex_nodes = contents.first.size() > max_nodes;
+    bool complex_edges = contents.second.size() > max_edges;
     bool complex_degree = true;
     size_t total_degree = 0;
     for (id_t node_id : contents.first) {
@@ -286,8 +286,7 @@ static bool snarl_is_complex(PathPositionHandleGraph* graph, const Snarl* snarl,
     out_avg_degree = (double)total_degree / (2. *(double)contents.first.size());
     complex_degree = out_avg_degree > max_avg_degree;        
     
-    // todo: we could look at doing an AND instead of OR here?
-    return !filter_on || complex_nodes || complex_edges || complex_degree;
+    return !filter_on || (complex_nodes && complex_edges && complex_degree);
 }
 
 void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
