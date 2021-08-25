@@ -43,9 +43,13 @@ void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph,
  * then clip out all other nodes (ie nodes that don't lie on the traversal)
  *
  * IMPORTANT: for any given snarl, the first region that contains it is used.  
+ *
+ * Update: now accepts some snarl complexity thresholds to ignore simple enough snarls
  */
 void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
-                           SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len, bool verbose);
+                           SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len,
+                           size_t max_nodes, size_t max_edges, double max_avg_degree, double max_reflen_prop,
+                           bool verbose);
 
 
 /**

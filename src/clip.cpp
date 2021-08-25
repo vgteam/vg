@@ -250,8 +250,57 @@ void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph, const uno
 
 }
 
+// determine if a snarl is complex enough to warrant flattening by measuring some very basic stats
+static bool snarl_is_complex(PathPositionHandleGraph* graph, const Snarl* snarl,
+                             const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents,
+                             int64_t ref_interval_length, const Region& region, size_t max_nodes, size_t max_edges,
+                             double max_avg_degree, double max_reflen_prop) {
+
+    // if our snarl is to big vs the reference path, we do not process it
+    if (max_reflen_prop > 0 && max_reflen_prop < 1) {
+        assert(graph->has_path(region.seq));
+        double ref_prop = (double)ref_interval_length / (double)graph->get_path_length(graph->get_path_handle(region.seq));
+        if (ref_prop > max_reflen_prop) {
+#ifdef debug
+            cerr << "skipping snarl " << pb2json(*snarl) << " because its ref_prop is " << ref_prop << endl;
+#endif
+            return false;
+        }
+    }
+
+    // check the easy stats
+    if (contents.first.size() > max_nodes || contents.second.size() > max_edges) {
+#ifdef debug
+        cerr << "snarl " << pb2json(*snarl) << " with " << contents.first.size() << " nodes and " << contents.second.size() << " edges "
+             << "exceeds respective thresholds of " << max_nodes << " and " << max_edges << endl;
+#endif
+        return true;
+    }
+
+    // check the degree stats
+    if (max_avg_degree < numeric_limits<double>::max()) {
+        size_t total_degree = 0;
+        for (id_t node_id : contents.first) {
+            handle_t handle = graph->get_handle(node_id);
+            total_degree += graph->get_degree(handle, true) + graph->get_degree(handle, false);
+        }
+        // degree averaged over node sides to be a bit more intuitive, hence 2X in denominator:
+        double avg_degree = (double)total_degree / (2. *(double)contents.first.size());
+        if (avg_degree > max_avg_degree) {
+#ifdef debug
+            cerr << "snarl " << pb2json(*snarl) << " with avg degree " << avg_degree << " exceeds threshold of " << max_avg_degree << endl;
+#endif
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
-                           SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len, bool verbose) {
+                           SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len,
+                           size_t max_nodes, size_t max_edges, double max_avg_degree, double max_reflen_prop,
+                           bool verbose) {
 
     // find all nodes in the snarl that are not on the reference interval (reference path name from containing interval)
     unordered_set<nid_t> nodes_to_delete;
@@ -284,19 +333,25 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
                     whitelist.insert(pp_graph->get_id(pp_graph->get_handle_of_step(step)));
                 }
             }
+            size_t ref_interval_length = 0;
+            for (nid_t node_id : whitelist) {
+                ref_interval_length += pp_graph->get_length(pp_graph->get_handle(node_id));
+            }
 
             pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(snarl, *pp_graph, false);
-            for (id_t node_id : contents.first) {
-                if (!whitelist.count(node_id)) {
-                    nodes_to_delete.insert(node_id);
-                    ++clip_counts[containing_region->seq];
+            if (snarl_is_complex(pp_graph, snarl, contents, ref_interval_length, *containing_region, max_nodes, max_edges, max_avg_degree, max_reflen_prop)) {
+                for (id_t node_id : contents.first) {
+                    if (!whitelist.count(node_id)) {
+                        nodes_to_delete.insert(node_id);
+                        ++clip_counts[containing_region->seq];
+                    }
                 }
-            }
-            // since we're deleting all alt alleles, the only edge that could be left is a snarl-spanning deletion
-            edge_t deletion_edge = graph->edge_handle(graph->get_handle(snarl->start().node_id(), snarl->start().backward()),
-                                                      graph->get_handle(snarl->end().node_id(), snarl->end().backward()));
-            if (graph->has_edge(deletion_edge)) {
-                edges_to_delete.insert(deletion_edge);
+                // since we're deleting all alt alleles, the only edge that could be left is a snarl-spanning deletion
+                edge_t deletion_edge = graph->edge_handle(graph->get_handle(snarl->start().node_id(), snarl->start().backward()),
+                                                          graph->get_handle(snarl->end().node_id(), snarl->end().backward()));
+                if (graph->has_edge(deletion_edge)) {
+                    edges_to_delete.insert(deletion_edge);
+                }
             }
         });
 
@@ -306,7 +361,7 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
                 cerr << "[vg-clip]: Removing " << kv.second << " nodes due to intervals on path " << kv.first << endl;
             }
         }
-        cerr << "[vg-clip]: Removing total of " << nodes_to_delete.size() << " nodes and " << edges_to_delete.size() << " edges from snarls in regions" << endl;
+        cerr << "[vg-clip]: Removing total of " << nodes_to_delete.size() << " nodes and " << edges_to_delete.size() << " snarl-spanning edges from snarls in regions" << endl;
         clip_counts.clear();
     }
     
