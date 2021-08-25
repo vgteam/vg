@@ -101,7 +101,7 @@ int main_normalize(int argc, char **argv) {
   bool evaluate = false;
   string snarl_sizes;
   bool snarl_sizes_skip_source_sink = false;
-  int max_handle_size = INT_MAX;
+  int max_handle_size = 32;
   bool handles_in_snarl = false;
 
   int c;
