@@ -282,33 +282,44 @@ int32_t main_rna(int32_t argc, char** argv) {
 
     for (auto & filename: intron_filenames) {
 
-        get_input_file(filename, [&](istream & intron_stream) {
-
-            intron_streams.emplace_back(&(intron_stream));
-        });
+        auto intron_stream = new ifstream(filename);
+        intron_streams.emplace_back(intron_stream);
     }
 
-    // Add introns as novel splice-junctions to graph.
-    auto num_introns_added = transcriptome.add_intron_splice_junctions(intron_streams, haplotype_index, true);
+    uint32_t num_introns_added = 0;
+
+    if (!intron_streams.empty()) {
+
+        // Add introns as novel splice-junctions to graph.
+        num_introns_added += transcriptome.add_intron_splice_junctions(intron_streams, haplotype_index, true);
+    }
+
+    for (auto & intron_stream: intron_streams) {
+
+        delete intron_stream;
+    }
 
     vector<istream *> transcript_streams;
     transcript_streams.reserve(transcript_filenames.size());
 
     for (auto & filename: transcript_filenames) {
 
-        get_input_file(filename, [&](istream & transcript_stream) {
-
-            transcript_streams.emplace_back(&(transcript_stream));
-        });
+        auto transcript_stream = new ifstream(filename);
+        transcript_streams.emplace_back(transcript_stream);
     }
 
-    // Add transcripts as novel exon boundaries and splice-junctions to graph.
-    auto num_transcripts_added = transcriptome.add_reference_transcripts(transcript_streams, haplotype_index, use_hap_ref, !use_hap_ref);
+    uint32_t num_transcripts_added = 0;
+
+    if (!transcript_streams.empty()) {
+
+        // Add transcripts as novel exon boundaries and splice-junctions to graph.
+        num_transcripts_added += transcriptome.add_reference_transcripts(transcript_streams, haplotype_index, use_hap_ref, !use_hap_ref);
+    }
 
     if (show_progress) { cerr << "[vg rna] " << num_introns_added << " introns and " << num_transcripts_added <<  " transcripts parsed, and graph augmented " << ((transcriptome.nodes_updated()) ? "" : "(no novel exon boundaries) ") << "in " << gcsa::readTimer() - time_splice_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
 
 
-    if (!transcript_filenames.empty() && (!haplotype_index->empty() || proj_emded_paths) && !use_hap_ref) {
+    if (!transcript_streams.empty() && (!haplotype_index->empty() || proj_emded_paths) && !use_hap_ref) {
 
         double time_project_start = gcsa::readTimer();
         if (show_progress) { cerr << "[vg rna] Projecting haplotype-specfic transcripts ..." << endl; }
@@ -325,6 +336,11 @@ int32_t main_rna(int32_t argc, char** argv) {
         auto num_transcripts_projected = transcriptome.add_haplotype_transcripts(transcript_streams, *haplotype_index, proj_emded_paths);
 
         if (show_progress) { cerr << "[vg rna] " << num_transcripts_projected <<  " haplotype-specfic transcripts projected " << "in " << gcsa::readTimer() - time_project_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
+    }
+
+    for (auto & transcript_stream: transcript_streams) {
+
+        delete transcript_stream;
     }
 
 
