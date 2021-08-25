@@ -26,14 +26,14 @@ void help_clip(char** argv) {
        << "depth clipping options: " << endl
        << "    -d, --depth N             Clip out nodes with path depth below N" << endl
        << "snarl complexity clipping options: [default mode]" << endl
-       << "    -n, --max-nodes N         Clip out snarls with > N nodes" << endl
-       << "    -e, --max-edges N         Clip out snarls with > N edges" << endl
-       << "    -a, --max-avg-degree N    Clip out snarls with average degree > N" << endl
+       << "    -n, --max-nodes N         Only clip out snarls with > N nodes" << endl
+       << "    -e, --max-edges N         Only clip out snarls with > N edges" << endl
+       << "    -a, --max-avg-degree N    Only clip out snarls with average degree > N" << endl
        << "    -l, --max-reflen-prop F   Ignore snarls whose reference traversal spans more than F (0<=F<=1) of the whole reference path" << endl  
        << "general options: " << endl
        << "    -P, --path-prefix STRING  Do not clip out alleles on paths beginning with given prefix (such references must be specified either with -P or -b). " << endl
        << "    -m, --min-fragment-len N  Don't write novel path fragment if it less than N bp long" << endl
-       << "    -B, --output-bed FILE     Write BED file of affected intervals instead of clipping graph (currently only supported by snarl complexity clipping)" << endl
+       << "    -B, --output-bed          Write BED file of affected intervals instead of clipped graph (currently only supported by snarl complexity clipping)" << endl
        << "    -t, --threads N           number of threads to use (only used to computing snarls) [default: all available]" << endl
        << "    -v, --verbose             Print some logging messages" << endl
        << endl;
@@ -53,7 +53,7 @@ int main_clip(int argc, char** argv) {
     size_t max_edges = numeric_limits<size_t>::max();
     double max_avg_degree = numeric_limits<double>::max();
     double max_reflen_prop = numeric_limits<double>::max();
-    string out_bed_path;
+    bool out_bed = false;
     bool snarl_option = false;
 
     if (argc == 2) {
@@ -76,14 +76,14 @@ int main_clip(int argc, char** argv) {
             {"path-prefix", required_argument, 0, 'P'},
             {"snarls", required_argument, 0, 'r'},
             {"min-fragment-len", required_argument, 0, 'm'},
-            {"output-bed", required_argument, 0, 'B'},
+            {"output-bed", no_argument, 0, 'B'},
             {"threads", required_argument, 0, 't'},
             {"verbose", required_argument, 0, 'v'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hb:d:n:e:a:l:P:r:m:B:t:v",
+        c = getopt_long (argc, argv, "hb:d:n:e:a:l:P:r:m:Bt:v",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -129,7 +129,7 @@ int main_clip(int argc, char** argv) {
             min_fragment_len = parse<int>(optarg);
             break;
         case 'B':
-            out_bed_path = optarg;
+            out_bed = true;
             break;
         case 'v':
             verbose = true;
@@ -154,7 +154,7 @@ int main_clip(int argc, char** argv) {
         return 1;
     }
 
-    if (min_depth >= 0 && (snarl_option || !out_bed_path.empty())) {
+    if (min_depth >= 0 && (snarl_option || out_bed)) {
         cerr << "error:[vg-clip] bed output (-B) and snarl complexity options (-n, -e, -a, -l) cannot be used with -d" << endl;
         return 1;
     }
@@ -243,11 +243,13 @@ int main_clip(int argc, char** argv) {
     } else {
         // run the alt-allele clipping
         clip_contained_snarls(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_fragment_len,
-                              max_nodes, max_edges, max_avg_degree, max_reflen_prop, verbose);
+                              max_nodes, max_edges, max_avg_degree, max_reflen_prop, out_bed, verbose);
     }
         
     // write the graph
-    vg::io::save_handle_graph(graph.get(), std::cout);
+    if (!out_bed) {
+        vg::io::save_handle_graph(graph.get(), std::cout);
+    }
     
     return 0;
 }

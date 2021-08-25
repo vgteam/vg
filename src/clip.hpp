@@ -23,7 +23,7 @@ using namespace std;
  */
 void visit_contained_snarls(PathPositionHandleGraph* graph, const vector<Region>& regions, SnarlManager& snarl_manager,
                             bool include_endpoints,
-                            function<void(const Snarl*, step_handle_t, step_handle_t, bool, const Region*)> visit_fn);
+                            function<void(const Snarl*, step_handle_t, step_handle_t, int64_t, int64_t, bool, const Region*)> visit_fn);
 
 /*
  * Cut nodes out of a graph, and chop up any paths that contain them, using (and resolving) supbath
@@ -49,7 +49,7 @@ void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph,
 void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
                            SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len,
                            size_t max_nodes, size_t max_edges, double max_avg_degree, double max_reflen_prop,
-                           bool verbose);
+                           bool out_bed, bool verbose);
 
 
 /**
