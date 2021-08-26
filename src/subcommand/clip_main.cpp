@@ -22,19 +22,23 @@ void help_clip(char** argv) {
        << endl
        << "input options: " << endl
        << "    -b, --bed FILE            BED regions corresponding to path intervals of the graph to target" << endl
-       << "    -r, --snarls FILE         Snarls from vg snarls (recomputed if not given; only needed with -b). Snarls used to identify subgraphs to clip within target intervals" << endl
+       << "    -r, --snarls FILE         Snarls from vg snarls (recomputed if not given unless -d and -P used)." << endl
        << "depth clipping options: " << endl
        << "    -d, --depth N             Clip out nodes with path depth below N" << endl
        << "snarl complexity clipping options: [default mode]" << endl
        << "    -n, --max-nodes N         Only clip out snarls with > N nodes" << endl
        << "    -e, --max-edges N         Only clip out snarls with > N edges" << endl
+       << "    -N  --max-nodes-shallow N Only clip out snarls with > N nodes not including nested snarls" << endl
+       << "    -E  --max-edges-shallow N Only clip out snarls with > N edges not including nested snarls" << endl
        << "    -a, --max-avg-degree N    Only clip out snarls with average degree > N" << endl
-       << "    -l, --max-reflen-prop F   Ignore snarls whose reference traversal spans more than F (0<=F<=1) of the whole reference path" << endl  
+       << "    -l, --max-reflen-prop F   Ignore snarls whose reference traversal spans more than F (0<=F<=1) of the whole reference path" << endl
+       << "    -L, --max-reflen N        Ignore snarls whose reference traversal spans more than N bp" << endl
        << "general options: " << endl
        << "    -P, --path-prefix STRING  Do not clip out alleles on paths beginning with given prefix (such references must be specified either with -P or -b). " << endl
-       << "    -m, --min-fragment-len N  Don't write novel path fragment if it less than N bp long" << endl
-       << "    -B, --output-bed          Write BED-style file of affected intervals instead of clipped graph. Columns 4-8 are: snarl, node-count, edge-count, avg-degree" << endl
-       << "    -t, --threads N           number of threads to use (only used to computing snarls) [default: all available]" << endl
+       << "    -m, --min-fragment-len N  Don't write novel path fragment if it is less than N bp long" << endl
+       << "    -B, --output-bed          Write BED-style file of affected intervals instead of clipped graph. " << endl
+       << "                              Columns 4-9 are: snarl node-count edge-count shallow-node-count shallow-edge-count avg-degree" << endl
+       << "    -t, --threads N           number of threads to use (for computing snarls only) [default: all available]" << endl
        << "    -v, --verbose             Print some logging messages" << endl
        << endl;
 }    
@@ -51,8 +55,11 @@ int main_clip(int argc, char** argv) {
 
     size_t max_nodes = 0;
     size_t max_edges = 0;
+    size_t max_nodes_shallow = 0;
+    size_t max_edges_shallow = 0;
     double max_avg_degree = 0.;
     double max_reflen_prop = numeric_limits<double>::max();
+    size_t max_reflen = numeric_limits<size_t>::max();
     bool out_bed = false;
     bool snarl_option = false;
 
@@ -71,8 +78,11 @@ int main_clip(int argc, char** argv) {
             {"depth", required_argument, 0, 'd'},
             {"max-nodes", required_argument, 0, 'n'},
             {"max-edges", required_argument, 0, 'e'},
+            {"max-nodes-shallow", required_argument, 0, 'N'},
+            {"max-edges-shallow", required_argument, 0, 'E'},
             {"max-avg-degree", required_argument, 0, 'a'},
             {"max-reflen-prop", required_argument, 0, 'l'},
+            {"max-reflen", required_argument, 0, 'L'},
             {"path-prefix", required_argument, 0, 'P'},
             {"snarls", required_argument, 0, 'r'},
             {"min-fragment-len", required_argument, 0, 'm'},
@@ -83,7 +93,7 @@ int main_clip(int argc, char** argv) {
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hb:d:n:e:a:l:P:r:m:Bt:v",
+        c = getopt_long (argc, argv, "hb:d:n:e:N:E:a:l:L:P:r:m:Bt:v",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -111,6 +121,14 @@ int main_clip(int argc, char** argv) {
             max_edges = parse<size_t>(optarg);
             snarl_option = true;
             break;
+        case 'N':
+            max_nodes_shallow = parse<size_t>(optarg);
+            snarl_option = true;
+            break;
+        case 'E':
+            max_edges_shallow = parse<size_t>(optarg);
+            snarl_option = true;
+            break;            
         case 'a':
             max_avg_degree = parse<double>(optarg);
             snarl_option = true;
@@ -119,6 +137,10 @@ int main_clip(int argc, char** argv) {
             max_reflen_prop = parse<double>(optarg);
             snarl_option = true;
             break;
+        case 'L':
+            max_reflen = parse<size_t>(optarg);
+            snarl_option = true;
+            break;            
         case 'P':
             ref_prefix = optarg;
             break;            
@@ -155,7 +177,7 @@ int main_clip(int argc, char** argv) {
     }
 
     if (min_depth >= 0 && (snarl_option || out_bed)) {
-        cerr << "error:[vg-clip] bed output (-B) and snarl complexity options (-n, -e, -a, -l) cannot be used with -d" << endl;
+        cerr << "error:[vg-clip] bed output (-B) and snarl complexity options (-n, -e, -N, -E, -a, -l, -L) cannot be used with -d" << endl;
         return 1;
     }
 
@@ -243,7 +265,7 @@ int main_clip(int argc, char** argv) {
     } else {
         // run the alt-allele clipping
         clip_contained_snarls(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_fragment_len,
-                              max_nodes, max_edges, max_avg_degree, max_reflen_prop, out_bed, verbose);
+                              max_nodes, max_edges, max_nodes_shallow, max_edges_shallow, max_avg_degree, max_reflen_prop, max_reflen, out_bed, verbose);
     }
         
     // write the graph

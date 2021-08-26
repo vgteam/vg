@@ -48,7 +48,8 @@ void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph,
  */
 void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
                            SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len,
-                           size_t max_nodes, size_t max_edges, double max_avg_degree, double max_reflen_prop,
+                           size_t max_nodes, size_t max_edges, size_t max_nodes_shallow, size_t max_edges_shallow,
+                           double max_avg_degree, double max_reflen_prop, size_t max_reflen,
                            bool out_bed, bool verbose);
 
 

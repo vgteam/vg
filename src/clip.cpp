@@ -254,29 +254,32 @@ void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph, const uno
 // determine if a snarl is complex enough to warrant flattening by measuring some very basic stats
 static bool snarl_is_complex(PathPositionHandleGraph* graph, const Snarl* snarl,
                              const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents,
+                             const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents_shallow,
                              int64_t ref_interval_length, const Region& region, size_t max_nodes, size_t max_edges,
-                             double max_avg_degree, double max_reflen_prop, double& out_avg_degree) {
+                             size_t max_nodes_shallow, size_t max_edges_shallow,
+                             double max_avg_degree, double max_reflen_prop, size_t max_reflen,
+                             double& out_avg_degree) {
 
     out_avg_degree = -1.;
     
     // if our snarl is to big vs the reference path, we do not process it
-    if (max_reflen_prop > 0 && max_reflen_prop < 1) {
-        assert(graph->has_path(region.seq));
-        double ref_prop = (double)ref_interval_length / (double)graph->get_path_length(graph->get_path_handle(region.seq));
-        if (ref_prop > max_reflen_prop) {
+    assert(graph->has_path(region.seq));
+    double ref_prop = (double)ref_interval_length / (double)graph->get_path_length(graph->get_path_handle(region.seq));
+    if (ref_prop > max_reflen_prop || ref_interval_length > max_reflen) {
 #ifdef debug
-            cerr << "skipping snarl " << pb2json(*snarl) << " with interval length " << ref_interval_length
-                 << " because its ref_prop of " << region.seq << " is " << ref_prop << " which is greater than " << max_reflen_prop << endl;
+        cerr << "skipping snarl " << pb2json(*snarl) << " with interval length " << ref_interval_length
+             << " because its ref_prop of " << region.seq << " is " << ref_prop << " which is greater than " << max_reflen_prop
+             << " or its ref length " << ref_interval_length << " is greater than " << max_reflen << endl;
 #endif
-            return false;
-        }
+        return false;
     }
 
     // check the stats
-    bool filter_on = max_nodes > 0 || max_edges > 0 | max_avg_degree > 0.;
+    bool filter_on = max_nodes > 0 || max_edges > 0 || max_nodes_shallow > 0 || max_edges_shallow > 0 || max_avg_degree > 0.;
     bool complex_nodes = contents.first.size() > max_nodes;
     bool complex_edges = contents.second.size() > max_edges;
-    bool complex_degree = true;
+    bool complex_nodes_shallow = contents_shallow.first.size() > max_nodes_shallow;
+    bool complex_edges_shallow = contents_shallow.second.size() > max_edges_shallow;
     size_t total_degree = 0;
     for (id_t node_id : contents.first) {
         handle_t handle = graph->get_handle(node_id);
@@ -284,14 +287,15 @@ static bool snarl_is_complex(PathPositionHandleGraph* graph, const Snarl* snarl,
     }
     // degree averaged over node sides to be a bit more intuitive, hence 2X in denominator:
     out_avg_degree = (double)total_degree / (2. *(double)contents.first.size());
-    complex_degree = out_avg_degree > max_avg_degree;        
+    bool complex_degree = out_avg_degree > max_avg_degree;        
     
-    return !filter_on || (complex_nodes && complex_edges && complex_degree);
+    return !filter_on || (complex_nodes && complex_edges && complex_nodes_shallow && complex_edges_shallow && complex_degree);
 }
 
 void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
                            SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len,
-                           size_t max_nodes, size_t max_edges, double max_avg_degree, double max_reflen_prop,
+                           size_t max_nodes, size_t max_edges, size_t max_nodes_shallow, size_t max_edges_shallow,
+                           double max_avg_degree, double max_reflen_prop, size_t max_reflen,
                            bool out_bed, bool verbose) {
 
     // find all nodes in the snarl that are not on the reference interval (reference path name from containing interval)
@@ -328,17 +332,24 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
             }
             size_t ref_interval_length = 0;
             for (nid_t node_id : whitelist) {
-                ref_interval_length += pp_graph->get_length(pp_graph->get_handle(node_id));
+                // don't count snarl ends here. todo: should this be an option?
+                if (node_id != snarl->start().node_id() && node_id != snarl->end().node_id()) {
+                    ref_interval_length += pp_graph->get_length(pp_graph->get_handle(node_id));
+                }
             }
 
             pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(snarl, *pp_graph, false);
+            pair<unordered_set<id_t>, unordered_set<edge_t> > contents_shallow = snarl_manager.shallow_contents(snarl, *pp_graph, false);
             double avg_degree = -1;
-            if (snarl_is_complex(pp_graph, snarl, contents, ref_interval_length, *containing_region, max_nodes, max_edges, max_avg_degree, max_reflen_prop, avg_degree)) {
+            if (snarl_is_complex(pp_graph, snarl, contents, contents_shallow, ref_interval_length, *containing_region, max_nodes, max_edges,
+                                 max_nodes_shallow, max_edges_shallow, max_avg_degree, max_reflen_prop, max_reflen, avg_degree)) {
                 if (out_bed) {
                     string snarl_name = (snarl->start().backward() ? "<" : ">") + std::to_string(snarl->start().node_id()) +
                         (snarl->end().backward() ? "<" : ">") + std::to_string(snarl->end().node_id());
                     cout << containing_region->seq << "\t" << start_pos << "\t" << (end_pos + 1) << "\t" << snarl_name << "\t"
-                         << contents.first.size() << "\t" << contents.second.size() << "\t" << avg_degree << "\n";
+                         << contents.first.size() << "\t" << contents.second.size() << "\t"
+                         << contents_shallow.first.size() << "\t" << contents_shallow.second.size() << "\t"
+                         << avg_degree << "\n";
                 } else {
                     for (id_t node_id : contents.first) {
                         if (!whitelist.count(node_id)) {
