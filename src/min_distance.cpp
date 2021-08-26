@@ -2316,10 +2316,10 @@ void MinimumDistanceIndex::print_snarl_stats() {
     //
 
     cout << "#Distance index has " << snarl_indexes.size() << " snarls and " << chain_indexes.size() << " chains" << endl;
-    cout << "#snarl_size\tsnarl_depth" << endl;
+    cout << "#start_id\tend_id\tsnarl_size\tsnarl_depth" << endl;
    
     for (auto snarls : snarl_indexes) {
-       cout << snarls.num_nodes << "\t" << snarls.depth << endl; 
+       cout << snarls.id_in_parent << "\t" << snarls.end_id << "\t" << snarls.num_nodes << "\t" << snarls.depth << endl; 
     }
 }
 
