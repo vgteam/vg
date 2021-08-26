@@ -1135,20 +1135,13 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
 
         for (auto & haplotype_idx: haplotype_name_index_it->second) {
 
-            auto incomplete_transcript_paths_it = incomplete_transcript_paths.begin();
+            for (auto & transcript_paths: incomplete_transcript_paths) {
 
-            while (incomplete_transcript_paths_it != incomplete_transcript_paths.end()) {
-
-                // Delete transcripts with exon overlapping haplotype break.
-                if (get<2>(incomplete_transcript_paths_it->second)) {
-                
-                    incomplete_transcript_paths_it = incomplete_transcript_paths.erase(incomplete_transcript_paths_it);
-                
-                } else {
-
-                    ++incomplete_transcript_paths_it;
-                }
+                cerr << "[transcriptome] WARNING: Skipping transcript " << transcripts.at(get<0>(transcript_paths.second)).name << " since it is not covered by a continuous haplotype." << endl;
             }
+
+            // Delete transcripts overlapping haplotype break.
+            incomplete_transcript_paths.clear();
 
             auto node_start_pos = haplotype_idx.first;
             const gbwt::vector_type & gbwt_haplotype = haplotype_index.extract(haplotype_idx.second);
@@ -1178,7 +1171,7 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
                     ++transcript_idx;
                 }
 
-                incomplete_transcript_paths_it = incomplete_transcript_paths.begin();
+                auto incomplete_transcript_paths_it = incomplete_transcript_paths.begin();
 
                 while (incomplete_transcript_paths_it != incomplete_transcript_paths.end()) {
 
@@ -1278,6 +1271,11 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
             }
         }
     
+        for (auto & transcript_paths: incomplete_transcript_paths) {
+
+            cerr << "[transcriptome] WARNING: Skipping transcript " << transcripts.at(get<0>(transcript_paths.second)).name << " since it is not covered by a continuous haplotype." << endl;
+        }
+
         edited_transcript_paths_mutex->lock();
         append_transcript_paths<EditedTranscriptPath>(edited_transcript_paths, edited_transcript_paths_index, &thread_edited_transcript_paths, "R");
         edited_transcript_paths_mutex->unlock();
