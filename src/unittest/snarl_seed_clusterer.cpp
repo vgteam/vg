@@ -109,7 +109,7 @@ namespace unittest {
         }
     }
     TEST_CASE( "chain with loop",
-                   "[cluster][bug]" ) {
+                   "[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -200,7 +200,7 @@ namespace unittest {
         }
     }
     TEST_CASE( "multiple clusters in a chain",
-                   "[cluster]" ) {
+                   "[cluster][bug]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");

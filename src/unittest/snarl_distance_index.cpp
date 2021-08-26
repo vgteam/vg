@@ -125,7 +125,12 @@ namespace vg {
             size_t child_i = 0;
             net_handle_t top_snarl;
             vector<net_handle_t> child_handles;//This should be start node, snarl, end node
+            bool first = true;
+            net_handle_t last_child;
             distance_index.for_each_child(chain1, [&](const net_handle_t& child) {
+                REQUIRE((first  || distance_index.is_ordered_in_chain(last_child, child)));
+                last_child = child;
+                first = false;
                 if (child_i == 0) {
                     REQUIRE(distance_index.is_node(child));
                     REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == 1);
@@ -4694,6 +4699,71 @@ namespace vg {
              
         }
         */
+    
+        TEST_CASE( "Chain with two snarls", "[snarl_distance]" ) {
+
+            //Intuitively, snarls from 1 to 10 and 10 to 13
+            //Actually, looping chain from 8fd to 8fd, containing snarl 8-9, etc
+        
+        
+            VG graph;
+            
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("T");
+            Node* n7 = graph.create_node("G");
+            Node* n8 = graph.create_node("CTGA");
+            Node* n9 = graph.create_node("GCA");
+            Node* n10 = graph.create_node("T");
+            Node* n11 = graph.create_node("G");
+            Node* n12 = graph.create_node("CTGA");
+            Node* n13 = graph.create_node("GCA");
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n9);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n2, n4);
+            Edge* e5 = graph.create_edge(n3, n4);
+            Edge* e6 = graph.create_edge(n4, n5);
+            Edge* e7 = graph.create_edge(n4, n5, false, true);
+            Edge* e8 = graph.create_edge(n5, n6);
+            Edge* e9 = graph.create_edge(n5, n6, true, false);
+            Edge* e10 = graph.create_edge(n6, n7);
+            Edge* e11 = graph.create_edge(n6, n8);
+            Edge* e12 = graph.create_edge(n7, n8);
+            Edge* e13 = graph.create_edge(n8, n10);
+            Edge* e14 = graph.create_edge(n9, n10);
+            Edge* e15 = graph.create_edge(n10, n11);
+            Edge* e16 = graph.create_edge(n10, n12);
+            Edge* e17 = graph.create_edge(n11, n13);
+            Edge* e18 = graph.create_edge(n12, n13);
+
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
+            SECTION("Traverse the snarl decomposition") {
+                net_handle_t root_handle = distance_index.get_root();
+                size_t root_child_count = 0;
+                net_handle_t top_chain_handle;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    REQUIRE(distance_index.is_chain(child));
+                    top_chain_handle = child;
+                    root_child_count++;
+                    REQUIRE(distance_index.get_depth(child) == 1);
+                });
+                REQUIRE(root_child_count == 1);
+
+                net_handle_t node_8 = distance_index.get_node_net_handle(8);
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, distance_index.flip(node_8), distance_index.flip(node_8)) == 5);
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, node_8, distance_index.flip(node_8)) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, distance_index.flip(node_8),node_8) ==  std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, node_8,node_8) ==  std::numeric_limits<size_t>::max());
+
+            }
+        }
         TEST_CASE("Failed unit test", "[failed]") {
             //Load failed random graph
             ifstream vg_stream("test_graph.vg");

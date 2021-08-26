@@ -278,20 +278,17 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 #endif
 
         //Helper function to insert a NodeClusters into a sorted vector<NodeClusters> where the vector contains only 
-        //children of the same chain. The items will be sorted by their position in the chain (determined by their
-        //rank_in_parent)
+        //children of the same chain. The items will be sorted by their position in the chain
         auto insert_in_order = [&](vector<NodeClusters>& input_vector, NodeClusters item) {
         
             //The rank of the item we're inserting is its rank in its parent
             //The rank is really the offset of the record in it's parent, so it doesn't matter what 
             //the value is except that it will be increasing as we walk along the chain
-            size_t item_rank = distance_index.rank_in_parent(item.containing_net_handle);
             //Get an iterator to where the thing we're inserting should go in the vector 
             std::vector<NodeClusters>::iterator insert_itr = std::upper_bound(input_vector.begin(), input_vector.end(),
-               item_rank, [&](size_t val, NodeClusters vector_item) {
+               0, [&](size_t val, NodeClusters vector_item) {
                    //This should return true if the vector_item goes after the item with rank val
-                   size_t vector_item_rank = distance_index.rank_in_parent(vector_item.containing_net_handle);
-                   return val < vector_item_rank;
+                   return distance_index.is_ordered_in_chain(item.containing_net_handle, vector_item.containing_net_handle);
                });
             //Add the item to the vector in sorted order
             input_vector.insert(insert_itr, std::move(item));
@@ -403,7 +400,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 add_child_to_vector(tree_state.parent_chain_to_children, distance_index.get_parent(snarl_handle), cluster_one_snarl(tree_state, snarl_handle));
 
 #ifdef DEBUG_CLUSTER
-                cerr << "Recording snarl " << distance_index.net_handle_as_string(snarl_handle)  << " as a child of "
+                cerr << "\tRecording snarl " << distance_index.net_handle_as_string(snarl_handle)  << " as a child of "
                       << distance_index.net_handle_as_string(distance_index.get_parent(snarl_handle)) << endl;
 #endif
 
@@ -433,7 +430,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
             } else {
                 add_child_to_vector(tree_state.snarl_to_children, distance_index.get_parent(chain_handle), cluster_one_chain(tree_state, chain_handle));
 #ifdef DEBUG_CLUSTER
-                cerr << "Recording " << distance_index.net_handle_as_string(chain_handle)
+                cerr << "\tRecording " << distance_index.net_handle_as_string(chain_handle)
                     << " as a child of " << distance_index.net_handle_as_string(distance_index.get_parent(chain_handle)) << endl;
 #endif
             }
@@ -512,19 +509,19 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 }
             }
 #ifdef DEBUG_CLUSTER
-            cerr << "Found single cluster on node " << node_id << " with fragment dists " 
+            cerr << "\tFound single cluster on node " << node_id << " with fragment dists " 
                     << node_clusters.fragment_best_left << " " << node_clusters.fragment_best_right << endl;
 
             bool got_left = false;
             bool got_right = false;
             for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++) {
-                cerr << " for read num " << read_num << " best left: " << node_clusters.read_best_left[read_num] << " best right: " << node_clusters.read_best_right[read_num] << endl;
+                cerr << "\t for read num " << read_num << " best left: " << node_clusters.read_best_left[read_num] << " best right: " << node_clusters.read_best_right[read_num] << endl;
                 bool got_read_left=false;
                 bool got_read_right = false;
                 for (pair<pair<size_t, size_t>, pair<size_t,size_t>> c : node_clusters.read_cluster_heads) {
                     if (c.first.first == read_num) {
                         pair<size_t, size_t> dists = c.second;
-                        cerr << "\t" << c.first.first << ":"<<c.first.second << ": left: " << c.second.first << " right : " << c.second.second << ": ";
+                        cerr << "\t\t" << c.first.first << ":"<<c.first.second << ": left: " << c.second.first << " right : " << c.second.second << ": ";
                         bool has_seeds = false;
                         for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first.first)->size() ; x++) {
                             if (tree_state.read_union_find[c.first.first].find_group(x) == c.first.second) {
@@ -659,18 +656,18 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 
 #ifdef DEBUG_CLUSTER
 
-        cerr << "Found read clusters on node " << node_id << endl;
+        cerr << "\tFound read clusters on node " << node_id << endl;
 
         bool got_left = false;
         bool got_right = false;
         for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++) {
-            cerr << " for read num " << read_num << " best left: " << node_clusters.read_best_left[read_num] << " best right: " << node_clusters.read_best_right[read_num] << endl;
+            cerr << "\t for read num " << read_num << " best left: " << node_clusters.read_best_left[read_num] << " best right: " << node_clusters.read_best_right[read_num] << endl;
             bool got_read_left=false;
             bool got_read_right = false;
             for (pair<pair<size_t, size_t>, pair<size_t,size_t>> c : node_clusters.read_cluster_heads) {
                 if (c.first.first == read_num) {
                     pair<size_t, size_t> dists = c.second;
-                    cerr << "\t" << c.first.first << ":"<<c.first.second << ": left: " << dists.first << " right : " << dists.second << ": ";
+                    cerr << "\t\t" << c.first.first << ":"<<c.first.second << ": left: " << dists.first << " right : " << dists.second << ": ";
                     bool has_seeds = false;
                     for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first.first)->size() ; x++) {
                         if (tree_state.read_union_find[c.first.first].find_group(x) == c.first.second) {
@@ -871,7 +868,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
     void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(TreeState& tree_state, NodeClusters& child_clusters1, 
         NodeClusters& child_clusters2, NodeClusters& parent_clusters, bool is_root) const {
 #ifdef DEBUG_CLUSTER
-        cerr << "Compare " << distance_index.net_handle_as_string(child_clusters1.containing_net_handle) 
+        cerr << "\tCompare " << distance_index.net_handle_as_string(child_clusters1.containing_net_handle) 
              << " and " << distance_index.net_handle_as_string(child_clusters2.containing_net_handle)
              << " which are children of " << distance_index.net_handle_as_string(parent_clusters.containing_net_handle) << endl;
 #endif
@@ -887,6 +884,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
         size_t distance_right_right = distance_index.distance_in_parent(parent_handle, child_handle1, child_handle2);
         size_t distance_right_left = distance_index.distance_in_parent(parent_handle, child_handle1, distance_index.flip(child_handle2));
 
+        cerr << "Distances between  " << distance_index.net_handle_as_string(child_handle1) << " and " << distance_index.net_handle_as_string(child_handle2) << " in parent " << distance_index.net_handle_as_string(parent_handle) << ": "<< distance_left_left << " " << distance_left_right << " " << distance_right_right << " " << distance_right_left << endl;
         /* Find the distances from the start/end of the parent to the left/right of the first child
          * If this is the root, then the distances are infinite since it has no start/end
          */
@@ -908,15 +906,15 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 //If the child is in a chain, then the distance to the end should include the boundary node lengths
                 size_t start_length = distance_index.node_length(distance_index.get_bound(parent_handle, false, false));
                 size_t end_length = distance_index.node_length(distance_index.get_bound(parent_handle, true, false));
-                child_clusters1.distance_start_left += start_length;
-                child_clusters1.distance_start_right += start_length;
-                child_clusters1.distance_end_left += end_length; 
-                child_clusters1.distance_end_right += end_length;
+                child_clusters1.distance_start_left  = SnarlDistanceIndex::sum({start_length, child_clusters1.distance_start_left }); 
+                child_clusters1.distance_start_right = SnarlDistanceIndex::sum({start_length, child_clusters1.distance_start_right}); 
+                child_clusters1.distance_end_left    = SnarlDistanceIndex::sum({end_length, child_clusters1.distance_end_left     }); 
+                child_clusters1.distance_end_right   = SnarlDistanceIndex::sum({end_length, child_clusters1.distance_end_right    }); 
             }
         }
 #ifdef DEBUG_CLUSTER
-        cerr << "\tFound distances between the two children: " << distance_left_left << " " << distance_left_right << " " << distance_right_right << " " << distance_right_left << endl;
-        cerr << "\tAnd distances from the ends of child1 to ends of parent: " << child_clusters1.distance_start_left << " " 
+        cerr << "\t\tFound distances between the two children: " << distance_left_left << " " << distance_left_right << " " << distance_right_right << " " << distance_right_left << endl;
+        cerr << "\t\tAnd distances from the ends of child1 to ends of parent: " << child_clusters1.distance_start_left << " " 
              << child_clusters1.distance_start_right << " " << child_clusters1.distance_end_left << " " << child_clusters1.distance_end_right << endl;
 #endif
         /*
@@ -992,9 +990,9 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 combined = true;
 
 #ifdef DEBUG_CLUSTER
-                cerr << "\t\tCombining read/cluster " << read_num << "/" << cluster_num << "... new cluster head:" << new_cluster_head_and_distances.first.second << endl; 
-                cerr << "\t\t\t Best distances for this cluster: " << old_distances.first << " and " << old_distances.second << endl;
-                cerr << "\t\t\t New best distances for combined cluster: " << new_cluster_head_and_distances.second.first << " and " << new_cluster_head_and_distances.second.second << endl;
+                cerr << "\t\t\tCombining read/cluster " << read_num << "/" << cluster_num << "... new cluster head:" << new_cluster_head_and_distances.first.second << endl; 
+                cerr << "\t\t\t\t Best distances for this cluster: " << old_distances.first << " and " << old_distances.second << endl;
+                cerr << "\t\t\t\t New best distances for combined cluster: " << new_cluster_head_and_distances.second.first << " and " << new_cluster_head_and_distances.second.second << endl;
 #endif
             }
             if (tree_state.fragment_distance_limit != 0 && 
@@ -1008,7 +1006,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                     new_cluster_head_fragment = tree_state.fragment_union_find.find_group(new_cluster_head_fragment);
                 }
 #ifdef DEBUG_CLUSTER
-                cerr << "\t\tCombining fragment" << endl;
+                cerr << "\t\t\tCombining fragment" << endl;
 #endif
             }
             return combined;
@@ -1030,16 +1028,18 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
             size_t new_dist_right= std::min(SnarlDistanceIndex::sum({distances.first,child_clusters1.distance_end_left}),
                                             SnarlDistanceIndex::sum({distances.second,child_clusters1.distance_end_right}));
             pair<size_t, size_t> distances_to_parent = make_pair(new_dist_left, new_dist_right);
+            cerr << "Distances to parent are " << distances_to_parent.first << " and " << distances_to_parent.second << endl;
             if (parent_clusters.read_cluster_heads.count(make_pair(read_num, cluster_num)) > 0) {
                 distances_to_parent = make_pair(
                     std::min(new_dist_left, parent_clusters.read_cluster_heads[make_pair(read_num, cluster_num)].first),
                     std::min(new_dist_right, parent_clusters.read_cluster_heads[make_pair(read_num, cluster_num)].second));
+            cerr << " Updated distances to parent are " << distances_to_parent.first << " and " << distances_to_parent.second << endl;
             }
                 
 
             //Check if the left of 1 can connect with the left of 2
 #ifdef DEBUG_CLUSTER
-            cerr << "\tCheck any clusters in 1 going left to left of 2" << endl;
+            cerr << "\t\tCheck any clusters in 1 going left to left of 2" << endl;
 #endif
             combined = combined | compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.first,distance_left_left,child_clusters2.read_best_left[read_num]}), 
@@ -1048,7 +1048,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 new_cluster_left_left_by_read[read_num], new_cluster_left_left_fragment);
             //Check if the left of 1 can connect with the right of 2
 #ifdef DEBUG_CLUSTER
-            cerr << "\tCheck any clusters in 1 going left to right of 2" << endl;
+            cerr << "\t\tCheck any clusters in 1 going left to right of 2" << endl;
 #endif
             combined = combined | compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.first,distance_left_right,child_clusters2.read_best_right[read_num]}), 
@@ -1056,7 +1056,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 distances_to_parent, new_cluster_left_right_by_read[read_num], new_cluster_left_right_fragment);
             //Check if the right of 1 can connect with the right of 2
 #ifdef DEBUG_CLUSTER
-            cerr << "\tCheck any clusters in 1 going right to right of 2" << endl;
+            cerr << "\t\tCheck any clusters in 1 going right to right of 2" << endl;
 #endif
             combined = combined | compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.second,distance_right_right,child_clusters2.read_best_right[read_num]}), 
@@ -1064,7 +1064,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 distances_to_parent,new_cluster_right_right_by_read[read_num], new_cluster_right_right_fragment);
             //Check if the right of 1 can connect with the left of 2
 #ifdef DEBUG_CLUSTER
-            cerr << "\tCheck any clusters in 1 going right to left of 2" << endl;
+            cerr << "\t\tCheck any clusters in 1 going right to left of 2" << endl;
 #endif
             combined = combined | compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.second,distance_right_left,child_clusters2.read_best_left[read_num]}), 
@@ -1099,7 +1099,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 
             //Check if the left of 1 can connect with the left of 2
 #ifdef DEBUG_CLUSTER
-            cerr << "\tCheck any clusters in 2 going left to left of 1" << endl;
+            cerr << "\t\tCheck any clusters in 2 going left to left of 1" << endl;
 #endif
             compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.first,distance_left_left,child_clusters1.read_best_left[read_num]}), 
@@ -1107,7 +1107,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 distances_to_parent, new_cluster_left_left_by_read[read_num], new_cluster_left_left_fragment);
             //Check if the left of 1 can connect with the right of 2
 #ifdef DEBUG_CLUSTER
-            cerr << "\tCheck any clusters in 2 going right to left of 1" << endl;
+            cerr << "\t\tCheck any clusters in 2 going right to left of 1" << endl;
 #endif
             compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.second,distance_left_right,child_clusters1.read_best_left[read_num]}),
@@ -1115,7 +1115,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 distances_to_parent, new_cluster_left_right_by_read[read_num], new_cluster_left_right_fragment);
             //Check if the right of 1 can connect with the right of 2
 #ifdef DEBUG_CLUSTER
-            cerr << "\tCheck any clusters in 2 going right to right of 1" << endl;
+            cerr << "\t\tCheck any clusters in 2 going right to right of 1" << endl;
 #endif
             compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.second,distance_right_right,child_clusters1.read_best_right[read_num]}),
@@ -1123,7 +1123,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 distances_to_parent, new_cluster_right_right_by_read[read_num], new_cluster_right_right_fragment);
             //Check if the right of 1 can connect with the left of 2
 #ifdef DEBUG_CLUSTER
-            cerr << "\tCheck any clusters in 2 going left to right of 1" << endl;
+            cerr << "\t\tCheck any clusters in 2 going left to right of 1" << endl;
 #endif
             compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.first,distance_right_left,child_clusters1.read_best_right[read_num]}),
@@ -1266,7 +1266,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 NodeClusters& child_clusters_j = children[j];
 
 #ifdef DEBUG_CLUSTER
-                cerr << "Comparing two children of " << distance_index.net_handle_as_string(snarl_handle) << ": " 
+                cerr << "\tComparing two children of " << distance_index.net_handle_as_string(snarl_handle) << ": " 
                      << distance_index.net_handle_as_string(child_clusters_i.containing_net_handle) << " and " 
                      << distance_index.net_handle_as_string(child_clusters_j.containing_net_handle) << endl;
                      
@@ -1280,13 +1280,13 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
             }
         }
 #ifdef DEBUG_CLUSTER
-        cerr << "Found clusters on " << distance_index.net_handle_as_string(snarl_handle) << endl;
-        cerr << "    with best left and right values: " << snarl_clusters.fragment_best_left << " "
+        cerr << "\tFound clusters on " << distance_index.net_handle_as_string(snarl_handle) << endl;
+        cerr << "\t   with best left and right values: " << snarl_clusters.fragment_best_left << " "
              << snarl_clusters.fragment_best_right << endl;
         bool got_left = false;
         bool got_right = false;
         for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++) {
-            cerr << " for read num " << read_num << " best left: " << snarl_clusters.read_best_left[read_num] << " best right: " << snarl_clusters.read_best_right[read_num] << endl;
+            cerr << "\t\tfor read num " << read_num << " best left: " << snarl_clusters.read_best_left[read_num] << " best right: " << snarl_clusters.read_best_right[read_num] << endl;
             bool got_read_left=false;
             bool got_read_right = false;
             bool any_clusters = false;
@@ -1294,7 +1294,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 if (c.first.first == read_num) {
                     any_clusters = true;
                     pair<size_t, size_t> dists = c.second;
-                    cerr << "\t" << c.first.first << ":"<<c.first.second << ": left: " << dists.first << " right : " << dists.second << ": ";
+                    cerr << "\t\t" << c.first.first << ":"<<c.first.second << ": left: " << dists.first << " right : " << dists.second << ": ";
                     bool has_seeds = false;
                     for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first.first)->size() ; x++) {
                         if (tree_state.read_union_find[c.first.first].find_group(x) == c.first.second) {
@@ -1333,7 +1333,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
         if (distance_index.is_trivial_chain(chain_handle)){
             //If this is just a node pretending to be a chain, cluster the node and claim it's a chain
 #ifdef DEBUG_CLUSTER
-            cerr << "Clustering a chain that is really just a node, so just cluster the node" << endl;
+            cerr << "\tClustering a chain that is really just a node, so just cluster the node" << endl;
 #endif
 
             
@@ -1431,13 +1431,13 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
         }
 
 #ifdef DEBUG_CLUSTER
-        cerr << "Found clusters on " << distance_index.net_handle_as_string(chain_handle) << endl;
-        cerr << "    with best left and right values: " << chain_clusters.fragment_best_left << " "
+        cerr << "\tFound clusters on " << distance_index.net_handle_as_string(chain_handle) << endl;
+        cerr << "\t   with best left and right values: " << chain_clusters.fragment_best_left << " "
              << chain_clusters.fragment_best_right << endl;
         bool got_left = false;
         bool got_right = false;
         for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++) {
-            cerr << " for read num " << read_num << " best left: " << chain_clusters.read_best_left[read_num] << " best right: " << chain_clusters.read_best_right[read_num] << endl;
+            cerr << "\t for read num " << read_num << " best left: " << chain_clusters.read_best_left[read_num] << " best right: " << chain_clusters.read_best_right[read_num] << endl;
             bool got_read_left=false;
             bool got_read_right = false;
             bool any_clusters = false;
@@ -1445,7 +1445,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 if (c.first.first == read_num) {
                     any_clusters = true;
                     pair<size_t, size_t> dists = c.second;
-                    cerr << "\t" << c.first.first << ":"<<c.first.second << ": left: " << dists.first << " right : " << dists.second << ": ";
+                    cerr << "\t\t" << c.first.first << ":"<<c.first.second << ": left: " << dists.first << " right : " << dists.second << ": ";
                     bool has_seeds = false;
                     for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first.first)->size() ; x++) {
                         if (tree_state.read_union_find[c.first.first].find_group(x) == c.first.second) {
@@ -1503,7 +1503,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 NodeClusters& child_clusters_j = tree_state.root_children[j];
 
 #ifdef DEBUG_CLUSTER
-                cerr << "Comparing two children of the root: " 
+                cerr << "\tComparing two children of the root: " 
                      << distance_index.net_handle_as_string(child_clusters_i.containing_net_handle) << " and " 
                      << distance_index.net_handle_as_string(child_clusters_j.containing_net_handle) << endl;
 #endif
@@ -1514,12 +1514,12 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
             }
         }
 #ifdef DEBUG_CLUSTER
-        cerr << "Found clusters on the root" << endl;
+        cerr << "\tFound clusters on the root" << endl;
         for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++) {
-            cerr << " for read num " << read_num << endl;
+            cerr << "\t for read num " << read_num << endl;
             for (pair<pair<size_t, size_t>, pair<size_t,size_t>> c : root_clusters.read_cluster_heads) {
                 if (c.first.first == read_num) {
-                    cerr << "\t" << c.first.first << ":"<<c.first.second << ":  ";
+                    cerr << "\t\t" << c.first.first << ":"<<c.first.second << ":  ";
                     for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first.first)->size() ; x++) {
                         if (tree_state.read_union_find[c.first.first].find_group(x) == c.first.second) {
                             cerr << tree_state.all_seeds->at(c.first.first)->at(x).pos << " ";
@@ -1549,21 +1549,13 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
         } else {
             assert(distance_index.is_chain(parent));
             //Helper function to insert a NodeClusters into a sorted vector<NodeClusters> where the vector contains only 
-            //children of the same chain. The items will be sorted by their position in the chain (determined by their
-            //rank_in_parent)
+            //children of the same chain. The items will be sorted by their position in the chain
             auto insert_in_order = [&](vector<NodeClusters>& input_vector, NodeClusters& item) {
-                size_t old_dist = input_vector.size();
-            
-                //The rank of the item we're inserting is its rank in its parent
-                //The rank is really the offset of the record in it's parent, so it doesn't matter what 
-                //the value is except that it will be increasing as we walk along the chain
-                size_t item_rank = distance_index.rank_in_parent(item.containing_net_handle);
                 //Get an iterator to where the thing we're inserting should go in the vector 
                 std::vector<NodeClusters>::iterator insert_itr = std::upper_bound(input_vector.begin(), input_vector.end(),
-                   item_rank, [&](size_t val, NodeClusters vector_item) {
+                   0, [&](size_t val, NodeClusters vector_item) {
                        //This should return true if the vector_item goes after the item with rank val
-                       size_t vector_item_rank = distance_index.rank_in_parent(vector_item.containing_net_handle);
-                       return val < vector_item_rank;
+                       return distance_index.is_ordered_in_chain(item.containing_net_handle, vector_item.containing_net_handle);
                    });
                 //Add the item to the vector in sorted order
                 input_vector.insert(insert_itr, std::move(item));
