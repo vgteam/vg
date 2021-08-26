@@ -1135,13 +1135,21 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
 
         for (auto & haplotype_idx: haplotype_name_index_it->second) {
 
-            for (auto & transcript_paths: incomplete_transcript_paths) {
+            auto incomplete_transcript_paths_it = incomplete_transcript_paths.begin();
 
-                cerr << "[transcriptome] WARNING: Skipping transcript " << transcripts.at(get<0>(transcript_paths.second)).name << " since it is not covered by a continuous haplotype." << endl;
+            while (incomplete_transcript_paths_it != incomplete_transcript_paths.end()) {
+
+                // Delete transcripts with exon overlapping haplotype break.
+                if (get<2>(incomplete_transcript_paths_it->second)) {
+                    
+                    cerr << "[transcriptome] WARNING: Skipping transcript " << transcripts.at(get<0>(incomplete_transcript_paths_it->second)).name << " on " << transcripts.at(get<0>(incomplete_transcript_paths_it->second)).chrom << " since one of its exons overlap a haplotype break." << endl;
+                    incomplete_transcript_paths_it = incomplete_transcript_paths.erase(incomplete_transcript_paths_it);
+                
+                } else {
+
+                    ++incomplete_transcript_paths_it;
+                }
             }
-
-            // Delete transcripts overlapping haplotype break.
-            incomplete_transcript_paths.clear();
 
             auto node_start_pos = haplotype_idx.first;
             const gbwt::vector_type & gbwt_haplotype = haplotype_index.extract(haplotype_idx.second);
@@ -1171,7 +1179,7 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
                     ++transcript_idx;
                 }
 
-                auto incomplete_transcript_paths_it = incomplete_transcript_paths.begin();
+                incomplete_transcript_paths_it = incomplete_transcript_paths.begin();
 
                 while (incomplete_transcript_paths_it != incomplete_transcript_paths.end()) {
 
@@ -1271,9 +1279,9 @@ void Transcriptome::construct_reference_transcript_paths_gbwt_callback(list<Edit
             }
         }
     
-        for (auto & transcript_paths: incomplete_transcript_paths) {
+        for (auto & transcript_path: incomplete_transcript_paths) {
 
-            cerr << "[transcriptome] WARNING: Skipping transcript " << transcripts.at(get<0>(transcript_paths.second)).name << " since it is not covered by a continuous haplotype." << endl;
+            cerr << "[transcriptome] WARNING: Skipping transcript " << transcripts.at(get<0>(transcript_path.second)).name << " on " << transcripts.at(get<0>(transcript_path.second)).chrom << " since one of its exons overlap a haplotype break." << endl;
         }
 
         edited_transcript_paths_mutex->lock();

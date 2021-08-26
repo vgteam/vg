@@ -574,12 +574,16 @@ namespace vg {
                     REQUIRE(seq_ref_transcript_paths.back() == "TTTTGGAGGTTT");
                 }
 
-                SECTION("Transcriptome can construct GBWT annotated reference transcript paths on broken haplotypes") {
+                SECTION("Transcriptome can construct GBWT annotated reference transcript paths spanning multiple broken contigs") {
 
-                    transcript_stream << "path3\t.\texon\t19\t21\t.\t+\t.\ttranscript_id \"transcript4\";" << endl;
+                    transcript_stream << "path3\t.\texon\t9\t10\t.\t-\t.\ttranscript_id \"transcript4\";" << endl;
+                    transcript_stream << "path3\t.\texon\t19\t21\t.\t-\t.\ttranscript_id \"transcript4\";" << endl;
+                    transcript_stream << "path3\t.\texon\t9\t11\t.\t+\t.\ttranscript_id \"transcript5\";" << endl;
+                    transcript_stream << "path3\t.\texon\t16\t21\t.\t+\t.\ttranscript_id \"transcript5\";" << endl;
+                    transcript_stream << "path3\t.\texon\t19\t21\t.\t+\t.\ttranscript_id \"transcript6\";" << endl;
 
                     transcriptome.add_reference_transcripts(vector<istream *>({&transcript_stream}), haplotype_index, true, false);
-                    REQUIRE(transcriptome.reference_transcript_paths().size() == 4);
+                    REQUIRE(transcriptome.reference_transcript_paths().size() == 5);
 
                     REQUIRE(transcriptome.sort_compact_nodes());
 
@@ -588,13 +592,15 @@ namespace vg {
                     REQUIRE(int_ref_transcript_paths.front() == vector<uint64_t>({4, 6, 10, 14, 26}));
                     REQUIRE(int_ref_transcript_paths.at(1) == vector<uint64_t>({14, 16, 24, 26}));
                     REQUIRE(int_ref_transcript_paths.at(2) == vector<uint64_t>({26}));
+                    REQUIRE(int_ref_transcript_paths.at(3) == vector<uint64_t>({27, 15}));
                     REQUIRE(int_ref_transcript_paths.back() == vector<uint64_t>({27, 25, 23, 11, 7, 5}));
 
                     auto seq_ref_transcript_paths = transcript_paths_to_sequences(transcriptome.reference_transcript_paths(), transcriptome.graph());
 
                     REQUIRE(seq_ref_transcript_paths.front() == "AAA");
                     REQUIRE(seq_ref_transcript_paths.at(1) == "AAACCTTTAAA");
-                    REQUIRE(seq_ref_transcript_paths.at(2) == "TTTAAAA");
+                    REQUIRE(seq_ref_transcript_paths.at(2) == "TTTAA");
+                    REQUIRE(seq_ref_transcript_paths.at(3) == "TTTAAAA");
                     REQUIRE(seq_ref_transcript_paths.back() == "TTTTGGAGGTTT");
                 }
             }
