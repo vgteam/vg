@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#define DEBUG_CLUSTER
+//#define DEBUG_CLUSTER
 namespace vg {
 
     NewSnarlSeedClusterer::NewSnarlSeedClusterer( SnarlDistanceIndex& distance_index) :
@@ -966,7 +966,6 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 //If this is the same as the old cluster head, then don't bother trying to compare
                 return false;
             }
-            //Subtract 1 from the distances since we only include one position in the distance
             distance_between_reads = SnarlDistanceIndex::minus(distance_between_reads, 1);
             distance_between_fragments = SnarlDistanceIndex::minus(distance_between_fragments, 1);
             bool combined = false;

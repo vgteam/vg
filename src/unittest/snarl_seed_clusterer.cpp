@@ -611,7 +611,7 @@ namespace unittest {
             REQUIRE( clusters.size() == 1);
         }
     }
-    TEST_CASE( "Clusters in snarl","[cluster][bug]" ) {
+    TEST_CASE( "Clusters in snarl","[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -851,6 +851,11 @@ namespace unittest {
         // And inside 2 rev -> 3 fwd, we get 1 rev -> 1 rev as another unar     y snarl.
 
         // We name the snarls for the distance index by their start nodes.
+        SECTION("Distances in root") {
+            net_handle_t root = dist_index.get_root();
+            net_handle_t chain = dist_index.get_parent(dist_index.get_node_net_handle(1));
+            REQUIRE(dist_index.get_parent(chain) == root);
+        }
 
         SECTION("Top level cluster") {
             vector<id_t> ids({1, 2, 7});

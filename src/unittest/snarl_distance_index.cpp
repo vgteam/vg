@@ -4764,7 +4764,7 @@ namespace vg {
 
             }
         }
-        TEST_CASE( "Looping, multicomponent chain", "[snarl_distance][bug]" ) {
+        TEST_CASE( "Looping, multicomponent chain", "[snarl_distance]" ) {
 
             //Intuitively, snarl from 1 to 10 with chain 2-5-7-9
             //Actually looping chain starting and ending 5fd
