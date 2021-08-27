@@ -1,4 +1,4 @@
-#define debug_distance_indexing
+//#define debug_distance_indexing
 //#define debug_snarl_traversal
 //#define debug_distances
 
