@@ -896,21 +896,22 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
             child_clusters1.distance_end_right = std::numeric_limits<size_t>::max();
 
         } else {
+            net_handle_t parent_start_in = distance_index.get_bound(parent_handle, false, true);
+            net_handle_t parent_end_in = distance_index.get_bound(parent_handle, true, true);
+            size_t start_length = !distance_index.is_chain(parent_handle) ? 0 
+                        : distance_index.node_length(distance_index.get_bound(parent_handle, false, false));
+                size_t end_length =  !distance_index.is_chain(parent_handle) ? 0 
+                        : distance_index.node_length(distance_index.get_bound(parent_handle, true, false));
 
-            child_clusters1.distance_start_left = distance_index.distance_in_parent(parent_handle, distance_index.get_bound(parent_handle, false, true), distance_index.flip(child_handle1));
-            child_clusters1.distance_start_right = distance_index.distance_in_parent(parent_handle, distance_index.get_bound(parent_handle, false, true), child_handle1);
-            child_clusters1.distance_end_left = distance_index.distance_in_parent(parent_handle, distance_index.get_bound(parent_handle, true, true), distance_index.flip(child_handle1));
-            child_clusters1.distance_end_right = distance_index.distance_in_parent(parent_handle, distance_index.get_bound(parent_handle, true, true), child_handle1);
+            child_clusters1.distance_start_left = distance_index.flip(child_handle1) == parent_start_in ? 0 :
+                SnarlDistanceIndex::sum({start_length, distance_index.distance_in_parent(parent_handle, parent_start_in, distance_index.flip(child_handle1))});
+            child_clusters1.distance_start_right = child_handle1 == parent_start_in ? 0 :
+                 SnarlDistanceIndex::sum({start_length, distance_index.distance_in_parent(parent_handle, parent_start_in, child_handle1)});
+            child_clusters1.distance_end_left = distance_index.flip(child_handle1) == parent_end_in ? 0 :
+                 SnarlDistanceIndex::sum({end_length, distance_index.distance_in_parent(parent_handle, parent_end_in, distance_index.flip(child_handle1))});
+            child_clusters1.distance_end_right = child_handle1 == parent_end_in ? 0  :
+                SnarlDistanceIndex::sum({end_length, distance_index.distance_in_parent(parent_handle, parent_end_in, child_handle1)});
 
-            if (distance_index.is_chain(parent_handle)) {
-                //If the child is in a chain, then the distance to the end should include the boundary node lengths
-                size_t start_length = distance_index.node_length(distance_index.get_bound(parent_handle, false, false));
-                size_t end_length = distance_index.node_length(distance_index.get_bound(parent_handle, true, false));
-                child_clusters1.distance_start_left  = SnarlDistanceIndex::sum({start_length, child_clusters1.distance_start_left }); 
-                child_clusters1.distance_start_right = SnarlDistanceIndex::sum({start_length, child_clusters1.distance_start_right}); 
-                child_clusters1.distance_end_left    = SnarlDistanceIndex::sum({end_length, child_clusters1.distance_end_left     }); 
-                child_clusters1.distance_end_right   = SnarlDistanceIndex::sum({end_length, child_clusters1.distance_end_right    }); 
-            }
         }
 #ifdef DEBUG_CLUSTER
         cerr << "\t\tFound distances between the two children: " << distance_left_left << " " << distance_left_right << " " << distance_right_right << " " << distance_right_left << endl;
@@ -965,6 +966,9 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 //If this is the same as the old cluster head, then don't bother trying to compare
                 return false;
             }
+            //Subtract 1 from the distances since we only include one position in the distance
+            distance_between_reads = SnarlDistanceIndex::minus(distance_between_reads, 1);
+            distance_between_fragments = SnarlDistanceIndex::minus(distance_between_fragments, 1);
             bool combined = false;
 
             if (distance_between_reads <= tree_state.read_distance_limit) {

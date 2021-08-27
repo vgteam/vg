@@ -611,7 +611,7 @@ namespace unittest {
             REQUIRE( clusters.size() == 1);
         }
     }
-    TEST_CASE( "Clusters in snarl","[cluster]" ) {
+    TEST_CASE( "Clusters in snarl","[cluster][bug]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -664,6 +664,7 @@ namespace unittest {
         make_distance_index(&dist_index, &graph, &snarl_finder);
 
         NewSnarlSeedClusterer clusterer(dist_index);
+
 
         SECTION( "Two clusters in a chain and loop of snarl boundary" ) {
             vector<NewSnarlSeedClusterer::Seed> seeds;
