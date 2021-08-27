@@ -3968,7 +3968,7 @@ namespace vg {
                          11, true, 0, 4, false, 0) == std::numeric_limits<size_t>::max());
             }
         }
-        TEST_CASE( "Snarl distance index can deal with loops in a snarl", "[snarl_distance][bug]" ) {
+        TEST_CASE( "Snarl distance index can deal with loops in a snarl", "[snarl_distance]" ) {
             //THis actually makes a chain 4fd->2fd, 2fd->4fd that is disconnected
             VG graph;
         
@@ -4764,6 +4764,95 @@ namespace vg {
 
             }
         }
+        TEST_CASE( "Looping, multicomponent chain", "[snarl_distance][bug]" ) {
+
+            //Intuitively, snarl from 1 to 10 with chain 2-5-7-9
+            //Actually looping chain starting and ending 5fd
+        
+            VG graph;
+
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("G");
+            Node* n6 = graph.create_node("T");
+            Node* n7 = graph.create_node("G");
+            Node* n8 = graph.create_node("G");
+            Node* n9 = graph.create_node("AA");
+            Node* n10 = graph.create_node("G");
+            Node* n11 = graph.create_node("GGGGGGGGGG");//10
+
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n10);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n2, n4);
+            Edge* e5 = graph.create_edge(n3, n5);
+            Edge* e6 = graph.create_edge(n4, n5);
+            Edge* e7 = graph.create_edge(n5, n6);
+            Edge* e8 = graph.create_edge(n5, n11);
+            Edge* e9 = graph.create_edge(n11, n7);
+            Edge* e10 = graph.create_edge(n6, n7);
+            Edge* e11 = graph.create_edge(n8, n8, false, true);
+            Edge* e12 = graph.create_edge(n7, n8);
+            Edge* e13 = graph.create_edge(n7, n9);
+            Edge* e14 = graph.create_edge(n8, n9);
+            Edge* e15 = graph.create_edge(n9, n10);
+       
+            
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
+            SECTION("Distances within snarls and chains") {
+                net_handle_t root_handle = distance_index.get_root();
+                size_t root_child_count = 0;
+                net_handle_t top_chain_handle;
+                distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
+                    REQUIRE(distance_index.is_chain(child));
+                    top_chain_handle = child;
+                    root_child_count++;
+                    REQUIRE(distance_index.get_depth(child) == 1);
+                });
+                REQUIRE(root_child_count == 1);
+
+
+                net_handle_t chain_8 = distance_index.get_parent(distance_index.get_node_net_handle(8));;
+                net_handle_t snarl_79 = distance_index.get_parent(chain_8); 
+                net_handle_t snarl_79_start = distance_index.get_bound(snarl_79, false, true);
+                net_handle_t snarl_79_end = distance_index.get_bound(snarl_79, true, true);
+                cerr << distance_index.net_handle_as_string(snarl_79) << endl;
+                REQUIRE(distance_index.distance_in_parent(snarl_79, distance_index.flip(chain_8), distance_index.flip(chain_8)) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.distance_in_parent(snarl_79, chain_8, chain_8) == 0);
+                REQUIRE(distance_index.distance_in_parent(snarl_79, snarl_79_start, snarl_79_start) == 2);
+
+
+
+                net_handle_t node_7 = distance_index.get_node_net_handle(7);
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, distance_index.flip(node_7), distance_index.flip(node_7)) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, node_7, distance_index.flip(node_7)) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, distance_index.flip(node_7),node_7) ==  std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, node_7,node_7) ==  2);
+
+                net_handle_t node_5 = distance_index.get_node_net_handle(5);
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, distance_index.flip(node_5), distance_index.flip(node_5)) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, node_5, distance_index.flip(node_5)) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, distance_index.flip(node_5),node_5) ==  std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, node_5,node_5) ==  6);
+
+                net_handle_t node_2 = distance_index.get_node_net_handle(2);
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, distance_index.flip(node_2), distance_index.flip(node_2)) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, node_2, distance_index.flip(node_2)) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, distance_index.flip(node_2),node_2) ==  std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, node_2,node_2) ==  10);
+
+            }
+            SECTION("Minimum distances") {
+                REQUIRE(distance_index.minimum_distance(5, false, 0, 6, true, 0) == 6);
+                REQUIRE(distance_index.minimum_distance(5, false, 0, 5, true, 0) == 7);
+            }
+        }
+
+
         TEST_CASE("Failed unit test", "[failed]") {
             //Load failed random graph
             ifstream vg_stream("test_graph.vg");

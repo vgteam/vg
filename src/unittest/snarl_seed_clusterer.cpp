@@ -200,7 +200,7 @@ namespace unittest {
         }
     }
     TEST_CASE( "multiple clusters in a chain",
-                   "[cluster][bug]" ) {
+                   "[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");

@@ -1,4 +1,4 @@
-//#define debug_distance_indexing
+#define debug_distance_indexing
 //#define debug_snarl_traversal
 //#define debug_distances
 
@@ -182,8 +182,8 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
         temp_index.max_index_size += temp_chain_record.get_max_record_length();
 
 #ifdef debug_distance_indexing
-        cerr << "  Ending new " << (temp_chain_record.is_trivial ? "trivial " : "") <<  "chain " << structure_start_end_as_string(chain_index)
-             << endl << "    that is a child of " << structure_start_end_as_string(temp_chain_record.parent) << endl;
+        cerr << "  Ending new " << (temp_chain_record.is_trivial ? "trivial " : "") <<  "chain " << temp_index.structure_start_end_as_string(chain_index)
+             << endl << "    that is a child of " << temp_index.structure_start_end_as_string(temp_chain_record.parent) << endl;
 #endif
     },
     [&](handle_t snarl_start_handle) {
@@ -255,8 +255,8 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
 
 
 #ifdef debug_distance_indexing
-        cerr << "  Ending new snarl " << structure_start_end_as_string(snarl_index)
-             << endl << "    that is a child of " << structure_start_end_as_string(temp_snarl_record.parent) << endl;
+        cerr << "  Ending new snarl " << temp_index.structure_start_end_as_string(snarl_index)
+             << endl << "    that is a child of " << temp_index.structure_start_end_as_string(temp_snarl_record.parent) << endl;
 #endif
     });
 
@@ -309,7 +309,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
 
         SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryChainRecord& temp_chain_record = temp_index.temp_chain_records[i];
 #ifdef debug_distance_indexing
-        cerr << "  At "  << (temp_chain_record.is_trivial ? " trivial " : "") << " chain " << structure_start_end_as_string(make_pair(SnarlDistanceIndex::TEMP_CHAIN, i)) << endl;
+        cerr << "  At "  << (temp_chain_record.is_trivial ? " trivial " : "") << " chain " << temp_index.structure_start_end_as_string(make_pair(SnarlDistanceIndex::TEMP_CHAIN, i)) << endl;
 #endif
 
         //Add the first values for the prefix sum and backwards loop vectors
@@ -328,7 +328,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             //Go through each of the children in the chain, skipping nodes
             //The snarl may be trivial, in which case don't fill in the distances
 #ifdef debug_distance_indexing
-            cerr << "    Looking at child " << structure_start_end_as_string(chain_child_index) << endl;
+            cerr << "    Looking at child " << temp_index.structure_start_end_as_string(chain_child_index) << endl;
 #endif
 
             if (chain_child_index.first == SnarlDistanceIndex::TEMP_SNARL){
@@ -424,8 +424,26 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
 
 
             //Also check if the reverse loop values would be improved if we went around again
+
             if (temp_chain_record.backward_loops.back() < temp_chain_record.backward_loops.front()) {
                 temp_chain_record.backward_loops[0] = temp_chain_record.backward_loops.back();
+                size_t node_i = 1;
+                for (size_t i = 1 ; i < temp_chain_record.children.size()-1 ; i++ ) {
+                    auto& child = temp_chain_record.children.at(i);
+                    if (child.first == SnarlDistanceIndex::TEMP_SNARL) {
+                        SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = temp_index.temp_snarl_records.at(child.second);
+                        size_t new_loop_distance = SnarlDistanceIndex::sum({temp_chain_record.backward_loops.at(node_i-1), 2*temp_snarl_record.min_length, 2*temp_snarl_record.start_node_length}); 
+                        if (temp_chain_record.chain_components.at(node_i)!= 0 || new_loop_distance >= temp_chain_record.backward_loops.at(node_i)) {
+                            //If this is a new chain component or it doesn't improve, stop
+                            break;
+                        } else {
+                            //otherwise record the better distance
+                            temp_chain_record.backward_loops.at(node_i) = new_loop_distance;
+
+                        node_i++;
+                        }
+                    }
+                }
             }
         }
 
@@ -436,8 +454,10 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             auto& child = temp_chain_record.children.at(j);
             if (child.first == SnarlDistanceIndex::TEMP_SNARL){
                 SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = temp_index.temp_snarl_records.at(child.second);
-                if (temp_chain_record.chain_components.at(node_i) != temp_chain_record.chain_components.at(node_i+1)){
+                if (temp_chain_record.chain_components.at(node_i) != temp_chain_record.chain_components.at(node_i+1) &&
+                    temp_chain_record.chain_components.at(node_i+1) != 0){
                     //If this is a new chain component, then add the loop distance from the snarl
+                    //If the component of the next node is 0, then we're still in the same component since we're going backwards
                     temp_chain_record.forward_loops.at(node_i) = temp_snarl_record.loop_start;
                 } else {
                     temp_chain_record.forward_loops.at(node_i) =
@@ -445,6 +465,32 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
                                       2*temp_snarl_record.end_node_length}), temp_snarl_record.loop_start);
                 }
                 node_i --;
+            }
+        }
+        if (temp_chain_record.start_node_id == temp_chain_record.end_node_id &&
+            temp_chain_record.forward_loops.front() < temp_chain_record.forward_loops.back()) {
+            //If this is a looping chain and looping improves the forward loops, 
+            //then we have to keep going around to update distance
+
+            temp_chain_record.forward_loops.back() = temp_chain_record.forward_loops.front();
+            node_i = temp_chain_record.prefix_sum.size() - 2;
+            cerr << "Go around improving distances " << endl;
+            for (int j = (int)temp_chain_record.children.size() - 1 ; j >= 0 ; j--) {
+                auto& child = temp_chain_record.children.at(j);
+                if (child.first == SnarlDistanceIndex::TEMP_SNARL){
+                    SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = temp_index.temp_snarl_records.at(child.second);
+                    size_t new_distance = SnarlDistanceIndex::sum({temp_chain_record.forward_loops.at(node_i+1) , 2* temp_snarl_record.min_length,
+                                          2*temp_snarl_record.end_node_length});
+                    if (temp_chain_record.chain_components.at(node_i) != temp_chain_record.chain_components.at(node_i+1) ||
+                        new_distance >= temp_chain_record.forward_loops.at(node_i)){
+                        //If this is a new component or the distance doesn't improve, stop looking
+                        break;
+                    } else {
+                        //otherwise, update the distance
+                        temp_chain_record.forward_loops.at(node_i) = new_distance;
+                    }
+                    node_i --;
+                }
             }
         }
         temp_index.max_distance = std::max(temp_index.max_distance, temp_chain_record.prefix_sum.back());
@@ -477,7 +523,7 @@ void populate_snarl_index(
                 SnarlDistanceIndex::TemporaryDistanceIndex& temp_index,
                 pair<SnarlDistanceIndex::temp_record_t, size_t> snarl_index, size_t size_limit, const HandleGraph* graph) {
 #ifdef debug_distance_indexing
-    cerr << "Getting the distances for snarl " << structure_start_end_as_string(snarl_index) << endl;
+    cerr << "Getting the distances for snarl " << temp_index.structure_start_end_as_string(snarl_index) << endl;
     assert(snarl_index.first == SnarlDistanceIndex::TEMP_SNARL);
 #endif
     SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = temp_index.temp_snarl_records.at(snarl_index.second);
@@ -594,7 +640,7 @@ void populate_snarl_index(
             //Record the distances to each node (child of the snarl) found
 
 #ifdef debug_distance_indexing
-            cerr << "  Starting from child " << structure_start_end_as_string(start_index)
+            cerr << "  Starting from child " << temp_index.structure_start_end_as_string(start_index)
                  << " going " << (start_rev ? "rev" : "fd") << endl;
 #endif
 
@@ -626,7 +672,7 @@ void populate_snarl_index(
                                   : graph->get_handle(temp_index.temp_chain_records[current_index.second].end_node_id, 
                                                       temp_index.temp_chain_records[current_index.second].end_node_rev));
 #ifdef debug_distance_indexing
-                        cerr << "    at child " << structure_start_end_as_string(current_index) << " going "
+                        cerr << "    at child " << temp_index.structure_start_end_as_string(current_index) << " going "
                              << (current_rev ? "rev" : "fd") << " at actual node " << graph->get_id(current_end_handle) 
                              << (graph->get_is_reverse(current_end_handle) ? "rev" : "fd") << endl;
 #endif
@@ -726,7 +772,7 @@ void populate_snarl_index(
                         }
                     }
 #ifdef debug_distance_indexing
-                    cerr << "        reached child " << structure_start_end_as_string(next_index) << "going " 
+                    cerr << "        reached child " << temp_index.structure_start_end_as_string(next_index) << "going " 
                          << (next_rev ? "rev" : "fd") << " with distance " << current_distance << " for ranks " << start_rank << " " << next_rank << endl;
 #endif
                 });
