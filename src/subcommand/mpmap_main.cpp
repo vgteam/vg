@@ -163,6 +163,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_ALT_PATHS 1030
     #define OPT_SUPPRESS_SUPPRESSION 1031
     #define OPT_SNARL_MAX_CUT 1032
+    #define OPT_SPLICE_ODDS 1033
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -291,6 +292,7 @@ int main_mpmap(int argc, char** argv) {
     bool do_spliced_alignment = false;
     int max_softclip_overlap = 8;
     int max_splice_overhang = 2 * max_softclip_overlap;
+    double no_splice_log_odds = 22.55;
     bool override_spliced_alignment = false;
     int match_score_arg = std::numeric_limits<int>::min();
     int mismatch_score_arg = std::numeric_limits<int>::min();
@@ -382,6 +384,7 @@ int main_mpmap(int argc, char** argv) {
             {"prune-exp", required_argument, 0, OPT_PRUNE_EXP},
             {"long-read-scoring", no_argument, 0, 'E'},
             {"not-spliced", no_argument, 0, 'X'},
+            {"splice-odds", required_argument, 0, OPT_SPLICE_ODDS},
             {"read-length", required_argument, 0, 'l'},
             {"nt-type", required_argument, 0, 'n'},
             {"error-rate", required_argument, 0, 'e'},
@@ -729,6 +732,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'X':
                 override_spliced_alignment = true;
+                break;
+                
+            case OPT_SPLICE_ODDS:
+                no_splice_log_odds = parse<double>(optarg);
                 break;
                 
             case 'l':
@@ -1314,6 +1321,10 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    if (no_splice_log_odds <= 0.0) {
+        cerr << "warning:[vg mpmap] Log odds against splicing (--splice-odds) set to " << no_splice_log_odds << ", non-positive values can lead to spurious identification of spliced alignments." << endl;
+    }
+    
     if ((match_score_arg != std::numeric_limits<int>::min() || mismatch_score_arg != std::numeric_limits<int>::min()) && !matrix_file_name.empty())  {
         cerr << "error:[vg mpmap] Cannot choose custom scoring matrix (-w) and custom match/mismatch score (-q/-z) simultaneously." << endl;
         exit(1);
@@ -1796,6 +1807,7 @@ int main_mpmap(int argc, char** argv) {
     // splicing parameters
     int64_t min_softclip_length_for_splice = int(ceil(log(total_seq_length * 2) / log(4.0))) + 2;
     multipath_mapper.set_min_softclip_length_for_splice(min_softclip_length_for_splice);
+    multipath_mapper.set_log_odds_against_splice(no_splice_log_odds);
     multipath_mapper.max_softclip_overlap = max_softclip_overlap;
     multipath_mapper.max_splice_overhang = max_splice_overhang;
 
