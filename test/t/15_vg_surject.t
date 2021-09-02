@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 33
+plan tests 35
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -136,5 +136,28 @@ is "$(vg sim -x m.xg -n 500 -l 150 -a -s 768594 -i 0.01 -e 0.01 -p 250 -v 50 | v
 
 rm -rf minigiab.vg* m.xg m.gcsa
 
+vg construct -r small/x.fa >j.vg
+vg index j.vg -g j.gcsa
+vg map -x j.vg -g j.gcsa -s TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA > r.gam
+vg surject -x j.vg r.gam -s > r.sam
+
+cat small/x.fa | sed -e 's/x/x[500]/g' > x.sub.fa
+vg construct -r x.sub.fa >j.sub.vg
+vg index j.sub.vg -g j.sub.gcsa
+vg map -x j.sub.vg -g j.sub.gcsa -s TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA > r.sub.gam
+vg surject -x j.sub.vg r.sub.gam -s > r.sub.sam
+
+cat r.sam | sed -e 's/LN:1001/LN:1501/g' -e 's/161/661/g' > r.manual.sam
+diff r.manual.sam r.sub.sam
+is "$?" 0 "vg surject correctly handles subpath suffix in path name"
+
+printf "x\t2000\n" > path_info.tsv
+rm -f r.sub.sam r.manual.sam
+vg surject -x j.sub.vg r.sub.gam -s --ref-paths path_info.tsv > r.sub.sam
+cat r.sam | sed -e 's/LN:1001/LN:2000/g' -e 's/161/661/g' > r.manual.sam
+diff r.manual.sam r.sub.sam
+is "$?" 0 "vg surject correctly fetches base path length from input file"
+
+rm -f h.vg h.gcsa r.gam r.sam x.sub.fa j.sub.vg j.sub.gcsa r.sub.gam r.sub.sam r.sub.sam
 
 

@@ -635,18 +635,29 @@ int main_chunk(int argc, char** argv) {
         // optionally trace our haplotypes
         if (trace && subgraph && gbwt_index.get() != nullptr) {
             int64_t trace_start;
-            int64_t trace_end;
+            int64_t trace_steps = 0;
             if (id_range) {
                 trace_start = output_regions[i].start;
-                trace_end = output_regions[i].end;
+                trace_steps = output_regions[i].end - trace_start;
             } else {
                 path_handle_t path_handle = graph->get_path_handle(output_regions[i].seq);
                 step_handle_t trace_start_step = graph->get_step_at_position(path_handle, output_regions[i].start);
-                trace_start = graph->get_id(graph->get_handle_of_step(trace_start_step));
                 step_handle_t trace_end_step = graph->get_step_at_position(path_handle, output_regions[i].end);
-                trace_end = graph->get_id(graph->get_handle_of_step(trace_end_step));
+                // make sure we don't loop forever in next loop
+                if (output_regions[i].start > output_regions[i].end) {
+                    swap(trace_start_step, trace_end_step);
+                }
+                trace_start = graph->get_id(graph->get_handle_of_step(trace_start_step));
+                for (; trace_start_step != trace_end_step; trace_start_step = graph->get_next_step(trace_start_step)) {
+                    ++trace_steps;
+                }
+                // haplotype_extender is forward only.  until it's made bidirectional, try to
+                // detect backward paths and trace them backwards.  this will not cover all possible cases though.
+                if (graph->get_is_reverse(graph->get_handle_of_step(trace_start_step)) &&
+                    graph->get_is_reverse(graph->get_handle_of_step(trace_end_step))) {
+                    trace_start = graph->get_id(graph->get_handle_of_step(trace_end_step));
+                }
             }
-            int64_t trace_steps = trace_end - trace_start;
             Graph g;
             trace_haplotypes_and_paths(*graph, *gbwt_index.get(), trace_start, trace_steps,
                                        g, trace_thread_frequencies, false);

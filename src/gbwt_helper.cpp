@@ -249,7 +249,7 @@ gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index, const std::vector<std::pai
     gbwt::size_type node_width = sdsl::bits::length(gbwt_index.sigma() - 1);
     std::unordered_map<gbwt::node_type, std::vector<std::pair<gbwt::vector_type, gbwt::vector_type>>> mappings_by_first_node;
     for (auto& mapping : mappings) {
-        if (mapping.first.empty()) {
+        if (mapping.first.empty() || mapping.first == mapping.second) {
             continue;
         }
         mappings_by_first_node[mapping.first.front()].push_back(mapping);
@@ -279,8 +279,14 @@ gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index, const std::vector<std::pai
                         j++;
                     }
                     if (j >= mapping.first.size()) {
-                        mapped.insert(mapped.end(), mapping.second.begin(), mapping.second.end());
-                        i += j;
+                        // Leave the last node unprocessed if it does not change.
+                        if (mapping.first.size() > 1 && mapping.second.size() > 0 && mapping.first.back() == mapping.second.back()) {
+                            mapped.insert(mapped.end(), mapping.second.begin(), mapping.second.end() - 1);
+                            i += mapping.first.size() - 1;
+                        } else {
+                            mapped.insert(mapped.end(), mapping.second.begin(), mapping.second.end());
+                            i += mapping.first.size();
+                        }
                         found = true;
                         break;
                     }

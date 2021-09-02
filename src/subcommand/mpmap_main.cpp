@@ -1641,7 +1641,6 @@ int main_mpmap(int argc, char** argv) {
     }
     
     // Load structures that we need for HTS lib outputs
-    vector<path_handle_t> paths;
     unordered_set<path_handle_t> surjection_paths;
     vector<pair<string, int64_t>> path_names_and_length;
     unique_ptr<Surjector> surjector(nullptr);
@@ -1660,11 +1659,13 @@ int main_mpmap(int argc, char** argv) {
         }
         
         // Load all the paths in the right order
-        vector<path_handle_t> paths = get_sequence_dictionary(ref_paths_name, *path_position_handle_graph);
+        vector<tuple<path_handle_t, size_t, size_t>> paths = get_sequence_dictionary(ref_paths_name, *path_position_handle_graph);
         // Make them into a set for directing surjection.
-        std::copy(paths.begin(), paths.end(), std::inserter(surjection_paths, surjection_paths.begin()));
+        for (const auto& path_info : paths) {
+            surjection_paths.insert(get<0>(path_info));
+        }
         // Copy out the metadata for making the emitter later
-        path_names_and_length = extract_path_metadata(paths, *path_position_handle_graph);
+        path_names_and_length = extract_path_metadata(paths, *path_position_handle_graph).first;
     }
     
     // this also takes a while inside the MultipathMapper constructor, but it will only activate if we don't
