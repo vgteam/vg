@@ -2379,17 +2379,25 @@ namespace vg {
                             cerr << "\tchecking shared motif " << j << " with has positions " << l_pos << ", and " << r_pos << endl;
 #endif
                             int64_t dist = numeric_limits<int64_t>::max();
-                            if (xindex->get_path_count() != 0) {
-                                // use the reference path distance if possible (less confounded by
-                                // intervening splice junctions than min distance)
+                            if (distance_index) {
+                                // use the distance index to judge reachability
+                                dist = distance_index->min_distance(l_pos, r_pos);
+                                if (dist >= 0 && xindex->get_path_count() != 0) {
+                                    // see if we can get a better estimate of long-range genomic distance from
+                                    // a reference path (to avoid splicing junctions)
+                                    // TODO: memoize the handles of the longest paths in each connected component?
+                                    int64_t ref_dist = algorithms::ref_path_distance(xindex, l_pos, r_pos,
+                                                                                     min_splice_ref_search_length,
+                                                                                     max_splice_ref_search_length);
+                                    if (ref_dist != numeric_limits<int64_t>::max()) {
+                                        dist = ref_dist;
+                                    }
+                                }
+                            }
+                            else if (xindex->get_path_count() != 0) {
                                 dist = algorithms::ref_path_distance(xindex, l_pos, r_pos,
                                                                      min_splice_ref_search_length,
                                                                      max_splice_ref_search_length);
-                            }
-                            if (distance_index && dist == numeric_limits<int64_t>::max()) {
-                                // couldn't find a distance, try to useuse the distance index to judge reachability
-                                // (not a very good estimate of distance though...)
-                                dist = distance_index->min_distance(l_pos, r_pos);
                             }
                             
                             // TODO: enforce pairing constraints?

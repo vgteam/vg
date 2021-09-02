@@ -469,7 +469,7 @@ def plot_length_distribution(counter):
     
     plt.hist(x, bins = 100)
 
-def plot_log_normal_mixture(params, mix_weights, log_density = False, num_sigmas = 4.0):
+def plot_log_normal_mixture(params, mix_weights, log_density = False, num_sigmas = 4.0, log_x = True, xlim = None):
     
     log_xmin, log_xmax = None, None
     for i in range(len(mix_weights)):
@@ -499,9 +499,15 @@ def plot_log_normal_mixture(params, mix_weights, log_density = False, num_sigmas
     if log_density:
         y -= np.max(y)
     
-    plt.plot(log10x, y)
-    ticks, labels = plt.xticks()
-    plt.xticks(ticks, [str(int(round(t))) for t in 10**np.array(ticks)])
+    if log_x:
+        plt.plot(log10x, y)
+        ticks, labels = plt.xticks()
+        plt.xticks(ticks, [str(int(round(t))) for t in 10**np.array(ticks)])
+    else:
+        plt.plot(x, y)
+        
+    if xlim is not None:
+        plt.xlim(xlim)
 
 def plot_frechet_mixture(params, mix_weights):
     
