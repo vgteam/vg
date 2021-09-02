@@ -2499,6 +2499,9 @@ double MinimizerMapper::get_prob_of_disruption_in_column(const vector<Minimizer>
 
 void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& rescued_alignment, const std::vector<Minimizer>& minimizers, bool rescue_forward ) {
 
+    // Get rid of the old path.
+    rescued_alignment.clear_path();
+
     if (this->rescue_algorithm == rescue_none) { return; }
 
     // We are traversing the same small subgraph repeatedly, so it's better to use a cache.
@@ -2533,11 +2536,11 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         }
     }
 
-    // Get rid of the old path.
-    rescued_alignment.clear_path();
-
     // Find all seeds in the subgraph and try to get a full-length extension.
     GaplessExtender::cluster_type seeds = this->seeds_in_subgraph(minimizers, rescue_nodes);
+    if (seeds.size() > this->rescue_seed_limit) {
+        return;
+    }
     std::vector<GaplessExtension> extensions = this->extender.extend(seeds, rescued_alignment.sequence(), &cached_graph);
 
     // If we have a full-length extension, use it as the rescued alignment.

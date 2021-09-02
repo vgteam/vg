@@ -2315,17 +2315,12 @@ void MinimumDistanceIndex::print_snarl_stats() {
     //Print out stats bout the snarl
     //
 
-    cout << "Distance index has " << snarl_indexes.size() << " snarls and " << chain_indexes.size() << " chains" << endl;
+    cout << "#Distance index has " << snarl_indexes.size() << " snarls and " << chain_indexes.size() << " chains" << endl;
+    cout << "#start_id\tend_id\tsnarl_size\tsnarl_depth" << endl;
    
-    cout << "Node count of snarls: " << endl;
     for (auto snarls : snarl_indexes) {
-       cout << snarls.num_nodes << "\t"; 
+       cout << snarls.id_in_parent << "\t" << snarls.end_id << "\t" << snarls.num_nodes << "\t" << snarls.depth << endl; 
     }
-    cout << endl << "Snarl count of chains: " << endl;
-    for (auto chains : chain_indexes) {
-        cout << chains.loop_fd.size() << "\t";
-    }
-    cout << endl;
 }
 
 void MinimumDistanceIndex::add_nodes_in_range(const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance, 

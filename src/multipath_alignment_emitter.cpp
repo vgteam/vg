@@ -17,6 +17,7 @@ MultipathAlignmentEmitter::MultipathAlignmentEmitter(const string& filename, siz
     HTSWriter(filename,
               out_format == "SAM" || out_format == "BAM" || out_format == "CRAM" ? out_format : "SAM", // just so the assert passes
               path_order_and_length ? *path_order_and_length : vector<pair<string, int64_t>>(),
+              {},
               num_threads),
     graph(graph)
 {
