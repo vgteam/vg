@@ -163,6 +163,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_ALT_PATHS 1030
     #define OPT_SUPPRESS_SUPPRESSION 1031
     #define OPT_SNARL_MAX_CUT 1032
+    #define OPT_REPORT_ALLELIC_MAPQ 1034
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -239,6 +240,7 @@ int main_mpmap(int argc, char** argv) {
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Exact;
     bool report_group_mapq = false;
+    bool report_allelic_mapq = false;
     double band_padding_multiplier = 1.0;
     int max_dist_error = 12;
     int default_num_alt_alns = 16;
@@ -351,6 +353,7 @@ int main_mpmap(int argc, char** argv) {
             {"mq-max", required_argument, 0, 'Q'},
             {"agglomerate-alns", no_argument, 0, 'a'},
             {"report-group-mapq", no_argument, 0, 'U'},
+            {"report-allelic-mapq", no_argument, 0, OPT_REPORT_ALLELIC_MAPQ},
             {"padding-mult", required_argument, 0, OPT_BAND_PADDING_MULTIPLIER},
             {"map-attempts", required_argument, 0, 'u'},
             {"max-paths", required_argument, 0, OPT_MAX_PATHS},
@@ -592,6 +595,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'U':
                 report_group_mapq = true;
+                break;
+                
+            case OPT_REPORT_ALLELIC_MAPQ:
+                report_allelic_mapq = true;
                 break;
                 
             case OPT_BAND_PADDING_MULTIPLIER:
@@ -1741,6 +1748,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.max_mapping_quality = max_mapq;
     multipath_mapper.mapq_scaling_factor = mapq_scaling_factor;
     multipath_mapper.report_group_mapq = report_group_mapq;
+    multipath_mapper.report_allelic_mapq = report_allelic_mapq;
     // Use population MAPQs when we have the right option combination to make that sensible.
     multipath_mapper.use_population_mapqs = (haplo_score_provider != nullptr && population_max_paths > 0);
     multipath_mapper.population_max_paths = population_max_paths;

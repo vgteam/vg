@@ -173,6 +173,10 @@ namespace vg {
     ///
     int32_t optimal_alignment_score(const multipath_alignment_t& multipath_aln,
                                     bool subpath_global = false);
+
+    /// Returns the score of the lowest-scoring source-to-sink alignment in the multipath_alignment_t.
+    /// Assumes that subpaths are topologically ordered and starts have been identified.
+    int32_t worst_alignment_score(const multipath_alignment_t& multipath_aln);
     
     /// Returns the top k highest-scoring alignments contained in the multipath_alignment_t.
     /// Note that some or all of these may be duplicate Alignments, which were spelled out

@@ -443,21 +443,34 @@ int32_t GSSWAligner::score_gap(size_t gap_length) const {
     return gap_length ? -gap_open - (gap_length - 1) * gap_extension : 0;
 }
 
+double GSSWAligner::first_mapping_quality_exact(const vector<double>& scaled_scores,
+                                                const vector<double>* multiplicities) {
+    return maximum_mapping_quality_exact(scaled_scores, nullptr, multiplicities);
+}
+
+double GSSWAligner::first_mapping_quality_approx(const vector<double>& scaled_scores,
+                                                   const vector<double>* multiplicities) {
+    return maximum_mapping_quality_approx(scaled_scores, nullptr, multiplicities);
+}
+
 double GSSWAligner::maximum_mapping_quality_exact(const vector<double>& scaled_scores, size_t* max_idx_out,
                                                   const vector<double>* multiplicities) {
     
+    // TODO: this isn't very well-named now that it also supports computing non-maximum
+    // mapping qualities
+    
     // work in log transformed values to avoid risk of overflow
     double log_sum_exp = numeric_limits<double>::lowest();
-    double max_score = numeric_limits<double>::lowest();
+    double to_score = numeric_limits<double>::lowest();
     
     // go in reverse order because this has fewer numerical problems when the scores are sorted (as usual)
     for (int64_t i = scaled_scores.size() - 1; i >= 0; i--) {
         // get the value of one copy of the score and check if it's the max
         double score = scaled_scores.at(i);
-        if (score >= max_score) {
+        if (max_idx_out && score >= to_score) {
             // Since we are going in reverse order, make sure to break ties in favor of the earlier item.
             *max_idx_out = i;
-            max_score = score;
+            to_score = score;
         }
         
         // add all copies of the score
@@ -479,7 +492,11 @@ double GSSWAligner::maximum_mapping_quality_exact(const vector<double>& scaled_s
         }
     }
     
-    double direct_mapq = -quality_scale_factor * subtract_log(0.0, max_score - log_sum_exp);
+    if (!max_idx_out) {
+        to_score = scaled_scores.empty() ? 0.0 : scaled_scores.front();
+    }
+    
+    double direct_mapq = -quality_scale_factor * subtract_log(0.0, to_score - log_sum_exp);
     return std::isinf(direct_mapq) ? (double) numeric_limits<int32_t>::max() : direct_mapq;
 }
 
@@ -521,6 +538,9 @@ double GSSWAligner::maximum_mapping_quality_exact(const vector<double>& scaled_s
 double GSSWAligner::maximum_mapping_quality_approx(const vector<double>& scaled_scores, size_t* max_idx_out,
                                                    const vector<double>* multiplicities) {
     assert(!scaled_scores.empty());
+    
+    // TODO: this isn't very well-named now that it also supports computing non-maximum
+    // mapping qualities
     
     // determine the maximum score and the count of the next highest score
     double max_score = scaled_scores.at(0);
@@ -571,9 +591,19 @@ double GSSWAligner::maximum_mapping_quality_approx(const vector<double>& scaled_
     }
    
     // record the index of the highest score
-    *max_idx_out = max_idx;
-
-    return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1.0 ? log(next_count) : 0.0)));
+    if (max_idx_out) {
+        *max_idx_out = max_idx;
+    }
+    if (max_idx_out || max_idx == 0) {
+        // we're either returning the mapping quality of whichever was the best, or we're
+        // returning the mapping quality of the first, which also is the best
+        return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1.0 ? log(next_count) : 0.0)));
+    }
+    else {
+        // we're returning the mapping quality of the first, which is not the best. the approximation
+        // gets complicated here, so lets just fall back on the exact computation
+        return maximum_mapping_quality_exact(scaled_scores, nullptr, multiplicities);
+    }
 }
 
 double GSSWAligner::group_mapping_quality_exact(const vector<double>& scaled_scores, const vector<size_t>& group,

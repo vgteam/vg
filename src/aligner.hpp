@@ -98,6 +98,15 @@ namespace vg {
         /// the mapping quality is always calculated as if its multiplicity is 1.
         static double maximum_mapping_quality_approx(const vector<double>& scaled_scores, size_t* max_idx_out,
                                                      const vector<double>* multiplicities = nullptr);
+        
+        /// Same as maximum_mapping_quality_exact except alway s computes mapping
+        /// quality for the first score
+        static double first_mapping_quality_exact(const vector<double>& scaled_scores,
+                                                  const vector<double>* multiplicities = nullptr);
+        /// Same as maximum_mapping_quality_approx except alway s computes mapping
+        /// quality for the first score
+        static double first_mapping_quality_approx(const vector<double>& scaled_scores,
+                                                   const vector<double>* multiplicities = nullptr);
     protected:
         double group_mapping_quality_exact(const vector<double>& scaled_scores, const vector<size_t>& group,
                                            const vector<double>* multiplicities = nullptr) const;
