@@ -31,7 +31,7 @@ var searchData=
   ['vgset_9162',['VGset',['../classvg_1_1VGset.html#a5ff9a6c4fa0223bcee7072f86a657751',1,'vg::VGset::VGset()'],['../classvg_1_1VGset.html#a6adbb25be82de20911fd901da4e9fe41',1,'vg::VGset::VGset(vector&lt; string &gt; &amp;files)']]],
   ['view_5fmultipath_5falignment_9163',['view_multipath_alignment',['../namespacevg.html#a411a023efbe439f069829603a2775673',1,'vg']]],
   ['view_5fmultipath_5falignment_5fas_5fdot_9164',['view_multipath_alignment_as_dot',['../namespacevg.html#a716909fc23ddaab59e0d2bf89fdd1ae3',1,'vg']]],
-  ['visit_5fcontained_5fsnarls_9165',['visit_contained_snarls',['../namespacevg.html#a8851994381f453f8a33503f542df010e',1,'vg']]],
+  ['visit_5fcontained_5fsnarls_9165',['visit_contained_snarls',['../namespacevg.html#a2ac513db5ff29a58348ad1608a261f76',1,'vg']]],
   ['visit_5fnext_5fnode_9166',['visit_next_node',['../classvg_1_1ExhaustiveTraversalFinder.html#a2cec9de94838e3575a20271db01a1a4f',1,'vg::ExhaustiveTraversalFinder::visit_next_node()'],['../classvg_1_1SupportRestrictedTraversalFinder.html#a9cdb3b8f554e58cba6fea9c2ccb40e14',1,'vg::SupportRestrictedTraversalFinder::visit_next_node()']]],
   ['visits_5fleft_9167',['visits_left',['../classvg_1_1SnarlManager.html#a27e95077ab5c9a7288f2833d5e66433e',1,'vg::SnarlManager']]],
   ['visits_5fright_9168',['visits_right',['../classvg_1_1SnarlManager.html#a567554948e5dc03604a46972eb42d295',1,'vg::SnarlManager']]],

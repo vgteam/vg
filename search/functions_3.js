@@ -75,7 +75,7 @@ var searchData=
   ['clear_5fstart_6686',['clear_start',['../classvg_1_1multipath__alignment__t.html#a9436c421aa0550bb65c55bd557ad97c4',1,'vg::multipath_alignment_t']]],
   ['clear_5fsubpath_6687',['clear_subpath',['../classvg_1_1multipath__alignment__t.html#af72f755d9dd5b4b11b379ee227997a2b',1,'vg::multipath_alignment_t']]],
   ['clip_5fcontained_5flow_5fdepth_5fnodes_6688',['clip_contained_low_depth_nodes',['../namespacevg.html#ac276d736096285e8d8414ee3a3dd08e4',1,'vg']]],
-  ['clip_5fcontained_5fsnarls_6689',['clip_contained_snarls',['../namespacevg.html#a2a2d272bc2e4f42a5a391b1efdb8318b',1,'vg']]],
+  ['clip_5fcontained_5fsnarls_6689',['clip_contained_snarls',['../namespacevg.html#affb16bab122c9abe8aa4282992b8fe12',1,'vg']]],
   ['clip_5flow_5fdepth_5fnodes_6690',['clip_low_depth_nodes',['../namespacevg.html#abd08fd8b46b28668b8923b059a9d174e',1,'vg']]],
   ['clip_5flow_5fdepth_5fnodes_5fgeneric_6691',['clip_low_depth_nodes_generic',['../namespacevg.html#ae0ac1f551e17198949b97fe0538fd16a',1,'vg']]],
   ['close_6692',['close',['../classvg_1_1Viz.html#a80cd5bc578f48ea2279e298405e71393',1,'vg::Viz']]],
