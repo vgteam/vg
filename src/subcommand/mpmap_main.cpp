@@ -39,6 +39,49 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+pair<vector<double>, vector<pair<double, double>>> parse_intron_distr_file(ifstream& strm) {
+    
+    auto bail = [&]() {
+        cerr << "error:[vg mpmap] Could not parse intron length distribution file." << endl;
+        exit(1);
+    };
+    
+    string line;
+    getline(strm, line);
+    size_t parse_len;
+    int num_comps = stoi(line, &parse_len);
+    if (parse_len != line.size()) {
+        bail();
+    }
+    
+    vector<double> weights;
+    vector<pair<double, double>> params;
+    for (int i = 0; i < 3 * num_comps; ++i) {
+        
+        if (!strm) {
+            bail();
+        }
+        line.clear();
+        getline(strm, line);
+        
+        double param = stod(line, &parse_len);
+        if (parse_len != line.size()) {
+            bail();
+        }
+        if (i < num_comps) {
+            weights.push_back(param);
+        }
+        else if ((i - num_comps) % 2 == 0) {
+            // have to switch the order relative to the script's output
+            params.emplace_back(0.0, param);
+        }
+        else {
+            params.back().first = param;
+        }
+    }
+    return make_pair(weights, params);
+}
+
 void help_mpmap(char** argv) {
     cerr
     << "usage: " << argv[0] << " mpmap [options] -x graph.xg -g index.gcsa [-f reads1.fq [-f reads2.fq] | -G reads.gam] > aln.gamp" << endl
@@ -83,6 +126,7 @@ void help_mpmap(char** argv) {
     //<< "  -T, --same-strand            read pairs are from the same strand of the DNA/RNA molecule" << endl
     << "  -a, --agglomerate-alns    combine separate multipath alignments into one (possibly disconnected) alignment" << endl
     << "  -X, --not-spliced         do not form spliced alignments, even if aligning with --nt-type 'rna'" << endl
+    << "  -r, --intron-distr FILE   intron length distribution (from scripts/intron_length_distribution.py)" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
     << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
     << "  -b, --frag-sample INT     look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
@@ -164,6 +208,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_SUPPRESS_SUPPRESSION 1031
     #define OPT_SNARL_MAX_CUT 1032
     #define OPT_SPLICE_ODDS 1033
+    #define OPT_RESEED_LENGTH 1035
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -176,6 +221,7 @@ int main_mpmap(int argc, char** argv) {
     string fastq_name_2;
     string gam_file_name;
     string ref_paths_name;
+    string intron_distr_name;
     int match_score = default_match;
     int mismatch_score = default_mismatch;
     int gap_open_score = default_gap_open;
@@ -358,7 +404,7 @@ int main_mpmap(int argc, char** argv) {
             {"max-paths", required_argument, 0, OPT_MAX_PATHS},
             {"top-tracebacks", no_argument, 0, OPT_TOP_TRACEBACKS},
             {"max-multimaps", required_argument, 0, 'M'},
-            {"reseed-length", required_argument, 0, 'r'},
+            {"reseed-length", required_argument, 0, OPT_RESEED_LENGTH},
             {"reseed-diff", required_argument, 0, 'W'},
             {"clustlength", required_argument, 0, 'K'},
             {"stripped-match", no_argument, 0, OPT_STRIPPED_MATCH},
@@ -385,6 +431,7 @@ int main_mpmap(int argc, char** argv) {
             {"long-read-scoring", no_argument, 0, 'E'},
             {"not-spliced", no_argument, 0, 'X'},
             {"splice-odds", required_argument, 0, OPT_SPLICE_ODDS},
+            {"intron-distr", required_argument, 0, 'r'},
             {"read-length", required_argument, 0, 'l'},
             {"nt-type", required_argument, 0, 'n'},
             {"error-rate", required_argument, 0, 'e'},
@@ -621,7 +668,7 @@ int main_mpmap(int argc, char** argv) {
                 max_num_mappings = parse<int>(optarg);
                 break;
                 
-            case 'r':
+            case OPT_RESEED_LENGTH:
                 reseed_length_arg = parse<int>(optarg);
                 break;
                 
@@ -736,6 +783,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_SPLICE_ODDS:
                 no_splice_log_odds = parse<double>(optarg);
+                break;
+                
+            case 'r':
+                intron_distr_name = optarg;
                 break;
                 
             case 'l':
@@ -1382,11 +1433,20 @@ int main_mpmap(int argc, char** argv) {
 
     ifstream matrix_stream;
     if (!matrix_file_name.empty()) {
-      matrix_stream.open(matrix_file_name);
-      if (!matrix_stream) {
-          cerr << "error:[vg mpmap] Cannot open scoring matrix file " << matrix_file_name << endl;
-          exit(1);
-      }
+        matrix_stream.open(matrix_file_name);
+        if (!matrix_stream) {
+            cerr << "error:[vg mpmap] Cannot open scoring matrix file " << matrix_file_name << endl;
+            exit(1);
+        }
+    }
+    
+    ifstream intron_distr_stream;
+    if (!intron_distr_name.empty()) {
+        intron_distr_stream.open(intron_distr_name);
+        if (!intron_distr_stream) {
+            cerr << "error:[vg mpmap] Cannot open intron length distribution file " << intron_distr_name << endl;
+            exit(1);
+        }
     }
     
     ifstream distance_index_stream;
@@ -1488,6 +1548,12 @@ int main_mpmap(int argc, char** argv) {
             cerr << " " << argv[i];
         }
         cerr << endl;
+    }
+    
+    vector<double> intron_mixture_weights;
+    vector<pair<double, double>> intron_component_params;
+    if (!intron_distr_name.empty()) {
+        tie(intron_mixture_weights, intron_component_params) = parse_intron_distr_file(intron_distr_stream);
     }
     
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
@@ -1810,6 +1876,9 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.set_log_odds_against_splice(no_splice_log_odds);
     multipath_mapper.max_softclip_overlap = max_softclip_overlap;
     multipath_mapper.max_splice_overhang = max_splice_overhang;
+    if (!intron_distr_name.empty()) {
+        multipath_mapper.set_intron_length_distribution(intron_mixture_weights, intron_component_params);
+    }
 
 #ifdef mpmap_instrument_mem_statistics
     multipath_mapper._mem_stats.open(MEM_STATS_FILE);

@@ -54,6 +54,13 @@ public:
     int32_t motif_score(size_t motif_num) const;
     // the score associated with an intron length
     int32_t intron_length_score(int64_t length) const;
+    // change the motifs
+    void update_motifs(const vector<tuple<string, string, double>>& motifs,
+                       const GSSWAligner& scorer);
+    // change the intron distribution
+    void update_intron_length_distribution(const vector<double>& lognormal_mixture_weights,
+                                           const vector<pair<double, double>>& lognormal_component_params,
+                                           const GSSWAligner& scorer);
     // must be called if scoring parameters are changed
     void update_scoring(const GSSWAligner& scorer);
 private:

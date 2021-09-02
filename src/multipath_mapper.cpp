@@ -6278,6 +6278,11 @@ namespace vg {
         no_splice_log_odds = round(log_odds / get_regular_aligner()->log_base);
     }
 
+    void MultipathMapper::set_intron_length_distribution(const vector<double>& intron_mixture_weights,
+                                                         const vector<pair<double, double>>& intron_component_params) {
+        splice_stats.update_intron_length_distribution(intron_mixture_weights, intron_component_params, *get_aligner());
+    }
+
     void MultipathMapper::set_max_merge_supression_length() {
         max_tail_merge_supress_length = ceil(double(get_regular_aligner()->match) / double(get_regular_aligner()->mismatch));
     }

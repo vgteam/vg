@@ -74,6 +74,17 @@ int32_t SpliceStats::intron_length_score(int64_t length) const {
     return round(intron_length_log_likelihood(length) - mode_log_likelihood) / log_base;
 }
 
+void SpliceStats::update_motifs(const vector<tuple<string, string, double>>& motifs,
+                                const GSSWAligner& scorer) {
+    init(motifs, mixture_weights, component_params, scorer);
+}
+
+void SpliceStats::update_intron_length_distribution(const vector<double>& lognormal_mixture_weights,
+                                                    const vector<pair<double, double>>& lognormal_component_params,
+                                                    const GSSWAligner& scorer) {
+    init(unaltered_motif_data, lognormal_mixture_weights, lognormal_component_params, scorer);
+}
+
 void SpliceStats::update_scoring(const GSSWAligner& scorer) {
     init(unaltered_motif_data, mixture_weights, component_params, scorer);
 }

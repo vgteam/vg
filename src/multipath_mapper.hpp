@@ -115,6 +115,10 @@ namespace vg {
         /// What should the prior odds against a spliced alignment be?
         void set_log_odds_against_splice(double log_odds);
         
+        /// Use a non-default intron length distribution
+        void set_intron_length_distribution(const vector<double>& intron_mixture_weights,
+                                            const vector<pair<double, double>>& intron_component_params);
+        
         /// Decide how long of a tail alignment we want before we allow its subpath to be merged
         void set_max_merge_supression_length();
         
