@@ -2190,7 +2190,8 @@ namespace vg {
                          const PrejoinSide& left, const PrejoinSide& right,
                          const tuple<handle_t, size_t, int64_t>& left_location,
                          const tuple<handle_t, size_t, int64_t>& right_location,
-                         int64_t estimated_intron_length, size_t motif_idx)
+                         const pos_t& left_pos, const pos_t& right_pos,
+                         size_t motif_idx)
                 : joined_graph(graph, left.splice_region->get_subgraph(),
                                get<0>(left_location), get<1>(left_location),
                                right.splice_region->get_subgraph(),
@@ -2201,7 +2202,9 @@ namespace vg {
                   right_clip_length(right.clip_length),
                   left_candidate_idx(left.candidate_idx),
                   right_candidate_idx(right.candidate_idx),
-                  intron_score(splice_stats.intron_length_score(estimated_intron_length)),
+                  left_pos(left_pos),
+                  right_pos(right_pos),
+                  intron_score(0),
                   motif_idx(motif_idx),
                   untrimmed_score(left.untrimmed_score + right.untrimmed_score)
             {
@@ -2216,17 +2219,19 @@ namespace vg {
             int64_t right_clip_length;
             size_t left_candidate_idx;
             size_t right_candidate_idx;
-            int32_t intron_score;
             size_t motif_idx;
             int32_t max_score;
             int32_t untrimmed_score;
-            // these two filled out after doing alignment
+            pos_t left_pos;
+            pos_t right_pos;
+            // these are filled out after doing alignment
+            int32_t intron_score;
             Alignment connecting_aln;
             size_t splice_idx;
             
             int32_t fixed_score_components(const SpliceStats& splice_stats,
                                            const Alignment& opt) {
-                return splice_stats.motif_score(motif_idx) + untrimmed_score - opt.score() + intron_score;
+                return splice_stats.motif_score(motif_idx) + untrimmed_score - opt.score();
             }
             
             int32_t pre_align_max_score(const GSSWAligner& aligner,
@@ -2252,6 +2257,11 @@ namespace vg {
             int32_t post_align_net_score(const SpliceStats& splice_stats,
                                          const Alignment& opt) {
                 return fixed_score_components(splice_stats, opt) + connecting_aln.score();
+            }
+            
+            int32_t post_intron_length_net_score(const SpliceStats& splice_stats,
+                                                 const Alignment& opt) {
+                return post_align_net_score(splice_stats, opt) + intron_score;
             }
         };
         
@@ -2372,55 +2382,26 @@ namespace vg {
                             auto l_under = left_region.get_subgraph().get_underlying_handle(get<0>(left_location));
                             auto r_under = right_region.get_subgraph().get_underlying_handle(get<0>(right_location));
                             
-                            pos_t l_pos(xindex->get_id(l_under), xindex->get_is_reverse(l_under), get<1>(left_location));
-                            pos_t r_pos(xindex->get_id(r_under), xindex->get_is_reverse(r_under), get<1>(right_location));
+                            pos_t left_pos(xindex->get_id(l_under), xindex->get_is_reverse(l_under), get<1>(left_location));
+                            pos_t right_pos(xindex->get_id(r_under), xindex->get_is_reverse(r_under), get<1>(right_location));
                              
 #ifdef debug_multipath_mapper
-                            cerr << "\tchecking shared motif " << j << " with has positions " << l_pos << ", and " << r_pos << endl;
+                            cerr << "\tmaking putative join for motif " << j << " with has positions " << left_pos << ", and " << right_pos << endl;
 #endif
-                            int64_t dist = numeric_limits<int64_t>::max();
-                            if (distance_index) {
-                                // use the distance index to judge reachability
-                                dist = distance_index->min_distance(l_pos, r_pos);
-                                if (dist >= 0 && xindex->get_path_count() != 0) {
-                                    // see if we can get a better estimate of long-range genomic distance from
-                                    // a reference path (to avoid splicing junctions)
-                                    // TODO: memoize the handles of the longest paths in each connected component?
-                                    int64_t ref_dist = algorithms::ref_path_distance(xindex, l_pos, r_pos,
-                                                                                     min_splice_ref_search_length,
-                                                                                     max_splice_ref_search_length);
-                                    if (ref_dist != numeric_limits<int64_t>::max()) {
-                                        dist = ref_dist;
-                                    }
-                                }
-                            }
-                            else if (xindex->get_path_count() != 0) {
-                                dist = algorithms::ref_path_distance(xindex, l_pos, r_pos,
-                                                                     min_splice_ref_search_length,
-                                                                     max_splice_ref_search_length);
-                            }
                             
-                            // TODO: enforce pairing constraints?
+                            putative_joins.emplace_back(*xindex, splice_stats, opt,
+                                                        *get_aligner(!alignment.quality().empty()),
+                                                        left_prejoin_side, right_prejoin_side,
+                                                        left_location, right_location,
+                                                        left_pos, right_pos, j);
                             
-                            if (dist >= 0 && dist != numeric_limits<int64_t>::max() && dist < max_intron_length) {
-
+                            if (putative_joins.back().max_score <= no_splice_log_odds) {
+#ifdef debug_multipath_mapper
+                                cerr << "\tscore bound of " << putative_joins.back().max_score << " ensures insigificant spliced alignment against prior log odds " << no_splice_log_odds << endl;
+#endif
                                 
-                                // the positions can reach each other in under the max length, make a join
-                                putative_joins.emplace_back(*xindex, splice_stats, opt,
-                                                            *get_aligner(!alignment.quality().empty()),
-                                                            left_prejoin_side, right_prejoin_side,
-                                                            left_location, right_location, dist, j);
-#ifdef debug_multipath_mapper
-                                cerr << "\tshared motif has a spliceable path of length " << dist << " (intron score: " << putative_joins.back().intron_score << "), adding as a putative join with score bound " << putative_joins.back().max_score << endl;
-#endif
-                                if (putative_joins.back().max_score < no_splice_log_odds) {
-#ifdef debug_multipath_mapper
-                                    cerr << "\tscore bound of " << putative_joins.back().max_score << " ensures insigificant spliced alignment against prior log odds " << no_splice_log_odds << endl;
-#endif
-                                    
-                                    // this has no chance of becoming significant, let's skip it
-                                    putative_joins.pop_back();
-                                }
+                                // this has no chance of becoming significant, let's skip it
+                                putative_joins.pop_back();
                             }
                         }
                     }
@@ -2460,33 +2441,75 @@ namespace vg {
             auto alnr = get_aligner(!alignment.quality().empty());
             alnr->align_global_banded(join.connecting_aln, join.joined_graph, 1);
             
-            // the total score of extending the anchor by the candidate
+            // the total score so far of extending the anchor by the candidate
             int32_t net_score = join.post_align_net_score(splice_stats, opt);
             
 #ifdef debug_multipath_mapper
             cerr << "next candidate spliced alignment with score bound " << join.max_score << " has net score " << net_score << ", must get " << no_splice_log_odds << " for significance"  << endl;
 #endif
             
+            // adding the intron length score will only decrease the net score, so current score is
+            // an upper bound
             if (net_score > no_splice_log_odds) {
-                // this is a statistically significant spliced alignment
+                // the alignment looks statistically significant, but we still haven't considered
+                // reachability or intron length
                 
-                // find which mapping is immediately after the splice
-                auto path = join.connecting_aln.mutable_path();
-                auto splice_id = join.joined_graph.get_id(join.joined_graph.right_splice_node());
-                join.splice_idx = 1;
-                while (path->mapping(join.splice_idx).position().node_id() != splice_id) {
-                    ++join.splice_idx;
+                int64_t dist = numeric_limits<int64_t>::max();
+                if (distance_index) {
+                    // use the distance index to judge reachability
+                    dist = distance_index->min_distance(join.left_pos, join.right_pos);
+                    if (dist >= 0 && xindex->get_path_count() != 0) {
+                        // see if we can get a better estimate of long-range genomic distance from
+                        // a reference path (to avoid splicing junctions)
+                        // TODO: memoize the handles of the longest paths in each connected component?
+                        int64_t ref_dist = algorithms::ref_path_distance(xindex, join.left_pos, join.right_pos,
+                                                                         min_splice_ref_search_length,
+                                                                         max_splice_ref_search_length);
+                        if (ref_dist != numeric_limits<int64_t>::max()) {
+                            dist = ref_dist;
+                        }
+                    }
+                }
+                else if (xindex->get_path_count() != 0) {
+                    // use the more expensive ref path distance right away
+                    dist = algorithms::ref_path_distance(xindex, join.left_pos, join.right_pos,
+                                                         min_splice_ref_search_length,
+                                                         max_splice_ref_search_length);
                 }
                 
-                // and translate into the original ID space
-                join.joined_graph.translate_node_ids(*path);
-                
-                if (net_score > best_net_score) {
+                // TODO: enforce pairing constraints?
+                if (dist >= 0 && dist != numeric_limits<int64_t>::max() && dist < max_intron_length) {
+                    // the positions can reach each other in under the max length, make a join
+                    
+                    // recompute the net score with the intron length taken into account
+                    join.intron_score = splice_stats.intron_length_score(dist);
+                    net_score = join.post_intron_length_net_score(splice_stats, opt);
+                    
 #ifdef debug_multipath_mapper
-                    cerr << "this score is the best so far, beating previous best " << best_net_score << endl;
+                    cerr << "shared motif has a spliceable path of length " << dist << " (intron score: " << putative_joins.back().intron_score << "), adding as a putative join with net score " << net_score << endl;
 #endif
-                    best_join = unique_ptr<PutativeJoin>(new PutativeJoin(move(join)));
-                    best_net_score = net_score;
+                    
+                    if (net_score > no_splice_log_odds && net_score > best_net_score) {
+                        // this is a significant spliced alignment, and it's the best one we've seen so far
+                        
+#ifdef debug_multipath_mapper
+                        cerr << "this score is the best so far, beating previous best " << best_net_score << endl;
+#endif
+                        
+                        // find which mapping is immediately after the splice
+                        auto path = join.connecting_aln.mutable_path();
+                        auto splice_id = join.joined_graph.get_id(join.joined_graph.right_splice_node());
+                        join.splice_idx = 1;
+                        while (path->mapping(join.splice_idx).position().node_id() != splice_id) {
+                            ++join.splice_idx;
+                        }
+                        
+                        // and translate into the original ID space
+                        join.joined_graph.translate_node_ids(*path);
+                        
+                        best_join = unique_ptr<PutativeJoin>(new PutativeJoin(move(join)));
+                        best_net_score = net_score;
+                    }
                 }
             }
             
@@ -2494,6 +2517,8 @@ namespace vg {
             pop_heap(putative_joins.begin(), putative_joins.end(), score_bound_comp);
             putative_joins.pop_back();
         }
+        
+        // TODO: complexi
         
 #ifdef debug_multipath_mapper
         cerr << "pruned " << putative_joins.size() << " putative joins for having low score bounds" << endl;
