@@ -169,7 +169,7 @@ gbwt::GBWT SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
             //         << " source: " << roots->start().node_id()
             //         << " sink: " << roots->end().node_id() << endl;
 
-            one_snarl_error_record = normalize_snarl(roots->start().node_id(), roots->end().node_id(), roots->start().backward());
+            one_snarl_error_record = normalize_snarl(roots->start().node_id(), roots->end().node_id(), roots->start().backward(), snarl_num);
             if (!(one_snarl_error_record[0] || one_snarl_error_record[1] ||
                     one_snarl_error_record[2] || one_snarl_error_record[3] ||
                     one_snarl_error_record[6])) {
@@ -340,7 +340,7 @@ gbwt::GBWT SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
 // Returns: none.
 // TODO: allow for snarls that have haplotypes that begin or end in the middle of the
 // snarl.
-vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const bool backwards) {
+vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const bool backwards, const int snarl_num) {
     // if (backwards){
     //     // swap the source and sink ids. Essentially, this guarantees I treat the leftmost node in snarl as "source".
     //     // (although some adjustments for paths need be made)
@@ -686,6 +686,7 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
         }
     } else if (error_record[5] <= 0) {
         cerr << "normalized snarl size is <= zero: " << error_record[5] << endl;
+        cerr << "snarl number: " << snarl_num << endl;
     }
     return error_record;
 
