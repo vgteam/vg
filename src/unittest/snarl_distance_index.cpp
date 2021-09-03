@@ -32,7 +32,7 @@ namespace vg {
         
             VG graph;
                 
-            Node* n1 = graph.create_node("GCA");
+            Node* n1 = graph.create_node("GCAAACAGATT");
 
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -62,10 +62,16 @@ namespace vg {
                     child_handle = child;
                     root_child_count++;
                     REQUIRE(distance_index.get_depth(child) == 1);
+                    REQUIRE(distance_index.minimum_length(child) == 11);
                 });
                 REQUIRE(root_child_count == 1);
                 REQUIRE(distance_index.get_depth(root_handle) == 0);
 
+            }
+            SECTION("Minimum distances") {
+                REQUIRE(distance_index.minimum_length(distance_index.get_node_net_handle(1)) == 11);
+                REQUIRE(distance_index.minimum_distance(1, false, 0, 1, false, 5) == 5);
+                REQUIRE(distance_index.minimum_distance(1, true, 0, 1, true, 5) == 5);
             }
         }
         TEST_CASE( "Snarl decomposition can allow traversal of a simple net graph",

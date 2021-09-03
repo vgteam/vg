@@ -97,6 +97,8 @@ namespace vg {
 cerr << endl << endl << endl << endl << "New cluster calculation:" << endl;
 cerr << "\tread distance limit: " << read_distance_limit << " and fragment distance limit: " << fragment_distance_limit << endl;
 #endif
+cerr << endl << endl << endl << endl << "New cluster calculation:" << endl;
+cerr << "\tread distance limit: " << read_distance_limit << " and fragment distance limit: " << fragment_distance_limit << endl;
         if (fragment_distance_limit != 0 &&
             fragment_distance_limit < read_distance_limit) {
             throw std::runtime_error("Fragment distance limit must be greater than read distance limit");
@@ -445,10 +447,11 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 #endif
 
         size_t node_length = distance_index.node_length(node_clusters.containing_net_handle);
+        cerr << "Finding clusters on node " << distance_index.net_handle_as_string(node_clusters.containing_net_handle) << " with length " << node_length << endl;
         nid_t node_id = distance_index.node_id(node_clusters.containing_net_handle);
 
 
-        if (tree_state.read_distance_limit > node_length) {
+        if (tree_state.read_distance_limit >= node_length) {
             //If the limit is greater than the node length, then all the
             //seeds on this node must be in the same cluster
 
@@ -605,6 +608,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
             if (read_first_offset[read_num] == std::numeric_limits<size_t>::max()) {
                 read_first_offset[read_num] = offset;
             }
+            cerr << read_num << " : " << tree_state.all_seeds->at(read_num)->at(seed_num).pos << " " << offset << "...";
 
             if (read_last_offset[read_num] != std::numeric_limits<size_t>::max() &&
                 offset - read_last_offset[read_num] <= tree_state.read_distance_limit) {
@@ -622,6 +626,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                     fragment_last_cluster = tree_state.fragment_union_find.find_group(seed_num+tree_state.read_index_offsets[read_num]);
                     fragment_last_offset = offset;
                 }
+                cerr << "same " << endl;
             } else {
                 //This becomes a new read cluster
                 if (read_last_cluster[read_num] != std::numeric_limits<size_t>::max()) {
@@ -632,19 +637,23 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 read_last_cluster[read_num] = seed_num;
                 read_first_offset[read_num] = offset;
                 read_last_offset[read_num] = offset;
+                cerr << "new";
                 if (tree_state.fragment_distance_limit != 0) {
                     if (fragment_last_offset != std::numeric_limits<size_t>::max() &&
                         offset - fragment_last_offset <= tree_state.fragment_distance_limit) {
                         //If this is a new read cluster but the same fragment cluster
                         tree_state.fragment_union_find.union_groups(seed_num+tree_state.read_index_offsets[read_num], fragment_last_cluster);
                         fragment_last_cluster = tree_state.fragment_union_find.find_group(fragment_last_cluster);
+                        cerr << " but same fragment";
 
                     } else {
                         //If this is a new fragment cluster as well
                         fragment_last_cluster = seed_num+tree_state.read_index_offsets[read_num];
+                        cerr << " and new fragment";
                     }
                     fragment_last_offset = offset;
                 }
+                cerr << endl;
             }
         }
         for (size_t i = 0 ; i < read_last_cluster.size() ; i++) {
@@ -884,7 +893,6 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
         size_t distance_right_right = distance_index.distance_in_parent(parent_handle, child_handle1, child_handle2);
         size_t distance_right_left = distance_index.distance_in_parent(parent_handle, child_handle1, distance_index.flip(child_handle2));
 
-        cerr << "Distances between  " << distance_index.net_handle_as_string(child_handle1) << " and " << distance_index.net_handle_as_string(child_handle2) << " in parent " << distance_index.net_handle_as_string(parent_handle) << ": "<< distance_left_left << " " << distance_left_right << " " << distance_right_right << " " << distance_right_left << endl;
         /* Find the distances from the start/end of the parent to the left/right of the first child
          * If this is the root, then the distances are infinite since it has no start/end
          */
@@ -1031,12 +1039,10 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
             size_t new_dist_right= std::min(SnarlDistanceIndex::sum({distances.first,child_clusters1.distance_end_left}),
                                             SnarlDistanceIndex::sum({distances.second,child_clusters1.distance_end_right}));
             pair<size_t, size_t> distances_to_parent = make_pair(new_dist_left, new_dist_right);
-            cerr << "Distances to parent are " << distances_to_parent.first << " and " << distances_to_parent.second << endl;
             if (parent_clusters.read_cluster_heads.count(make_pair(read_num, cluster_num)) > 0) {
                 distances_to_parent = make_pair(
                     std::min(new_dist_left, parent_clusters.read_cluster_heads[make_pair(read_num, cluster_num)].first),
                     std::min(new_dist_right, parent_clusters.read_cluster_heads[make_pair(read_num, cluster_num)].second));
-            cerr << " Updated distances to parent are " << distances_to_parent.first << " and " << distances_to_parent.second << endl;
             }
                 
 
@@ -1397,7 +1403,6 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
             /*
              * Snarls and nodes are in the order that they are traversed in the chain
              */
-            cerr << "On chain child " << distance_index.net_handle_as_string(child_clusters.containing_net_handle) << endl;
 
             if (distance_index.is_node(child_clusters.containing_net_handle)){
                 cluster_one_node(tree_state, child_clusters);
@@ -1409,7 +1414,6 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 
             //Go through all child clusters since we last saw a node cluster
             for (NodeClusters* previous_child_node : last_child_clusters) {
-                cerr << "\tcompare to previously seen child" << distance_index.net_handle_as_string(previous_child_node->containing_net_handle) << endl;
 
                 compare_and_combine_cluster_on_child_structures(tree_state, child_clusters, 
                         *previous_child_node, chain_clusters);
