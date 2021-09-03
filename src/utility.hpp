@@ -321,8 +321,9 @@ public:
     /// that has not yet happened.
     minstd_rand::result_type operator()();
 private:
-    /// Closure used to generate the seed.
-    const std::function<string(void)>& get_seed;
+    /// Closure used to generate the seed. Makes sure to copy and not store a
+    /// reference to a temporary closure.
+    std::function<string(void)> get_seed;
     /// Backing RNG, or empty.
     unique_ptr<minstd_rand> rng;
 };
