@@ -3617,7 +3617,7 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
     // We want the best alignment, to the base graph, done against any target path
     Path best_path;
     // And its score
-    int64_t best_score = 0;
+    int32_t best_score = 0;
     
     if (!sequence.empty()) {
         // We start out with the best alignment being a pure softclip.
