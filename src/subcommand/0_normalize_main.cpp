@@ -261,7 +261,7 @@ int main_normalize(int argc, char **argv) {
         return 0;
       }
       vector<int> error_record =
-          normalizer.normalize_snarl(source, sink, paths_right_to_left);
+          normalizer.normalize_snarl(source, sink, paths_right_to_left, 0);
       if (!(error_record[0] || error_record[1] || error_record[2] ||
             error_record[3] || error_record[6])) 
       {
