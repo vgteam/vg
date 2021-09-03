@@ -758,7 +758,7 @@ minstd_rand::result_type LazyRNG::operator()() {
     return (*rng)();
 }
 
-bool deterministic_flip(minstd_rand& rng) {
+bool deterministic_flip(LazyRNG& rng) {
     return rng() % 2;
 }
 
