@@ -319,7 +319,9 @@ namespace vg {
     void transfer_proto_metadata(const MultipathAlignment& from, Alignment& to);
 
     /// Merges non-branching paths in a multipath alignment in place
-    void merge_non_branching_subpaths(multipath_alignment_t& multipath_aln);
+    /// Does not assume topological order among subpaths
+    void merge_non_branching_subpaths(multipath_alignment_t& multipath_aln,
+                                      const unordered_set<size_t>* prohibited_merges = nullptr);
 
     /// Removes all edit, mappings, and subpaths that have no aligned bases, and introduces transitive edges
     /// to preserve connectivity through any completely removed subpaths

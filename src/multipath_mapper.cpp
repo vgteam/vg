@@ -39,7 +39,7 @@ namespace vg {
         path_component_index(distance_index ? nullptr : new PathComponentIndex(graph)),
         splice_motifs(*get_regular_aligner())
     {
-        // nothing to do
+        set_max_merge_supression_length();
     }
 
     MultipathMapper::~MultipathMapper() {
@@ -152,12 +152,6 @@ namespace vg {
         
         for (size_t i = 1; i < multipath_alns_out.size(); ++i) {
             multipath_alns_out[i].set_annotation("secondary", true);
-        }
-        
-        if (simplify_topologies) {
-            for (multipath_alignment_t& multipath_aln : multipath_alns_out) {
-                merge_non_branching_subpaths(multipath_aln);
-            }
         }
         
         if (strip_bonuses) {
@@ -771,10 +765,13 @@ namespace vg {
         // get the position to jump from and the distance to jump
         Alignment opt_anchoring_aln;
         optimal_alignment(multipath_aln, opt_anchoring_aln);
+        
+        if (opt_anchoring_aln.path().mapping_size() == 0) {
+            return;
+        }
                 
         if (get_rescue_graph_from_paths || !distance_index) {
             // we're either not using the distance index or we don't have one
-            
             pos_t pos_from = rescue_forward ? initial_position(opt_anchoring_aln.path()) : final_position(opt_anchoring_aln.path());
             int64_t jump_dist = rescue_forward ? fragment_length_distr.mean() : -fragment_length_distr.mean();
             
@@ -886,6 +883,7 @@ namespace vg {
         AlignerClient::set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus);
         splice_motifs.update_scoring(*get_regular_aligner());
         set_min_softclip_length_for_splice(min_softclip_length_for_splice);
+        set_max_merge_supression_length();
     }
 
     void MultipathMapper::set_alignment_scores(std::istream& matrix_stream, int8_t gap_open, int8_t gap_extend,
@@ -893,6 +891,7 @@ namespace vg {
         AlignerClient::set_alignment_scores(matrix_stream, gap_open, gap_extend, full_length_bonus);
         splice_motifs.update_scoring(*get_regular_aligner());
         set_min_softclip_length_for_splice(min_softclip_length_for_splice);
+        set_max_merge_supression_length();
     }
 
     void MultipathMapper::set_alignment_scores(const int8_t* score_matrix, int8_t gap_open, int8_t gap_extend,
@@ -900,6 +899,7 @@ namespace vg {
         AlignerClient::set_alignment_scores(score_matrix, gap_open, gap_extend, full_length_bonus);
         splice_motifs.update_scoring(*get_regular_aligner());
         set_min_softclip_length_for_splice(min_softclip_length_for_splice);
+        set_max_merge_supression_length();
     }
 
     
@@ -1083,16 +1083,25 @@ namespace vg {
         
         Alignment aln_1;
         optimal_alignment(multipath_aln_1, aln_1);
-        // We already threw out unmapped things
-        assert(aln_1.path().mapping_size() != 0);
-        pos_t pos_1 = initial_position(aln_1.path());
-        assert(id(pos_1) != 0);
+        pos_t pos_1;
+        if (aln_1.path().mapping_size() != 0) {
+            pos_1 = initial_position(aln_1.path());
+        }
+        else {
+            // the whole thing is negative scoring, take an arbitray postition just to not break
+            pos_1 = make_pos_t(multipath_aln_1.subpath().front().path().mapping().front().position());
+        }
         
         Alignment aln_2;
         optimal_alignment(multipath_aln_2, aln_2);
-        assert(aln_2.path().mapping_size() != 0);
-        pos_t pos_2 = full_fragment ? final_position(aln_2.path()) : initial_position(aln_2.path());
-        assert(id(pos_2) != 0);
+        pos_t pos_2;
+        if (aln_2.path().mapping_size() != 0) {
+            pos_2 = full_fragment ? final_position(aln_2.path()) : initial_position(aln_2.path());
+        }
+        else {
+            // the whole thing is negative scoring, take an arbitray postition just to not break
+            pos_2 = make_pos_t(multipath_aln_2.subpath().front().path().mapping().front().position());
+        }
 #ifdef debug_multipath_mapper
         cerr << "measuring left-to-" << (full_fragment ? "right" : "left") << " end distance between " << pos_1 << " and " << pos_2 << endl;
 #endif
@@ -1992,13 +2001,6 @@ namespace vg {
             }
         }
         
-        if (simplify_topologies) {
-            for (pair<multipath_alignment_t, multipath_alignment_t>& multipath_aln_pair : multipath_aln_pairs_out) {
-                merge_non_branching_subpaths(multipath_aln_pair.first);
-                merge_non_branching_subpaths(multipath_aln_pair.second);
-            }
-        }
-        
         // remove the full length bonus if we don't want it in the final score
         if (strip_bonuses) {
             for (pair<multipath_alignment_t, multipath_alignment_t>& multipath_aln_pair : multipath_aln_pairs_out) {
@@ -2272,6 +2274,9 @@ namespace vg {
         // examine the region along the possible splice region of the anchor
         Alignment opt;
         optimal_alignment(anchor_mp_aln, opt);
+        if (opt.path().mapping_size() == 0) {
+            return false;
+        }
         auto anchor_pos = trimmed_end(opt, max_splice_overhang, !searching_left, *xindex,
                                       *get_aligner(!opt.quality().empty()));
         
@@ -2312,6 +2317,12 @@ namespace vg {
             
             Alignment candidate_opt;
             optimal_alignment(candidate, candidate_opt);
+            if (candidate_opt.path().mapping_size() == 0) {
+#ifdef debug_multipath_mapper
+                cerr << "skipping negative scoring candidate " << i << endl;
+#endif
+                continue;
+            }
             
             auto candidate_pos = trimmed_end(candidate_opt, max_splice_overhang, searching_left, *xindex,
                                              *get_aligner(!opt.quality().empty()));
@@ -3449,13 +3460,20 @@ namespace vg {
         bool found_consistent = false;
         auto attempt_to_pair = [&](size_t i, size_t j) {
 
-            Alignment opt_1;
+            if (multipath_alns_1[i].subpath_size() == 0 || multipath_alns_2[j].subpath_size() == 0) {
+                return;
+            }
+            
+            Alignment opt_1, opt_2;
             optimal_alignment(multipath_alns_1[i], opt_1);
+            optimal_alignment(multipath_alns_2[j], opt_2);
+            if (opt_1.path().mapping_size() == 0 || opt_2.path().mapping_size() == 0) {
+                return;
+            }
+            
             pos_t inner_pos_1 = final_position(opt_1.path());
             int64_t aligned_length_1 = path_from_length(opt_1.path());
             
-            Alignment opt_2;
-            optimal_alignment(multipath_alns_2[j], opt_2);
             pos_t inner_pos_2 = initial_position(opt_2.path());
             int64_t aligned_length_2 = path_from_length(opt_2.path());
 
@@ -5130,7 +5148,7 @@ namespace vg {
             }
             
             // a function to translate from the transformed graphs ID space to the original graph's
-            function<pair<id_t, bool>(id_t)> translator = [&](const id_t& node_id) {
+            function<pair<id_t, bool>(id_t)> translator = [&](const id_t node_id) {
                 handle_t original = align_digraph->get_underlying_handle(align_dag->get_underlying_handle(align_dag->get_handle(node_id)));
                 return make_pair(graph->get_id(original), graph->get_is_reverse(original));
             };
@@ -5170,7 +5188,7 @@ namespace vg {
                 // prune this graph down the paths that have reasonably high likelihood
                 size_t size_before_prune = multi_aln_graph.size();
                 multi_aln_graph.prune_to_high_scoring_paths(alignment, aligner, max_suboptimal_path_score_ratio,
-                                                            topological_order, translator, hit_provenance);
+                                                            topological_order, hit_provenance);
                 
                 if (multi_aln_graph.size() != size_before_prune && do_spliced_alignment) {
                     // we pruned away some path nodes, so let's check if we pruned away any entire hits
@@ -5245,13 +5263,14 @@ namespace vg {
             function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding = [&](const Alignment& seq, const HandleGraph& graph) {
                 size_t read_length = seq.sequence().size();
                 return read_length < band_padding_memo.size() ? band_padding_memo.at(read_length)
-                : size_t(band_padding_multiplier * sqrt(read_length)) + 1;
+                                                              : size_t(band_padding_multiplier * sqrt(read_length)) + 1;
             };
             
             // do the connecting alignments and fill out the multipath_alignment_t object
             multi_aln_graph.align(alignment, *align_dag, aligner, true, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
-                                  use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0,
-                                  choose_band_padding, multipath_aln_out);
+                                  use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0, simplify_topologies,
+                                  max_tail_merge_supress_length, choose_band_padding, multipath_aln_out, snarl_manager,
+                                  distance_index, &translator);
             
             // Note that we do NOT topologically order the multipath_alignment_t. The
             // caller has to do that, after it is finished breaking it up into
@@ -5306,8 +5325,8 @@ namespace vg {
         
         // do the connecting alignments and fill out the multipath_alignment_t object
         multi_aln_graph.align(alignment, subgraph, aligner, false, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
-                              use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0,
-                              choose_band_padding, multipath_aln_out);
+                              use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0, simplify_topologies,
+                              max_tail_merge_supress_length, choose_band_padding, multipath_aln_out);
         
         for (size_t j = 0; j < multipath_aln_out.subpath_size(); j++) {
             translate_oriented_node_ids(*multipath_aln_out.mutable_subpath(j)->mutable_path(), translator);
@@ -5910,7 +5929,7 @@ namespace vg {
     
     int32_t MultipathMapper::compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method,
                                                                      bool have_qualities, const vector<double>* multiplicities) const {
-   
+        
         // We should never actually compute a MAPQ with the None method. If we try, it means something has gone wrong.
         assert(mapq_method != None);
    
@@ -6113,10 +6132,10 @@ namespace vg {
             Alignment aln1, aln2;
             optimal_alignment(multipath_aln_pairs[i].first, aln1);
             optimal_alignment(multipath_aln_pairs[i].second, aln2);
-            auto start1 = aln1.path().mapping(0).position().node_id();
-            auto start2 = aln2.path().mapping(0).position().node_id();
+            int64_t id1 = aln1.path().mapping_size() ? aln1.path().mapping(0).position().node_id() : multipath_aln_pairs[i].first.subpath(0).path().mapping(0).position().node_id();
+            int64_t id2 = aln2.path().mapping_size() ? aln2.path().mapping(0).position().node_id() : multipath_aln_pairs[i].second.subpath(0).path().mapping(0).position().node_id();
         
-            cerr << "\tpos:" << start1 << "(" << aln1.score() << ")-" << start2 << "(" << aln2.score() << ")"
+            cerr << "\tpos:" << id1 << "(" << aln1.score() << ")-" << id2 << "(" << aln2.score() << ")"
                 << " align:" << optimal_alignment_score(multipath_aln_pairs[i].first) + optimal_alignment_score(multipath_aln_pairs[i].second)
                 << ", length: " << cluster_pairs[i].second;
             cerr << ", combined: " << scores[i];
@@ -6289,7 +6308,11 @@ namespace vg {
                                                                                                          dummy_a.end(),
                                                                                                          dummy_qual.begin());
     }
-            
+
+    void MultipathMapper::set_max_merge_supression_length() {
+        max_tail_merge_supress_length = ceil(double(get_regular_aligner()->match) / double(get_regular_aligner()->mismatch));
+    }
+
     // make the memos live in this .o file
     thread_local unordered_map<pair<double, size_t>, haploMath::RRMemo> MultipathMapper::rr_memos;
     

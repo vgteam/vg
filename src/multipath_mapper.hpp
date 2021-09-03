@@ -112,11 +112,15 @@ namespace vg {
         /// How big of a softclip should lead us to attempt spliced alignment?
         void set_min_softclip_length_for_splice(size_t length);
         
+        /// Decide how long of a tail alignment we want before we allow its subpath to be merged
+        void set_max_merge_supression_length();
+        
         // parameters
         
         size_t max_branch_trim_length = 1;
         bool agglomerate_multipath_alns = false;
         int64_t max_snarl_cut_size = 5;
+        size_t max_tail_merge_supress_length = 4;
         bool suppress_tail_anchors = false;
         size_t min_tail_anchor_length = 3;
         double band_padding_multiplier = 1.0;

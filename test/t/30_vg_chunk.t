@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 24
+plan tests 25
 
 # Construct a graph with alt paths so we can make a GBWT and a GBZ
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz -a >x.vg
@@ -49,6 +49,12 @@ is $(vg chunk -x x.xg -G x.gbwt -r 1:1 -c 2 -T | vg view - -j | jq .node | grep 
 is "$(vg chunk -x x.xg -r 1:1 -c 2 -T | vg view - -j | jq -c '.path[] | select(.name != "x[0]")' | wc -l)" 0 "chunker extracts no threads from an empty gPBWT"
 is "$(vg chunk -x x.xg -G x.gbwt -r 1:1 -c 2 -T | vg view - -j | jq -c '.path[] | select(.name != "x[0]")' | wc -l)" 2 "chunker extracts 2 local threads from a gBWT with 2 locally distinct threads in it"
 is "$(vg chunk -x x.xg -G x.gbwt -r 1:1 -c 2 -T | vg view - -j | jq -r '.path[] | select(.name == "thread_0") | .mapping | length')" 3 "chunker can extract a partial haplotype from a GBWT"
+
+vg chunk -x x.xg -G x.gbwt -p x:50-100 -c 0 -T | vg view - | grep ^S | sort > cnodes
+vg find -x x.xg -p x:50-100 -c 0 | vg view - | grep ^S | sort > fnodes
+diff cnodes fnodes
+is "$?" 0 "trace consistent on path coordinates"
+rm -f cnodes fnodes
 
 #check that n-chunking works
 # We know that it will drop _alt paths so we remake the graph without them for comparison.
