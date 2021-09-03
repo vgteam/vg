@@ -309,13 +309,32 @@ string pseudo_random_sequence(size_t length, uint64_t seed);
 string percent_url_encode(const string& seq);
 string replace_in_string(string subject, const string& search, const string& replace);
 
-/// Given a pair of random access iterators defining a range, deterministically
-/// shuffle the contents of the range based on the given integer seed.
-template<class RandomIt>
-void deterministic_shuffle(RandomIt begin, RandomIt end, const uint32_t& seed) {
-    // Make an RNG from the string
-    minstd_rand rng(seed);
+/// AN RNG that can skip initialization and any hashing of the seed until it is
+/// needed. Not thread safe, not even a little bit.
+class LazyRNG {
+public:
+    /// Make a new LazyRNG. Seed-generating closure will not be used after
+    /// object is destroyed.
+    LazyRNG(const std::function<string(void)>& get_seed);
     
+    /// Get a random number, computing the seed and initilaizing the RNG if
+    /// that has not yet happened.
+    minstd_rand::result_type operator()();
+private:
+    /// Closure used to generate the seed.
+    const std::function<string(void)>& get_seed;
+    /// Backing RNG, or empty.
+    unique_ptr<minstd_rand> rng;
+};
+
+/// Flip a coin with 50% probability against the given RNG.
+bool deterministic_flip(LazyRNG& rng);
+
+/// Given a pair of random access iterators defining a range, deterministically
+/// shuffle the contents of the range based on the given RNG. Allows one RNG
+/// from deterministic_start() to be used for multiple shuffles.
+template<class RandomIt>
+void deterministic_shuffle(RandomIt begin, RandomIt end, LazyRNG& rng) {
     // Perform Knuth shuffle algorithm using RNG
     int64_t width = end - begin;
     for (int64_t i = 1; i < width; i++) {
@@ -323,20 +342,10 @@ void deterministic_shuffle(RandomIt begin, RandomIt end, const uint32_t& seed) {
     }
 }
 
-/// Given a pair of random access iterators defining a range, deterministically
-/// shuffle the contents of the range based on the given string seed.
-template<class RandomIt>
-void deterministic_shuffle(RandomIt begin, RandomIt end, const string& seed) {
-    // Turn the string into a 32-bit number.
-    uint32_t seedNumber = 0;
-    for (uint8_t byte : seed) {
-        // Sum up with primes and overflow.
-        // TODO: this is a bit of a bad hash function but it should be good enough.
-        seedNumber = seedNumber * 13 + byte;
-    }
-
-    // Shuffle with the derived integer seed
-    deterministic_shuffle(begin, end, seedNumber);
+/// Return true if a is larger than b, or else equal to b and wins a coin flip.
+template<typename Number>
+bool deterministic_beats(const Number& a, const Number& b, LazyRNG& rng) {
+    return (a > b || (a == b && deterministic_flip(rng)));
 }
 
 // For seed generation, we aren't just using our normal hash functions, because
@@ -362,18 +371,19 @@ inline string make_shuffle_seed(const pair<T1, T2>& p) {
 /// Do a deterministic shuffle with automatic seed determination.
 template<class RandomIt>
 void deterministic_shuffle(RandomIt begin, RandomIt end) {
-    deterministic_shuffle(begin, end, make_shuffle_seed(*begin));
+    LazyRNG rng([&]() {
+        return make_shuffle_seed(*begin);
+    });
+
+    deterministic_shuffle(begin, end, rng);
 }
 
 /**
  * Sort the items between the two given random-access iterators, as with
- * std::sort. Deterministically shuffle the ties, if any, at the top end, using
- * the given nullary seed generator function. The seed generator function will
- * only be called if there are any ties, and should return a string or uint32_t
- * seed.
+ * std::sort. Deterministically shuffle the ties, if any, at the top end.
  */
-template<class RandomIt, class Compare, class MakeSeed>
-void sort_shuffling_ties(RandomIt begin, RandomIt end, Compare comp, MakeSeed seed) {
+template<class RandomIt, class Compare>
+void sort_shuffling_ties(RandomIt begin, RandomIt end, Compare comp, LazyRNG& rng) {
     
     // Sort everything
     std::stable_sort(begin, end, comp);
@@ -393,7 +403,7 @@ void sort_shuffling_ties(RandomIt begin, RandomIt end, Compare comp, MakeSeed se
     
     if (begin != ties_end) {
         // Shuffle the ties.
-        deterministic_shuffle(begin, ties_end, seed());
+        deterministic_shuffle(begin, ties_end, rng);
     }
 
 }
@@ -406,11 +416,14 @@ void sort_shuffling_ties(RandomIt begin, RandomIt end, Compare comp, MakeSeed se
  */
 template<class RandomIt, class Compare>
 void sort_shuffling_ties(RandomIt begin, RandomIt end, Compare comp) {
-    
-    // Make the seed using the pre-defined seed making approaches
-    sort_shuffling_ties(begin, end, comp, [&]() {
+
+    LazyRNG rng([&]() {
         return make_shuffle_seed(*begin);
     });
+    
+    // Make the seed and start the RNG using the pre-defined seed making
+    // approaches
+    sort_shuffling_ties(begin, end, comp, rng);
 
 }
 

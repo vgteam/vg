@@ -5981,7 +5981,7 @@ namespace vg {
         // Sort, shuffling based on the aligned sequence to break ties.
         sort_shuffling_ties(order.begin(), order.end(),
             [&](const size_t i, const size_t j) { return scores[i] > scores[j]; },
-            [&]() {return make_shuffle_seed(multipath_alns.front()); });
+            LazyRNG([&]() {return make_shuffle_seed(multipath_alns.front()); }));
         
         // translate the order to an index
         vector<size_t> index(multipath_alns.size());
