@@ -230,7 +230,7 @@ int main_normalize(int argc, char **argv) {
     auto start = chrono::high_resolution_clock::now();
 
     algorithms::SnarlNormalizer normalizer = algorithms::SnarlNormalizer(
-        *graph, *gbwt, gbwt_graph, max_alignment_size, max_handle_size);
+        *graph, *gbwt, gbwt_graph, max_handle_size, max_alignment_size);
 
     if (normalize_type == "all") 
     {

@@ -19,7 +19,7 @@ class SnarlNormalizer {
 
     virtual gbwt::GBWT normalize_top_level_snarls(ifstream &snarl_stream);
 
-    virtual vector<int> normalize_snarl(id_t source_id, id_t sink_id, const bool backwards);
+    virtual vector<int> normalize_snarl(id_t source_id, id_t sink_id, const bool backwards, const int snarl_num);
 
   protected:
     // member variables:
