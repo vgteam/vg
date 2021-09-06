@@ -17,7 +17,7 @@ class SnarlNormalizer {
                     const int &max_alignment_size = INT_MAX, //TODO: add a _max_handle_length default length
                     const string &path_finder = "GBWT" /*alternative is "exhaustive"*/);
 
-    virtual gbwt::GBWT normalize_top_level_snarls(ifstream &snarl_stream);
+    virtual gbwt::GBWT normalize_top_level_snarls(ifstream &snarl_stream, const int start_snarl_num = 0, const int end_snarl_num = 0);
 
     virtual vector<int> normalize_snarl(id_t source_id, id_t sink_id, const bool backwards, const int snarl_num);
 

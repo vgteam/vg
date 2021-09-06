@@ -61,7 +61,7 @@ SnarlNormalizer::SnarlNormalizer(MutablePathDeletableHandleGraph &graph,
  * Iterates over all top-level snarls in _graph, and normalizes them.
  * @param snarl_stream file stream from .snarl.pb output of vg snarls
 */
-gbwt::GBWT SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
+gbwt::GBWT SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream, const int start_snarl_num /*= 0*/, const int end_snarl_num /*= 0*/) {
     // cerr << "disambiguate_top_level_snarls" << endl;
     SnarlManager *snarl_manager = new SnarlManager(snarl_stream);
 
@@ -88,18 +88,43 @@ gbwt::GBWT SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
 
     pair<int, int> snarl_sequence_change;
 
-    //todo: debug_code
-    // int stop_size = 5;
+
+    // todo: debug_code
+    // int stop_size = 10000;
     // int num_snarls_touched = 0;
 
     // int skip_first_few = 1;
     // int skipped = 0;
-    
-    int snarl_num = 0;
-    get_all_gbwt_sequences(1, 15, false);
 
-    for (auto roots : snarl_roots) {
+    // get_all_gbwt_sequences(1, 15, false);
+
+    int snarl_num = 0;
+    for (auto roots : snarl_roots) 
+    {
         snarl_num++;
+        // if (snarl_num > start_snarl_num)
+        // {
+        //     cerr << "in for loop" << endl;
+        // }
+
+        if (start_snarl_num != 0 || end_snarl_num != 0)
+        {
+            if (start_snarl_num > end_snarl_num)
+            {
+                cerr << "ERROR: start_snarl_num >= end_snarl_num" << endl;
+                exit(1);
+            }
+            if (snarl_num < start_snarl_num)
+            {
+                continue;
+            }
+            if (snarl_num > end_snarl_num)
+            {
+                cerr << "reached limit of snarl_num" << endl;
+                break;
+            }
+        }
+        
 
         // if (snarl_num==1 || snarl_num==2 || snarl_num==3)
         // {
@@ -129,7 +154,7 @@ gbwt::GBWT SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream) {
         // {
         //     cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
         // }
-        // cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
+        cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
 
         if (_full_log_print)
         {

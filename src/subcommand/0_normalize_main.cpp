@@ -78,6 +78,10 @@ void help_normalize(char **argv) {
          "source and sink. Will print all the node ids in between source and "
          "sink, inclusive."
       << endl
+      << "    -c, --start_snarl_num      counting starting from 1, determines which snarls from the .snarls.pb will be normalized if normalize_type='all'."
+      << endl
+      << "    -v, --end_snarl_num      counting starting from 1, determines which snarls from the .snarls.pb will be normalized if normalize_type='all'."
+      << endl
       << "    -h, --help      print this help info." << endl;
 }
 
@@ -103,6 +107,10 @@ int main_normalize(int argc, char **argv) {
   bool snarl_sizes_skip_source_sink = false;
   int max_handle_size = 32;
   bool handles_in_snarl = false;
+  //todo: note: options mostly for debugging:
+  int start_snarl_num = 0;
+  int end_snarl_num = 0;
+
 
   int c;
   optind = 2; // force optind past command positional argument
@@ -122,10 +130,12 @@ int main_normalize(int argc, char **argv) {
          {"snarl_sizes_skip_source_sink", no_argument, 0, 'k'},
          {"max_handle_size", required_argument, 0, 'h'},
          {"handles_in_snarl", no_argument, 0, 'x'},
+         {"start_snarl_num", required_argument, 0, 'c'},
+         {"end_snarl_num", required_argument, 0, 'v'},
          {0, 0, 0, 0}};
 
     int option_index = 0;
-    c = getopt_long(argc, argv, "hg:s:o:n:a:b:pm:i:kh:x", long_options,
+    c = getopt_long(argc, argv, "hg:s:o:n:a:b:pm:i:kh:xc:v:", long_options,
                     &option_index);
 
     // Detect the end of the options.
@@ -189,6 +199,14 @@ int main_normalize(int argc, char **argv) {
       normalize_type = "none";
       break;
 
+    case 'c':
+      start_snarl_num = parse<int>(optarg);
+      break;
+
+    case 'v':
+      end_snarl_num = parse<int>(optarg);
+      break;
+
     default:
       cerr << "error:[vg normalize] abort" << endl;
       abort();
@@ -237,8 +255,45 @@ int main_normalize(int argc, char **argv) {
 
       // gbwt_graph.get_handle()
       
-      gbwt::GBWT normalized_gbwt = normalizer.normalize_top_level_snarls(snarl_stream);
-      save_gbwt(normalized_gbwt, output_gbwt, true);
+      //todo: delete debugging for start_snarl_num/end_snarl_num:
+      // 1100000-1200000 has the bug in it.
+      // Bug is probably 1100121. May have to include previous snarls for context?
+      // gbwt::GBWT normalized_gbwt = normalizer.normalize_top_level_snarls(snarl_stream, 1100000, 1100000+10);
+      if (start_snarl_num == 0 && end_snarl_num == 0)
+      {
+
+        for (int start_chunk = 1100100; start_chunk <= 1100200; start_chunk+=10)
+        {
+          cerr << endl;
+          cerr << "start chunk is: " << start_chunk << endl;
+          // // getting graph of any type, except non-mutable graphs (e.g., xg)
+          // unique_ptr<MutablePathDeletableHandleGraph> graph;
+          // get_input_file(optind, argc, argv, [&](istream &in) {
+          //   graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
+          // });
+
+          // /// Build the gbwt:
+          // ifstream gbwt_stream;
+          // gbwt_stream.open(gbwt);
+
+          // // Load the GBWT from its container
+          // unique_ptr<gbwt::GBWT> gbwt;
+          // gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
+          // gbwtgraph::GBWTGraph gbwt_graph = gbwtgraph::GBWTGraph(*gbwt, *graph);
+
+          std::ifstream snarl_stream;
+          string snarl_file = snarls;
+          snarl_stream.open(snarl_file);
+
+
+          algorithms::SnarlNormalizer normalizer = algorithms::SnarlNormalizer(
+              *graph, *gbwt, gbwt_graph, max_handle_size, max_alignment_size);
+          gbwt::GBWT normalized_gbwt = normalizer.normalize_top_level_snarls(snarl_stream, start_chunk, start_chunk+10);
+        }
+      }
+      //todo: uncomment below:
+      gbwt::GBWT normalized_gbwt = normalizer.normalize_top_level_snarls(snarl_stream, start_snarl_num, end_snarl_num);
+      // save_gbwt(normalized_gbwt, output_gbwt, true);
 
   //     //todo: delete this secondary normalize:
   //     algorithms::SnarlNormalizer normalizer = algorithms::SnarlNormalizer(
