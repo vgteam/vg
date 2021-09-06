@@ -179,8 +179,6 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             parent_snarl_record.children.emplace_back(chain_index);
         }
 
-        temp_index.max_index_size += temp_chain_record.get_max_record_length();
-
 #ifdef debug_distance_indexing
         cerr << "  Ending new " << (temp_chain_record.is_trivial ? "trivial " : "") <<  "chain " << temp_index.structure_start_end_as_string(chain_index)
              << endl << "    that is a child of " << temp_index.structure_start_end_as_string(temp_chain_record.parent) << endl;
@@ -251,7 +249,6 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
         temp_node_record.reversed_in_parent = graph->get_is_reverse(snarl_end_handle);
         temp_node_record.parent = stack.back();
 
-        temp_index.max_index_size += temp_snarl_record.get_max_record_length();
 
 
 #ifdef debug_distance_indexing
@@ -474,7 +471,6 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
 
             temp_chain_record.forward_loops.back() = temp_chain_record.forward_loops.front();
             node_i = temp_chain_record.prefix_sum.size() - 2;
-            cerr << "Go around improving distances " << endl;
             for (int j = (int)temp_chain_record.children.size() - 1 ; j >= 0 ; j--) {
                 auto& child = temp_chain_record.children.at(j);
                 if (child.first == SnarlDistanceIndex::TEMP_SNARL){
@@ -496,6 +492,9 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
         temp_index.max_distance = std::max(temp_index.max_distance, temp_chain_record.prefix_sum.back());
         temp_index.max_distance = temp_chain_record.forward_loops.back() == std::numeric_limits<size_t>::max() ? temp_index.max_distance : std::max(temp_index.max_distance, temp_chain_record.forward_loops.back());
         temp_index.max_distance = temp_chain_record.forward_loops.back() == std::numeric_limits<size_t>::max() ? temp_index.max_distance : std::max(temp_index.max_distance, temp_chain_record.forward_loops.front());
+
+
+        temp_index.max_index_size += temp_chain_record.get_max_record_length();
     }
 
 #ifdef debug_distance_indexing
@@ -779,6 +778,7 @@ void populate_snarl_index(
             }
         }
     }
+    temp_index.max_index_size += temp_snarl_record.get_max_record_length();
 }
 
 }

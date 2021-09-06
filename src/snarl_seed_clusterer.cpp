@@ -97,8 +97,6 @@ namespace vg {
 cerr << endl << endl << endl << endl << "New cluster calculation:" << endl;
 cerr << "\tread distance limit: " << read_distance_limit << " and fragment distance limit: " << fragment_distance_limit << endl;
 #endif
-cerr << endl << endl << endl << endl << "New cluster calculation:" << endl;
-cerr << "\tread distance limit: " << read_distance_limit << " and fragment distance limit: " << fragment_distance_limit << endl;
         if (fragment_distance_limit != 0 &&
             fragment_distance_limit < read_distance_limit) {
             throw std::runtime_error("Fragment distance limit must be greater than read distance limit");
@@ -447,7 +445,6 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 #endif
 
         size_t node_length = distance_index.node_length(node_clusters.containing_net_handle);
-        cerr << "Finding clusters on node " << distance_index.net_handle_as_string(node_clusters.containing_net_handle) << " with length " << node_length << endl;
         nid_t node_id = distance_index.node_id(node_clusters.containing_net_handle);
 
 
@@ -608,7 +605,6 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
             if (read_first_offset[read_num] == std::numeric_limits<size_t>::max()) {
                 read_first_offset[read_num] = offset;
             }
-            cerr << read_num << " : " << tree_state.all_seeds->at(read_num)->at(seed_num).pos << " " << offset << "...";
 
             if (read_last_offset[read_num] != std::numeric_limits<size_t>::max() &&
                 offset - read_last_offset[read_num] <= tree_state.read_distance_limit) {
@@ -626,7 +622,6 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                     fragment_last_cluster = tree_state.fragment_union_find.find_group(seed_num+tree_state.read_index_offsets[read_num]);
                     fragment_last_offset = offset;
                 }
-                cerr << "same " << endl;
             } else {
                 //This becomes a new read cluster
                 if (read_last_cluster[read_num] != std::numeric_limits<size_t>::max()) {
@@ -637,23 +632,19 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 read_last_cluster[read_num] = seed_num;
                 read_first_offset[read_num] = offset;
                 read_last_offset[read_num] = offset;
-                cerr << "new";
                 if (tree_state.fragment_distance_limit != 0) {
                     if (fragment_last_offset != std::numeric_limits<size_t>::max() &&
                         offset - fragment_last_offset <= tree_state.fragment_distance_limit) {
                         //If this is a new read cluster but the same fragment cluster
                         tree_state.fragment_union_find.union_groups(seed_num+tree_state.read_index_offsets[read_num], fragment_last_cluster);
                         fragment_last_cluster = tree_state.fragment_union_find.find_group(fragment_last_cluster);
-                        cerr << " but same fragment";
 
                     } else {
                         //If this is a new fragment cluster as well
                         fragment_last_cluster = seed_num+tree_state.read_index_offsets[read_num];
-                        cerr << " and new fragment";
                     }
                     fragment_last_offset = offset;
                 }
-                cerr << endl;
             }
         }
         for (size_t i = 0 ; i < read_last_cluster.size() ; i++) {

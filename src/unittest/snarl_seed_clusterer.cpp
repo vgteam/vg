@@ -1622,8 +1622,8 @@ namespace unittest {
 
         NewSnarlSeedClusterer clusterer(dist_index);
 
-        int64_t read_lim = 20;// Distance between read clusters
-        int64_t fragment_lim = 30;// Distance between fragment clusters
+        size_t read_lim = 20;// Distance between read clusters
+        size_t fragment_lim = 30;// Distance between fragment clusters
 
 
 
@@ -1677,16 +1677,17 @@ namespace unittest {
 
 
 
-        for (int i = 0; i < 0; i++) {
+        for (int i = 0; i < 100; i++) {
             // For each random graph
             
             default_random_engine generator(time(NULL));
-            uniform_int_distribution<int> variant_count(5, 500);
+            uniform_int_distribution<int> variant_count(10, 1000);
             uniform_int_distribution<int> chrom_len(10, 2000);
 
             //Make a random graph with three chromosomes of random lengths
             VG graph;
             random_graph({chrom_len(generator), chrom_len(generator), chrom_len(generator)}, 30, variant_count(generator), &graph);
+                                                graph.serialize_to_file("testGraph");
 
 
             IntegratedSnarlFinder snarl_finder(graph);
@@ -1713,8 +1714,8 @@ namespace unittest {
                 vector<vector<NewSnarlSeedClusterer::Seed>> all_seeds;
                 all_seeds.emplace_back();
                 all_seeds.emplace_back();
-                int64_t read_lim = 30;// Distance between read clusters
-                int64_t fragment_lim = 50;// Distance between fragment clusters
+                size_t read_lim = 30;// Distance between read clusters
+                size_t fragment_lim = 50;// Distance between fragment clusters
                 for (size_t read = 0 ; read < 2 ; read ++) {
                     uniform_int_distribution<int> randPosCount(1, 100);
                     for (int j = 0; j < randPosCount(generator); j++) {
@@ -1770,11 +1771,11 @@ namespace unittest {
                                                              !is_rev(pos2),
                                                              len2 - get_offset(pos2)-1); 
 
-                                            int64_t dist1 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos2), get_offset(pos2));
-                                            int64_t dist2 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(rev2), get_is_rev(rev2), get_offset(rev2));
-                                            int64_t dist3 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(pos2), get_is_rev(pos2), get_offset(pos2));
-                                            int64_t dist4 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(rev2), get_is_rev(rev2), get_offset(rev2));
-                                            int64_t dist = std::min(std::min(dist1, 
+                                            size_t dist1 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos2), get_offset(pos2));
+                                            size_t dist2 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(rev2), get_is_rev(rev2), get_offset(rev2));
+                                            size_t dist3 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(pos2), get_is_rev(pos2), get_offset(pos2));
+                                            size_t dist4 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(rev2), get_is_rev(rev2), get_offset(rev2));
+                                            size_t dist = std::min(std::min(dist1, 
                                                                dist2), std::min( dist3, dist4));
                                             if ( dist != -1 && dist <= read_lim) {
                                                 dist_index.print_self();
@@ -1791,15 +1792,15 @@ namespace unittest {
                                 for (size_t i2 = 0 ; i2 < clust.size() ; i2++) {
                                     //For each position in the same cluster
                                     pos_t pos2 = all_seeds[read_num][clust[i2]].pos;
-                                    size_t len2 = graph.get_length(graph.get_handle(get_id(pos2), false));
+                                    size_t len2 = dist_index.minimum_length(dist_index.get_node_net_handle(get_id(pos2)));
                                     pos_t rev2 = make_pos_t(get_id(pos2), 
                                                          !is_rev(pos2),
                                                          len2 - get_offset(pos2)-1); 
-                                    int64_t dist1 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos2), get_offset(pos2));
-                                    int64_t dist2 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(rev2), get_is_rev(rev2), get_offset(rev2));
-                                    int64_t dist3 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(pos2), get_is_rev(pos2), get_offset(pos2));
-                                    int64_t dist4 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(rev2), get_is_rev(rev2), get_offset(rev2));
-                                    int64_t dist = std::min(std::min(dist1, 
+                                    size_t dist1 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos2), get_offset(pos2));
+                                    size_t dist2 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(rev2), get_is_rev(rev2), get_offset(rev2));
+                                    size_t dist3 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(pos2), get_is_rev(pos2), get_offset(pos2));
+                                    size_t dist4 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(rev2), get_is_rev(rev2), get_offset(rev2));
+                                    size_t dist = std::min(std::min(dist1, 
                                                        dist2), std::min( dist3, dist4));
                                     if ( dist != -1 && dist <= read_lim) {
                                         new_clusters.union_groups(i1, i2);
@@ -1809,7 +1810,7 @@ namespace unittest {
                             }
                             auto actual_clusters = new_clusters.all_groups();
                             if (actual_clusters.size() != 1) {
-                                                dist_index.print_self();
+                                dist_index.print_self();
                                 graph.serialize_to_file("testGraph");
                                 cerr << "These should be different read clusters: " << endl;
                                 for (auto c : actual_clusters) {
@@ -1851,11 +1852,11 @@ namespace unittest {
                                                      !is_rev(pos2),
                                                      len2 - get_offset(pos2)-1); 
 
-                                    int64_t dist1 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos2), get_offset(pos2));
-                                    int64_t dist2 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(rev2), get_is_rev(rev2), get_offset(rev2));
-                                    int64_t dist3 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(pos2), get_is_rev(pos2), get_offset(pos2));
-                                    int64_t dist4 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(rev2), get_is_rev(rev2), get_offset(rev2));
-                                    int64_t dist = std::min(std::min(dist1, dist2), std::min( dist3, dist4));
+                                    size_t dist1 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos2), get_offset(pos2));
+                                    size_t dist2 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(rev2), get_is_rev(rev2), get_offset(rev2));
+                                    size_t dist3 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(pos2), get_is_rev(pos2), get_offset(pos2));
+                                    size_t dist4 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(rev2), get_is_rev(rev2), get_offset(rev2));
+                                    size_t dist = std::min(std::min(dist1, dist2), std::min( dist3, dist4));
                                     if ( dist != -1 && dist <= fragment_lim) {
                                         dist_index.print_self();
                                         graph.serialize_to_file("testGraph");
@@ -1875,11 +1876,11 @@ namespace unittest {
                             pos_t rev2 = make_pos_t(get_id(pos2), 
                                                  !is_rev(pos2),
                                                  len2 - get_offset(pos2)-1); 
-                            int64_t dist1 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos2), get_offset(pos2));
-                            int64_t dist2 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(rev2), get_is_rev(rev2), get_offset(rev2));
-                            int64_t dist3 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(pos2), get_is_rev(pos2), get_offset(pos2));
-                            int64_t dist4 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(rev2), get_is_rev(rev2), get_offset(rev2));
-                            int64_t dist = std::min(std::min(dist1, 
+                            size_t dist1 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos2), get_offset(pos2));
+                            size_t dist2 = dist_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(rev2), get_is_rev(rev2), get_offset(rev2));
+                            size_t dist3 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(pos2), get_is_rev(pos2), get_offset(pos2));
+                            size_t dist4 = dist_index.minimum_distance(get_id(rev1), get_is_rev(rev1), get_offset(rev1), get_id(rev2), get_is_rev(rev2), get_offset(rev2));
+                            size_t dist = std::min(std::min(dist1, 
                                                dist2), std::min( dist3, dist4));
                             if ( dist != -1 && dist <= fragment_lim) {
                                 new_clusters.union_groups(i1, i2);
