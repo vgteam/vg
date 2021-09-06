@@ -221,9 +221,21 @@ int main_clip(int argc, char** argv) {
             if (verbose) {
                 cerr << "[vg clip]: Loaded " << bed_regions.size() << " BED regions" << endl;
             }
+            // contig names left in this set are *not* in the graph
+            unordered_set<string> contig_set;
+            for (const Region& region : bed_regions) {
+                contig_set.insert(region.seq);
+            }
+            graph->for_each_path_handle([&] (path_handle_t path_handle) {
+                    string base_name = Paths::get_base_name(graph->get_path_name(path_handle));
+                    if (contig_set.count(base_name)) {
+                        // todo: should take into account coordinate comp
+                        contig_set.erase(base_name);
+                    }
+                });
             vector<Region> bed_regions_in_graph;
             for (const Region& region : bed_regions) {
-                if (graph->has_path(region.seq)) {
+                if (!contig_set.count(region.seq)) {
                     bed_regions_in_graph.push_back(region);
                 }
             }
@@ -241,8 +253,14 @@ int main_clip(int argc, char** argv) {
             // load the bed regions from the reference path prefix
             pp_graph->for_each_path_handle([&](path_handle_t path_handle) {
                     string path_name = pp_graph->get_path_name(path_handle);
+                    auto sp_info = Paths::parse_subpath_name(path_name);
+                    int64_t offset = 0;
+                    if (get<0>(sp_info)) {
+                        path_name = get<1>(sp_info);
+                        offset = get<2>(sp_info);
+                    }
                     if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
-                        Region region = {path_name, 0, (int64_t)pp_graph->get_path_length(path_handle) - 1};
+                        Region region = {path_name, offset, offset + (int64_t)pp_graph->get_path_length(path_handle) - 1};
                         bed_regions.push_back(region);
                     }
                 });

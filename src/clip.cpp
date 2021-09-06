@@ -105,17 +105,13 @@ void visit_contained_snarls(PathPositionHandleGraph* graph, const vector<Region>
     }
     unordered_set<string> graph_path_name_set;
     graph->for_each_path_handle([&](path_handle_t path_handle) {
-            string path_name = graph->get_path_name(path_handle);
-            auto sp_parse = Paths::parse_subpath_name(path_name);
-            if (get<0>(sp_parse)) {
-                path_name = get<1>(sp_parse);
-            }
-            if (path_name_set.count(path_name)) {
-                graph_path_name_set.insert(path_name);
+            string graph_path_name = graph->get_path_name(path_handle);
+            if (path_name_set.count(Paths::get_base_name(graph_path_name))) {
+                graph_path_name_set.insert(graph_path_name);
             }
         });
     vector<string> path_names;
-    for (const string& path_name : path_name_set) {
+    for (const string& path_name : graph_path_name_set) {
         path_names.push_back(path_name);
     }
     path_name_set.clear();
@@ -255,7 +251,8 @@ void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph, const uno
 static bool snarl_is_complex(PathPositionHandleGraph* graph, const Snarl* snarl,
                              const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents,
                              const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents_shallow,
-                             int64_t ref_interval_length, const Region& region, size_t max_nodes, size_t max_edges,
+                             int64_t ref_interval_length, const Region& region, path_handle_t path_handle,
+                             size_t max_nodes, size_t max_edges,
                              size_t max_nodes_shallow, size_t max_edges_shallow,
                              double max_avg_degree, double max_reflen_prop, size_t max_reflen,
                              double& out_avg_degree) {
@@ -263,8 +260,7 @@ static bool snarl_is_complex(PathPositionHandleGraph* graph, const Snarl* snarl,
     out_avg_degree = -1.;
     
     // if our snarl is to big vs the reference path, we do not process it
-    assert(graph->has_path(region.seq));
-    double ref_prop = (double)ref_interval_length / (double)graph->get_path_length(graph->get_path_handle(region.seq));
+    double ref_prop = (double)ref_interval_length / (double)graph->get_path_length(path_handle);
     if (ref_prop > max_reflen_prop || ref_interval_length > max_reflen) {
 #ifdef debug
         cerr << "skipping snarl " << pb2json(*snarl) << " with interval length " << ref_interval_length
@@ -338,11 +334,11 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
                     ref_interval_length += pp_graph->get_length(pp_graph->get_handle(node_id));
                 }
             }
-
+            path_handle_t path_handle = pp_graph->get_path_handle_of_step(start_step);
             pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(snarl, *pp_graph, false);
             pair<unordered_set<id_t>, unordered_set<edge_t> > contents_shallow = snarl_manager.shallow_contents(snarl, *pp_graph, false);
             double avg_degree = -1;
-            if (snarl_is_complex(pp_graph, snarl, contents, contents_shallow, ref_interval_length, *containing_region, max_nodes, max_edges,
+            if (snarl_is_complex(pp_graph, snarl, contents, contents_shallow, ref_interval_length, *containing_region, path_handle, max_nodes, max_edges,
                                  max_nodes_shallow, max_edges_shallow, max_avg_degree, max_reflen_prop, max_reflen, avg_degree)) {
                 if (out_bed) {
                     string snarl_name = (snarl->start().backward() ? "<" : ">") + std::to_string(snarl->start().node_id()) +
