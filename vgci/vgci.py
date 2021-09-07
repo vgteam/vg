@@ -146,7 +146,7 @@ class VGCITest(TestCase):
         if self.baseline.startswith('s3://'):
             try:
                 # Try downloading from S3
-                return subprocess.check_output(['aws', 's3', 'cp', '/'.join([self.baseline, path]), '-'])
+                return subprocess.check_output(['aws', 's3', 'cp', '/'.join([self.baseline, 'outstore-' + tag, path]), '-'])
             except CalledProcessError:
                 # If that doesn't work, we may not have access.
                 # See if it's available over HTTP (which it won't be if it's our vg-data bucket).
