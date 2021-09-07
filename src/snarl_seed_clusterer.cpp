@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-//#define DEBUG_CLUSTER
+#define DEBUG_CLUSTER
 namespace vg {
 
     NewSnarlSeedClusterer::NewSnarlSeedClusterer( SnarlDistanceIndex& distance_index) :
@@ -1038,34 +1038,34 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                 
 
             //Check if the left of 1 can connect with the left of 2
-#ifdef DEBUG_CLUSTER
-            cerr << "\t\tCheck any clusters in 1 going left to left of 2" << endl;
-#endif
+//#ifdef DEBUG_CLUSTER
+//            cerr << "\t\tCheck any clusters in 1 going left to left of 2" << endl;
+//#endif
             combined = combined | compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.first,distance_left_left,child_clusters2.read_best_left[read_num]}), 
                 SnarlDistanceIndex::sum({distances.first,distance_left_left,child_clusters2.fragment_best_left}), 
                 distances_to_parent,
                 new_cluster_left_left_by_read[read_num], new_cluster_left_left_fragment);
             //Check if the left of 1 can connect with the right of 2
-#ifdef DEBUG_CLUSTER
-            cerr << "\t\tCheck any clusters in 1 going left to right of 2" << endl;
-#endif
+//#ifdef DEBUG_CLUSTER
+//            cerr << "\t\tCheck any clusters in 1 going left to right of 2" << endl;
+//#endif
             combined = combined | compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.first,distance_left_right,child_clusters2.read_best_right[read_num]}), 
                 SnarlDistanceIndex::sum({distances.first,distance_left_right,child_clusters2.fragment_best_right}), 
                 distances_to_parent, new_cluster_left_right_by_read[read_num], new_cluster_left_right_fragment);
             //Check if the right of 1 can connect with the right of 2
-#ifdef DEBUG_CLUSTER
-            cerr << "\t\tCheck any clusters in 1 going right to right of 2" << endl;
-#endif
+//#ifdef DEBUG_CLUSTER
+//            cerr << "\t\tCheck any clusters in 1 going right to right of 2" << endl;
+//#endif
             combined = combined | compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.second,distance_right_right,child_clusters2.read_best_right[read_num]}), 
                 SnarlDistanceIndex::sum({distances.second,distance_right_right,child_clusters2.fragment_best_right}), 
                 distances_to_parent,new_cluster_right_right_by_read[read_num], new_cluster_right_right_fragment);
             //Check if the right of 1 can connect with the left of 2
-#ifdef DEBUG_CLUSTER
-            cerr << "\t\tCheck any clusters in 1 going right to left of 2" << endl;
-#endif
+//#ifdef DEBUG_CLUSTER
+//            cerr << "\t\tCheck any clusters in 1 going right to left of 2" << endl;
+//#endif
             combined = combined | compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.second,distance_right_left,child_clusters2.read_best_left[read_num]}), 
                 SnarlDistanceIndex::sum({distances.second,distance_right_left,child_clusters2.fragment_best_left}), 
@@ -1098,33 +1098,33 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
             }
 
             //Check if the left of 1 can connect with the left of 2
-#ifdef DEBUG_CLUSTER
-            cerr << "\t\tCheck any clusters in 2 going left to left of 1" << endl;
-#endif
+//#ifdef DEBUG_CLUSTER
+//            cerr << "\t\tCheck any clusters in 2 going left to left of 1" << endl;
+//#endif
             compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.first,distance_left_left,child_clusters1.read_best_left[read_num]}), 
                 SnarlDistanceIndex::sum({distances.first,distance_left_left,child_clusters1.fragment_best_left}), 
                 distances_to_parent, new_cluster_left_left_by_read[read_num], new_cluster_left_left_fragment);
             //Check if the left of 1 can connect with the right of 2
-#ifdef DEBUG_CLUSTER
-            cerr << "\t\tCheck any clusters in 2 going right to left of 1" << endl;
-#endif
+//#ifdef DEBUG_CLUSTER
+//            cerr << "\t\tCheck any clusters in 2 going right to left of 1" << endl;
+//#endif
             compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.second,distance_left_right,child_clusters1.read_best_left[read_num]}),
                 SnarlDistanceIndex::sum({distances.second,distance_left_right,child_clusters1.fragment_best_left}),
                 distances_to_parent, new_cluster_left_right_by_read[read_num], new_cluster_left_right_fragment);
             //Check if the right of 1 can connect with the right of 2
-#ifdef DEBUG_CLUSTER
-            cerr << "\t\tCheck any clusters in 2 going right to right of 1" << endl;
-#endif
+//#ifdef DEBUG_CLUSTER
+//            cerr << "\t\tCheck any clusters in 2 going right to right of 1" << endl;
+//#endif
             compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.second,distance_right_right,child_clusters1.read_best_right[read_num]}),
                 SnarlDistanceIndex::sum({distances.second,distance_right_right,child_clusters1.fragment_best_right}),
                 distances_to_parent, new_cluster_right_right_by_read[read_num], new_cluster_right_right_fragment);
             //Check if the right of 1 can connect with the left of 2
-#ifdef DEBUG_CLUSTER
-            cerr << "\t\tCheck any clusters in 2 going left to right of 1" << endl;
-#endif
+//#ifdef DEBUG_CLUSTER
+//            cerr << "\t\tCheck any clusters in 2 going left to right of 1" << endl;
+//#endif
             compare_and_combine_clusters (read_num, cluster_num, 
                 SnarlDistanceIndex::sum({distances.first,distance_right_left,child_clusters1.read_best_right[read_num]}),
                 SnarlDistanceIndex::sum({distances.first,distance_right_left,child_clusters1.fragment_best_right}),
@@ -1382,8 +1382,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 
 
         // As we walk along the chain, we need to remember all clusters since the last node
-        // This stores all clusters we found since the last node as a pair< net_handle_t to the child it's on, pair<read_num, seed_num>>
-        // It'll store all seeds, regardless of which read, and
+        // This stores all clusters we found since the last node
         vector<NodeClusters*> last_child_clusters;
 
         //Get the children of this chain from the tree state. They will be ordered by their order in the chain
@@ -1412,7 +1411,22 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 
             if (distance_index.is_node(child_clusters.containing_net_handle)) {
                 //If the current child is a node, then forget all the previous children
-                last_child_clusters.clear();
+                if (tree_state.fragment_distance_limit == 0) {
+                    last_child_clusters.clear();
+                } else {
+                    //If we're also looking for fragment clusters, then only do this if the node had clusters on both reads 
+                    vector<bool> has_cluster_of_read (tree_state.all_seeds->size(), false);
+                    for (const pair<pair<size_t, size_t>, pair<size_t, size_t>>& cluster_indices : child_clusters.read_cluster_heads) {
+                        has_cluster_of_read.at(cluster_indices.first.first) = true;
+                        if (std::accumulate(has_cluster_of_read.begin(), has_cluster_of_read.end(), 0) == has_cluster_of_read.size()) {
+                            break;
+                        }
+                    }
+                    if (std::accumulate(has_cluster_of_read.begin(), has_cluster_of_read.end(), 0) == has_cluster_of_read.size()) {
+                        last_child_clusters.clear();
+                    }
+                }
+
             }
             //Remember that we saw this child so we can compare against it later
             last_child_clusters.emplace_back(&child_clusters);
