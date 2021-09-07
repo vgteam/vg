@@ -6068,7 +6068,7 @@ namespace vg {
                     int32_t uncapped_allelic_mapq = compute_raw_mapping_quality_from_scores(scores, mapq_method,
                                                                                             !multipath_alns.front().quality().empty(),
                                                                                             multiplicities);
-                    double allelic_mapq = min<int32_t>(uncapped_allelic_mapq, max_mapping_quality);
+                    int32_t allelic_mapq = min<int32_t>(uncapped_allelic_mapq, max_mapping_quality);
                     if (allelic_mapq != multipath_alns.front().mapping_quality()) {
                         // other alleles do not place this read as confidently
                         multipath_alns.front().set_annotation("allelic_mapq", (double) allelic_mapq);
@@ -6194,11 +6194,11 @@ namespace vg {
                                                                                             !multipath_aln_pairs.front().first.quality().empty() &&
                                                                                             !multipath_aln_pairs.front().second.quality().empty(),
                                                                                             multiplicities);
-                    double allelic_mapq = min<int32_t>(uncapped_allelic_mapq, max_mapping_quality);
+                    int32_t allelic_mapq = min<int32_t>(uncapped_allelic_mapq, max_mapping_quality);
                     if (allelic_mapq != mapq) {
                         // other alleles might not place this read as confidently
-                        multipath_aln_pairs.front().first.set_annotation("allelic_mapq", allelic_mapq);
-                        multipath_aln_pairs.front().second.set_annotation("allelic_mapq", allelic_mapq);
+                        multipath_aln_pairs.front().first.set_annotation("allelic_mapq", (double) allelic_mapq);
+                        multipath_aln_pairs.front().second.set_annotation("allelic_mapq", (double) allelic_mapq);
                     }
                     scores[0] += allelic_diff_1 + allelic_diff_2;
                 }
@@ -6313,16 +6313,16 @@ namespace vg {
                         int32_t raw_allelic_mapq_1 = aligner->compute_group_mapping_quality(scores, duplicates_1, multiplicities);
                         int32_t raw_allelic_mapq_2 = aligner->compute_group_mapping_quality(scores, duplicates_2, multiplicities);
                         
-                        double allelic_mapq_1 = min<int32_t>(raw_mapq_1 * mapq_scaling_factor, max_mapping_quality);
-                        double allelic_mapq_2 = min<int32_t>(raw_mapq_2 * mapq_scaling_factor, max_mapping_quality);
+                        int32_t allelic_mapq_1 = min<int32_t>(raw_mapq_1 * mapq_scaling_factor, max_mapping_quality);
+                        int32_t allelic_mapq_2 = min<int32_t>(raw_mapq_2 * mapq_scaling_factor, max_mapping_quality);
                         
                         if (allelic_mapq_1 != mapq_1) {
                             // other alleles might not place this read as confidently
-                            multipath_aln_pairs.front().first.set_annotation("allelic_mapq", allelic_mapq_1);
+                            multipath_aln_pairs.front().first.set_annotation("allelic_mapq", (double) allelic_mapq_1);
                         }
                         if (allelic_mapq_2 != mapq_2) {
                             // other alleles might not place this read as confidently
-                            multipath_aln_pairs.front().second.set_annotation("allelic_mapq", allelic_mapq_2);
+                            multipath_aln_pairs.front().second.set_annotation("allelic_mapq", (double) allelic_mapq_2);
                         }
                         
                         for (auto i : duplicates_1) {
