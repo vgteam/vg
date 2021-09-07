@@ -164,7 +164,7 @@ namespace vg {
                 transcript_stream.clear();
                 transcript_stream.seekg(0,ios::beg);
 
-                SECTION("Transcriptome can project transcripts onto haplotype embedded paths") {
+                SECTION("Transcriptome can project transcripts onto embedded haplotype paths") {
 
                     transcriptome.add_haplotype_transcripts(vector<istream *>({&transcript_stream}), *empty_haplotype_index, true);
                     REQUIRE(transcriptome.haplotype_transcript_paths().size() == 4);
@@ -187,7 +187,7 @@ namespace vg {
                     REQUIRE(seq_hap_transcript_paths.back() == "TTTTGGACTTT");
                 }
 
-                SECTION("Transcriptome can project transcripts onto haplotype embedded paths and not collapse redundant paths") {
+                SECTION("Transcriptome can project transcripts onto embedded haplotype paths and not collapse redundant paths") {
 
                     transcriptome.collapse_transcript_paths = false;
                     

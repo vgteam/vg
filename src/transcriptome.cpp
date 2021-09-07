@@ -499,17 +499,20 @@ void Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istream 
                 break;
             }
 
+            // Parse transcript ID.
             if (transcript_id.empty()) {
 
                 transcript_id = parse_attribute_value(attribute, transcript_tag);
             }
 
+            // Parse exon number.
             if (exon_number < 0) {
 
                 auto exon_number_str = parse_attribute_value(attribute, "exon_number");
 
                 if (exon_number_str.empty()) {
 
+                    // If not exon_number attribute try ID.
                     auto exon_id = parse_attribute_value(attribute, "ID");
 
                     if (!exon_id.empty()) {
@@ -570,8 +573,10 @@ void Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istream 
             add_exon(transcript, make_pair(spos, epos), graph_path_pos_overlay);
         }
 
+        // Check if exons are in correct order in file. 
         if (exon_number >= 0) {
 
+            // If first transcript and exon, set whether exon numbering is zero-based. 
             if (transcripts_index.size() == 1 && transcript->exons.size() == 1) {
 
                 zero_based_exon_number = (exon_number == 0) ? true : false;
@@ -600,6 +605,7 @@ string Transcriptome::parse_attribute_value(const string & attribute, const stri
 
     if (attribute.substr(attribute_start_pos, name.size()) == name) {
 
+        // Is gff3 format.
         if (attribute.substr(name.size(), 1) == "=") {
 
             assert(attribute_start_pos == 0);
@@ -607,6 +613,7 @@ string Transcriptome::parse_attribute_value(const string & attribute, const stri
 
         } else {
 
+            // Is value in quotes (""). 
             if (attribute.substr(attribute_start_pos + name.size() + 1, 1) == "\"") {
 
                 value = attribute.substr(attribute_start_pos + name.size() + 2);
@@ -2532,6 +2539,11 @@ int32_t Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::
 
         assert(transcript_path.haplotype_origin_ids.empty() != transcript_path.path_origin_names.empty());
 
+        if (!is_reference_transcript_paths) {
+
+            *tsv_ostream << "-\t";
+        }
+
         bool is_first = true;
 
         for (auto & id: transcript_path.haplotype_origin_ids) {
@@ -2553,6 +2565,11 @@ int32_t Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::
             } 
 
             *tsv_ostream << transcript_path.path_origin_names;
+        }
+
+        if (is_reference_transcript_paths) {
+
+            *tsv_ostream << "\t-";
         }
 
         *tsv_ostream << endl;

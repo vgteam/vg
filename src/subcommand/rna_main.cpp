@@ -40,7 +40,7 @@ void help_rna(char** argv) {
 
          << "    -j, --use-hap-ref          use haplotype paths in GBWT index as reference sequences (disables projection)" << endl
          << "    -e, --proj-embed-paths     project transcripts onto embedded haplotype paths" << endl
-         << "    -c, --do-not-collapse      do not collapse transcripts paths identical across reference and haplotype paths" << endl
+         << "    -c, --do-not-collapse      do not collapse transcript paths that are identical across references or haplotypes" << endl
          << "    -k, --max-node-length      chop nodes longer than maximum node length (0 disables chopping) [default = 0]" << endl
          << "    -d, --remove-non-gene      remove intergenic and intronic regions (deletes reference paths)" << endl
          << "    -o, --do-not-sort          do not topological sort and compact splice graph" << endl
@@ -117,7 +117,7 @@ int32_t main_rna(int32_t argc, char** argv) {
             };
 
         int32_t option_index = 0;
-        c = getopt_long(argc, argv, "n:m:y:s:l:jerck:doraub:gf:i:t:ph?", long_options, &option_index);
+        c = getopt_long(argc, argv, "n:m:y:s:l:jeck:doraub:gf:i:t:ph?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -463,7 +463,7 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         ofstream info_ostream;
         info_ostream.open(info_out_filename);
-        info_ostream << "Name\tLength\tTranscript\tReferences/Haplotypes" << endl; 
+        info_ostream << "Name\tLength\tTranscript\tReferences\tHaplotypes" << endl; 
 
         transcriptome.write_haplotype_transcript_info(&info_ostream, *haplotype_index);
 

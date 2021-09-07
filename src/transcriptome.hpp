@@ -165,8 +165,7 @@ class Transcriptome {
         int32_t add_intron_splice_junctions(vector<istream *> intron_streams, unique_ptr<gbwt::GBWT> & haplotype_index, const bool update_haplotypes);
 
         /// Adds splice-junstions from transcript gtf/gff3 files to the graph and
-        /// creates reference transcript paths by projecting the transcript onto
-        /// reference paths embedded in the graph. Optionally update haplotype GBWT 
+        /// creates reference transcript paths. Optionally update haplotype GBWT 
         /// index with new splice-junctions. Returns the number of transcripts parsed. 
         int32_t add_reference_transcripts(vector<istream *> transcript_streams, unique_ptr<gbwt::GBWT> & haplotype_index, const bool use_haplotype_paths, const bool update_haplotypes);
 
@@ -206,11 +205,11 @@ class Transcriptome {
         /// Returns the number of paths embedded.
         int32_t embed_haplotype_transcript_paths();
 
-        /// Adds reference transcript paths as threads in GBWT index.
+        /// Adds reference transcript paths as threads to a GBWT index.
         /// Returns the number of added threads.
         int32_t add_reference_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool add_bidirectional) const;
         
-        /// Adds haplotype transcript paths as threads in GBWT index.
+        /// Adds haplotype transcript paths as threads to a GBWT index.
         /// Returns the number of added threads.
         int32_t add_haplotype_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool add_bidirectional) const;
         
@@ -230,7 +229,7 @@ class Transcriptome {
         /// Returns the number of written transcripts.
         int32_t write_haplotype_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index) const;
 
-        /// Writes the graph to vg file
+        /// Writes the graph to a file.
         void write_graph(ostream * graph_ostream) const;
     
     private:
@@ -305,7 +304,7 @@ class Transcriptome {
         vector<pair<exon_nodes_t, thread_ids_t> > get_exon_haplotypes(const vg::id_t start_node, const vg::id_t end_node, const gbwt::GBWT & haplotype_index, const int32_t expected_length) const;
 
         /// Adds new transcript paths to current set and optionally collapses 
-        /// transcripts paths identical across reference and haplotype paths.
+        /// transcripts paths identical.
         template <class T>
         void append_transcript_paths(list<T> * transcript_paths, spp::sparse_hash_map<string, vector<T*> > * transcript_paths_index, list<T> * new_transcript_paths, const string & name_index_prefix) const;
 
@@ -352,7 +351,7 @@ class Transcriptome {
         /// Returns the number of paths embedded.
         int32_t embed_transcript_paths(const vector<CompletedTranscriptPath> & transcript_paths);
 
-        /// Adds transcript paths as threads in GBWT index.
+        /// Adds transcript paths as threads to a GBWT index.
         /// Returns the number of added threads.
         int32_t add_transcripts_to_gbwt(gbwt::GBWTBuilder * gbwt_builder, const bool add_bidirectional, const vector<CompletedTranscriptPath> & transcript_paths) const;
 
