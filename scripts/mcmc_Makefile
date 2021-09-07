@@ -85,10 +85,10 @@ clean:
 	rm -r $(TOIL_OS) 
 
 CHR21.fa:
-    wget https://vg-data.s3.amazonaws.com/bakeoff/CHR21.fa
+	wget https://courtyard.gi.ucsc.edu/~anovak/vg-data/bakeoff/CHR21.fa
 
 1kg_hg19-CHR21.vcf.gz:
-    wget https://vg-data.s3.amazonaws.com/bakeoff/1kg_hg19-CHR21.vcf.gz
+	wget https://courtyard.gi.ucsc.edu/~anovak/vg-data/bakeoff/1kg_hg19-CHR21.vcf.gz
 
 1kg_hg19-CHR21.vcf.gz.tbi:
-    wget https://vg-data.s3.amazonaws.com/bakeoff/1kg_hg19-CHR21.vcf.gz.tbi
+	wget https://courtyard.gi.ucsc.edu/~anovak/vg-data/bakeoff/1kg_hg19-CHR21.vcf.gz.tbi
