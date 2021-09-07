@@ -2538,12 +2538,7 @@ int32_t Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::
         *tsv_ostream << "\t";
 
         assert(transcript_path.haplotype_origin_ids.empty() != transcript_path.path_origin_names.empty());
-
-        if (!is_reference_transcript_paths) {
-
-            *tsv_ostream << "-\t";
-        }
-
+        
         bool is_first = true;
 
         for (auto & id: transcript_path.haplotype_origin_ids) {
@@ -2565,11 +2560,6 @@ int32_t Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::
             } 
 
             *tsv_ostream << transcript_path.path_origin_names;
-        }
-
-        if (is_reference_transcript_paths) {
-
-            *tsv_ostream << "\t-";
         }
 
         *tsv_ostream << endl;

@@ -463,7 +463,7 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         ofstream info_ostream;
         info_ostream.open(info_out_filename);
-        info_ostream << "Name\tLength\tTranscript\tReferences\tHaplotypes" << endl; 
+        info_ostream << "Name\tLength\tTranscript\tHaplotypes" << endl; 
 
         transcriptome.write_haplotype_transcript_info(&info_ostream, *haplotype_index);
 
