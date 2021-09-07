@@ -149,7 +149,7 @@ fi
 if [ -e /sys/fs/cgroup/cpu/cpu.cfs_quota_us ] && [ -e /sys/fs/cgroup/cpu/cpu.cfs_period_us ]
 then
     # If confined to a container, use the container's CPU limit (if >= 1)
-    NUM_CORES=$(("$(cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us)" / "$(cat /sys/fs/cgroup/cpu/cpu.cfs_period_us)"))
+    NUM_CORES=$(($(cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us) / $(cat /sys/fs/cgroup/cpu/cpu.cfs_period_us)))
 fi
 
 if [ "${NUM_CORES}" == "0" ]
