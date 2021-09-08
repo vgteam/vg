@@ -2,7 +2,7 @@
 #include "traversal_finder.hpp"
 #include <gbwtgraph/gbwtgraph.h>
 
-//#define debug
+#define debug
 
 using namespace std;
 
@@ -199,8 +199,13 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
             assert(!travs.empty());
             vector<int> chosen_travs;
             bool conflict;
+            // TODO here we need to take the reference position
             std::tie(chosen_travs, conflict) = choose_traversals(sample_name, travs, trav_to_allele, names, gbwt_phases);
             if (conflict) {
+#ifdef debug
+#pragma omp critical (cerr)
+                cerr << "Conflict for sample " << sample_name << endl;
+#endif
                 conflicts.insert(sample_name);
             }            
             string genotype;
@@ -374,6 +379,10 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
     
     // remember all the reference traversals (there can be more than one only in the case of a
     // cycle in the reference path
+
+    // in case of cycles, we need our allele traversals to be associated to the correct reference position
+    // this is done with the path jaccard metric over all overlapping reference paths the given path_jaccard_window size
+    
     vector<int> ref_travs;
     // hacky subpath support -- gets added to variant on output
     vector<int64_t> ref_offsets;
@@ -437,7 +446,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
             ref_trav_name = name;
         }
     }
-                                                          
+
     // there's no reference path through the snarl, so we can't make a variant
     // (todo: should we try to detect this before computing traversals?)
     if (ref_travs.empty()) {
@@ -486,13 +495,100 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         return false;
     }
 
+    // XXX CHECKME this assumes there is only one reference path here, and that multiple traversals are due to cycles
+    
+    // we collect windows around the reference traversals
+    // to compare with equivalent windows from the alternate allele paths
+    // we will associate these 1:1 with reference traversals
+
+    // remember that path_travs := pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > path_travs;
+
+    // map from each path_trav index to the ref_trav index it best maps to
+    vector<int> path_trav_to_ref_trav;
+    if (ref_travs.size() > 1) {
+        path_trav_to_ref_trav.resize(path_travs.first.size());
+#ifdef debug
+#pragma omp critical (cerr)
+        cerr << "Multiple ref traversals!" << endl;
+#endif
+        // todo refactor if we need to reuse elsewhere in vg
+        // implemented inline for development
+        // assumes sorted input
+        auto context_jaccard = [](const vector<nid_t>& target,
+                                  const vector<nid_t>& query) {
+            // XXX horribly inefficient
+            // these can be computed without storing the node ids
+            vector<nid_t> node_isec;
+            std::set_intersection(target.begin(), target.end(),
+                                  query.begin(), query.end(),
+                                  std::back_inserter(node_isec));
+            vector<nid_t> node_union;
+            std::set_union(target.begin(), target.end(),
+                           query.begin(), query.end(),
+                           std::back_inserter(node_union));
+            return (double)node_isec.size() / (double)node_union.size();
+        };
+
+        auto get_context = [&path_travs,this](const int& trav_idx) {
+            step_handle_t start_step = path_travs.second[trav_idx].first;
+            step_handle_t end_step = path_travs.second[trav_idx].second;
+            // by definition, our start and end are shared among all traversals
+            // we ignore the internal region in the bubble and expand outward a given distance
+            vector<nid_t> context;
+            step_handle_t curr = start_step;
+            const int check_distance = this->path_jaccard_window; // how far we look in each direction
+            int distance_checked = 0;
+            while (distance_checked < check_distance && graph->has_previous_step(curr)) {
+                curr = graph->get_previous_step(curr);
+                auto h = graph->get_handle_of_step(curr);
+                context.push_back(graph->get_id(h));
+                distance_checked += graph->get_length(h);
+            }
+            distance_checked = 0;
+            curr = end_step;
+            while (distance_checked < check_distance && graph->has_next_step(curr)) {
+                curr = graph->get_next_step(curr);
+                auto h = graph->get_handle_of_step(curr);
+                context.push_back(graph->get_id(h));
+                distance_checked += graph->get_length(h);
+            }
+            std::sort(context.begin(), context.end());
+            return context;
+        };
+        
+        vector<vector<nid_t>> ref_contexts;
+        // TODO run in parallel
+        for (auto& trav_id : ref_travs) {
+            ref_contexts.push_back(get_context(trav_id));
+        }
+        // now for each traversal, we compute and equivalent context and match it to a ref context
+        // using a jaccard metric over node ids
+        // TODO run in parallel
+        for (uint64_t i = 0; i < path_travs.first.size(); ++i) {
+            vector<nid_t> context = get_context(i);
+            // map jaccard metric to the index of the ref_trav
+            vector<pair<double, int>> ref_mappings;
+            for (uint64_t j = 0; j < ref_travs.size(); ++j) {
+                ref_mappings.push_back(make_pair(
+                                           context_jaccard(
+                                               ref_contexts[j],
+                                               context),
+                                           ref_travs[j]));
+            }
+            std::sort(ref_mappings.begin(), ref_mappings.end());
+            // the best is the last, which has the highest jaccard
+            path_trav_to_ref_trav[i] = ref_mappings.back().second;
+        }
+    }
+
     // we write a variant for every reference traversal
+    // (optionally) selecting the subset of path traversals that are 1:1
     for (size_t i = 0; i < ref_travs.size(); ++i) {
         auto& ref_trav_idx = ref_travs[i];
         auto& ref_trav_offset = ref_offsets[i];
 
         const SnarlTraversal& ref_trav = path_travs.first[ref_trav_idx];
-        
+
         vcflib::Variant v;
         v.quality = 60;
 

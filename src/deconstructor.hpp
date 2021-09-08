@@ -4,6 +4,7 @@
 #include <string>
 #include <ostream>
 #include <sstream>
+#include <algorithm>
 #include "genotypekit.hpp"
 #include "Variant.h"
 #include "handle.hpp"
@@ -119,6 +120,9 @@ private:
 
     // upper limit of degree-2+ nodes for exhaustive traversal
     int max_nodes_for_exhaustive = 100;
+
+    // target window size for determining the correct reference position for allele traversals with path jaccard
+    int path_jaccard_window = 10000;
 
     // recurse on child snarls
     bool include_nested = false;
