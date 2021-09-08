@@ -69,6 +69,7 @@ using namespace std;
                                      string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
                                      bool allow_negative_scores, bool preserve_deletions) const {
 
+        
         // we need one and only one data type: Alignment or multipath_alignment_t
         assert(!(source_aln && source_mp_aln));
         assert((source_aln && aln_out) || (source_mp_aln && mp_aln_out));
@@ -87,7 +88,7 @@ using namespace std;
         }
         cerr << endl;
 #endif
-        
+                
         if (source_aln && source_aln->path().mapping_size() != 0) {
             // The read is mapped. Check the input alignment for basic
             // consistency. If the sequence and the graph path don't agree
@@ -125,10 +126,10 @@ using namespace std;
             cerr << "path " << graph->get_path_name(surjection_record.first) << endl;
             for (auto& anchor : surjection_record.second.first) {
                 if (source_aln) {
-                    cerr << "\t read[" << (anchor.first.first - source_aln->sequence().begin()) << ":" << (anchor.first.second - source_aln->sequence().begin()) << "] : ";
+                    cerr << "\tread[" << (anchor.first.first - source_aln->sequence().begin()) << ":" << (anchor.first.second - source_aln->sequence().begin()) << "] : ";
                 }
                 else {
-                    cerr << "\t read[" << (anchor.first.first - source_mp_aln->sequence().begin()) << ":" << (anchor.first.second - source_mp_aln->sequence().begin()) << "] : ";
+                    cerr << "\tread[" << (anchor.first.first - source_mp_aln->sequence().begin()) << ":" << (anchor.first.second - source_mp_aln->sequence().begin()) << "] : ";
                 }
                 for (auto iter = anchor.first.first; iter != anchor.first.second; iter++) {
                     cerr << *iter;
@@ -191,7 +192,7 @@ using namespace std;
             path_rev_out = false;
             path_pos_out = -1;
             if (source_mp_aln) {
-                *mp_aln_out = make_null_mp_alignment(*source_mp_aln);
+                *mp_aln_out = make_null_mp_alignment(source_mp_aln->sequence(), source_mp_aln->quality());
             }
             else {
                 *aln_out = make_null_alignment(*source_aln);
@@ -738,6 +739,7 @@ using namespace std;
                 continue;
             }
             
+            
 #ifdef debug_constrictions
             cerr << "looking for a constriction at position " <<  end_record.first.second << " among lefts:" << endl;
             for (auto i : end_record.second) {
@@ -756,6 +758,7 @@ using namespace std;
                     deletion_chunks.push_back(i);
                 }
             }
+            unordered_set<size_t> deletion_chunk_set(deletion_chunks.begin(), deletion_chunks.end());
             
             // deletion chunks can go on either end, so we try all combinations
             // TODO: magic number to prevent explosion
@@ -788,6 +791,39 @@ using namespace std;
                 for (auto i : chunks_by_begin[end_record.first]) {
                     if (!left_side.count(i)) {
                         right_side.insert(i);
+                    }
+                }
+                
+                if (!deletion_chunk_set.empty()) {
+                    // check if any of the adjacencies can be blocked off from the biclique by
+                    // the deletion in this configuration
+                    // TODO: this is not fully general in the case that there is more than one
+                    // deletion chunk
+                    vector<size_t> to_erase;
+                    for (auto i : left_side) {
+                        if (adj[i].size() == 1 && deletion_chunk_set.count(adj[i].front()) &&
+                            left_side.count(adj[i].front())) {
+#ifdef debug_constrictions
+                            cerr << "left side chunk " << i << " can be blocked by deletion " << adj[i].front() << ", excluding it from this configuration" << endl;
+#endif
+                            to_erase.push_back(i);
+                        }
+                    }
+                    for (auto i : to_erase) {
+                        left_side.erase(i);
+                    }
+                    to_erase.clear();
+                    for (auto i : right_side) {
+                        if (rev_adj[i].size() == 1 && deletion_chunk_set.count(rev_adj[i].front()) &&
+                            right_side.count(rev_adj[i].front())) {
+#ifdef debug_constrictions
+                            cerr << "right side chunk " << i << " can be blocked by deletion " << rev_adj[i].front() << ", excluding it from this configuration" << endl;
+#endif
+                            to_erase.push_back(i);
+                        }
+                    }
+                    for (auto i : to_erase) {
+                        right_side.erase(i);
                     }
                 }
                 
@@ -1381,7 +1417,12 @@ using namespace std;
             
 #ifdef debug_spliced_surject
             cerr << "surjected section " << i << " after score adjustment: " << pb2json(sections.back()) << endl;
-            cerr << "path range: " << graph->get_id(graph->get_handle_of_step(section_path_ranges.back().first)) << " " << graph->get_is_reverse(graph->get_handle_of_step(section_path_ranges.back().first)) << " " << graph->get_position_of_step(section_path_ranges.back().first) << " : " << graph->get_id(graph->get_handle_of_step(section_path_ranges.back().second)) << " " << graph->get_is_reverse(graph->get_handle_of_step(section_path_ranges.back().second)) << " " << graph->get_position_of_step(section_path_ranges.back().second) << endl;
+            if (sections.back().path().mapping_size() == 0) {
+                cerr << "null alignment has no path range" << endl;
+            }
+            else {
+                cerr << "path range: " << graph->get_id(graph->get_handle_of_step(section_path_ranges.back().first)) << " " << graph->get_is_reverse(graph->get_handle_of_step(section_path_ranges.back().first)) << " " << graph->get_position_of_step(section_path_ranges.back().first) << " : " << graph->get_id(graph->get_handle_of_step(section_path_ranges.back().second)) << " " << graph->get_is_reverse(graph->get_handle_of_step(section_path_ranges.back().second)) << " " << graph->get_position_of_step(section_path_ranges.back().second) << endl;
+            }
 #endif
         }
         
@@ -1465,6 +1506,11 @@ using namespace std;
             size_t section_idx = traceback[i];
             const Path& copy_path = sections[section_idx].path();
             
+            if (copy_path.mapping_size() == 0) {
+                // the DP chose a segment that was unsurjectable
+                path_range_out.first = path_range_out.second = graph->path_end(path_handle);
+                return make_null_mp_alignment(src_sequence, src_quality);
+            }
 #ifdef debug_spliced_surject
             cerr << "appending path section " << pb2json(copy_path) << endl;
 #endif
@@ -2670,10 +2716,11 @@ using namespace std;
         return null;
     }
 
-    multipath_alignment_t Surjector::make_null_mp_alignment(const multipath_alignment_t& source) {
+    multipath_alignment_t Surjector::make_null_mp_alignment(const string& src_sequence,
+                                                            const string& src_quality) {
         multipath_alignment_t null;
-        null.set_sequence(source.sequence());
-        null.set_quality(source.quality());
+        null.set_sequence(src_sequence);
+        null.set_quality(src_quality);
         return null;
     }
 }

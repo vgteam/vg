@@ -247,7 +247,14 @@ int main_surject(int argc, char** argv) {
     // Make a single thread-safe Surjector.
     Surjector surjector(xgidx);
     surjector.adjust_alignments_for_base_quality = qual_adj;
-    surjector.min_splice_length = spliced ? min_splice_length : numeric_limits<int64_t>::max();
+    if (spliced) {
+        surjector.min_splice_length = min_splice_length;
+        // we have to bump this up to be sure to align most splice junctions
+        surjector.max_subgraph_bases = 512 * 1024;
+    }
+    else {
+        surjector.min_splice_length = numeric_limits<int64_t>::max();
+    }
     
     // Get the paths to use in the HTSLib header sequence dictionary
     vector<tuple<path_handle_t, size_t, size_t>> sequence_dictionary = get_sequence_dictionary(ref_paths_name, *xgidx); 
