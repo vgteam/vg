@@ -61,13 +61,10 @@ SnarlNormalizer::SnarlNormalizer(MutablePathDeletableHandleGraph &graph,
  * Iterates over all top-level snarls in _graph, and normalizes them.
  * @param snarl_stream file stream from .snarl.pb output of vg snarls
 */
-gbwt::GBWT SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream, const int start_snarl_num /*= 0*/, const int end_snarl_num /*= 0*/) {
+gbwt::GBWT SnarlNormalizer::normalize_snarls(vector<const Snarl *> snarl_roots) {
     // cerr << "disambiguate_top_level_snarls" << endl;
-    SnarlManager *snarl_manager = new SnarlManager(snarl_stream);
-
     int num_snarls_normalized = 0;
     int num_snarls_skipped = 0;
-    vector<const Snarl *> snarl_roots = snarl_manager->top_level_snarls();
     
     /**
      * We keep an error record to observe when snarls are skipped because they aren't 
@@ -107,23 +104,23 @@ gbwt::GBWT SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream, c
         //     cerr << "in for loop" << endl;
         // }
 
-        if (start_snarl_num != 0 || end_snarl_num != 0)
-        {
-            if (start_snarl_num > end_snarl_num)
-            {
-                cerr << "ERROR: start_snarl_num >= end_snarl_num" << endl;
-                exit(1);
-            }
-            if (snarl_num < start_snarl_num)
-            {
-                continue;
-            }
-            if (snarl_num > end_snarl_num)
-            {
-                cerr << "reached limit of snarl_num" << endl;
-                break;
-            }
-        }
+        // if (start_snarl_num != 0 || end_snarl_num != 0)
+        // {
+        //     if (start_snarl_num > end_snarl_num)
+        //     {
+        //         cerr << "ERROR: start_snarl_num >= end_snarl_num" << endl;
+        //         exit(1);
+        //     }
+        //     if (snarl_num < start_snarl_num)
+        //     {
+        //         continue;
+        //     }
+        //     if (snarl_num > end_snarl_num)
+        //     {
+        //         cerr << "reached limit of snarl_num" << endl;
+        //         break;
+        //     }
+        // }
         
 
         // if (snarl_num==1 || snarl_num==2 || snarl_num==3)
@@ -154,7 +151,7 @@ gbwt::GBWT SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream, c
         // {
         //     cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
         // }
-        cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
+        // cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
 
         if (_full_log_print)
         {
@@ -348,8 +345,6 @@ gbwt::GBWT SnarlNormalizer::normalize_top_level_snarls(ifstream &snarl_stream, c
     // vg::io::VPKG::save(*dynamic_cast<bdsg::HashGraph *>(outGraph.get()), cout);
     // outGraph.serialize_to_ostream(cout);
 
-    delete snarl_manager;
-    
     return output_gbwt;
 
 
