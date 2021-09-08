@@ -326,7 +326,7 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
                     whitelist.insert(pp_graph->get_id(pp_graph->get_handle_of_step(step)));
                 }
             }
-            bool deletion_on_whitellist = (include_endpoints && whitelist.size() == 2) || (!include_endpoints && whitelist.size() == 0);
+            bool deletion_on_whitellist = whitelist.size() <= 2;
             size_t ref_interval_length = 0;
             for (nid_t node_id : whitelist) {
                 // don't count snarl ends here. todo: should this be an option?
