@@ -4,6 +4,7 @@
 #include <set>
 #include "vg/io/json2pb.h"
 #include "../vg.hpp"
+#include "bdsg/hash_graph.hpp"
 #include "catch.hpp"
 #include "../snarls.hpp"
 #include "../cactus_snarl_finder.hpp"
@@ -19,6 +20,50 @@
 
 namespace vg {
 namespace unittest {
+    TEST_CASE( "cluster simple chain",
+                   "[cluster]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GCA");
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("T");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+        Edge* e3 = graph.create_edge(n2, n4);
+        Edge* e4 = graph.create_edge(n3, n4);
+        Edge* e5 = graph.create_edge(n4, n5);
+        Edge* e6 = graph.create_edge(n4, n6);
+        Edge* e7 = graph.create_edge(n5, n7);
+        Edge* e8 = graph.create_edge(n6, n7);
+
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex dist_index;
+        make_distance_index(&dist_index, &graph, &snarl_finder);
+        NewSnarlSeedClusterer clusterer(dist_index);
+        
+        //graph.to_dot(cerr);
+
+        SECTION( "One cluster taking loop" ) {
+ 
+            id_t seed_nodes[] = {2, 3, 5};
+            //all are in the same cluster
+            vector<NewSnarlSeedClusterer::Seed> seeds;
+            for (id_t n : seed_nodes) {
+                pos_t pos = make_pos_t(n, false, 0);
+                seeds.push_back({ pos, 0});
+            }
+
+            vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
+            REQUIRE(clusters.size() == 1); 
+
+        }
+    }
     TEST_CASE( "looping chain of nested unary snarls",
                    "[cluster]" ) {
         VG graph;
@@ -1612,7 +1657,7 @@ namespace unittest {
 /*
     TEST_CASE("Load graph", "[cluster]"){
 
-        ifstream vg_stream("testGraph");
+        ifstream vg_stream("testGraph.hg");
         VG vg(vg_stream);
         vg_stream.close();
         IntegratedSnarlFinder snarl_finder(graph);
@@ -1642,12 +1687,10 @@ namespace unittest {
     }//end test case
     */
 
-    TEST_CASE("Random graphs", "[cluster]"){
+    TEST_CASE("Failed graph", "[failed_cluster]"){
 
-/*
-        ifstream vg_stream("testGraph");
-        VG vg(vg_stream);
-        vg_stream.close();
+        HashGraph graph;
+        graph.deserialize("testGraph.hg");
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
         make_distance_index(&dist_index, &graph, &snarl_finder);
@@ -1660,8 +1703,8 @@ namespace unittest {
 
         vector<NewSnarlSeedClusterer::Seed> seeds;
         vector<pos_t> pos_ts;
-        pos_ts.emplace_back(70, false, 5);
-        pos_ts.emplace_back(9, false, 0);
+        pos_ts.emplace_back(9, false, 2);
+        pos_ts.emplace_back(5, false, 13);
         
 
 
@@ -1670,24 +1713,23 @@ namespace unittest {
         }
         vector<NewSnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 30); 
 
-        assert(clusters.size() == 1);
+        assert(clusters.size() == 2);
         REQUIRE(false);
-        */
-
-
+    }
+    TEST_CASE("Random graphs", "[cluster_random]"){
 
 
         for (int i = 0; i < 100; i++) {
             // For each random graph
             
             default_random_engine generator(time(NULL));
-            uniform_int_distribution<int> variant_count(10, 1000);
-            uniform_int_distribution<int> chrom_len(10, 2000);
+            uniform_int_distribution<int> variant_count(5, 50);
+            uniform_int_distribution<int> chrom_len(10, 1000);
 
             //Make a random graph with three chromosomes of random lengths
-            VG graph;
-            random_graph({chrom_len(generator), chrom_len(generator), chrom_len(generator)}, 30, variant_count(generator), &graph);
-                                                graph.serialize_to_file("testGraph");
+            HashGraph graph;
+            random_graph({chrom_len(generator), chrom_len(generator), chrom_len(generator)}, 15, variant_count(generator), &graph);
+            graph.serialize("testGraph.hg");
 
 
             IntegratedSnarlFinder snarl_finder(graph);
@@ -1779,7 +1821,7 @@ namespace unittest {
                                                                dist2), std::min( dist3, dist4));
                                             if ( dist != -1 && dist <= read_lim) {
                                                 dist_index.print_self();
-                                                graph.serialize_to_file("testGraph");
+                                                graph.serialize("testGraph.hg");
                                                 cerr << "These should have been in the same read cluster: " ;
                                                 cerr << pos1 << " and " << pos2 << endl;
                                                 cerr << dist1 << " " << dist2 << " " << dist3 << " " << dist4 << endl;
@@ -1811,7 +1853,7 @@ namespace unittest {
                             auto actual_clusters = new_clusters.all_groups();
                             if (actual_clusters.size() != 1) {
                                 dist_index.print_self();
-                                graph.serialize_to_file("testGraph");
+                                graph.serialize("testGraph.hg");
                                 cerr << "These should be different read clusters: " << endl;
                                 for (auto c : actual_clusters) {
                                     cerr << "cluster: " ; 
@@ -1859,7 +1901,7 @@ namespace unittest {
                                     size_t dist = std::min(std::min(dist1, dist2), std::min( dist3, dist4));
                                     if ( dist != -1 && dist <= fragment_lim) {
                                         dist_index.print_self();
-                                        graph.serialize_to_file("testGraph");
+                                        graph.serialize("testGraph.hg");
                                         cerr << "These should have been in the same fragment cluster: " ;
                                         cerr << pos1 << " and " << pos2 << endl;
                                         cerr << dist1 << " " << dist2 << " " << dist3 << " " << dist4 << endl;
@@ -1891,7 +1933,7 @@ namespace unittest {
                     auto actual_clusters = new_clusters.all_groups();
                     if (actual_clusters.size() != 1) {
                                         dist_index.print_self();
-                        graph.serialize_to_file("testGraph");
+                        graph.serialize("testGraph.hg");
                         cerr << "These should be different fragment clusters: " << endl;
                         for (auto c : actual_clusters) {
                             cerr << "cluster: " ; 

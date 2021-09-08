@@ -74,6 +74,293 @@ namespace vg {
                 REQUIRE(distance_index.minimum_distance(1, true, 0, 1, true, 5) == 5);
             }
         }
+        TEST_CASE( "Snarl decomposition can deal with multiple connected components",
+                  "[snarl_distance][bug]" ) {
+        
+        
+            // This graph will have a snarl from 1 to 8, a snarl from 2 to 7,
+            // and a snarl from 3 to 5, all nested in each other.
+            // And a chain from 9 to 11 that is attached to the node 12
+            VG graph;
+                
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("T");
+            Node* n7 = graph.create_node("G");
+            Node* n8 = graph.create_node("CTGA");
+
+            Node* n9 = graph.create_node("CTGA");
+            Node* n10 = graph.create_node("GCA");
+            Node* n11 = graph.create_node("T");
+            Node* n12 = graph.create_node("G");
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n8);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n2, n6);
+            Edge* e5 = graph.create_edge(n3, n4);
+            Edge* e6 = graph.create_edge(n3, n5);
+            Edge* e7 = graph.create_edge(n4, n5);
+            Edge* e8 = graph.create_edge(n5, n7);
+            Edge* e9 = graph.create_edge(n6, n7);
+            Edge* e10 = graph.create_edge(n7, n8);
+
+            Edge* e11 = graph.create_edge(n9, n10);
+            Edge* e12 = graph.create_edge(n9, n11);
+            Edge* e13 = graph.create_edge(n10, n11);
+            Edge* e14 = graph.create_edge(n11, n12);
+            Edge* e15 = graph.create_edge(n11, n12, false, true);
+            
+            //get the snarls
+            IntegratedSnarlFinder snarl_finder(graph); 
+            SnarlDistanceIndex distance_index;
+            make_distance_index(&distance_index, &graph, &snarl_finder);
+            SECTION("Nodes all have correct lengths") {
+                REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n1->id(), true), &graph)) == 3);
+                REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n2->id(), true), &graph)) == 1);
+                REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n3->id(), true), &graph)) == 1);
+                REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n4->id(), true), &graph)) == 4);
+                REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n5->id(), true), &graph)) == 3);
+                REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n6->id(), true), &graph)) == 1);
+                REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n7->id(), true), &graph)) == 1);
+                REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n8->id(), true), &graph)) == 4);
+                REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n9->id(), true), &graph)) == 4);
+            }
+            SECTION("Root has three children") {
+                net_handle_t root = distance_index.get_root();
+                size_t child_count = 0;
+
+                distance_index.for_each_child(root, [&](const net_handle_t& child) {
+                    child_count++;
+                });
+                REQUIRE(child_count == 3);
+            }
+
+            //Handle for first node facing in
+            net_handle_t n1_fd = distance_index.get_net(graph.get_handle(1, false), &graph); 
+            REQUIRE(distance_index.get_depth(n1_fd) == 1);
+
+            //Make sure that we really got the right handle
+            REQUIRE(distance_index.get_handle(n1_fd, &graph) == graph.get_handle(1, false));
+
+            //Handle for top level chain of just one node
+            net_handle_t chain1 = distance_index.get_parent(n1_fd);
+            REQUIRE(distance_index.is_chain(chain1));
+            REQUIRE(distance_index.get_depth(chain1) == 1);
+            size_t child_i = 0;
+            net_handle_t top_snarl;
+            vector<net_handle_t> child_handles;//This should be start node, snarl, end node
+            bool first = true;
+            net_handle_t last_child;
+            distance_index.for_each_child(chain1, [&](const net_handle_t& child) {
+                REQUIRE((first  || distance_index.is_ordered_in_chain(last_child, child)));
+                last_child = child;
+                first = false;
+                if (child_i == 0) {
+                    REQUIRE(distance_index.is_node(child));
+                    REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == 1);
+                    REQUIRE(distance_index.get_depth(child) == 1);
+                } else if (child_i == 1) {
+                    REQUIRE(distance_index.is_snarl(child));
+                    child_handles.emplace_back(child);
+                    top_snarl = child;
+                    REQUIRE(distance_index.get_depth(child) == 1);
+                } else if (child_i == 2) {
+                    REQUIRE(distance_index.is_node(child));
+                    REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == 8);
+                    REQUIRE(distance_index.get_depth(child) == 1);
+                } else {
+                    //The chain should only contain two nodes and a snarl
+                    REQUIRE(false);
+                }
+                REQUIRE( distance_index.canonical(distance_index.get_parent(child))
+                            == distance_index.canonical(chain1));
+                child_i++;
+                return true;
+            });
+            SECTION("The distances in the top-level chain are correct"){
+                REQUIRE(distance_index.distance_in_parent(chain1, 
+                        distance_index.get_net(graph.get_handle(n1->id(), false), &graph),
+                        distance_index.get_net(graph.get_handle(n8->id(), true), &graph)) == 0);
+                REQUIRE(distance_index.distance_in_parent(chain1, 
+                        distance_index.get_net(graph.get_handle(n1->id(), true), &graph),
+                        distance_index.get_net(graph.get_handle(n8->id(), true), &graph)) == std::numeric_limits<size_t>:: max());
+                REQUIRE(distance_index.distance_in_parent(chain1, 
+                        distance_index.get_net(graph.get_handle(n1->id(), true), &graph),
+                        distance_index.get_net(graph.get_handle(n8->id(), false), &graph)) == std::numeric_limits<size_t>:: max());
+                REQUIRE(distance_index.distance_in_parent(chain1, 
+                        distance_index.get_net(graph.get_handle(n1->id(), false), &graph),
+                        distance_index.get_net(graph.get_handle(n8->id(), false), &graph)) == std::numeric_limits<size_t>:: max());
+            }
+
+            SECTION( "The top-level snarl has 3 nodes" ) {
+
+                //The snarl 1,8 has one child (not counting the boundary nodes)
+                size_t node_count = 0;
+                REQUIRE(distance_index.is_snarl(top_snarl));
+                REQUIRE(distance_index.get_depth(top_snarl) == 1);
+                net_handle_t child;
+                distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
+                    node_count++;
+                    REQUIRE( distance_index.canonical(distance_index.get_parent(handle))
+                            == distance_index.canonical(top_snarl));
+                    REQUIRE(distance_index.get_depth(handle) == 2);
+                    child=handle;
+                    return true;
+                });
+                
+                REQUIRE(node_count == 1);
+             
+                SECTION("Distances in the top-level snarl is correct"){
+
+                    size_t d_start_start = distance_index.distance_in_parent(top_snarl,
+                                                distance_index.get_bound(top_snarl, false, true), 
+                                                child);
+                    size_t d_start_end = distance_index.distance_in_parent(top_snarl,
+                                                distance_index.get_bound(top_snarl, false, true), 
+                                                distance_index.flip(child));
+                    size_t d_end_start = distance_index.distance_in_parent(top_snarl,
+                                                distance_index.get_bound(top_snarl, true, true), 
+                                                child);
+                    size_t d_end_end = distance_index.distance_in_parent(top_snarl,
+                                                distance_index.get_bound(top_snarl, true, true), 
+                                                distance_index.flip(child));
+                    size_t d_across = distance_index.distance_in_parent(top_snarl,
+                                                distance_index.get_bound(top_snarl, false, true), 
+                                                distance_index.get_bound(top_snarl, true, true));
+                    REQUIRE(d_across == 0);
+                    REQUIRE(((d_start_start == 0 && d_start_end == std::numeric_limits<size_t>::max()) ||
+                            (d_start_end == 0 && d_start_start == std::numeric_limits<size_t>::max())));
+                    REQUIRE(((d_end_start == 0 && d_end_end == std::numeric_limits<size_t>::max()) ||
+                            (d_end_end == 0 && d_end_start == std::numeric_limits<size_t>::max())));
+
+                }   
+            }
+            
+            SECTION( "The top-level NetGraph has 3 edges" ) {
+                vector<net_handle_t> handles;
+                distance_index.for_each_child(top_snarl, [&](const net_handle_t& handle) {
+                    handles.emplace_back(handle);
+                    REQUIRE( distance_index.canonical(distance_index.get_parent(handle))
+                            == distance_index.canonical(top_snarl));
+                    return true;
+                });
+                handles.emplace_back(distance_index.get_bound(top_snarl, false, true));
+                handles.emplace_back(distance_index.get_bound(top_snarl, true, true));
+                unordered_set<pair<net_handle_t, net_handle_t>> edges;
+                for (net_handle_t& handle : handles) {
+                    // Go through the nodes we should have manually.
+                
+                    // Save all the edges off of each node
+                    distance_index.follow_net_edges(handle, &graph, false, [&](const net_handle_t& other) {
+                        edges.insert(make_pair(handle, other));
+                        return true;
+                    });
+                    distance_index.follow_net_edges(handle, &graph, true, [&](const net_handle_t& other) {
+                        edges.insert(make_pair(other, handle));
+                        return true;
+                    });
+                }
+                
+                //Double counting I think
+                REQUIRE(edges.size() == 6);
+            }
+            SECTION("Get the ancestors of a single node") {
+                net_handle_t node6 = distance_index.get_net(graph.get_handle(n6->id(), false), &graph); 
+                net_handle_t n6_as_chain = distance_index.get_parent(node6);
+                REQUIRE(distance_index.is_chain(n6_as_chain));
+                REQUIRE(distance_index.is_trivial_chain(distance_index.canonical(n6_as_chain)));
+                REQUIRE(distance_index.is_chain(distance_index.canonical(n6_as_chain)));
+                REQUIRE(distance_index.is_trivial_chain(n6_as_chain));
+                net_handle_t snarl27 = distance_index.get_parent(n6_as_chain);
+                REQUIRE(distance_index.is_snarl(snarl27));
+                net_handle_t chain27 = distance_index.get_parent(snarl27);
+                REQUIRE(distance_index.is_chain(chain27));
+                net_handle_t snarl18 = distance_index.get_parent(chain27);
+                REQUIRE(distance_index.is_snarl(snarl18));
+                net_handle_t chain18 = distance_index.get_parent(snarl18);
+                REQUIRE(distance_index.is_chain(chain18));
+                net_handle_t root = distance_index.get_parent(chain18);
+                REQUIRE(distance_index.is_root(root));
+            }
+            SECTION("Depths and parents are correct") {
+                net_handle_t node4 = distance_index.get_net(graph.get_handle(n4->id(), false), &graph); 
+                REQUIRE(distance_index.get_depth(node4) == 4);
+
+                net_handle_t chain4 = distance_index.get_parent(node4);
+                REQUIRE(distance_index.is_chain(chain4));
+                REQUIRE(distance_index.is_trivial_chain(chain4));
+                REQUIRE(distance_index.get_depth(chain4) == 4);
+
+                net_handle_t snarl35 = distance_index.get_parent(chain4);
+                REQUIRE(distance_index.is_snarl(snarl35));
+                REQUIRE(distance_index.get_depth(snarl35) == 3);
+                
+                net_handle_t chain35 = distance_index.get_parent(snarl35);
+                REQUIRE(distance_index.is_chain(chain35));
+                REQUIRE(distance_index.get_depth(chain35) == 3);
+
+                net_handle_t snarl27 = distance_index.get_parent(chain35);
+                REQUIRE(distance_index.is_snarl(snarl27));
+                REQUIRE(distance_index.get_depth(snarl27) == 2);
+                
+                net_handle_t chain27 = distance_index.get_parent(snarl27);
+                REQUIRE(distance_index.is_chain(chain27));
+                REQUIRE(distance_index.get_depth(chain27) == 2);
+
+                net_handle_t snarl18 = distance_index.get_parent(chain27);
+                REQUIRE(distance_index.is_snarl(snarl18));
+                REQUIRE(distance_index.get_depth(snarl18) == 1);
+                
+                net_handle_t chain18 = distance_index.get_parent(snarl18);
+                REQUIRE(distance_index.is_chain(chain18));
+                REQUIRE(distance_index.get_depth(chain18) == 1);
+
+                net_handle_t root = distance_index.get_parent(chain18);
+                REQUIRE(distance_index.is_root(root));
+                REQUIRE(distance_index.get_depth(root) == 0);
+
+
+            }
+            SECTION("Minimum distances are correct") {
+                REQUIRE(distance_index.minimum_distance(
+                         n1->id(), false, 0, n2->id(), false, 0) == 3);
+                REQUIRE(distance_index.minimum_distance(
+                         n1->id(), false, 0, n8->id(), false, 0) == 3);
+                REQUIRE(distance_index.minimum_distance(
+                         n1->id(), false, 0, n7->id(), false, 0) == 5);
+                REQUIRE(distance_index.minimum_distance(
+                         n3->id(), false, 0, n7->id(), false, 0) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         n7->id(), true, 0, n3->id(), true, 0) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         n2->id(), false, 0, n5->id(), false, 0) == 2);
+                REQUIRE(distance_index.minimum_distance(
+                         n6->id(), false, 0, n8->id(), false, 1) == 3);
+                REQUIRE(distance_index.minimum_distance(
+                         n2->id(), false, 0, n6->id(), false, 0) == 1);
+                REQUIRE(distance_index.minimum_distance(
+                         n7->id(), true, 0, n4->id(), true, 0) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         n5->id(), true, 0, n2->id(), true, 0) == 4);
+                REQUIRE(distance_index.minimum_distance(
+                         n5->id(), true, 0, n2->id(), false, 0) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         n6->id(), false, 0, n5->id(), false, 0) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         n5->id(), false, 0, n6->id(), false, 0) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         n5->id(), true, 0, n6->id(), true, 0) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         n5->id(), false, 0, n6->id(), true, 0) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.minimum_distance(
+                         n9->id(), false, 0, n12->id(), false, 0) == 5);
+            }
+        
+        }
         TEST_CASE( "Snarl decomposition can allow traversal of a simple net graph",
                   "[snarl_distance]" ) {
         

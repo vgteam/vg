@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#define DEBUG_CLUSTER
+//#define DEBUG_CLUSTER
 namespace vg {
 
     NewSnarlSeedClusterer::NewSnarlSeedClusterer( SnarlDistanceIndex& distance_index) :
@@ -901,7 +901,6 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                         : distance_index.node_length(distance_index.get_bound(parent_handle, false, false));
                 size_t end_length =  !distance_index.is_chain(parent_handle) ? 0 
                         : distance_index.node_length(distance_index.get_bound(parent_handle, true, false));
-                        cerr << "Chain handles are " << distance_index.net_handle_as_string(parent_start_in) << " and " << distance_index.net_handle_as_string(parent_end_in) << endl;
 
             child_clusters1.distance_start_left = child_handle1 == parent_start_in ? 0 :
                 SnarlDistanceIndex::sum({start_length, distance_index.distance_in_parent(parent_handle, parent_start_in, distance_index.flip(child_handle1))});
