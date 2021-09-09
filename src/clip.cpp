@@ -14,11 +14,11 @@ using namespace std;
 // then return it (or nullptr if none found)
 // also return the snarl's interval (as pair of offsets) in the path
 // this logic is mostly lifted from deconstructor which does the same thing to get vcf coordinates.
-static tuple<const Region*, step_handle_t, step_handle_t, bool> get_containing_region(PathPositionHandleGraph* graph,
-                                                                                      PathTraversalFinder& trav_finder,
-                                                                                      const Snarl* snarl,
-                                                                                      unordered_map<string, IntervalTree<int64_t, const Region*>>& contig_to_interval_tree,
-                                                                                      bool include_endpoints) {
+static tuple<const Region*, step_handle_t, step_handle_t, int64_t, int64_t, bool> get_containing_region(PathPositionHandleGraph* graph,
+                                                                                                        PathTraversalFinder& trav_finder,
+                                                                                                        const Snarl* snarl,
+                                                                                                        unordered_map<string, IntervalTree<int64_t, const Region*>>& contig_to_interval_tree,
+                                                                                                        bool include_endpoints) {
     
     // every path through the snarl
     pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > travs = trav_finder.find_path_traversals(*snarl);
@@ -72,17 +72,17 @@ static tuple<const Region*, step_handle_t, step_handle_t, bool> get_containing_r
             auto overlapping_intervals = interval_tree.findOverlapping(first_path_pos, last_path_pos);
             for (auto& interval : overlapping_intervals) {
                 if (interval.start <= first_path_pos && interval.stop >= last_path_pos) {
-                    return make_tuple(interval.value, start_step, end_step, !use_start);
+                    return make_tuple(interval.value, start_step, end_step, first_path_pos, last_path_pos, !use_start);
                 }
             }
         }
     }
-    return make_tuple(nullptr, step_handle_t(), step_handle_t(), false);
+    return make_tuple(nullptr, step_handle_t(), step_handle_t(), -1, -1, false);
 }
 
 void visit_contained_snarls(PathPositionHandleGraph* graph, const vector<Region>& regions, SnarlManager& snarl_manager,
                             bool include_endpoints,
-                            function<void(const Snarl*, step_handle_t, step_handle_t, bool, const Region*)> visit_fn) {
+                            function<void(const Snarl*, step_handle_t, step_handle_t, int64_t, int64_t, bool, const Region*)> visit_fn) {
 
     // make an interval tree of regions for each contig
     unordered_map<string, vector<IntervalTree<int64_t, const Region*>::interval>> region_intervals;
@@ -130,7 +130,8 @@ void visit_contained_snarls(PathPositionHandleGraph* graph, const vector<Region>
                 for (auto next_snarl : todo) {
                     auto containing_region_info = get_containing_region(graph, trav_finder, next_snarl, contig_to_interval_tree, include_endpoints);
                     if (get<0>(containing_region_info)  != nullptr) {
-                        visit_fn(next_snarl, get<1>(containing_region_info), get<2>(containing_region_info), get<3>(containing_region_info), get<0>(containing_region_info));
+                        visit_fn(next_snarl, get<1>(containing_region_info), get<2>(containing_region_info), get<3>(containing_region_info),
+                                 get<4>(containing_region_info), get<5>(containing_region_info), get<0>(containing_region_info));
                     } else {
                         const vector<const Snarl*>& children = snarl_manager.children_of(next_snarl);
                         next.insert(next.end(), children.begin(), children.end());
@@ -250,8 +251,52 @@ void delete_nodes_and_chop_paths(MutablePathMutableHandleGraph* graph, const uno
 
 }
 
+// determine if a snarl is complex enough to warrant flattening by measuring some very basic stats
+static bool snarl_is_complex(PathPositionHandleGraph* graph, const Snarl* snarl,
+                             const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents,
+                             const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents_shallow,
+                             int64_t ref_interval_length, const Region& region, size_t max_nodes, size_t max_edges,
+                             size_t max_nodes_shallow, size_t max_edges_shallow,
+                             double max_avg_degree, double max_reflen_prop, size_t max_reflen,
+                             double& out_avg_degree) {
+
+    out_avg_degree = -1.;
+    
+    // if our snarl is to big vs the reference path, we do not process it
+    assert(graph->has_path(region.seq));
+    double ref_prop = (double)ref_interval_length / (double)graph->get_path_length(graph->get_path_handle(region.seq));
+    if (ref_prop > max_reflen_prop || ref_interval_length > max_reflen) {
+#ifdef debug
+        cerr << "skipping snarl " << pb2json(*snarl) << " with interval length " << ref_interval_length
+             << " because its ref_prop of " << region.seq << " is " << ref_prop << " which is greater than " << max_reflen_prop
+             << " or its ref length " << ref_interval_length << " is greater than " << max_reflen << endl;
+#endif
+        return false;
+    }
+
+    // check the stats
+    bool filter_on = max_nodes > 0 || max_edges > 0 || max_nodes_shallow > 0 || max_edges_shallow > 0 || max_avg_degree > 0.;
+    bool complex_nodes = contents.first.size() > max_nodes;
+    bool complex_edges = contents.second.size() > max_edges;
+    bool complex_nodes_shallow = contents_shallow.first.size() > max_nodes_shallow;
+    bool complex_edges_shallow = contents_shallow.second.size() > max_edges_shallow;
+    size_t total_degree = 0;
+    for (id_t node_id : contents.first) {
+        handle_t handle = graph->get_handle(node_id);
+        total_degree += graph->get_degree(handle, true) + graph->get_degree(handle, false);
+    }
+    // degree averaged over node sides to be a bit more intuitive, hence 2X in denominator:
+    out_avg_degree = (double)total_degree / (2. *(double)contents.first.size());
+    bool complex_degree = out_avg_degree > max_avg_degree;        
+    
+    return !filter_on || (complex_nodes && complex_edges && complex_nodes_shallow && complex_edges_shallow && complex_degree);
+}
+
 void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
-                           SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len, bool verbose) {
+                           SnarlManager& snarl_manager, bool include_endpoints, int64_t min_fragment_len,
+                           size_t max_nodes, size_t max_edges, size_t max_nodes_shallow, size_t max_edges_shallow,
+                           double max_avg_degree, double max_reflen_prop, size_t max_reflen,
+                           bool out_bed, bool verbose) {
 
     // find all nodes in the snarl that are not on the reference interval (reference path name from containing interval)
     unordered_set<nid_t> nodes_to_delete;
@@ -263,6 +308,7 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
     unordered_map<string, size_t> clip_counts;
     
     visit_contained_snarls(pp_graph, regions, snarl_manager, include_endpoints, [&](const Snarl* snarl, step_handle_t start_step, step_handle_t end_step,
+                                                                                    int64_t start_pos, int64_t end_pos,
                                                                                     bool steps_reversed, const Region* containing_region) {
 
 #ifdef debug
@@ -284,40 +330,68 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
                     whitelist.insert(pp_graph->get_id(pp_graph->get_handle_of_step(step)));
                 }
             }
-
-            pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(snarl, *pp_graph, false);
-            for (id_t node_id : contents.first) {
-                if (!whitelist.count(node_id)) {
-                    nodes_to_delete.insert(node_id);
-                    ++clip_counts[containing_region->seq];
+            bool deletion_on_whitellist = (include_endpoints && whitelist.size() == 2) || (!include_endpoints && whitelist.size() == 0);
+            size_t ref_interval_length = 0;
+            for (nid_t node_id : whitelist) {
+                // don't count snarl ends here. todo: should this be an option?
+                if (node_id != snarl->start().node_id() && node_id != snarl->end().node_id()) {
+                    ref_interval_length += pp_graph->get_length(pp_graph->get_handle(node_id));
                 }
             }
-            // since we're deleting all alt alleles, the only edge that could be left is a snarl-spanning deletion
-            edge_t deletion_edge = graph->edge_handle(graph->get_handle(snarl->start().node_id(), snarl->start().backward()),
-                                                      graph->get_handle(snarl->end().node_id(), snarl->end().backward()));
-            if (graph->has_edge(deletion_edge)) {
-                edges_to_delete.insert(deletion_edge);
+
+            pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(snarl, *pp_graph, false);
+            pair<unordered_set<id_t>, unordered_set<edge_t> > contents_shallow = snarl_manager.shallow_contents(snarl, *pp_graph, false);
+            double avg_degree = -1;
+            if (snarl_is_complex(pp_graph, snarl, contents, contents_shallow, ref_interval_length, *containing_region, max_nodes, max_edges,
+                                 max_nodes_shallow, max_edges_shallow, max_avg_degree, max_reflen_prop, max_reflen, avg_degree)) {
+                if (out_bed) {
+                    string snarl_name = (snarl->start().backward() ? "<" : ">") + std::to_string(snarl->start().node_id()) +
+                        (snarl->end().backward() ? "<" : ">") + std::to_string(snarl->end().node_id());
+                    cout << containing_region->seq << "\t" << start_pos << "\t" << (end_pos + 1) << "\t" << snarl_name << "\t"
+                         << contents.first.size() << "\t" << contents.second.size() << "\t"
+                         << contents_shallow.first.size() << "\t" << contents_shallow.second.size() << "\t"
+                         << avg_degree << "\n";
+                } else {
+                    for (id_t node_id : contents.first) {
+                        if (!whitelist.count(node_id)) {
+                            nodes_to_delete.insert(node_id);
+                            ++clip_counts[containing_region->seq];
+                        }
+                    }
+                    // since we're deleting all alt alleles, the only edge that could be left is a snarl-spanning deletion
+                    if (!deletion_on_whitellist) {
+                        edge_t deletion_edge = graph->edge_handle(graph->get_handle(snarl->start().node_id(), snarl->start().backward()),
+                                                                  graph->get_handle(snarl->end().node_id(), snarl->end().backward()));
+                        if (graph->has_edge(deletion_edge)) {
+                            edges_to_delete.insert(deletion_edge);
+                        }
+                    }
+                }
             }
+#ifdef debug
+            cerr << "snarl was not deemed complex enough to clip" << endl;
+#endif
         });
 
-    if (verbose) {
+    if (verbose && !out_bed) {
         if (clip_counts.size() > 1) {
             for (const auto& kv : clip_counts) {
                 cerr << "[vg-clip]: Removing " << kv.second << " nodes due to intervals on path " << kv.first << endl;
             }
         }
-        cerr << "[vg-clip]: Removing total of " << nodes_to_delete.size() << " nodes and " << edges_to_delete.size() << " edges from snarls in regions" << endl;
+        cerr << "[vg-clip]: Removing total of " << nodes_to_delete.size() << " nodes and " << edges_to_delete.size() << " snarl-spanning edges from snarls in regions" << endl;
         clip_counts.clear();
     }
     
     // cut out the nodes and chop up paths
-    delete_nodes_and_chop_paths(graph, nodes_to_delete, edges_to_delete, min_fragment_len, verbose ? &clip_counts : nullptr);
-    
-    if (verbose) {
-        for (const auto& kv : clip_counts) {
-            cerr << "[vg-clip]: Creating " << kv.second << " fragments from path " << kv.first << endl;
+    if (!out_bed) {        
+        delete_nodes_and_chop_paths(graph, nodes_to_delete, edges_to_delete, min_fragment_len, verbose ? &clip_counts : nullptr);
+        if (verbose) {
+            for (const auto& kv : clip_counts) {
+                cerr << "[vg-clip]: Creating " << kv.second << " fragments from path " << kv.first << endl;
+            }
+            clip_counts.clear();
         }
-        clip_counts.clear();
     }
 }
 
@@ -422,6 +496,7 @@ void clip_contained_low_depth_nodes(MutablePathMutableHandleGraph* graph, PathPo
     function<void(function<void(handle_t, const Region*)>)> iterate_handles = [&] (function<void(handle_t, const Region*)> visit_handle) {
         
         visit_contained_snarls(pp_graph, regions, snarl_manager, include_endpoints, [&](const Snarl* snarl, step_handle_t start_step, step_handle_t end_step,
+                                                                                        int64_t start_pos, int64_t end_pos,
                                                                                         bool steps_reversed, const Region* containing_region) {
                                    
                                    pair<unordered_set<id_t>, unordered_set<edge_t> > contents = snarl_manager.deep_contents(snarl, *pp_graph, false);
