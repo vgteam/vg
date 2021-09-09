@@ -56,6 +56,10 @@ CREATE_REPORT=1
 OUTPUT_DESTINATION="s3://vg-data/vg_ci"
 # What bucket owner account ID if any should be granted full control of uploaded objects?
 OUTPUT_OWNER="b1cf5e10ba0aeeb00e5ec70b3532826f22a979ae96c886d3081d0bdc1f51f67e"
+# Should the output be marked public? If we're uploading to an S3 bucket where
+# this isn't allowed, we'll get a permission denied error when we try to do the
+# upload.
+OUTPUT_PUBLIC=0
 
 usage() {
     # Print usage to stderr
@@ -171,8 +175,14 @@ fi
 
 # Add these arguments to grant ownership of uploads
 GRANT_ARGS=()
-if [[ ! -z "${OUTPUT_OWNER}" ]] ; then
-    GRANT_ARGS=(--grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}")
+if [[ ! -z "${OUTPUT_OWNER}" || "${OUTPUT_PUBLIC}" == "1" ]] ; then
+    GRANT_ARGS=(--grants)
+    if [[ "${OUTPUT_PUBLIC}" == "1" ]] ; then
+        GRANT_ARGS+=("read=uri=http://acs.amazonaws.com/groups/global/AllUsers")
+    fi
+    if [[ ! -z "${OUTPUT_OWNER}" ]] ; then
+        GRANT_ARGS+=("full=id=${OUTPUT_OWNER}")
+    fi
 fi
 
 # We have 3 phases: build, test, and report.
