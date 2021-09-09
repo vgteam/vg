@@ -47,6 +47,7 @@
 #include "kmer.hpp"
 #include "transcriptome.hpp"
 #include "integrated_snarl_finder.hpp"
+#include "snarl_distance_index.hpp"
 #include "min_distance.hpp"
 #include "gfa.hpp"
 #include "job_schedule.hpp"
@@ -3196,36 +3197,28 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     // meta-recipe to make distance index
     auto make_distance_index = [&](const HandleGraph& graph,
-                                   const IndexFile* snarl_input,
                                    const IndexingPlan* plan,
                                    const IndexGroup& constructing) {
-        
-        auto snarls_filenames = snarl_input->get_filenames();
-        assert(snarls_filenames.size() == 1);
-        auto snarls_filename = snarls_filenames.front();
         
         assert(constructing.size() == 1);
         vector<vector<string>> all_outputs(constructing.size());
         auto dist_output = *constructing.begin();
         auto& output_names = all_outputs[0];
         
-        ifstream infile_snarls;
-        init_in(infile_snarls, snarls_filename);
         string output_name = plan->output_filepath(dist_output);
         ofstream outfile;
         init_out(outfile, output_name);
         
-        unique_ptr<SnarlManager> snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(infile_snarls));
-        
-        MinimumDistanceIndex distance_index(&graph, snarl_manager.get());
-        
-        vg::io::VPKG::save(distance_index, output_name);
+        SnarlDistanceIndex distance_index;
+        IntegratedSnarlFinder snarl_finder(graph);
+        fill_in_distance_index(&distance_index, &graph, &snarl_finder); 
+        distance_index.save(output_name);
         
         output_names.push_back(output_name);
         return all_outputs;
     };
     
-    registry.register_recipe({"Giraffe Distance Index"}, {"Giraffe GBZ", "Giraffe Snarls"},
+    registry.register_recipe({"Giraffe Distance Index"}, {"Giraffe GBZ"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -3243,10 +3236,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         init_in(infile_gbz, gbz_filename);
         unique_ptr<gbwtgraph::GBZ> gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(infile_gbz);
         
-        return make_distance_index(gbz->graph, inputs[1], plan, constructing);
+        return make_distance_index(gbz->graph, plan, constructing);
     });
     
-    registry.register_recipe({"Spliced Distance Index"}, {"Spliced Snarls", "Spliced XG"},
+    registry.register_recipe({"Spliced Distance Index"}, {"Spliced XG"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -3265,7 +3258,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         unique_ptr<HandleGraph> graph = vg::io::VPKG::load_one<HandleGraph>(infile_graph);
         
-        return make_distance_index(*graph, inputs[0], plan, constructing);
+        return make_distance_index(*graph, plan, constructing);
     });
     
     ////////////////////////////////////
@@ -3394,7 +3387,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 
     // FIXME We may not always want to store the minimizer index. Rebuilding the index may be
     // faster than loading it from a network drive.
-    registry.register_recipe({"Minimizers"}, {"Giraffe Distance Index", "Giraffe GBZ"},
+    // TODO: I'm taking out the cached distances from the minimizers for now, maybe permanently
+    //registry.register_recipe({"Minimizers"}, {"Giraffe Distance Index", "Giraffe GBZ"},
+    registry.register_recipe({"Minimizers"}, {"Giraffe GBZ"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -3418,9 +3413,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto minimizer_output = *constructing.begin();
         auto& output_names = all_outputs[0];
         
-        ifstream infile_dist;
-        init_in(infile_dist, dist_filename);
-        auto dist_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(infile_dist);
+        //ifstream infile_dist;
+        //init_in(infile_dist, dist_filename);
+        //auto dist_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(infile_dist);
 
         ifstream infile_gbz;
         init_in(infile_gbz, gbz_filename);
@@ -3433,7 +3428,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                     IndexingParameters::use_bounded_syncmers);
                 
         gbwtgraph::index_haplotypes(gbz->graph, minimizers, [&](const pos_t& pos) -> gbwtgraph::payload_type {
-            return MIPayload::encode(dist_index->get_minimizer_distances(pos));
+            return MIPayload::NO_CODE;
         });
         
         string output_name = plan->output_filepath(minimizer_output);

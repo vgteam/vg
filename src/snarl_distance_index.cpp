@@ -9,7 +9,7 @@ using namespace handlegraph;
 namespace vg {
 
 
-void make_distance_index(SnarlDistanceIndex* distance_index, const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit) {
+void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit) {
     distance_index->set_size_limit(size_limit);
 
     //Build the temporary distance index from the graph

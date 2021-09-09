@@ -36,7 +36,7 @@ namespace vg {
 
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
             SECTION("Traverse the snarl decomposition") {
                 bool found_start = false;
                 bool found_end = false;
@@ -117,7 +117,7 @@ namespace vg {
             //get the snarls
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
             SECTION("Nodes all have correct lengths") {
                 REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n1->id(), true), &graph)) == 3);
                 REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n2->id(), true), &graph)) == 1);
@@ -392,7 +392,7 @@ namespace vg {
             //get the snarls
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
             SECTION("Nodes all have correct lengths") {
                 REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n1->id(), true), &graph)) == 3);
                 REQUIRE(distance_index.node_length(distance_index.get_net(graph.get_handle(n2->id(), true), &graph)) == 1);
@@ -657,7 +657,7 @@ namespace vg {
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
             
             SECTION( "A connectivity-ignoring net graph ignores connectivity" ) {
             
@@ -903,7 +903,7 @@ namespace vg {
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
             
             
             SECTION( "A connectivity-ignoring net graph ignores connectivity" ) {
@@ -1076,7 +1076,7 @@ namespace vg {
                 //get the snarls
                 IntegratedSnarlFinder snarl_finder(graph); 
                 SnarlDistanceIndex distance_index;
-                make_distance_index(&distance_index, &graph, &snarl_finder);
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                 
                 //Handle for first node facing in
                 net_handle_t n1_fd = distance_index.get_net(graph.get_handle(1, false), &graph); 
@@ -1177,7 +1177,7 @@ namespace vg {
             //get the snarls
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
             
             SECTION( "A connectivity-ignoring net graph ignores connectivity" ) {
             
@@ -1806,7 +1806,7 @@ namespace vg {
                 
                 IntegratedSnarlFinder snarl_finder(graph);
                 SnarlDistanceIndex distance_index;
-                make_distance_index(&distance_index, &graph, &snarl_finder);
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                 
             }
             
@@ -1836,7 +1836,7 @@ namespace vg {
                 
                 IntegratedSnarlFinder snarl_finder(graph);
                 SnarlDistanceIndex distance_index;
-                make_distance_index(&distance_index, &graph, &snarl_finder);
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
                 //The root contains one connected component
                 net_handle_t root_handle = distance_index.get_root();
@@ -2019,7 +2019,7 @@ namespace vg {
                 
                 IntegratedSnarlFinder snarl_finder(graph);
                 SnarlDistanceIndex distance_index;
-                make_distance_index(&distance_index, &graph, &snarl_finder);
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                 
                 //The root contains one connected component
                 net_handle_t root_handle = distance_index.get_root();
@@ -2171,7 +2171,7 @@ namespace vg {
 
                 IntegratedSnarlFinder snarl_finder(graph);
                 SnarlDistanceIndex distance_index;
-                make_distance_index(&distance_index, &graph, &snarl_finder);
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                 
                 //The root contains one connected component
                 net_handle_t root_handle = distance_index.get_root();
@@ -2668,7 +2668,7 @@ namespace vg {
 
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
             SECTION("The snarl distance index finds the right snarls") {
                 
                     
@@ -2925,7 +2925,7 @@ namespace vg {
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
         
             SECTION("Root node has 1 child bubble") {
@@ -3038,7 +3038,7 @@ namespace vg {
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
             
             SECTION("Root node has 2 child bubbles") {
 
@@ -3187,7 +3187,7 @@ namespace vg {
          
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
             
             SECTION("Root node has 2 child bubbles") {
 
@@ -3316,7 +3316,7 @@ namespace vg {
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
            
             SECTION("Root should have one child actual bubble") {
 
@@ -3425,7 +3425,7 @@ namespace vg {
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
            
             SECTION("Root should have one child actual bubble") {
 
@@ -3529,7 +3529,7 @@ namespace vg {
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
            
             SECTION("Root should have one child actual bubble") {
 
@@ -3696,7 +3696,7 @@ namespace vg {
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
            
             
                 
@@ -3819,7 +3819,7 @@ namespace vg {
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
             
                 
             SECTION("There should be three top-level snarls") {
@@ -3921,7 +3921,7 @@ namespace vg {
             // Work out its snarls
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
                 
             //The root contains one connected component
             net_handle_t root_handle = distance_index.get_root();
@@ -4032,7 +4032,7 @@ namespace vg {
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
            
             SECTION("Root should have one child actual bubble") {
 
@@ -4128,7 +4128,7 @@ namespace vg {
             IntegratedSnarlFinder snarl_finder(graph); 
             
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
            
             SECTION("Find all the nodes") {
 
@@ -4228,7 +4228,7 @@ namespace vg {
            
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
            
             SECTION("Minimum distances are correct") {
                 REQUIRE(distance_index.minimum_distance(
@@ -4286,7 +4286,7 @@ namespace vg {
         
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         
         
         
@@ -4356,7 +4356,7 @@ namespace vg {
 
                 IntegratedSnarlFinder snarl_finder(graph); 
                 SnarlDistanceIndex distance_index;
-                make_distance_index(&distance_index, &graph, &snarl_finder);
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
                 REQUIRE(distance_index.minimum_distance(2, true, 0,10, true, 0) == 2);
                 REQUIRE(distance_index.minimum_distance(2, false, 0,10, false, 0) == 4);
@@ -4406,7 +4406,7 @@ namespace vg {
                 
                 IntegratedSnarlFinder snarl_finder(graph); 
                 SnarlDistanceIndex distance_index;
-                make_distance_index(&distance_index, &graph, &snarl_finder);
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
                 
                 REQUIRE(distance_index.minimum_distance(2, true, 0,9, true, 1) == 2);
@@ -4460,7 +4460,7 @@ namespace vg {
         
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         
             SECTION ("Min distance") {
         
@@ -4513,7 +4513,7 @@ namespace vg {
 
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
             SECTION( "Min distance" ) {
                 REQUIRE(distance_index.minimum_distance(5, false, 1,5, false, 0) == 11);
@@ -4546,7 +4546,7 @@ namespace vg {
 
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
        
             // We end up with a big unary snarl of 7 rev -> 7 rev
@@ -4593,7 +4593,7 @@ namespace vg {
         
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
             SECTION("Get all children") {
                 net_handle_t root_handle = distance_index.get_root();
@@ -4660,7 +4660,7 @@ namespace vg {
             SECTION("Create distance index") {
                 SnarlDistanceIndex distance_index;
 
-                make_distance_index(&distance_index, &graph, &snarl_finder);
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
                 REQUIRE(distance_index.minimum_distance(1, false, 0,7, false, 0) == 8);
                 REQUIRE(distance_index.minimum_distance(1, false, 0,8, false, 0) == 9);
@@ -5036,7 +5036,7 @@ namespace vg {
 
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
             SECTION("Traverse the snarl decomposition") {
                 net_handle_t root_handle = distance_index.get_root();
                 size_t root_child_count = 0;
@@ -5095,7 +5095,7 @@ namespace vg {
             
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
             SECTION("Distances within snarls and chains") {
                 net_handle_t root_handle = distance_index.get_root();
                 size_t root_child_count = 0;
@@ -5153,7 +5153,7 @@ namespace vg {
             vg_stream.close();
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
-            make_distance_index(&distance_index, &graph, &snarl_finder);
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder);
 
             id_t node_id1 = 31; bool rev1 = true ; size_t offset1 = 0;
             id_t node_id2 = 68; bool rev2 = true ; size_t offset2 = 0;
@@ -5220,7 +5220,7 @@ namespace vg {
                 random_graph(bases, variant_bases, variant_count, &graph);
                 IntegratedSnarlFinder finder(graph); 
                 SnarlDistanceIndex distance_index;
-                make_distance_index(&distance_index, &graph, &finder);
+                fill_in_distance_index(&distance_index, &graph, &finder);
 
                 //Make sure that the distance index found all the nodes
                 for (id_t id = graph.min_node_id() ; id <= graph.max_node_id() ; id++) {

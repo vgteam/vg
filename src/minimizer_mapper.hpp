@@ -9,10 +9,9 @@
 #include "algorithms/nearest_offsets_in_paths.hpp"
 #include "aligner.hpp"
 #include "vg/io/alignment_emitter.hpp"
+#include "snarl_seed_clusterer.hpp"
 #include "gapless_extender.hpp"
 #include "mapper.hpp"
-#include "min_distance.hpp"
-#include "seed_clusterer.hpp"
 #include "snarls.hpp"
 #include "tree_subgraph.hpp"
 #include "funnel.hpp"
@@ -37,7 +36,7 @@ public:
 
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
          const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
-         MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph = nullptr);
+         SnarlDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph = nullptr);
 
     /**
      * Map the given read, and send output to the given AlignmentEmitter. May be run from any thread.
@@ -245,15 +244,15 @@ protected:
     };
     
     /// The information we store for each seed.
-    typedef SnarlSeedClusterer::Seed Seed;
+    typedef NewSnarlSeedClusterer::Seed Seed;
 
     /// The information we store for each cluster.
-    typedef SnarlSeedClusterer::Cluster Cluster;
+    typedef NewSnarlSeedClusterer::Cluster Cluster;
 
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
     const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
-    MinimumDistanceIndex& distance_index;
+    SnarlDistanceIndex& distance_index;
     /// This is our primary graph.
     const gbwtgraph::GBWTGraph& gbwt_graph;
     
@@ -261,7 +260,7 @@ protected:
     GaplessExtender extender;
     
     /// We have a clusterer
-    SnarlSeedClusterer clusterer;
+    NewSnarlSeedClusterer clusterer;
 
     FragmentLengthDistribution fragment_length_distr;
     atomic_flag warned_about_bad_distribution = ATOMIC_FLAG_INIT;

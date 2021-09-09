@@ -44,7 +44,7 @@ namespace unittest {
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
-        make_distance_index(&dist_index, &graph, &snarl_finder);
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
         NewSnarlSeedClusterer clusterer(dist_index);
         
         //graph.to_dot(cerr);
@@ -88,7 +88,7 @@ namespace unittest {
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
-        make_distance_index(&dist_index, &graph, &snarl_finder);
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
         NewSnarlSeedClusterer clusterer(dist_index);
         
         //graph.to_dot(cerr);
@@ -182,7 +182,7 @@ namespace unittest {
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
-        make_distance_index(&dist_index, &graph, &snarl_finder);
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
         NewSnarlSeedClusterer clusterer(dist_index);
         
         //graph.to_dot(cerr);
@@ -283,7 +283,7 @@ namespace unittest {
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
-        make_distance_index(&dist_index, &graph, &snarl_finder);
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
         NewSnarlSeedClusterer clusterer(dist_index);
         
         //graph.to_dot(cerr);
@@ -501,7 +501,7 @@ namespace unittest {
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
-        make_distance_index(&dist_index, &graph, &snarl_finder);
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
 
         NewSnarlSeedClusterer clusterer(dist_index);
@@ -570,7 +570,7 @@ namespace unittest {
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
-        make_distance_index(&dist_index, &graph, &snarl_finder);
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
         NewSnarlSeedClusterer clusterer(dist_index);
 
@@ -637,7 +637,7 @@ namespace unittest {
         
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
-        make_distance_index(&dist_index, &graph, &snarl_finder);
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
         NewSnarlSeedClusterer clusterer(dist_index);
 
@@ -706,7 +706,7 @@ namespace unittest {
  
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
-        make_distance_index(&dist_index, &graph, &snarl_finder);
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
         NewSnarlSeedClusterer clusterer(dist_index);
 
@@ -884,7 +884,7 @@ namespace unittest {
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
-        make_distance_index(&dist_index, &graph, &snarl_finder);
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
 
         NewSnarlSeedClusterer clusterer(dist_index);
@@ -1011,7 +1011,7 @@ namespace unittest {
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
-        make_distance_index(&dist_index, &graph, &snarl_finder);
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
 
         NewSnarlSeedClusterer clusterer(dist_index);
@@ -1160,7 +1160,7 @@ namespace unittest {
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
-        make_distance_index(&dist_index, &graph, &snarl_finder);
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
 
         NewSnarlSeedClusterer clusterer(dist_index);
@@ -1319,7 +1319,7 @@ namespace unittest {
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
-        make_distance_index(&dist_index, &graph, &snarl_finder);
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
 
         NewSnarlSeedClusterer clusterer(dist_index);
@@ -1399,7 +1399,7 @@ namespace unittest {
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
-        make_distance_index(&dist_index, &graph, &snarl_finder);
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
 
 
@@ -1481,7 +1481,7 @@ namespace unittest {
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
-        make_distance_index(&dist_index, &graph, &snarl_finder);
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
         NewSnarlSeedClusterer clusterer(dist_index);
 
@@ -1522,7 +1522,7 @@ namespace unittest {
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
-        make_distance_index(&dist_index, &graph, &snarl_finder);
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
 
 
@@ -1593,7 +1593,7 @@ namespace unittest {
 
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
-        make_distance_index(&dist_index, &graph, &snarl_finder);
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
         NewSnarlSeedClusterer clusterer(dist_index);
 
@@ -1662,7 +1662,7 @@ namespace unittest {
         vg_stream.close();
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
-        make_distance_index(&dist_index, &graph, &snarl_finder);
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
 
         NewSnarlSeedClusterer clusterer(dist_index);
@@ -1693,7 +1693,7 @@ namespace unittest {
         graph.deserialize("testGraph.hg");
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
-        make_distance_index(&dist_index, &graph, &snarl_finder);
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
 
         dist_index.print_self();
@@ -1734,7 +1734,7 @@ namespace unittest {
 
             IntegratedSnarlFinder snarl_finder(graph);
             SnarlDistanceIndex dist_index;
-            make_distance_index(&dist_index, &graph, &snarl_finder);
+            fill_in_distance_index(&dist_index, &graph, &snarl_finder);
     
 
 

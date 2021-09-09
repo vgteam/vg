@@ -35,7 +35,7 @@ using namespace std;
 
 MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
-    MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph) :
+    SnarlDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph) :
     path_graph(path_graph), minimizer_index(minimizer_index),
     distance_index(distance_index), gbwt_graph(graph),
     extender(gbwt_graph, *(get_regular_aligner())), clusterer(distance_index),
@@ -2515,7 +2515,8 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     std::unordered_set<id_t> rescue_nodes;
     int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - rescue_subgraph_stdevs * fragment_length_distr.std_dev());
     int64_t max_distance = fragment_length_distr.mean() + rescue_subgraph_stdevs * fragment_length_distr.std_dev();
-    distance_index.subgraph_in_range(aligned_read.path(), &cached_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
+    //TODO: Put this back once it's implemented
+    //distance_index.subgraph_in_range(aligned_read.path(), &cached_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
 
     if (rescue_nodes.size() == 0) {
         //If the rescue subgraph is empty
@@ -2728,7 +2729,7 @@ int64_t MinimizerMapper::distance_between(const Alignment& aln1, const Alignment
     pos_t pos1 = initial_position(aln1.path()); 
     pos_t pos2 = final_position(aln2.path());
 
-    int64_t min_dist = distance_index.min_distance(pos1, pos2);
+    int64_t min_dist = distance_index.minimum_distance(get_id(pos1), get_is_rev(pos1), get_offset(pos1), get_id(pos2), get_is_rev(pos1), get_offset(pos2));
     return min_dist == -1 ? numeric_limits<int64_t>::max() : min_dist;
 }
 
@@ -2870,13 +2871,15 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                 }
                 // Extract component id and offset in the root chain, if we have them for this seed.
                 // TODO: Get all the seed values here
-                tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info
-                    (false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false );
-                if (minimizer.occs[j].payload != MIPayload::NO_CODE) {
-                    chain_info = MIPayload::decode(minimizer.occs[j].payload);
-                }
-                seeds.push_back({ hit, i, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info), 
-                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info) });
+                // TODO: Don't use the seed payload anymore
+                //tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info
+                //    (false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false );
+                //if (minimizer.occs[j].payload != MIPayload::NO_CODE) {
+                //    chain_info = MIPayload::decode(minimizer.occs[j].payload);
+                //}
+                seeds.push_back({ hit, i});
+                // std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info), 
+                //    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info) });
             }
             
             if (!(took_last && i > 0 && minimizer.value.key == minimizers[i - 1].value.key)) {
