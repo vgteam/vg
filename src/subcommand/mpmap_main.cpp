@@ -338,7 +338,7 @@ int main_mpmap(int argc, char** argv) {
     bool do_spliced_alignment = false;
     int max_softclip_overlap = 8;
     int max_splice_overhang = 2 * max_softclip_overlap;
-    double no_splice_log_odds = 22.55;
+    double no_splice_log_odds = 2.0;
     bool override_spliced_alignment = false;
     int match_score_arg = std::numeric_limits<int>::min();
     int mismatch_score_arg = std::numeric_limits<int>::min();
