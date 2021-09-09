@@ -31,6 +31,8 @@ void help_call(char** argv) {
        << "    -k, --pack FILE          Supports created from vg pack for given input graph" << endl
        << "    -m, --min-support M,N    Minimum allele support (M) and minimum site support (N) for call [default = 1,4]" << endl
        << "    -e, --baseline-error X,Y Baseline error rates for Poisson model for small (X) and large (Y) variants [default= 0.005,0.001]" << endl
+       << "    -E, --expect-bp-edges    Expect breakpoint edges to be in graph, and apply minimum threshold to them."  << endl
+       << "                             Recommended only for SV genotying on graph created with augment -E." << endl
        << "    -B, --bias-mode          Use old ratio-based genotyping algorithm as opposed to porbablistic model" << endl
        << "    -b, --het-bias M,N       Homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
        << "GAF options:" << endl
@@ -71,6 +73,7 @@ int main_call(int argc, char** argv) {
     string min_support_string;
     string baseline_error_string;
     string bias_string;
+    bool expect_bp_edges = false;
     bool ratio_caller = false;
     bool legacy = false;
     int ploidy = 2;
@@ -102,6 +105,7 @@ int main_call(int argc, char** argv) {
             {"pack", required_argument, 0, 'k'},
             {"bias-mode", no_argument, 0, 'B'},
             {"baseline-error", required_argument, 0, 'e'},
+            {"expect-bp-edges", no_argument, 0, 'E'},
             {"het-bias", required_argument, 0, 'b'},
             {"min-support", required_argument, 0, 'm'},
             {"vcf", required_argument, 0, 'v'},
@@ -128,7 +132,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:af:i:s:r:g:p:o:l:d:R:GTLM:nt:h",
+        c = getopt_long (argc, argv, "k:Be:Eb:m:v:af:i:s:r:g:p:o:l:d:R:GTLM:nt:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -151,6 +155,9 @@ int main_call(int argc, char** argv) {
             break;
         case 'e':
             baseline_error_string = optarg;
+            break;
+        case 'E':
+            expect_bp_edges = true;
             break;
         case 'v':
             vcf_filename = optarg;
@@ -427,6 +434,9 @@ int main_call(int argc, char** argv) {
         // need to use average support when genotyping as small differences in between sample and graph
         // will lead to spots with 0-support, espeically in and around SVs. 
         support_finder->set_support_switch_threshold(avg_trav_threshold, avg_node_threshold);
+
+        // upweight breakpoint edges even when taking average support otherwise
+        support_finder->set_min_bp_edge_override(expect_bp_edges);
 
         // todo: toggle between min / average (or thresholds) via command line
         
