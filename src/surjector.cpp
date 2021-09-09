@@ -12,6 +12,7 @@
 //#define debug_prune_unconnectable
 //#define debug_filter_paths
 //#define debug_validate_anchored_multipath_alignment
+//#define debug_always_warn_on_too_long
 
 namespace vg {
 
@@ -730,7 +731,110 @@ using namespace std;
             connection_adj[get<0>(connection)].emplace(get<1>(connection));
         }
         
+        // init return value
         vector<pair<vector<size_t>, vector<size_t>>> return_val;
+        
+        // subroutine to check if a candidate partition is a biclique deletion constriction
+        auto test_candidate_biclique = [&](const unordered_set<size_t>& left_side,
+                                           const unordered_set<size_t>& right_side,
+                                           size_t comp_idx) {
+            // record which pairs have a connection
+            bool incompatible = false;
+            unordered_set<size_t> left_connected, right_connected;
+            for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
+                auto adj_it = connection_adj.find(*left_it);
+                if (adj_it != connection_adj.end()) {
+                    for (auto right_it = adj_it->second.begin(); right_it != adj_it->second.end() && !incompatible; ++right_it) {
+                        
+#ifdef debug_constrictions
+                        cerr << "looking at connection between " << *left_it << " and " << *right_it << endl;
+#endif
+                        if (right_side.count(*right_it)) {
+                            left_connected.insert(*left_it);
+                            right_connected.insert(*right_it);
+                        }
+                        else {
+                            // the direction of this connection are not consistent with the left and right
+                            // side of this iteration
+#ifdef debug_constrictions
+                            cerr << "connection is incompatible" << endl;
+#endif
+                            incompatible = true;
+                        }
+                    }
+                }
+            }
+            
+            if (incompatible) {
+                // the division of deletions to the left and right side is not compatible with the
+                // connections
+                return;
+            }
+            
+            // do the non-connected edges form a biclique?
+            for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
+                if (left_connected.count(*left_it)) {
+                    continue;
+                }
+                size_t num_clique_edges = 0;
+                for (auto i : adj[*left_it]) {
+                    if (right_connected.count(i)) {
+                        // we don't worry about it if the node has a connection, because it will lose
+                        // all of its edges anyway
+                        continue;
+                    }
+                    if (right_side.count(i) && connected_by_edge(*left_it, i)) {
+                        // this looks like it could be a splice junction
+                        ++num_clique_edges;
+                    }
+                    else {
+#ifdef debug_constrictions
+                        cerr << "adjacency " << *left_it << " -> " << i << " is " << (right_side.count(i) ? "not connected by a graph edge" : "missing") << endl;
+#endif
+                        incompatible = true;
+                    }
+                }
+                incompatible = incompatible || (num_clique_edges != right_side.size() - right_connected.size());
+            }
+            
+            if (incompatible) {
+                // we have edges going to outside the biclique, or we have edges missing
+                // from the biclique
+#ifdef debug_constrictions
+                cerr << "this left-right combination is incompatible" << endl;
+#endif
+                return;
+            }
+            
+            // count up the walks through this biclique
+            size_t walk_total = 0;
+            for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
+                for (auto j : adj[*left_it]) {
+                    walk_total += fwd[*left_it] * bwd[j];
+                }
+            }
+            
+#ifdef debug_constrictions
+            cerr << "biclique has a walk total of " << walk_total << " compared to component total " << total_comp_paths[comp_idx] << endl;
+#endif
+            
+            if (walk_total == total_comp_paths[comp_idx]) {
+                // all of the walks in this component go through this biclique, we've found a splice
+                
+#ifdef debug_constrictions
+                cerr << "recording a constriction biclique" << endl;
+#endif
+                
+                return_val.emplace_back(vector<size_t>(left_side.begin(), left_side.end()),
+                                        vector<size_t>(right_side.begin(), right_side.end()));
+                
+                auto& biclique = return_val.back();
+                sort(biclique.first.begin(), biclique.first.end());
+                sort(biclique.second.begin(), biclique.second.end());
+            }
+        };
+        
+        bool found_deletion_bicliques = false;
         
         for (const auto& end_record : chunks_by_end) {
             
@@ -758,7 +862,7 @@ using namespace std;
                     deletion_chunks.push_back(i);
                 }
             }
-            unordered_set<size_t> deletion_chunk_set(deletion_chunks.begin(), deletion_chunks.end());
+            //unordered_set<size_t> deletion_chunk_set(deletion_chunks.begin(), deletion_chunks.end());
             
             // deletion chunks can go on either end, so we try all combinations
             // TODO: magic number to prevent explosion
@@ -794,36 +898,118 @@ using namespace std;
                     }
                 }
                 
-                if (!deletion_chunk_set.empty()) {
-                    // check if any of the adjacencies can be blocked off from the biclique by
-                    // the deletion in this configuration
-                    // TODO: this is not fully general in the case that there is more than one
-                    // deletion chunk
-                    vector<size_t> to_erase;
-                    for (auto i : left_side) {
-                        if (adj[i].size() == 1 && deletion_chunk_set.count(adj[i].front()) &&
-                            left_side.count(adj[i].front())) {
-#ifdef debug_constrictions
-                            cerr << "left side chunk " << i << " can be blocked by deletion " << adj[i].front() << ", excluding it from this configuration" << endl;
-#endif
-                            to_erase.push_back(i);
+                if (!deletion_chunks.empty()) {
+                    // TODO: this solution will catch any bicliques that have a chance to be a constriction
+                    // (which requires that there is only one adjacent to either side) as long as there is only
+                    // one total to either side. in theory, it is possible to have further constrictions between
+                    // layers of deletion chunks
+                    
+                    // collect the left neighbors of left deletions and the right neighbors
+                    // of right deletions, as well as which of these are also in the left
+                    // or right partition
+                    unordered_set<size_t> left_neighbors, right_neighbors, lefter_side, righter_side;
+                    for (auto i : deletion_chunks) {
+                        if (left_side.count(i)) {
+                            for (auto j : rev_adj[i]) {
+                                left_neighbors.insert(j);
+                                if (left_side.count(j)) {
+                                    lefter_side.insert(j);
+                                }
+                            }
+                        }
+                        else {
+                            for (auto j : adj[i]) {
+                                right_neighbors.insert(j);
+                                if (right_side.count(j)) {
+                                    righter_side.insert(j);
+                                }
+                            }
                         }
                     }
-                    for (auto i : to_erase) {
-                        left_side.erase(i);
-                    }
-                    to_erase.clear();
-                    for (auto i : right_side) {
-                        if (rev_adj[i].size() == 1 && deletion_chunk_set.count(rev_adj[i].front()) &&
-                            right_side.count(rev_adj[i].front())) {
+                    
+                    if (!lefter_side.empty()) {
+                        // there's a group of nodes to the left of the left-side deletions that
+                        // are still within the partition
+                        
+                        // check if these nodes connect *ONLY* through left side deletions
+                        bool all_fully_to_left = true;
+                        for (auto i : lefter_side) {
+                            bool fully_to_left = true;
+                            for (auto j : adj[i]) {
+                                if (!left_side.count(j) || path_chunks[j].first.first != path_chunks[j].first.second) {
+                                    fully_to_left = false;
+                                    break;
+                                }
+                            }
+                            if (fully_to_left) {
+                                // this node is cut off from the rest of the graph by the left-side
+                                // deletions, we shouldn't look for it in the main biclique
+                                left_side.erase(i);
+                            }
+                            all_fully_to_left = all_fully_to_left && fully_to_left;
+                        }
+                        
+                        if (all_fully_to_left && lefter_side.size() == left_neighbors.size()) {
+                            // it looks like the left neighbors could even be their own biclique
+                            
+                            found_deletion_bicliques = true;
+                            
 #ifdef debug_constrictions
-                            cerr << "right side chunk " << i << " can be blocked by deletion " << rev_adj[i].front() << ", excluding it from this configuration" << endl;
+                            cerr << "left-er of left deletions" << endl;
+                            for (auto i : lefter_side) {
+                                cerr << "\t" << i << endl;
+                            }
+                            cerr << "iter lefts:" << endl;
+                            for (auto i : left_side) {
+                                cerr << "\t" << i << endl;
+                            }
 #endif
-                            to_erase.push_back(i);
+                            // and test the potential biclique to the left
+                            test_candidate_biclique(lefter_side, left_side, end_record.first.first);
                         }
                     }
-                    for (auto i : to_erase) {
-                        right_side.erase(i);
+                    
+                    // TODO: repetitive (but not structured well to re-use code...)
+                    if (!righter_side.empty()) {
+                        // there's a group of nodes to the right of the right-side deletions that
+                        // are still within the partition
+                        
+                        // check if these nodes connect *ONLY* through right side deletions
+                        bool all_fully_to_right = true;
+                        for (auto i : righter_side) {
+                            bool fully_to_right = true;
+                            for (auto j : rev_adj[i]) {
+                                if (!right_side.count(j) || path_chunks[j].first.first != path_chunks[j].first.second) {
+                                    fully_to_right = false;
+                                    break;
+                                }
+                            }
+                            if (fully_to_right) {
+                                // this node is cut off from the rest of the graph by the right-side
+                                // deletions, we shouldn't look for it in the main biclique
+                                right_side.erase(i);
+                            }
+                            all_fully_to_right = all_fully_to_right && fully_to_right;
+                        }
+                        
+                        if (all_fully_to_right && righter_side.size() == right_neighbors.size()) {
+                            // it looks like the right neighbors could even be their own biclique
+                            
+                            found_deletion_bicliques = true;
+                            
+#ifdef debug_constrictions
+                            cerr << "iter rights:" << endl;
+                            for (auto i : right_side) {
+                                cerr << "\t" << i << endl;
+                            }
+                            cerr << "right-er of right deletions" << endl;
+                            for (auto i : righter_side) {
+                                cerr << "\t" << i << endl;
+                            }
+#endif
+                            // and test the potential biclique to the right
+                            test_candidate_biclique(right_side, righter_side, end_record.first.first);
+                        }
                     }
                 }
                 
@@ -837,105 +1023,19 @@ using namespace std;
                     cerr << "\t" << i << endl;
                 }
 #endif
-                
-                // record which pairs have a connection
-                bool incompatible = false;
-                unordered_set<size_t> left_connected, right_connected;
-                for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
-                    auto adj_it = connection_adj.find(*left_it);
-                    if (adj_it != connection_adj.end()) {
-                        for (auto right_it = adj_it->second.begin(); right_it != adj_it->second.end() && !incompatible; ++right_it) {
-                            
-#ifdef debug_constrictions
-                            cerr << "looking at connection between " << *left_it << " and " << *right_it << endl;
-#endif
-                            if (right_side.count(*right_it)) {
-                                left_connected.insert(*left_it);
-                                right_connected.insert(*right_it);
-                            }
-                            else {
-                                // the direction of this connection are not consistent with the left and right
-                                // side of this iteration
-#ifdef debug_constrictions
-                                cerr << "connection is incompatible" << endl;
-#endif
-                                incompatible = true;
-                            }
-                        }
-                    }
-                }
-                
-                if (incompatible) {
-                    // the division of deletions to the left and right side is not compatible with the
-                    // connections
-                    continue;
-                }
-                
-                // do the non-connected edges form a biclique?
-                for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
-                    if (left_connected.count(*left_it)) {
-                        continue;
-                    }
-                    size_t num_clique_edges = 0;
-                    for (auto i : adj[*left_it]) {
-                        if (right_connected.count(i)) {
-                            // we don't worry about it if the node has a connection, because it will lose
-                            // all of its edges anyway
-                            continue;
-                        }
-                        if (right_side.count(i) && connected_by_edge(*left_it, i)) {
-                            // this looks like it could be a splice junction
-                            ++num_clique_edges;
-                        }
-                        else {
-#ifdef debug_constrictions
-                            cerr << "adjacency " << *left_it << " -> " << i << " is " << (right_side.count(i) ? "not connected by a graph edge" : "missing") << endl;
-#endif
-                            incompatible = true;
-                        }
-                    }
-                    incompatible = incompatible || (num_clique_edges != right_side.size() - right_connected.size());
-                }
-                
-                if (incompatible) {
-                    // we have edges going to outside the biclique, or we have edges missing
-                    // from the biclique
-#ifdef debug_constrictions
-                    cerr << "this left-right combination is incompatible" << endl;
-#endif
-                    continue;
-                }
-                
-                // count up the walks through this biclique
-                size_t walk_total = 0;
-                for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
-                    for (auto j : adj[*left_it]) {
-                        walk_total += fwd[*left_it] * bwd[j];
-                    }
-                }
-                
-#ifdef debug_constrictions
-                cerr << "biclique has a walk total of " << walk_total << " compared to component total " << total_comp_paths[end_record.first.first] << endl;
-#endif
-                
-                if (walk_total == total_comp_paths[end_record.first.first]) {
-                    // all of the walks in this component go through this biclique, we've found a splice
-                    
-#ifdef debug_constrictions
-                    cerr << "recording a constriction biclique" << endl;
-#endif
-                    
-                    return_val.emplace_back(vector<size_t>(left_side.begin(), left_side.end()),
-                                            vector<size_t>(right_side.begin(), right_side.end()));
-                    
-                    auto& biclique = return_val.back();
-                    sort(biclique.first.begin(), biclique.first.end());
-                    sort(biclique.second.begin(), biclique.second.end());
-                    // stop iterating through combinations of side assignments for the deletion thunks
-                    break;
-                }
+                test_candidate_biclique(left_side, right_side, end_record.first.first);
             }
         }
+        
+        if (found_deletion_bicliques) {
+            // it's possible with all the deletion iterations to re-discover bicliques
+            // multiple times. if we did, get rid of them
+            
+            sort(return_val.begin(), return_val.end());
+            auto new_end = unique(return_val.begin(), return_val.end());
+            return_val.resize(new_end - return_val.begin());
+        }
+        
         return return_val;
     }
 
@@ -1377,7 +1477,10 @@ using namespace std;
                 *section_source.mutable_quality() = string(src_quality.begin() + (read_range.first - src_sequence.begin()),
                                                            src_quality.begin() + (read_range.second - src_sequence.begin()));
             }
-            
+#ifdef debug_always_warn_on_too_long
+            // give it the full sequence as a name so we can see it later
+            section_source.set_name(src_sequence);
+#endif
             
             // update the path chunk ranges to point into the dummy section read
             for (size_t i = 0; i < section_path_chunks.size(); ++i) {
@@ -1636,6 +1739,9 @@ using namespace std;
 
             size_t subgraph_bases = split_path_graph.get_total_length();
             if (subgraph_bases > max_subgraph_bases) {
+#ifdef debug_always_warn_on_too_long
+                cerr << "gave up on too long read " + source.name() + "\n";
+#endif
                 if (!warned_about_subgraph_size.test_and_set()) {
                     cerr << "warning[vg::Surjector]: Refusing to perform very large alignment against "
                         << subgraph_bases << " bp strand split subgraph for read " << source.name()
