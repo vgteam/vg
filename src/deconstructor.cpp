@@ -573,15 +573,18 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
             return context;
         };
         
-        vector<vector<nid_t>> ref_contexts;
+        vector<vector<nid_t>> ref_contexts(ref_travs.size());
         // TODO run in parallel
-        for (auto& trav_id : ref_travs) {
-            ref_contexts.push_back(get_context(trav_id));
+#pragma omp parallel for
+        for (size_t i = 0; i < ref_travs.size(); ++i) {
+            auto& trav_id = ref_travs[i];
+            ref_contexts[i] = get_context(trav_id);
         }
         // now for each traversal, we compute and equivalent context and match it to a ref context
         // using a jaccard metric over node ids
         // TODO run in parallel
-        for (uint64_t i = 0; i < path_travs.first.size(); ++i) {
+#pragma omp parallel for
+        for (size_t i = 0; i < path_travs.first.size(); ++i) {
             vector<nid_t> context = get_context(i);
             // map jaccard metric to the index of the ref_trav
             vector<pair<double, int>> ref_mappings;
@@ -852,7 +855,8 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     if (gbwt != nullptr) {
         gbwt_trav_finder = unique_ptr<GBWTTraversalFinder>(new GBWTTraversalFinder(*graph, *gbwt));
     }
-    
+
+    vector<const Snarl*> snarls_todo;
     // Do the top-level snarls in parallel
     snarl_manager->for_each_top_level_snarl_parallel([&](const Snarl* snarl) {
             vector<const Snarl*> todo(1, snarl);
@@ -861,8 +865,11 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                 for (auto next_snarl : todo) {
                     // if we can't make a variant from the snarl due to not finding
                     // paths through it, we try again on the children
-                    // note: we may want to push the parallelism down a bit 
-                    if (!deconstruct_site(next_snarl) || include_nested) {
+                    // note: we may want to push the parallelism down a bit
+#pragma omp critical (snarls_todo)
+                    snarls_todo.push_back(next_snarl);
+                    if (include_nested) {
+                        // n.b. we no longer attempt to deconstruct the site to determine if we nest
                         const vector<const Snarl*>& children = snarl_manager->children_of(next_snarl);
                         next.insert(next.end(), children.begin(), children.end());
                     }
@@ -871,6 +878,11 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                 next.clear();
             }
         });
+
+#pragma omp parallel for
+    for (auto& snarl : snarls_todo) {
+        deconstruct_site(snarl);
+    }
     
     // write variants in sorted order
     write_variants(cout);
