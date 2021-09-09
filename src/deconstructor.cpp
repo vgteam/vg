@@ -2,7 +2,7 @@
 #include "traversal_finder.hpp"
 #include <gbwtgraph/gbwtgraph.h>
 
-#define debug
+//#define debug
 
 using namespace std;
 
@@ -25,6 +25,7 @@ Deconstructor::~Deconstructor(){
  * otherwise, hasRef is set to false and all strings are alt alleles.
  */
 vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTraversal>& travs, int ref_path_idx,
+                                       const vector<bool>& use_trav,
                                        char prev_char, bool use_start) {
 
     assert(ref_path_idx >=0 && ref_path_idx < travs.size());
@@ -59,17 +60,21 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
     // set the other alleles (they can end up as 0 alleles too if their strings match the reference)
     for (int i = 0; i < travs.size(); ++i) {
         if (i != ref_path_idx) {
-            string allele = trav_to_string(travs[i]);
-            auto ai_it = allele_idx.find(allele);
-            if (ai_it == allele_idx.end()) {
-                // make a new allele for this string
-                allele_idx[allele] = make_pair(cur_alt, i);
-                trav_to_allele.at(i) = cur_alt;
-                ++cur_alt;
-                substitution = substitution && allele.size() == ref_allele.size();
+            if (use_trav[i]) {
+                string allele = trav_to_string(travs[i]);
+                auto ai_it = allele_idx.find(allele);
+                if (ai_it == allele_idx.end()) {
+                    // make a new allele for this string
+                    allele_idx[allele] = make_pair(cur_alt, i);
+                    trav_to_allele.at(i) = cur_alt;
+                    ++cur_alt;
+                    substitution = substitution && allele.size() == ref_allele.size();
+                } else {
+                    // allele string has been seen, map this traversal to it
+                    trav_to_allele.at(i) = ai_it->second.first;
+                }
             } else {
-                // allele string has been seen, map this traversal to it
-                trav_to_allele.at(i) = ai_it->second.first;
+                trav_to_allele.at(i) = -1; // HACK! negative allele indexes are ignored
             }
         }
     }
@@ -199,7 +204,6 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
             assert(!travs.empty());
             vector<int> chosen_travs;
             bool conflict;
-            // TODO here we need to take the reference position
             std::tie(chosen_travs, conflict) = choose_traversals(sample_name, travs, trav_to_allele, names, gbwt_phases);
             if (conflict) {
 #ifdef debug
@@ -295,15 +299,19 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
         for (int i = sorted_travs.size() - 1; i >= 0 && most_frequent_travs.size() < sample_ploidy; --i) {
             int phase = gbwt_phases.at(sorted_travs[i]);
             if (!used_phases.count(phase)) {
-                most_frequent_travs.push_back(sorted_travs[i]);
-                used_phases.insert(phase);
+                if (trav_to_allele[sorted_travs[i]] >= 0) {
+                    most_frequent_travs.push_back(sorted_travs[i]);
+                    used_phases.insert(phase);
+                }
             } else {
                 phasing_conflict = true;
             }
         }
     } else {
         for (int i = sorted_travs.size() - 1; i >= 0 && most_frequent_travs.size() < sample_ploidy; --i) {
-            most_frequent_travs.push_back(sorted_travs[i]);
+            if (trav_to_allele[sorted_travs[i]] >= 0) {
+                most_frequent_travs.push_back(sorted_travs[i]);
+            }
         }
     }
 
@@ -638,7 +646,20 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         v.id = snarl_name(snarl);
         
         // Convert the snarl traversals to strings and add them to the variant
-        vector<int> trav_to_allele = get_alleles(v, path_travs.first, ref_trav_idx, prev_char, use_start);
+        vector<bool> use_trav(path_travs.first.size());
+        if (path_trav_to_ref_trav.size()) {
+            for (uint64_t i = 0; i < use_trav.size(); ++i) {
+                use_trav[i] = (ref_trav_idx == path_trav_to_ref_trav[i]);
+            }
+        } else {
+            for (uint64_t i = 0; i < use_trav.size(); ++i) {
+                use_trav[i] = true;
+            }
+        }
+
+        vector<int> trav_to_allele = get_alleles(v, path_travs.first, ref_trav_idx,
+                                                 use_trav,
+                                                 prev_char, use_start);
 
         // Fill in the genotypes
         if (path_restricted || gbwt_trav_finder.get()) {
@@ -661,7 +682,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         }
 
         // we only bother printing out sites with at least 1 non-reference allele
-        if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return i == 0; })) {
+        if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return (i == 0 || i == -1); })) {
             if (path_restricted || gbwt_trav_finder.get()) {
                 // run vcffixup to add some basic INFO like AC
                 vcf_fixup(v);

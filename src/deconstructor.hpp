@@ -50,6 +50,7 @@ private:
 
     // convert traversals to strings.  returns mapping of traversal (offset in travs) to allele
     vector<int> get_alleles(vcflib::Variant& v, const vector<SnarlTraversal>& travs, int ref_path_idx,
+                            const vector<bool>& use_trav,
                             char prev_char, bool use_start);
 
     // add a traversal to the VCF info field in the format of a GFA W-line or GAF path
