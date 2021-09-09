@@ -85,12 +85,14 @@ build-job:
     # Don't bother starting the Docker daemon or installing much
     - which docker || (sudo apt-get -q -y update && sudo apt-get -q -y install --no-upgrade docker.io)
     # Get buildx
-    - mkdir -p ~/.docker/cli-plugins/ ; curl -L https://github.com/docker/buildx/releases/download/v0.5.1/buildx-v0.5.1.linux-amd64 >  ~/.docker/cli-plugins/docker-buildx ; chmod u+x ~/.docker/cli-plugins/docker-buildx
+    - mkdir -p ~/.docker/cli-plugins/ ; curl -L https://github.com/docker/buildx/releases/download/v0.6.3/buildx-v0.6.3.linux-amd64 >  ~/.docker/cli-plugins/docker-buildx ; chmod u+x ~/.docker/cli-plugins/docker-buildx
     # Connect to the Kubernetes-based builder "buildkit"
     # See vgci/buildkit-deployment.yml
     - docker buildx create --use --name=buildkit --platform=linux/amd64,linux/arm64 --node=buildkit-amd64 --driver=kubernetes --driver-opt="nodeselector=kubernetes.io/arch=amd64"
+    # Report on the builders
+    - docker buildx inspect --bootstrap
     # Prune down build cache to make space
-    - docker buildx prune --keep-storage 80G
+    - yes | docker buildx prune --keep-storage 80G
   script:
     - make include/vg_git_version.hpp
     # Build but don't push, just fill the cache
