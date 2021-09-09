@@ -172,7 +172,7 @@ public:
                  double error_multiplier = 1.0,
                  bool retry_on_Ns = true,
                  bool sample_unsheared_paths = false,
-                 size_t seed = 0);
+                 uint64_t seed = 0);
     
     /// Sample an individual read and alignment
     Alignment sample_read();
@@ -187,7 +187,7 @@ private:
     template<class From, class To>
     class MarkovDistribution {
     public:
-        MarkovDistribution(size_t seed);
+        MarkovDistribution(uint64_t seed);
         
         /// record a transition from the input data
         void record_transition(From from, To to);
@@ -198,7 +198,7 @@ private:
         
     private:
         
-        default_random_engine prng;
+        mt19937_64 prng;
         unordered_map<From, vg::uniform_int_distribution<size_t>> samplers;
         
         unordered_map<To, size_t> column_of;
@@ -298,6 +298,8 @@ private:
     /// Add a match/mismatch to the alignment
     void apply_aligned_base(Alignment& aln, const pos_t& pos, char graph_char, char read_char);
     
+    mt19937_64& prng();
+    
     /// Memo for pre-multiplied Phred -> probability conversion
     vector<double> phred_prob;
     
@@ -310,7 +312,7 @@ private:
     
     PathPositionHandleGraph& graph;
     
-    default_random_engine prng;
+    vector<mt19937_64> prngs;
     vg::discrete_distribution<> path_sampler;
     vector<vg::uniform_int_distribution<size_t>> start_pos_samplers;
     vg::uniform_int_distribution<uint8_t> strand_sampler;
@@ -326,7 +328,7 @@ private:
     const double fragment_sd;
     
     size_t sample_counter = 0;
-    size_t seed;
+    uint64_t seed;
     
     const bool retry_on_Ns;
     const bool sample_unsheared_paths;
@@ -337,10 +339,72 @@ private:
     ofstream position_file;
 };
     
+
+
 /**
  * A finite state Markov distribution that supports sampling
  */
+template<class From, class To>
+NGSSimulator::MarkovDistribution<From, To>::MarkovDistribution(uint64_t seed) : prng(seed) {
+    // nothing to do
+}
 
+template<class From, class To>
+void NGSSimulator::MarkovDistribution<From, To>::record_transition(From from, To to) {
+    if (!cond_distrs.count(from)) {
+        cond_distrs[from] = vector<size_t>(value_at.size(), 0);
+    }
+    
+    if (!column_of.count(to)) {
+        column_of[to] = value_at.size();
+        value_at.push_back(to);
+        for (pair<const From, vector<size_t>>& cond_distr : cond_distrs) {
+            cond_distr.second.push_back(0);
+        }
+    }
+    
+    cond_distrs[from][column_of[to]]++;
+}
+
+template<class From, class To>
+void NGSSimulator::MarkovDistribution<From, To>::finalize() {
+    for (pair<const From, vector<size_t>>& cond_distr : cond_distrs) {
+        for (size_t i = 1; i < cond_distr.second.size(); i++) {
+            cond_distr.second[i] += cond_distr.second[i - 1];
+        }
+        
+        samplers[cond_distr.first] = vg::uniform_int_distribution<size_t>(1, cond_distr.second.back());
+    }
+}
+
+template<class From, class To>
+To NGSSimulator::MarkovDistribution<From, To>::sample_transition(From from) {
+    // return randomly if a transition has never been observed
+    if (!cond_distrs.count(from)) {
+        return value_at[vg::uniform_int_distribution<size_t>(0, value_at.size() - 1)(prng)];
+    }
+    
+    size_t sample_val = samplers[from](prng);
+    vector<size_t>& cdf = cond_distrs[from];
+    
+    if (sample_val <= cdf[0]) {
+        return value_at[0];
+    }
+    
+    size_t low = 0;
+    size_t hi = cdf.size() - 1;
+    while (hi > low + 1) {
+        int64_t mid = (hi + low) / 2;
+        
+        if (sample_val <= cdf[mid]) {
+            hi = mid;
+        }
+        else {
+            low = mid;
+        }
+    }
+    return value_at[hi];
+}
 
 }
 
