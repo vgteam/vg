@@ -147,7 +147,7 @@ class VGCITest(TestCase):
             try:
                 # Try downloading from S3
                 return subprocess.check_output(['aws', 's3', 'cp', '/'.join([self.baseline, 'outstore-' + tag, path]), '-']).decode('utf-8')
-            except CalledProcessError:
+            except subprocess.CalledProcessError:
                 # If that doesn't work, we may not have access.
                 # See if it's available over HTTP (which it won't be if it's our vg-data bucket).
                 toks = self.baseline[5:].split('/')
