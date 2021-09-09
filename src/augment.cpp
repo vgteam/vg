@@ -43,7 +43,7 @@ void augment(MutablePathMutableHandleGraph* graph,
         [&gam_path, &aln_format, &graph, &packer, &id_to_length] (function<void(Alignment&)> aln_callback, bool second_pass, bool parallel) {
         if (aln_format == "GAM") {
             get_input_file(gam_path, [&](istream& gam_stream) {
-                    if (parallel && false) {
+                    if (parallel) {
                         vg::io::for_each_parallel(gam_stream, aln_callback, Packer::estimate_batch_size(get_thread_count()));
                     } else {
                         vg::io::for_each(gam_stream, aln_callback);
