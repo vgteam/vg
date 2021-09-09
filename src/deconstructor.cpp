@@ -253,30 +253,36 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
                                                          const vector<int>& gbwt_phases) {
 
     assert(trav_to_name.size() == trav_to_allele.size());
-    assert(gbwt_phases.size() == trav_to_name.size());    
+    assert(gbwt_phases.size() == trav_to_name.size());
     assert(!travs.empty());
     // count the number of times each allele comes up in a traversal
-    vector<int> allele_frequencies(*max_element(trav_to_allele.begin(), trav_to_allele.end()) + 1, 0);
+    vector<int> allele_frequencies(std::max(0, *max_element(trav_to_allele.begin(), trav_to_allele.end()) + 1), 0);
     for (auto trav : travs) {
         // we always want to choose alt over ref when possible in sorting logic below, so
         // cap ref frequency at 1
         int allele = trav_to_allele.at(trav);
-        if (allele > 0 || allele_frequencies[allele] == 0) {
+        // avoid counting filtered alleles (== -1)
+        if (allele >= 0 && (allele > 0 || allele_frequencies[allele] == 0)) {
             ++allele_frequencies[allele];
-        }        
+        }
     }
     // sort on frquency
     function<bool(int, int)> comp = [&] (int trav1, int trav2) {
-        if (allele_frequencies[trav_to_allele[trav1]] < allele_frequencies[trav_to_allele[trav2]]) {
+        auto& trav1_allele = trav_to_allele[trav1];
+        auto& trav2_allele = trav_to_allele[trav2];
+        // avoid the filtered allele state (== -1)
+        auto trav1_af = trav1_allele >= 0 ? allele_frequencies[trav1_allele] : 0;
+        auto trav2_af = trav2_allele >= 0 ? allele_frequencies[trav2_allele] : 0;
+        if (trav1_af < trav2_af) {
             return true;
-        } else if (allele_frequencies[trav_to_allele[trav1]] == allele_frequencies[trav_to_allele[trav2]]) {
+        } else if (trav1_af == trav2_af) {
             // prefer non-ref when possible
-            if (trav_to_allele[trav1] < trav_to_allele[trav2]) {
+            if (trav1_allele < trav2_allele) {
                 return true;
-            } else if (trav_to_allele[trav1] == trav_to_allele[trav2]) {
+            } else if (trav1_allele == trav2_allele) {
                 return trav_to_name[trav1] < trav_to_name[trav2];
             }
-        } 
+        }
         return false;
     };
     vector<int> sorted_travs = travs;
