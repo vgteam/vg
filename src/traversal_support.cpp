@@ -429,6 +429,8 @@ void TraversalSupportFinder::apply_min_bp_edge_override(const vector<SnarlTraver
                                                         vector<Support>& supports, int ref_trav_idx) const {
     assert(ref_trav_idx >=0 && ref_trav_idx < supports.size());
 
+    // define a breakpoint edge as one that joins a ref and a non-ref node
+    // to find them, we index the reference nodes
     unordered_set<nid_t> ref_nodes;
     const SnarlTraversal& ref_trav = traversals[ref_trav_idx];
     for (size_t i = 0; i < ref_trav.visit_size(); ++i) {
@@ -452,7 +454,12 @@ void TraversalSupportFinder::apply_min_bp_edge_override(const vector<SnarlTraver
                 }
                 prev_visit = &visit;
             }
-            supports[i] = support_min(bp_edge_support, supports[i]);
+            // todo: parameterize
+            // in practice, just takingthe min makes things worse.  so we hardcode a conservative cutoff
+            // here to prevent unsupported edges from leaking through
+            if (support_val(bp_edge_support) < 1) {
+                supports[i] = support_min(bp_edge_support, supports[i]);
+            }
         }
     }
 }
