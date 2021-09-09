@@ -222,7 +222,10 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
             v.samples[sample_name]["GT"] = {genotype};
             if (path_to_sample) {
                 for (auto trav : travs) {
-                    v.samples[sample_name]["PI"].push_back(names[trav] + "=" + std::to_string(trav_to_allele[trav]));
+                    auto allele = trav_to_allele[trav];
+                    if (allele != -1) {
+                        v.samples[sample_name]["PI"].push_back(names[trav] + "=" + std::to_string(allele));
+                    }
                 }
             }
         } else {
