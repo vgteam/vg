@@ -438,7 +438,7 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
                     images.append(new_name)
                     captions.append(plot_name.upper())
                     baseline_images.append(os.path.join(
-                        'https://vg-data.s3.amazonaws.com/vg_ci/vgci_regression_baseline',
+                        's3://vg-data/vg_ci/vgci_regression_baseline',
                         os.path.basename(outstore),
                         os.path.basename(plot_path)))
 
