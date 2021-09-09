@@ -90,9 +90,9 @@ build-job:
     # See vgci/buildkit-deployment.yml
     - docker buildx create --use --name=buildkit --platform=linux/amd64,linux/arm64 --node=buildkit-amd64 --driver=kubernetes --driver-opt="nodeselector=kubernetes.io/arch=amd64"
     # Report on the builders
-    - docker buildx inspect --bootstrap
+    - docker buildx inspect --bootstrap || true
     # Prune down build cache to make space
-    - yes | docker buildx prune --keep-storage 80G
+    - (echo "y" | docker buildx prune --keep-storage 80G) || true
   script:
     - make include/vg_git_version.hpp
     # Build but don't push, just fill the cache
