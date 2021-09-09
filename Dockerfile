@@ -63,8 +63,14 @@ COPY src /vg/src
 # Also pass the arch here
 RUN . ./source_me.sh && CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) objs
 
-# Bring in any includes we pre-made, like the git version
+# Bring in any includes we pre-made, like the git version, if present
 COPY include /vg/include
+
+# Make sure version introspection is up to date
+RUN rm -f obj/version.o && . ./source_me.sh && CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) obj/version.o
+
+# Announce the version file, which must exist by now
+RUN ls /vg/include && cat /vg/include/vg_git_version.hpp
 
 # Do the final build and link, knowing the version. Trim down the resulting binary but make sure to include enough debug info for profiling.
 RUN . ./source_me.sh && CXXFLAGS="$(if [ -z "${TARGETARCH}" ] || [ "${TARGETARCH}" = "amd64" ] ; then echo " -march=nehalem "; fi)" make -j $((THREADS < $(nproc) ? THREADS : $(nproc))) static && strip -d bin/vg
