@@ -40,6 +40,9 @@ double Phi(double x);
 /// Inverse CDF of a standard normal distribution. Must have 0 < quantile < 1.
 double Phi_inv(double quantile);
 
+/// Probability density function or log-normal distribution
+double lognormal_pdf(double x, double mu, double sigma);
+
 /*
  * Return the log of the sum of two log-transformed values without taking them
  * out of log space.
