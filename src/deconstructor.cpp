@@ -572,9 +572,8 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
             std::sort(context.begin(), context.end());
             return context;
         };
-        
+
         vector<vector<nid_t>> ref_contexts(ref_travs.size());
-        // TODO run in parallel
 #pragma omp parallel for
         for (size_t i = 0; i < ref_travs.size(); ++i) {
             auto& trav_id = ref_travs[i];
@@ -582,7 +581,6 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         }
         // now for each traversal, we compute and equivalent context and match it to a ref context
         // using a jaccard metric over node ids
-        // TODO run in parallel
 #pragma omp parallel for
         for (size_t i = 0; i < path_travs.first.size(); ++i) {
             vector<nid_t> context = get_context(i);
@@ -713,6 +711,10 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                                 const unordered_map<string, string>* path_to_sample,
                                 gbwt::GBWT* gbwt,
                                 const unordered_map<nid_t, pair<nid_t, size_t>>* translation) {
+
+    // this allows us to run in parallel inside of each site deconstruction
+    // there is now a path jaccard check that can be expensive in deep graphs
+    omp_set_max_active_levels(2);
 
     this->graph = graph;
     this->snarl_manager = snarl_manager;
