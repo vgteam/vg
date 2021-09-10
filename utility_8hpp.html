@@ -101,6 +101,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1IncrementIter.html">vg::IncrementIter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1LazyRNG.html">vg::LazyRNG</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
@@ -219,28 +221,34 @@ Functions</h2></td></tr>
 <tr class="separator:a2ba15a613567689d941f30a5a17c6ead"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab169ac1e2fc6ba662eebc1ede1ffe157"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab169ac1e2fc6ba662eebc1ede1ffe157">vg::replace_in_string</a> (string subject, const string &amp;search, const string &amp;replace)</td></tr>
 <tr class="separator:ab169ac1e2fc6ba662eebc1ede1ffe157"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a58f9a3f311a844e7a223da7e619d2937"><td class="memTemplParams" colspan="2">template&lt;class RandomIt &gt; </td></tr>
-<tr class="memitem:a58f9a3f311a844e7a223da7e619d2937"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a58f9a3f311a844e7a223da7e619d2937">vg::deterministic_shuffle</a> (RandomIt begin, RandomIt end, const uint32_t &amp;seed)</td></tr>
-<tr class="separator:a58f9a3f311a844e7a223da7e619d2937"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac8d97ef95a167bff0030346ed5880277"><td class="memTemplParams" colspan="2">template&lt;class RandomIt &gt; </td></tr>
-<tr class="memitem:ac8d97ef95a167bff0030346ed5880277"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac8d97ef95a167bff0030346ed5880277">vg::deterministic_shuffle</a> (RandomIt begin, RandomIt end, const string &amp;seed)</td></tr>
-<tr class="separator:ac8d97ef95a167bff0030346ed5880277"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a73b5e48235129c3583b5b3942ff4d44d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a73b5e48235129c3583b5b3942ff4d44d">vg::deterministic_flip</a> (LazyRNG &amp;rng)</td></tr>
+<tr class="memdesc:a73b5e48235129c3583b5b3942ff4d44d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flip a coin with 50% probability against the given RNG.  <a href="namespacevg.html#a73b5e48235129c3583b5b3942ff4d44d">More...</a><br /></td></tr>
+<tr class="separator:a73b5e48235129c3583b5b3942ff4d44d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2a2c2b828b3943b33f2b0b12f756ed9a"><td class="memTemplParams" colspan="2">template&lt;class RandomIt &gt; </td></tr>
+<tr class="memitem:a2a2c2b828b3943b33f2b0b12f756ed9a"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2a2c2b828b3943b33f2b0b12f756ed9a">vg::deterministic_shuffle</a> (RandomIt begin, RandomIt end, LazyRNG &amp;rng)</td></tr>
+<tr class="separator:a2a2c2b828b3943b33f2b0b12f756ed9a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1f573d1f1f474086cbe0a8933fe29988"><td class="memTemplParams" colspan="2">template&lt;typename Number &gt; </td></tr>
+<tr class="memitem:a1f573d1f1f474086cbe0a8933fe29988"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1f573d1f1f474086cbe0a8933fe29988">vg::deterministic_beats</a> (const Number &amp;a, const Number &amp;b, LazyRNG &amp;rng)</td></tr>
+<tr class="memdesc:a1f573d1f1f474086cbe0a8933fe29988"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return true if a is larger than b, or else equal to b and wins a coin flip.  <a href="namespacevg.html#a1f573d1f1f474086cbe0a8933fe29988">More...</a><br /></td></tr>
+<tr class="separator:a1f573d1f1f474086cbe0a8933fe29988"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acc312d814d6a06a4a5159c7943675bbe"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acc312d814d6a06a4a5159c7943675bbe">vg::make_shuffle_seed</a> (const Alignment &amp;aln)</td></tr>
 <tr class="memdesc:acc312d814d6a06a4a5159c7943675bbe"><td class="mdescLeft">&#160;</td><td class="mdescRight">Make seeds for Alignments based on their sequences.  <a href="namespacevg.html#acc312d814d6a06a4a5159c7943675bbe">More...</a><br /></td></tr>
 <tr class="separator:acc312d814d6a06a4a5159c7943675bbe"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a31063b9139a2b92d5c5742635ca9e090"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a31063b9139a2b92d5c5742635ca9e090">vg::make_shuffle_seed</a> (const Alignment *aln)</td></tr>
-<tr class="memdesc:a31063b9139a2b92d5c5742635ca9e090"><td class="mdescLeft">&#160;</td><td class="mdescRight">Make seeds for Alignments based on their sequences.  <a href="namespacevg.html#a31063b9139a2b92d5c5742635ca9e090">More...</a><br /></td></tr>
-<tr class="separator:a31063b9139a2b92d5c5742635ca9e090"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1366c7a10c9c94dd390323fe8c3fe026"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1366c7a10c9c94dd390323fe8c3fe026">vg::make_shuffle_seed</a> (const pair&lt; Alignment, Alignment &gt; *alns)</td></tr>
-<tr class="memdesc:a1366c7a10c9c94dd390323fe8c3fe026"><td class="mdescLeft">&#160;</td><td class="mdescRight">Make seeds for pairs of Alignments based on their concatenated sequences.  <a href="namespacevg.html#a1366c7a10c9c94dd390323fe8c3fe026">More...</a><br /></td></tr>
-<tr class="separator:a1366c7a10c9c94dd390323fe8c3fe026"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2ec8fc79a1f84c6ef4a02c9d7c7a2850"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:a2ec8fc79a1f84c6ef4a02c9d7c7a2850"><td class="memTemplItemLeft" align="right" valign="top">string&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2ec8fc79a1f84c6ef4a02c9d7c7a2850">vg::make_shuffle_seed</a> (const T *ptr)</td></tr>
+<tr class="memdesc:a2ec8fc79a1f84c6ef4a02c9d7c7a2850"><td class="mdescLeft">&#160;</td><td class="mdescRight">Make seeds for pointers to things we can make seeds for.  <a href="namespacevg.html#a2ec8fc79a1f84c6ef4a02c9d7c7a2850">More...</a><br /></td></tr>
+<tr class="separator:a2ec8fc79a1f84c6ef4a02c9d7c7a2850"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a04ebc20fd2965b1932e27958dd0c602c"><td class="memTemplParams" colspan="2">template&lt;typename T1 , typename T2 &gt; </td></tr>
+<tr class="memitem:a04ebc20fd2965b1932e27958dd0c602c"><td class="memTemplItemLeft" align="right" valign="top">string&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a04ebc20fd2965b1932e27958dd0c602c">vg::make_shuffle_seed</a> (const pair&lt; T1, T2 &gt; &amp;p)</td></tr>
+<tr class="memdesc:a04ebc20fd2965b1932e27958dd0c602c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Make seeds for pairs of things we can make seeds for.  <a href="namespacevg.html#a04ebc20fd2965b1932e27958dd0c602c">More...</a><br /></td></tr>
+<tr class="separator:a04ebc20fd2965b1932e27958dd0c602c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae74e428a09df726b5c2f4998b9d0a442"><td class="memTemplParams" colspan="2">template&lt;class RandomIt &gt; </td></tr>
 <tr class="memitem:ae74e428a09df726b5c2f4998b9d0a442"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae74e428a09df726b5c2f4998b9d0a442">vg::deterministic_shuffle</a> (RandomIt begin, RandomIt end)</td></tr>
 <tr class="memdesc:ae74e428a09df726b5c2f4998b9d0a442"><td class="mdescLeft">&#160;</td><td class="mdescRight">Do a deterministic shuffle with automatic seed determination.  <a href="namespacevg.html#ae74e428a09df726b5c2f4998b9d0a442">More...</a><br /></td></tr>
 <tr class="separator:ae74e428a09df726b5c2f4998b9d0a442"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a73740805ee8d4d785c38cb1217807363"><td class="memTemplParams" colspan="2">template&lt;class RandomIt , class Compare , class MakeSeed &gt; </td></tr>
-<tr class="memitem:a73740805ee8d4d785c38cb1217807363"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a73740805ee8d4d785c38cb1217807363">vg::sort_shuffling_ties</a> (RandomIt begin, RandomIt end, Compare comp, MakeSeed seed)</td></tr>
-<tr class="separator:a73740805ee8d4d785c38cb1217807363"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afe3de0ca79c815a4eaf63df34805f6d0"><td class="memTemplParams" colspan="2">template&lt;class RandomIt , class Compare &gt; </td></tr>
+<tr class="memitem:afe3de0ca79c815a4eaf63df34805f6d0"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#afe3de0ca79c815a4eaf63df34805f6d0">vg::sort_shuffling_ties</a> (RandomIt begin, RandomIt end, Compare comp, LazyRNG &amp;rng)</td></tr>
+<tr class="separator:afe3de0ca79c815a4eaf63df34805f6d0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa071bccfee3a9078930f2c385e8dda20"><td class="memTemplParams" colspan="2">template&lt;class RandomIt , class Compare &gt; </td></tr>
 <tr class="memitem:aa071bccfee3a9078930f2c385e8dda20"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa071bccfee3a9078930f2c385e8dda20">vg::sort_shuffling_ties</a> (RandomIt begin, RandomIt end, Compare comp)</td></tr>
 <tr class="separator:aa071bccfee3a9078930f2c385e8dda20"><td class="memSeparator" colspan="2">&#160;</td></tr>
