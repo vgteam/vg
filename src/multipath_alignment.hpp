@@ -549,8 +549,12 @@ namespace vg {
     inline bool multipath_alignment_t::has_start() const {
         return !_start.empty();
     }
+    
+    /// Define seed generation for shuffling multipath alignments
+    inline string make_shuffle_seed(const multipath_alignment_t& aln) {
+        return aln.sequence();
+    }
 }
-
 
 #endif /* multipath_alignment_hpp */
 

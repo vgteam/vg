@@ -5951,9 +5951,12 @@ namespace vg {
             order[i] = i;
         }
         // Sort, shuffling based on the aligned sequence to break ties.
+        LazyRNG rng([&]() {
+            return make_shuffle_seed(multipath_alns.front());
+        });
         sort_shuffling_ties(order.begin(), order.end(),
             [&](const size_t i, const size_t j) { return scores[i] > scores[j]; },
-            [&](const size_t seed_source) {return multipath_alns[seed_source].sequence(); });
+            rng);
         
         // translate the order to an index
         vector<size_t> index(multipath_alns.size());
@@ -6070,13 +6073,15 @@ namespace vg {
         for (size_t i = 1; i < multipath_aln_pairs.size(); i++) {
             order[i] = i;
         }
+        // Sort, shuffling based on the aligned sequence to break ties.
+        LazyRNG rng([&]() {
+            return make_shuffle_seed(multipath_aln_pairs.front());
+        });
         sort_shuffling_ties(order.begin(), order.end(),
             [&](const size_t i, const size_t j) {
                 return scores[i] > scores[j];
             },
-            [&](const size_t seed_source) {
-                return multipath_aln_pairs[seed_source].first.sequence() + multipath_aln_pairs[seed_source].second.sequence();
-            });
+            rng);
         
         // translate the order to an index
         vector<size_t> index(multipath_aln_pairs.size());
