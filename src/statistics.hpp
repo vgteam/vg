@@ -890,8 +890,8 @@ public:
     
     truncated_normal_distribution(T _mu = 0.0,
                                   T _sigma = 1.0,
-                                  T _a = -numeric_limits<double>::max(),
-                                  T _b = numeric_limits<double>::max())
+                                  T _a = -numeric_limits<double>::max() / 2.0,
+                                  T _b = numeric_limits<double>::max() / 2.0)
         : m_mu(_mu), m_sigma(_sigma), m_alpha((_a - _mu) / _sigma), m_beta((_b - _mu) / _sigma)
     {
         assert(m_sigma > 0.0);
@@ -919,11 +919,26 @@ public:
     }
     
     T density(T x) const {
-        return normal_pdf((x - m_mu) / m_sigma) / (m_sigma * Z());
+        T z = (x - m_mu) / m_sigma;
+        if (z >= m_alpha && z <= m_beta) {
+            return normal_pdf(z) / (m_sigma * Z());
+        }
+        else {
+            return 0.0;
+        }
     }
     
     T cumul(T x) const {
-        return (Phi((x - m_mu) / m_sigma) - Phi(m_alpha)) / Z();
+        T z = (x - m_mu) / m_sigma;
+        if (z >= m_alpha && z <= m_beta) {
+            return (Phi(z) - Phi(m_alpha)) / Z();
+        }
+        else if (z > m_beta) {
+            return 1.0;
+        }
+        else {
+            return 0.0;
+        }
     }
     
 protected:
