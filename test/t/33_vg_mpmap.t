@@ -102,7 +102,7 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGCCATTTTAAGTTTCCTGTGGACTAAGGAC
 +
 HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH" > s.fq 
 
-is "$(vg mpmap -x s.xg -d s.dist -g s.gcsa -B -n rna -f s.fq | vg view -KG - | vg view -aj - | jq .score)" "108" "spliced alignments can be found when aligning RNA"
+is "$(vg mpmap -x s.xg -d s.dist -g s.gcsa -B -n rna -f s.fq | vg view -KG - | vg view -aj - | jq .score)" "106" "spliced alignments can be found when aligning RNA"
 
 echo "@read1
 CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAG

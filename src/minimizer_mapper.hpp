@@ -155,6 +155,9 @@ public:
     ///How many stdevs from the mean do we extract a subgraph from?
     double rescue_subgraph_stdevs = 4.0;
 
+    /// Do not attempt rescue if there are more seeds in the rescue subgraph.
+    size_t rescue_seed_limit = 100;
+
     /// For paired end mapping, how many times should we attempt rescue (per read)?
     size_t max_rescue_attempts = 15;
     
