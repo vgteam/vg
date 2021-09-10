@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['a_36',['a',['../classvg_1_1uniform__real__distribution.html#aac3912d0f456993e6ae7f7bbe4d732d7',1,'vg::uniform_real_distribution::a()'],['../classvg_1_1uniform__int__distribution.html#a2ac06e4375faf1706e7d6171c7e2e14b',1,'vg::uniform_int_distribution::a()']]],
+  ['a_36',['a',['../classvg_1_1uniform__real__distribution.html#aac3912d0f456993e6ae7f7bbe4d732d7',1,'vg::uniform_real_distribution::a()'],['../classvg_1_1uniform__int__distribution.html#a2ac06e4375faf1706e7d6171c7e2e14b',1,'vg::uniform_int_distribution::a()'],['../classvg_1_1truncated__normal__distribution.html#a88c472b134a2672661b45695824cd3c0',1,'vg::truncated_normal_distribution::A()']]],
   ['a_5fstar_37',['a_star',['../namespacevg_1_1algorithms.html#a5af5b6f1083925669832ae59d0e549e7',1,'vg::algorithms']]],
   ['a_5fstar_2ehpp_38',['a_star.hpp',['../a__star_8hpp.html',1,'']]],
   ['accelerate_5fmem_5fquery_39',['accelerate_mem_query',['../classvg_1_1BaseMapper.html#a3cf076ec413d3a3bb029c46880a17759',1,'vg::BaseMapper']]],

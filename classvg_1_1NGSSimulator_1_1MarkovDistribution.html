@@ -77,8 +77,8 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a26aa251e0cb4297e7519261c5dede0be"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator_1_1MarkovDistribution.html#a26aa251e0cb4297e7519261c5dede0be">MarkovDistribution</a> (size_t <a class="el" href="classvg_1_1NGSSimulator.html#ae24dec0a78bc0166a7f27356632f135a">seed</a>)</td></tr>
-<tr class="separator:a26aa251e0cb4297e7519261c5dede0be"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aef78cda42fffdef670a3ceb7e4877ee9"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator_1_1MarkovDistribution.html#aef78cda42fffdef670a3ceb7e4877ee9">MarkovDistribution</a> (uint64_t <a class="el" href="classvg_1_1NGSSimulator.html#a99ce1e3ba72956bbf9d1cbaa0fd89014">seed</a>)</td></tr>
+<tr class="separator:aef78cda42fffdef670a3ceb7e4877ee9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab3609f759c7b20d77c1bc0ca7160c26a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator_1_1MarkovDistribution.html#ab3609f759c7b20d77c1bc0ca7160c26a">record_transition</a> (From from, To to)</td></tr>
 <tr class="memdesc:ab3609f759c7b20d77c1bc0ca7160c26a"><td class="mdescLeft">&#160;</td><td class="mdescRight">record a transition from the input data  <a href="classvg_1_1NGSSimulator_1_1MarkovDistribution.html#ab3609f759c7b20d77c1bc0ca7160c26a">More...</a><br /></td></tr>
 <tr class="separator:ab3609f759c7b20d77c1bc0ca7160c26a"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -91,8 +91,8 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
-<tr class="memitem:a1452b78239d8d8256d5de172e648a3c0"><td class="memItemLeft" align="right" valign="top">default_random_engine&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator_1_1MarkovDistribution.html#a1452b78239d8d8256d5de172e648a3c0">prng</a></td></tr>
-<tr class="separator:a1452b78239d8d8256d5de172e648a3c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac95b66a8f2e2cda6bc2d45691d496f5e"><td class="memItemLeft" align="right" valign="top">mt19937_64&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator_1_1MarkovDistribution.html#ac95b66a8f2e2cda6bc2d45691d496f5e">prng</a></td></tr>
+<tr class="separator:ac95b66a8f2e2cda6bc2d45691d496f5e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8d2808d7b690045d11af93fd6619fbf7"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; From, <a class="el" href="classvg_1_1uniform__int__distribution.html">vg::uniform_int_distribution</a>&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator_1_1MarkovDistribution.html#a8d2808d7b690045d11af93fd6619fbf7">samplers</a></td></tr>
 <tr class="separator:a8d2808d7b690045d11af93fd6619fbf7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af6f26344b2eec01c2f3847dfbbad5b3d"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; To, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator_1_1MarkovDistribution.html#af6f26344b2eec01c2f3847dfbbad5b3d">column_of</a></td></tr>
@@ -103,8 +103,8 @@ Private Attributes</h2></td></tr>
 <tr class="separator:a8bef106a51ae52b02b3cf9ea9179dc69"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a26aa251e0cb4297e7519261c5dede0be"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a26aa251e0cb4297e7519261c5dede0be">&#9670;&nbsp;</a></span>MarkovDistribution()</h2>
+<a id="aef78cda42fffdef670a3ceb7e4877ee9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aef78cda42fffdef670a3ceb7e4877ee9">&#9670;&nbsp;</a></span>MarkovDistribution()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -114,12 +114,13 @@ template&lt;class From , class To &gt; </div>
         <tr>
           <td class="memname"><a class="el" href="classvg_1_1NGSSimulator_1_1MarkovDistribution.html">vg::NGSSimulator::MarkovDistribution</a>&lt; From, To &gt;::<a class="el" href="classvg_1_1NGSSimulator_1_1MarkovDistribution.html">MarkovDistribution</a> </td>
           <td>(</td>
-          <td class="paramtype">size_t&#160;</td>
+          <td class="paramtype">uint64_t&#160;</td>
           <td class="paramname"><em>seed</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>A finite state Markov distribution that supports sampling </p>
 
 </div>
 </div>
@@ -248,8 +249,8 @@ template&lt;class From , class To &gt; </div>
 
 </div>
 </div>
-<a id="a1452b78239d8d8256d5de172e648a3c0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1452b78239d8d8256d5de172e648a3c0">&#9670;&nbsp;</a></span>prng</h2>
+<a id="ac95b66a8f2e2cda6bc2d45691d496f5e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac95b66a8f2e2cda6bc2d45691d496f5e">&#9670;&nbsp;</a></span>prng</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -260,7 +261,7 @@ template&lt;class From , class To &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">default_random_engine <a class="el" href="classvg_1_1NGSSimulator_1_1MarkovDistribution.html">vg::NGSSimulator::MarkovDistribution</a>&lt; From, To &gt;::prng</td>
+          <td class="memname">mt19937_64 <a class="el" href="classvg_1_1NGSSimulator_1_1MarkovDistribution.html">vg::NGSSimulator::MarkovDistribution</a>&lt; From, To &gt;::prng</td>
         </tr>
       </table>
   </td>
@@ -320,9 +321,8 @@ template&lt;class From , class To &gt; </div>
 
 </div>
 </div>
-<hr/>The documentation for this class was generated from the following files:<ul>
+<hr/>The documentation for this class was generated from the following file:<ul>
 <li>src/<a class="el" href="sampler_8hpp.html">sampler.hpp</a></li>
-<li>src/<a class="el" href="sampler_8cpp.html">sampler.cpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

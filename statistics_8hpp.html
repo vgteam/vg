@@ -85,6 +85,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1normal__distribution.html">vg::normal_distribution&lt; T &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1truncated__normal__distribution.html">vg::truncated_normal_distribution&lt; T &gt;</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1WideningPRNG.html">vg::WideningPRNG&lt; PRNG, OutType &gt;</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1uniform__int__distribution.html">vg::uniform_int_distribution&lt; T &gt;</a></td></tr>
@@ -114,11 +116,12 @@ Functions</h2></td></tr>
 <tr class="memitem:a11df8bd14dab3c0cfb7ecfa377a362f5"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:a11df8bd14dab3c0cfb7ecfa377a362f5"><td class="memTemplItemLeft" align="right" valign="top">double&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a11df8bd14dab3c0cfb7ecfa377a362f5">vg::stdev</a> (const T &amp;v)</td></tr>
 <tr class="separator:a11df8bd14dab3c0cfb7ecfa377a362f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ace2d2438c678d4fc4c0007b64b8ccd6f"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ace2d2438c678d4fc4c0007b64b8ccd6f">vg::phi</a> (double x1, double x2)</td></tr>
-<tr class="separator:ace2d2438c678d4fc4c0007b64b8ccd6f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adbaafa0c783156a34cb7e16ec2958c1f"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#adbaafa0c783156a34cb7e16ec2958c1f">vg::normal_inverse_cdf</a> (double quantile)</td></tr>
-<tr class="memdesc:adbaafa0c783156a34cb7e16ec2958c1f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Inverse CDF of a standard normal distribution. Must have 0 &lt; quantile &lt; 1.  <a href="namespacevg.html#adbaafa0c783156a34cb7e16ec2958c1f">More...</a><br /></td></tr>
-<tr class="separator:adbaafa0c783156a34cb7e16ec2958c1f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afea3e6d4a8ac9b486d1a2b9b89eadd2f"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afea3e6d4a8ac9b486d1a2b9b89eadd2f">vg::Phi</a> (double x)</td></tr>
+<tr class="memdesc:afea3e6d4a8ac9b486d1a2b9b89eadd2f"><td class="mdescLeft">&#160;</td><td class="mdescRight">The standard normal cumulative distribution function.  <a href="namespacevg.html#afea3e6d4a8ac9b486d1a2b9b89eadd2f">More...</a><br /></td></tr>
+<tr class="separator:afea3e6d4a8ac9b486d1a2b9b89eadd2f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4ae7976a3a19fe08c4b2bce4b3f3c00f"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4ae7976a3a19fe08c4b2bce4b3f3c00f">vg::Phi_inv</a> (double quantile)</td></tr>
+<tr class="memdesc:a4ae7976a3a19fe08c4b2bce4b3f3c00f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Inverse CDF of a standard normal distribution. Must have 0 &lt; quantile &lt; 1.  <a href="namespacevg.html#a4ae7976a3a19fe08c4b2bce4b3f3c00f">More...</a><br /></td></tr>
+<tr class="separator:a4ae7976a3a19fe08c4b2bce4b3f3c00f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afe6b7d44806f0d50d79f7de39800495d"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afe6b7d44806f0d50d79f7de39800495d">vg::lognormal_pdf</a> (double x, double mu, double sigma)</td></tr>
 <tr class="memdesc:afe6b7d44806f0d50d79f7de39800495d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Probability density function or log-normal distribution.  <a href="namespacevg.html#afe6b7d44806f0d50d79f7de39800495d">More...</a><br /></td></tr>
 <tr class="separator:afe6b7d44806f0d50d79f7de39800495d"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -138,9 +141,9 @@ Functions</h2></td></tr>
 <tr class="separator:a9a6ab3a0f45f6ab7b38320db7cc14583"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae46397f9d9aa9ac06a48b4ff30da7087"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae46397f9d9aa9ac06a48b4ff30da7087">vg::prob_for_at_least_one</a> (size_t p, size_t n)</td></tr>
 <tr class="separator:ae46397f9d9aa9ac06a48b4ff30da7087"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a97e831d426c5d0eaed85a981adb0704a"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:a97e831d426c5d0eaed85a981adb0704a"><td class="memTemplItemLeft" align="right" valign="top">T&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a97e831d426c5d0eaed85a981adb0704a">vg::normal_pdf</a> (T x, T m, T s)</td></tr>
-<tr class="separator:a97e831d426c5d0eaed85a981adb0704a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae825181ee40a5f0d5087fc657db9a7db"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:ae825181ee40a5f0d5087fc657db9a7db"><td class="memTemplItemLeft" align="right" valign="top">T&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae825181ee40a5f0d5087fc657db9a7db">vg::normal_pdf</a> (T x, T m=0.0, T s=1.0)</td></tr>
+<tr class="separator:ae825181ee40a5f0d5087fc657db9a7db"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a476a2102f4f5aa82c06be87780ae6d42"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a476a2102f4f5aa82c06be87780ae6d42">vg::prob_to_logprob</a> (double prob)</td></tr>
 <tr class="memdesc:a476a2102f4f5aa82c06be87780ae6d42"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert a probability to a natural log probability.  <a href="namespacevg.html#a476a2102f4f5aa82c06be87780ae6d42">More...</a><br /></td></tr>
 <tr class="separator:a476a2102f4f5aa82c06be87780ae6d42"><td class="memSeparator" colspan="2">&#160;</td></tr>
