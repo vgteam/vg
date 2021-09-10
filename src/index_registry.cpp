@@ -3248,7 +3248,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             cerr << "[IndexRegistry]: Constructing distance index for a spliced graph." << endl;
         }
         
-        assert(inputs.size() == 2);
+        assert(inputs.size() == 1);
         auto& graph_filenames = inputs[1]->get_filenames();
         assert(graph_filenames.size() == 1);
         auto graph_filename = graph_filenames.front();
@@ -3400,12 +3400,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         // TODO: should the distance index input be a joint simplification to avoid serializing it?
         
-        assert(inputs.size() == 2);
-        auto dist_filenames = inputs[0]->get_filenames();
-        auto gbz_filenames = inputs[1]->get_filenames();
-        assert(dist_filenames.size() == 1);
+        assert(inputs.size() == 1);
+        auto gbz_filenames = inputs[0]->get_filenames();
         assert(gbz_filenames.size() == 1);
-        auto dist_filename = dist_filenames.front();
         auto gbz_filename = gbz_filenames.front();
                 
         assert(constructing.size() == 1);
