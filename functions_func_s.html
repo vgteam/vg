@@ -164,7 +164,6 @@ $(function() {
 , <a class="el" href="classvg_1_1connection__t.html#a8f34943152ac67f59c15ff776da592e8">vg::connection_t</a>
 , <a class="el" href="classvg_1_1Funnel.html#a9cdacae4561ece776ba90e293299f930">vg::Funnel</a>
 , <a class="el" href="classvg_1_1MEMChainModel.html#aca053d2a91e4ea7ac440edd670893a84">vg::MEMChainModel</a>
-, <a class="el" href="classvg_1_1SpliceMotifs.html#ab585b89b2a28987d09d3865092a7092e">vg::SpliceMotifs</a>
 , <a class="el" href="classvg_1_1subpath__t.html#a9e59579440b9a90f5b0c606dc3cf400a">vg::subpath_t</a>
 </li>
 <li>score_alignment()
@@ -337,12 +336,18 @@ $(function() {
 <li>set_intermediate_file_keeping()
 : <a class="el" href="classvg_1_1IndexRegistry.html#a983cdafc1b28ea24def5349f90e415eb">vg::IndexRegistry</a>
 </li>
+<li>set_intron_length_distribution()
+: <a class="el" href="classvg_1_1MultipathMapper.html#a8c6768f5299e424b19d569dd077dbafe">vg::MultipathMapper</a>
+</li>
 <li>set_inverse()
 : <a class="el" href="classvg_1_1Filter.html#afb65a7ed6bb059f22196415c631680e9">vg::Filter</a>
 </li>
 <li>set_is_reverse()
 : <a class="el" href="classvg_1_1mapping__t.html#ad248204841f7ba0ce4c3604ec138556d">vg::mapping_t</a>
 , <a class="el" href="classvg_1_1position__t.html#a3d78fabe1cda0e0243071a36ccd73996">vg::position_t</a>
+</li>
+<li>set_log_odds_against_splice()
+: <a class="el" href="classvg_1_1MultipathMapper.html#a8902c35e23b24555f94fd2f7d95ef806">vg::MultipathMapper</a>
 </li>
 <li>set_mapping_quality()
 : <a class="el" href="classvg_1_1multipath__alignment__t.html#a492c704bcf2ec27123143b83d8218ad9">vg::multipath_alignment_t</a>
@@ -480,7 +485,7 @@ $(function() {
 : <a class="el" href="classvg_1_1VG.html#a030b75d2ad50905cc01fe4b7223cbb83">vg::VG</a>
 </li>
 <li>sides_to()
-: <a class="el" href="classvg_1_1VG.html#a68733706482bf7b2627be32438160af3">vg::VG</a>
+: <a class="el" href="classvg_1_1VG.html#a1a156ac1e1fde520bae82850105c6c66">vg::VG</a>
 </li>
 <li>simplify()
 : <a class="el" href="classvg_1_1RareVariantSimplifier.html#af17e24fe2acb6700bb7b6d39514af7af">vg::RareVariantSimplifier</a>
@@ -501,7 +506,6 @@ $(function() {
 , <a class="el" href="classvg_1_1SmallBitset.html#a1b3ff28863a53eae0c4b47ff854b4d2d">vg::SmallBitset</a>
 , <a class="el" href="classvg_1_1SnarlState.html#a02f1d46e384b6617ad43f2390fe0ef98">vg::SnarlState</a>
 , <a class="el" href="classvg_1_1SparseUnionFind.html#a85bfb663efac82a593533bd58890c615">vg::SparseUnionFind</a>
-, <a class="el" href="classvg_1_1SpliceMotifs.html#aa1efb07d8bc78cdbe21214333b8c6ce2">vg::SpliceMotifs</a>
 , <a class="el" href="classvg_1_1Transcriptome.html#a3c2239bcf968f17b0356cdc3c9b9af22">vg::Transcriptome</a>
 , <a class="el" href="classvg_1_1VG.html#a9e3720ce267c8167ce679a015063dab6">vg::VG</a>
 </li>
@@ -620,11 +624,11 @@ $(function() {
 <li>SplicedHTSAlignmentEmitter()
 : <a class="el" href="classvg_1_1SplicedHTSAlignmentEmitter.html#a8e546a34b4f2155fe6fb916123a0135d">vg::SplicedHTSAlignmentEmitter</a>
 </li>
-<li>SpliceMotifs()
-: <a class="el" href="classvg_1_1SpliceMotifs.html#a48e0bcbd1d35262774d237464a359fe9">vg::SpliceMotifs</a>
-</li>
 <li>SpliceRegion()
-: <a class="el" href="classvg_1_1SpliceRegion.html#a8efb510b641b5a137b653c9c8d588d9b">vg::SpliceRegion</a>
+: <a class="el" href="classvg_1_1SpliceRegion.html#a3ca49fd7bedbe0b97117f87f7a5edba4">vg::SpliceRegion</a>
+</li>
+<li>SpliceStats()
+: <a class="el" href="classvg_1_1SpliceStats.html#ac508ff2143cf8296531945e7674702bc">vg::SpliceStats</a>
 </li>
 <li>split()
 : <a class="el" href="classvg_1_1BitString.html#af826e3c7bce1aeada3f989b1b7d1bcc5">vg::BitString</a>
@@ -716,7 +720,7 @@ $(function() {
 : <a class="el" href="classvg_1_1StreamIndex.html#a3508617dbf1b8e8d1df051f4a214fa5e">vg::StreamIndex&lt; Message &gt;</a>
 </li>
 <li>StreamIndexBase()
-: <a class="el" href="classvg_1_1StreamIndexBase.html#a2df03d2ee53e9f171e4aa519a079901e">vg::StreamIndexBase</a>
+: <a class="el" href="classvg_1_1StreamIndexBase.html#a85207efd00788e14df4df717d88233b7">vg::StreamIndexBase</a>
 </li>
 <li>streaming_merge()
 : <a class="el" href="classvg_1_1StreamSorter.html#a77590f7da1d1418fc00e7bdaec2a76e5">vg::StreamSorter&lt; Message &gt;</a>
@@ -734,7 +738,7 @@ $(function() {
 : <a class="el" href="classvg_1_1MultipathMapper.html#a1147b64d4c4aeffa84403f5341de52bf">vg::MultipathMapper</a>
 </li>
 <li>Subcommand()
-: <a class="el" href="classvg_1_1subcommand_1_1Subcommand.html#ad5faf589dd98c3ff0c0d1071fcf90090">vg::subcommand::Subcommand</a>
+: <a class="el" href="classvg_1_1subcommand_1_1Subcommand.html#ad2cb9a00761644300914d9ed8439cbe1">vg::subcommand::Subcommand</a>
 </li>
 <li>subgraph_in_range()
 : <a class="el" href="classvg_1_1MinimumDistanceIndex.html#a6bfe4193023f43239631e9e23a75c8db">vg::MinimumDistanceIndex</a>
@@ -744,7 +748,7 @@ $(function() {
 </li>
 <li>SubHandleGraph()
 : <a class="el" href="classhandlegraph_1_1algorithms_1_1SubHandleGraph.html#a4455c7d0983b1fcce544022a60fa76ab">handlegraph::algorithms::SubHandleGraph</a>
-, <a class="el" href="classvg_1_1SubHandleGraph.html#ae02101c50fc316637a11ed674637e6a4">vg::SubHandleGraph</a>
+, <a class="el" href="classvg_1_1SubHandleGraph.html#a1426a494a5d412485f5c4959f3b853c8">vg::SubHandleGraph</a>
 </li>
 <li>subpath()
 : <a class="el" href="classvg_1_1multipath__alignment__t.html#a5544e1c157233fda1b528bdd3e426f90">vg::multipath_alignment_t</a>
@@ -753,7 +757,7 @@ $(function() {
 : <a class="el" href="classvg_1_1multipath__alignment__t.html#a3b6820ac77fa5438c55300ba1eb7a97d">vg::multipath_alignment_t</a>
 </li>
 <li>subpath_t()
-: <a class="el" href="classvg_1_1subpath__t.html#a096b12ec158dd2cf139dbe38f55ca2f3">vg::subpath_t</a>
+: <a class="el" href="classvg_1_1subpath__t.html#a31254046fc840d936d42012b2c7b23b5">vg::subpath_t</a>
 </li>
 <li>substage()
 : <a class="el" href="classvg_1_1Funnel.html#a0520d00fd1dcd9fa4af18d715580c900">vg::Funnel</a>
@@ -772,7 +776,7 @@ $(function() {
 : <a class="el" href="classvg_1_1SupportRestrictedTraversalFinder.html#aceeb94d7e05fdbc113557b61448f6b2a">vg::SupportRestrictedTraversalFinder</a>
 </li>
 <li>surject()
-: <a class="el" href="classvg_1_1Surjector.html#a265cf90a6fb12021a70b87ec647c0867">vg::Surjector</a>
+: <a class="el" href="classvg_1_1Surjector.html#a80afa331fde9e8bcff66c4e87400217a">vg::Surjector</a>
 </li>
 <li>surject_alignments_in_place()
 : <a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a5ba8aab649ae5f31c64be2c5461c743c">vg::SurjectingAlignmentEmitter</a>
@@ -808,7 +812,7 @@ $(function() {
 : <a class="el" href="classvg_1_1VG.html#afee31880eaf65a1a6d1a250663271b54">vg::VG</a>
 </li>
 <li>swap_node_ids()
-: <a class="el" href="classvg_1_1Paths.html#aba01c4d1b1d415622634db97f62b1188">vg::Paths</a>
+: <a class="el" href="classvg_1_1Paths.html#a3190f22ab39a9039ec9288e1c065ca9c">vg::Paths</a>
 </li>
 <li>swap_nodes()
 : <a class="el" href="classvg_1_1VG.html#aa402d1cf817f83ca44f72f6112b6a2e3">vg::VG</a>

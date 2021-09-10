@@ -136,6 +136,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ad3848a9b82e967ca119dd94add068597"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ad3848a9b82e967ca119dd94add068597">set_min_softclip_length_for_splice</a> (size_t length)</td></tr>
 <tr class="memdesc:ad3848a9b82e967ca119dd94add068597"><td class="mdescLeft">&#160;</td><td class="mdescRight">How big of a softclip should lead us to attempt spliced alignment?  <a href="classvg_1_1MultipathMapper.html#ad3848a9b82e967ca119dd94add068597">More...</a><br /></td></tr>
 <tr class="separator:ad3848a9b82e967ca119dd94add068597"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8902c35e23b24555f94fd2f7d95ef806"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a8902c35e23b24555f94fd2f7d95ef806">set_log_odds_against_splice</a> (double log_odds)</td></tr>
+<tr class="memdesc:a8902c35e23b24555f94fd2f7d95ef806"><td class="mdescLeft">&#160;</td><td class="mdescRight">What should the prior odds against a spliced alignment be?  <a href="classvg_1_1MultipathMapper.html#a8902c35e23b24555f94fd2f7d95ef806">More...</a><br /></td></tr>
+<tr class="separator:a8902c35e23b24555f94fd2f7d95ef806"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8c6768f5299e424b19d569dd077dbafe"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a8c6768f5299e424b19d569dd077dbafe">set_intron_length_distribution</a> (const vector&lt; double &gt; &amp;intron_mixture_weights, const vector&lt; pair&lt; double, double &gt;&gt; &amp;intron_component_params)</td></tr>
+<tr class="memdesc:a8c6768f5299e424b19d569dd077dbafe"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use a non-default intron length distribution.  <a href="classvg_1_1MultipathMapper.html#a8c6768f5299e424b19d569dd077dbafe">More...</a><br /></td></tr>
+<tr class="separator:a8c6768f5299e424b19d569dd077dbafe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3db9d73e2a4b296df8df495c028a615b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a3db9d73e2a4b296df8df495c028a615b">set_max_merge_supression_length</a> ()</td></tr>
 <tr class="memdesc:a3db9d73e2a4b296df8df495c028a615b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Decide how long of a tail alignment we want before we allow its subpath to be merged.  <a href="classvg_1_1MultipathMapper.html#a3db9d73e2a4b296df8df495c028a615b">More...</a><br /></td></tr>
 <tr class="separator:a3db9d73e2a4b296df8df495c028a615b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -263,8 +269,6 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a8ea8f5c8ad1906ccf0b878a6821a16e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa7656b2372ae8450e48a9db512ce309d"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aa7656b2372ae8450e48a9db512ce309d">max_mapping_p_value</a> = 0.0001</td></tr>
 <tr class="separator:aa7656b2372ae8450e48a9db512ce309d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abddcdd9e5232c4244aa38952ac67e583"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#abddcdd9e5232c4244aa38952ac67e583">max_splice_p_value</a> = 0.001</td></tr>
-<tr class="separator:abddcdd9e5232c4244aa38952ac67e583"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afe5cb57d342ca46e5ee2e132d1d238d3"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#afe5cb57d342ca46e5ee2e132d1d238d3">max_rescue_p_value</a> = 0.1</td></tr>
 <tr class="separator:afe5cb57d342ca46e5ee2e132d1d238d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a87223306ba0d983104e48d4ded4e685d"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a87223306ba0d983104e48d4ded4e685d">max_alt_mappings</a> = 1</td></tr>
@@ -603,10 +607,14 @@ Protected Attributes</h2></td></tr>
 <tr class="separator:a2d6a193c1277d948f7155da585e60367"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaae9feaf584c64fe27628e29778359b4"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aaae9feaf584c64fe27628e29778359b4">min_softclipped_score_for_splice</a> = 25</td></tr>
 <tr class="separator:aaae9feaf584c64fe27628e29778359b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3903979b6a7b5e297335f823864cd511"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a3903979b6a7b5e297335f823864cd511">no_splice_natural_log_odds</a> = 22.55</td></tr>
+<tr class="separator:a3903979b6a7b5e297335f823864cd511"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3130f372f82437af2f7733901a47c142"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a3130f372f82437af2f7733901a47c142">no_splice_log_odds</a> = 16</td></tr>
+<tr class="separator:a3130f372f82437af2f7733901a47c142"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4000f9a9d804ef14a51bb48c22029089"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1DinucleotideMachine.html">DinucleotideMachine</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a4000f9a9d804ef14a51bb48c22029089">dinuc_machine</a></td></tr>
 <tr class="separator:a4000f9a9d804ef14a51bb48c22029089"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6550a32098c3f56808cd8d6e4d3310ad"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1SpliceMotifs.html">SpliceMotifs</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a6550a32098c3f56808cd8d6e4d3310ad">splice_motifs</a></td></tr>
-<tr class="separator:a6550a32098c3f56808cd8d6e4d3310ad"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a64556e12bae6880e876d0d16fe44efb9"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1SpliceStats.html">SpliceStats</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a64556e12bae6880e876d0d16fe44efb9">splice_stats</a></td></tr>
+<tr class="separator:a64556e12bae6880e876d0d16fe44efb9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a82e1a1af4b8ba0170cf7817cd44f1008"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a82e1a1af4b8ba0170cf7817cd44f1008">snarl_manager</a></td></tr>
 <tr class="separator:a82e1a1af4b8ba0170cf7817cd44f1008"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abf0b02bf9912b86d3292c13a72c7d6d1"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#abf0b02bf9912b86d3292c13a72c7d6d1">distance_index</a></td></tr>
@@ -3655,6 +3663,56 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a8c6768f5299e424b19d569dd077dbafe"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8c6768f5299e424b19d569dd077dbafe">&#9670;&nbsp;</a></span>set_intron_length_distribution()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MultipathMapper::set_intron_length_distribution </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; double &gt; &amp;&#160;</td>
+          <td class="paramname"><em>intron_mixture_weights</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; pair&lt; double, double &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>intron_component_params</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Use a non-default intron length distribution. </p>
+
+</div>
+</div>
+<a id="a8902c35e23b24555f94fd2f7d95ef806"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8902c35e23b24555f94fd2f7d95ef806">&#9670;&nbsp;</a></span>set_log_odds_against_splice()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MultipathMapper::set_log_odds_against_splice </td>
+          <td>(</td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>log_odds</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>What should the prior odds against a spliced alignment be? </p>
+
+</div>
+</div>
 <a id="a3db9d73e2a4b296df8df495c028a615b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a3db9d73e2a4b296df8df495c028a615b">&#9670;&nbsp;</a></span>set_max_merge_supression_length()</h2>
 
@@ -4637,20 +4695,6 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="abddcdd9e5232c4244aa38952ac67e583"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abddcdd9e5232c4244aa38952ac67e583">&#9670;&nbsp;</a></span>max_splice_p_value</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">double vg::MultipathMapper::max_splice_p_value = 0.001</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a id="a4f4bca24b9dbe1a7a40499a30e91c4f6"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a4f4bca24b9dbe1a7a40499a30e91c4f6">&#9670;&nbsp;</a></span>max_splice_ref_search_length</h2>
 
@@ -4817,6 +4861,50 @@ Additional Inherited Members</h2></td></tr>
           <td class="memname">bool vg::MultipathMapper::no_clustering = false</td>
         </tr>
       </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a3130f372f82437af2f7733901a47c142"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3130f372f82437af2f7733901a47c142">&#9670;&nbsp;</a></span>no_splice_log_odds</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int32_t vg::MultipathMapper::no_splice_log_odds = 16</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a3903979b6a7b5e297335f823864cd511"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3903979b6a7b5e297335f823864cd511">&#9670;&nbsp;</a></span>no_splice_natural_log_odds</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::MultipathMapper::no_splice_natural_log_odds = 22.55</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 </div>
@@ -5207,8 +5295,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a6550a32098c3f56808cd8d6e4d3310ad"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6550a32098c3f56808cd8d6e4d3310ad">&#9670;&nbsp;</a></span>splice_motifs</h2>
+<a id="a64556e12bae6880e876d0d16fe44efb9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a64556e12bae6880e876d0d16fe44efb9">&#9670;&nbsp;</a></span>splice_stats</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -5217,7 +5305,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classvg_1_1SpliceMotifs.html">SpliceMotifs</a> vg::MultipathMapper::splice_motifs</td>
+          <td class="memname"><a class="el" href="classvg_1_1SpliceStats.html">SpliceStats</a> vg::MultipathMapper::splice_stats</td>
         </tr>
       </table>
   </td>
