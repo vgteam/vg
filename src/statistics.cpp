@@ -124,6 +124,19 @@ double normal_inverse_cdf(double p) {
     return val;
 }
 
+double lognormal_pdf(double x, double mu, double sigma) {
+    const static double root_2pi = sqrt(2.0 * 3.14159265358979323846);
+    double density;
+    if (x > 0.0) {
+        double z = (log(x) - mu) / sigma;
+        density = exp(-z * z / 2.0) / (sigma * x);
+    }
+    else {
+        density = 0.0;
+    }
+    return density;
+}
+
 // https://stackoverflow.com/a/19039500/238609
 double slope(const std::vector<double>& x, const std::vector<double>& y) {
     const auto n    = x.size();
