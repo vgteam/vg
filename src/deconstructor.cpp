@@ -668,7 +668,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         stream << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree (0=top level)\">" << endl;
         stream << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
     }
-    stream << "##INFO=<ID=AT,Number=A,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
+    stream << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
     set<string> gbwt_ref_paths;
     for(auto& refpath : ref_paths) {
         if (graph->has_path(refpath)) {

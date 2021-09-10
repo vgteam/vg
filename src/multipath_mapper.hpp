@@ -112,11 +112,22 @@ namespace vg {
         /// How big of a softclip should lead us to attempt spliced alignment?
         void set_min_softclip_length_for_splice(size_t length);
         
+        /// What should the prior odds against a spliced alignment be?
+        void set_log_odds_against_splice(double log_odds);
+        
+        /// Use a non-default intron length distribution
+        void set_intron_length_distribution(const vector<double>& intron_mixture_weights,
+                                            const vector<pair<double, double>>& intron_component_params);
+        
+        /// Decide how long of a tail alignment we want before we allow its subpath to be merged
+        void set_max_merge_supression_length();
+        
         // parameters
         
         size_t max_branch_trim_length = 1;
         bool agglomerate_multipath_alns = false;
         int64_t max_snarl_cut_size = 5;
+        size_t max_tail_merge_supress_length = 4;
         bool suppress_tail_anchors = false;
         size_t min_tail_anchor_length = 3;
         double band_padding_multiplier = 1.0;
@@ -145,7 +156,6 @@ namespace vg {
         double max_exponential_shape_intercept = 12.136;
         double max_exponential_shape_slope = 0.0113637;
         double max_mapping_p_value = 0.0001;
-        double max_splice_p_value = 0.001;
         double max_rescue_p_value = 0.1;
         size_t max_alt_mappings = 1;
         size_t max_single_end_mappings_for_rescue = 64;
@@ -626,8 +636,13 @@ namespace vg {
         int64_t min_softclip_length_for_splice = 20;
         int64_t min_softclipped_score_for_splice = 25;
         
+        // log odds against finding a spliced alignment, in natural log
+        double no_splice_natural_log_odds = 22.55;
+        // log odds against finding a spliced alignment, in same log base as score
+        int32_t no_splice_log_odds = 16;
+        
         DinucleotideMachine dinuc_machine;
-        SpliceMotifs splice_motifs;
+        SpliceStats splice_stats;
         SnarlManager* snarl_manager;
         MinimumDistanceIndex* distance_index;
         unique_ptr<PathComponentIndex> path_component_index;

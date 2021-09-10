@@ -1905,6 +1905,60 @@ namespace vg {
                 
                 REQUIRE(mpaln.subpath(2).next_size() == 0);
             }
+            
+            SECTION("Non-branching paths can be merged in non-topologically ordered multipath alignment") {
+                
+                multipath_alignment_t mpaln;
+                
+                mpaln.add_subpath();
+                mpaln.add_subpath();
+                subpath_t* sp1 = mpaln.mutable_subpath(0);
+                subpath_t* sp2 = mpaln.mutable_subpath(1);
+                
+                path_mapping_t* m11 = sp1->mutable_path()->add_mapping();
+                position_t* p11 = m11->mutable_position();
+                p11->set_node_id(1);
+                
+                edit_t* e111 = m11->add_edit();
+                e111->set_from_length(1);
+                e111->set_to_length(1);
+                
+                path_mapping_t* m21 = sp2->mutable_path()->add_mapping();
+                position_t* p21 = m21->mutable_position();
+                p21->set_node_id(2);
+                
+                edit_t* e211 = m21->add_edit();
+                e211->set_from_length(2);
+                e211->set_to_length(2);
+                
+                sp2->add_next(0);
+                
+                merge_non_branching_subpaths(mpaln);
+                
+                REQUIRE(mpaln.subpath_size() == 1);
+                
+                REQUIRE(mpaln.subpath(0).path().mapping_size() == 2);
+                
+                REQUIRE(mpaln.subpath(0).path().mapping(0).position().node_id() == 2);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).position().is_reverse() == false);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).position().offset() == 0);
+                
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit_size() == 1);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(0).from_length() == 2);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(0).to_length() == 2);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(0).sequence() == "");
+                
+                REQUIRE(mpaln.subpath(0).path().mapping(1).position().node_id() == 1);
+                REQUIRE(mpaln.subpath(0).path().mapping(1).position().is_reverse() == false);
+                REQUIRE(mpaln.subpath(0).path().mapping(1).position().offset() == 0);
+                
+                REQUIRE(mpaln.subpath(0).path().mapping(1).edit_size() == 1);
+                REQUIRE(mpaln.subpath(0).path().mapping(1).edit(0).from_length() == 1);
+                REQUIRE(mpaln.subpath(0).path().mapping(1).edit(0).to_length() == 1);
+                REQUIRE(mpaln.subpath(0).path().mapping(1).edit(0).sequence() == "");
+                
+                REQUIRE(mpaln.subpath(0).next_size() == 0);
+            }
         }
         
         TEST_CASE( "Single path alignments with disjoint subpaths can be found", "[alignment][multipath]") {
