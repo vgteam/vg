@@ -243,6 +243,12 @@ TEST_CASE("Truncated normal functions produce correct results", "[statistics]") 
                     else {
                         REQUIRE(distr.mean() > m);
                     }
+                    
+                    for (int k = 0; k < 20; ++k) {
+                        auto x = distr(prng);
+                        REQUIRE(x <= hi);
+                        REQUIRE(x >= lo);
+                    }
                 }
             }
         }
