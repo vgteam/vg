@@ -34,12 +34,11 @@ double stdev(const T& v) {
 }
 
 
-// Φ is the normal cumulative distribution function
-// https://en.wikipedia.org/wiki/Cumulative_distribution_function
-double phi(double x1, double x2);
+/// The standard normal cumulative distribution function
+double Phi(double x);
 
 /// Inverse CDF of a standard normal distribution. Must have 0 < quantile < 1.
-double normal_inverse_cdf(double quantile);
+double Phi_inv(double quantile);
 
 /*
  * Return the log of the sum of two log-transformed values without taking them
@@ -117,12 +116,12 @@ constexpr static size_t AT_LEAST_ONE_PRECISION = 8;
 
 // normal pdf, from http://stackoverflow.com/a/10848293/238609
 template <typename T>
-T normal_pdf(T x, T m, T s)
+T normal_pdf(T x, T m = 0.0, T s = 1.0)
 {
     static const T inv_sqrt_2pi = 0.3989422804014327;
-    T a = (x - m) / s;
+    T z = (x - m) / s;
     
-    return inv_sqrt_2pi / s * std::exp(-T(0.5) * a * a);
+    return inv_sqrt_2pi / s * std::exp(T(-0.5) * z * z);
 }
 
 
@@ -881,6 +880,64 @@ public:
 protected:
     T m_mean;
     T m_stddev;
+    vg::uniform_real_distribution<T> m_distU1;
+};
+
+template<typename T = double>
+class truncated_normal_distribution {
+public:
+    typedef T result_type;
+    
+    truncated_normal_distribution(T _mu = 0.0,
+                                  T _sigma = 1.0,
+                                  T _a = -numeric_limits<double>::max(),
+                                  T _b = numeric_limits<double>::max())
+        : m_mu(_mu), m_sigma(_sigma), m_alpha((_a - _mu) / _sigma), m_beta((_b - _mu) / _sigma)
+    {
+        assert(m_sigma > 0.0);
+        assert(m_alpha < m_beta);
+    }
+    
+    void reset() {
+        m_distU1.reset();
+    }
+    
+    template<class Generator>
+    T operator()(Generator &_g) {
+        T u = m_distU1(_g);
+        return m_mu + m_sigma * Phi_inv(u * Phi(m_beta) + (1.0 - u) * Phi(m_alpha));
+    }
+    
+    T mean() const {
+        return m_mu + m_sigma * A();
+    }
+    
+    T stddev() const {
+        T b = (m_alpha * normal_pdf(m_alpha) - m_beta * normal_pdf(m_beta)) / Z();
+        T a = A();
+        return m_sigma * std::sqrt(1.0 + b - a * a);
+    }
+    
+    T density(T x) const {
+        return normal_pdf((x - m_mu) / m_sigma) / (m_sigma * Z());
+    }
+    
+    T cumul(T x) const {
+        return (Phi((x - m_mu) / m_sigma) - Phi(m_alpha)) / Z();
+    }
+    
+protected:
+    T Z() const {
+        return Phi(m_beta) - Phi(m_alpha);
+    }
+    T A() const {
+        return (normal_pdf(m_alpha) - normal_pdf(m_beta)) / Z();
+    }
+    
+    T m_mu;
+    T m_sigma;
+    T m_alpha;
+    T m_beta;
     vg::uniform_real_distribution<T> m_distU1;
 };
 

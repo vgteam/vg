@@ -634,7 +634,6 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
     , background_sampler(0, alphabet.size() - 1)
     , mut_sampler(0, alphabet.size() - 2)
     , prob_sampler(0.0, 1.0)
-    , fragment_sampler(fragment_length_mean, fragment_length_stdev)
     , seed(manual_seed)
     , source_paths(source_paths_input)
     , joint_initial_distr(manual_seed ? 1760681024122689423ull * manual_seed + 1107607255714504485ull : random_device()())
@@ -701,7 +700,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
             // For each source path
             auto& source_path = source_paths[i];
             
-            auto length = graph.get_path_length(graph.get_path_handle(source_path));
+            size_t length = graph.get_path_length(graph.get_path_handle(source_path));
             
             // Always use accurate length for sampling start pos, even with sample_unsheared_paths
             start_pos_samplers.emplace_back(0, length - 1);
@@ -710,13 +709,21 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                 // sample uniformly between paths
                 path_weights.push_back(1.0);
             } else {
-                // Sample paths proportional to length and ploidy
+                // Sample paths proportional to effective length and ploidy
+                double eff_path_len;
+                if (fragment_mean != numeric_limits<double>::max()) {
+                    double trunc_mean = vg::truncated_normal_distribution<>(fragment_mean, fragment_sd, 1.0, length).mean();
+                    eff_path_len = length - trunc_mean;
+                }
+                else {
+                    eff_path_len = length;
+                }
                 
                 // Grab an applicable ploidy weight, or assume 1 if not set or if using sample_unsheared_paths
                 double ploidy = i >= source_path_ploidies.size() ? 1.0 : source_path_ploidies[i];
                 
                 // Add each path, weighted by ploidy and length, to the distribution for sampling paths
-                path_weights.push_back(ploidy * length);
+                path_weights.push_back(ploidy * eff_path_len);
             }
         }
         path_sampler = vg::discrete_distribution<>(path_weights.begin(), path_weights.end());
@@ -735,7 +742,20 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                 }
                 source_paths.push_back(transcript_expression.first);
                 start_pos_samplers.emplace_back(0, tx_len - 1);
-                expression_values.push_back(transcript_expression.second * (sample_unsheared_paths ? 1 : tx_len));
+                if (sample_unsheared_paths) {
+                    expression_values.push_back(transcript_expression.second);
+                }
+                else {
+                    double eff_tx_len;
+                    if (fragment_mean != numeric_limits<double>::max()) {
+                        double trunc_mean = vg::truncated_normal_distribution<>(fragment_mean, fragment_sd, 1.0, tx_len).mean();
+                        eff_tx_len = tx_len - trunc_mean;
+                    }
+                    else {
+                        eff_tx_len = tx_len;
+                    }
+                    expression_values.push_back(transcript_expression.second * eff_tx_len);
+                }
             }
         }
         else {
@@ -755,10 +775,23 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                     if (hp_tx_len == 0) {
                         continue;
                     }
-                    double haplotype_expression = (transcript_expression.second * get<2>(haplotype_transcripts[i])) / total_haplotypes;
-                    expression_values.push_back(haplotype_expression  * (sample_unsheared_paths ? 1 : hp_tx_len));
                     source_paths.push_back(get<0>(haplotype_transcripts[i]));
                     start_pos_samplers.emplace_back(0, hp_tx_len - 1);
+                    double haplotype_expression = (transcript_expression.second * get<2>(haplotype_transcripts[i])) / total_haplotypes;
+                    if (sample_unsheared_paths) {
+                        expression_values.push_back(haplotype_expression);
+                    }
+                    else {
+                        double eff_hp_tx_len;
+                        if (fragment_mean != numeric_limits<double>::max()) {
+                            double trunc_mean = vg::truncated_normal_distribution<>(fragment_mean, fragment_sd, 1.0, hp_tx_len).mean();
+                            eff_hp_tx_len = hp_tx_len - trunc_mean;
+                        }
+                        else {
+                            eff_hp_tx_len = hp_tx_len;
+                        }
+                        expression_values.push_back(haplotype_expression * eff_hp_tx_len);
+                    }
                 }
             }
         }
@@ -978,21 +1011,23 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     assert(qual_and_mask_pair.first.first.size() == qual_and_mask_pair.first.second.size());
     assert(qual_and_mask_pair.second.first.size() == qual_and_mask_pair.second.second.size());
     
-    int64_t fragment_length = -1;
-    while (fragment_length <= 0) {
-        fragment_length = (int64_t) round(fragment_sampler(prng()));
-    }
-    
     // Sample our path (if dealing with source_paths)
     size_t source_path_idx = sample_path();
     string source_path;
+    vg::truncated_normal_distribution<> fragment_sampler;
     if (source_path_idx != numeric_limits<size_t>::max()) {
         source_path = source_paths[source_path_idx];
 #ifdef debug_ngs_sim
         cerr << "sampling from path " << source_path << " with length " << graph.get_path_length(graph.get_path_handle(source_path)) << endl;
 #endif
-        fragment_length = min<int64_t>(fragment_length, graph.get_path_length(graph.get_path_handle(source_path)));
+        int64_t path_length = graph.get_path_length(graph.get_path_handle(source_path));
+        fragment_sampler = vg::truncated_normal_distribution<>(fragment_mean, fragment_sd, 1.0, path_length);
     }
+    else {
+        fragment_sampler = vg::truncated_normal_distribution<>(fragment_mean, fragment_sd, 1.0);
+    }
+    int64_t fragment_length = round(fragment_sampler(prng()));
+    
     
     // This is our offset along the source path, if in use
     int64_t sampled_offset;

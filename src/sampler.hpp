@@ -319,7 +319,6 @@ private:
     vg::uniform_int_distribution<size_t> background_sampler;
     vg::uniform_int_distribution<size_t> mut_sampler;
     vg::uniform_real_distribution<double> prob_sampler;
-    vg::normal_distribution<double> fragment_sampler;
     
     const double sub_poly_rate;
     const double indel_poly_rate;
