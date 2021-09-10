@@ -475,6 +475,16 @@ void PoissonSupportSnarlCaller::set_baseline_error(double small_variant_error, d
     }
 }
 
+void PoissonSupportSnarlCaller::set_insertion_bias(double insertion_threshold, double small_insertion_bias, double large_insertion_bias) {
+    this->insertion_threshold = insertion_threshold;
+    if (small_insertion_bias >= 0) {
+        insertion_bias_small = small_insertion_bias;
+    }
+    if (large_insertion_bias >= 0) {
+        insertion_bias_large = large_insertion_bias;
+    }
+}
+
 pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::genotype(const Snarl& snarl,
                                                                                          const vector<SnarlTraversal>& traversals,
                                                                                          int ref_trav_idx,
@@ -503,6 +513,14 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::
     // get the supports of each traversal independently
     int max_trav_size = -1;
     vector<Support> supports = support_finder.get_traversal_set_support(traversals, {}, {}, {}, false, {}, {}, ref_trav_idx, &max_trav_size);
+
+    int ref_trav_size = 0;
+    if (ref_trav_idx >= 0) {
+        const SnarlTraversal& ref_trav = traversals[ref_trav_idx];
+        for (int64_t i = 1; i < (int64_t)ref_trav.visit_size() - 1; ++i) {
+            ref_trav_size += graph.get_length(graph.get_handle(ref_trav.visit(i).node_id()));
+        }
+    }
 
     // sort the traversals by support
     vector<int> ranked_traversals = rank_by_support(supports);
@@ -585,7 +603,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::
     vector<int> best_genotype;
     for (const auto& candidate : candidates) {
         double gl = genotype_likelihood(candidate, traversals, top_traversals, traversal_sizes, traversal_mapqs,
-                                        ref_trav_idx, exp_depth, depth_err, max_trav_size);
+                                        ref_trav_idx, exp_depth, depth_err, max_trav_size, ref_trav_size);
         if (gl > best_genotype_likelihood) {
             second_best_genotype_likelihood = best_genotype_likelihood;
             best_genotype_likelihood = gl;
@@ -615,6 +633,7 @@ pair<vector<int>, unique_ptr<SnarlCaller::CallInfo>> PoissonSupportSnarlCaller::
     call_info->expected_depth = exp_depth;
     call_info->depth_err = depth_err;
     call_info->max_trav_size = max_trav_size;
+    
 
 #ifdef debug
     cerr << " best genotype: "; for (auto a : best_genotype) {cerr << a <<",";} cerr << " gl=" << best_genotype_likelihood << endl;
@@ -628,7 +647,8 @@ double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotyp
                                                       const vector<int>& traversal_sizes,
                                                       const vector<double>& traversal_mapqs,
                                                       int ref_trav_idx, double exp_depth, double depth_err,
-                                                      int max_trav_size) {
+                                                      int max_trav_size,
+                                                      int ref_trav_size) {
     
     assert(genotype.size() == 1 || genotype.size() == 2);
 
@@ -684,6 +704,10 @@ double PoissonSupportSnarlCaller::genotype_likelihood(const vector<int>& genotyp
     // we toggle the baseline error 
     size_t threshold = support_finder.get_average_traversal_support_switch_threshold();
     double error_rate = max_trav_size >= threshold ? baseline_error_large : baseline_error_small;
+    // and multiply by the insertion bias if the site looks like an insertion
+    if (ref_trav_idx >= 0 && max_trav_size >= insertion_threshold * ref_trav_size) {
+        error_rate *= (max_trav_size >= threshold ? insertion_bias_large : insertion_bias_small);
+    }
     
     // error rate for non-allele traversals
     double other_error_rate = error_rate;
@@ -767,6 +791,13 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
     const PoissonCallInfo* p_call_info = dynamic_cast<const PoissonCallInfo*>(call_info.get());
     int max_trav_size = p_call_info->max_trav_size;
 
+    int ref_trav_idx = 0;
+    int ref_trav_size = 0;
+    const SnarlTraversal& ref_trav = traversals[ref_trav_idx];
+    for (int64_t i = 1; i < (int64_t)ref_trav.visit_size() - 1; ++i) {
+        ref_trav_size += graph.get_length(graph.get_handle(ref_trav.visit(i).node_id()));
+    }
+
     // get the genotype support
     vector<Support> genotype_supports = support_finder.get_traversal_genotype_support(traversals, genotype, {}, 0, &max_trav_size);
 
@@ -816,7 +847,7 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
         for (int i = 0; i < traversals.size(); ++i) {
             for (int j = i; j < traversals.size(); ++j) {
                 double gl = genotype_likelihood({i, j}, traversals, {}, traversal_sizes, traversal_mapqs,
-                                                0, p_call_info->expected_depth, depth_err, max_trav_size);
+                                                ref_trav_idx, p_call_info->expected_depth, depth_err, max_trav_size, ref_trav_size);
                 gen_likelihoods.push_back(gl);
                 if (vector<int>({i, j}) == genotype || vector<int>({j,i}) == genotype) {
                     gen_likelihood = gl;
@@ -836,7 +867,7 @@ void PoissonSupportSnarlCaller::update_vcf_info(const Snarl& snarl,
         // todo: generalize this iteration (as is, it is copy pased from above)
         for (int i = 0; i < traversals.size(); ++i) {
             double gl = genotype_likelihood({i}, traversals, {}, traversal_sizes, traversal_mapqs,
-                                            0, p_call_info->expected_depth, depth_err, max_trav_size);
+                                            ref_trav_idx, p_call_info->expected_depth, depth_err, max_trav_size, ref_trav_size);
             gen_likelihoods.push_back(gl);
             if (vector<int>({i}) == genotype) {
                 gen_likelihood = gl;

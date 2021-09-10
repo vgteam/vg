@@ -211,6 +211,8 @@ public:
 
     /// Set some parameters
     void set_baseline_error(double small_variant_error, double large_variant_error);
+    /// These are multipliers applied to the errors if the site has an insertion
+    void set_insertion_bias(double insertion_threshold, double small_insertion_bias, double large_insertion_bias);    
 
     /// Get the genotype of a site
     virtual pair<vector<int>, unique_ptr<CallInfo>>  genotype(const Snarl& snarl,
@@ -245,7 +247,7 @@ protected:
                                const vector<int>& traversal_sizes,
                                const vector<double>& traversal_mapqs,
                                int ref_trav_idx, double exp_depth, double depth_err,
-                               int max_trav_size);
+                               int max_trav_size, int ref_trav_size);
 
     /// Rank supports
     vector<int> rank_by_support(const vector<Support>& supports);
@@ -259,6 +261,12 @@ protected:
     double  baseline_error_large = 0.001;
     /// Baseline error rate for smaller variants
     double  baseline_error_small = 0.005;
+    /// multiply error by this much in pressence of insertion
+    double insertion_bias_large = 10.;
+    double insertion_bias_small = 1.;
+    /// a site is an insertion if one (supported)allele is this many times bigger than another
+    /// unlike above, default comes from call_main.cpp (todo: straighten this out?)
+    double insertion_threshold = 5.;
 
     /// Consider up to the top-k traversals (based on support) for genotyping
     size_t top_k = 20;

@@ -30,7 +30,8 @@ void help_call(char** argv) {
        << "support calling options:" << endl
        << "    -k, --pack FILE          Supports created from vg pack for given input graph" << endl
        << "    -m, --min-support M,N    Minimum allele support (M) and minimum site support (N) for call [default = 1,4]" << endl
-       << "    -e, --baseline-error X,Y Baseline error rates for Poisson model for small (X) and large (Y) variants [default= 0.005,0.001]" << endl
+       << "    -e, --baseline-error X,Y Baseline error rates for Poisson model for small (X) and large (Y) variants [default= 0.005,0.01]" << endl
+       << "    -I, --insertion-bias     Error rate multiplier for insertions for small (X) and large (Y) variants to compensate for breakpoint uncertainty [defaul=1,10]" << endl
        << "    -E, --expect-bp-edges    Expect breakpoint edges to be in graph, and apply minimum threshold to them."  << endl
        << "                             Recommended only for SV genotying on graph created with augment -E." << endl
        << "    -B, --bias-mode          Use old ratio-based genotyping algorithm as opposed to porbablistic model" << endl
@@ -71,6 +72,7 @@ int main_call(int argc, char** argv) {
     vector<size_t> ref_path_offsets;
     vector<size_t> ref_path_lengths;
     string min_support_string;
+    string insertion_bias_string;
     string baseline_error_string;
     string bias_string;
     bool expect_bp_edges = false;
@@ -96,6 +98,9 @@ int main_call(int argc, char** argv) {
     // used to merge up snarls from chains when generating traversals
     const size_t max_chain_edges = 1000; 
     const size_t max_chain_trivial_travs = 5;
+    // used to decide if site is insertion in order to apply bias
+    // (is insertion if alt allele len > ref_allele len * insertion_threshold)
+    const double insertion_threshold = 5;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -105,6 +110,7 @@ int main_call(int argc, char** argv) {
             {"pack", required_argument, 0, 'k'},
             {"bias-mode", no_argument, 0, 'B'},
             {"baseline-error", required_argument, 0, 'e'},
+            {"insertion-bias", required_argument, 0, 'I'},
             {"expect-bp-edges", no_argument, 0, 'E'},
             {"het-bias", required_argument, 0, 'b'},
             {"min-support", required_argument, 0, 'm'},
@@ -132,7 +138,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:Eb:m:v:af:i:s:r:g:p:o:l:d:R:GTLM:nt:h",
+        c = getopt_long (argc, argv, "k:Be:I:Eb:m:v:af:i:s:r:g:p:o:l:d:R:GTLM:nt:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -155,6 +161,9 @@ int main_call(int argc, char** argv) {
             break;
         case 'e':
             baseline_error_string = optarg;
+            break;
+        case 'I':
+            insertion_bias_string = optarg;
             break;
         case 'E':
             expect_bp_edges = true;
@@ -283,7 +292,7 @@ int main_call(int argc, char** argv) {
         cerr << "error [vg call]: -b option expects at most two comma separated numbers M,N" << endl;
         return 1;
     }
-    // parse the baseline errors
+    // parse the baseline errors (defaults are in snarl_caller.hpp)
     vector<string> error_toks = split_delims(baseline_error_string, ",");
     double baseline_error_large = -1;
     double baseline_error_small = -1;
@@ -295,6 +304,18 @@ int main_call(int argc, char** argv) {
         }
     } else if (error_toks.size() != 0) {
         cerr << "error [vg call]: -e option expects exactly two comma-separated numbers X,Y" << endl;
+        return 1;
+    }
+
+    // parse the insertion bias (defaults are in snarl_caller.hpp)
+    error_toks = split_delims(insertion_bias_string, ",");
+    double insertion_bias_large = -1;
+    double insertion_bias_small = -1;
+    if (error_toks.size() == 2) {
+        insertion_bias_small = parse<double>(error_toks[0]);
+        insertion_bias_large = parse<double>(error_toks[1]);
+    } else if (error_toks.size() != 0) {
+        cerr << "error [vg call]: -I option expects exactly two comma-separated numbers X,Y" << endl;
         return 1;
     }
 
@@ -455,6 +476,7 @@ int main_call(int argc, char** argv) {
 
             // Pass the errors through
             poisson_caller->set_baseline_error(baseline_error_small, baseline_error_large);
+            poisson_caller->set_insertion_bias(insertion_threshold, insertion_bias_small, insertion_bias_large);
                 
             packed_caller = poisson_caller;
         } else {
