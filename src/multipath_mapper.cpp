@@ -729,9 +729,9 @@ namespace vg {
         identify_start_subpaths(rescue_multipath_aln);
         
         vector<double> score(1, aln.score());
-        int32_t solo_mapq = mapq_scaling_factor * aligner->compute_mapping_quality(score,
-                                                                                   mapping_quality_method == None
-                                                                                   || mapping_quality_method == Approx);
+        int32_t solo_mapq = mapq_scaling_factor * aligner->compute_max_mapping_quality(score,
+                                                                                       mapping_quality_method == None
+                                                                                       || mapping_quality_method == Approx);
         int32_t adjusted_mapq = min<int32_t>(solo_mapq, min(max_mapping_quality, multipath_aln.mapping_quality()));
         rescue_multipath_aln.set_mapping_quality(adjusted_mapq);
         
@@ -5914,13 +5914,7 @@ namespace vg {
             use_exact = true;
         }
         
-        int32_t raw_mapq;
-        if (use_exact) {
-            raw_mapq = aligner->first_mapping_quality_exact(scores, multiplicities);
-        }
-        else {
-            raw_mapq = aligner->first_mapping_quality_approx(scores, multiplicities);
-        }
+        int32_t raw_mapq = aligner->compute_first_mapping_quality(scores, !use_exact, multiplicities);
         
         // arbitrary scaling, seems to help performance
         raw_mapq *= mapq_scaling_factor;

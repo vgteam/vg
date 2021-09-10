@@ -449,13 +449,13 @@ double GSSWAligner::first_mapping_quality_exact(const vector<double>& scaled_sco
 }
 
 double GSSWAligner::first_mapping_quality_approx(const vector<double>& scaled_scores,
-                                                   const vector<double>* multiplicities) {
+                                                 const vector<double>* multiplicities) {
     return maximum_mapping_quality_approx(scaled_scores, nullptr, multiplicities);
 }
 
 double GSSWAligner::maximum_mapping_quality_exact(const vector<double>& scaled_scores, size_t* max_idx_out,
                                                   const vector<double>* multiplicities) {
-    
+
     // TODO: this isn't very well-named now that it also supports computing non-maximum
     // mapping qualities
     
@@ -726,8 +726,8 @@ void GSSWAligner::compute_mapping_quality(vector<Alignment>& alignments,
     }
 }
 
-int32_t GSSWAligner::compute_mapping_quality(const vector<double>& scores, bool fast_approximation,
-                                             const vector<double>* multiplicities) const {
+int32_t GSSWAligner::compute_max_mapping_quality(const vector<double>& scores, bool fast_approximation,
+                                                 const vector<double>* multiplicities) const {
     
     vector<double> scaled_scores(scores.size());
     for (size_t i = 0; i < scores.size(); i++) {
@@ -736,6 +736,16 @@ int32_t GSSWAligner::compute_mapping_quality(const vector<double>& scores, bool 
     size_t idx;
     return (int32_t) (fast_approximation ? maximum_mapping_quality_approx(scaled_scores, &idx, multiplicities)
                                          : maximum_mapping_quality_exact(scaled_scores, &idx, multiplicities));
+}
+
+int32_t GSSWAligner::compute_first_mapping_quality(const vector<double>& scores, bool fast_approximation,
+                                                   const vector<double>* multiplicities) const {
+    vector<double> scaled_scores(scores.size());
+    for (size_t i = 0; i < scores.size(); i++) {
+        scaled_scores[i] = log_base * scores[i];
+    }
+    return (int32_t) (fast_approximation ? first_mapping_quality_approx(scaled_scores, multiplicities)
+                                         : first_mapping_quality_exact(scaled_scores, multiplicities));
 }
 
 int32_t GSSWAligner::compute_group_mapping_quality(const vector<double>& scores, const vector<size_t>& group,

@@ -636,7 +636,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
     // Use exact mapping quality 
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
-        get_regular_aligner()->compute_mapping_quality(scores, false) ;
+        get_regular_aligner()->compute_max_mapping_quality(scores, false) ;
 
 #ifdef print_minimizer_table
     double uncapped_mapq = mapq;
@@ -2009,7 +2009,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         // If all of the alignment pairs were found with rescue, use the multiplicities to determine mapq
         // Use exact mapping quality
         uncapped_mapq = scores[0] == 0 ? 0 : 
-            get_regular_aligner()->compute_mapping_quality(scores, false, multiplicities);
+            get_regular_aligner()->compute_max_mapping_quality(scores, false, multiplicities);
 
         //Cap mapq at 1 - 1 / # equivalent or better fragment clusters, including self
         if (better_cluster_count_by_mappings.front() > 1) {
@@ -2020,8 +2020,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
         //If one alignment was duplicated in other pairs, cap the mapq for that alignment at the mapq
         //of the group of duplicated alignments. Always compute this even if not quite sensible.
-        mapq_score_groups[0] = get_regular_aligner()->compute_mapping_quality(scores_group_1, false);
-        mapq_score_groups[1] = get_regular_aligner()->compute_mapping_quality(scores_group_2, false);
+        mapq_score_groups[0] = get_regular_aligner()->compute_max_mapping_quality(scores_group_1, false);
+        mapq_score_groups[1] = get_regular_aligner()->compute_max_mapping_quality(scores_group_2, false);
         
         for (auto read_num : {0, 1}) {
             // For each fragment
@@ -2062,7 +2062,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             if (types.front() == unpaired) {
                 //If this pair came from two different fragment cluster, then cap mapq at the mapq
                 //from only unpaired alignments of this read
-                mapq_cap = std::min(mapq_cap, (double)get_regular_aligner()->compute_mapping_quality(unpaired_scores[read_num], false));
+                mapq_cap = std::min(mapq_cap, (double)get_regular_aligner()->compute_max_mapping_quality(unpaired_scores[read_num], false));
             }
             
             // Find the MAPQ to cap
