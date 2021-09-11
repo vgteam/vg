@@ -3225,6 +3225,71 @@ namespace vg {
         }
         
     }
+
+TEST_CASE("Least optimal scores can be calculated", "[multipath]") {
+    
+    multipath_alignment_t mpaln;
+    mpaln.set_sequence("AAAAAAAAAAA");
+    
+    mpaln.add_subpath();
+    mpaln.add_subpath();
+    mpaln.add_subpath();
+    mpaln.add_subpath();
+    subpath_t* sp1 = mpaln.mutable_subpath(0);
+    subpath_t* sp2 = mpaln.mutable_subpath(1);
+    subpath_t* sp3 = mpaln.mutable_subpath(2);
+    subpath_t* sp4 = mpaln.mutable_subpath(3);
+    
+    sp1->add_next(1);
+    sp1->add_next(2);
+    sp2->add_next(3);
+    sp3->add_next(3);
+    
+    mpaln.add_start(0);
+    
+    sp1->set_score(5);
+    auto p1 = sp1->mutable_path();
+    auto m1 = p1->add_mapping();
+    m1->mutable_position()->set_node_id(1);
+    m1->mutable_position()->set_offset(0);
+    m1->mutable_position()->set_is_reverse(false);
+    auto e1 = m1->add_edit();
+    e1->set_from_length(5);
+    e1->set_to_length(5);
+    
+    sp2->set_score(1);
+    auto p2 = sp2->mutable_path();
+    auto m2 = p2->add_mapping();
+    m2->mutable_position()->set_node_id(2);
+    m2->mutable_position()->set_offset(0);
+    m2->mutable_position()->set_is_reverse(false);
+    auto e2 = m2->add_edit();
+    e2->set_from_length(1);
+    e2->set_to_length(1);
+    
+    sp3->set_score(-4);
+    auto p3 = sp3->mutable_path();
+    auto m3 = p3->add_mapping();
+    m3->mutable_position()->set_node_id(3);
+    m3->mutable_position()->set_offset(0);
+    m3->mutable_position()->set_is_reverse(false);
+    auto e3 = m3->add_edit();
+    e3->set_from_length(1);
+    e3->set_to_length(1);
+    e3->set_sequence("A");
+    
+    sp4->set_score(5);
+    auto p4 = sp4->mutable_path();
+    auto m4 = p4->add_mapping();
+    m4->mutable_position()->set_node_id(4);
+    m4->mutable_position()->set_offset(0);
+    m4->mutable_position()->set_is_reverse(false);
+    auto e4 = m4->add_edit();
+    e4->set_from_length(5);
+    e4->set_to_length(5);
+    
+    REQUIRE(worst_alignment_score(mpaln) == 6);
+}
 }
 
 
