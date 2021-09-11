@@ -1504,6 +1504,8 @@ Functions</h2></td></tr>
 <tr class="separator:a4e3c0f0d0f60a6a6ef1c301b63e9a21e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad3548ef9766130a155ba65420c0e7c0e"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad3548ef9766130a155ba65420c0e7c0e">optimal_alignment_score</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, bool subpath_global)</td></tr>
 <tr class="separator:ad3548ef9766130a155ba65420c0e7c0e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8e2c6fbf0d030acabb7dd6b8d428e143"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8e2c6fbf0d030acabb7dd6b8d428e143">worst_alignment_score</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln)</td></tr>
+<tr class="separator:a8e2c6fbf0d030acabb7dd6b8d428e143"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ada4d6b6771c5d7e5b2367b18ca8f76f3"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ada4d6b6771c5d7e5b2367b18ca8f76f3">optimal_alignments</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, size_t count)</td></tr>
 <tr class="separator:ada4d6b6771c5d7e5b2367b18ca8f76f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af711577f7d293ffc1c8002c868081bb1"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af711577f7d293ffc1c8002c868081bb1">optimal_alignments_with_disjoint_subpaths</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, size_t count)</td></tr>
@@ -22975,6 +22977,25 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a8e2c6fbf0d030acabb7dd6b8d428e143"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8e2c6fbf0d030acabb7dd6b8d428e143">&#9670;&nbsp;</a></span>worst_alignment_score()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int32_t vg::worst_alignment_score </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>multipath_aln</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Returns the score of the lowest-scoring source-to-sink alignment in the <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>. Assumes that subpaths are topologically ordered and starts have been identified. </p>
 
 </div>
 </div>

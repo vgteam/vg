@@ -132,8 +132,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a86d07f5ef78625fc4ca8c166c396f613"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a86d07f5ef78625fc4ca8c166c396f613">compute_paired_mapping_quality</a> (pair&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;alignment_pairs, const vector&lt; double &gt; &amp;frag_weights, int max_mapping_quality1, int max_mapping_quality2, bool fast_approximation, double cluster_mq, bool use_cluster_mq, int overlap_count1, int overlap_count2, double mq_estimate1, double mq_estimate2, double maybe_mq_threshold, double identity_weight) const</td></tr>
 <tr class="memdesc:a86d07f5ef78625fc4ca8c166c396f613"><td class="mdescLeft">&#160;</td><td class="mdescRight">same function for paired reads, mapping qualities are stored in both alignments in the pair  <a href="classvg_1_1GSSWAligner.html#a86d07f5ef78625fc4ca8c166c396f613">More...</a><br /></td></tr>
 <tr class="separator:a86d07f5ef78625fc4ca8c166c396f613"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a74ac3cb1ec6093abfbfe92b691167dce"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a74ac3cb1ec6093abfbfe92b691167dce">compute_mapping_quality</a> (const vector&lt; double &gt; &amp;scores, bool fast_approximation, const vector&lt; double &gt; *multiplicities=nullptr) const</td></tr>
-<tr class="separator:a74ac3cb1ec6093abfbfe92b691167dce"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af6559fb3f957acc44096cf8e2048c127"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#af6559fb3f957acc44096cf8e2048c127">compute_first_mapping_quality</a> (const vector&lt; double &gt; &amp;scores, bool fast_approximation, const vector&lt; double &gt; *multiplicities=nullptr) const</td></tr>
+<tr class="separator:af6559fb3f957acc44096cf8e2048c127"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a673269c14426e70ff8c01817ac06eda4"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a673269c14426e70ff8c01817ac06eda4">compute_max_mapping_quality</a> (const vector&lt; double &gt; &amp;scores, bool fast_approximation, const vector&lt; double &gt; *multiplicities=nullptr) const</td></tr>
+<tr class="separator:a673269c14426e70ff8c01817ac06eda4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac35684130035d20b8e5d004f55f39652"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ac35684130035d20b8e5d004f55f39652">compute_group_mapping_quality</a> (const vector&lt; double &gt; &amp;scores, const vector&lt; size_t &gt; &amp;group, const vector&lt; double &gt; *multiplicities=nullptr) const</td></tr>
 <tr class="separator:ac35684130035d20b8e5d004f55f39652"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af1a60f9e7f9a519f16c3f69a798f7f06"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#af1a60f9e7f9a519f16c3f69a798f7f06">mapping_quality_score_diff</a> (double mapping_quality) const</td></tr>
@@ -168,6 +170,10 @@ Static Public Member Functions</h2></td></tr>
 <tr class="separator:a6f627fd08a61adb4cd8761b2715e2398"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab0e776948467dcbe816f68b378ccd720"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ab0e776948467dcbe816f68b378ccd720">maximum_mapping_quality_approx</a> (const vector&lt; double &gt; &amp;scaled_scores, size_t *max_idx_out, const vector&lt; double &gt; *multiplicities=nullptr)</td></tr>
 <tr class="separator:ab0e776948467dcbe816f68b378ccd720"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a501d3ef8358f4ce01733627c7ab1faad"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a501d3ef8358f4ce01733627c7ab1faad">first_mapping_quality_exact</a> (const vector&lt; double &gt; &amp;scaled_scores, const vector&lt; double &gt; *multiplicities=nullptr)</td></tr>
+<tr class="separator:a501d3ef8358f4ce01733627c7ab1faad"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a42a1fc41aaaf45bb6e11ca0cd21b9d75"><td class="memItemLeft" align="right" valign="top">static double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a42a1fc41aaaf45bb6e11ca0cd21b9d75">first_mapping_quality_approx</a> (const vector&lt; double &gt; &amp;scaled_scores, const vector&lt; double &gt; *multiplicities=nullptr)</td></tr>
+<tr class="separator:a42a1fc41aaaf45bb6e11ca0cd21b9d75"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -722,6 +728,41 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="af6559fb3f957acc44096cf8e2048c127"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af6559fb3f957acc44096cf8e2048c127">&#9670;&nbsp;</a></span>compute_first_mapping_quality()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int32_t GSSWAligner::compute_first_mapping_quality </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; double &gt; &amp;&#160;</td>
+          <td class="paramname"><em>scores</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>fast_approximation</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; double &gt; *&#160;</td>
+          <td class="paramname"><em>multiplicities</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Computes mapping quality for the first score in a vector of scores. Optionally includes a vector of implicit counts &gt;= 1 for the scores, but the first mapping quality is always calculated as if it multiplicity is 1. </p>
+
+</div>
+</div>
 <a id="ac35684130035d20b8e5d004f55f39652"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac35684130035d20b8e5d004f55f39652">&#9670;&nbsp;</a></span>compute_group_mapping_quality()</h2>
 
@@ -757,43 +798,8 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a74ac3cb1ec6093abfbfe92b691167dce"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a74ac3cb1ec6093abfbfe92b691167dce">&#9670;&nbsp;</a></span>compute_mapping_quality() <span class="overload">[1/2]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int32_t GSSWAligner::compute_mapping_quality </td>
-          <td>(</td>
-          <td class="paramtype">const vector&lt; double &gt; &amp;&#160;</td>
-          <td class="paramname"><em>scores</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>fast_approximation</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const vector&lt; double &gt; *&#160;</td>
-          <td class="paramname"><em>multiplicities</em> = <code>nullptr</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Computes mapping quality for the optimal score in a vector of scores. Optionally includes a vector of implicit counts &gt;= 1 for the scores, but the mapping quality is always calculated as if it multiplicity is 1. </p>
-
-</div>
-</div>
 <a id="a9ab75f941cc5450b8fff9b7f07507272"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9ab75f941cc5450b8fff9b7f07507272">&#9670;&nbsp;</a></span>compute_mapping_quality() <span class="overload">[2/2]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a9ab75f941cc5450b8fff9b7f07507272">&#9670;&nbsp;</a></span>compute_mapping_quality()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -860,6 +866,41 @@ Protected Member Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>stores -10 * log_10(P_err) in alignment mapping_quality field where P_err is the probability that the alignment is not the correct one (assuming that one of the alignments in the vector is correct). alignments must have been created with this <a class="el" href="classvg_1_1Aligner.html">Aligner</a> for quality score to be valid </p>
+
+</div>
+</div>
+<a id="a673269c14426e70ff8c01817ac06eda4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a673269c14426e70ff8c01817ac06eda4">&#9670;&nbsp;</a></span>compute_max_mapping_quality()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int32_t GSSWAligner::compute_max_mapping_quality </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; double &gt; &amp;&#160;</td>
+          <td class="paramname"><em>scores</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>fast_approximation</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; double &gt; *&#160;</td>
+          <td class="paramname"><em>multiplicities</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Computes mapping quality for the optimal score in a vector of scores. Optionally includes a vector of implicit counts &gt;= 1 for the scores, but the mapping quality is always calculated as if it multiplicity is 1. </p>
 
 </div>
 </div>
@@ -1052,6 +1093,80 @@ Protected Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a42a1fc41aaaf45bb6e11ca0cd21b9d75"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a42a1fc41aaaf45bb6e11ca0cd21b9d75">&#9670;&nbsp;</a></span>first_mapping_quality_approx()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">double GSSWAligner::first_mapping_quality_approx </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; double &gt; &amp;&#160;</td>
+          <td class="paramname"><em>scaled_scores</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; double &gt; *&#160;</td>
+          <td class="paramname"><em>multiplicities</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Same as maximum_mapping_quality_approx except alway s computes mapping quality for the first score </p>
+
+</div>
+</div>
+<a id="a501d3ef8358f4ce01733627c7ab1faad"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a501d3ef8358f4ce01733627c7ab1faad">&#9670;&nbsp;</a></span>first_mapping_quality_exact()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">double GSSWAligner::first_mapping_quality_exact </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; double &gt; &amp;&#160;</td>
+          <td class="paramname"><em>scaled_scores</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; double &gt; *&#160;</td>
+          <td class="paramname"><em>multiplicities</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Same as maximum_mapping_quality_exact except alway s computes mapping quality for the first score </p>
 
 </div>
 </div>
