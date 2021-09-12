@@ -56,12 +56,32 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
     allele_idx[ref_allele] = make_pair(0, ref_path_idx);
     trav_to_allele[ref_path_idx] = 0;
     bool substitution = true;
-        
+
+    vector<string> alleles(travs.size());
+    if (ref_allele.size() > 10000) {
+#pragma omp parallel for
+        for (int i = 0; i < travs.size(); ++i) {
+            if (i != ref_path_idx) {
+                if (use_trav[i]) {
+                    alleles[i] = trav_to_string(travs[i]);
+                }
+            }
+        }
+    } else {
+        for (int i = 0; i < travs.size(); ++i) {
+            if (i != ref_path_idx) {
+                if (use_trav[i]) {
+                    alleles[i] = trav_to_string(travs[i]);
+                }
+            }
+        }
+    }
+
     // set the other alleles (they can end up as 0 alleles too if their strings match the reference)
     for (int i = 0; i < travs.size(); ++i) {
         if (i != ref_path_idx) {
             if (use_trav[i]) {
-                string allele = trav_to_string(travs[i]);
+                auto& allele = alleles[i];
                 auto ai_it = allele_idx.find(allele);
                 if (ai_it == allele_idx.end()) {
                     // make a new allele for this string
@@ -716,7 +736,9 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
 
     // this allows us to run in parallel inside of each site deconstruction
     // there is now a path jaccard check that can be expensive in deep graphs
-    omp_set_max_active_levels(2);
+    // plus, we parallelize some steps inside of deconstruct_site
+    // which is called in parallel over ref positions, leading to the need for 3 levels
+    omp_set_max_active_levels(3);
 
     this->graph = graph;
     this->snarl_manager = snarl_manager;
@@ -883,7 +905,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
             }
         });
 
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic,1)
     for (auto& snarl : snarls_todo) {
         deconstruct_site(snarl);
     }
