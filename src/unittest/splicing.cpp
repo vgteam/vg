@@ -34,6 +34,8 @@ public:
     using MultipathMapper::align_to_splice_candidates;
     using MultipathMapper::test_splice_candidates;
     using MultipathMapper::extract_cluster_graph;
+    using MultipathMapper::splice_stats;
+    using MultipathMapper::no_splice_log_odds;
 };
 
 using bdsg::HashGraph;
@@ -51,15 +53,17 @@ TEST_CASE("SpliceRegion can detect a splice site on a trivial example",
     bool search_left = false;
     int64_t search_dist = 2;
     vector<string> motifs{"GC", "CA", "GT"};
+    vector<double> weights{1.0};
+    vector<pair<double, double>> params{{5.0, 2.0}};
 
     TestAligner test_aligner;
     vector<tuple<string, string, double>> table;
     for (auto motif : motifs) {
         table.emplace_back(motif, motif, 1.0 / motifs.size());
     }
-    SpliceMotifs splice_motifs(table, *test_aligner.get_regular_aligner());
+    SpliceStats splice_stats(table, weights, params, *test_aligner.get_regular_aligner());
 
-    SpliceRegion splice_region(pos, search_left, search_dist, graph, machine, splice_motifs);
+    SpliceRegion splice_region(pos, search_left, search_dist, graph, machine, splice_stats);
 
     auto m0 = splice_region.candidate_splice_sites(0);
     auto m1 = splice_region.candidate_splice_sites(2);
@@ -91,15 +95,17 @@ TEST_CASE("SpliceRegion can detect a splice site leftward",
     bool search_left = true;
     int64_t search_dist = 3;
     vector<string> motifs{"GC", "CA", "GT"};
+    vector<double> weights{1.0};
+    vector<pair<double, double>> params{{5.0, 2.0}};
 
     TestAligner test_aligner;
     vector<tuple<string, string, double>> table;
     for (auto motif : motifs) {
         table.emplace_back(motif, motif, 1.0 / motifs.size());
     }
-    SpliceMotifs splice_motifs(table, *test_aligner.get_regular_aligner());
+    SpliceStats splice_stats(table, weights, params, *test_aligner.get_regular_aligner());
 
-    SpliceRegion splice_region(pos, search_left, search_dist, graph, machine, splice_motifs);
+    SpliceRegion splice_region(pos, search_left, search_dist, graph, machine, splice_stats);
 
     auto m0 = splice_region.candidate_splice_sites(0);
     auto m1 = splice_region.candidate_splice_sites(2);
@@ -141,15 +147,17 @@ TEST_CASE("SpliceRegion can detect a splice sites across node boundaries",
     bool search_left = false;
     int64_t search_dist = 4;
     vector<string> motifs{"GC", "GG", "GT", "CG"};
+    vector<double> weights{1.0};
+    vector<pair<double, double>> params{{5.0, 2.0}};
 
     TestAligner test_aligner;
     vector<tuple<string, string, double>> table;
     for (auto motif : motifs) {
         table.emplace_back(motif, motif, 1.0 / motifs.size());
     }
-    SpliceMotifs splice_motifs(table, *test_aligner.get_regular_aligner());
+    SpliceStats splice_stats(table, weights, params, *test_aligner.get_regular_aligner());
 
-    SpliceRegion splice_region(pos, search_left, search_dist, graph, machine, splice_motifs);
+    SpliceRegion splice_region(pos, search_left, search_dist, graph, machine, splice_stats);
 
     auto m0 = splice_region.candidate_splice_sites(0);
     auto m1 = splice_region.candidate_splice_sites(2);
@@ -206,15 +214,17 @@ TEST_CASE("SpliceRegion can detect a splice sites across node boundaries going l
     bool search_left = true;
     int64_t search_dist = 2;
     vector<string> motifs{"GC", "GG"};
+    vector<double> weights{1.0};
+    vector<pair<double, double>> params{{5.0, 2.0}};
 
     TestAligner test_aligner;
     vector<tuple<string, string, double>> table;
     for (auto motif : motifs) {
         table.emplace_back(motif, motif, 1.0 / motifs.size());
     }
-    SpliceMotifs splice_motifs(table, *test_aligner.get_regular_aligner());
+    SpliceStats splice_stats(table, weights, params, *test_aligner.get_regular_aligner());
 
-    SpliceRegion splice_region(pos, search_left, search_dist, graph, machine, splice_motifs);
+    SpliceRegion splice_region(pos, search_left, search_dist, graph, machine, splice_stats);
 
     auto m0 = splice_region.candidate_splice_sites(0);
     auto m1 = splice_region.candidate_splice_sites(2);
@@ -1660,7 +1670,7 @@ TEST_CASE("MultipathMapper can make splice alignments from different candidates"
     MultipathMapperSpliceTest mapper(&xg_index, gcsaidx, lcpidx, &distance_index);
     // slack this up a bit so it doesn't filter out good candidates in the small graph
     // otherwise, we'd need to calibrate, which i don't want to do in a test
-    mapper.max_splice_p_value = 0.01;
+    mapper.set_log_odds_against_splice(10.0 * 1.4);
     
     Alignment aln;
     aln.set_sequence(string("CAAATTAGGGATGTGTAGATGATGAT") + string("TATTTAATATATGGATGGATTTTCA"));
@@ -1706,7 +1716,7 @@ TEST_CASE("MultipathMapper can make splice alignments from different candidates"
 
         REQUIRE(mp_alns.size() == 1);
         auto& m = mp_alns.front();
-        REQUIRE(optimal_alignment_score(m) == aln.sequence().size() + 10);
+        REQUIRE(optimal_alignment_score(m) == aln.sequence().size() + 10 - mapper.no_splice_log_odds + mapper.splice_stats.intron_length_score(89));
 
     }
     
@@ -1738,7 +1748,7 @@ TEST_CASE("MultipathMapper can make splice alignments from different candidates"
         
         REQUIRE(mp_alns.size() == 1);
         auto& m = mp_alns.front();
-        REQUIRE(optimal_alignment_score(m) == aln.sequence().size() + 10);
+        REQUIRE(optimal_alignment_score(m) == aln.sequence().size() + 10 - mapper.no_splice_log_odds + mapper.splice_stats.intron_length_score(89));
         
     }
 }
