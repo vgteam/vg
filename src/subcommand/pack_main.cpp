@@ -31,6 +31,7 @@ void help_pack(char** argv) {
          << "    -N, --node-list FILE   a white space or line delimited list of nodes to collect" << endl
          << "    -Q, --min-mapq N       ignore reads with MAPQ < N and positions with base quality < N [default: 0]" << endl
          << "    -c, --expected-cov N   expected coverage.  used only for memory tuning [default : 128]" << endl
+         << "    -s, --trim-ends N      ignore the first and last N aligned bases of each read" << endl 
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
 }
 
@@ -52,6 +53,7 @@ int main_pack(int argc, char** argv) {
     int min_mapq = 0;
     int min_baseq = 0;
     size_t expected_coverage = 128;
+    int trim_ends = 0;
 
     if (argc == 2) {
         help_pack(argv);
@@ -79,11 +81,12 @@ int main_pack(int argc, char** argv) {
             {"bin-size", required_argument, 0, 'b'},
             {"min-mapq", required_argument, 0, 'Q'},
             {"expected-cov", required_argument, 0, 'c'},
+            {"trim-ends", required_argument, 0, 's'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:o:i:g:a:dDut:eb:n:N:Q:c:",
+        c = getopt_long (argc, argv, "hx:o:i:g:a:dDut:eb:n:N:Q:c:s:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -126,7 +129,7 @@ int main_pack(int argc, char** argv) {
             break;
         case 'b':
             bin_size = atoll(optarg);
-            break;
+            break;            
         case 't':
         {
             int num_threads = parse<int>(optarg);
@@ -149,6 +152,9 @@ int main_pack(int argc, char** argv) {
             break;
         case 'c':
             expected_coverage = parse<size_t>(optarg);
+            break;
+        case 's':
+            trim_ends = parse<int>(optarg);
             break;
         default:
             abort();
@@ -219,8 +225,8 @@ int main_pack(int argc, char** argv) {
         packer.merge_from_files(packs_in);
     }
 
-    std::function<void(Alignment&)> lambda = [&packer,&min_mapq,&min_baseq](Alignment& aln) {
-        packer.add(aln, min_mapq, min_baseq);
+    std::function<void(Alignment&)> lambda = [&packer,&min_mapq,&min_baseq,&trim_ends](Alignment& aln) {
+        packer.add(aln, min_mapq, min_baseq, trim_ends);
     };
 
     if (!gam_in.empty()) {

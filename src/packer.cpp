@@ -455,7 +455,7 @@ void Packer::remove_edit_tmpfiles(void) {
     }
 }
 
-void Packer::add(const Alignment& aln, int min_mapq, int min_baseq) {
+void Packer::add(const Alignment& aln, int min_mapq, int min_baseq, int trim_ends) {
     // mapping quality threshold filter
     int mapping_quality = aln.mapping_quality();
     if (mapping_quality < min_mapq) {
@@ -467,6 +467,70 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq) {
     int prev_bq_total = 0;
     int prev_bq_count = 0;
     size_t position_in_read = 0;
+
+    size_t trim_start_mapping = 0;
+    size_t trim_start_edit = 0;
+    size_t trim_start_offset = 0;
+    size_t trim_end_mapping = numeric_limits<size_t>::max();
+    size_t trim_end_edit = numeric_limits<size_t>::max();
+    size_t trim_end_offset = numeric_limits<size_t>::max();
+    if (trim_ends > 0) {
+        // do a pass to determine trimming.
+        // we count "trim_ends" aligned bases from each end, and remember
+        // the mapping/edit/offset when the count is reached.
+        // in the logic below, everything outside these intervals will
+        // be ignored.  
+        size_t ab = 0;
+        size_t found = false;
+        // todo: we could do this pass in the main loop down below...
+        for (size_t i = 0; i < aln.path().mapping_size() && !found; ++i) {
+            const Mapping& mapping = aln.path().mapping(i);
+            for (size_t j = 0; j < mapping.edit_size() && !found; ++j) {
+                const Edit& edit = mapping.edit(j);
+                if (edit_is_match(edit)) {
+                    if (ab + edit.to_length() >= trim_ends) {
+                        trim_start_mapping = i;
+                        trim_start_edit = j;
+                        trim_start_offset = trim_ends - ab;
+                        found = true;
+                    }
+                    ab += edit.to_length();
+                }
+            }            
+        }
+        // same as above, but backwards
+        ab = 0;
+        found = false;
+        for (size_t i = 0; i < aln.path().mapping_size() && !found; ++i) {
+            const Mapping& mapping = aln.path().mapping(aln.path().mapping_size() - 1 - i);
+            for (size_t j = 0; j < mapping.edit_size() && !found; ++j) {
+                const Edit& edit = mapping.edit(mapping.edit_size() - 1 - j);
+                if (edit_is_match(edit)) {
+                    if (ab + edit.to_length() >= trim_ends) {
+                        trim_end_mapping = aln.path().mapping_size() - 1 - i;
+                        trim_end_edit = mapping.edit_size() - 1 - j;
+                        trim_end_offset = edit.to_length() - (trim_ends - ab);
+                        found = true;
+                    }
+                    ab += edit.to_length();
+                }
+            }            
+        }
+    }
+    function<bool(size_t, size_t, size_t)> trim_check = [&](size_t mi, size_t ei, size_t eo) {
+        if (mi > trim_start_mapping ||
+            (mi == trim_start_mapping && ei > trim_start_edit) ||
+            (mi == trim_start_mapping && ei == trim_start_edit && eo >= trim_start_offset)) {
+            if (mi < trim_end_mapping ||
+                (mi == trim_end_mapping && ei < trim_end_edit) ||
+                (mi == trim_end_mapping && ei == trim_end_edit && eo < trim_end_offset)) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    size_t cur_pos = 0;
     for (size_t mi = 0; mi < aln.path().mapping_size(); ++mi) {
         auto& mapping = aln.path().mapping(mi);
         if (!mapping.has_position()) {
@@ -487,7 +551,8 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq) {
         // keep track of average base quality in the mapping
         int bq_total = 0;
         int bq_count = 0;
-        if (record_bases or record_qualities) {
+        int ei = 0;
+        if (record_bases || record_qualities) {
             for (auto& edit : mapping.edit()) {
                 if (edit_is_match(edit)) {
 #ifdef debug
@@ -500,7 +565,7 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq) {
                         bq_total += base_quality;
                         ++bq_count;
                         // base quality threshold filter (only if we found some kind of quality)
-                        if (base_quality < 0 || base_quality >= min_baseq) {
+                        if (record_bases && (base_quality < 0 || base_quality >= min_baseq) && (trim_ends <= 0 || trim_check(mi, ei, j))) {
                             increment_coverage(coverage_idx);
                             if (record_qualities && mapping_quality > 0) {
                                 total_node_quality += mapping_quality;
@@ -523,13 +588,15 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq) {
                 if (!edit_is_match(edit)) {
                     position_in_read += edit.to_length();
                 }
+                ++ei;
             }
             if (total_node_quality > 0) {
                 increment_node_quality(node_quality_index, total_node_quality);
             }
         }
         
-        if (record_edges && has_prev_mapping && prev_mapping.position().node_id() != mapping.position().node_id()) {
+        if (record_edges && has_prev_mapping && prev_mapping.position().node_id() != mapping.position().node_id() &&
+            (trim_ends <= 0 || trim_check(mi, 0, 0))) {
             // Note: we are effectively ignoring edits here.  So an edge is covered even
             // if there's a sub or indel at either of its ends in the path.  
             Edge e;
