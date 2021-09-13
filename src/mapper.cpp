@@ -4083,7 +4083,7 @@ double FragmentLengthStatistics::fragment_length_pdf(double length) {
 // that the value is at least as extreme as this one
 double FragmentLengthStatistics::fragment_length_pval(double length) {
     double x = abs(length-cached_fragment_length_mean)/cached_fragment_length_stdev;
-    return 1 - phi(-x,x);
+    return 1 - (Phi(x) - Phi(-x));
 }
 
 bool FragmentLengthStatistics::fragment_orientation(void) {
@@ -5285,7 +5285,7 @@ void FragmentLengthDistribution::estimate_distribution() {
     mu = sum / count;
     double raw_var = sum_of_sqs / count - mu * mu;
     // apply method of moments estimation using the appropriate truncated normal distribution
-    double a = normal_inverse_cdf(1.0 - 0.5 * (1.0 - robust_estimation_fraction));
+    double a = Phi_inv(1.0 - 0.5 * (1.0 - robust_estimation_fraction));
     sigma = sqrt(raw_var / (1.0 - 2.0 * a * normal_pdf(a, 0.0, 1.0)));
 }
     

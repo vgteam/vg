@@ -167,6 +167,7 @@ namespace vg {
         double rescue_graph_std_devs = 6.0;
         double mapq_scaling_factor = 1.0;
         bool report_group_mapq = false;
+        bool report_allelic_mapq = false;
         // There must be a ScoreProvider provided, and a positive population_max_paths, if this is true
         bool use_population_mapqs = false;
         // If this is nonzero, it takes precedence over any haplotype count

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 24
+plan tests 26
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -107,6 +107,30 @@ is "${?}" "0" "surjecting with a sequence dictionary in non-sorted order produce
 diff surjected-xy.dict small/xy.dict
 is "${?}" "0" "surjecting with a sequence dictionary in sorted order produces headers in sorted order"
 
-rm -f xy.vg xy.gbwt xy.xg xy.snarls xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi surjected-yx.dict surjected-xy.dict
+rm -f surjected-yx.dict surjected-xy.dict
+
+vg construct -r small/x.fa > x.vg
+vg sim -a -p 200 -v 10 -l 50 -n 1000 -s 12345 -x x.vg >x.gam
+
+vg giraffe xy.fa xy.vcf.gz -G x.gam -o SAM -i --fragment-mean 200 --fragment-stdev 10 --distance-limit 50 >xy.sam
+X_HITS="$(cat xy.sam | grep -v "^@" | cut -f3 | grep x | wc -l)"
+if [ "${X_HITS}" -lt 1200 ] && [ "${X_HITS}" -gt 800 ] ; then
+    IN_RANGE="1"
+else
+    IN_RANGE="0"
+fi
+is "${IN_RANGE}" "1" "paired reads are evenly split between equivalent mappings"
+
+vg giraffe xy.fa xy.vcf.gz -G x.gam -o SAM >xy.sam
+X_HITS="$(cat xy.sam | grep -v "^@" | cut -f3 | grep x | wc -l)"
+if [ "${X_HITS}" -lt 1200 ] && [ "${X_HITS}" -gt 800 ] ; then
+    IN_RANGE="1"
+else
+    IN_RANGE="0"
+fi
+is "${IN_RANGE}" "1" "unpaired reads are evenly split between equivalent mappings"
+
+rm -f x.vg x.gam xy.sam
+rm -f xy.vg xy.gbwt xy.xg xy.snarls xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
 rm -f xy.giraffe.gbz
 

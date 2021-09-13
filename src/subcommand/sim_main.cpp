@@ -765,7 +765,9 @@ int main_sim(int argc, char** argv) {
         unique_ptr<AlignmentEmitter> alignment_emitter = get_non_hts_alignment_emitter("-", json_out ? "JSON" : "GAM",
                                                                                        map<string, int64_t>(), get_thread_count());
         
-#pragma omp parallel for
+        // static scheduling could produce some degradation in speed, but i think it should make
+        // the output deterministic (except for ordering)
+#pragma omp parallel for schedule(static)
         for (size_t i = 0; i < num_reads; i++) {
             if (fragment_length) {
                 pair<Alignment, Alignment> read_pair = sampler.sample_read_pair();
@@ -776,8 +778,9 @@ int main_sim(int argc, char** argv) {
                     alignment_emitter->emit_pair(std::move(read_pair.first), std::move(read_pair.second));
                 }
                 else {
+                    string line = read_pair.first.sequence() + '\t' + read_pair.second.sequence() + '\n';
 #pragma omp critical
-                    cout << read_pair.first.sequence() << "\t" << read_pair.second.sequence() << endl;
+                    cout << line;
                 }
             }
             else {
@@ -788,8 +791,9 @@ int main_sim(int argc, char** argv) {
                     alignment_emitter->emit_single(std::move(read));
                 }
                 else {
+                    string line = read.sequence() + '\n';
 #pragma omp critical
-                    cout << read.sequence() << endl;
+                    cout << line;
                 }
             }
         }

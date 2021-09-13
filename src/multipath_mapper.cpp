@@ -729,9 +729,9 @@ namespace vg {
         identify_start_subpaths(rescue_multipath_aln);
         
         vector<double> score(1, aln.score());
-        int32_t solo_mapq = mapq_scaling_factor * aligner->compute_mapping_quality(score,
-                                                                                   mapping_quality_method == None
-                                                                                   || mapping_quality_method == Approx);
+        int32_t solo_mapq = mapq_scaling_factor * aligner->compute_max_mapping_quality(score,
+                                                                                       mapping_quality_method == None
+                                                                                       || mapping_quality_method == Approx);
         int32_t adjusted_mapq = min<int32_t>(solo_mapq, min(max_mapping_quality, multipath_aln.mapping_quality()));
         rescue_multipath_aln.set_mapping_quality(adjusted_mapq);
         
@@ -5906,15 +5906,15 @@ namespace vg {
         assert(mapq_method != None);
    
         auto aligner = get_aligner(have_qualities);
-        int32_t raw_mapq;
-        if (mapping_quality_method == Adaptive) {
-            raw_mapq = aligner->compute_mapping_quality(scores, scores.size() < 2 ? true :
-                                                        (scores[1] < scores[0] - get_aligner()->mapping_quality_score_diff(max_mapping_quality)),
-                                                        multiplicities);
+        
+        bool use_exact = (mapq_method == Exact);
+        if (!use_exact && scores.size() >= 2
+            && (scores[1] > scores[0] ||
+                (mapq_method == Adaptive && scores[1] < scores[0] - get_aligner()->mapping_quality_score_diff(max_mapping_quality)))) {
+            use_exact = true;
         }
-        else {
-            raw_mapq = aligner->compute_mapping_quality(scores, mapping_quality_method == Approx, multiplicities);
-        }
+        
+        int32_t raw_mapq = aligner->compute_first_mapping_quality(scores, !use_exact, multiplicities);
         
         // arbitrary scaling, seems to help performance
         raw_mapq *= mapq_scaling_factor;
@@ -5951,9 +5951,12 @@ namespace vg {
             order[i] = i;
         }
         // Sort, shuffling based on the aligned sequence to break ties.
+        LazyRNG rng([&]() {
+            return make_shuffle_seed(multipath_alns.front());
+        });
         sort_shuffling_ties(order.begin(), order.end(),
             [&](const size_t i, const size_t j) { return scores[i] > scores[j]; },
-            [&](const size_t seed_source) {return multipath_alns[seed_source].sequence(); });
+            rng);
         
         // translate the order to an index
         vector<size_t> index(multipath_alns.size());
@@ -5973,7 +5976,6 @@ namespace vg {
                     std::swap((*multiplicities)[index[i]], (*multiplicities)[i]);
                 }
                 std::swap(index[index[i]], index[i]);
-                
             }
         }
         
@@ -6017,6 +6019,7 @@ namespace vg {
             cerr << endl;
         }
 #endif
+        
 
         if (mapq_method != None) {
             // Sometimes we are passed None, which means to not update the MAPQs at all. But otherwise, we do MAPQs.
@@ -6024,6 +6027,24 @@ namespace vg {
             int32_t uncapped_mapq = compute_raw_mapping_quality_from_scores(scores, mapq_method, !multipath_alns.front().quality().empty(),
                                                                             multiplicities);
             multipath_alns.front().set_mapping_quality(min<int32_t>(uncapped_mapq, max_mapping_quality));
+            
+            if (report_allelic_mapq) {
+                // figure out what the mapping quality would be for the lowest-scoring combination of
+                // alleles
+                int32_t allelic_diff = optimal_alignment_score(multipath_alns.front()) - worst_alignment_score(multipath_alns.front());
+                if (allelic_diff != 0) {
+                    scores[0] -= allelic_diff;
+                    int32_t uncapped_allelic_mapq = compute_raw_mapping_quality_from_scores(scores, mapq_method,
+                                                                                            !multipath_alns.front().quality().empty(),
+                                                                                            multiplicities);
+                    int32_t allelic_mapq = min<int32_t>(uncapped_allelic_mapq, max_mapping_quality);
+                    if (allelic_mapq != multipath_alns.front().mapping_quality()) {
+                        // other alleles do not place this read as confidently
+                        multipath_alns.front().set_annotation("allelic_mapq", (double) allelic_mapq);
+                    }
+                    scores[0] += allelic_diff;
+                }
+            }
         }
         
         if (report_group_mapq) {
@@ -6070,13 +6091,15 @@ namespace vg {
         for (size_t i = 1; i < multipath_aln_pairs.size(); i++) {
             order[i] = i;
         }
+        // Sort, shuffling based on the aligned sequence to break ties.
+        LazyRNG rng([&]() {
+            return make_shuffle_seed(multipath_aln_pairs.front());
+        });
         sort_shuffling_ties(order.begin(), order.end(),
             [&](const size_t i, const size_t j) {
                 return scores[i] > scores[j];
             },
-            [&](const size_t seed_source) {
-                return multipath_aln_pairs[seed_source].first.sequence() + multipath_aln_pairs[seed_source].second.sequence();
-            });
+            rng);
         
         // translate the order to an index
         vector<size_t> index(multipath_aln_pairs.size());
@@ -6128,6 +6151,29 @@ namespace vg {
             int32_t mapq = min<int32_t>(uncapped_mapq, max_mapping_quality);
             multipath_aln_pairs.front().first.set_mapping_quality(mapq);
             multipath_aln_pairs.front().second.set_mapping_quality(mapq);
+            
+            int32_t allelic_diff_1 = 0, allelic_diff_2 = 0;
+            if (report_allelic_mapq) {
+                // figure out what the mapping quality would be for the lowest-scoring combination of  alleles
+                allelic_diff_1 = (optimal_alignment_score(multipath_aln_pairs.front().first)
+                                  - worst_alignment_score(multipath_aln_pairs.front().first));
+                allelic_diff_2 = (optimal_alignment_score(multipath_aln_pairs.front().second)
+                                  - worst_alignment_score(multipath_aln_pairs.front().second));
+                if (allelic_diff_1 != 0 || allelic_diff_2 != 0) {
+                    scores[0] -= allelic_diff_1 + allelic_diff_2;
+                    int32_t uncapped_allelic_mapq = compute_raw_mapping_quality_from_scores(scores, mapping_quality_method,
+                                                                                            !multipath_aln_pairs.front().first.quality().empty() &&
+                                                                                            !multipath_aln_pairs.front().second.quality().empty(),
+                                                                                            multiplicities);
+                    int32_t allelic_mapq = min<int32_t>(uncapped_allelic_mapq, max_mapping_quality);
+                    if (allelic_mapq != mapq) {
+                        // other alleles might not place this read as confidently
+                        multipath_aln_pairs.front().first.set_annotation("allelic_mapq", (double) allelic_mapq);
+                        multipath_aln_pairs.front().second.set_annotation("allelic_mapq", (double) allelic_mapq);
+                    }
+                    scores[0] += allelic_diff_1 + allelic_diff_2;
+                }
+            }
             
             if (multipath_aln_pairs.size() > 1) {
                 // find the duplicates of the optimal pair (initially mark with only the pair itself)
@@ -6226,6 +6272,37 @@ namespace vg {
                     
                     multipath_aln_pairs.front().first.set_mapping_quality(mapq_1);
                     multipath_aln_pairs.front().second.set_mapping_quality(mapq_2);
+                    
+                    if (report_allelic_mapq && (allelic_diff_1 != 0 || allelic_diff_2)) {
+                        for (auto i : duplicates_1) {
+                            scores[i] -= allelic_diff_1;
+                        }
+                        for (auto i : duplicates_2) {
+                            scores[i] -= allelic_diff_2;
+                        }
+                        
+                        int32_t raw_allelic_mapq_1 = aligner->compute_group_mapping_quality(scores, duplicates_1, multiplicities);
+                        int32_t raw_allelic_mapq_2 = aligner->compute_group_mapping_quality(scores, duplicates_2, multiplicities);
+                        
+                        int32_t allelic_mapq_1 = min<int32_t>(raw_mapq_1 * mapq_scaling_factor, max_mapping_quality);
+                        int32_t allelic_mapq_2 = min<int32_t>(raw_mapq_2 * mapq_scaling_factor, max_mapping_quality);
+                        
+                        if (allelic_mapq_1 != mapq_1) {
+                            // other alleles might not place this read as confidently
+                            multipath_aln_pairs.front().first.set_annotation("allelic_mapq", (double) allelic_mapq_1);
+                        }
+                        if (allelic_mapq_2 != mapq_2) {
+                            // other alleles might not place this read as confidently
+                            multipath_aln_pairs.front().second.set_annotation("allelic_mapq", (double) allelic_mapq_2);
+                        }
+                        
+                        for (auto i : duplicates_1) {
+                            scores[i] += allelic_diff_1;
+                        }
+                        for (auto i : duplicates_2) {
+                            scores[i] += allelic_diff_2;
+                        }
+                    }
                 }
             }
         }

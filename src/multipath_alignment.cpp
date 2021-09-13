@@ -773,6 +773,38 @@ namespace vg {
         // do dynamic programming without traceback
         return optimal_alignment_internal(multipath_aln, nullptr, subpath_global);
     }
+
+    int32_t worst_alignment_score(const multipath_alignment_t& multipath_aln) {
+        
+        if (multipath_aln.subpath().empty()) {
+            return 0;
+        }
+        
+        // initialize a DP table
+        vector<int32_t> dp(multipath_aln.subpath_size(), numeric_limits<int32_t>::max());
+        
+        // initial conditions, allow alignments to begin at the starts
+        for (auto i : multipath_aln.start()) {
+            dp[i] = 0;
+        }
+        
+        int32_t opt = numeric_limits<int32_t>::max();
+        for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+            const auto& subpath = multipath_aln.subpath(i);
+            int32_t score_thru = dp[i] + subpath.score();
+            if (subpath.next().empty()) {
+                // this is a sink, check for optimality
+                opt = min(opt, score_thru);
+            }
+            else {
+                // carry the DP through to the next subpaths
+                for (auto j : subpath.next()) {
+                    dp[j] = min(dp[j], score_thru);
+                }
+            }
+        }
+        return max<int32_t>(opt, 0);
+    }
     
     vector<Alignment> optimal_alignments(const multipath_alignment_t& multipath_aln, size_t count) {
         
