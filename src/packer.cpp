@@ -596,7 +596,8 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq, int trim_end
         }
         
         if (record_edges && has_prev_mapping && prev_mapping.position().node_id() != mapping.position().node_id() &&
-            (trim_ends <= 0 || trim_check(mi, 0, 0))) {
+            (trim_ends <= 0 || (trim_check(mi, 0, 0) &&
+                                trim_check(mi - 1, aln.path().mapping(mi - 1).edit_size() - 1, aln.path().mapping(mi - 1).edit(aln.path().mapping(mi - 1).edit_size() - 1).to_length() - 1)))) {
             // Note: we are effectively ignoring edits here.  So an edge is covered even
             // if there's a sub or indel at either of its ends in the path.  
             Edge e;
