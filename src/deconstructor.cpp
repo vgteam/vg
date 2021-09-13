@@ -883,7 +883,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
             }
         });
 
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic,1)
     for (auto& snarl : snarls_todo) {
         deconstruct_site(snarl);
     }
