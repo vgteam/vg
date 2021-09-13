@@ -621,6 +621,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
 
     // we write a variant for every reference traversal
     // (optionally) selecting the subset of path traversals that are 1:1
+#pragma omp parallel for
     for (size_t i = 0; i < ref_travs.size(); ++i) {
         auto& ref_trav_idx = ref_travs[i];
         auto& ref_trav_offset = ref_offsets[i];
