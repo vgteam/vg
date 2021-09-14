@@ -1412,6 +1412,15 @@ int main_giraffe(int argc, char** argv) {
                     if (is_ready && !distribution_was_ready) {
                         // It has become ready now.
                         distribution_was_ready = true;
+                        
+                        if (show_progress) {
+                            // Report that it is now ready
+                            #pragma omp critical (cerr)
+                            {
+                                cerr << "Using fragment length estimate: " << minimizer_mapper.get_fragment_length_mean() << " +/- " << minimizer_mapper.get_fragment_length_stdev() << endl;
+                            }
+                        }
+                        
                         // Remember when now is.
                         all_threads_start = std::chrono::system_clock::now();
                     }
@@ -1435,7 +1444,7 @@ int main_giraffe(int argc, char** argv) {
 #ifdef __linux__
                     ensure_perf_for_thread();
 #endif
-                    
+
                     pair<vector<Alignment>, vector<Alignment>> mapped_pairs = minimizer_mapper.map_paired(aln1, aln2, ambiguous_pair_buffer);
                     if (!mapped_pairs.first.empty() && !mapped_pairs.second.empty()) {
                         //If we actually tried to map this paired end

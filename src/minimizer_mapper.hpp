@@ -272,9 +272,6 @@ protected:
     FragmentLengthDistribution fragment_length_distr;
     /// We may need to complain exactly once that the distribution is bad.
     atomic_flag warned_about_bad_distribution = ATOMIC_FLAG_INIT;
-    /// When reporting our work, we may need to report the finalization of the
-    /// distribution exactly once.
-    atomic_flag reported_final_distribution = ATOMIC_FLAG_INIT;
 
 //-----------------------------------------------------------------------------
 

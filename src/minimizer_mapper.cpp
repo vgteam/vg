@@ -775,14 +775,6 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                                                       vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer){
     if (fragment_length_distr.is_finalized()) {
 
-        if (show_work && !reported_final_distribution.test_and_set()) {
-            // We are responsible for logging the distribution
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Using fragment length estimate: " << fragment_length_distr.mean() << " +/- " << fragment_length_distr.std_dev() << endl;
-            }
-        }
-
         //If we know the fragment length distribution then we just map paired ended 
         return map_paired(aln1, aln2);
     } else {
