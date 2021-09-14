@@ -341,6 +341,7 @@ int main_mpmap(int argc, char** argv) {
     int max_softclip_overlap = 8;
     int max_splice_overhang = 2 * max_softclip_overlap;
     double no_splice_log_odds = 2.0;
+    double splice_rescue_graph_std_devs = 3.0;
     bool override_spliced_alignment = false;
     int match_score_arg = std::numeric_limits<int>::min();
     int mismatch_score_arg = std::numeric_limits<int>::min();
@@ -1879,11 +1880,12 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.agglomerate_multipath_alns = agglomerate_multipath_alns;
     
     // splicing parameters
-    int64_t min_softclip_length_for_splice = max<int>(int(ceil(log(total_seq_length * 2) / log(4.0))) + 2, 0);
+    int64_t min_softclip_length_for_splice = max<int>(int(floor(log(total_seq_length) / log(4.0))) - max_softclip_overlap / 2, 0);
     multipath_mapper.set_min_softclip_length_for_splice(min_softclip_length_for_splice);
     multipath_mapper.set_log_odds_against_splice(no_splice_log_odds);
     multipath_mapper.max_softclip_overlap = max_softclip_overlap;
     multipath_mapper.max_splice_overhang = max_splice_overhang;
+    multipath_mapper.splice_rescue_graph_std_devs = splice_rescue_graph_std_devs;
     if (!intron_distr_name.empty()) {
         multipath_mapper.set_intron_length_distribution(intron_mixture_weights, intron_component_params);
     }
