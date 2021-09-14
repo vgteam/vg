@@ -1040,26 +1040,33 @@ int main_giraffe(int argc, char** argv) {
     }
     
     // The IndexRegistry doesn't try to infer index files based on the
-    // basename, so do that here.
-    unordered_map<string, string> indexes_and_extensions = {
-        {"Giraffe GBZ", "gbz"},
-        {"XG", "xg"},
-        {"Giraffe GBWT", "gbwt"},
-        {"GBWTGraph", "gg"},
-        {"Giraffe Distance Index", "dist"},
-        {"Minimizers", "min"}
+    // basename, so do that here. We can have multiple extension options that
+    // we try in order of priority.
+    unordered_map<string, vector<string>> indexes_and_extensions = {
+        {"Giraffe GBZ", {"giraffe.gbz", "gbz"}},
+        {"XG", {"xg"}},
+        {"Giraffe GBWT", {"gbwt"}},
+        {"GBWTGraph", {"gg"}},
+        {"Giraffe Distance Index", {"dist"}},
+        {"Minimizers", {"min"}}
     };
     for (auto& completed : registry.completed_indexes()) {
         // Drop anything we already got from the list
         indexes_and_extensions.erase(completed);
     }
-    for (auto& index_and_extension : indexes_and_extensions) {
-        string inferred_filename = registry.get_prefix() + "." + index_and_extension.second;
-        if (ifstream(inferred_filename).is_open()) {
-            // A file with the appropriate name exists and we can read it
-            registry.provide(index_and_extension.first, inferred_filename);
-            // Report it because this may not be desired behavior
-            cerr << "Guessing that " << inferred_filename << " is " << index_and_extension.first << endl;
+    for (auto& index_and_extensions : indexes_and_extensions) {
+        // For each index type
+        for (auto& extension : index_and_extensions.second) {
+            // For each extension in priority order
+            string inferred_filename = registry.get_prefix() + "." + extension;
+            if (ifstream(inferred_filename).is_open()) {
+                // A file with the appropriate name exists and we can read it
+                registry.provide(index_and_extensions.first, inferred_filename);
+                // Report it because this may not be desired behavior
+                cerr << "Guessing that " << inferred_filename << " is " << index_and_extensions.first << endl;
+                // Skip other extension options for the index
+                break;
+            }
         }
     }
 
