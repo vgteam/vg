@@ -31,7 +31,7 @@ void help_pack(char** argv) {
          << "    -N, --node-list FILE   a white space or line delimited list of nodes to collect" << endl
          << "    -Q, --min-mapq N       ignore reads with MAPQ < N and positions with base quality < N [default: 0]" << endl
          << "    -c, --expected-cov N   expected coverage.  used only for memory tuning [default : 128]" << endl
-         << "    -s, --trim-ends N      ignore the first and last N aligned bases of each read" << endl 
+         << "    -s, --trim-ends N      ignore the first and last N bases of each read" << endl 
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
 }
 
