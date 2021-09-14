@@ -162,14 +162,10 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
                         new_component = false;
                     }
                 }
-                if (new_component) {
-                    temp_index.root_structure_count += 1;
-                }
             } else {
                 //If this chain isn't connected to anything else, then it is a single component of the root
                 temp_chain_record.parent = make_pair(SnarlDistanceIndex::TEMP_ROOT, 0);
                 temp_index.components.emplace_back(chain_index);
-                temp_index.root_structure_count += 1;
             }
         } else {
             //The last thing on the stack is the parent of this chain, which must be a snarl
@@ -230,7 +226,6 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             //If this was the last thing on the stack, then this was a root
             //TODO: I'm not sure if this would get put into a chain or not
             temp_snarl_record.parent = make_pair(SnarlDistanceIndex::TEMP_ROOT, 0);
-            temp_index.root_structure_count += 1;
             temp_index.components.emplace_back(snarl_index);
         } else {
             //This is the child of a chain
@@ -507,6 +502,11 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             temp_snarl_record.min_length = std::numeric_limits<size_t>::max();//TODO: This is true but might be better to store it as something else so we can bit compress later
         }
     }
+    temp_index.root_structure_count = temp_index.components.size();
+    assert(temp_index.components.size() == temp_index.root_structure_count);
+#ifdef debug_distance_indexing
+    cerr << "Finished temp index with " << temp_index.root_structure_count << " connected components" << endl;
+#endif
     return temp_index;
 }
 

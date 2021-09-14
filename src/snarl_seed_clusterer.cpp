@@ -5,7 +5,7 @@
 //#define DEBUG_CLUSTER
 namespace vg {
 
-    NewSnarlSeedClusterer::NewSnarlSeedClusterer( SnarlDistanceIndex& distance_index) :
+    NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index) :
                                             distance_index(distance_index){
     };
 

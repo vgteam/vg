@@ -31,7 +31,7 @@ class NewSnarlSeedClusterer {
             SmallBitset present; // Minimizers that are present in the cluster.
         };
 
-        NewSnarlSeedClusterer(SnarlDistanceIndex& distance_index);
+        NewSnarlSeedClusterer(const SnarlDistanceIndex& distance_index);
 
         //TODO: I don't want to be too tied to the minimizer_mapper implementation with seed structs
 
@@ -64,7 +64,7 @@ class NewSnarlSeedClusterer {
                 const vector<const vector<Seed>*>& all_seeds,
                 size_t read_distance_limit, size_t fragment_distance_limit=0) const;
 
-        SnarlDistanceIndex& distance_index;
+        const SnarlDistanceIndex& distance_index;
 
         enum ChildNodeType {CHAIN, SNARL, NODE};
 
