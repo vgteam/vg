@@ -358,11 +358,11 @@ DEPS += $(INC_DIR)/atomic_queue.h
 # These libraries provide no headers to affect the vg build.	
 LINK_DEPS =
 
-ifneq ($(shell uname -s),Darwin)
+#ifneq ($(shell uname -s),Darwin)
     # Use jemalloc
-	LINK_DEPS += $(LIB_DIR)/libjemalloc.a
-	LD_LIB_FLAGS += -ljemalloc
-endif
+#	LINK_DEPS += $(LIB_DIR)/libjemalloc.a
+#	LD_LIB_FLAGS += -ljemalloc
+#endif
 
 .PHONY: clean get-deps deps test set-path objs static static-docker docs man .pre-build .check-environment .check-git .no-git 
 
