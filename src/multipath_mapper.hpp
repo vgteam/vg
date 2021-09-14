@@ -165,6 +165,7 @@ namespace vg {
         double secondary_rescue_score_diff = 1.0;
         bool get_rescue_graph_from_paths = true;
         double rescue_graph_std_devs = 6.0;
+        double splice_rescue_graph_std_devs = 3.0;
         double mapq_scaling_factor = 1.0;
         bool report_group_mapq = false;
         bool report_allelic_mapq = false;
@@ -208,6 +209,7 @@ namespace vg {
         bool do_spliced_alignment = false;
         int64_t max_softclip_overlap = 8;
         int64_t max_splice_overhang = 3;
+        int64_t min_splice_rescue_matches = 6;
         // about 250k
         int64_t max_intron_length = 1 << 18;
         int64_t min_splice_ref_search_length = 6;
@@ -264,9 +266,16 @@ namespace vg {
         bool attempt_rescue(const multipath_alignment_t& multipath_aln, const Alignment& other_aln,
                             bool rescue_forward, multipath_alignment_t& rescue_multipath_aln);
         
+        /// Make an alignment to a rescue graph and translate it back to the original node space
+        /// Returns false if the alignment fails, but does not check statistical significance
+        bool do_rescue_alignment(const multipath_alignment_t& multipath_aln, const Alignment& other_aln,
+                                 bool rescue_forward, multipath_alignment_t& rescue_multipath_aln,
+                                 double rescue_mean_length, double num_std_devs) const;
+        
         /// Use the algorithm implied by the mapper settings to extract a subgraph to perform a rescue alignment against
         void extract_rescue_graph(const multipath_alignment_t& multipath_aln, const Alignment& other_aln,
-                                  bool rescue_forward, MutableHandleGraph* rescue_graph) const;
+                                  bool rescue_forward, MutableHandleGraph* rescue_graph,
+                                  double rescue_mean_length, double num_std_devs) const;
         
         /// After clustering MEMs, extracting graphs, and assigning hits to cluster graphs, perform
         /// multipath alignment.
@@ -426,7 +435,10 @@ namespace vg {
         bool find_spliced_alignments(const Alignment& alignment, vector<multipath_alignment_t>& multipath_alns_out,
                                      vector<double>& multiplicities, vector<size_t>& cluster_idxs,
                                      const vector<MaximalExactMatch>& mems, vector<clustergraph_t>& cluster_graphs,
-                                     const match_fanouts_t* fanouts = nullptr);
+                                     const match_fanouts_t* fanouts = nullptr,
+                                     const multipath_alignment_t* rescue_anchor = nullptr,
+                                     bool rescue_left = false,
+                                     double rescue_multiplicity = 1.0);
         
         /// Look for spliced alignments among the results of various stages in the mapping algorithm for pairs
         /// Returns true if any spliced alignments were made
@@ -489,6 +501,13 @@ namespace vg {
                                     const function<const multipath_alignment_t&(int64_t)>& get_candidate,
                                     const function<double(int64_t)>& get_multiplicity,
                                     const function<multipath_alignment_t&&(int64_t)>& consume_candidate);
+        
+        /// Try to rescue an anchor for a missing spliced alignment section between
+        /// the reads in a pair
+        bool attempt_rescue_for_splice_segment(const Alignment& alignment,
+                                               const pair<int64_t, int64_t>& primary_interval,
+                                               const multipath_alignment_t& rescue_anchor,
+                                               bool rescue_left, multipath_alignment_t& rescued_out) const;
         
         /// Check if any of the unpaired spliced alignments can make pairs now
         /// If any pairs are identified, can invalidate the input alignments

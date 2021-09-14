@@ -652,8 +652,51 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "attemping pair rescue in " << (rescue_forward ? "forward" : "backward") << " direction from " << debug_string(multipath_aln) << endl;
 #endif
+        bool succeeded = do_rescue_alignment(multipath_aln, other_aln, rescue_forward, rescue_multipath_aln,
+                                             fragment_length_distr.mean(), rescue_graph_std_devs);
+        
+        if (!succeeded) {
+            return false;
+        }
+        
+        auto aligner = get_aligner(!multipath_aln.quality().empty() && !other_aln.quality().empty());
+        vector<double> score(1, optimal_alignment_score(rescue_multipath_aln));
+        int32_t solo_mapq = mapq_scaling_factor * aligner->compute_max_mapping_quality(score,
+                                                                                       mapping_quality_method == None
+                                                                                       || mapping_quality_method == Approx);
+        int32_t adjusted_mapq = min<int32_t>(solo_mapq, min(max_mapping_quality, multipath_aln.mapping_quality()));
+        rescue_multipath_aln.set_mapping_quality(adjusted_mapq);
+        
+#ifdef debug_multipath_mapper
+        cerr << "converted multipath alignment is" << endl;
+        cerr << debug_string(rescue_multipath_aln) << endl;
+        cerr << "rescued alignment has effective match length " << pseudo_length(rescue_multipath_aln) << ", which gives p-value " << random_match_p_value(pseudo_length(rescue_multipath_aln), rescue_multipath_aln.sequence().size()) << endl;
+#endif
+
+        // TODO: magic number
+        if (solo_mapq < min(25, max_mapping_quality)) {
+#ifdef debug_multipath_mapper
+            cerr << "rescue fails because raw_mapq " << solo_mapq << " < " << min(25, max_mapping_quality) << endl;
+#endif
+            return false;
+        }
+        
+        if (likely_misrescue(rescue_multipath_aln)) {
+#ifdef debug_multipath_mapper
+            cerr << "rescue fails with p value above " << max_rescue_p_value << endl;
+#endif
+            return false;
+        }
+        
+        return true;
+    }
+
+    bool MultipathMapper::do_rescue_alignment(const multipath_alignment_t& multipath_aln, const Alignment& other_aln,
+                                              bool rescue_forward, multipath_alignment_t& rescue_multipath_aln,
+                                              double rescue_mean_length, double num_std_devs) const {
         bdsg::HashGraph rescue_graph;
-        extract_rescue_graph(multipath_aln, other_aln, rescue_forward, &rescue_graph);
+        extract_rescue_graph(multipath_aln, other_aln, rescue_forward, &rescue_graph,
+                             rescue_mean_length, rescue_graph_std_devs);
         
         if (rescue_graph.get_node_count() == 0) {
             return false;
@@ -728,39 +771,12 @@ namespace vg {
         
         identify_start_subpaths(rescue_multipath_aln);
         
-        vector<double> score(1, aln.score());
-        int32_t solo_mapq = mapq_scaling_factor * aligner->compute_max_mapping_quality(score,
-                                                                                       mapping_quality_method == None
-                                                                                       || mapping_quality_method == Approx);
-        int32_t adjusted_mapq = min<int32_t>(solo_mapq, min(max_mapping_quality, multipath_aln.mapping_quality()));
-        rescue_multipath_aln.set_mapping_quality(adjusted_mapq);
-        
-#ifdef debug_multipath_mapper
-        cerr << "converted multipath alignment is" << endl;
-        cerr << debug_string(rescue_multipath_aln) << endl;
-        cerr << "rescued alignment has effective match length " << pseudo_length(rescue_multipath_aln) << ", which gives p-value " << random_match_p_value(pseudo_length(rescue_multipath_aln), rescue_multipath_aln.sequence().size()) << endl;
-#endif
-
-        // TODO: magic number
-        if (solo_mapq < min(25, max_mapping_quality)) {
-#ifdef debug_multipath_mapper
-            cerr << "rescue fails because raw_mapq " << solo_mapq << " < " << min(25, max_mapping_quality) << endl;
-#endif
-            return false;
-        }
-        
-        if (likely_misrescue(rescue_multipath_aln)) {
-#ifdef debug_multipath_mapper
-            cerr << "rescue fails with p value above " << max_rescue_p_value << endl;
-#endif
-            return false;
-        }
-        
         return true;
     }
 
     void MultipathMapper::extract_rescue_graph(const multipath_alignment_t& multipath_aln, const Alignment& other_aln,
-                                               bool rescue_forward, MutableHandleGraph* rescue_graph) const {
+                                               bool rescue_forward, MutableHandleGraph* rescue_graph,
+                                               double rescue_mean_length, double num_std_devs) const {
         
         // get the position to jump from and the distance to jump
         Alignment opt_anchoring_aln;
@@ -773,7 +789,7 @@ namespace vg {
         if (get_rescue_graph_from_paths || !distance_index) {
             // we're either not using the distance index or we don't have one
             pos_t pos_from = rescue_forward ? initial_position(opt_anchoring_aln.path()) : final_position(opt_anchoring_aln.path());
-            int64_t jump_dist = rescue_forward ? fragment_length_distr.mean() : -fragment_length_distr.mean();
+            int64_t jump_dist = rescue_forward ? rescue_mean_length : -rescue_mean_length;
             
             // get the seed position(s) for the rescue by jumping along paths
             vector<pos_t> jump_positions = algorithms::jump_along_closest_path(xindex, pos_from, jump_dist, 250);
@@ -790,12 +806,12 @@ namespace vg {
             
             size_t search_dist_bwd, search_dist_fwd;
             if (rescue_forward) {
-                search_dist_bwd = size_t(round(rescue_graph_std_devs * fragment_length_distr.std_dev())) + other_aln.sequence().size();
-                search_dist_fwd = rescue_graph_std_devs * fragment_length_distr.std_dev();
+                search_dist_bwd = size_t(round(num_std_devs * fragment_length_distr.std_dev())) + other_aln.sequence().size();
+                search_dist_fwd = num_std_devs * fragment_length_distr.std_dev();
             }
             else {
-                search_dist_bwd = rescue_graph_std_devs * fragment_length_distr.std_dev();
-                search_dist_fwd = size_t(round(rescue_graph_std_devs * fragment_length_distr.std_dev())) + other_aln.sequence().size();
+                search_dist_bwd = num_std_devs * fragment_length_distr.std_dev();
+                search_dist_fwd = size_t(round(num_std_devs * fragment_length_distr.std_dev())) + other_aln.sequence().size();
             }
             
             vector<size_t> backward_dist(jump_positions.size(), search_dist_bwd);
@@ -809,9 +825,9 @@ namespace vg {
             
             // get the set of nodes that we want to extrat
             unordered_set<id_t> subgraph_nodes_to_add;
-            int64_t min_distance = max(0.0, fragment_length_distr.mean() - other_aln.sequence().size()
+            int64_t min_distance = max(0.0, rescue_mean_length - other_aln.sequence().size()
                                        - rescue_graph_std_devs * fragment_length_distr.std_dev());
-            int64_t max_distance = fragment_length_distr.mean() + rescue_graph_std_devs * fragment_length_distr.std_dev();
+            int64_t max_distance = rescue_mean_length + rescue_graph_std_devs * fragment_length_distr.std_dev();
             distance_index->subgraph_in_range(opt_anchoring_aln.path(), xindex, min_distance, max_distance,
                                               subgraph_nodes_to_add, rescue_forward);
             
@@ -1401,10 +1417,25 @@ namespace vg {
             cerr << "rescue failed, doing independent spliced alignment and then re-attempting pairing" << endl;
 #endif
             
+            multipath_alignment_t* rescue_anchor_1 = nullptr;
+            multipath_alignment_t* rescue_anchor_2 = nullptr;
+            double rescue_multiplicity_1 = 1.0, rescue_multiplicity_2 = 1.0;
+            if (!multipath_alns_1.empty()) {
+                rescue_anchor_1 = &multipath_alns_1.front();
+                rescue_multiplicity_1 = multiplicities_1.front();
+            }
+            if (!multipath_alns_2.empty()) {
+                rescue_anchor_2 = &multipath_alns_2.front();
+                rescue_multiplicity_2 = multiplicities_2.front();
+            }
+            
+            // find splices independently, also use the mate to rescue missing splice segments
             bool did_splice_1 = find_spliced_alignments(alignment1, multipath_alns_1, multiplicities_1, cluster_idxs_1,
-                                                        mems1, cluster_graphs1, fanouts1);
+                                                        mems1, cluster_graphs1, fanouts1,
+                                                        rescue_anchor_2, true, rescue_multiplicity_2);
             bool did_splice_2 = find_spliced_alignments(alignment2, multipath_alns_2, multiplicities_2, cluster_idxs_2,
-                                                        mems2, cluster_graphs2, fanouts2);
+                                                        mems2, cluster_graphs2, fanouts2,
+                                                        rescue_anchor_1, false, rescue_multiplicity_1);
             
             if (did_splice_1 || did_splice_2) {
                 // it may now be possible to identify some pairs as properly paired using the spliced alignment
@@ -2675,6 +2706,111 @@ namespace vg {
 #endif
     }
 
+    bool MultipathMapper::attempt_rescue_for_splice_segment(const Alignment& alignment, const pair<int64_t, int64_t>& primary_interval,
+                                                            const multipath_alignment_t& rescue_anchor,
+                                                            bool rescue_left, multipath_alignment_t& rescued_out) const {
+        
+        // extract the portion of the read that we want to form a spliced alignment with
+        string::const_iterator begin, end;
+        if (rescue_left) {
+            begin = alignment.sequence().begin() + max<int64_t>(0, primary_interval.second - max_softclip_overlap);
+            end = alignment.sequence().end();
+        }
+        else {
+            begin = alignment.sequence().begin();
+            end = alignment.sequence().begin() + max<int64_t>(primary_interval.first + max_softclip_overlap,
+                                                              alignment.sequence().size());
+        }
+        Alignment splice_aln;
+        splice_aln.set_sequence(string(begin, end));
+        if (!alignment.quality().empty()) {
+            splice_aln.set_quality(string(alignment.quality().begin() + (begin - alignment.sequence().begin()),
+                                          alignment.quality().begin() + (end - alignment.sequence().begin())));
+        }
+        
+#ifdef debug_multipath_mapper
+        cerr << "attempting to rescue a spliced alignment segment:" << endl;
+        cerr << pb2json(splice_aln) << endl;
+#endif
+        
+        // adjust the mean length to account for the part we're not realigning
+        double rescue_mean_length = max<double>(fragment_length_distr.mean()
+                                                - (alignment.sequence().size() - splice_aln.sequence().size()), 0.0);
+        
+        // try to align
+        bool succeeded = do_rescue_alignment(rescue_anchor, splice_aln, !rescue_left, rescued_out,
+                                             rescue_mean_length, splice_rescue_graph_std_devs);
+        
+        if (!succeeded) {
+            // we couldn't do the alignment
+            return false;
+        }
+        
+        // check if we got enough new, disjoint matches to be worth looking at (we can be
+        // pretty permissive here because we will test this candidate for signficance in next
+        // step of spliced alignment algorithm
+        auto rescued_interval = aligned_interval(rescued_out);
+        if (rescue_left) {
+            // we need to adjust offsets to make it match the full read
+            rescued_interval.first += (begin - alignment.sequence().begin());
+            rescued_interval.second += (begin - alignment.sequence().begin());
+            
+            succeeded = (rescued_interval.first >= primary_interval.second + max_softclip_overlap
+                         && rescued_interval.second - max(rescued_interval.first, primary_interval.second) >= min_splice_rescue_matches);
+        }
+        else {
+            succeeded = (rescued_interval.second <= primary_interval.first - max_softclip_overlap
+                         && min(rescued_interval.second, primary_interval.first) >= min_splice_rescue_matches);
+        }
+#ifdef debug_multipath_mapper
+        cerr << "rescue candidate covers read interval " << rescued_interval.first << ":" << rescued_interval.second << " compared to primary interval " << primary_interval.first << ":" << primary_interval.second << ", considered successful? " << succeeded << endl;
+#endif
+        
+        if (succeeded) {
+            // add in the soft-clips for the part of the read we trimmed off
+            if (rescue_left) {
+                for (auto i : rescued_out.start()) {
+                    auto mapping = rescued_out.mutable_subpath(i)->mutable_path()->mutable_mapping(0);
+                    if (mapping->edit().front().from_length() == 0) {
+                        // there's already a softclip, just expand it
+                        auto edit = mapping->mutable_edit(0);
+                        edit->mutable_sequence()->insert(edit->mutable_sequence()->begin(),
+                                                         alignment.sequence().begin(), begin);
+                        edit->set_to_length(edit->sequence().size());
+                    }
+                    else {
+                        // add a new edit for the softclip
+                        edit_t softclip;
+                        softclip.set_sequence(string(alignment.sequence().begin(), begin));
+                        softclip.set_to_length(softclip.sequence().size());
+                        mapping->mutable_edit()->insert(mapping->edit().begin(), softclip);
+                    }
+                }
+            }
+            else {
+                for (size_t i = 0; i < rescued_out.subpath_size(); ++i) {
+                    if (rescued_out.subpath(i).next().empty()) {
+                        auto& mapping = rescued_out.mutable_subpath(i)->mutable_path()->mutable_mapping()->back();
+                        if (mapping.edit().back().from_length() == 0) {
+                            // expand existing softclip
+                            auto& edit = mapping.mutable_edit()->back();
+                            edit.mutable_sequence()->insert(edit.mutable_sequence()->end(),
+                                                            end, alignment.sequence().end());
+                            edit.set_to_length(edit.sequence().size());
+                        }
+                        else {
+                            // add new edit for softclip
+                            auto softclip = mapping.add_edit();
+                            softclip->set_sequence(string(end, alignment.sequence().end()));
+                            softclip->set_to_length(softclip->sequence().size());
+                        }
+                    }
+                }
+            }
+        }
+        return succeeded;
+    }
+
     void MultipathMapper::identify_aligned_splice_candidates(const Alignment& alignment, bool search_left,
                                                              const pair<int64_t, int64_t>& primary_interval,
                                                              const vector<multipath_alignment_t>& multipath_alns,
@@ -2943,7 +3079,10 @@ namespace vg {
                                                   vector<size_t>& cluster_idxs,
                                                   const vector<MaximalExactMatch>& mems,
                                                   vector<clustergraph_t>& cluster_graphs,
-                                                  const match_fanouts_t* fanouts) {
+                                                  const match_fanouts_t* fanouts,
+                                                  const multipath_alignment_t* rescue_anchor,
+                                                  bool rescue_left,
+                                                  double rescue_multiplicity) {
         
         if (multipath_alns_out.empty()) {
             return false;
@@ -3125,6 +3264,60 @@ namespace vg {
                 bool did_splice = test_splice_candidates(alignment, do_left, splice_anchor, anchor_multiplicity,
                                                          strand, mp_aln_candidates.size() + unaligned_candidates.size(),
                                                          get_candidate, get_multiplicity, consume_candidate);
+                
+                if (!did_splice && rescue_anchor && do_left != rescue_left) {
+                    // we didn't find any splice junctions, but we might be able to rescue the spliced portion off
+                    // of the other read
+                    
+                    auto rescue_interval = aligned_interval(*rescue_anchor);
+                    
+                    if (rescue_anchor->mapping_quality() >= min<int>(30, max_mapping_quality)
+                        && ((rescue_left && rescue_interval.first == 0) ||
+                            (!rescue_left && rescue_interval.second == rescue_anchor->sequence().size()))) {
+                        
+                        multipath_alignment_t rescued;
+                        bool succeeded = attempt_rescue_for_splice_segment(alignment, interval, *rescue_anchor, rescue_left,
+                                                                           rescued);
+                        
+                        if (succeeded) {
+                            // set up simple functions to provide the rescued alignment as a candidate
+                            function<const multipath_alignment_t&(int64_t)> get_rescued_candidate = [&](int64_t i) -> const multipath_alignment_t& {
+                                if (i < 0) {
+                                    // TODO: is this branch actually necessary?
+                                    return splice_anchor;
+                                }
+                                else {
+                                    return rescued;
+                                }
+                            };
+                            function<double(int64_t)> get_rescued_multiplicity = [&](int64_t i) {
+                                if (i < 0) {
+                                    return anchor_multiplicity;
+                                }
+                                else {
+                                    return rescue_multiplicity;
+                                }
+                            };
+                            function<multipath_alignment_t&&(int64_t)> consume_rescued = [&](int64_t i) -> multipath_alignment_t&& {
+                                if (i < 0) {
+                                    // consume the anchor
+                                    return move(splice_anchor);
+                                }
+                                else {
+                                    return move(rescued);
+                                }
+                            };
+#ifdef debug_multipath_mapper
+                            cerr << "testing rescued spliced alignment segment as a candidate" << endl;
+#endif
+                            
+                            // do a test again with only the rescued candidate
+                            did_splice = test_splice_candidates(alignment, do_left, splice_anchor, anchor_multiplicity, strand, 1,
+                                                                get_rescued_candidate, get_rescued_multiplicity, consume_rescued);
+
+                        }
+                    }
+                }
                 
                 any_splices = any_splices || did_splice;
                 found_splice_for_anchor = found_splice_for_anchor || did_splice;
