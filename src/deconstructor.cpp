@@ -861,7 +861,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     }
 
     vector<const Snarl*> snarls_todo;
-    // Do the top-level snarls _not_ in parallel
+    // Do the top-level snarls in parallel
     snarl_manager->for_each_top_level_snarl([&](const Snarl* snarl) {
             vector<const Snarl*> todo(1, snarl);
             vector<const Snarl*> next;
@@ -870,7 +870,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                     // if we can't make a variant from the snarl due to not finding
                     // paths through it, we try again on the children
                     // note: we may want to push the parallelism down a bit
-//#pragma omp critical (snarls_todo)
+#pragma omp critical (snarls_todo)
                     snarls_todo.push_back(next_snarl);
                     if (include_nested) {
                         // n.b. we no longer attempt to deconstruct the site to determine if we nest
