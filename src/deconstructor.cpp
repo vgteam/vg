@@ -11,9 +11,6 @@ namespace vg {
 Deconstructor::Deconstructor() : VCFOutputCaller("") {
 }
 Deconstructor::~Deconstructor(){
-    for (auto& c : gbwt_pos_caches) {
-        delete c;
-    }
 }
 
 /**
@@ -727,14 +724,6 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     this->include_nested = include_nested;
     this->translation = translation;
     assert(path_to_sample == nullptr || path_restricted || gbwt);
-    if (gbwt) {
-        this->gbwt_pos_caches.resize(get_thread_count(), nullptr);
-        for (size_t i = 0; i < this->gbwt_pos_caches.size(); ++i) {
-            if (this->gbwt_pos_caches[i] == nullptr) {
-                this->gbwt_pos_caches[i] = new LRUCache<gbwt::size_type, shared_ptr<unordered_map<handle_t, size_t>>>(lru_size);
-            }
-        }
-    }
     
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
     sample_names.clear();
@@ -985,14 +974,8 @@ tuple<bool, handle_t, size_t> Deconstructor::get_gbwt_path_position(const SnarlT
     int64_t start_offset = -1;
     int64_t end_offset = -1;
     int64_t offset = 0;
-
-    LRUCache<gbwt::size_type, shared_ptr<unordered_map<handle_t, size_t>>>* gbwt_pos_cache =
-        gbwt_pos_caches[omp_get_thread_num()];
-    
-    pair<shared_ptr<unordered_map<handle_t, size_t>>, bool> cached = gbwt_pos_cache->retrieve(thread);
-    if (cached.second) {
-        start_offset = cached.first->at(start_handle);
-    } else {
+    // get the position
+    {
         shared_ptr<unordered_map<handle_t, size_t>> path_map = make_shared<unordered_map<handle_t, size_t>>();
         for (gbwt::edge_type pos = gbwt.start(sequence_id); pos.first != gbwt::ENDMARKER; pos = gbwt.LF(pos)) {
             handle_t handle = graph->get_handle(gbwt::Node::id(pos.first), gbwt::Node::is_reverse(pos.first));
@@ -1007,7 +990,6 @@ tuple<bool, handle_t, size_t> Deconstructor::get_gbwt_path_position(const SnarlT
             offset += len;
         }
         assert(start_offset >= 0 && end_offset >= 0);
-        gbwt_pos_cache->put(thread, path_map);
     }
   
     auto rval = make_tuple<bool, handle_t, size_t>((bool)!thread_reversed, (handle_t)start_handle, (size_t)start_offset);
