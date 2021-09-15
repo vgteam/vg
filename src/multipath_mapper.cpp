@@ -2450,7 +2450,7 @@ namespace vg {
                             
                             // TODO: enforce pairing constraints?
                             
-                            if (dist >= 0 && dist != numeric_limits<int64_t>::max() && dist < max_intron_length) {
+                            if (dist > 0 && dist != numeric_limits<int64_t>::max() && dist < max_intron_length) {
 
                                 
                                 // the positions can reach each other in under the max length, make a join
