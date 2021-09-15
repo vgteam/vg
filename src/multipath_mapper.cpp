@@ -3531,15 +3531,8 @@ namespace vg {
                                 cerr << "will swap with current index " << multipath_aln_pairs_out.size() - 1 << ", which has original index " << original_index[multipath_aln_pairs_out.size() - 1] << endl;
 #endif
                                 
-                                cerr << "read 1 before scavenge:" << endl;
-                                cerr << debug_string(multipath_aln_pairs_out[mp_aln_candidates[i]].first) << endl;
-                                cerr << "read 2 before scavenge:" << endl;
-                                cerr << debug_string(multipath_aln_pairs_out[mp_aln_candidates[i]].second) << endl;
-                                
                                 tmp = do_read_1 ? move(multipath_aln_pairs_out[mp_aln_candidates[i]].first)
                                                 : move(multipath_aln_pairs_out[mp_aln_candidates[i]].second);
-                                cerr << "scavenged candidate:" << endl;
-                                cerr << debug_string(tmp) << endl;
                                 
                                 // replace it in the vectors and clear the final position
                                 multipath_aln_pairs_out[mp_aln_candidates[i]] = move(multipath_aln_pairs_out.back());
