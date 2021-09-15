@@ -496,7 +496,7 @@ namespace vg {
         /// Check whether splice segment candidates can form a statistically significant spliced
         /// alignment. Returns true if a spliced alignment is made
         bool test_splice_candidates(const Alignment& alignment, bool searching_left,
-                                    multipath_alignment_t& anchor_mp_aln, double& anchor_multiplicity,
+                                    multipath_alignment_t& anchor_mp_aln, double* anchor_multiplicity_out,
                                     SpliceStrand& strand, int64_t num_candidates,
                                     const function<const multipath_alignment_t&(int64_t)>& get_candidate,
                                     const function<double(int64_t)>& get_multiplicity,
@@ -512,7 +512,7 @@ namespace vg {
         /// See if we can find a spliced alignment segment by aligning between the pair
         bool find_rescuable_spliced_alignments(const Alignment& alignment,
                                                multipath_alignment_t& splice_anchor,
-                                               double anchor_multiplicity,
+                                               double& anchor_multiplicity,
                                                SpliceStrand& strand,
                                                const multipath_alignment_t& rescue_anchor,
                                                double rescue_multiplicity,
