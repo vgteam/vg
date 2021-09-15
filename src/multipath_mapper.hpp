@@ -500,7 +500,7 @@ namespace vg {
                                     SpliceStrand& strand, int64_t num_candidates,
                                     const function<const multipath_alignment_t&(int64_t)>& get_candidate,
                                     const function<double(int64_t)>& get_multiplicity,
-                                    const function<multipath_alignment_t&&(int64_t)>& consume_candidate);
+                                    const function<multipath_alignment_t&&(int64_t)>& consume_candidate) const;
         
         /// Try to rescue an anchor for a missing spliced alignment section between
         /// the reads in a pair
@@ -508,6 +508,16 @@ namespace vg {
                                                const pair<int64_t, int64_t>& primary_interval,
                                                const multipath_alignment_t& rescue_anchor,
                                                bool rescue_left, multipath_alignment_t& rescued_out) const;
+        
+        /// See if we can find a spliced alignment segment by aligning between the pair
+        bool find_rescuable_spliced_alignments(const Alignment& alignment,
+                                               multipath_alignment_t& splice_anchor,
+                                               double anchor_multiplicity,
+                                               SpliceStrand& strand,
+                                               const multipath_alignment_t& rescue_anchor,
+                                               double rescue_multiplicity,
+                                               bool rescue_left,
+                                               const pair<int64_t, int64_t>& primary_interval) const;
         
         /// Check if any of the unpaired spliced alignments can make pairs now
         /// If any pairs are identified, can invalidate the input alignments
