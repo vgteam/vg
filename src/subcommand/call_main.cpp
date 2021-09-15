@@ -30,7 +30,7 @@ void help_call(char** argv) {
        << "support calling options:" << endl
        << "    -k, --pack FILE          Supports created from vg pack for given input graph" << endl
        << "    -m, --min-support M,N    Minimum allele support (M) and minimum site support (N) for call [default = 1,4]" << endl
-       << "    -e, --baseline-error X,Y Baseline error rates for Poisson model for small (X) and large (Y) variants [default= 0.005,0.01]" << endl
+       << "    -e, --baseline-error X,Y Baseline error rates for Poisson model for small (X) and large (Y) variants [default= 0.005,0.001]" << endl
        << "    -I, --insertion-bias     Error rate multiplier for insertions for small (X) and large (Y) variants to compensate for breakpoint uncertainty [defaul=1,10]" << endl
        << "    -E, --expect-bp-edges    Expect breakpoint edges to be in graph, and apply minimum threshold to them."  << endl
        << "                             Recommended only for SV genotying on graph created with augment -E." << endl

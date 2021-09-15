@@ -256,11 +256,11 @@ protected:
     /// more on base and mapping qualities respectively.  The switch threshold
     /// is in TraversalSupportFinder.  Error stats from the Packer object
     /// get added to these baselines when computing the scores. 
-    
-    /// Baseline error rate for larger variants
-    double  baseline_error_large = 0.001;
+
     /// Baseline error rate for smaller variants
     double  baseline_error_small = 0.005;
+    /// Baseline error rate for larger variants
+    double  baseline_error_large = 0.001;
     /// multiply error by this much in pressence of insertion
     double insertion_bias_large = 10.;
     double insertion_bias_small = 1.;
