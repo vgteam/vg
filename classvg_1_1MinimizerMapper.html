@@ -347,6 +347,7 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:ab019d5888d75bbe36d8eb444d148ac50"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1FragmentLengthDistribution.html">FragmentLengthDistribution</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab019d5888d75bbe36d8eb444d148ac50">fragment_length_distr</a></td></tr>
 <tr class="separator:ab019d5888d75bbe36d8eb444d148ac50"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3915618267605133f2e9144c693e68e5"><td class="memItemLeft" align="right" valign="top">atomic_flag&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a3915618267605133f2e9144c693e68e5">warned_about_bad_distribution</a> = ATOMIC_FLAG_INIT</td></tr>
+<tr class="memdesc:a3915618267605133f2e9144c693e68e5"><td class="mdescLeft">&#160;</td><td class="mdescRight">We may need to complain exactly once that the distribution is bad.  <a href="classvg_1_1MinimizerMapper.html#a3915618267605133f2e9144c693e68e5">More...</a><br /></td></tr>
 <tr class="separator:a3915618267605133f2e9144c693e68e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="friends"></a>
@@ -2733,6 +2734,7 @@ template&lt;typename Item , typename Score &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
+<p>We have a distribution for read fragment lengths that takes care of knowing when we've observed enough good ones to learn a good distribution. </p>
 
 </div>
 </div>
@@ -3161,6 +3163,8 @@ template&lt;typename Item , typename Score &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
+
+<p>We may need to complain exactly once that the distribution is bad. </p>
 
 </div>
 </div>
