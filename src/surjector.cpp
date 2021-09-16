@@ -99,6 +99,7 @@ using namespace std;
                 cerr << "error[Surjector::surject]: read " << source_aln->name() << " has "
                 << source_aln->sequence().size() << " sequence bases but an input alignment that aligns "
                 << source_to_length << " bases instead. This is invalid and uninterpretable; check your mapper." << endl;
+                cerr << "error[Surjector::surject]: offending alignemnt: " << pb2json(*source_aln) << endl; 
                 exit(1);
             }
         }
