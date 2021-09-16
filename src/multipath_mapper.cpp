@@ -2791,6 +2791,13 @@ namespace vg {
             // add in the soft-clips for the part of the read we trimmed off
             if (rescue_left) {
                 // the softclip should come at the beginning of the rescued alignment
+                rescued_out.mutable_sequence()->insert(rescued_out.mutable_sequence()->begin(),
+                                                       alignment.sequence().begin(), begin);
+                if (!alignment.quality().empty()) {
+                    rescued_out.mutable_quality()->insert(rescued_out.mutable_quality()->begin(),
+                                                          alignment.quality().begin(),
+                                                          alignment.quality().begin() + (begin - alignment.sequence().begin()));
+                }
                 for (auto i : rescued_out.start()) {
                     auto subpath = rescued_out.mutable_subpath(i);
                     auto mapping = subpath->mutable_path()->mutable_mapping(0);
@@ -2816,6 +2823,13 @@ namespace vg {
             }
             else {
                 // the softclip should come at the end of the rescued alignment
+                rescued_out.mutable_sequence()->insert(rescued_out.mutable_sequence()->end(),
+                                                       end, alignment.sequence().end());
+                if (!alignment.quality().empty()) {
+                    rescued_out.mutable_quality()->insert(rescued_out.mutable_quality()->end(),
+                                                          alignment.quality().begin() + (end - alignment.sequence().begin()),
+                                                          alignment.quality().end());
+                }
                 for (size_t i = 0; i < rescued_out.subpath_size(); ++i) {
                     auto subpath = rescued_out.mutable_subpath(i);
                     if (subpath->next().empty()) {
