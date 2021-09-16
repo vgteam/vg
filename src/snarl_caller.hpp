@@ -111,13 +111,13 @@ protected:
     /// What's the minimum integer number of reads that must support a call? We
     /// don't necessarily want to call a SNP as het because we have a single
     // supporting read, even if there are only 10 reads on the site.
-    int min_total_support_for_call = 1;
+    int min_total_support_for_call = 2;
     /// what's the minimum ref or alt allele depth to give a PASS in the filter
     /// column? Also used as a min actual support for a second-best allele call
     size_t min_mad_for_filter = 1;
     /// what's the minimum total support (over all alleles) of the site to make
     /// a call
-    size_t min_site_depth = 3;
+    size_t min_site_depth = 4;
     /// used only for pruning alleles in the VCFTraversalFinder:  minimum support
     /// of an allele's alt-path for it to be considered in the brute-force enumeration
     double min_alt_path_support = 0.5;
@@ -260,9 +260,11 @@ protected:
     /// Baseline error rate for smaller variants
     double  baseline_error_small = 0.005;
     /// Baseline error rate for larger variants
-    double  baseline_error_large = 0.001;
+    double  baseline_error_large = 0.01;
     /// multiply error by this much in pressence of insertion
-    double insertion_bias_large = 10.;
+    /// (after some testing, this does not in fact seem to help much in practice.
+    ///  best just to boost overall error above.  hence not in CLI and off by default)
+    double insertion_bias_large = 1.;
     double insertion_bias_small = 1.;
     /// a site is an insertion if one (supported)allele is this many times bigger than another
     /// unlike above, default comes from call_main.cpp (todo: straighten this out?)
