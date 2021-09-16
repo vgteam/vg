@@ -38,6 +38,7 @@ void help_deconstruct(char** argv){
          << "    -e, --path-traversals    Only consider traversals that correspond to paths in the graph." << endl
          << "    -a, --all-snarls         Process all snarls, including nested snarls (by default only top-level snarls reported)." << endl
          << "    -d, --ploidy N           Expected ploidy.  If more traversals found, they will be flagged as conflicts (default: 2)" << endl
+         << "    -K, --keep-conflicted    Retain conflicted genotypes in output." << endl
          << "    -t, --threads N          Use N threads" << endl
          << "    -v, --verbose            Print some status messages" << endl
          << endl;
@@ -61,6 +62,7 @@ int main_deconstruct(int argc, char** argv){
     int ploidy = 2;
     bool set_ploidy = false;
     bool all_snarls = false;
+    bool keep_conflicted = false;
     string path_sep;
     
     int c;
@@ -79,13 +81,14 @@ int main_deconstruct(int argc, char** argv){
                 {"path-traversals", no_argument, 0, 'e'},
                 {"ploidy", required_argument, 0, 'd'},
                 {"all-snarls", no_argument, 0, 'a'},
+                {"keep-conflicted", no_argument, 0, 'K'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:P:H:r:g:T:ed:at:v",
+        c = getopt_long (argc, argv, "hp:P:H:r:g:T:eKd:at:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -121,6 +124,9 @@ int main_deconstruct(int argc, char** argv){
             break;
         case 'a':
             all_snarls = true;
+            break;
+        case 'K':
+            keep_conflicted = true;
             break;
         case 't':
             omp_set_num_threads(parse<int>(optarg));
@@ -231,6 +237,9 @@ int main_deconstruct(int argc, char** argv){
         snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls_parallel())));
     }
 
+    // We store each sample ploidy specifically, based on the number of named phases
+    unordered_map<string, int> sample_ploidy;
+    
     // We use this to map, for example, from chromosome to genome (eg S288C.chrXVI --> S288C)
     unordered_map<string, pair<string, int>> alt_path_to_sample_phase;
     
@@ -242,8 +251,10 @@ int main_deconstruct(int argc, char** argv){
             string path_name = graph->get_path_name(path_handle);
             vector<string> vals = split(path_name, path_sep);
             if (vals.size() > 1) {
-                auto& phase = vals[1];
-                seen_phases.insert(phase);
+                auto& phase_str = vals[1];
+                if (is_number(phase_str)) {
+                    seen_phases.insert(phase_str);
+                }
             }
         });
         map<string, int> phase_name_to_id;
@@ -253,8 +264,8 @@ int main_deconstruct(int argc, char** argv){
                 phase_name_to_id[phase] = i++;
             }
         }
+        unordered_map<string, set<int>> sample_phases;
         // our phase identifiers now map into a dense range
-
         graph->for_each_path_handle([&](const path_handle_t& path_handle) {
                 string path_name = graph->get_path_name(path_handle);
                 // split on our sep
@@ -270,10 +281,14 @@ int main_deconstruct(int argc, char** argv){
                 if (!is_ref) {
                     auto& sample_name = vals[0];
                     int phase = 0;
-                    if (vals.size() > 1) {
+                    if (vals.size() > 1
+                        && is_number(vals[1])) {
                         phase = phase_name_to_id[vals[1]];
+                    } else {
+                        phase = 0;
                     }
                     alt_path_to_sample_phase[path_name] = make_pair(sample_name, phase);
+                    sample_phases[sample_name].insert(phase);
                 }
             });
         if (gbwt_index.get()) {
@@ -287,7 +302,9 @@ int main_deconstruct(int argc, char** argv){
                 }
             }
         }
-
+        for (auto& sp : sample_phases) {
+            sample_ploidy[sp.first] = sp.second.size();
+        }
         if (gbwt_index.get()) {
             for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
                 string sample_name = thread_sample(*gbwt_index.get(), i);
@@ -307,8 +324,12 @@ int main_deconstruct(int argc, char** argv){
     if (show_progress) {
         cerr << "Decsontructing top-level snarls" << endl;
     }
-    dd.deconstruct(refpaths, graph, snarl_manager.get(), path_restricted_traversals, ploidy, all_snarls,
-                   !alt_path_to_sample_phase.empty() ? &alt_path_to_sample_phase : nullptr, gbwt_index.get(), translation.get());
+    dd.deconstruct(refpaths, graph, snarl_manager.get(), path_restricted_traversals, ploidy,
+                   all_snarls,
+                   keep_conflicted,
+                   !alt_path_to_sample_phase.empty() ? &alt_path_to_sample_phase : nullptr,
+                   &sample_ploidy,
+                   gbwt_index.get(), translation.get());
     return 0;
 }
 

@@ -37,8 +37,12 @@ public:
 
     // deconstruct the entire graph to cout
     void deconstruct(vector<string> refpaths, const PathPositionHandleGraph* grpah, SnarlManager* snarl_manager,
-                     bool path_restricted_traversals, int ploidy, bool include_nested,
+                     bool path_restricted_traversals,
+                     int ploidy,
+                     bool include_nested,
+                     bool keep_conflicted,
                      const unordered_map<string, pair<string, int>>* path_to_sample_phase = nullptr,
+                     const unordered_map<string, int>* sample_ploidy = nullptr,
                      gbwt::GBWT* gbwt = nullptr,
                      const unordered_map<nid_t, pair<nid_t, size_t>>* translation = nullptr); 
     
@@ -113,6 +117,9 @@ private:
     // map the path name to the sample in the vcf
     const unordered_map<string, pair<string, int>>* path_to_sample_phase;
 
+    // the sample ploidys given in the phases in our path names
+    const unordered_map<string, int>* sample_ploidys;
+
     // upper limit of degree-2+ nodes for exhaustive traversal
     int max_nodes_for_exhaustive = 100;
 
@@ -124,6 +131,9 @@ private:
 
     // show path info mapping paths to genotypes (very verbose)
     bool show_path_info = false;
+
+    // should we keep conflicted genotypes or not
+    bool keep_conflicted_genotypes = false;
 
     // optional node translation to apply to snarl names in variant IDs
     const unordered_map<nid_t, pair<nid_t, size_t>>* translation;

@@ -210,14 +210,15 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
                 cerr << "Conflict for sample " << sample_name << endl;
 #endif
                 conflicts.insert(sample_name);
-            }            
+            }
             string genotype;
             for (int i = 0; i < chosen_travs.size(); ++i) {
                 if (i > 0) {
                     // TODO check flag for phasing
                     genotype += (path_to_sample_phase || gbwt_trav_finder.get())  ? "|" : "/";
                 }
-                genotype += chosen_travs[i] != -1 ? std::to_string(trav_to_allele[chosen_travs[i]]) : ".";
+                genotype += (chosen_travs[i] != -1 && (!conflict || keep_conflicted_genotypes))
+                    ? std::to_string(trav_to_allele[chosen_travs[i]]) : ".";
             }
             v.samples[sample_name]["GT"] = {genotype};
             if (show_path_info && path_to_sample_phase) {
@@ -318,6 +319,8 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
             }
         }
     } else if (path_to_sample_phase) {
+        sample_ploidy = sample_ploidys->at(sample_name);
+        
         set<int> used_phases;
         for (int i = sorted_travs.size() - 1; i >= 0 && most_frequent_travs.size() < sample_ploidy; --i) {
             int phase = gbwt_phases.at(sorted_travs[i]);
@@ -359,6 +362,13 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
     } else if (path_to_sample_phase) {
         std::sort(most_frequent_travs.begin(), most_frequent_travs.end(),
                   [&](int t1, int t2) {return gbwt_phases.at(t1) < gbwt_phases.at(t2);});
+        vector<int> padded_travs(sample_ploidy, -1);
+        for (auto ft : most_frequent_travs) {
+            int phase = gbwt_phases.at(ft);
+            //std::cerr << "on phase " << phase << std::endl;
+            padded_travs.at(phase) = ft;
+        }
+        swap(padded_travs, most_frequent_travs);
     }
     // check if there's a conflict
     size_t zero_count = std::count(allele_frequencies.begin(), allele_frequencies.end(), 0);
@@ -729,8 +739,12 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
  * Convenience wrapper function for deconstruction of multiple paths.
  */
 void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
-                                bool path_restricted_traversals, int ploidy, bool include_nested,
+                                bool path_restricted_traversals,
+                                int ploidy,
+                                bool include_nested,
+                                bool keep_conflicted,
                                 const unordered_map<string, pair<string, int>>* path_to_sample_phase,
+                                const unordered_map<string, int>* sample_ploidys,
                                 gbwt::GBWT* gbwt,
                                 const unordered_map<nid_t, pair<nid_t, size_t>>* translation) {
 
@@ -741,11 +755,13 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     this->graph = graph;
     this->snarl_manager = snarl_manager;
     this->path_restricted = path_restricted_traversals;
-    this->ploidy =ploidy;
+    this->ploidy = ploidy;
+    this->sample_ploidys = sample_ploidys;
     this->path_to_sample_phase = path_to_sample_phase;
     this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
     this->include_nested = include_nested;
     this->translation = translation;
+    this->keep_conflicted_genotypes = keep_conflicted;
     assert(path_to_sample_phase == nullptr || path_restricted || gbwt);
     
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
