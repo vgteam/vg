@@ -57,7 +57,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << "    -q, --min-baseq N           ignore edits whose sequence have average base quality < N" << endl
          << "    -Q, --min-mapq N            ignore alignments with mapping quality < N" << endl
          << "    -N, --max-n F               maximum fraction of N bases in an edit for it to be included [default : 0.25]" << endl
-         << "    -E, --edges-only            only edges implied by reads, ignoring edits (useful for ensuring SV breakpoint edges present when running pack for SV genotyping)" << endl
+         << "    -E, --edges-only            only edges implied by reads, ignoring edits" << endl
          << "    -h, --help                  print this help message" << endl
          << "    -p, --progress              show progress" << endl
          << "    -v, --verbose               print information and warnings about vcf generation" << endl
@@ -117,6 +117,8 @@ int main_augment(int argc, char** argv) {
     double max_frac_n = 0.25;
 
     // Only add edges (no new sequence)
+    // The motivation is to help vg call expect all breakpoint edges to be in graph, but in
+    // practice, it seems they already are.  Todo: remove?
     double edges_only = false;
 
     // GAF format toggle
