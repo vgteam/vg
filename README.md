@@ -241,8 +241,10 @@ Call only variants that are present in the graph (use `-g`):
 
 <!-- !test check Pack and call -->
 ```sh
-# Compute the read support from the gam (ignoring mapping and base qualitiy < 5)
-vg pack -x x.xg -g aln.gam -Q 5 -o aln.pack
+# Compute the read support from the gam
+# -Q 5: ignore mapping and base qualitiy < 5
+# -s 5: ignore first and last 5bp from each read
+vg pack -x x.xg -g aln.gam -Q 5 -s 5 o aln.pack
 
 # Generate a VCF from the support.  
 vg call x.xg -k aln.pack > graph_calls.vcf
@@ -261,8 +263,8 @@ In order to also consider *novel* variants from the reads, use the augmented gra
 # Index our augmented graph
 vg index aug.vg -x aug.xg
 
-# Compute the read support from the augmented gam (with ignoring qualitiy < 5)
-vg pack -x aug.xg -g aug.gam -Q 5 -o aln_aug.pack
+# Compute the read support from the augmented gam (ignoring qualitiy < 5, and 1st and last 5bp of each read)
+vg pack -x aug.xg -g aug.gam -Q 5 -s 5 -o aln_aug.pack
 
 # Generate a VCF from the support
 vg call aug.xg -k aln_aug.pack > calls.vcf
