@@ -29,8 +29,9 @@ void help_deconstruct(char** argv){
          << "options: " << endl
          << "    -p, --path NAME          A reference path to deconstruct against (multiple allowed)." << endl
          << "    -P, --path-prefix NAME   All paths (and/or GBWT threads) beginning with NAME used as reference (multiple allowed)." << endl
-         << "    -A, --alt-prefix NAME    Non-reference paths (and/or GBWT threads) beginning with NAME get lumped together to same sample in VCF (multiple allowed)." << endl
+        //<< "    -A, --alt-prefix NAME    Non-reference paths (and/or GBWT threads) beginning with NAME get lumped together to same sample in VCF (multiple allowed)." << endl
          << "                             Other non-ref paths not considered as samples.  When using a GBWT, select only samples with given prefix." << endl
+         << "    -H, --path-sep SEP       Obtain alt paths from the set of paths, assuming a path name hierarchy (e.g. SEP='#' and sample#phase#contig)" << endl
          << "    -r, --snarls FILE        Snarls file (from vg snarls) to avoid recomputing." << endl
          << "    -g, --gbwt FILE          only consider alt traversals that correspond to GBWT threads FILE." << endl
          << "    -T, --translation FILE   Node ID translation (as created by vg gbwt --translation) to apply to snarl names in output" << endl
@@ -50,7 +51,7 @@ int main_deconstruct(int argc, char** argv){
 
     vector<string> refpaths;
     vector<string> refpath_prefixes;
-    vector<string> altpath_prefixes;
+    //vector<string> altpath_prefixes;
     string graphname;
     string snarl_file_name;
     string gbwt_file_name;
@@ -60,6 +61,7 @@ int main_deconstruct(int argc, char** argv){
     int ploidy = 2;
     bool set_ploidy = false;
     bool all_snarls = false;
+    string path_sep;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -69,7 +71,8 @@ int main_deconstruct(int argc, char** argv){
                 {"help", no_argument, 0, 'h'},
                 {"path", required_argument, 0, 'p'},
                 {"path-prefix", required_argument, 0, 'P'},
-                {"alt-prefix", required_argument, 0, 'A'},
+                //{"alt-prefix", required_argument, 0, 'A'},
+                {"path-sep", required_argument, 0, 'H'},
                 {"snarls", required_argument, 0, 'r'},
                 {"gbwt", required_argument, 0, 'g'},
                 {"translation", required_argument, 0, 'T'},
@@ -79,11 +82,10 @@ int main_deconstruct(int argc, char** argv){
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
-
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:P:A:r:g:T:ed:at:v",
+        c = getopt_long (argc, argv, "hp:P:H:r:g:T:ed:at:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -98,8 +100,8 @@ int main_deconstruct(int argc, char** argv){
         case 'P':
             refpath_prefixes.push_back(optarg);
             break;
-        case 'A':
-            altpath_prefixes.push_back(optarg);
+        case 'H':
+            path_sep = optarg;
             break;
         case 'r':
             snarl_file_name = optarg;
@@ -137,8 +139,8 @@ int main_deconstruct(int argc, char** argv){
 
     }
 
-    if ((!altpath_prefixes.empty() || set_ploidy) && !path_restricted_traversals && gbwt_file_name.empty()) {
-        cerr << "Error [vg deconstruct]: -A and -d can only be used with -e or -g" << endl;
+    if ((!path_sep.empty() || set_ploidy) && !path_restricted_traversals && gbwt_file_name.empty()) {
+        cerr << "Error [vg deconstruct]: -H and -d can only be used with -e or -g" << endl;
         return 1;
     }
 
@@ -230,26 +232,48 @@ int main_deconstruct(int argc, char** argv){
     }
 
     // We use this to map, for example, from chromosome to genome (eg S288C.chrXVI --> S288C)
-    unordered_map<string, string> alt_path_to_prefix;
+    unordered_map<string, pair<string, int>> alt_path_to_sample_phase;
     
     // process the prefixes
-    if (!refpath_prefixes.empty() || !altpath_prefixes.empty()) {
+    if (!refpath_prefixes.empty() || !path_sep.empty()) {
+        // determine phase identifiers
+        set<string> seen_phases;
+        graph->for_each_path_handle([&](const path_handle_t& path_handle) {
+            string path_name = graph->get_path_name(path_handle);
+            vector<string> vals = split(path_name, path_sep);
+            if (vals.size() > 1) {
+                auto& phase = vals[1];
+                seen_phases.insert(phase);
+            }
+        });
+        map<string, int> phase_name_to_id;
+        {
+            int i = 0;
+            for (auto& phase : seen_phases) {
+                phase_name_to_id[phase] = i++;
+            }
+        }
+        // our phase identifiers now map into a dense range
+
         graph->for_each_path_handle([&](const path_handle_t& path_handle) {
                 string path_name = graph->get_path_name(path_handle);
+                // split on our sep
+                vector<string> vals = split(path_name, path_sep);
                 bool is_ref = false;
                 for (auto& prefix : refpath_prefixes) {
-                    if (path_name.compare(0, prefix.size(), prefix) == 0) {
+                    if (vals[0].compare(0, prefix.size(), prefix) == 0) {
                         refpaths.push_back(path_name);
                         is_ref = true;
                         break;
                     }
                 }
                 if (!is_ref) {
-                    for (auto& prefix : altpath_prefixes) {
-                        if (path_name.compare(0, prefix.size(), prefix) == 0) {
-                            alt_path_to_prefix[path_name] = prefix;
-                        }
+                    auto& sample_name = vals[0];
+                    int phase = 0;
+                    if (vals.size() > 1) {
+                        phase = phase_name_to_id[vals[1]];
                     }
+                    alt_path_to_sample_phase[path_name] = make_pair(sample_name, phase);
                 }
             });
         if (gbwt_index.get()) {
@@ -262,25 +286,13 @@ int main_deconstruct(int argc, char** argv){
                     }
                 }
             }
-        }            
+        }
 
         if (gbwt_index.get()) {
             for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
                 string sample_name = thread_sample(*gbwt_index.get(), i);
-                // if no prefixes were specified, we add them all.  this way
-                // we make sure we only use gbwt alts.  an option could be added
-                // to incorporate graph paths by toggling this (ie only adding to
-                // the map if prefixes given)
-                bool add_prefix = altpath_prefixes.empty();
-                for (auto& prefix : altpath_prefixes) {
-                    if (sample_name.compare(0, prefix.size(), prefix) == 0) {
-                        add_prefix = true;
-                        break;
-                    }
-                }
-                if (add_prefix) { 
-                    alt_path_to_prefix[sample_name] = sample_name;
-                }
+                int phase = thread_phase(*gbwt_index.get(), i);
+                alt_path_to_sample_phase[sample_name] = make_pair(sample_name, phase);
             }
         }
     }
@@ -296,7 +308,7 @@ int main_deconstruct(int argc, char** argv){
         cerr << "Decsontructing top-level snarls" << endl;
     }
     dd.deconstruct(refpaths, graph, snarl_manager.get(), path_restricted_traversals, ploidy, all_snarls,
-                   !alt_path_to_prefix.empty() ? &alt_path_to_prefix : nullptr, gbwt_index.get(), translation.get());
+                   !alt_path_to_sample_phase.empty() ? &alt_path_to_sample_phase : nullptr, gbwt_index.get(), translation.get());
     return 0;
 }
 
