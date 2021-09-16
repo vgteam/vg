@@ -103,6 +103,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a41964acba3d81c26b01f9b00cd49257a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a41964acba3d81c26b01f9b00cd49257a">set_baseline_error</a> (double small_variant_error, double large_variant_error)</td></tr>
 <tr class="memdesc:a41964acba3d81c26b01f9b00cd49257a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set some parameters.  <a href="classvg_1_1PoissonSupportSnarlCaller.html#a41964acba3d81c26b01f9b00cd49257a">More...</a><br /></td></tr>
 <tr class="separator:a41964acba3d81c26b01f9b00cd49257a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abeb1d41aaa26a91cb3319cc5fe6b0af0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#abeb1d41aaa26a91cb3319cc5fe6b0af0">set_insertion_bias</a> (double <a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a7787ef040764a33043fdbf3ba2f80509">insertion_threshold</a>, double small_insertion_bias, double large_insertion_bias)</td></tr>
+<tr class="memdesc:abeb1d41aaa26a91cb3319cc5fe6b0af0"><td class="mdescLeft">&#160;</td><td class="mdescRight">These are multipliers applied to the errors if the site has an insertion.  <a href="classvg_1_1PoissonSupportSnarlCaller.html#abeb1d41aaa26a91cb3319cc5fe6b0af0">More...</a><br /></td></tr>
+<tr class="separator:abeb1d41aaa26a91cb3319cc5fe6b0af0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1be3298970827475c5b96486d58fd833"><td class="memItemLeft" align="right" valign="top">virtual pair&lt; vector&lt; int &gt;, unique_ptr&lt; <a class="el" href="structvg_1_1SnarlCaller_1_1CallInfo.html">CallInfo</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a1be3298970827475c5b96486d58fd833">genotype</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, int ref_trav_idx, int ploidy, const string &amp;ref_path_name, pair&lt; size_t, size_t &gt; ref_range)</td></tr>
 <tr class="memdesc:a1be3298970827475c5b96486d58fd833"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the genotype of a site.  <a href="classvg_1_1PoissonSupportSnarlCaller.html#a1be3298970827475c5b96486d58fd833">More...</a><br /></td></tr>
 <tr class="separator:a1be3298970827475c5b96486d58fd833"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -135,20 +138,26 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:ac261dd04096164e8811cc1641120347a"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#ac261dd04096164e8811cc1641120347a">genotype_likelihood</a> (const vector&lt; int &gt; &amp;<a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a1be3298970827475c5b96486d58fd833">genotype</a>, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, const set&lt; int &gt; &amp;trav_subset, const vector&lt; int &gt; &amp;traversal_sizes, const vector&lt; double &gt; &amp;traversal_mapqs, int ref_trav_idx, double exp_depth, double depth_err, int max_trav_size)</td></tr>
-<tr class="separator:ac261dd04096164e8811cc1641120347a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4a555a22f275a83ade8fcd35a1572908"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a4a555a22f275a83ade8fcd35a1572908">genotype_likelihood</a> (const vector&lt; int &gt; &amp;<a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a1be3298970827475c5b96486d58fd833">genotype</a>, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, const set&lt; int &gt; &amp;trav_subset, const vector&lt; int &gt; &amp;traversal_sizes, const vector&lt; double &gt; &amp;traversal_mapqs, int ref_trav_idx, double exp_depth, double depth_err, int max_trav_size, int ref_trav_size)</td></tr>
+<tr class="separator:a4a555a22f275a83ade8fcd35a1572908"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a300ca3bbff527fb43fbc12e65177d053"><td class="memItemLeft" align="right" valign="top">vector&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a300ca3bbff527fb43fbc12e65177d053">rank_by_support</a> (const vector&lt; <a class="el" href="structvg_1_1Support.html">Support</a> &gt; &amp;supports)</td></tr>
 <tr class="memdesc:a300ca3bbff527fb43fbc12e65177d053"><td class="mdescLeft">&#160;</td><td class="mdescRight">Rank supports.  <a href="classvg_1_1PoissonSupportSnarlCaller.html#a300ca3bbff527fb43fbc12e65177d053">More...</a><br /></td></tr>
 <tr class="separator:a300ca3bbff527fb43fbc12e65177d053"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
-<tr class="memitem:a9164191ad441f1323f4b6cd406bc4030"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a9164191ad441f1323f4b6cd406bc4030">baseline_error_large</a> = 0.001</td></tr>
-<tr class="memdesc:a9164191ad441f1323f4b6cd406bc4030"><td class="mdescLeft">&#160;</td><td class="mdescRight">Baseline error rate for larger variants.  <a href="classvg_1_1PoissonSupportSnarlCaller.html#a9164191ad441f1323f4b6cd406bc4030">More...</a><br /></td></tr>
-<tr class="separator:a9164191ad441f1323f4b6cd406bc4030"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a68e6d4d6785bdb4eca4f57504b7dcd21"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a68e6d4d6785bdb4eca4f57504b7dcd21">baseline_error_small</a> = 0.005</td></tr>
 <tr class="memdesc:a68e6d4d6785bdb4eca4f57504b7dcd21"><td class="mdescLeft">&#160;</td><td class="mdescRight">Baseline error rate for smaller variants.  <a href="classvg_1_1PoissonSupportSnarlCaller.html#a68e6d4d6785bdb4eca4f57504b7dcd21">More...</a><br /></td></tr>
 <tr class="separator:a68e6d4d6785bdb4eca4f57504b7dcd21"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9164191ad441f1323f4b6cd406bc4030"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a9164191ad441f1323f4b6cd406bc4030">baseline_error_large</a> = 0.01</td></tr>
+<tr class="memdesc:a9164191ad441f1323f4b6cd406bc4030"><td class="mdescLeft">&#160;</td><td class="mdescRight">Baseline error rate for larger variants.  <a href="classvg_1_1PoissonSupportSnarlCaller.html#a9164191ad441f1323f4b6cd406bc4030">More...</a><br /></td></tr>
+<tr class="separator:a9164191ad441f1323f4b6cd406bc4030"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a82d1c5780e74107618f3e50d7085f38e"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a82d1c5780e74107618f3e50d7085f38e">insertion_bias_large</a> = 1.</td></tr>
+<tr class="separator:a82d1c5780e74107618f3e50d7085f38e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4a5120550fa398555a1a414717469664"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a4a5120550fa398555a1a414717469664">insertion_bias_small</a> = 1.</td></tr>
+<tr class="separator:a4a5120550fa398555a1a414717469664"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7787ef040764a33043fdbf3ba2f80509"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a7787ef040764a33043fdbf3ba2f80509">insertion_threshold</a> = 5.</td></tr>
+<tr class="separator:a7787ef040764a33043fdbf3ba2f80509"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4610e26e36319f7b2620566c7b655c63"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PoissonSupportSnarlCaller.html#a4610e26e36319f7b2620566c7b655c63">top_k</a> = 20</td></tr>
 <tr class="memdesc:a4610e26e36319f7b2620566c7b655c63"><td class="mdescLeft">&#160;</td><td class="mdescRight">Consider up to the top-k traversals (based on support) for genotyping.  <a href="classvg_1_1PoissonSupportSnarlCaller.html#a4610e26e36319f7b2620566c7b655c63">More...</a><br /></td></tr>
 <tr class="separator:a4610e26e36319f7b2620566c7b655c63"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -171,11 +180,11 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:a2af17a0bf619778576c49627563994dc inherit pro_attribs_classvg_1_1SupportBasedSnarlCaller"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1TraversalSupportFinder.html">TraversalSupportFinder</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a2af17a0bf619778576c49627563994dc">support_finder</a></td></tr>
 <tr class="memdesc:a2af17a0bf619778576c49627563994dc inherit pro_attribs_classvg_1_1SupportBasedSnarlCaller"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get support from traversals.  <a href="classvg_1_1SupportBasedSnarlCaller.html#a2af17a0bf619778576c49627563994dc">More...</a><br /></td></tr>
 <tr class="separator:a2af17a0bf619778576c49627563994dc inherit pro_attribs_classvg_1_1SupportBasedSnarlCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a559c8afa8e4f1f73768d7d90ff6a6db0 inherit pro_attribs_classvg_1_1SupportBasedSnarlCaller"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a559c8afa8e4f1f73768d7d90ff6a6db0">min_total_support_for_call</a> = 1</td></tr>
+<tr class="memitem:a559c8afa8e4f1f73768d7d90ff6a6db0 inherit pro_attribs_classvg_1_1SupportBasedSnarlCaller"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a559c8afa8e4f1f73768d7d90ff6a6db0">min_total_support_for_call</a> = 2</td></tr>
 <tr class="separator:a559c8afa8e4f1f73768d7d90ff6a6db0 inherit pro_attribs_classvg_1_1SupportBasedSnarlCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aec268641676f41d2c24128cb9e17ac03 inherit pro_attribs_classvg_1_1SupportBasedSnarlCaller"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#aec268641676f41d2c24128cb9e17ac03">min_mad_for_filter</a> = 1</td></tr>
 <tr class="separator:aec268641676f41d2c24128cb9e17ac03 inherit pro_attribs_classvg_1_1SupportBasedSnarlCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adde07f3e5ca89a2a565e8859ee641159 inherit pro_attribs_classvg_1_1SupportBasedSnarlCaller"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#adde07f3e5ca89a2a565e8859ee641159">min_site_depth</a> = 3</td></tr>
+<tr class="memitem:adde07f3e5ca89a2a565e8859ee641159 inherit pro_attribs_classvg_1_1SupportBasedSnarlCaller"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#adde07f3e5ca89a2a565e8859ee641159">min_site_depth</a> = 4</td></tr>
 <tr class="separator:adde07f3e5ca89a2a565e8859ee641159 inherit pro_attribs_classvg_1_1SupportBasedSnarlCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a17f76956318b838695d8b120d553ce24 inherit pro_attribs_classvg_1_1SupportBasedSnarlCaller"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportBasedSnarlCaller.html#a17f76956318b838695d8b120d553ce24">min_alt_path_support</a> = 0.5</td></tr>
 <tr class="separator:a17f76956318b838695d8b120d553ce24 inherit pro_attribs_classvg_1_1SupportBasedSnarlCaller"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -329,8 +338,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="ac261dd04096164e8811cc1641120347a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac261dd04096164e8811cc1641120347a">&#9670;&nbsp;</a></span>genotype_likelihood()</h2>
+<a id="a4a555a22f275a83ade8fcd35a1572908"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4a555a22f275a83ade8fcd35a1572908">&#9670;&nbsp;</a></span>genotype_likelihood()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -390,7 +399,13 @@ Additional Inherited Members</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>max_trav_size</em>&#160;</td>
+          <td class="paramname"><em>max_trav_size</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>ref_trav_size</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -463,6 +478,42 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Set some parameters. </p>
+
+</div>
+</div>
+<a id="abeb1d41aaa26a91cb3319cc5fe6b0af0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abeb1d41aaa26a91cb3319cc5fe6b0af0">&#9670;&nbsp;</a></span>set_insertion_bias()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::PoissonSupportSnarlCaller::set_insertion_bias </td>
+          <td>(</td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>insertion_threshold</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>small_insertion_bias</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>large_insertion_bias</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>These are multipliers applied to the errors if the site has an insertion. </p>
 
 </div>
 </div>
@@ -571,7 +622,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">double vg::PoissonSupportSnarlCaller::baseline_error_large = 0.001</td>
+          <td class="memname">double vg::PoissonSupportSnarlCaller::baseline_error_large = 0.01</td>
         </tr>
       </table>
   </td>
@@ -582,8 +633,6 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Baseline error rate for larger variants. </p>
-<p>Error rates are different for small and large variants, which depend more on base and mapping qualities respectively. The switch threshold is in <a class="el" href="classvg_1_1TraversalSupportFinder.html">TraversalSupportFinder</a>. Error stats from the <a class="el" href="classvg_1_1Packer.html">Packer</a> object get added to these baselines when computing the scores. <br  />
- </p>
 
 </div>
 </div>
@@ -608,6 +657,8 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Baseline error rate for smaller variants. </p>
+<p>Error rates are different for small and large variants, which depend more on base and mapping qualities respectively. The switch threshold is in <a class="el" href="classvg_1_1TraversalSupportFinder.html">TraversalSupportFinder</a>. Error stats from the <a class="el" href="classvg_1_1Packer.html">Packer</a> object get added to these baselines when computing the scores. <br  />
+ </p>
 
 </div>
 </div>
@@ -656,6 +707,74 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>padding to apply wrt to longest traversal to snarl ranges when looking up binned depth </p>
+
+</div>
+</div>
+<a id="a82d1c5780e74107618f3e50d7085f38e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a82d1c5780e74107618f3e50d7085f38e">&#9670;&nbsp;</a></span>insertion_bias_large</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::PoissonSupportSnarlCaller::insertion_bias_large = 1.</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>multiply error by this much in pressence of insertion (after some testing, this does not in fact seem to help much in practice. best just to boost overall error above. hence not in CLI and off by default) </p>
+
+</div>
+</div>
+<a id="a4a5120550fa398555a1a414717469664"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4a5120550fa398555a1a414717469664">&#9670;&nbsp;</a></span>insertion_bias_small</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::PoissonSupportSnarlCaller::insertion_bias_small = 1.</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a7787ef040764a33043fdbf3ba2f80509"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7787ef040764a33043fdbf3ba2f80509">&#9670;&nbsp;</a></span>insertion_threshold</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::PoissonSupportSnarlCaller::insertion_threshold = 5.</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>a site is an insertion if one (supported)allele is this many times bigger than another unlike above, default comes from <a class="el" href="call__main_8cpp.html">call_main.cpp</a> (todo: straighten this out?) </p>
 
 </div>
 </div>

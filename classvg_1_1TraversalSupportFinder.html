@@ -134,6 +134,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a53940205edddd5d3bb379b82ede4f74f"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TraversalSupportFinder.html#a53940205edddd5d3bb379b82ede4f74f">set_support_switch_threshold</a> (size_t trav_thresh, size_t node_thresh)</td></tr>
 <tr class="memdesc:a53940205edddd5d3bb379b82ede4f74f"><td class="mdescLeft">&#160;</td><td class="mdescRight">set the threshold  <a href="classvg_1_1TraversalSupportFinder.html#a53940205edddd5d3bb379b82ede4f74f">More...</a><br /></td></tr>
 <tr class="separator:a53940205edddd5d3bb379b82ede4f74f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a920ba7030a3946b9b239b1a7f1abbe44"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TraversalSupportFinder.html#a920ba7030a3946b9b239b1a7f1abbe44">set_min_bp_edge_override</a> (bool bp_override)</td></tr>
+<tr class="memdesc:a920ba7030a3946b9b239b1a7f1abbe44"><td class="mdescLeft">&#160;</td><td class="mdescRight">set the breakpoint stricter upper override  <a href="classvg_1_1TraversalSupportFinder.html#a920ba7030a3946b9b239b1a7f1abbe44">More...</a><br /></td></tr>
+<tr class="separator:a920ba7030a3946b9b239b1a7f1abbe44"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2a9c63741c55418a64b72fb409a467f6"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TraversalSupportFinder.html#a2a9c63741c55418a64b72fb409a467f6">apply_min_bp_edge_override</a> (const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, const set&lt; int &gt; &amp;tgt_travs, vector&lt; <a class="el" href="structvg_1_1Support.html">Support</a> &gt; &amp;supports, int ref_trav_idx) const</td></tr>
+<tr class="memdesc:a2a9c63741c55418a64b72fb409a467f6"><td class="mdescLeft">&#160;</td><td class="mdescRight">apply the override to a set of traversals  <a href="classvg_1_1TraversalSupportFinder.html#a2a9c63741c55418a64b72fb409a467f6">More...</a><br /></td></tr>
+<tr class="separator:a2a9c63741c55418a64b72fb409a467f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
@@ -147,6 +153,9 @@ Protected Attributes</h2></td></tr>
 <tr class="separator:a1d277cd424d213bf0d475fb4c64b26d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a31d877c8af983f565b507bbfa18c31b4"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TraversalSupportFinder.html#a31d877c8af983f565b507bbfa18c31b4">average_node_support_switch_threshold</a> = 50</td></tr>
 <tr class="separator:a31d877c8af983f565b507bbfa18c31b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a767e1ca73abc43065673009d115c310d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TraversalSupportFinder.html#a767e1ca73abc43065673009d115c310d">min_bp_edge_override</a> = false</td></tr>
+<tr class="memdesc:a767e1ca73abc43065673009d115c310d"><td class="mdescLeft">&#160;</td><td class="mdescRight">If on, always apply minimum edge support for breakpoint (ref-&gt;offref) edges.  <a href="classvg_1_1TraversalSupportFinder.html#a767e1ca73abc43065673009d115c310d">More...</a><br /></td></tr>
+<tr class="separator:a767e1ca73abc43065673009d115c310d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a388ac720c48b44f21da264209a25a3b3"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TraversalSupportFinder.html#a388ac720c48b44f21da264209a25a3b3">graph</a></td></tr>
 <tr class="separator:a388ac720c48b44f21da264209a25a3b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adc97ab06de5c4aa553db92bae3879ee5"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TraversalSupportFinder.html#adc97ab06de5c4aa553db92bae3879ee5">snarl_manager</a></td></tr>
@@ -209,6 +218,56 @@ Protected Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a2a9c63741c55418a64b72fb409a467f6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2a9c63741c55418a64b72fb409a467f6">&#9670;&nbsp;</a></span>apply_min_bp_edge_override()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::TraversalSupportFinder::apply_min_bp_edge_override </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>traversals</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const set&lt; int &gt; &amp;&#160;</td>
+          <td class="paramname"><em>tgt_travs</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Support.html">Support</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>supports</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>ref_trav_idx</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>apply the override to a set of traversals </p>
+
+</div>
+</div>
 <a id="a62c1864ae422d93cba4eb248890fd3e4"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a62c1864ae422d93cba4eb248890fd3e4">&#9670;&nbsp;</a></span>get_average_traversal_support_switch_threshold()</h2>
 
@@ -709,6 +768,34 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="a920ba7030a3946b9b239b1a7f1abbe44"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a920ba7030a3946b9b239b1a7f1abbe44">&#9670;&nbsp;</a></span>set_min_bp_edge_override()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::TraversalSupportFinder::set_min_bp_edge_override </td>
+          <td>(</td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>bp_override</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>set the breakpoint stricter upper override </p>
+
+</div>
+</div>
 <a id="a53940205edddd5d3bb379b82ede4f74f"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a53940205edddd5d3bb379b82ede4f74f">&#9670;&nbsp;</a></span>set_support_switch_threshold()</h2>
 
@@ -840,6 +927,30 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a767e1ca73abc43065673009d115c310d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a767e1ca73abc43065673009d115c310d">&#9670;&nbsp;</a></span>min_bp_edge_override</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::TraversalSupportFinder::min_bp_edge_override = false</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>If on, always apply minimum edge support for breakpoint (ref-&gt;offref) edges. </p>
 
 </div>
 </div>

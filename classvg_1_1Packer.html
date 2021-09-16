@@ -91,8 +91,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a771083c86ded80dc5076bc9112a463d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0680bd0b5bbe74029e94b33e2f1ea666"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a0680bd0b5bbe74029e94b33e2f1ea666">clear</a> ()</td></tr>
 <tr class="separator:a0680bd0b5bbe74029e94b33e2f1ea666"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9614c1b7fc494a00fc28215164c4b897"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a9614c1b7fc494a00fc28215164c4b897">add</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, int min_mapq=0, int min_baseq=0)</td></tr>
-<tr class="separator:a9614c1b7fc494a00fc28215164c4b897"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8a8cb2dd528dc7cc178e32e69e42212b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a8a8cb2dd528dc7cc178e32e69e42212b">add</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, int min_mapq=0, int min_baseq=0, int trim_ends=0)</td></tr>
+<tr class="separator:a8a8cb2dd528dc7cc178e32e69e42212b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af857449c08a56dd66c6a4bc0402231cb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#af857449c08a56dd66c6a4bc0402231cb">merge_from_files</a> (const vector&lt; string &gt; &amp;file_names)</td></tr>
 <tr class="separator:af857449c08a56dd66c6a4bc0402231cb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a79ce5d54645f6d124c710b86b666f5d7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a79ce5d54645f6d124c710b86b666f5d7">merge_from_dynamic</a> (vector&lt; <a class="el" href="classvg_1_1Packer.html">Packer</a> * &gt; &amp;packers)</td></tr>
@@ -420,8 +420,8 @@ Static Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a9614c1b7fc494a00fc28215164c4b897"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9614c1b7fc494a00fc28215164c4b897">&#9670;&nbsp;</a></span>add()</h2>
+<a id="a8a8cb2dd528dc7cc178e32e69e42212b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8a8cb2dd528dc7cc178e32e69e42212b">&#9670;&nbsp;</a></span>add()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -442,7 +442,13 @@ Static Private Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>min_baseq</em> = <code>0</code>&#160;</td>
+          <td class="paramname"><em>min_baseq</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>trim_ends</em> = <code>0</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -451,7 +457,7 @@ Static Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Add coverage from given alignment to the indexes aln : given alignemnt min_mapq : ignore alignments with mapping_quality below this value min_baseq : ignore bases in the alignment if their read quality is below this value </p>
+<p>Add coverage from given alignment to the indexes aln : given alignemnt min_mapq : ignore alignments with mapping_quality below this value min_baseq : ignore bases in the alignment if their read quality is below this value trim_ends : ignore first and last &lt;trim_ends&gt; bases </p>
 
 </div>
 </div>
