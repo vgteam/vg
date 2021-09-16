@@ -244,7 +244,7 @@ Call only variants that are present in the graph (use `-g`):
 # Compute the read support from the gam
 # -Q 5: ignore mapping and base qualitiy < 5
 # -s 5: ignore first and last 5bp from each read
-vg pack -x x.xg -g aln.gam -Q 5 -s 5 o aln.pack
+vg pack -x x.xg -g aln.gam -Q 5 -s 5 -o aln.pack
 
 # Generate a VCF from the support.  
 vg call x.xg -k aln.pack > graph_calls.vcf
