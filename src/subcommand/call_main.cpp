@@ -29,8 +29,8 @@ void help_call(char** argv) {
        << endl
        << "support calling options:" << endl
        << "    -k, --pack FILE          Supports created from vg pack for given input graph" << endl
-       << "    -m, --min-support M,N    Minimum allele support (M) and minimum site support (N) for call [default = 1,4]" << endl
-       << "    -e, --baseline-error X,Y Baseline error rates for Poisson model for small (X) and large (Y) variants [default= 0.005,0.001]" << endl
+       << "    -m, --min-support M,N    Minimum allele support (M) and minimum site support (N) for call [default = 2,4]" << endl
+       << "    -e, --baseline-error X,Y Baseline error rates for Poisson model for small (X) and large (Y) variants [default= 0.005,0.01]" << endl
        << "    -B, --bias-mode          Use old ratio-based genotyping algorithm as opposed to porbablistic model" << endl
        << "    -b, --het-bias M,N       Homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
        << "GAF options:" << endl
@@ -71,6 +71,10 @@ int main_call(int argc, char** argv) {
     string min_support_string;
     string baseline_error_string;
     string bias_string;
+    // require at least some support for all breakpoint edges
+    // inceases sv precision, but at some recall cost.
+    // think this is worth leaving on by default and not adding an option (famouse last words)
+    bool expect_bp_edges = true;
     bool ratio_caller = false;
     bool legacy = false;
     int ploidy = 2;
@@ -148,9 +152,6 @@ int main_call(int argc, char** argv) {
             break;
         case 'm':
             min_support_string = optarg;
-            break;
-        case 'e':
-            baseline_error_string = optarg;
             break;
         case 'v':
             vcf_filename = optarg;
@@ -276,14 +277,14 @@ int main_call(int argc, char** argv) {
         cerr << "error [vg call]: -b option expects at most two comma separated numbers M,N" << endl;
         return 1;
     }
-    // parse the baseline errors
+    // parse the baseline errors (defaults are in snarl_caller.hpp)
     vector<string> error_toks = split_delims(baseline_error_string, ",");
     double baseline_error_large = -1;
     double baseline_error_small = -1;
     if (error_toks.size() == 2) {
         baseline_error_small = parse<double>(error_toks[0]);
         baseline_error_large = parse<double>(error_toks[1]);
-        if (baseline_error_small < baseline_error_large) {
+        if (baseline_error_small > baseline_error_large) {
             cerr << "warning [vg call]: with baseline error -e X,Y option, small variant error (X) normally less than large (Y)" << endl;
         }
     } else if (error_toks.size() != 0) {
@@ -427,6 +428,9 @@ int main_call(int argc, char** argv) {
         // need to use average support when genotyping as small differences in between sample and graph
         // will lead to spots with 0-support, espeically in and around SVs. 
         support_finder->set_support_switch_threshold(avg_trav_threshold, avg_node_threshold);
+
+        // upweight breakpoint edges even when taking average support otherwise
+        support_finder->set_min_bp_edge_override(expect_bp_edges);
 
         // todo: toggle between min / average (or thresholds) via command line
         

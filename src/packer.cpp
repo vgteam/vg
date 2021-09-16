@@ -455,7 +455,7 @@ void Packer::remove_edit_tmpfiles(void) {
     }
 }
 
-void Packer::add(const Alignment& aln, int min_mapq, int min_baseq) {
+void Packer::add(const Alignment& aln, int min_mapq, int min_baseq, int trim_ends) {
     // mapping quality threshold filter
     int mapping_quality = aln.mapping_quality();
     if (mapping_quality < min_mapq) {
@@ -467,6 +467,18 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq) {
     int prev_bq_total = 0;
     int prev_bq_count = 0;
     size_t position_in_read = 0;
+    size_t read_length = aln.sequence().length();
+    if (trim_ends > 0 && read_length == 0) {
+        // could happen in gaf, where we don't bother parsing the sequence
+        for (auto& mapping : aln.path().mapping()) {
+            for (auto& edit : mapping.edit()) {
+                read_length += edit.to_length();
+            }
+        }
+    }
+    size_t trim_last = read_length + 1 < trim_ends ? 0 : read_length - trim_ends - 1;
+    
+    size_t cur_pos = 0;
     for (size_t mi = 0; mi < aln.path().mapping_size(); ++mi) {
         auto& mapping = aln.path().mapping(mi);
         if (!mapping.has_position()) {
@@ -487,7 +499,9 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq) {
         // keep track of average base quality in the mapping
         int bq_total = 0;
         int bq_count = 0;
-        if (record_bases or record_qualities) {
+        int ei = 0;
+        size_t prev_position_in_read = position_in_read; //snapshot position at first base of mapping
+        if (record_bases || record_qualities || trim_ends > 0) {
             for (auto& edit : mapping.edit()) {
                 if (edit_is_match(edit)) {
 #ifdef debug
@@ -500,7 +514,8 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq) {
                         bq_total += base_quality;
                         ++bq_count;
                         // base quality threshold filter (only if we found some kind of quality)
-                        if (base_quality < 0 || base_quality >= min_baseq) {
+                        if (record_bases && (base_quality < 0 || base_quality >= min_baseq) &&
+                            position_in_read >= trim_ends && position_in_read <= trim_last) {
                             increment_coverage(coverage_idx);
                             if (record_qualities && mapping_quality > 0) {
                                 total_node_quality += mapping_quality;
@@ -523,13 +538,15 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq) {
                 if (!edit_is_match(edit)) {
                     position_in_read += edit.to_length();
                 }
+                ++ei;
             }
             if (total_node_quality > 0) {
                 increment_node_quality(node_quality_index, total_node_quality);
             }
         }
         
-        if (record_edges && has_prev_mapping && prev_mapping.position().node_id() != mapping.position().node_id()) {
+        if (record_edges && has_prev_mapping && prev_mapping.position().node_id() != mapping.position().node_id() && 
+            (prev_position_in_read - 1 >= trim_ends && prev_position_in_read <= trim_last)) {
             // Note: we are effectively ignoring edits here.  So an edge is covered even
             // if there's a sub or indel at either of its ends in the path.  
             Edge e;
@@ -557,7 +574,7 @@ void Packer::add(const Alignment& aln, int min_mapq, int min_baseq) {
                 }
             }
         }
-
+        
         prev_mapping = mapping;
         has_prev_mapping = true;
     }
