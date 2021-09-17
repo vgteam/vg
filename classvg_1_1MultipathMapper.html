@@ -287,6 +287,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a655c6fb1dc987ac5f430007594d7bb42"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aab3573cb5d2878a13b0a40d427e8c943"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aab3573cb5d2878a13b0a40d427e8c943">rescue_graph_std_devs</a> = 6.0</td></tr>
 <tr class="separator:aab3573cb5d2878a13b0a40d427e8c943"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0fcadd278d752aba5c9bb143f5f3a0d6"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a0fcadd278d752aba5c9bb143f5f3a0d6">splice_rescue_graph_std_devs</a> = 3.0</td></tr>
+<tr class="separator:a0fcadd278d752aba5c9bb143f5f3a0d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aadbb94f74824864d7bed5c63cb85687e"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aadbb94f74824864d7bed5c63cb85687e">mapq_scaling_factor</a> = 1.0</td></tr>
 <tr class="separator:aadbb94f74824864d7bed5c63cb85687e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a42577bd89395f56ea2045c378b745456"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a42577bd89395f56ea2045c378b745456">report_group_mapq</a> = false</td></tr>
@@ -353,6 +355,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:afcacb8b30589b82487cca2a1755320f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8c71d1bf28c8567e878c5cd004b94e8b"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a8c71d1bf28c8567e878c5cd004b94e8b">max_splice_overhang</a> = 3</td></tr>
 <tr class="separator:a8c71d1bf28c8567e878c5cd004b94e8b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a194ce33d0517a8ccd67c4e87d26f1191"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a194ce33d0517a8ccd67c4e87d26f1191">min_splice_rescue_matches</a> = 6</td></tr>
+<tr class="separator:a194ce33d0517a8ccd67c4e87d26f1191"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a51be0d0325abe9a3afa023477d9c2ab0"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a51be0d0325abe9a3afa023477d9c2ab0">max_intron_length</a> = 1 &lt;&lt; 18</td></tr>
 <tr class="separator:a51be0d0325abe9a3afa023477d9c2ab0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a95689b71a8b0af79b35340362a78a86d"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a95689b71a8b0af79b35340362a78a86d">min_splice_ref_search_length</a> = 6</td></tr>
@@ -458,9 +462,11 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a9bdb30363cd02187fb0a1ca07ea2cb20"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a007fc06565e2f9b1aa084cc4cc60a55d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a007fc06565e2f9b1aa084cc4cc60a55d">attempt_rescue</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;other_aln, bool rescue_forward, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;rescue_multipath_aln)</td></tr>
 <tr class="separator:a007fc06565e2f9b1aa084cc4cc60a55d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abbe3a65d5493fa016e9e1e0025678db2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#abbe3a65d5493fa016e9e1e0025678db2">extract_rescue_graph</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;other_aln, bool rescue_forward, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *rescue_graph) const</td></tr>
-<tr class="memdesc:abbe3a65d5493fa016e9e1e0025678db2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use the algorithm implied by the mapper settings to extract a subgraph to perform a rescue alignment against.  <a href="classvg_1_1MultipathMapper.html#abbe3a65d5493fa016e9e1e0025678db2">More...</a><br /></td></tr>
-<tr class="separator:abbe3a65d5493fa016e9e1e0025678db2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acc6d405f8349b1c5ae932e50a8e4cc47"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#acc6d405f8349b1c5ae932e50a8e4cc47">do_rescue_alignment</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;other_aln, bool rescue_forward, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;rescue_multipath_aln, double rescue_mean_length, double num_std_devs) const</td></tr>
+<tr class="separator:acc6d405f8349b1c5ae932e50a8e4cc47"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6cecbd08d03efe5b248cf2e93e5f619c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a6cecbd08d03efe5b248cf2e93e5f619c">extract_rescue_graph</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;other_aln, bool rescue_forward, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *rescue_graph, double rescue_mean_length, double num_std_devs) const</td></tr>
+<tr class="memdesc:a6cecbd08d03efe5b248cf2e93e5f619c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use the algorithm implied by the mapper settings to extract a subgraph to perform a rescue alignment against.  <a href="classvg_1_1MultipathMapper.html#a6cecbd08d03efe5b248cf2e93e5f619c">More...</a><br /></td></tr>
+<tr class="separator:a6cecbd08d03efe5b248cf2e93e5f619c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a714e75e4f15e81e04ce28c0f4df264c8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a714e75e4f15e81e04ce28c0f4df264c8">align_to_cluster_graphs</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, <a class="el" href="namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39">MappingQualityMethod</a> mapq_method, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a7fa302a3f9a8b9993775d3789243e450">clustergraph_t</a> &gt; &amp;cluster_graphs, vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;multipath_alns_out, vector&lt; double &gt; &amp;multiplicities_out, size_t <a class="el" href="classvg_1_1MultipathMapper.html#acd259da737785206d02cc2807ab831fa">num_mapping_attempts</a>, const <a class="el" href="classvg_1_1MultipathMapper.html#a165e5c0531ff4337ce6542da263d3fbd">match_fanouts_t</a> *fanouts=nullptr, vector&lt; size_t &gt; *cluster_idxs=nullptr)</td></tr>
 <tr class="separator:a714e75e4f15e81e04ce28c0f4df264c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6be2107ab64d6b8d2ba9eba5c8f1368a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a6be2107ab64d6b8d2ba9eba5c8f1368a">align_to_cluster_graph_pairs</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a7fa302a3f9a8b9993775d3789243e450">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a7fa302a3f9a8b9993775d3789243e450">clustergraph_t</a> &gt; &amp;cluster_graphs2, vector&lt; pair&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, vector&lt; double &gt; &amp;pair_multiplicities, vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;duplicate_pairs_out, const <a class="el" href="classvg_1_1MultipathMapper.html#a165e5c0531ff4337ce6542da263d3fbd">match_fanouts_t</a> *fanouts1, const <a class="el" href="classvg_1_1MultipathMapper.html#a165e5c0531ff4337ce6542da263d3fbd">match_fanouts_t</a> *fanouts2)</td></tr>
@@ -500,8 +506,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:af4abb58766f7ac58e418406e0e6398e2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#af4abb58766f7ac58e418406e0e6398e2">agglomerate</a> (size_t idx, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;agglomerating, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, vector&lt; size_t &gt; &amp;agglomerated_group, unordered_set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; &amp;agg_start_positions, unordered_set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; &amp;agg_end_positions) const</td></tr>
 <tr class="memdesc:af4abb58766f7ac58e418406e0e6398e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">The internal agglomeration procedure.  <a href="classvg_1_1MultipathMapper.html#af4abb58766f7ac58e418406e0e6398e2">More...</a><br /></td></tr>
 <tr class="separator:af4abb58766f7ac58e418406e0e6398e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4905af3b42d73d20868065f4e938e56e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a4905af3b42d73d20868065f4e938e56e">find_spliced_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;multipath_alns_out, vector&lt; double &gt; &amp;multiplicities, vector&lt; size_t &gt; &amp;cluster_idxs, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a7fa302a3f9a8b9993775d3789243e450">clustergraph_t</a> &gt; &amp;cluster_graphs, const <a class="el" href="classvg_1_1MultipathMapper.html#a165e5c0531ff4337ce6542da263d3fbd">match_fanouts_t</a> *fanouts=nullptr)</td></tr>
-<tr class="separator:a4905af3b42d73d20868065f4e938e56e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad907bb6d98eaa48a8a013ddfb0fd7449"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ad907bb6d98eaa48a8a013ddfb0fd7449">find_spliced_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;multipath_alns_out, vector&lt; double &gt; &amp;multiplicities, vector&lt; size_t &gt; &amp;cluster_idxs, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a7fa302a3f9a8b9993775d3789243e450">clustergraph_t</a> &gt; &amp;cluster_graphs, const <a class="el" href="classvg_1_1MultipathMapper.html#a165e5c0531ff4337ce6542da263d3fbd">match_fanouts_t</a> *fanouts=nullptr, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> *rescue_anchor=nullptr, bool rescue_left=false, double rescue_multiplicity=1.0)</td></tr>
+<tr class="separator:ad907bb6d98eaa48a8a013ddfb0fd7449"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad33f09dde45f1498ffa1ac6996cc0c6d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ad33f09dde45f1498ffa1ac6996cc0c6d">find_spliced_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; pair&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, vector&lt; double &gt; &amp;pair_multiplicities, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems1, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a7fa302a3f9a8b9993775d3789243e450">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a7fa302a3f9a8b9993775d3789243e450">clustergraph_t</a> &gt; &amp;cluster_graphs2, const <a class="el" href="classvg_1_1MultipathMapper.html#a165e5c0531ff4337ce6542da263d3fbd">match_fanouts_t</a> *fanouts=nullptr)</td></tr>
 <tr class="separator:ad33f09dde45f1498ffa1ac6996cc0c6d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa97ce2f7dcd38916169b78483b7c21ec"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aa97ce2f7dcd38916169b78483b7c21ec">identify_aligned_splice_candidates</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, bool search_left, const pair&lt; int64_t, int64_t &gt; &amp;primary_interval, const vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;multipath_alns, const vector&lt; size_t &gt; &amp;cluster_idxs, const vector&lt; int64_t &gt; &amp;current_index, int64_t anchor, unordered_set&lt; size_t &gt; &amp;clusters_used_out, vector&lt; size_t &gt; &amp;mp_aln_candidates_out) const</td></tr>
@@ -513,8 +519,13 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:a068b38611f12b7e4677b39d43da715f9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a068b38611f12b7e4677b39d43da715f9">align_to_splice_candidates</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a7fa302a3f9a8b9993775d3789243e450">clustergraph_t</a> &gt; &amp;cluster_graphs, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, const vector&lt; size_t &gt; &amp;cluster_candidates, const vector&lt; pair&lt; const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> *, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&gt; &amp;hit_candidates, const pair&lt; int64_t, int64_t &gt; &amp;primary_interval, bool searching_left, bool is_read_1, unordered_map&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a78bdd800abf19efb551d5d20ced71c55">candidate_id_t</a>, pair&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>, double &gt;&gt; &amp;unaligned_candidate_bank, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a78bdd800abf19efb551d5d20ced71c55">candidate_id_t</a> &gt; &amp;candidates_out, const <a class="el" href="classvg_1_1MultipathMapper.html#a165e5c0531ff4337ce6542da263d3fbd">match_fanouts_t</a> *mem_fanouts=nullptr) const</td></tr>
 <tr class="memdesc:a068b38611f12b7e4677b39d43da715f9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Make alignments for the splice alignment cancidates from MEMs and unaligned clusters.  <a href="classvg_1_1MultipathMapper.html#a068b38611f12b7e4677b39d43da715f9">More...</a><br /></td></tr>
 <tr class="separator:a068b38611f12b7e4677b39d43da715f9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3b93ee56551a172f37fb6e868f45d3a1"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a3b93ee56551a172f37fb6e868f45d3a1">test_splice_candidates</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, bool searching_left, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;anchor_mp_aln, double &amp;anchor_multiplicity, <a class="el" href="classvg_1_1MultipathMapper.html#a3448fc563b9a57181b01ea5bb969fccd">SpliceStrand</a> &amp;strand, int64_t num_candidates, const function&lt; const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;(int64_t)&gt; &amp;get_candidate, const function&lt; double(int64_t)&gt; &amp;get_multiplicity, const function&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&amp;(int64_t)&gt; &amp;consume_candidate)</td></tr>
-<tr class="separator:a3b93ee56551a172f37fb6e868f45d3a1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac45ca6502977ffa0640b3d5cdf21fae1"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ac45ca6502977ffa0640b3d5cdf21fae1">test_splice_candidates</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, bool searching_left, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;anchor_mp_aln, double *anchor_multiplicity_out, <a class="el" href="classvg_1_1MultipathMapper.html#a3448fc563b9a57181b01ea5bb969fccd">SpliceStrand</a> &amp;strand, int64_t num_candidates, const function&lt; const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;(int64_t)&gt; &amp;get_candidate, const function&lt; double(int64_t)&gt; &amp;get_multiplicity, const function&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&amp;(int64_t)&gt; &amp;consume_candidate) const</td></tr>
+<tr class="separator:ac45ca6502977ffa0640b3d5cdf21fae1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a535c42c7052c82ddc71613cce3459b03"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a535c42c7052c82ddc71613cce3459b03">attempt_rescue_for_splice_segment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const pair&lt; int64_t, int64_t &gt; &amp;primary_interval, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;rescue_anchor, bool rescue_left, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;rescued_out) const</td></tr>
+<tr class="separator:a535c42c7052c82ddc71613cce3459b03"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a10cf9d266ae6da1651c9d07a7fc5f14d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a10cf9d266ae6da1651c9d07a7fc5f14d">find_rescuable_spliced_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;splice_anchor, double &amp;anchor_multiplicity, <a class="el" href="classvg_1_1MultipathMapper.html#a3448fc563b9a57181b01ea5bb969fccd">SpliceStrand</a> &amp;strand, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;rescue_anchor, double rescue_multiplicity, bool rescue_left, const pair&lt; int64_t, int64_t &gt; &amp;primary_interval) const</td></tr>
+<tr class="memdesc:a10cf9d266ae6da1651c9d07a7fc5f14d"><td class="mdescLeft">&#160;</td><td class="mdescRight">See if we can find a spliced alignment segment by aligning between the pair.  <a href="classvg_1_1MultipathMapper.html#a10cf9d266ae6da1651c9d07a7fc5f14d">More...</a><br /></td></tr>
+<tr class="separator:a10cf9d266ae6da1651c9d07a7fc5f14d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae388023023d7b1a862a77416d9ed1ede"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ae388023023d7b1a862a77416d9ed1ede">retry_pairing_spliced_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;multipath_alns_1, vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;multipath_alns_2, const vector&lt; size_t &gt; &amp;cluster_idxs_1, const vector&lt; size_t &gt; &amp;cluster_idxs_2, const vector&lt; double &gt; &amp;multiplicities_1, const vector&lt; double &gt; &amp;multiplicities_2, vector&lt; pair&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs_out, vector&lt; double &gt; &amp;pair_multiplicities_out) const</td></tr>
 <tr class="separator:ae388023023d7b1a862a77416d9ed1ede"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7af0cb7af3f7a3e3ab60627f3793aa0a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a7af0cb7af3f7a3e3ab60627f3793aa0a">multipath_align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, <a class="el" href="classvg_1_1MultipathMapper.html#a7fa302a3f9a8b9993775d3789243e450">clustergraph_t</a> &amp;cluster_graph, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln_out, const <a class="el" href="classvg_1_1MultipathMapper.html#a165e5c0531ff4337ce6542da263d3fbd">match_fanouts_t</a> *fanouts) const</td></tr>
@@ -1478,6 +1489,61 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a535c42c7052c82ddc71613cce3459b03"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a535c42c7052c82ddc71613cce3459b03">&#9670;&nbsp;</a></span>attempt_rescue_for_splice_segment()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MultipathMapper::attempt_rescue_for_splice_segment </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const pair&lt; int64_t, int64_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>primary_interval</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>rescue_anchor</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>rescue_left</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>rescued_out</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Try to rescue an anchor for a missing spliced alignment section between the reads in a pair </p>
+
+</div>
+</div>
 <a id="a9bdb30363cd02187fb0a1ca07ea2cb20"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a9bdb30363cd02187fb0a1ca07ea2cb20">&#9670;&nbsp;</a></span>attempt_unpaired_multipath_map_of_pair()</h2>
 
@@ -1755,6 +1821,67 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="acc6d405f8349b1c5ae932e50a8e4cc47"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acc6d405f8349b1c5ae932e50a8e4cc47">&#9670;&nbsp;</a></span>do_rescue_alignment()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MultipathMapper::do_rescue_alignment </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>multipath_aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>other_aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>rescue_forward</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>rescue_multipath_aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>rescue_mean_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>num_std_devs</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Make an alignment to a rescue graph and translate it back to the original node space Returns false if the alignment fails, but does not check statistical significance </p>
+
+</div>
+</div>
 <a id="a362ad957c6634b60317158966c3e02f7"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a362ad957c6634b60317158966c3e02f7">&#9670;&nbsp;</a></span>establish_strand_consistency()</h2>
 
@@ -1958,8 +2085,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="abbe3a65d5493fa016e9e1e0025678db2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abbe3a65d5493fa016e9e1e0025678db2">&#9670;&nbsp;</a></span>extract_rescue_graph()</h2>
+<a id="a6cecbd08d03efe5b248cf2e93e5f619c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6cecbd08d03efe5b248cf2e93e5f619c">&#9670;&nbsp;</a></span>extract_rescue_graph()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1989,7 +2116,19 @@ Additional Inherited Members</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>rescue_graph</em>&#160;</td>
+          <td class="paramname"><em>rescue_graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>rescue_mean_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>num_std_devs</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -2082,8 +2221,82 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a4905af3b42d73d20868065f4e938e56e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4905af3b42d73d20868065f4e938e56e">&#9670;&nbsp;</a></span>find_spliced_alignments() <span class="overload">[1/2]</span></h2>
+<a id="a10cf9d266ae6da1651c9d07a7fc5f14d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a10cf9d266ae6da1651c9d07a7fc5f14d">&#9670;&nbsp;</a></span>find_rescuable_spliced_alignments()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MultipathMapper::find_rescuable_spliced_alignments </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>splice_anchor</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double &amp;&#160;</td>
+          <td class="paramname"><em>anchor_multiplicity</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1MultipathMapper.html#a3448fc563b9a57181b01ea5bb969fccd">SpliceStrand</a> &amp;&#160;</td>
+          <td class="paramname"><em>strand</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>rescue_anchor</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>rescue_multiplicity</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>rescue_left</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const pair&lt; int64_t, int64_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>primary_interval</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>See if we can find a spliced alignment segment by aligning between the pair. </p>
+
+</div>
+</div>
+<a id="ad907bb6d98eaa48a8a013ddfb0fd7449"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad907bb6d98eaa48a8a013ddfb0fd7449">&#9670;&nbsp;</a></span>find_spliced_alignments() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2131,7 +2344,25 @@ Additional Inherited Members</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="classvg_1_1MultipathMapper.html#a165e5c0531ff4337ce6542da263d3fbd">match_fanouts_t</a> *&#160;</td>
-          <td class="paramname"><em>fanouts</em> = <code>nullptr</code>&#160;</td>
+          <td class="paramname"><em>fanouts</em> = <code>nullptr</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> *&#160;</td>
+          <td class="paramname"><em>rescue_anchor</em> = <code>nullptr</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>rescue_left</em> = <code>false</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>rescue_multiplicity</em> = <code>1.0</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -4067,8 +4298,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a3b93ee56551a172f37fb6e868f45d3a1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3b93ee56551a172f37fb6e868f45d3a1">&#9670;&nbsp;</a></span>test_splice_candidates()</h2>
+<a id="ac45ca6502977ffa0640b3d5cdf21fae1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac45ca6502977ffa0640b3d5cdf21fae1">&#9670;&nbsp;</a></span>test_splice_candidates()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -4097,8 +4328,8 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">double &amp;&#160;</td>
-          <td class="paramname"><em>anchor_multiplicity</em>, </td>
+          <td class="paramtype">double *&#160;</td>
+          <td class="paramname"><em>anchor_multiplicity_out</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -4133,7 +4364,7 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td></td>
+          <td></td><td> const</td>
         </tr>
       </table>
   </td>
@@ -4839,6 +5070,20 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a194ce33d0517a8ccd67c4e87d26f1191"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a194ce33d0517a8ccd67c4e87d26f1191">&#9670;&nbsp;</a></span>min_splice_rescue_matches</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::MultipathMapper::min_splice_rescue_matches = 6</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a9616c4b8786af795cfd1f007c5e0c1dc"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a9616c4b8786af795cfd1f007c5e0c1dc">&#9670;&nbsp;</a></span>min_tail_anchor_length</h2>
 
@@ -5307,6 +5552,20 @@ Additional Inherited Members</h2></td></tr>
 <span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a0fcadd278d752aba5c9bb143f5f3a0d6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0fcadd278d752aba5c9bb143f5f3a0d6">&#9670;&nbsp;</a></span>splice_rescue_graph_std_devs</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::MultipathMapper::splice_rescue_graph_std_devs = 3.0</td>
+        </tr>
+      </table>
 </div><div class="memdoc">
 
 </div>
