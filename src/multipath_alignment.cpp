@@ -1726,7 +1726,19 @@ namespace vg {
 
     pair<int64_t, int64_t> aligned_interval(const multipath_alignment_t& multipath_aln) {
         
-        if (multipath_aln.subpath().empty()) {
+        // check whether there are any aligned bases
+        bool empty = true;
+        for (size_t i = 0; i < multipath_aln.subpath_size() && empty; ++i) {
+            const auto& path = multipath_aln.subpath(i).path();
+            for (size_t j = 0; j < path.mapping_size() && empty; ++j) {
+                const auto& mapping = path.mapping(j);
+                for (size_t k = 0; k < mapping.edit_size() && empty; ++k) {
+                    const auto& edit = mapping.edit(k);
+                    empty = (edit.to_length() == 0 && edit.from_length() == 0);
+                }
+            }
+        }
+        if (empty) {
             return pair<int64_t, int64_t>(0, 0);
         }
         

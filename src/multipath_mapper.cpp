@@ -742,8 +742,9 @@ namespace vg {
         
         // put local alignment here
         Alignment aln = other_aln;
-        // in case we're realigning a GAM, get rid of the path
+        // in case we're realigning a GAM, get rid of the path and score
         aln.clear_path();
+        aln.set_score(0);
         
         aligner->align(aln, *align_dag, true);
         

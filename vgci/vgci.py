@@ -615,7 +615,7 @@ class VGCITest(TestCase):
             # toil-vg map options
             # don't waste time sharding reads since we only run on one node
             single_reads_chunk = True,
-            mpmap_opts = ['-B', '-F GAM'],
+            mpmap_opts = ['-B', '-F GAM', '-n DNA'],
             more_mpmap_opts = more_mpmap_opts,
             force_outstore = self.force_outstore
         )
