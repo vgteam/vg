@@ -22,9 +22,6 @@
 [submodule "gcsa2"]
 	path = deps/gcsa2
 	url = https://github.com/jltsiren/gcsa2.git
-[submodule "sdsl-lite"]
-	path = deps/sdsl-lite
-    url = https://github.com/vgteam/sdsl-lite.git
 [submodule "deps/libVCFH"]
 	path = deps/libVCFH
 	url = https://github.com/edawson/libVCFH.git
@@ -34,9 +31,6 @@
 [submodule "gfakluge"]
     path = deps/gfakluge
     url = https://github.com/vgteam/gfakluge.git
-[submodule "deps/DYNAMIC"]
-	path = deps/DYNAMIC
-	url = https://github.com/vgteam/DYNAMIC
 [submodule "deps/raptor"]
 	path = deps/raptor
 	url = https://github.com/vgteam/raptor.git
@@ -67,24 +61,12 @@
 [submodule "deps/elfutils"]
 	path = deps/elfutils
 	url = git://sourceware.org/git/elfutils.git
-[submodule "deps/structures"]
-	path = deps/structures
-	url = https://github.com/vgteam/structures.git
-[submodule "deps/sparsepp"]
-	path = deps/sparsepp
-	url = https://github.com/greg7mdp/sparsepp.git
 [submodule "deps/libdeflate"]
 	path = deps/libdeflate
 	url = https://github.com/ebiggers/libdeflate.git
 [submodule "deps/dozeu"]
 	path = deps/dozeu
 	url = https://github.com/ocxtal/dozeu.git
-[submodule "deps/libhandlegraph"]
-	path = deps/libhandlegraph
-	url = https://github.com/vgteam/libhandlegraph.git
-[submodule "deps/libvgio"]
-	path = deps/libvgio
-	url = https://github.com/vgteam/libvgio.git
 [submodule "deps/jemalloc"]
 	path = deps/jemalloc
 	url = https://github.com/jemalloc/jemalloc.git
@@ -95,9 +77,6 @@
 [submodule "deps/FlameGraph"]
 	path = deps/FlameGraph
 	url = https://github.com/brendangregg/FlameGraph
-[submodule "deps/libbdsg"]
-	path = deps/libbdsg
-	url = https://github.com/vgteam/libbdsg.git
 [submodule "deps/xg"]
 	path = deps/xg
 	url = https://github.com/vgteam/xg.git
@@ -110,18 +89,12 @@
 [submodule "deps/mmmultimap"]
 	path = deps/mmmultimap
 	url = https://github.com/ekg/mmmultimap.git
-[submodule "vgteam_bbhash"]
-	path = deps/BBHash
-	url = https://github.com/vgteam/BBHash.git
 [submodule "src/simde"]
 	path = src/simde
 	url = https://github.com/nemequ/simde-no-tests
 [submodule "doc/wiki"]
 	path = doc/wiki
 	url = https://github.com/vgteam/vg.wiki.git
-[submodule "deps/mio"]
-	path = deps/mio
-	url = https://github.com/mandreyel/mio.git
 [submodule "deps/atomic_queue"]
 	path = deps/atomic_queue
 	url = https://github.com/max0x7ba/atomic_queue.git
@@ -133,3 +106,6 @@
 	path = deps/tabixpp
 	url = https://github.com/ekg/tabixpp.git
 	branch = master
+[submodule "deps/libsnarls"]
+	path = deps/libsnarls
+	url = https://github.com/vgteam/libsnarls.git

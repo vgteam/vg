@@ -255,7 +255,6 @@ CONFIGURATION_OBJ =
 RAPTOR_DIR:=deps/raptor
 JEMALLOC_DIR:=deps/jemalloc
 LOCKFREE_MALLOC_DIR:=deps/lockfree-malloc
-SDSL_DIR:=deps/sdsl-lite
 SNAPPY_DIR:=deps/snappy
 GCSA2_DIR:=deps/gcsa2
 GBWT_DIR:=deps/gbwt
@@ -268,24 +267,17 @@ TABIXPP_DIR:=deps/tabixpp
 HTSLIB_DIR:=deps/htslib
 GSSW_DIR:=deps/gssw
 SPARSEHASH_DIR:=deps/sparsehash
-SPARSEPP_DIR:=deps/sparsepp
 SHA1_DIR:=deps/sha1
-DYNAMIC_DIR:=deps/DYNAMIC
 SSW_DIR:=deps/ssw/src
 LINLS_DIR:=deps/sublinear-Li-Stephens
-STRUCTURES_DIR:=deps/structures
 BACKWARD_CPP_DIR:=deps/backward-cpp
 DOZEU_DIR:=deps/dozeu
 ELFUTILS_DIR:=deps/elfutils
 LIBDEFLATE_DIR:=deps/libdeflate
-LIBVGIO_DIR:=deps/libvgio
-LIBHANDLEGRAPH_DIR:=deps/libhandlegraph
-LIBBDSG_DIR:=deps/libbdsg
 XG_DIR:=deps/xg
+LIBSNARLS_DIR:=deps/libsnarls
 MMMULTIMAP_DIR=deps/mmmultimap
 IPS4O_DIR=deps/ips4o
-BBHASH_DIR=deps/BBHash
-MIO_DIR=deps/mio
 ATOMIC_QUEUE_DIR=deps/atomic_queue
 
 # Dependencies that go into libvg's archive
@@ -323,6 +315,7 @@ LIB_DEPS += $(LIB_DIR)/libvgio.a
 LIB_DEPS += $(LIB_DIR)/libhandlegraph.a
 LIB_DEPS += $(LIB_DIR)/libbdsg.a
 LIB_DEPS += $(LIB_DIR)/libxg.a
+LIB_DEPS += $(LIB_DIR)/libsnarls.a
 ifneq ($(shell uname -s),Darwin)
     # On non-Mac (i.e. Linux), where ELF binaries are used, pull in libdw which
     # backward-cpp will use.
@@ -438,14 +431,14 @@ $(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
 	+. ./source_me.sh && rm -Rf $(CWD)/$(INC_DIR)/jemalloc && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
 
 # Use fake patterns to tell Make that this rule generates all these files when run once.
-# Here % should always match "lib" which is a common substring.
+# Here % should always match "." which is a common substring.
 # See https://stackoverflow.com/a/19822767
-$(LIB_DIR)/%sdsl.a $(LIB_DIR)/%divsufsort.a $(LIB_DIR)/%divsufsort64.a : $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/sdsl/*.hpp
-ifeq ($(shell uname -s),Darwin)
-	+. ./source_me.sh && cd $(SDSL_DIR) && AS_INTEGRATED_ASSEMBLER=1 BUILD_PORTABLE=1 CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" ./install.sh $(CWD) $(FILTER)
-else
-	+. ./source_me.sh && cd $(SDSL_DIR) && BUILD_PORTABLE=1 CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" ./install.sh $(CWD) $(FILTER)
-endif
+# Since some libraries really want to be next to SDSL-lite to pick up its configuration, we need to make sure to propagate the Make.helper file manually.
+# We also need to make sure to touch all the output files, since CMake's install may see there's nothing to change and not touch them. 
+$(LIB_DIR)/libsnarls%a $(LIB_DIR)/libsdsl%a $(CWD)/deps/sdsl-lite/Make%helper $(LIB_DIR)/libdivsufsort%a $(LIB_DIR)/libdivsufsort64%a $(LIB_DIR)/libbdsg%a $(LIB_DIR)/libhandlegraph%a $(LIB_DIR)/libvgio%a $(LIB_DIR)/libstructures%a $(INC_DIR)/BooPHF%h $(INC_DIR)/dynamic/dynamic%hpp $(INC_DIR)/sparsepp/spp%h $(INC_DIR)/mio/mmap%hpp : $(wildcard $(LIBSNARLS_DIR)/**/*.cpp) $(wildcard $(LIBSNARLS_DIR)/**/*.hpp) $(wildcard $(LIBSNARLS_DIR)/**/Makefile) $(LIBSNARLS_DIR)/CMakeLists.txt $(wildcard $(LIBSNARLS_DIR)/**/CMakeLists.txt) $(LIB_DIR)/libhts.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/cleaned_old_protobuf_v003
+	+. ./source_me.sh && cd $(LIBSNARLS_DIR) && mkdir -p build && cd build && export CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" && export LDFLAGS="$(LD_LIB_DIR_FLAGS)" && export PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) && pkg-config --static --libs htslib && cmake -DCMAKE_PREFIX_PATH=$(CWD) -DCMAKE_LIBRARY_PATH=$(CWD)/$(LIB_DIR) -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib .. && $(MAKE) install
+	+mkdir -p $(CWD)/deps/sdsl-lite && cp $(LIBSNARLS_DIR)/deps/libbdsg/bdsg/deps/sdsl-lite/Make.helper $(CWD)/deps/sdsl-lite/Make.helper
+	+touch $(LIB_DIR)/libsnarls.a $(LIB_DIR)/libsdsl.a $(CWD)/deps/sdsl-lite/Make.helper $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(LIB_DIR)/libbdsg.a $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/libvgio.a $(LIB_DIR)/libstructures.a $(INC_DIR)/BooPHF.h $(INC_DIR)/dynamic/dynamic.hpp $(INC_DIR)/sparsepp/spp.h $(INC_DIR)/mio/mmap.hpp
 
 $(LIB_DIR)/libssw.a: $(SSW_DIR)/*.c $(SSW_DIR)/*.cpp $(SSW_DIR)/*.h
 	+. ./source_me.sh && cd $(SSW_DIR) && $(MAKE) $(FILTER) && ar rs $(CWD)/$(LIB_DIR)/libssw.a ssw.o ssw_cpp.o && cp ssw_cpp.h ssw.h $(CWD)/$(INC_DIR)
@@ -457,7 +450,7 @@ $(LIB_DIR)/libsnappy.a: $(SNAPPY_DIR)/*.cc $(SNAPPY_DIR)/*.h
 
 $(INC_DIR)/gcsa/gcsa.h: $(LIB_DIR)/libgcsa2.a
 
-$(LIB_DIR)/libgcsa2.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(wildcard $(GCSA2_DIR)/*.cpp) $(wildcard $(GCSA2_DIR)/include/gcsa/*.h)
+$(LIB_DIR)/libgcsa2.a: $(LIB_DIR)/libsdsl.a $(CWD)/deps/sdsl-lite/Make.helper $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(wildcard $(GCSA2_DIR)/*.cpp) $(wildcard $(GCSA2_DIR)/include/gcsa/*.h)
 ifeq ($(shell uname -s),Darwin)
 	+. ./source_me.sh && cp -r $(GCSA2_DIR)/include/gcsa $(CWD)/$(INC_DIR)/ && cd $(GCSA2_DIR) && AS_INTEGRATED_ASSEMBLER=1 $(MAKE) libgcsa2.a $(FILTER) && mv libgcsa2.a $(CWD)/$(LIB_DIR)
 else
@@ -466,7 +459,7 @@ endif
 
 $(INC_DIR)/gbwt/dynamic_gbwt.h: $(LIB_DIR)/libgbwt.a
 
-$(LIB_DIR)/libgbwt.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(wildcard $(GBWT_DIR)/src/*.cpp) $(wildcard $(GBWT_DIR)/include/gbwt/*.h)
+$(LIB_DIR)/libgbwt.a: $(LIB_DIR)/libsdsl.a $(CWD)/deps/sdsl-lite/Make.helper $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(wildcard $(GBWT_DIR)/src/*.cpp) $(wildcard $(GBWT_DIR)/include/gbwt/*.h)
 ifeq ($(shell uname -s),Darwin)
 	+. ./source_me.sh && cp -r $(GBWT_DIR)/include/gbwt $(CWD)/$(INC_DIR)/ && cd $(GBWT_DIR) && $(MAKE) clean && AS_INTEGRATED_ASSEMBLER=1 $(MAKE) $(FILTER) && mv lib/libgbwt.a $(CWD)/$(LIB_DIR)
 else
@@ -475,15 +468,12 @@ endif
 
 $(INC_DIR)/gbwtgraph/gbwtgraph.h: $(LIB_DIR)/libgbwtgraph.a
 
-$(LIB_DIR)/libgbwtgraph.a: $(LIB_DIR)/libgbwt.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(LIB_DIR)/libhandlegraph.a $(wildcard $(GBWTGRAPH_DIR)/src/*.cpp) $(wildcard $(GBWTGRAPH_DIR)/include/gbwtgraph/*.h)
+$(LIB_DIR)/libgbwtgraph.a: $(LIB_DIR)/libgbwt.a $(LIB_DIR)/libsdsl.a $(CWD)/deps/sdsl-lite/Make.helper $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(LIB_DIR)/libhandlegraph.a $(wildcard $(GBWTGRAPH_DIR)/src/*.cpp) $(wildcard $(GBWTGRAPH_DIR)/include/gbwtgraph/*.h)
 ifeq ($(shell uname -s),Darwin)
 	+. ./source_me.sh && cp -r $(GBWTGRAPH_DIR)/include/gbwtgraph $(CWD)/$(INC_DIR)/ && cd $(GBWTGRAPH_DIR) && $(MAKE) clean && AS_INTEGRATED_ASSEMBLER=1 $(MAKE) $(FILTER) && mv lib/libgbwtgraph.a $(CWD)/$(LIB_DIR)
 else
 	+. ./source_me.sh && cp -r $(GBWTGRAPH_DIR)/include/gbwtgraph $(CWD)/$(INC_DIR)/ && cd $(GBWTGRAPH_DIR) && $(MAKE) clean && $(MAKE) $(FILTER) && mv lib/libgbwtgraph.a $(CWD)/$(LIB_DIR)
 endif
-
-$(INC_DIR)/BooPHF.h: $(BBHASH_DIR)/BooPHF.h
-	+cp $(BBHASH_DIR)/BooPHF.h $(CWD)/$(INC_DIR)
 
 $(INC_DIR)/progress_bar.hpp: $(PROGRESS_BAR_DIR)/progress_bar.hpp
 	+cp $(PROGRESS_BAR_DIR)/progress_bar.hpp $(CWD)/$(INC_DIR)
@@ -509,15 +499,6 @@ $(LIB_DIR)/cleaned_old_boost: $(wildcard $(LIB_DIR)/libboost_*) $(wildcard $(INC
 	+rm -f $(LIB_DIR)/libboost_*
 	+rm -Rf $(INC_DIR)/boost
 	+touch $(LIB_DIR)/cleaned_old_boost
-
-$(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/cleaned_old_protobuf_v003 $(LIBVGIO_DIR)/CMakeLists.txt $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp
-	+rm -f $(CWD)/$(INC_DIR)/vg.pb.h $(CWD)/$(INC_DIR)/vg/vg.pb.h
-	+rm -Rf $(CWD)/$(INC_DIR)/vg/io/
-	+. ./source_me.sh && export CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" && export LDFLAGS="$(LD_LIB_DIR_FLAGS)" && cd $(LIBVGIO_DIR) && rm -Rf CMakeCache.txt CMakeFiles *.cmake install_manifest.txt *.pb.cc *.pb.h *.a && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_PREFIX_PATH=$(CWD) -DCMAKE_LIBRARY_PATH=$(CWD)/$(LIB_DIR) -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib . $(FILTER) && $(MAKE) clean && VERBOSE=1 $(MAKE) $(FILTER) && $(MAKE) install 
-
-$(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp $(LIBHANDLEGRAPH_DIR)/src/*.cpp
-	+. ./source_me.sh && cd $(LIBHANDLEGRAPH_DIR) && CXXFLAGS="$(CXXFLAGS) $(CPPFLAGS)" cmake -DCMAKE_VERBOSE_MAKEFILE=ON . && $(MAKE) $(FILTER) && cp libhandlegraph.a $(CWD)/$(LIB_DIR) && cp -r src/include/handlegraph $(CWD)/$(INC_DIR)
-
 
 # On Linux, libdeflate builds a .so.
 # On Mac, it *still* builds an so, which is just a dylib with .so extension.
@@ -548,6 +529,9 @@ $(LIB_DIR)/libhts%a $(LIB_DIR)/pkgconfig/htslib%pc: $(LIB_DIR)/libdeflate.a $(LI
 	+. ./source_me.sh && cd $(HTSLIB_DIR) && rm -Rf $(CWD)/$(INC_DIR)/htslib $(CWD)/$(LIB_DIR)/libhts* && autoreconf -i && autoheader && autoconf || true
 	+. ./source_me.sh && cd $(HTSLIB_DIR) && (./configure -n 2>&1 || true) | grep "build system type" | rev | cut -f1 -d' ' | rev >systype.txt
 	+. ./source_me.sh && cd $(HTSLIB_DIR) && CFLAGS="-I$(CWD)/$(HTSLIB_DIR) -isystem $(CWD)/$(HTSLIB_DIR) -I$(CWD)/$(INC_DIR) $(CFLAGS)" LDFLAGS="-L$(CWD)/$(LIB_DIR) $(LD_UTIL_RPATH_FLAGS)" ./configure --with-libdeflate --disable-s3 --disable-gcs --disable-libcurl --disable-plugins --prefix=$(CWD) --host=$$(cat systype.txt) $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && $(MAKE) install
+
+# Even though htslib.pc is consumed by a rule, don't delete it as an intermediate
+.SECONDARY: $(LIB_DIR)/pkgconfig/htslib.pc
 
 # Build and install tabixpp for vcflib.
 $(LIB_DIR)/libtabixpp.a: $(LIB_DIR)/libhts.a $(TABIXPP_DIR)/*.cpp $(TABIXPP_DIR)/*.hpp
@@ -583,20 +567,8 @@ $(LIB_DIR)/libgssw.a: $(GSSW_DIR)/src/gssw.c $(GSSW_DIR)/src/gssw.h
 $(INC_DIR)/lru_cache.h: $(DEP_DIR)/lru_cache/*.h $(DEP_DIR)/lru_cache/*.cc
 	+cd $(DEP_DIR)/lru_cache && cp *.h* $(CWD)/$(INC_DIR)/
 
-# We moved the Dynamic headers so make sure to clean up the old ones.
-$(INC_DIR)/dynamic/dynamic.hpp: $(DYNAMIC_DIR)/include/dynamic/*.hpp $(DYNAMIC_DIR)/include/dynamic/*/*.hpp
-	rm -Rf $(INC_DIR)/dynamic.hpp $(INC_DIR)/dynamic
-	# annoyingly doesn't have an install option on the cmake, so we manually move their external dependency headers
-	cd $(CWD)/$(DYNAMIC_DIR) && rm -Rf build && mkdir -p build && cd build && export CXXFLAGS="$(CPPFLAGS) $(CXXFLAGS)" && cmake -DCMAKE_VERBOSE_MAKEFILE=ON .. && make && cp -r $(CWD)/$(DYNAMIC_DIR)/deps/hopscotch_map/include/* $(CWD)/$(INC_DIR)/
-	# Do the copy of the main file last so we can tell if this recipe failed and redo it.
-	# Otherwise we get dynamic.hpp without its deps
-	mkdir -p $(INC_DIR)/dynamic && cp -r $(CWD)/$(DYNAMIC_DIR)/include/dynamic/* $(INC_DIR)/dynamic/
-
 $(INC_DIR)/sparsehash/sparse_hash_map: $(wildcard $(SPARSEHASH_DIR)/**/*.cc) $(wildcard $(SPARSEHASH_DIR)/**/*.h) 
 	+. ./source_me.sh && cd $(SPARSEHASH_DIR) && ./autogen.sh && LDFLAGS="$(LD_LIB_DIR_FLAGS)" ./configure --prefix=$(CWD) $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install
-
-$(INC_DIR)/sparsepp/spp.h: $(wildcard $(SPARSEHASH_DIR)/sparsepp/*.h)
-	+cp -r $(SPARSEPP_DIR)/sparsepp $(INC_DIR)/
 
 #$(INC_DIR)/Variant.h
 $(LIB_DIR)/libvcfh.a: $(DEP_DIR)/libVCFH/*.cpp $(DEP_DIR)/libVCFH/*.hpp 
@@ -627,9 +599,6 @@ $(BIN_DIR)/rapper: $(LIB_DIR)/libraptor2.a
 $(INC_DIR)/raptor2/raptor2.h: $(LIB_DIR)/libraptor2.a $(RAPTOR_DIR)/build/*
 	+cd $(RAPTOR_DIR)/build && mkdir -p $(CWD)/$(INC_DIR)/raptor2 && cp src/*.h $(CWD)/$(INC_DIR)/raptor2
 	+touch $(INC_DIR)/raptor2/raptor2.h
-
-$(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STRUCTURES_DIR)/src/*.cpp $(STRUCTURES_DIR)/Makefile 
-	+. ./source_me.sh && cd $(STRUCTURES_DIR) && $(MAKE) clean && $(MAKE) lib/libstructures.a $(FILTER) && cp lib/libstructures.a $(CWD)/$(LIB_DIR)/ && cp -r src/include/structures $(CWD)/$(INC_DIR)/
 
 $(INC_DIR)/sha1.hpp: $(SHA1_DIR)/sha1.hpp
 	+cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
@@ -673,12 +642,6 @@ $(LIB_DIR)/libfml.a: $(FERMI_DIR)/*.h $(FERMI_DIR)/*.c
 # We don't need to hack the build to point at our htslib because sublinearLS gets its htslib from the include flags we set
 $(LIB_DIR)/libsublinearLS.a: $(LINLS_DIR)/src/*.cpp $(LINLS_DIR)/src/*.hpp $(LIB_DIR)/libhts.a
 	. ./source_me.sh && cd $(LINLS_DIR) && $(MAKE) clean && INCLUDE_FLAGS="-I$(CWD)/$(INC_DIR)" $(MAKE) libs $(FILTER) && cp lib/libsublinearLS.a $(CWD)/$(LIB_DIR)/ && mkdir -p $(CWD)/$(INC_DIR)/sublinearLS && cp src/*.hpp $(CWD)/$(INC_DIR)/sublinearLS/
-
-$(LIB_DIR)/libbdsg.a: $(INC_DIR)/BooPHF.h $(LIBBDSG_DIR)/Makefile $(LIBBDSG_DIR)/bdsg/src/*.cpp $(LIBBDSG_DIR)/bdsg/include/bdsg/*.hpp $(LIBBDSG_DIR)/bdsg/include/bdsg/internal/*.hpp $(LIBBDSG_DIR)/bdsg/include/bdsg/overlays/*.hpp $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(INC_DIR)/sparsepp/spp.h $(INC_DIR)/dynamic/dynamic.hpp $(INC_DIR)/mio/mmap.hpp
-	+. ./source_me.sh && rm -Rf $(CWD)/$(INC_DIR)/bdsg && cd $(LIBBDSG_DIR) && $(MAKE) clean && CPLUS_INCLUDE_PATH=$(CWD)/$(INC_DIR):$(CWD)/$(INC_DIR)/dynamic:$(CPLUS_INCLUDE_PATH) CXXFLAGS="$(INCLUDE_FLAGS) $(CXXFLAGS)" $(MAKE) $(FILTER) && cp lib/libbdsg.a $(CWD)/$(LIB_DIR) && cp -r bdsg/include/* $(CWD)/$(INC_DIR)
-
-$(INC_DIR)/mio/mmap.hpp: $(MIO_DIR)/include/mio/*
-	+. ./source_me.sh && cp -r $(MIO_DIR)/include/mio $(CWD)/$(INC_DIR)/
 
 # It would be better to copy the atomic_queue directory rather than its contents, but to avoid re-writing mmmultimap...
 $(INC_DIR)/atomic_queue.h: $(ATOMIC_QUEUE_DIR)/include/*
@@ -859,17 +822,14 @@ clean: clean-vcflib
 	cd $(DEP_DIR) && cd gssw && $(MAKE) clean
 	cd $(DEP_DIR) && cd ssw && cd src && $(MAKE) clean
 	cd $(DEP_DIR) && cd progress_bar && $(MAKE) clean
-	cd $(DEP_DIR) && cd sdsl-lite && ./uninstall.sh || true
 	cd $(DEP_DIR) && cd libVCFH && $(MAKE) clean
 	cd $(DEP_DIR) && cd vcflib && $(MAKE) clean
 	cd $(DEP_DIR) && cd gfakluge && $(MAKE) clean
 	cd $(DEP_DIR) && cd sha1 && $(MAKE) clean
-	cd $(DEP_DIR) && cd structures && $(MAKE) clean
 	cd $(DEP_DIR) && cd jemalloc && $(MAKE) clean || true
 	cd $(DEP_DIR) && cd sublinear-Li-Stephens && $(MAKE) clean
-	cd $(DEP_DIR) && cd libhandlegraph && $(MAKE) clean
-	cd $(DEP_DIR) && cd libvgio && $(MAKE) clean 
 	cd $(DEP_DIR) && cd raptor && cd build && find . -not \( -name '.gitignore' -or -name 'pkg.m4' \) -delete
+	cd $(DEP_DIR) && cd libsnarls && rm -Rf build
 	# lru_cache is never built because it is header-only
 	# bash-tap is never built either
 
