@@ -153,6 +153,9 @@ int main_call(int argc, char** argv) {
         case 'm':
             min_support_string = optarg;
             break;
+        case 'e':
+            baseline_error_string = optarg;
+            break;            
         case 'v':
             vcf_filename = optarg;
             break;
