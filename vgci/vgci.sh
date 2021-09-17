@@ -338,15 +338,13 @@ then
          export TMPDIR
     fi
 
-    # Dependencies for running tests.  Need numpy, scipy and sklearn
-    # for running toil-vg mapeval, and dateutils and reqests for ./mins_since_last_build.py
-    pip3 install numpy==1.17.1
-    pip3 install scipy==1.0.0rc2 --only-binary :all:
-    pip3 install scikit-learn==0.22.1
-    pip3 install dateutils
-    pip3 install requests
-    pip3 install timeout_decorator
-    pip3 install pytest
+    # Dependencies for running tests.  Need numpy, scipy and sklearn for
+    # running toil-vg mapeval, and dateutils and reqests for
+    # ./mins_since_last_build.py. Make sure to get the giant buildable modules
+    # as binaries only to avoid wasting CI time building some slightly nicer
+    # version Pip prefers.
+    pip3 install pytest timeout_decorator requests dateutils
+    pip3 install numpy scipy scikit-learn --only-binary :all:
 
     # Install Toil
     echo "Installing toil from ${TOIL_PACKAGE}"
