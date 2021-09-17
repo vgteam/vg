@@ -2062,7 +2062,6 @@ namespace vg {
             view_multipath_alignment(cerr, multipath_aln_pair.second, *xindex);
         }
 #endif
-        
         return proper_paired;
     }
     
@@ -2740,7 +2739,7 @@ namespace vg {
         }
         else {
             begin = alignment.sequence().begin();
-            end = alignment.sequence().begin() + max<int64_t>(primary_interval.first + max_softclip_overlap,
+            end = alignment.sequence().begin() + min<int64_t>(primary_interval.first + max_softclip_overlap,
                                                               alignment.sequence().size());
         }
         Alignment splice_aln;
@@ -2772,6 +2771,14 @@ namespace vg {
         // pretty permissive here because we will test this candidate for signficance in next
         // step of spliced alignment algorithm
         auto rescued_interval = aligned_interval(rescued_out);
+        auto aligned_length = rescued_interval.second - rescued_interval.first;
+        auto threshold = log(2.0 * splice_rescue_graph_std_devs * fragment_length_distr.std_dev()) / log(4.0);
+        if (aligned_length < threshold) {
+#ifdef debug_multipath_mapper
+            cerr << "rescue candidate with aligned length " << aligned_length << " does not reach significance threshold of " << threshold << ", not checking for spliced alignments" << endl;
+#endif
+            return false;
+        }
         if (rescue_left) {
             // we need to adjust offsets to make it match the full read
             rescued_interval.first += (begin - alignment.sequence().begin());
@@ -2789,6 +2796,11 @@ namespace vg {
 #endif
         
         if (succeeded) {
+#ifdef debug_multipath_mapper
+            cerr << "re-introducing trimmed sequence to rescued multipath alignment:" << endl;
+            cerr << debug_string(rescued_out) << endl;
+#endif
+            
             // add in the soft-clips for the part of the read we trimmed off
             if (rescue_left) {
                 // the softclip should come at the beginning of the rescued alignment
@@ -2824,12 +2836,10 @@ namespace vg {
             }
             else {
                 // the softclip should come at the end of the rescued alignment
-                rescued_out.mutable_sequence()->insert(rescued_out.mutable_sequence()->end(),
-                                                       end, alignment.sequence().end());
+                *rescued_out.mutable_sequence() += string(end, alignment.sequence().end());
                 if (!alignment.quality().empty()) {
-                    rescued_out.mutable_quality()->insert(rescued_out.mutable_quality()->end(),
-                                                          alignment.quality().begin() + (end - alignment.sequence().begin()),
-                                                          alignment.quality().end());
+                    *rescued_out.mutable_quality() += string(alignment.quality().begin() + (end - alignment.sequence().begin()),
+                                                             alignment.quality().end());
                 }
                 for (size_t i = 0; i < rescued_out.subpath_size(); ++i) {
                     auto subpath = rescued_out.mutable_subpath(i);
@@ -2838,8 +2848,7 @@ namespace vg {
                         if (mapping.edit().back().from_length() == 0) {
                             // expand existing softclip
                             auto& edit = mapping.mutable_edit()->back();
-                            edit.mutable_sequence()->insert(edit.mutable_sequence()->end(),
-                                                            end, alignment.sequence().end());
+                            *edit.mutable_sequence() += string(end, alignment.sequence().end());
                             edit.set_to_length(edit.sequence().size());
                         }
                         else {
