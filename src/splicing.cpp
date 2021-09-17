@@ -827,7 +827,10 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                 get_is_rev(get<0>(return_val)) = position.is_reverse();
                 get_offset(get<0>(return_val)) = position.offset() + mapping_from_length(mapping) - from_length;
                 if (dummy_mapping) {
-                    from_proto_position(mapping.position(), *dummy_mapping->mutable_position());
+                    auto dummy_position = dummy_mapping->mutable_position();
+                    dummy_position->set_node_id(id(get<0>(return_val)));
+                    dummy_position->set_is_reverse(is_rev(get<0>(return_val)));
+                    dummy_position->set_offset(offset(get<0>(return_val)));
                 }
             }
         }
@@ -933,11 +936,13 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
     else {
         begin = aln.sequence().begin();
     }
-#ifdef debug_trimming
-    cerr << "scoring trimmed subpath " << debug_string(dummy_path) << ", with substring " << (begin - aln.sequence().begin()) << ":" << (begin - aln.sequence().begin()) + get<1>(return_val) << endl;
-#endif
+
     
     get<2>(return_val) = aligner.score_partial_alignment(aln, graph, dummy_path, begin);
+    
+#ifdef debug_trimming
+    cerr << "scored trimmed subpath " << debug_string(dummy_path) << " with substring " << (begin - aln.sequence().begin()) << ":" << (begin - aln.sequence().begin()) + get<1>(return_val) << ": " << get<2>(return_val) << endl;
+#endif
     
     return return_val;
 }

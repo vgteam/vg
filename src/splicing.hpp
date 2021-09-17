@@ -4,8 +4,8 @@
  * Defines splicing related objects and functions
  *
  */
-#ifndef VG_SPLICE_REGION_HPP_INCLUDED
-#define VG_SPLICE_REGION_HPP_INCLUDED
+#ifndef VG_SPLICING_HPP_INCLUDED
+#define VG_SPLICING_HPP_INCLUDED
 
 #include "dinucleotide_machine.hpp"
 #include "incremental_subgraph.hpp"
@@ -285,4 +285,4 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
 
 }
 
-#endif // VG_SPLICE_REGION_HPP_INCLUDED
+#endif // VG_SPLICING_HPP_INCLUDED
