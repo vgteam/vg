@@ -589,7 +589,10 @@ class VGCITest(TestCase):
             sim_chunks += 1
         opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, sim_chunks, 8)
         if sim_opts:
-            opts += '--sim_opts \'{}\' '.format(sim_opts)
+            # Make sure to prefix the sim options string with a space so that
+            # Toil's parser doesn't see a leading dash and decide it's an
+            # option and not an argument.
+            opts += '--sim_opts \' {}\' '.format(sim_opts)
         if sim_fastq:
             opts += '--fastq {} '.format(sim_fastq)
         opts += '--annotate_xg {} '.format(base_xg_path)
