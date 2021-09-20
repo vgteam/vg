@@ -712,7 +712,7 @@ string random_sequence(size_t length) {
 string pseudo_random_sequence(size_t length, uint64_t seed) {
     static const string alphabet = "ACGT";
     mt19937_64 gen(1357908642ull * seed + 80085ull);
-    uniform_int_distribution<char> distr(0, 3);
+    vg::uniform_int_distribution<char> distr(0, 3);
     
     string seq(length, '\0');
     for (size_t i = 0; i < length; i++) {
@@ -734,6 +734,32 @@ string replace_in_string(string subject,
 
 string percent_url_encode(const string& seq) {
     return replace_in_string(seq, "%", "%25");
+}
+
+LazyRNG::LazyRNG(const std::function<string(void)>& get_seed) : get_seed(get_seed) {
+    // Nothing to do
+}
+
+minstd_rand::result_type LazyRNG::operator()() {
+    if (!rng) {
+        // Make sure the RNG is initialized
+        string seed = get_seed();
+        
+        // Turn the string into a 32-bit number.
+        uint32_t seedNumber = 0;
+        for (uint8_t byte : seed) {
+            // Sum up with primes and overflow.
+            // TODO: this is a bit of a bad hash function but it should be good enough.
+            seedNumber = seedNumber * 13 + byte;
+        }
+        
+        rng = make_unique<minstd_rand>(seedNumber);
+    }
+    return (*rng)();
+}
+
+bool deterministic_flip(LazyRNG& rng) {
+    return rng() % 2;
 }
 
 unordered_map<id_t, pair<id_t, bool>> overlay_node_translations(const unordered_map<id_t, pair<id_t, bool>>& over,

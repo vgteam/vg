@@ -111,13 +111,13 @@ protected:
     /// What's the minimum integer number of reads that must support a call? We
     /// don't necessarily want to call a SNP as het because we have a single
     // supporting read, even if there are only 10 reads on the site.
-    int min_total_support_for_call = 1;
+    int min_total_support_for_call = 2;
     /// what's the minimum ref or alt allele depth to give a PASS in the filter
     /// column? Also used as a min actual support for a second-best allele call
     size_t min_mad_for_filter = 1;
     /// what's the minimum total support (over all alleles) of the site to make
     /// a call
-    size_t min_site_depth = 3;
+    size_t min_site_depth = 4;
     /// used only for pruning alleles in the VCFTraversalFinder:  minimum support
     /// of an allele's alt-path for it to be considered in the brute-force enumeration
     double min_alt_path_support = 0.5;
@@ -211,6 +211,8 @@ public:
 
     /// Set some parameters
     void set_baseline_error(double small_variant_error, double large_variant_error);
+    /// These are multipliers applied to the errors if the site has an insertion
+    void set_insertion_bias(double insertion_threshold, double small_insertion_bias, double large_insertion_bias);    
 
     /// Get the genotype of a site
     virtual pair<vector<int>, unique_ptr<CallInfo>>  genotype(const Snarl& snarl,
@@ -245,7 +247,7 @@ protected:
                                const vector<int>& traversal_sizes,
                                const vector<double>& traversal_mapqs,
                                int ref_trav_idx, double exp_depth, double depth_err,
-                               int max_trav_size);
+                               int max_trav_size, int ref_trav_size);
 
     /// Rank supports
     vector<int> rank_by_support(const vector<Support>& supports);
@@ -254,11 +256,19 @@ protected:
     /// more on base and mapping qualities respectively.  The switch threshold
     /// is in TraversalSupportFinder.  Error stats from the Packer object
     /// get added to these baselines when computing the scores. 
-    
-    /// Baseline error rate for larger variants
-    double  baseline_error_large = 0.001;
+
     /// Baseline error rate for smaller variants
     double  baseline_error_small = 0.005;
+    /// Baseline error rate for larger variants
+    double  baseline_error_large = 0.01;
+    /// multiply error by this much in pressence of insertion
+    /// (after some testing, this does not in fact seem to help much in practice.
+    ///  best just to boost overall error above.  hence not in CLI and off by default)
+    double insertion_bias_large = 1.;
+    double insertion_bias_small = 1.;
+    /// a site is an insertion if one (supported)allele is this many times bigger than another
+    /// unlike above, default comes from call_main.cpp (todo: straighten this out?)
+    double insertion_threshold = 5.;
 
     /// Consider up to the top-k traversals (based on support) for genotyping
     size_t top_k = 20;

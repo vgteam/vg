@@ -28,7 +28,8 @@ void augment(MutablePathMutableHandleGraph* graph,
              double min_mapq,
              Packer* packer,
              size_t min_bp_coverage,
-             double max_frac_n) {
+             double max_frac_n,
+             bool edges_only) {
 
     // memory-wasting hack: we need node lengths from the original graph in order to parse the GAF.  Unlesss we
     // store them, they will be lost in the 2nd pass
@@ -43,7 +44,7 @@ void augment(MutablePathMutableHandleGraph* graph,
         [&gam_path, &aln_format, &graph, &packer, &id_to_length] (function<void(Alignment&)> aln_callback, bool second_pass, bool parallel) {
         if (aln_format == "GAM") {
             get_input_file(gam_path, [&](istream& gam_stream) {
-                    if (parallel && false) {
+                    if (parallel) {
                         vg::io::for_each_parallel(gam_stream, aln_callback, Packer::estimate_batch_size(get_thread_count()));
                     } else {
                         vg::io::for_each(gam_stream, aln_callback);
@@ -90,7 +91,8 @@ void augment(MutablePathMutableHandleGraph* graph,
                  min_mapq,                 
                  packer,
                  min_bp_coverage,
-                 max_frac_n);
+                 max_frac_n,
+                 edges_only);
 }
 
 void augment(MutablePathMutableHandleGraph* graph,
@@ -106,7 +108,8 @@ void augment(MutablePathMutableHandleGraph* graph,
              double min_mapq,
              Packer* packer,
              size_t min_bp_coverage,
-             double max_frac_n) {
+             double max_frac_n,
+             bool edges_only) {
     
     function<void(function<void(Alignment&)>, bool, bool)> iterate_gam =
         [&path_vector] (function<void(Alignment&)> aln_callback, bool second_pass, bool parallel) {
@@ -144,7 +147,8 @@ void augment(MutablePathMutableHandleGraph* graph,
                  min_mapq,
                  packer,
                  min_bp_coverage,
-                 max_frac_n);
+                 max_frac_n,
+                 edges_only);
 }
 
 // Check if alignment contains node that's not in the graph
@@ -180,15 +184,25 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
                   double min_mapq,
                   Packer* packer,
                   size_t min_bp_coverage,
-                  double max_frac_n) {
+                  double max_frac_n,
+                  bool edges_only) {
 
+    if (edges_only) {
+        // just add edges between consecutive mappings that aren't already in the graph
+        // note: offsets are completely ignored.  if we want to take them into account,
+        // it's probably best to use below logic, but filtering non-deletion edits out
+        // of the GAM first.  but keeping just the node-adjacency information as we
+        // do here is hopefully sufficient to improve sv genotyping with pack/call
+        add_edges_only(graph, iterate_gam, min_mapq, min_bp_coverage);
+        return;
+    }
+    
     // toggle between using Packer to store breakpoints or the STL map
     bool packed_mode = min_bp_coverage > 0 || min_baseq > 0 || max_frac_n < 1.;
     assert(!packed_mode || packer != nullptr);
     
     unordered_map<id_t, set<pos_t>> breakpoints;
         
-
     // First pass: find the breakpoints
     iterate_gam((function<void(Alignment&)>)[&](Alignment& aln) {
 #ifdef debug
@@ -279,49 +293,43 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
 
             // Filter out edits corresponding to breakpoints that didn't meet our coverage
             // criteria
-            bool has_edits = true;
             if (min_bp_coverage > 0) {
-                has_edits = simplify_filtered_edits(graph, aln, simplified_path, node_translation, orig_node_sizes,
-                                                    min_baseq, max_frac_n);
+                simplify_filtered_edits(graph, aln, simplified_path, node_translation, orig_node_sizes,
+                                        min_baseq, max_frac_n);
             }
 
-            // Now go through each new path again, by reference so we can overwrite.
-            // but only if we have a reason to
-            if (has_edits || !gam_out_path.empty() || embed_paths) {
+            // Create new nodes/wire things up. Get the added version of the path.
+            Path added = add_nodes_and_edges(graph, simplified_path, node_translation, added_seqs,
+                                             added_nodes, orig_node_sizes);
 
-                // Create new nodes/wire things up. Get the added version of the path.
-                Path added = add_nodes_and_edges(graph, simplified_path, node_translation, added_seqs,
-                                                 added_nodes, orig_node_sizes);
+            // Copy over the name
+            *added.mutable_name() = aln.name();
 
-                // Copy over the name
-                *added.mutable_name() = aln.name();
+            if (embed_paths) {
+                add_path_to_graph(graph, added);
+            }
 
-                if (embed_paths) {
-                    add_path_to_graph(graph, added);
-                }
+            // something is off about this check.
+            // assuming the GAM path is sorted, let's double-check that its edges are here
+            for (size_t i = 1; i < added.mapping_size(); ++i) {
+                auto& m1 = added.mapping(i-1);
+                auto& m2 = added.mapping(i);
+                // we're no longer sorting our input paths, so we assume they are sorted
+                assert((m1.rank() == 0 && m2.rank() == 0) || (m1.rank() + 1 == m2.rank()));
+                //if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
+                auto s1 = graph->get_handle(m1.position().node_id(), m1.position().is_reverse());
+                auto s2 = graph->get_handle(m2.position().node_id(), m2.position().is_reverse());
+                // Ensure that we always have an edge between the two nodes in the correct direction
+                graph->create_edge(s1, s2);
+            }
 
-                // something is off about this check.
-                // assuming the GAM path is sorted, let's double-check that its edges are here
-                for (size_t i = 1; i < added.mapping_size(); ++i) {
-                    auto& m1 = added.mapping(i-1);
-                    auto& m2 = added.mapping(i);
-                    // we're no longer sorting our input paths, so we assume they are sorted
-                    assert((m1.rank() == 0 && m2.rank() == 0) || (m1.rank() + 1 == m2.rank()));
-                    //if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
-                    auto s1 = graph->get_handle(m1.position().node_id(), m1.position().is_reverse());
-                    auto s2 = graph->get_handle(m2.position().node_id(), m2.position().is_reverse());
-                    // Ensure that we always have an edge between the two nodes in the correct direction
-                    graph->create_edge(s1, s2);
-                }
-
-                // optionally write out the modified path to GAM
-                if (!gam_out_path.empty()) {
-                    *aln.mutable_path() = added;
-                    aln_buffer.push_back(aln);
-                    if (aln_buffer.size() >= 100) {
-                        aln_emitter->emit_singles(vector<Alignment>(aln_buffer));
-                        aln_buffer.clear();
-                    }
+            // optionally write out the modified path to GAM
+            if (!gam_out_path.empty()) {
+                *aln.mutable_path() = added;
+                aln_buffer.push_back(aln);
+                if (aln_buffer.size() >= 100) {
+                    aln_emitter->emit_singles(vector<Alignment>(aln_buffer));
+                    aln_buffer.clear();
                 }
             }
         }, true, false);
@@ -1259,6 +1267,63 @@ vector<Translation> make_translation(const HandleGraph* graph,
         *rev_trans.mutable_from() = simplify(reverse_complement_path(trans.from(), get_orig_node_length));
     }
     return translation;
+}
+
+
+void add_edges_only(MutableHandleGraph* graph,
+                    function<void(function<void(Alignment&)>,bool, bool)> iterate_gam,
+                    double min_mapq,
+                    size_t min_bp_coverage) {
+    // occurrence of each non-graph edge
+    // todo: is this too big? do we need something more compact?
+    //       novel non-graph edges from read-mappings should be pretty local (and not quadratically exploding)
+    //       in general, i think.
+    vector<unordered_map<edge_t, size_t>> edge_counts(get_thread_count());
+
+    // scan every non-graph edge in the alignment paths.  if we have a coverage threshold,
+    // then fill in the edge_counts map, otherwise just add the edges as soon as they're found
+    iterate_gam((function<void(Alignment&)>)[&](Alignment& aln) {
+
+            if (aln.mapping_quality() < min_mapq) {
+                return;
+            }
+
+            handle_t prev_handle;
+            for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
+                const Mapping& mapping = aln.path().mapping(i);
+                const Position& pos = mapping.position();
+                handle_t handle = graph->get_handle(pos.node_id(), pos.is_reverse());
+                if (i > 0) {
+                    edge_t edge = graph->edge_handle(prev_handle, handle);
+                    if (!graph->has_edge(edge)) {
+                        if (min_bp_coverage > 1) {
+                            edge_counts[omp_get_thread_num()][edge]++;
+                        } else {
+                            graph->create_edge(edge);
+                        }
+                    }
+                }
+                prev_handle = handle;
+            }
+        }, false, min_bp_coverage > 1);
+
+    if (min_bp_coverage > 1) {
+        // second pass required to add edges that meet threshold
+        
+        // start by merging the thread counters into the first
+        for (size_t i = 1; i < edge_counts.size(); ++i) {
+            for (const auto& ec : edge_counts[i]) {
+                edge_counts[0][ec.first] += ec.second;
+            }
+            edge_counts[i].clear();
+        }
+        // then add all the edges that meet threshold
+        for (const auto& ec : edge_counts[0]) {
+            if (ec.second >= min_bp_coverage) {
+                graph->create_edge(ec.first);
+            }
+        }
+    }
 }
 
 }

@@ -40,13 +40,13 @@ pair<double, double> wellford_mean_var(size_t count, double mean, double M2, boo
     }
 }
 
-double phi(double x1, double x2) {
-    return (std::erf(x2/std::sqrt(2)) - std::erf(x1/std::sqrt(2)))/2;
+double Phi(double x) {
+    return 0.5 * (1.0 + std::erf(x / std::sqrt(2.0)));
 }
 
 // Modified from qnorm function in R source:
 // https://svn.r-project.org/R/trunk/src/nmath/qnorm.c
-double normal_inverse_cdf(double p) {
+double Phi_inv(double p) {
     assert(0.0 < p && p < 1.0);
     double q, r, val;
     

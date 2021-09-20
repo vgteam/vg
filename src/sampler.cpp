@@ -622,7 +622,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                            double error_multiplier,
                            bool retry_on_Ns,
                            bool sample_unsheared_paths,
-                           size_t seed) :
+                           uint64_t manual_seed) :
       graph(graph)
     , sub_poly_rate(substition_polymorphism_rate)
     , indel_poly_rate(indel_polymorphism_rate)
@@ -630,15 +630,13 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
     , fragment_mean(fragment_length_mean)
     , fragment_sd(fragment_length_stdev)
     , retry_on_Ns(retry_on_Ns)
-    , prng(seed ? seed : random_device()())
     , strand_sampler(0, 1)
     , background_sampler(0, alphabet.size() - 1)
     , mut_sampler(0, alphabet.size() - 2)
     , prob_sampler(0.0, 1.0)
-    , fragment_sampler(fragment_length_mean, fragment_length_stdev)
-    , seed(seed)
+    , seed(manual_seed)
     , source_paths(source_paths_input)
-    , joint_initial_distr(seed - 1)
+    , joint_initial_distr(manual_seed ? 1760681024122689423ull * manual_seed + 1107607255714504485ull : random_device()())
     , sample_unsheared_paths(sample_unsheared_paths)
 {
     if (!ngs_paired_fastq_file.empty() && interleaved_fastq) {
@@ -702,7 +700,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
             // For each source path
             auto& source_path = source_paths[i];
             
-            auto length = graph.get_path_length(graph.get_path_handle(source_path));
+            size_t length = graph.get_path_length(graph.get_path_handle(source_path));
             
             // Always use accurate length for sampling start pos, even with sample_unsheared_paths
             start_pos_samplers.emplace_back(0, length - 1);
@@ -711,13 +709,21 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                 // sample uniformly between paths
                 path_weights.push_back(1.0);
             } else {
-                // Sample paths proportional to length and ploidy
+                // Sample paths proportional to effective length and ploidy
+                double eff_path_len;
+                if (fragment_mean != numeric_limits<double>::max()) {
+                    double trunc_mean = vg::truncated_normal_distribution<>(fragment_mean, fragment_sd, 1.0, length).mean();
+                    eff_path_len = length - trunc_mean;
+                }
+                else {
+                    eff_path_len = length;
+                }
                 
                 // Grab an applicable ploidy weight, or assume 1 if not set or if using sample_unsheared_paths
                 double ploidy = i >= source_path_ploidies.size() ? 1.0 : source_path_ploidies[i];
                 
                 // Add each path, weighted by ploidy and length, to the distribution for sampling paths
-                path_weights.push_back(ploidy * length);
+                path_weights.push_back(ploidy * eff_path_len);
             }
         }
         path_sampler = vg::discrete_distribution<>(path_weights.begin(), path_weights.end());
@@ -736,7 +742,20 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                 }
                 source_paths.push_back(transcript_expression.first);
                 start_pos_samplers.emplace_back(0, tx_len - 1);
-                expression_values.push_back(transcript_expression.second * (sample_unsheared_paths ? 1 : tx_len));
+                if (sample_unsheared_paths) {
+                    expression_values.push_back(transcript_expression.second);
+                }
+                else {
+                    double eff_tx_len;
+                    if (fragment_mean != numeric_limits<double>::max()) {
+                        double trunc_mean = vg::truncated_normal_distribution<>(fragment_mean, fragment_sd, 1.0, tx_len).mean();
+                        eff_tx_len = tx_len - trunc_mean;
+                    }
+                    else {
+                        eff_tx_len = tx_len;
+                    }
+                    expression_values.push_back(transcript_expression.second * eff_tx_len);
+                }
             }
         }
         else {
@@ -756,10 +775,23 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                     if (hp_tx_len == 0) {
                         continue;
                     }
-                    double haplotype_expression = (transcript_expression.second * get<2>(haplotype_transcripts[i])) / total_haplotypes;
-                    expression_values.push_back(haplotype_expression  * (sample_unsheared_paths ? 1 : hp_tx_len));
                     source_paths.push_back(get<0>(haplotype_transcripts[i]));
                     start_pos_samplers.emplace_back(0, hp_tx_len - 1);
+                    double haplotype_expression = (transcript_expression.second * get<2>(haplotype_transcripts[i])) / total_haplotypes;
+                    if (sample_unsheared_paths) {
+                        expression_values.push_back(haplotype_expression);
+                    }
+                    else {
+                        double eff_hp_tx_len;
+                        if (fragment_mean != numeric_limits<double>::max()) {
+                            double trunc_mean = vg::truncated_normal_distribution<>(fragment_mean, fragment_sd, 1.0, hp_tx_len).mean();
+                            eff_hp_tx_len = hp_tx_len - trunc_mean;
+                        }
+                        else {
+                            eff_hp_tx_len = hp_tx_len;
+                        }
+                        expression_values.push_back(haplotype_expression * eff_hp_tx_len);
+                    }
                 }
             }
         }
@@ -842,6 +874,16 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
     
     finalize();
     
+    
+    uint64_t prng_seed = seed ? seed : random_device()();
+    // engine with coding-time random coefficient to produce good seeds for each thread
+    // from one seed
+    linear_congruential_engine<uint64_t, 1094757125720465369ull, 10230831556735383564ull, 18446744073709551557ull>  seed_perturbor(prng_seed);
+    // make a prng for each thread
+    for (int i = 0, n = get_thread_count(); i < n; ++i) {
+        prngs.emplace_back(seed_perturbor());
+    }
+    
 #ifdef debug_ngs_sim
     cerr << "finished initializing simulator" << endl;
 #endif
@@ -858,6 +900,10 @@ void NGSSimulator::connect_to_position_file(const string& filename) {
         exit(1);
     }
     position_file << "read\tpath\toffset\treverse" << endl;
+}
+
+mt19937_64& NGSSimulator::prng() {
+    return prngs[omp_get_thread_num()];
 }
 
 void NGSSimulator::register_sampled_position(const Alignment& aln, const string& path_name,
@@ -965,21 +1011,23 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     assert(qual_and_mask_pair.first.first.size() == qual_and_mask_pair.first.second.size());
     assert(qual_and_mask_pair.second.first.size() == qual_and_mask_pair.second.second.size());
     
-    int64_t fragment_length = -1;
-    while (fragment_length <= 0) {
-        fragment_length = (int64_t) round(fragment_sampler(prng));
-    }
-    
     // Sample our path (if dealing with source_paths)
     size_t source_path_idx = sample_path();
     string source_path;
+    vg::truncated_normal_distribution<> fragment_sampler;
     if (source_path_idx != numeric_limits<size_t>::max()) {
         source_path = source_paths[source_path_idx];
 #ifdef debug_ngs_sim
         cerr << "sampling from path " << source_path << " with length " << graph.get_path_length(graph.get_path_handle(source_path)) << endl;
 #endif
-        fragment_length = min<int64_t>(fragment_length, graph.get_path_length(graph.get_path_handle(source_path)));
+        int64_t path_length = graph.get_path_length(graph.get_path_handle(source_path));
+        fragment_sampler = vg::truncated_normal_distribution<>(fragment_mean, fragment_sd, 1.0, path_length);
     }
+    else {
+        fragment_sampler = vg::truncated_normal_distribution<>(fragment_mean, fragment_sd, 1.0);
+    }
+    int64_t fragment_length = round(fragment_sampler(prng()));
+    
     
     // This is our offset along the source path, if in use
     int64_t sampled_offset;
@@ -1146,7 +1194,7 @@ void NGSSimulator::sample_read_internal(Alignment& aln, int64_t& offset, bool& i
     // walk a path and generate a read sequence at the same time
     while (aln.sequence().size() < aln.quality().size() && !hit_end) {
         // sample insertion in the true graph path
-        while (aln.sequence().size() < aln.quality().size() && prob_sampler(prng) < indel_poly_rate * 0.5) {
+        while (aln.sequence().size() < aln.quality().size() && prob_sampler(prng()) < indel_poly_rate * 0.5) {
             // TODO: no allowance for indel errors on inserted sequence
             
 #ifdef debug_ngs_sim
@@ -1163,11 +1211,11 @@ void NGSSimulator::sample_read_internal(Alignment& aln, int64_t& offset, bool& i
         }
         
         // sample errors
-        double err_sample = prob_sampler(prng);
+        double err_sample = prob_sampler(prng());
         double err_prob = phred_prob[aln.quality()[aln.sequence().size()]];
         while (err_sample < err_prob * indel_error_prop && !hit_end) {
             // indel errors
-            if (prob_sampler(prng) < 0.5) {
+            if (prob_sampler(prng()) < 0.5) {
 #ifdef debug_ngs_sim
                 cerr << "insertion error at read idx " << aln.sequence().size() << ", graph pos " << curr_pos << endl;
 #endif
@@ -1190,7 +1238,7 @@ void NGSSimulator::sample_read_internal(Alignment& aln, int64_t& offset, bool& i
                 hit_end = advance(offset, is_reverse, curr_pos, graph_char, source_path);
             }
             
-            err_sample = prob_sampler(prng);
+            err_sample = prob_sampler(prng());
             err_prob = phred_prob[aln.quality()[aln.sequence().size()]];
         }
         if (aln.sequence().size() >= aln.quality().size() || hit_end) {
@@ -1202,8 +1250,8 @@ void NGSSimulator::sample_read_internal(Alignment& aln, int64_t& offset, bool& i
         
         // get the true graph char, possibly with a substitution polymorphism
         char poly_graph_char = graph_char;
-        if (prob_sampler(prng) < sub_poly_rate) {
-            poly_graph_char = mutation_alphabets[poly_graph_char != 'N' ? poly_graph_char : alphabet[background_sampler(prng)]][mut_sampler(prng)];
+        if (prob_sampler(prng()) < sub_poly_rate) {
+            poly_graph_char = mutation_alphabets[poly_graph_char != 'N' ? poly_graph_char : alphabet[background_sampler(prng())]][mut_sampler(prng())];
         }
         
         // by default the read matches the true graph char
@@ -1212,7 +1260,7 @@ void NGSSimulator::sample_read_internal(Alignment& aln, int64_t& offset, bool& i
         // sample substitution errors with the remaining err sample
         if (err_sample < err_prob) {
             // substitution error
-            read_char = mutation_alphabets[read_char != 'N' ? read_char : alphabet[background_sampler(prng)]][mut_sampler(prng)];
+            read_char = mutation_alphabets[read_char != 'N' ? read_char : alphabet[background_sampler(prng())]][mut_sampler(prng())];
         }
         
 #ifdef debug_ngs_sim
@@ -1231,7 +1279,7 @@ void NGSSimulator::sample_read_internal(Alignment& aln, int64_t& offset, bool& i
         }
         
         // sample deletions in the true graph path
-        while (prob_sampler(prng) < indel_poly_rate * 0.5 && !hit_end) {
+        while (prob_sampler(prng()) < indel_poly_rate * 0.5 && !hit_end) {
 #ifdef debug_ngs_sim
             cerr << "deletion polymorphism at read idx " << aln.sequence().size() << ", graph pos " << curr_pos << endl;
 #endif
@@ -1276,7 +1324,7 @@ bool NGSSimulator::advance_on_graph(pos_t& pos, char& graph_char) {
     }
     
     vg::uniform_int_distribution<size_t> pos_distr(0, next_pos_chars.size() - 1);
-    size_t next = pos_distr(prng);
+    size_t next = pos_distr(prng());
     auto iter = next_pos_chars.begin();
     for (size_t i = 0; i != next; i++) {
         iter++;
@@ -1337,7 +1385,7 @@ bool NGSSimulator::advance_on_graph_by_distance(pos_t& pos, int64_t distance) {
         if (nexts.empty()) {
             return true;
         }
-        size_t choice = vg::uniform_int_distribution<size_t>(0, nexts.size() - 1)(prng);
+        size_t choice = vg::uniform_int_distribution<size_t>(0, nexts.size() - 1)(prng());
         handle = nexts[choice];
         node_length = graph.get_length(handle);
     }
@@ -1558,7 +1606,7 @@ void NGSSimulator::apply_deletion(Alignment& aln, const pos_t& pos) {
 
 void NGSSimulator::apply_insertion(Alignment& aln, const pos_t& pos) {
     Path* path = aln.mutable_path();
-    char insert_char = alphabet[background_sampler(prng)];
+    char insert_char = alphabet[background_sampler(prng())];
     aln.mutable_sequence()->push_back(insert_char);
     
     if (path->mapping_size() == 0) {
@@ -1594,7 +1642,7 @@ size_t NGSSimulator::sample_path() {
         return numeric_limits<size_t>::max();
     }
     else {
-        size_t path_idx = path_sampler(prng);
+        size_t path_idx = path_sampler(prng());
         return path_idx;
     }
 }
@@ -1614,10 +1662,10 @@ void NGSSimulator::sample_start_pos(const size_t& source_path_idx, const int64_t
 pos_t NGSSimulator::sample_start_graph_pos() {
     // The start pos sampler has been set up in graph space, 1-based
     assert(start_pos_samplers.size() == 1);
-    size_t idx = start_pos_samplers[0](prng);
+    size_t idx = start_pos_samplers[0](prng());
     
     id_t id = dynamic_cast<VectorizableHandleGraph&>(graph).node_at_vector_offset(idx);
-    bool rev = strand_sampler(prng);
+    bool rev = strand_sampler(prng());
     size_t node_offset = idx - dynamic_cast<VectorizableHandleGraph&>(graph).node_vector_offset(id) - 1;
     
     return make_pos_t(id, rev, node_offset);
@@ -1626,7 +1674,7 @@ pos_t NGSSimulator::sample_start_graph_pos() {
 tuple<int64_t, bool, pos_t> NGSSimulator::sample_start_path_pos(const size_t& source_path_idx,
                                                                 const int64_t& fragment_length) {
     int64_t path_length = graph.get_path_length(graph.get_path_handle(source_paths[source_path_idx]));
-    bool rev = strand_sampler(prng);
+    bool rev = strand_sampler(prng());
     int64_t offset;
     if (sample_unsheared_paths || path_length < transition_distrs_1.size() ||
         (fragment_length > 0 && fragment_length >= path_length)) {
@@ -1639,7 +1687,7 @@ tuple<int64_t, bool, pos_t> NGSSimulator::sample_start_path_pos(const size_t& so
     }
     else {
         // The start pos sampler has been set up in path space, 0-based
-        offset = start_pos_samplers[source_path_idx](prng);
+        offset = start_pos_samplers[source_path_idx](prng());
     }
     pos_t pos = position_at(&graph, source_paths[source_path_idx], offset, rev);
     
@@ -1664,7 +1712,9 @@ void NGSSimulator::record_read_quality(const Alignment& aln, bool read_2) {
         return;
     }
     while (transition_distrs.size() < quality.size()) {
-        transition_distrs.emplace_back(seed ? seed + transition_distrs.size() + 1 : random_device()());
+        // coding-time random engine to perturb the seed for each position
+        linear_congruential_engine<uint64_t, 16793141576979709161ull, 876936395080740889ull, 18446744073709551557ull>  seed_perturbor(seed + transition_distrs.size() + read_2);
+        transition_distrs.emplace_back(seed ? seed_perturbor() : random_device()());
     }
     // record the initial quality and N-mask
     transition_distrs[0].record_transition(pair<uint8_t, bool>(0, false),
@@ -1740,68 +1790,6 @@ void NGSSimulator::apply_N_mask(string& sequence, const vector<bool>& n_mask) {
             sequence[i] = 'N';
         }
     }
-}
-    
-template<class From, class To>
-NGSSimulator::MarkovDistribution<From, To>::MarkovDistribution(size_t seed) : prng(seed) {
-    // nothing to do
-}
-
-template<class From, class To>
-void NGSSimulator::MarkovDistribution<From, To>::record_transition(From from, To to) {
-    if (!cond_distrs.count(from)) {
-        cond_distrs[from] = vector<size_t>(value_at.size(), 0);
-    }
-    
-    if (!column_of.count(to)) {
-        column_of[to] = value_at.size();
-        value_at.push_back(to);
-        for (pair<const From, vector<size_t>>& cond_distr : cond_distrs) {
-            cond_distr.second.push_back(0);
-        }
-    }
-    
-    cond_distrs[from][column_of[to]]++;
-}
-
-template<class From, class To>
-void NGSSimulator::MarkovDistribution<From, To>::finalize() {
-    for (pair<const From, vector<size_t>>& cond_distr : cond_distrs) {
-        for (size_t i = 1; i < cond_distr.second.size(); i++) {
-            cond_distr.second[i] += cond_distr.second[i - 1];
-        }
-        
-        samplers[cond_distr.first] = vg::uniform_int_distribution<size_t>(1, cond_distr.second.back());
-    }
-}
-
-template<class From, class To>
-To NGSSimulator::MarkovDistribution<From, To>::sample_transition(From from) {
-    // return randomly if a transition has never been observed
-    if (!cond_distrs.count(from)) {
-        return value_at[vg::uniform_int_distribution<size_t>(0, value_at.size() - 1)(prng)];
-    }
-    
-    size_t sample_val = samplers[from](prng);
-    vector<size_t>& cdf = cond_distrs[from];
-    
-    if (sample_val <= cdf[0]) {
-        return value_at[0];
-    }
-    
-    size_t low = 0;
-    size_t hi = cdf.size() - 1;
-    while (hi > low + 1) {
-        int64_t mid = (hi + low) / 2;
-        
-        if (sample_val <= cdf[mid]) {
-            hi = mid;
-        }
-        else {
-            low = mid;
-        }
-    }
-    return value_at[hi];
 }
 
 }

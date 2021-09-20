@@ -1023,6 +1023,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 bucket_checked_out_or_finished[copiable_vcf.second].store(true);
             }
             
+#ifdef debug_index_registry_recipes
+            cerr << "initializing chunked VCFs for output" << endl;
+#endif
+            
             // the output files
             vector<pair<htsFile*, bcf_hdr_t*>> bucket_vcfs(buckets.size());
             for (int64_t i = 0; i < buckets.size(); ++i) {
@@ -1046,6 +1050,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                         vcf_indexes.insert(contig_to_vcf_idx[contig.first]);
                     }
                 }
+#ifdef debug_index_registry_recipes
+                cerr << "bucket " << i << " will add samples from input VCFs:" << endl;
+                for (auto j : vcf_indexes) {
+                    cerr << "\t" << j << endl;
+                }
+#endif
                 // merge will all the input headers
                 unordered_set<string> samples_added;
                 for (auto vcf_idx : vcf_indexes) {
@@ -1081,6 +1091,20 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 if (sync_err_code != 0) {
                     cerr << "error:[IndexRegistry] error syncing VCF header" << endl;
                     exit(1);
+                }
+                if (bcf_hdr_nsamples(header_out) == 0) {
+                    // let's add a dummy so that HaplotypeIndexer doesn't get mad later
+                    int sample_add_code = bcf_hdr_add_sample(header_out, "dummy");
+                    if (sample_add_code != 0) {
+                        cerr << "error:[IndexRegistry] error initializing VCF header" << endl;
+                        exit(1);
+                    }
+                    // and re-sync, not sure if necessary, but it will be cheap regardless
+                    sync_err_code = bcf_hdr_sync(header_out);
+                    if (sync_err_code != 0) {
+                        cerr << "error:[IndexRegistry] error syncing VCF header" << endl;
+                        exit(1);
+                    }
                 }
                 int hdr_write_err_code = bcf_hdr_write(vcf_out, header_out);
                 if (hdr_write_err_code != 0) {
