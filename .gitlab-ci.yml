@@ -99,7 +99,7 @@ build-job:
     # Build but don't push, just fill the cache
     - docker buildx build --platform=linux/amd64 --build-arg THREADS=8 --target run -f Dockerfile .
     # Run the tests
-    - docker buildx build --platform=linux/amd64 --build-arg THREADS=8 --target test -f Dockerfile .
+    - docker buildx build --platform=linux/amd64 --build-arg THREADS=8 --target test -f Dockerfile . || exit 1
     # Connect so we can upload our images
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
     # Keep trying to push until it works or we time out or run out of tries
