@@ -76,14 +76,17 @@ $(function() {
 <div class="contents">
 <div class="textblock"><code>#include &lt;algorithm&gt;</code><br />
 <code>#include &lt;mutex&gt;</code><br />
+<code>#include &lt;functional&gt;</code><br />
 <code>#include &lt;google/protobuf/util/message_differencer.h&gt;</code><br />
 <code>#include &lt;gbwt/dynamic_gbwt.h&gt;</code><br />
 <code>#include &lt;<a class="el" href="stream_8hpp.html">vg/io/stream.hpp</a>&gt;</code><br />
 <code>#include &lt;<a class="el" href="vpkg_8hpp.html">vg/io/vpkg.hpp</a>&gt;</code><br />
 <code>#include &lt;<a class="el" href="mutable__path__mutable__handle__graph_8hpp.html">handlegraph/mutable_path_mutable_handle_graph.hpp</a>&gt;</code><br />
-<code>#include &quot;bdsg/overlays/path_position_overlays.hpp&quot;</code><br />
+<code>#include &lt;bdsg/overlays/path_position_overlays.hpp&gt;</code><br />
+<code>#include &lt;sparsepp/spp.h&gt;</code><br />
 <code>#include &quot;../vg.hpp&quot;</code><br />
 <code>#include &quot;../types.hpp&quot;</code><br />
+<code>#include &quot;../gbwt_helper.hpp&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
@@ -96,6 +99,8 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1EditedTranscriptPath.html">vg::EditedTranscriptPath</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1CompletedTranscriptPath.html">vg::CompletedTranscriptPath</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MappingHash.html">vg::MappingHash</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html">vg::Transcriptome</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>

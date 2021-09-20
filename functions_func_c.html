@@ -185,6 +185,9 @@ $(function() {
 <li>choose_traversals()
 : <a class="el" href="classvg_1_1Deconstructor.html#abf0058cfc205df642533b0f29c471b73">vg::Deconstructor</a>
 </li>
+<li>chop_nodes()
+: <a class="el" href="classvg_1_1Transcriptome.html#a6af2dca247de11e3f0ab36c90e682d48">vg::Transcriptome</a>
+</li>
 <li>circularize()
 : <a class="el" href="classvg_1_1VG.html#a1e2649b8ef5de75db451146c7ac92e92">vg::VG</a>
 </li>
@@ -304,6 +307,9 @@ $(function() {
 <li>collect_subgraph()
 : <a class="el" href="classvg_1_1VG.html#a688cbe42750d98695114ad4ad640c1d3">vg::VG</a>
 </li>
+<li>collect_transcribed_nodes()
+: <a class="el" href="classvg_1_1Transcriptome.html#a3263ef9c4fc6f52842e83ea1768242dc">vg::Transcriptome</a>
+</li>
 <li>Colors()
 : <a class="el" href="classvg_1_1Colors.html#a8bef9f7ce8512f3e800dded6a8470ac1">vg::Colors</a>
 </li>
@@ -327,9 +333,6 @@ $(function() {
 </li>
 <li>compact_ids()
 : <a class="el" href="classvg_1_1VG.html#a161ef56bd0eeee937602f60b8617f24d">vg::VG</a>
-</li>
-<li>compact_ordered()
-: <a class="el" href="classvg_1_1Transcriptome.html#a9084366eefa5e787e3f567156ab1ef87">vg::Transcriptome</a>
 </li>
 <li>compact_ranks()
 : <a class="el" href="classvg_1_1Paths.html#aaf065b12a8a942c96f6d88a2c6db7c8e">vg::Paths</a>
@@ -404,7 +407,7 @@ $(function() {
 : <a class="el" href="classvg_1_1ConfigurableParser.html#ad04ba6f1c85aa2ab15b93e51c4a093f7">vg::ConfigurableParser</a>
 </li>
 <li>connect_node_to_nodes()
-: <a class="el" href="classvg_1_1VG.html#ad68d2bfaa6627686967add4ca7fb5f4c">vg::VG</a>
+: <a class="el" href="classvg_1_1VG.html#ab8189716ecbb9eeeefec8be64e34a9e3">vg::VG</a>
 </li>
 <li>connect_nodes_to_node()
 : <a class="el" href="classvg_1_1VG.html#a7ee6066424793dfcda9097419f03b568">vg::VG</a>
@@ -423,7 +426,7 @@ $(function() {
 : <a class="el" href="classvg_1_1subpath__t.html#ac69a45141f2de5117178e2b000ec9507">vg::subpath_t</a>
 </li>
 <li>connection_t()
-: <a class="el" href="classvg_1_1connection__t.html#ae8ba824a4323fa99471a02d908df41c0">vg::connection_t</a>
+: <a class="el" href="classvg_1_1connection__t.html#ad940cca19833570b242f00d57f817a97">vg::connection_t</a>
 </li>
 <li>construct()
 : <a class="el" href="structvg_1_1FlowSort_1_1WeightedGraph.html#a7ce1ec0bba000de1600ce2beb70acc47">vg::FlowSort::WeightedGraph</a>
@@ -434,14 +437,20 @@ $(function() {
 <li>construct_completed_transcript_paths()
 : <a class="el" href="classvg_1_1Transcriptome.html#ade5704f06f63770a2871b92d48efdabd">vg::Transcriptome</a>
 </li>
-<li>construct_edited_transcript_paths()
-: <a class="el" href="classvg_1_1Transcriptome.html#ac9c1cbd90f17fb97c66fdd2e33f42c13">vg::Transcriptome</a>
-</li>
-<li>construct_edited_transcript_paths_callback()
-: <a class="el" href="classvg_1_1Transcriptome.html#abf3a574c5bd21dc2060b5c94f8d65bc2">vg::Transcriptome</a>
-</li>
 <li>construct_graph()
-: <a class="el" href="classvg_1_1Constructor.html#a2d69f28be35ff23ef4d0f80e645bdbc2">vg::Constructor</a>
+: <a class="el" href="classvg_1_1Constructor.html#a5c9a9c3adb2ddafc4d4434c689bb42ad">vg::Constructor</a>
+</li>
+<li>construct_reference_transcript_paths_embedded()
+: <a class="el" href="classvg_1_1Transcriptome.html#aab8e9e4cf0cf855de888086388577d56">vg::Transcriptome</a>
+</li>
+<li>construct_reference_transcript_paths_embedded_callback()
+: <a class="el" href="classvg_1_1Transcriptome.html#a16eb84cb9df3d8e17ee52f6a57cdf2cb">vg::Transcriptome</a>
+</li>
+<li>construct_reference_transcript_paths_gbwt()
+: <a class="el" href="classvg_1_1Transcriptome.html#a1a74c22fd6c47986e1dc4e7a68dad42d">vg::Transcriptome</a>
+</li>
+<li>construct_reference_transcript_paths_gbwt_callback()
+: <a class="el" href="classvg_1_1Transcriptome.html#ad73c9fd94f4ca8f4211b6e399335a261">vg::Transcriptome</a>
 </li>
 <li>contains()
 : <a class="el" href="structvg_1_1GaplessExtension.html#abfa77e71c6b3b5193a57dd13b42ecf40">vg::GaplessExtension</a>
@@ -486,7 +495,7 @@ $(function() {
 , <a class="el" href="classvg_1_1SmallBitset.html#af834de5870b38cc53768eb8ba9c60025">vg::SmallBitset</a>
 </li>
 <li>count_haplotypes()
-: <a class="el" href="classvg_1_1GenomeState.html#a07dc4168e8469c98227847c4f168cc78">vg::GenomeState</a>
+: <a class="el" href="classvg_1_1GenomeState.html#ab400687776bac0a85c3eab173354a48f">vg::GenomeState</a>
 </li>
 <li>count_Ns()
 : <a class="el" href="classvg_1_1MaximalExactMatch.html#a63fc8de6080c763b6fd0639d1f4f8941">vg::MaximalExactMatch</a>
@@ -517,13 +526,13 @@ $(function() {
 </li>
 <li>create_edge()
 : <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a34a5e01f270713ba856a93c55039faf0">handlegraph::MutableHandleGraph</a>
-, <a class="el" href="classvg_1_1VG.html#a8922810d5228ab5c4619eb2ddc16e78b">vg::VG</a>
+, <a class="el" href="classvg_1_1VG.html#ac2cd4705aa5b919f349d02089c97cbc2">vg::VG</a>
 </li>
 <li>create_gssw_graph()
 : <a class="el" href="classvg_1_1GSSWAligner.html#a56a0a0d3962e573dc9ed372394fbd13a">vg::GSSWAligner</a>
 </li>
 <li>create_handle()
-: <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#ae844fce457858cd2dc54dde786f79e5c">handlegraph::MutableHandleGraph</a>
+: <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a8c9d8ca8160a9b94a57000eab3e97aaa">handlegraph::MutableHandleGraph</a>
 , <a class="el" href="classvg_1_1VG.html#a292614805cec28a1d863bbdb494d1c04">vg::VG</a>
 </li>
 <li>create_identity_projection_trans()
@@ -543,7 +552,7 @@ $(function() {
 </li>
 <li>create_path()
 : <a class="el" href="classvg_1_1Paths.html#a55306d115aee9abbf3166505bacdb35a">vg::Paths</a>
-, <a class="el" href="classvg_1_1VG.html#a3195bfadb7e65e4952c4b98d51e862f1">vg::VG</a>
+, <a class="el" href="classvg_1_1VG.html#adc07ec73a57485a700e621517c962b8b">vg::VG</a>
 </li>
 <li>create_path_chunk_nodes()
 : <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a76bb6f4da1dc7d1e00a8a40aebc59ecf">vg::MultipathAlignmentGraph</a>
@@ -553,7 +562,7 @@ $(function() {
 , <a class="el" href="classvg_1_1VG.html#af7c99e48723b360eb2b1315b2c5af7cc">vg::VG</a>
 </li>
 <li>create_progress()
-: <a class="el" href="classvg_1_1Progressive.html#a1cce3f715516ed2bbb4ce3a312b01e02">vg::Progressive</a>
+: <a class="el" href="classvg_1_1Progressive.html#a75d4e92a36a277be5bc0cee5d01f5ca1">vg::Progressive</a>
 </li>
 <li>create_projector()
 : <a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a4f4f566eaf695fac8c08dc6e5c2083a7">vg::MultipathAlignmentGraph</a>
