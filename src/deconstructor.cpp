@@ -925,7 +925,8 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         });
 
 #pragma omp parallel for schedule(dynamic,1)
-    for (auto& snarl : snarls_todo) {
+    for (size_t i = 0; i < snarls_todo.size(); i++) {
+        auto& snarl = snarls_todo[i];
         deconstruct_site(snarl);
     }
     
