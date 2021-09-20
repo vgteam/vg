@@ -105,6 +105,12 @@ private:
     unique_ptr<TraversalFinder> trav_finder;
     // we can also use a gbwt for traversals
     unique_ptr<GBWTTraversalFinder> gbwt_trav_finder;
+    // hacky path position index for alts in the gbwt
+    // we map from gbwt path id -> { map of handle -> offset } for every handle in the path
+    // because child snarls are done in series, we often hit the same non-ref path consecutively
+    // which makes the lru cache fairly effective
+    size_t lru_size = 10; 
+    vector<LRUCache<gbwt::size_type, shared_ptr<unordered_map<handle_t, size_t>>>*> gbwt_pos_caches;
     // infer ploidys from gbwt when possible
     unordered_map<string, pair<int, int>> gbwt_sample_to_phase_range;
 

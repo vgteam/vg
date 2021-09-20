@@ -11,6 +11,9 @@ namespace vg {
 Deconstructor::Deconstructor() : VCFOutputCaller("") {
 }
 Deconstructor::~Deconstructor(){
+    for (auto& c : gbwt_pos_caches) {
+        delete c;
+    }
 }
 
 /**
@@ -748,10 +751,6 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                                 gbwt::GBWT* gbwt,
                                 const unordered_map<nid_t, pair<nid_t, size_t>>* translation) {
 
-    // this allows us to run in parallel inside of each site deconstruction
-    // there is now a path jaccard check that can be expensive in deep graphs
-    omp_set_max_active_levels(2);
-
     this->graph = graph;
     this->snarl_manager = snarl_manager;
     this->path_restricted = path_restricted_traversals;
@@ -763,7 +762,21 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     this->translation = translation;
     this->keep_conflicted_genotypes = keep_conflicted;
     assert(path_to_sample_phase == nullptr || path_restricted || gbwt);
-    
+    if (gbwt) {
+        this->gbwt_pos_caches.resize(get_thread_count(), nullptr);
+        for (size_t i = 0; i < this->gbwt_pos_caches.size(); ++i) {
+            if (this->gbwt_pos_caches[i] == nullptr) {
+                this->gbwt_pos_caches[i] = new LRUCache<gbwt::size_type, shared_ptr<unordered_map<handle_t, size_t>>>(lru_size);
+            }
+        }
+    } else {
+        // this allows us to run in parallel inside of each site deconstruction
+        // there is now a path jaccard check that can be expensive in deep graphs
+        // however, it breaks the LRUCache thread id assumptions
+        // so it is not suitable for GBWT based deconstruction
+        omp_set_max_active_levels(2);
+    }
+
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
     sample_names.clear();
     // prefer the GBWT sample names
@@ -1013,8 +1026,14 @@ tuple<bool, handle_t, size_t> Deconstructor::get_gbwt_path_position(const SnarlT
     int64_t start_offset = -1;
     int64_t end_offset = -1;
     int64_t offset = 0;
-    // get the position
-    {
+
+    LRUCache<gbwt::size_type, shared_ptr<unordered_map<handle_t, size_t>>>* gbwt_pos_cache =
+        gbwt_pos_caches[omp_get_thread_num()];
+    
+    pair<shared_ptr<unordered_map<handle_t, size_t>>, bool> cached = gbwt_pos_cache->retrieve(thread);
+    if (cached.second) {
+        start_offset = cached.first->at(start_handle);
+    } else {
         shared_ptr<unordered_map<handle_t, size_t>> path_map = make_shared<unordered_map<handle_t, size_t>>();
         for (gbwt::edge_type pos = gbwt.start(sequence_id); pos.first != gbwt::ENDMARKER; pos = gbwt.LF(pos)) {
             handle_t handle = graph->get_handle(gbwt::Node::id(pos.first), gbwt::Node::is_reverse(pos.first));
@@ -1029,6 +1048,7 @@ tuple<bool, handle_t, size_t> Deconstructor::get_gbwt_path_position(const SnarlT
             offset += len;
         }
         assert(start_offset >= 0 && end_offset >= 0);
+        gbwt_pos_cache->put(thread, path_map);
     }
   
     auto rval = make_tuple<bool, handle_t, size_t>((bool)!thread_reversed, (handle_t)start_handle, (size_t)start_offset);
