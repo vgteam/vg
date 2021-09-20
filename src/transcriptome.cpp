@@ -108,10 +108,8 @@ bool sort_pair_by_second(const pair<uint32_t, uint32_t> & lhs, const pair<uint32
     return (lhs.second < rhs.second);
 }
 
-Transcriptome::Transcriptome(unique_ptr<MutablePathDeletableHandleGraph>&& graph_in) :
-    _graph(move(graph_in))
-{
-    _nodes_updated = false;
+Transcriptome::Transcriptome(unique_ptr<MutablePathDeletableHandleGraph>&& graph_in) : _graph(move(graph_in)) {
+    
     if (!_graph) {
         cerr << "[transcriptome] ERROR: Could not load graph." << endl;
         exit(1);
@@ -1870,8 +1868,6 @@ void Transcriptome::augment_graph(const list<EditedTranscriptPath> & edited_tran
     assert(_reference_transcript_paths.empty());
     assert(_haplotype_transcript_paths.empty());
 
-    _nodes_updated = true;
-
     // Create set of exon boundary paths to augment graph with.
     vector<Path> exon_boundary_paths;
     spp::sparse_hash_set<Mapping, MappingHash> exon_boundary_mapping_index;
@@ -2116,8 +2112,6 @@ void Transcriptome::update_haplotype_index(unique_ptr<gbwt::GBWT> & haplotype_in
 
 void Transcriptome::add_splice_junction_edges(const list<EditedTranscriptPath> & edited_transcript_paths) {
 
-    _nodes_updated = true;
-
     for (auto & transcript_path: edited_transcript_paths) {
 
         for (size_t i = 1; i < transcript_path.path.mapping_size(); i++) {
@@ -2135,8 +2129,6 @@ void Transcriptome::add_splice_junction_edges(const list<EditedTranscriptPath> &
 }
   
 void Transcriptome::add_splice_junction_edges(const vector<CompletedTranscriptPath> & completed_transcript_paths) {
-
-    _nodes_updated = true;
 
     for (auto & transcript_path: completed_transcript_paths) {
 
@@ -2176,8 +2168,6 @@ void Transcriptome::collect_transcribed_nodes(spp::sparse_hash_set<nid_t> * tran
 }
 
 void Transcriptome::remove_non_transcribed_nodes() {
-
-    _nodes_updated = true;
 
     vector<path_handle_t> path_handles;
     path_handles.reserve(_graph->get_path_count());
@@ -2325,8 +2315,6 @@ void Transcriptome::update_transcript_path_node_handles(vector<CompletedTranscri
 
 bool Transcriptome::sort_compact_nodes() {
 
-    _nodes_updated = true;
-
     if (dynamic_cast<bdsg::PackedGraph*>(_graph.get()) == nullptr) {
 
         return false;
@@ -2386,11 +2374,6 @@ bool Transcriptome::sort_compact_nodes() {
 #endif 
 
     return true;
-}
-
-bool Transcriptome::nodes_updated() const {
-
-    return _nodes_updated;
 }
 
 int32_t Transcriptome::embed_transcript_paths(const vector<CompletedTranscriptPath> & transcript_paths) {
@@ -2513,7 +2496,12 @@ int32_t Transcriptome::write_haplotype_sequences(ostream * fasta_ostream) const 
     return write_sequences(fasta_ostream, _haplotype_transcript_paths);
 }
 
-int32_t Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const vector<CompletedTranscriptPath> & transcript_paths, const bool is_reference_transcript_paths) const {
+int32_t Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const vector<CompletedTranscriptPath> & transcript_paths, const bool add_header, const bool is_reference_transcript_paths) const {
+
+    if (add_header) {
+
+        *tsv_ostream << "Name\tLength\tTranscript\tHaplotypes" << endl; 
+    }
 
     int32_t num_written_info = 0;
 
@@ -2568,14 +2556,14 @@ int32_t Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::
     return num_written_info;
 }
 
-int32_t Transcriptome::write_reference_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index) const {
+int32_t Transcriptome::write_reference_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const bool add_header) const {
 
-    return write_transcript_info(tsv_ostream, haplotype_index, _reference_transcript_paths, true);
+    return write_transcript_info(tsv_ostream, haplotype_index, _reference_transcript_paths, add_header, true);
 }
 
-int32_t Transcriptome::write_haplotype_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index) const {
+int32_t Transcriptome::write_haplotype_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const bool add_header) const {
 
-    return write_transcript_info(tsv_ostream, haplotype_index, _haplotype_transcript_paths, false);
+    return write_transcript_info(tsv_ostream, haplotype_index, _haplotype_transcript_paths, add_header, false);
 }
 
 void Transcriptome::write_graph(ostream * graph_ostream) const {

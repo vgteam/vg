@@ -2655,7 +2655,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             save_gbwt(gbwt_builder.index, gbwt_name, IndexingParameters::verbosity == IndexingParameters::Debug);
             
             // write transcript origin info table
-            transcriptome.write_haplotype_transcript_info(&info_outfile, *haplotype_index);
+            transcriptome.write_haplotype_transcript_info(&info_outfile, *haplotype_index, true);
             
             // save the graph with the transcript paths added
             transcriptome.write_graph(&tx_graph_outfile);

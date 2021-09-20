@@ -108,8 +108,6 @@ namespace vg {
             REQUIRE(transcriptome.reference_transcript_paths().size() == 0);
             REQUIRE(transcriptome.haplotype_transcript_paths().size() == 0);
 
-            REQUIRE(!transcriptome.nodes_updated());
-
             REQUIRE(transcriptome.graph().get_node_count() == 6);
             REQUIRE(transcriptome.graph().get_edge_count() == 7);
             REQUIRE(transcriptome.graph().get_path_count() == 4);
@@ -136,7 +134,6 @@ namespace vg {
                 REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
 
                 REQUIRE(transcriptome.sort_compact_nodes());
-                REQUIRE(transcriptome.nodes_updated());
 
                 REQUIRE(transcriptome.graph().get_node_count() == 13);
                 REQUIRE(transcriptome.graph().get_edge_count() == 18);
@@ -248,7 +245,6 @@ namespace vg {
                     REQUIRE(transcriptome.chop_nodes(2) == 3);
 
                     REQUIRE(transcriptome.sort_compact_nodes());
-                    REQUIRE(transcriptome.nodes_updated());
 
                     REQUIRE(transcriptome.graph().get_node_count() == 16);
                     REQUIRE(transcriptome.graph().get_edge_count() == 21);
@@ -383,7 +379,6 @@ namespace vg {
                 REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
 
                 REQUIRE(transcriptome.sort_compact_nodes());
-                REQUIRE(transcriptome.nodes_updated());
 
                 REQUIRE(transcriptome.graph().get_node_count() == 13);
                 REQUIRE(transcriptome.graph().get_edge_count() == 18);
@@ -521,7 +516,6 @@ namespace vg {
                     REQUIRE(transcriptome.reference_transcript_paths().size() == 3);
                     
                     REQUIRE(transcriptome.sort_compact_nodes());
-                    REQUIRE(transcriptome.nodes_updated());
 
                     REQUIRE(transcriptome.graph().get_node_count() == 13);
                     REQUIRE(transcriptome.graph().get_edge_count() == 18);

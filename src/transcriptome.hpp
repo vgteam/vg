@@ -194,9 +194,6 @@ class Transcriptome {
         /// graphs in the PackedGraph format. Return false if not sorted.
         bool sort_compact_nodes();
 
-        /// Returns true if nodes in the graph have been updated (e.g. split) since parsed.
-        bool nodes_updated() const;
-
         /// Embeds reference transcript paths in the graph.  
         /// Returns the number of paths embedded.
         int32_t embed_reference_transcript_paths();
@@ -221,13 +218,13 @@ class Transcriptome {
         /// Returns the number of written sequences.
         int32_t write_haplotype_sequences(ostream * fasta_ostream) const;
 
-        /// Writes origin info on reference transcripts to tsv file.
+        /// Writes info on reference transcript path to tsv file.
         /// Returns the number of written transcripts.
-        int32_t write_reference_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index) const;
+        int32_t write_reference_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const bool add_header) const;
 
-        /// Writes origin info on haplotype transcripts to tsv file.
+        /// Writes info on haplotype transcript path to tsv file.
         /// Returns the number of written transcripts.
-        int32_t write_haplotype_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index) const;
+        int32_t write_haplotype_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const bool add_header) const;
 
         /// Writes the graph to a file.
         void write_graph(ostream * graph_ostream) const;
@@ -242,12 +239,9 @@ class Transcriptome {
         vector<CompletedTranscriptPath> _haplotype_transcript_paths;
         mutex mutex_haplotype_transcript_paths;
 
-        /// Spliced variation graph.
+        /// Spliced pangenome graph.
         unique_ptr<MutablePathDeletableHandleGraph> _graph;
         mutex mutex_graph;
-
-        /// Have nodes in the graph been updated (e.g. split) since parsed.
-        bool _nodes_updated;
 
         /// Parse BED file of introns.
         void parse_introns(vector<Transcript> * introns, istream * intron_stream, const bdsg::PositionOverlay & graph_path_pos_overlay) const;
@@ -359,9 +353,9 @@ class Transcriptome {
         /// Returns number of written sequences.
         int32_t write_sequences(ostream * fasta_ostream, const vector<CompletedTranscriptPath> & transcript_paths) const;
 
-        /// Writes origin info on transcripts to tsv file.
+        /// Writes info on transcript paths to tsv file.
         /// Returns the number of written transcripts.
-        int32_t write_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const vector<CompletedTranscriptPath> & transcript_paths, const bool is_reference_transcript_paths) const;
+        int32_t write_transcript_info(ostream * tsv_ostream, const gbwt::GBWT & haplotype_index, const vector<CompletedTranscriptPath> & transcript_paths, const bool add_header, const bool is_reference_transcript_paths) const;
 };
 
 }
