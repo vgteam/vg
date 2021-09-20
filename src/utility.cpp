@@ -712,7 +712,7 @@ string random_sequence(size_t length) {
 string pseudo_random_sequence(size_t length, uint64_t seed) {
     static const string alphabet = "ACGT";
     mt19937_64 gen(1357908642ull * seed + 80085ull);
-    uniform_int_distribution<char> distr(0, 3);
+    vg::uniform_int_distribution<char> distr(0, 3);
     
     string seq(length, '\0');
     for (size_t i = 0; i < length; i++) {

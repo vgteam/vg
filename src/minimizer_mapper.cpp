@@ -3701,8 +3701,8 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
                 }
             }
             
-            if (deterministic_beats(current_alignment.score(), best_score, rng)) {
-                // This is a new best alignment.
+            if (current_alignment.path().mapping_size() > 0 && deterministic_beats(current_alignment.score(), best_score, rng)) {
+                // This is a new best alignment, and it is nonempty.
                 best_path = current_alignment.path();
                 
                 if (!pin_left) {

@@ -265,8 +265,12 @@ protected:
     
     /// We have a clusterer
     SnarlSeedClusterer clusterer;
-
+    
+    /// We have a distribution for read fragment lengths that takes care of
+    /// knowing when we've observed enough good ones to learn a good
+    /// distribution.
     FragmentLengthDistribution fragment_length_distr;
+    /// We may need to complain exactly once that the distribution is bad.
     atomic_flag warned_about_bad_distribution = ATOMIC_FLAG_INIT;
 
 //-----------------------------------------------------------------------------

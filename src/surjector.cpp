@@ -99,6 +99,7 @@ using namespace std;
                 cerr << "error[Surjector::surject]: read " << source_aln->name() << " has "
                 << source_aln->sequence().size() << " sequence bases but an input alignment that aligns "
                 << source_to_length << " bases instead. This is invalid and uninterpretable; check your mapper." << endl;
+                cerr << "error[Surjector::surject]: offending alignemnt: " << pb2json(*source_aln) << endl; 
                 exit(1);
             }
         }
@@ -1560,6 +1561,15 @@ using namespace std;
                 
                 if (extended_score > score_dp[get<0>(edge)]) {
                     score_dp[get<0>(edge)] = extended_score;
+                    backpointer[get<0>(edge)] = i;
+                }
+                else if (extended_score == score_dp[get<0>(edge)]
+                         && backpointer[get<0>(edge)] >= 0
+                         && (abs<int64_t>(graph->get_position_of_step(section_path_ranges[i].first)
+                                          - graph->get_position_of_step(section_path_ranges[get<0>(edge)].first))
+                             < abs<int64_t>(graph->get_position_of_step(section_path_ranges[backpointer[get<0>(edge)]].first)
+                                            - graph->get_position_of_step(section_path_ranges[get<0>(edge)].first)))) {
+                    // break ties in favor of the closer exon
                     backpointer[get<0>(edge)] = i;
                 }
             }
