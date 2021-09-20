@@ -150,11 +150,13 @@ namespace vg {
         }
     }
     
-    void topologically_order_subpaths(multipath_alignment_t& multipath_aln) {
+    /// Return either the vector of topological order by index or the vector of indexes within the topological order
+    vector<size_t> subpath_topological_order(const multipath_alignment_t& multipath_aln,
+                                             bool do_index) {
         // Kahn's algorithm
         
-        vector<size_t> index(multipath_aln.subpath_size(), 0);
-        size_t order_idx = 0;
+        vector<size_t> return_val(multipath_aln.subpath_size(), 0);
+        size_t idx = 0;
         
         vector<size_t> stack;
         vector<size_t> in_degree(multipath_aln.subpath_size(), 0);
@@ -181,8 +183,13 @@ namespace vg {
             size_t here = stack.back();
             stack.pop_back();
             
-            index[here] = order_idx;
-            ++order_idx;
+            if (do_index) {
+                return_val[here] = idx;
+            }
+            else {
+                return_val[idx] = here;
+            }
+            ++idx;
             
             // remove the node's edges
             const subpath_t& subpath = multipath_aln.subpath(here);
@@ -202,6 +209,12 @@ namespace vg {
                 }
             }
         }
+        return return_val;
+    }
+    
+    void topologically_order_subpaths(multipath_alignment_t& multipath_aln) {
+        
+        vector<size_t> index = subpath_topological_order(multipath_aln, true);
         
         // translate the edges to the new indices
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
@@ -2144,7 +2157,9 @@ namespace vg {
         // not doing paired name because need extra logic to decide if it's prev or next
     }
     
-    void merge_non_branching_subpaths(multipath_alignment_t& multipath_aln) {
+    void merge_non_branching_subpaths(multipath_alignment_t& multipath_aln,
+                                      const unordered_set<size_t>* prohibited_merges) {
+        
         vector<size_t> in_degree(multipath_aln.subpath_size(), 0);
         vector<bool> has_inward_connection(multipath_aln.subpath_size());
         for (const subpath_t& subpath : multipath_aln.subpath()) {
@@ -2156,50 +2171,44 @@ namespace vg {
             }
         }
         
-        vector<bool> removed(multipath_aln.subpath_size(), false);
-        vector<size_t> removed_so_far(multipath_aln.subpath_size(), 0);
-        
-        auto get_mergeable_next = [&](const subpath_t& subpath) {
-            if (subpath.next_size() == 1 && subpath.connection_size() == 0
-                && in_degree[subpath.next(0)] == 1 && !has_inward_connection[subpath.next(0)]) {
-                return int64_t(subpath.next(0));
+        auto get_mergeable_next = [&](size_t idx) -> int64_t {
+            const subpath_t& subpath = multipath_aln.subpath(idx);
+            bool prohibited = false;
+            if (prohibited_merges) {
+                prohibited = prohibited_merges->count(idx);
             }
-            return int64_t(-1);
+            if (!prohibited && subpath.next_size() == 1 && subpath.connection_size() == 0
+                && in_degree[subpath.next(0)] == 1 && !has_inward_connection[subpath.next(0)]) {
+                return subpath.next(0);
+            }
+            return -1;
         };
         
-        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
-            if (i > 0) {
-                removed_so_far[i] = removed_so_far[i - 1];
-            }
+        vector<bool> removed(multipath_aln.subpath_size(), false);
+        
+        for (auto i : subpath_topological_order(multipath_aln, false)) {
             
             // this one has been marked for removal,
             if (removed[i]) {
-                removed_so_far[i]++;
                 continue;
             }
             
             // the subpath we might merge into
             subpath_t* subpath = multipath_aln.mutable_subpath(i);
             
-            // move it up in the vector if we've removed earlier subpaths
-            if (removed_so_far[i] > 0) {
-                *multipath_aln.mutable_subpath(i - removed_so_far[i]) = move(*subpath);
-                subpath = multipath_aln.mutable_subpath(i - removed_so_far[i]);
-            }
-            
             int64_t last = -1;
             // iterate through non-branching subpaths
-            for (int64_t j = get_mergeable_next(*subpath); j >= 0; j = get_mergeable_next(multipath_aln.subpath(j))) {
+            for (int64_t j = get_mergeable_next(i); j >= 0; j = get_mergeable_next(j)) {
                 
                 // mark the next one for removal
                 removed[j] = true;
                                 
-                const subpath_t& merge_subpath = multipath_aln.subpath(j);
+                subpath_t* merge_subpath = multipath_aln.mutable_subpath(j);
                 
-                subpath->set_score(subpath->score() + merge_subpath.score());
+                subpath->set_score(subpath->score() + merge_subpath->score());
                 
-                const path_t& merge_path = merge_subpath.path();
-                if (merge_path.mapping_size() == 0) {
+                path_t* merge_path = merge_subpath->mutable_path();
+                if (merge_path->mapping_size() == 0) {
                     continue;
                 }
                 
@@ -2207,8 +2216,8 @@ namespace vg {
                 path_mapping_t* final_mapping = path->mutable_mapping(path->mapping_size() - 1);
                 const position_t& final_position = final_mapping->position();
                 
-                const path_mapping_t& first_mapping = merge_path.mapping(0);
-                const position_t& first_position = first_mapping.position();
+                path_mapping_t* first_mapping = merge_path->mutable_mapping(0);
+                const position_t& first_position = first_mapping->position();
                 
                 int64_t mapping_idx = 0;
                 
@@ -2218,9 +2227,9 @@ namespace vg {
                     first_position.offset() == final_position.offset() + mapping_from_length(*final_mapping)) {
                     // do we need to merge the abutting edits?
                     int64_t edit_idx = 0;
-                    if (final_mapping->edit_size() && first_mapping.edit_size()) {
+                    if (final_mapping->edit_size() && first_mapping->edit_size()) {
                         edit_t* final_edit = final_mapping->mutable_edit(final_mapping->edit_size() - 1);
-                        const edit_t& first_edit = first_mapping.edit(0);
+                        const edit_t& first_edit = first_mapping->edit(0);
                         if ((first_edit.from_length() > 0) == (final_edit->from_length() > 0) &&
                             (first_edit.to_length() > 0) == (final_edit->to_length() > 0) &&
                             first_edit.sequence().empty() == final_edit->sequence().empty()) {
@@ -2233,16 +2242,15 @@ namespace vg {
                     }
                     
                     // append rest of the edits
-                    for (; edit_idx < first_mapping.edit_size(); edit_idx++) {
-                        *final_mapping->add_edit() = first_mapping.edit(edit_idx);
+                    for (; edit_idx < first_mapping->edit_size(); edit_idx++) {
+                        *final_mapping->add_edit() = move(*first_mapping->mutable_edit(edit_idx));
                     }
                     
                     mapping_idx++;
                 }
                 
-                // append rest of the mappings
-                for (; mapping_idx < merge_path.mapping_size(); mapping_idx++) {
-                    *path->add_mapping() = merge_path.mapping(mapping_idx);
+                for (; mapping_idx < merge_path->mapping_size(); mapping_idx++) {
+                    *path->add_mapping() = move(*merge_path->mutable_mapping(mapping_idx));
                 }
                 
                 last = j;
@@ -2261,8 +2269,27 @@ namespace vg {
             }
         }
         
+        // go back and do the removals
+        vector<size_t> removed_so_far(multipath_aln.subpath_size(), 0);
+        for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
+            if (i > 0) {
+                removed_so_far[i] = removed_so_far[i - 1];
+            }
+            
+            if (removed[i]) {
+                // this one has been marked for removal
+                removed_so_far[i]++;
+                continue;
+            }
+            
+            if (removed_so_far[i]) {
+                // move it up in the vector past the removed subpaths
+                *multipath_aln.mutable_subpath(i - removed_so_far[i]) = move(*multipath_aln.mutable_subpath(i));
+            }
+        }
+        
         // did we merge and remove any subpaths?
-        if (!removed_so_far.empty() && removed_so_far.back() > 0) {
+        if (!removed_so_far.empty() && removed_so_far.back()) {
             // trim the vector of subpaths
             multipath_aln.mutable_subpath()->resize(multipath_aln.subpath_size() - removed_so_far.back());
             

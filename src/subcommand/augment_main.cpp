@@ -285,16 +285,6 @@ int main_augment(int argc, char** argv) {
     HandleGraph* vectorizable_graph = nullptr;
     unique_ptr<Packer> packer;
     bdsg::VectorizableOverlayHelper overlay_helper;
-    // the packer's required for any kind of filtering logic -- so we use it when
-    // baseq is present as well, or n-fraction.
-    if (min_coverage > 0 || min_baseq || max_frac_n < 1.) {
-        vectorizable_graph = dynamic_cast<HandleGraph*>(overlay_helper.apply(graph.get()));
-        size_t data_width = Packer::estimate_data_width(expected_coverage);
-        size_t bin_count = Packer::estimate_bin_count(get_thread_count());
-        packer = make_unique<Packer>(vectorizable_graph, true, false, false, false, 0, bin_count, data_width);
-        // makes sure filters are activated. 
-        min_coverage = max(size_t(min_coverage), size_t(1));
-    }
     
     if (label_paths) {
         // Just add path names with extend()
@@ -320,6 +310,17 @@ int main_augment(int argc, char** argv) {
         }
     }
     else {
+        // the packer's required for any kind of filtering logic -- so we use it when
+        // baseq is present as well, or n-fraction.
+        if (min_coverage > 0 || min_baseq || max_frac_n < 1.) {
+            vectorizable_graph = dynamic_cast<HandleGraph*>(overlay_helper.apply(graph.get()));
+            size_t data_width = Packer::estimate_data_width(expected_coverage);
+            size_t bin_count = Packer::estimate_bin_count(get_thread_count());
+            packer = make_unique<Packer>(vectorizable_graph, true, false, false, false, 0, bin_count, data_width);
+            // makes sure filters are activated. 
+            min_coverage = max(size_t(min_coverage), size_t(1));
+        }
+    
         // Actually do augmentation
         vector<Translation> translation;
         if (!gam_out_file_name.empty()) {
