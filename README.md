@@ -374,7 +374,7 @@ A variety of commands are available:
 - *surject*: project graph alignments onto a linear reference
 - *augment*: adds variation from aligned reads into the graph
 - *call*: call variants from an augmented graph
-- *rna*: spliced graph construction and indexing
+- *rna*: construct splicing graphs and pantranscriptomes
 - *convert*: convert graph and alignment formats
 - *combine*: combine graphs
 - *chunk*: extract or break into subgraphs
