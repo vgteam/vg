@@ -697,9 +697,10 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     // Stop this alignment
     funnel.stop();
     
+    // Annotate with whatever's in the funnel
+    funnel.annotate_mapped_alignment(mappings[0], track_correctness);
+    
     if (track_provenance) {
-        funnel.annotate_mapped_alignment(mappings[0], track_correctness);
-        
         // Annotate with parameters used for the filters.
         set_annotation(mappings[0], "param_hit-cap", (double) hit_cap);
         set_annotation(mappings[0], "param_hard-hit-cap", (double) hard_hit_cap);
@@ -1683,10 +1684,10 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 funnels[0].stop();
                 funnels[1].stop();
                 
-                if (track_provenance) {
-                    funnels[0].annotate_mapped_alignment(paired_mappings.first[0], track_correctness);
-                    funnels[0].annotate_mapped_alignment(paired_mappings.second[0], track_correctness);
-                }
+                // Annotate with whatever's in the funnel
+                funnels[0].annotate_mapped_alignment(paired_mappings.first[0], track_correctness);
+                funnels[0].annotate_mapped_alignment(paired_mappings.second[0], track_correctness);
+                
                 return paired_mappings;
             } else if (best_score_1 != 0 and best_score_2 != 0) {
                 //We are attempting rescue, but we still want to keep the best alignments as a potential (unpaired) pair 
@@ -2129,10 +2130,11 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     funnels[0].stop();
     funnels[1].stop();
     
+    // Annotate with whatever's in the funnel.
+    funnels[0].annotate_mapped_alignment(mappings.first[0], track_correctness);
+    funnels[1].annotate_mapped_alignment(mappings.second[0], track_correctness);
+    
     if (track_provenance) {
-        funnels[0].annotate_mapped_alignment(mappings.first[0], track_correctness);
-        funnels[1].annotate_mapped_alignment(mappings.second[0], track_correctness);
-        
         // Annotate with parameters used for the filters.
         set_annotation(mappings.first[0] , "param_hit-cap", (double) hit_cap);
         set_annotation(mappings.first[0] , "param_hard-hit-cap", (double) hard_hit_cap);
