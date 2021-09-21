@@ -559,8 +559,8 @@ namespace vg {
                 sort(vsub.begin(), vsub.end());
 
                 //check for equality with first two subsets
-                bool equal_to_v1 = equal(v1.begin(), v1.end(), vsub.begin());
-                bool equal_to_v2 = equal(v2.begin(), v2.end(), vsub.begin());
+                bool equal_to_v1 = vsub.size() == v1.size() && equal(v1.begin(), v1.end(), vsub.begin());
+                bool equal_to_v2 = vsub.szie() == v2.size() && equal(v2.begin(), v2.end(), vsub.begin());
 
                 bool pass_equal_to_either = true;
                 //if the subset is equal to either of the first two subsets, skip it
@@ -961,8 +961,8 @@ namespace vg {
                 sort(vsub.begin(), vsub.end());
 
                 //check for equality with first two subsets
-                bool equal_to_v1 = equal(v1.begin(), v1.end(), vsub.begin());
-                bool equal_to_v2 = equal(v2.begin(), v2.end(), vsub.begin());
+                bool equal_to_v1 = vsub.size() == v1.size() && equal(v1.begin(), v1.end(), vsub.begin());
+                bool equal_to_v2 = vsub.size() == v2.size() && equal(v2.begin(), v2.end(), vsub.begin());
 
                 bool pass_equal_to_either = true;
                 //if the subset is equal to either of the first two subsets, skip it
