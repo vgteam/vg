@@ -322,7 +322,7 @@ int main_deconstruct(int argc, char** argv){
     // Deconstruct
     Deconstructor dd;
     if (show_progress) {
-        cerr << "Decsontructing top-level snarls" << endl;
+        cerr << "Deconstructing top-level snarls" << endl;
     }
     dd.deconstruct(refpaths, graph, snarl_manager.get(), path_restricted_traversals, ploidy,
                    all_snarls,
