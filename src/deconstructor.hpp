@@ -50,19 +50,19 @@ private:
 
     // write a vcf record for the given site.  returns true if a record was written
     // (need to have a path going through the site)
-    bool deconstruct_site(const Snarl* site);
+    bool deconstruct_site(const Snarl* site) const;
 
     // convert traversals to strings.  returns mapping of traversal (offset in travs) to allele
     vector<int> get_alleles(vcflib::Variant& v, const vector<SnarlTraversal>& travs, int ref_path_idx,
                             const vector<bool>& use_trav,
-                            char prev_char, bool use_start);
+                            char prev_char, bool use_start) const;
 
     // add a traversal to the VCF info field in the format of a GFA W-line or GAF path
-    void add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav, bool reversed, bool one_based);
+    void add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav, bool reversed, bool one_based) const;
     
     // write traversal path names as genotypes
     void get_genotypes(vcflib::Variant& v, const vector<string>& names, const vector<int>& trav_to_allele,
-                       const vector<gbwt::size_type>& trav_thread_ids);
+                       const vector<gbwt::size_type>& trav_thread_ids) const;
 
     // given a set of traversals associated with a particular sample, select a set of size <ploidy> for the VCF
     // the highest-frequency ALT traversal is chosen
@@ -70,22 +70,22 @@ private:
     pair<vector<int>, bool> choose_traversals(const string& sample_name,
                                               const vector<int>& travs, const vector<int>& trav_to_allele,
                                               const vector<string>& trav_to_name,
-                                              const vector<int>& gbwt_phases);
+                                              const vector<int>& gbwt_phases) const;
 
     // check to see if a snarl is too big to exhaustively traverse
-    bool check_max_nodes(const Snarl* snarl);
+    bool check_max_nodes(const Snarl* snarl) const;
 
     // get traversals from the exhaustive finder.  if they have nested visits, fill them in (exhaustively)
     // with node visits
-    vector<SnarlTraversal> explicit_exhaustive_traversals(const Snarl* snarl);
+    vector<SnarlTraversal> explicit_exhaustive_traversals(const Snarl* snarl) const;
 
     // get the path location of a given traversal out of the gbwt
     // this will be much slower than doing the same using the PathPositionGraph interface as there's no
     // underlying index. 
-    tuple<bool, handle_t, size_t> get_gbwt_path_position(const SnarlTraversal& trav, const gbwt::size_type& thread);
+    tuple<bool, handle_t, size_t> get_gbwt_path_position(const SnarlTraversal& trav, const gbwt::size_type& thread) const;
 
     // get a snarl name, using trnaslation if availabe
-    string snarl_name(const Snarl* snarl);
+    string snarl_name(const Snarl* snarl) const;
     
     // toggle between exhaustive and path restricted traversal finder
     bool path_restricted = false;

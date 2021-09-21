@@ -26,7 +26,7 @@ Deconstructor::~Deconstructor(){
  */
 vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTraversal>& travs, int ref_path_idx,
                                        const vector<bool>& use_trav,
-                                       char prev_char, bool use_start) {
+                                       char prev_char, bool use_start) const {
 
     assert(ref_path_idx >=0 && ref_path_idx < travs.size());
 
@@ -120,7 +120,7 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
 }
 
 void Deconstructor::add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav,
-                                            bool reversed, bool one_based) {
+                                            bool reversed, bool one_based) const {
     auto& trav_info = v.info["AT"];
     assert(allele < trav_info.size());
 
@@ -165,7 +165,7 @@ void Deconstructor::add_allele_path_to_info(vcflib::Variant& v, int allele, cons
 
 void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& names,
                                   const vector<int>& trav_to_allele,
-                                  const vector<gbwt::size_type>& trav_thread_ids) {
+                                  const vector<gbwt::size_type>& trav_thread_ids) const {
     assert(names.size() == trav_to_allele.size());
     // set up our variant fields
     v.format.push_back("GT");
@@ -235,7 +235,7 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
         } else {
             string blank_gt = ".";
             if (gbwt_sample_to_phase_range.count(sample_name)) {
-                auto& phase_range = gbwt_sample_to_phase_range[sample_name];
+                auto& phase_range = gbwt_sample_to_phase_range.at(sample_name);
                 for (int phase = phase_range.first + 1; phase <= phase_range.second; ++phase) {
                     blank_gt += "|.";
                 }
@@ -254,7 +254,7 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
 pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_name,
                                                          const vector<int>& travs, const vector<int>& trav_to_allele,
                                                          const vector<string>& trav_to_name,
-                                                         const vector<int>& gbwt_phases) {
+                                                         const vector<int>& gbwt_phases) const {
 
     assert(trav_to_name.size() == trav_to_allele.size());
     assert(gbwt_phases.size() == trav_to_name.size());
@@ -379,7 +379,7 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
     return make_pair(most_frequent_travs, conflict);
 }
     
-bool Deconstructor::deconstruct_site(const Snarl* snarl) {
+bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 
     auto contents = snarl_manager->shallow_contents(snarl, *graph, false);
     if (contents.first.empty()) {
@@ -934,7 +934,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     write_variants(cout);
 }
 
-bool Deconstructor::check_max_nodes(const Snarl* snarl)  {
+bool Deconstructor::check_max_nodes(const Snarl* snarl) const  {
     unordered_set<id_t> nodeset = snarl_manager->deep_contents(snarl, *graph, false).first;
     int node_count = 0;
     for (auto node_id : nodeset) {
@@ -949,7 +949,7 @@ bool Deconstructor::check_max_nodes(const Snarl* snarl)  {
     return true;
 };
 
-vector<SnarlTraversal> Deconstructor::explicit_exhaustive_traversals(const Snarl* snarl){
+vector<SnarlTraversal> Deconstructor::explicit_exhaustive_traversals(const Snarl* snarl) const {
     vector<SnarlTraversal> out_travs;
     bool ultra_all_the_way_down = true;
     function<void(const SnarlTraversal&, const Snarl&)> extend_trav =
@@ -986,7 +986,7 @@ vector<SnarlTraversal> Deconstructor::explicit_exhaustive_traversals(const Snarl
     return out_travs;
 }
 
-string Deconstructor::snarl_name(const Snarl* snarl) {
+string Deconstructor::snarl_name(const Snarl* snarl) const {
     nid_t start_node = snarl->start().node_id();
     nid_t end_node = snarl->end().node_id();
     if (translation) {
@@ -1005,7 +1005,7 @@ string Deconstructor::snarl_name(const Snarl* snarl) {
         (snarl->end().backward() ? "<" : ">") + std::to_string(end_node);
 }
 
-tuple<bool, handle_t, size_t> Deconstructor::get_gbwt_path_position(const SnarlTraversal& trav, const gbwt::size_type& thread) {
+tuple<bool, handle_t, size_t> Deconstructor::get_gbwt_path_position(const SnarlTraversal& trav, const gbwt::size_type& thread) const {
 
     // scan the whole thread in order to get the path positions -- there's no other way unless we build an index a priori
     const gbwt::GBWT& gbwt = gbwt_trav_finder->get_gbwt();
