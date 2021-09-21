@@ -1111,7 +1111,7 @@ int main_giraffe(int argc, char** argv) {
     auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0));
 
     // Grab the distance index
-    auto distance_index;
+    SnarlDistanceIndex distance_index;
     distance_index.load(registry.require("Giraffe Distance Index").at(0));
 
     // Set up the mapper

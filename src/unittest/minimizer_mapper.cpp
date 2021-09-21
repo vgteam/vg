@@ -20,7 +20,7 @@ public:
     TestMinimizerMapper(
         gbwtgraph::GBWTGraph gbwt_graph,
         gbwtgraph::DefaultMinimizerIndex minimizer_index,
-        SnarlDistanceIndex distance_index,
+        SnarlDistanceIndex& distance_index,
         PathPositionHandleGraph* handle_graph) 
         : MinimizerMapper(gbwt_graph, minimizer_index, distance_index, handle_graph){};
     using MinimizerMapper::MinimizerMapper;
