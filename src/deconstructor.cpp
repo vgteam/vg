@@ -501,7 +501,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
     if (ref_travs.empty()) {
 #ifdef debug
 #pragma omp critical (cerr)
-        cerr << "Skipping site becuase no reference traversal was found " << pb2json(*snarl) << endl;
+        cerr << "Skipping site because no reference traversal was found " << pb2json(*snarl) << endl;
 #endif
         return false;
     }
