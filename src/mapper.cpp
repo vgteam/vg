@@ -851,7 +851,7 @@ vector<pos_t> BaseMapper::walk_fanout_path(string::const_iterator begin,
         while (off < node_len && read_it != end) {
             // get either the read char or the fanout char
             char rch;
-            if (read_it == next_break->first) {
+            if (next_break != fanout_breaks.end() && read_it == next_break->first) {
                 rch = next_break->second;
                 ++next_break;
             }
