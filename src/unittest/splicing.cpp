@@ -1702,6 +1702,8 @@ TEST_CASE("MultipathMapper can make splice alignments from different candidates"
         MaximalExactMatch mem;
         mem.begin = aln.sequence().begin() + 26;
         mem.end = aln.sequence().end();
+        mem.queried_count = 1;
+        mem.match_count = 1;
 
         pos_t pos(graph.get_id(h5), false, 3);
 
@@ -1725,11 +1727,15 @@ TEST_CASE("MultipathMapper can make splice alignments from different candidates"
         MaximalExactMatch mem1;
         mem1.begin = aln.sequence().begin() + 26;
         mem1.end = aln.sequence().begin() + 38;
+        mem1.queried_count = 1;
+        mem1.match_count = 1;
         mem1.nodes.push_back(gcsa::Node::encode(graph.get_id(h5), 3, false));
         
         MaximalExactMatch mem2;
         mem2.begin = aln.sequence().begin() + 39;
         mem2.end = aln.sequence().end();
+        mem2.queried_count = 1;
+        mem2.match_count = 1;
         mem2.nodes.push_back(gcsa::Node::encode(graph.get_id(h5), 16, false));
         
         vector<MaximalExactMatch> mems{mem1, mem2};

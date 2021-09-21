@@ -4374,7 +4374,7 @@ namespace vg {
             cerr << "performed up to " << max_rescues_attempted_idx << " out of " << plausible_clusters_end_idx << " plausible rescues" << endl;
 #endif
             
-            multiplicity = max(1.0, double(plausible_clusters_end_idx) / double(max_rescues_attempted_idx));
+            multiplicity = max(1.0, (double)(plausible_clusters_end_idx) / (double)(max_rescues_attempted_idx));
         }
         
         return multiplicity;
@@ -4387,7 +4387,7 @@ namespace vg {
         double max_fraction_sampled = 0.0;
         for (const pair<const MaximalExactMatch*, pos_t>& hit : cluster.first) {
             const MaximalExactMatch& mem = *hit.first;
-            max_fraction_sampled = max(max_fraction_sampled, double(mem.queried_count) / double(mem.match_count));
+            max_fraction_sampled = max(max_fraction_sampled, (double)(mem.queried_count) / (double)(mem.match_count));
         }
         return cluster.second / max_fraction_sampled;
     }
