@@ -33,8 +33,8 @@ SHOW_OPT=""
 TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@b79e340073832324e9714ca1f52e5cfb6cd3990d"
 # What toil should we install?
 # Could be something like "toil[aws,mesos]==3.20.0"
-# or "git+https://github.com/adamnovak/toil.git@2b696bec34fa1381afdcf187456571d2b41f3842#egg=toil[aws,mesos]"
-TOIL_PACKAGE="toil[aws,mesos]==3.24.0"
+# or "git+https://github.com/DataBiosphere/toil.git@3ab74776a3adebd6db75de16985ce9d734f60743#egg=toil[aws,mesos]"
+TOIL_PACKAGE="git+https://github.com/DataBiosphere/toil.git@3ab74776a3adebd6db75de16985ce9d734f60743#egg=toil[aws,mesos]"
 # What tests should we run?
 # Should be something like "vgci/vgci.py::VGCITest::test_sim_brca2_snp1kg_mpmap"
 # Must have the Python file in it or Pytest can't find the tests.
@@ -338,15 +338,13 @@ then
          export TMPDIR
     fi
 
-    # Dependencies for running tests.  Need numpy, scipy and sklearn
-    # for running toil-vg mapeval, and dateutils and reqests for ./mins_since_last_build.py
-    pip3 install numpy==1.17.1
-    pip3 install scipy==1.0.0rc2 --only-binary :all:
-    pip3 install scikit-learn==0.22.1
-    pip3 install dateutils
-    pip3 install requests
-    pip3 install timeout_decorator
-    pip3 install pytest
+    # Dependencies for running tests.  Need numpy, scipy and sklearn for
+    # running toil-vg mapeval, and dateutils and reqests for
+    # ./mins_since_last_build.py. Make sure to get the giant buildable modules
+    # as binaries only to avoid wasting CI time building some slightly nicer
+    # version Pip prefers.
+    pip3 install pytest timeout_decorator requests dateutils
+    pip3 install numpy scipy scikit-learn --only-binary :all:
 
     # Install Toil
     echo "Installing toil from ${TOIL_PACKAGE}"
