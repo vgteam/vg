@@ -247,6 +247,11 @@ protected:
         }
     };
     
+    /// Convert an integer distance, with limits standing for no distance, to a
+    /// double annotation that can safely be parsed back from JSON into an
+    /// integer if it is integral.
+    double distance_to_annotation(int64_t distance) const;
+    
     /// The information we store for each seed.
     typedef SnarlSeedClusterer::Seed Seed;
 

@@ -19,6 +19,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <cfloat>
 
 // Turn on debugging prints
 //#define debug
@@ -1745,8 +1746,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
                     set_annotation(mapped_aln, "rescuer", true);
                     set_annotation(rescued_aln, "rescued", true);
-                    set_annotation(mapped_aln,  "fragment_length", (double)fragment_dist);
-                    set_annotation(rescued_aln, "fragment_length", (double)fragment_dist);
+                    set_annotation(mapped_aln,  "fragment_length", distance_to_annotation(fragment_dist));
+                    set_annotation(rescued_aln, "fragment_length", distance_to_annotation(fragment_dist));
                     bool properly_paired = fragment_dist == std::numeric_limits<int64_t>::max() ? false :
                         (std::abs(fragment_dist-fragment_length_distr.mean()) <= 6.0*fragment_length_distr.std_dev()) ;
                     set_annotation(mapped_aln, "proper_pair", properly_paired);
@@ -2103,8 +2104,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         }
         
         //Annotate top pair with its fragment distance, fragment length distrubution, and secondary scores
-        set_annotation(mappings.first.front(), "fragment_length", (double) distances.front());
-        set_annotation(mappings.second.front(), "fragment_length", (double) distances.front());
+        set_annotation(mappings.first.front(), "fragment_length", distance_to_annotation(distances.front()));
+        set_annotation(mappings.second.front(), "fragment_length", distance_to_annotation(distances.front()));
         bool properly_paired = distances.front() == std::numeric_limits<int64_t>::max() ? false :
             (std::abs(distances.front()-fragment_length_distr.mean()) <= 6.0*fragment_length_distr.std_dev()) ;
         set_annotation(mappings.first.front(), "proper_pair", properly_paired);
@@ -4000,6 +4001,22 @@ double MinimizerMapper::score_alignment_pair(Alignment& aln1, Alignment& aln2, i
     double worse_score = std::min(aln1.score(), aln2.score());
 
     return std::max(score, worse_score);;
+}
+
+double MinimizerMapper::distance_to_annotation(int64_t distance) const {
+    // We use numeric_limits<int64_t>::max() to represent no distance. But that
+    // can't convert to double (which rounds up) and then safely back to int64.
+    // We also aren't allowed inf or nan in a Protobuf double Value. So change
+    // the sentinel value to 0 which is probably not a fragment length.
+    if (distance == numeric_limits<int64_t>::max()) {
+        distance = 0;
+    }
+    
+    // Make sure we can't generate any >64 bit integers in the double cast by
+    // clamping to the doubles that are also integers.
+    static_assert(DBL_MANT_DIG <= 64, "We assume doubles have <64 bits of mantissa");
+    double max_int_double = (double)((int64_t)1 << DBL_MANT_DIG);
+    return max(min((double) distance, max_int_double), -max_int_double);
 }
 
 }
