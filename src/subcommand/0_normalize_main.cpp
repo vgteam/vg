@@ -28,9 +28,9 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-bool run_norm(vector<const Snarl *> snarl_roots, int optind, int argc, char** argv, string gbwt_file, int max_handle_size, int max_alignment_size){
+pair<shared_ptr<MutablePathDeletableHandleGraph>, gbwt::GBWT> run_norm(vector<const Snarl *> snarl_roots, int optind, int argc, char** argv, string gbwt_file, int max_handle_size, int max_alignment_size){
   // getting graph of any type, except non-mutable graphs (e.g., xg)
-  unique_ptr<MutablePathDeletableHandleGraph> graph;
+  shared_ptr<MutablePathDeletableHandleGraph> graph;
   get_input_file(optind, argc, argv, [&](istream &in) {
     graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
   });
@@ -48,27 +48,36 @@ bool run_norm(vector<const Snarl *> snarl_roots, int optind, int argc, char** ar
     *graph, *gbwt, gbwt_graph, max_handle_size, max_alignment_size);
 
   gbwt::GBWT normalized_gbwt = normalizer.normalize_snarls(snarl_roots);
-  return true; //plan is to use this to catch gbwt_graph construction error, to automate narrowing down of bug.
+  return make_pair(graph, normalized_gbwt);
 }
 
 //binary search:
-bool binary_search_norm(vector<const Snarl *> chosen_snarls, int snarl_start, int snarl_end, int optind, int argc, char** argv, string gbwt_file, int max_handle_size, int max_alignment_size) // pass 0 and chosen_snarls.size() for first snarl_start/end. 
+void binary_search_norm(vector<const Snarl *> chosen_snarls, int snarl_start, int snarl_end, int optind, int argc, char** argv, string gbwt_file, int max_handle_size, int max_alignment_size) // pass 0 and chosen_snarls.size() for first snarl_start/end. 
 {
-  cerr << "normalizing snarls between: " << snarl_start << " and " << snarl_end << endl;
-  try
+  cerr << "\nnormalizing snarls between: " << snarl_start << " and " << snarl_end << endl;
+  if (snarl_end - snarl_start  == 0)
   {
-    run_norm(chosen_snarls, optind, argc, argv, gbwt_file, max_handle_size, max_alignment_size);
-  } catch (const std::out_of_range& e) {
-    vector<const Snarl *>::const_iterator first = chosen_snarls.begin();
-    vector<const Snarl *>::const_iterator mid = chosen_snarls.begin() + chosen_snarls.size()/2;
-    vector<const Snarl *>::const_iterator last = chosen_snarls.end();
-    vector<const Snarl *> first_half(first, mid);
-    vector<const Snarl *> second_half(mid, last);
-    binary_search_norm(first_half, snarl_start, snarl_start + chosen_snarls.size()/2, optind, argc, argv, gbwt_file, max_handle_size, max_alignment_size);
-    binary_search_norm(second_half, snarl_start + chosen_snarls.size()/2, snarl_end, optind, argc, argv, gbwt_file, max_handle_size, max_alignment_size);
-  } catch (...) {
-    cerr << "snarls between: " << snarl_start << " and " << snarl_end << " ended successfully." << endl;
+    return;
   }
+  else
+  {
+    try
+    {
+      run_norm(chosen_snarls, optind, argc, argv, gbwt_file, max_handle_size, max_alignment_size);
+    } catch (const std::out_of_range& e) {
+      vector<const Snarl *>::const_iterator first = chosen_snarls.begin();
+      vector<const Snarl *>::const_iterator mid = chosen_snarls.begin() + chosen_snarls.size()/2;
+      vector<const Snarl *>::const_iterator last = chosen_snarls.end();
+      vector<const Snarl *> first_half(first, mid);
+      vector<const Snarl *> second_half(mid, last);
+      cerr << "normalizing snarls between: " << snarl_start << " and " << snarl_end << " failed. Splitting." << endl;
+      binary_search_norm(first_half, snarl_start, snarl_start + chosen_snarls.size()/2, optind, argc, argv, gbwt_file, max_handle_size, max_alignment_size);
+      binary_search_norm(second_half, snarl_start + chosen_snarls.size()/2, snarl_end, optind, argc, argv, gbwt_file, max_handle_size, max_alignment_size);
+    } catch (...) {
+      cerr << "snarls between: " << snarl_start << " and " << snarl_end << " ended successfully." << endl;
+    }
+  }
+  return;
 } 
 
 void help_normalize(char **argv) {
@@ -86,10 +95,10 @@ void help_normalize(char **argv) {
          "Default is 'all'. If 'all', all top-level snarls in the graph are "
          "normalized. If 'one', only the one specified snarl is normalized."
       << endl
-      << "    -a, --source        only used when --normalize_type is 'one'. "
+      << "    -a, --source        only used when --normalize_type is 'one', or when using -x option. "
          "The source of the single node to be normalized."
       << endl
-      << "    -b, --sink      only used when --normalize_type is 'one'. The "
+      << "    -b, --sink      only used when --normalize_type is 'one' or when using -x option. The "
          "sink of the single node to be normalized."
       << endl
       << "    -p, --paths_right_to_left       only used when --normalize_type "
@@ -258,210 +267,121 @@ int main_normalize(int argc, char **argv) {
     }
   }
 
-  std::ifstream snarl_stream;
-  string snarl_file = snarls;
-  snarl_stream.open(snarl_file);
 
-  SnarlManager *snarl_manager = new SnarlManager(snarl_stream);
-  int num_snarls_normalized = 0;
-  int num_snarls_skipped = 0;
-  vector<const Snarl *> snarl_roots = snarl_manager->top_level_snarls();
-    
-
-
-  cerr << "snarl_roots.size()" << snarl_roots.size() << endl;
-  // cerr << "snarl_roots.size()/2" << snarl_roots.size()/2 << endl;
-
-  binary_search_norm(snarl_roots, 0, snarl_roots.size(), optind, argc, argv, gbwt, max_handle_size, max_alignment_size);
   
-  // vector<const Snarl *>::const_iterator first = snarl_roots.begin() + snarl_roots.size()/2;
-  // vector<const Snarl *>::const_iterator last = snarl_roots.end();
-  // vector<const Snarl *> half_roots(first, last);
-  
-  // for (int root_start = snarl_roots.size()/2 ; root_start < snarl_roots.size() ; root_start ++)
-  // {
-  //   vector<const Snarl *>::const_iterator first = snarl_roots.begin() + root_start;
-  //   vector<const Snarl *>::const_iterator last = first + 2;
-  //   vector<const Snarl *> chosen_snarls(first, last);
+  if (normalize_type != "all" && normalize_type != "none") 
+  {
+    cerr << "please enter a valid normalize_type: all or one." << endl;
+  }
 
-  //   run_norm(chosen_snarls, optind, argc, argv, gbwt, max_handle_size, max_alignment_size);
+  if (normalize_type == "all") 
+  {
+    // prep snarl_roots:
+    std::ifstream snarl_stream;
+    string snarl_file = snarls;
+    snarl_stream.open(snarl_file);
+    if (!snarl_stream) {
+      cerr << "error:[vg normalize] Cannot open Snarls file " << snarl_file
+            << endl;
+      exit(1);
+    }
 
-  // }
-
-  // first, run it on full graph. Does it fail?
-  // run it on left half of snarls. Does it fail?
-
-
-  // run_norm(half_roots)  
-
-
-//   // getting graph of any type, except non-mutable graphs (e.g., xg)
-//   unique_ptr<MutablePathDeletableHandleGraph> graph;
-//   get_input_file(optind, argc, argv, [&](istream &in) {
-//     graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
-//   });
-
-//   if (normalize_type != "all" && normalize_type != "one" &&  normalize_type != "none") {
-//     cerr << "please enter a valid normalize_type: all or one." << endl;
-//   }
-
-//   if (normalize_type == "all" || normalize_type == "one") {
-//     cerr << "running normalize!" << endl;
-
-//     /// Build the gbwt:
-//     ifstream gbwt_stream;
-//     gbwt_stream.open(gbwt);
-
-//     // Load the GBWT from its container
-//     unique_ptr<gbwt::GBWT> gbwt;
-//     gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
-//     gbwtgraph::GBWTGraph gbwt_graph = gbwtgraph::GBWTGraph(*gbwt, *graph);
-
-//     std::ifstream snarl_stream;
-//     string snarl_file = snarls;
-//     snarl_stream.open(snarl_file);
-
-//     if (!snarl_stream) {
-//       cerr << "error:[vg normalize] Cannot open Snarls file " << snarl_file
-//            << endl;
-//       exit(1);
-//     }
-//     // Record start time
-//     auto start = chrono::high_resolution_clock::now();
-
-//     algorithms::SnarlNormalizer normalizer = algorithms::SnarlNormalizer(
-//         *graph, *gbwt, gbwt_graph, max_handle_size, max_alignment_size);
-
-//     if (normalize_type == "all") 
-//     {
-
-//       // gbwt_graph.get_handle()
+    SnarlManager *snarl_manager = new SnarlManager(snarl_stream);
+    vector<const Snarl *> snarl_roots = snarl_manager->top_level_snarls();
       
-//       //todo: delete debugging for start_snarl_num/end_snarl_num:
-//       // 1100000-1200000 has the bug in it.
-//       // Bug is probably 1100121. May have to include previous snarls for context?
-//       // gbwt::GBWT normalized_gbwt = normalizer.normalize_top_level_snarls(snarl_stream, 1100000, 1100000+10);
-//       if (start_snarl_num == 0 && end_snarl_num == 0)
-//       {
+    cerr << "snarl_roots.size()" << snarl_roots.size() << endl;
 
-//         for (int start_chunk = 1100100; start_chunk <= 1100200; start_chunk+=10)
-//         {
-//           cerr << endl;
-//           cerr << "start chunk is: " << start_chunk << endl;
-//           // // getting graph of any type, except non-mutable graphs (e.g., xg)
-//           // unique_ptr<MutablePathDeletableHandleGraph> graph;
-//           // get_input_file(optind, argc, argv, [&](istream &in) {
-//           //   graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
-//           // });
+    //todo: use for debugging:
+    /// for select snarl:
+    // vector<const Snarl *> chosen_snarls(snarl_roots.begin() + 1370135, snarl_roots.begin() + 1370136); 
+    // run_norm(chosen_snarls, optind, argc, argv, gbwt, max_handle_size, max_alignment_size);
+    /// for binary search:
+    // binary_search_norm(snarl_roots, 0, snarl_roots.size(), optind, argc, argv, gbwt, max_handle_size, max_alignment_size);
 
-//           // /// Build the gbwt:
-//           // ifstream gbwt_stream;
-//           // gbwt_stream.open(gbwt);
+    
+    cerr << "running normalize!" << endl;
 
-//           // // Load the GBWT from its container
-//           // unique_ptr<gbwt::GBWT> gbwt;
-//           // gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
-//           // gbwtgraph::GBWTGraph gbwt_graph = gbwtgraph::GBWTGraph(*gbwt, *graph);
+    // Record start time
+    auto start = chrono::high_resolution_clock::now();
+    pair<shared_ptr<MutablePathDeletableHandleGraph>, gbwt::GBWT> output;
 
-//           std::ifstream snarl_stream;
-//           string snarl_file = snarls;
-//           snarl_stream.open(snarl_file);
+    // unique_ptr<MutablePathDeletableHandleGraph> graph;
+    // gbwt::GBWT normalized_gbwt;
+    // pair<MutablePathDeletableHandleGraph, gbwt::GBWT> output = make_pair(*graph, normalized_gbwt);
+    
+    //standard, normalize all snarls:
+    if (start_snarl_num == 0 && end_snarl_num == 0)
+    {
+      output = run_norm(snarl_roots, optind, argc, argv, gbwt, max_handle_size, max_alignment_size);
+    }
+    //normalize select snarls:
+    else
+    {
+      //check that start and end are valid:
+      if (start_snarl_num >= end_snarl_num)
+      {
+        cerr << "error:[vg normalize] start_snarl_num >= end_snarl_num."  << endl;
+        exit(1);
+      }
+      else if (end_snarl_num > snarl_roots.size())
+      {
+        cerr << "WARNING:[vg normalize] end_snarl_num greater than snarl_roots.size(). Will normalize starting at start_snarl_num and ending at last snarl in snarl_roots." << endl;
+      }
+      
+      vector<const Snarl *> chosen_snarls(snarl_roots.begin() + start_snarl_num, snarl_roots.begin() + end_snarl_num); 
 
+      cerr << "of snarl selection that is " << chosen_snarls.size() << " long, first snarl selected has source: " << (*chosen_snarls.front()).start().node_id() << " and sink: " << (*chosen_snarls.front()).end().node_id() << endl; 
+      output = run_norm(chosen_snarls, optind, argc, argv, gbwt, max_handle_size, max_alignment_size);
+    }
+    save_gbwt(output.second, output_gbwt, true);
 
-//           algorithms::SnarlNormalizer normalizer = algorithms::SnarlNormalizer(
-//               *graph, *gbwt, gbwt_graph, max_handle_size, max_alignment_size);
-//           gbwt::GBWT normalized_gbwt = normalizer.normalize_top_level_snarls(snarl_stream, start_chunk, start_chunk+10);
-//         }
-//       }
-//       //todo: uncomment below:
-//       gbwt::GBWT normalized_gbwt = normalizer.normalize_top_level_snarls(snarl_stream, start_snarl_num, end_snarl_num);
-//       // save_gbwt(normalized_gbwt, output_gbwt, true);
+    // Record end time
+    auto finish = std::chrono::high_resolution_clock::now();
+    chrono::duration<double> elapsed = finish - start;
+    cerr << "Elapsed time: " << elapsed.count() << " s" << endl;
 
-//   //     //todo: delete this secondary normalize:
-//   //     algorithms::SnarlNormalizer normalizer = algorithms::SnarlNormalizer(
-//   //       *graph, *gbwt, gbwt_graph, max_alignment_size, max_handle_size);
-//   // // getting graph of any type, except non-mutable graphs (e.g., xg)
-//   // unique_ptr<MutablePathDeletableHandleGraph> graph;
-//   // get_input_file(optind, argc, argv, [&](istream &in) {
-//   //   graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
-//   // });
+    // Save the modified graph
+    vg::io::save_handle_graph(output.first.get(), std::cout);
+  }
 
+  // snarl_analyzer identifies the size of every top-level snarl, outputs in a
+  // document specified with format "source\tsink\tsize\n"
+  if (snarl_sizes.size() != 0) {
+    shared_ptr<MutablePathDeletableHandleGraph> graph;
+    get_input_file(optind, argc, argv, [&](istream &in) {
+      graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
+    });
+    
+    std::ifstream snarl_stream;
+    snarl_stream.open(snarls);
+    if (!snarl_stream) {
+      cerr << "error:[vg normalize] Cannot open Snarls file " << snarls << endl;
+      exit(1);
+    }
 
-//     }
-//     else if (normalize_type == "one")
-//     {
-//       if (source == NULL && sink == NULL) 
-//       {
-//         cerr << "ERROR: please provide a source and sink for the snarl you "
-//                 "want to normalize."
-//              << endl;
-//         return 0;
-//       }
-//       vector<int> error_record =
-//           normalizer.normalize_snarl(source, sink, paths_right_to_left, 0);
-//       if (!(error_record[0] || error_record[1] || error_record[2] ||
-//             error_record[3] || error_record[6])) 
-//       {
-//         cerr << "snarl starting at " << source << " and ending at " << sink
-//              << " normalized." << endl;
-//         cerr << "amount of sequence in normalized snarl before normalization: "
-//              << error_record[4] << endl;
-//         cerr << "amount of sequence in normalized snarl after normalization: "
-//              << error_record[5] << endl;
-//       } 
-//       else 
-//       {
-//         // todo: make it so it only prints the relevant message:
-//         cerr << "snarl skipped because...\nthey exceeded the size limit ("
-//              << error_record[0] << " snarls),\n"
-//              << "had haplotypes starting/ending in the middle of the snarl ("
-//              << error_record[1] << "),\n"
-//              << "the snarl was cyclic (" << error_record[3] << " snarls),\n"
-//              << " there were handles not connected by the gbwt info ("
-//              << error_record[2] << " snarls),\n"
-//              << "the snarl was cyclic (" << error_record[3] << " snarls),\n"
-//              << "or the snarl was trivial - composed of only one or two nodes ("
-//              << error_record[6] << " snarls)." << endl;
-//       }
-//     }
-//     // // run test code on all snarls in graph. (non obj-oriented code)
-//     // disambiguate_top_level_snarls(*graph, gbwt_graph, snarl_stream,
-//     // max_alignment_size);
+    algorithms::SnarlAnalyzer sizes = algorithms::SnarlAnalyzer(
+        *graph, snarl_stream, snarl_sizes_skip_source_sink);
 
-//     // Record end time
-//     auto finish = std::chrono::high_resolution_clock::now();
-//     chrono::duration<double> elapsed = finish - start;
-//     cerr << "Elapsed time: " << elapsed.count() << " s\n";
+    sizes.output_snarl_sizes(snarl_sizes);
+  }
 
-//     // Save the modified graph
-//     vg::io::save_handle_graph(graph.get(), std::cout);
-//   }
-
-//   // snarl_analyzer identifies the size of every top-level snarl, outputs in a
-//   // document specified with format "source\tsink\tsize\n"
-//   if (snarl_sizes.size() != 0) {
-//     std::ifstream snarl_stream;
-//     snarl_stream.open(snarls);
-//     if (!snarl_stream) {
-//       cerr << "error:[vg normalize] Cannot open Snarls file " << snarls << endl;
-//       exit(1);
-//     }
-
-//     algorithms::SnarlAnalyzer sizes = algorithms::SnarlAnalyzer(
-//         *graph, snarl_stream, snarl_sizes_skip_source_sink);
-
-//     sizes.output_snarl_sizes(snarl_sizes);
-//   }
-
-//   if (handles_in_snarl) {
-//     if (source == NULL && sink == NULL) {
-//       cerr << "error:[vg normalize] please enter a values for source and sink "
-//               "to define the snarl."
-//            << endl;
-//     } else {
-//       algorithms::print_handles_in_snarl(*graph, source, sink);
-//     }
-//   }
+  if (handles_in_snarl) 
+  {
+    if (source == NULL && sink == NULL) 
+    {
+      cerr << "error:[vg normalize] please enter a values for source and sink "
+              "to define the snarl."
+           << endl;
+    } 
+    else 
+    {
+      shared_ptr<MutablePathDeletableHandleGraph> graph;
+      get_input_file(optind, argc, argv, [&](istream &in) {
+        graph = vg::io::VPKG::load_one<MutablePathDeletableHandleGraph>(in);
+      });
+      algorithms::print_handles_in_snarl(*graph, source, sink);
+    }
+  }
 
   return 0;
 }
@@ -469,4 +389,4 @@ int main_normalize(int argc, char **argv) {
 // Register subcommand
 static Subcommand vg_normalize("normalize",
                                "edit snarls to reduce information duplication",
-                               TOOLKIT, main_normalize);
+                               TOOLKIT, main_normalize) ;

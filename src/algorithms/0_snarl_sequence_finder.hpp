@@ -38,7 +38,7 @@ class SnarlSequenceFinder {
     bool _full_log_print = false; // for printing info that isn't necessarily something gone wrong.
 
     vector<vector<handle_t>> 
-    find_haplotypes_not_at_source(unordered_set<handle_t> &touched_handles);
+    find_haplotypes_not_at_source();
 };
 }
 }

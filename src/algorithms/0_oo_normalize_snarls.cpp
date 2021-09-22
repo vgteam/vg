@@ -322,10 +322,10 @@ gbwt::GBWT SnarlNormalizer::normalize_snarls(vector<const Snarl *> snarl_roots) 
     gbwt::GBWT output_gbwt = rebuild_gbwt(_gbwt, _gbwt_changelog);
     cerr << "finished generating gbwt." << endl;
     
-    //todo: debug-code for checking that I can build the gbwt_graph:
-    cerr << "making new gbwt graph." << endl;
-    gbwtgraph::GBWTGraph output_gbwt_graph = gbwtgraph::GBWTGraph(output_gbwt, _graph);
-    cerr << "new gbwt graph created." << endl;
+    // //todo: debug-code for checking that I can build the gbwt_graph:
+    // cerr << "making new gbwt graph." << endl;
+    // gbwtgraph::GBWTGraph output_gbwt_graph = gbwtgraph::GBWTGraph(output_gbwt, _graph);
+    // cerr << "new gbwt graph created." << endl;
 
     
     // cerr << "output have second path?" << endl;
@@ -392,16 +392,15 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
      *      6) snarl is trivial (either one or two nodes only), so we skipped normalizing them.
     */ 
     vector<int> error_record(7, 0);
-    // //todo: debug_statement: determining whether cyclic problem in yeast graph goes away when I swapo source and sink. 
-    // SubHandleGraph snarl = extract_subgraph(_graph, sink_id, source_id);
     SubHandleGraph snarl = extract_subgraph(_graph, leftmost_id, rightmost_id);
 
-    // //todo: debug_statement: Evaluate connections of all nodes in subgraph.
+    //todo: debug_statement: Evaluate connections of all nodes in subgraph.
     // snarl.for_each_handle([&](const handle_t handle){
     //     cerr << "examining left neighbors of handle " << snarl.get_id(handle) << ":" << endl;
     //     snarl.follow_edges(handle, false, [&](const handle_t &next) {
-    //         cerr << "     " << snarl.get_id(next) << endl;
+    //         cerr << "     " << snarl.get_id(next) << " ";
     //     });
+    //     cerr << endl;
     // });
 
     if (!handlealgs::is_acyclic(&snarl)) {
@@ -431,6 +430,7 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
         return error_record;
     }
 
+    // cerr << "num_handles_in_snarl: " << num_handles_in_snarl << endl;
 
     // extract threads
     // haplotypes is of format:
@@ -446,10 +446,12 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
         tuple<vector<vector<handle_t>>, vector<vector<handle_t>>, unordered_set<handle_t>>
             gbwt_haplotypes = sequence_finder.find_gbwt_haps();
 
+        // cerr << "various sizes: " << get<0>(gbwt_haplotypes).size() << " " << get<1>(gbwt_haplotypes).size() << " " << get<2>(gbwt_haplotypes).size() << endl;
 
         // cerr << "naive? gbwt haplotypes extract: " << endl;
         // for (auto hap : get<0>(gbwt_haplotypes)) 
         // {
+        //     cerr << "new hap" << endl;
         //     for (auto handle : hap)
         //     {
         //         cerr << "handle id: " << _graph.get_id(handle) << " seq: " << _graph.get_sequence(handle) << endl;

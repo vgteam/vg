@@ -76,10 +76,14 @@ SnarlSequenceFinder::find_gbwt_haps() {
     handle_t source_handle = _gbwt_graph.get_handle(leftmost_id);
     handle_t sink_handle = _gbwt_graph.get_handle(rightmost_id);
 
+
     // place source in haplotype_queue.
     vector<handle_t> source_handle_vec(1, source_handle);
     gbwt::SearchState source_state = _gbwt_graph.get_state(source_handle);
     haplotype_queue.push_back(make_pair(source_handle_vec, source_state));
+
+    //todo: debug statement:
+    // cerr << "all handles to the right of source, accroding to _graph:" << endl;
 
     // touched_handles contains all handles that have been touched by the
     // depth first search below, for later use in other_haplotypes_to_strings, which
@@ -120,8 +124,43 @@ SnarlSequenceFinder::find_gbwt_haps() {
         _gbwt_graph.follow_paths(cur_haplotype.second,
                                  [&](const gbwt::SearchState next_search) -> bool {
                                      next_searches.push_back(next_search);
+                                    //  cerr << "adjacent handles to state of " << _gbwt_graph.get_id(_gbwt_graph.node_to_handle(cur_haplotype.second.node)) << " is " << _gbwt_graph.get_id(_gbwt_graph.node_to_handle(next_search.node)) << endl;
                                      return true;
                                  });
+        // const gbwt::SearchState debug_state = _gbwt_graph.get_state(_gbwt_graph.node_to_handle(cur_haplotype.second.node));
+        // _gbwt_graph.follow_paths(debug_state,
+        //                         [&](const gbwt::SearchState debug_next) -> bool {
+        //                             cerr << "and if I make a new search state, I get adjacent: " << _gbwt_graph.get_id(_gbwt_graph.node_to_handle(debug_next.node)) << endl;
+        //                             return true;
+        //                         });
+        // const gbwt::BidirectionalState debug_state_2 = _gbwt_graph.get_bd_state(_gbwt_graph.node_to_handle(cur_haplotype.second.node));
+        // cerr << "bidirectionalstate follow paths: " << endl;
+        // cerr << "follow paths false: " << endl;
+        // _gbwt_graph.follow_paths(debug_state_2, false, [&](const gbwt::BidirectionalState& previous) -> bool
+        // {
+        //     cerr << "previous states forwards: " <<  _gbwt_graph.get_id(_gbwt_graph.node_to_handle(previous.forward.node))<< endl;
+        //     cerr << "previous states backwards: " <<  _gbwt_graph.get_id(_gbwt_graph.node_to_handle(previous.backward.node))<< endl;
+        //     return true;
+        // });
+        // cerr << "follow paths true: " << endl;
+        // _gbwt_graph.follow_paths(debug_state_2, true, [&](const gbwt::BidirectionalState& previous) -> bool
+        // {
+        //     cerr << "previous states forwards: " <<  _gbwt_graph.get_id(_gbwt_graph.node_to_handle(previous.forward.node))<< endl;
+        //     cerr << "previous states backwards: " <<  _gbwt_graph.get_id(_gbwt_graph.node_to_handle(previous.backward.node))<< endl;
+        //     return true;
+        // });
+        // cerr << "Here is search state made using prefix at node: " << _gbwt_graph.get_id(_gbwt_graph.node_to_handle(cur_haplotype.second.node)) << endl;
+        // gbwt::SearchState new_search =
+        //     _gbwt_graph.index->prefix(cur_haplotype.second.node);
+        
+        // cerr << "what does the search state look like?" << endl;
+        // cerr << "adjacent handles to state of " << _gbwt_graph.get_id(_gbwt_graph.node_to_handle(new_search.node)) << " is: " << endl;
+        // _gbwt_graph.follow_paths(new_search,
+        //                          [&](const gbwt::SearchState next_search) -> bool {
+        //                              cerr << _gbwt_graph.get_id(_gbwt_graph.node_to_handle(next_search.node)) << endl;
+        //                              return true;
+        //                          });
+        // cerr << endl;
 
         // if next_searches > 1, then we need to make multiple new haplotypes to be
         // recorded in haplotype_queue or one of the finished haplotype_handle_vectors.
@@ -217,7 +256,12 @@ SnarlSequenceFinder::find_gbwt_haps() {
     // Find any haplotypes starting from handles not starting at the source, but which
     // still start somewhere inside the snarl.
     vector<vector<handle_t>> haplotypes_not_starting_at_source =
-        find_haplotypes_not_at_source(touched_handles);
+        find_haplotypes_not_at_source();
+
+    //todo: debug_statement:
+    // cerr << "number of haplotypes starting at source, but ending before source: " << other_haplotypes.size() << endl;
+    // cerr << "number of haplotypes starting after source: " << haplotypes_not_starting_at_source.size() << endl;
+        
 
     // move haplotypes_not_starting_at_source into other_haplotypes:
     other_haplotypes.reserve(other_haplotypes.size() +
@@ -241,7 +285,7 @@ SnarlSequenceFinder::find_gbwt_haps() {
 }
 
 
-// Used to complete the traversal of a snarl along its haplotype threads, when there are
+// Function that completes the traversal of a snarl along its haplotype threads, when there are
 // handles connected to the snarl by threads that start after the source handle. (Threads
 // that merely end before the sink handle are addressed in extract_gbwt_haplotypes).
 // Arguments:
@@ -250,7 +294,8 @@ SnarlSequenceFinder::find_gbwt_haps() {
 //      a vector of haplotypes in vector<handle_t> format that start in the middle of the
 //      snarl.
 vector<vector<handle_t>>
-SnarlSequenceFinder::find_haplotypes_not_at_source(unordered_set<handle_t> &touched_handles) {
+SnarlSequenceFinder::find_haplotypes_not_at_source() {
+    // cerr << "find_haplotypes_not_at_source begin" << endl;
     // If snarl has been fed to us backwards, run the algorithm with righmost_id as source
     // and vice-versa. Otherwise, keep source as leftmost_id.
     id_t leftmost_id = _source_id;
@@ -259,6 +304,8 @@ SnarlSequenceFinder::find_haplotypes_not_at_source(unordered_set<handle_t> &touc
         leftmost_id = _sink_id;
         rightmost_id = _source_id;
     }
+    // cerr << "leftmost_id: " << leftmost_id << endl;
+    // cerr << "rightmost_id: " << rightmost_id << endl;
     // //todo: debug_statement
     // for (handle_t handle : touched_handles){
     //     cerr << "touched handles find_gbwt_haps: " << _graph.get_id(handle) << endl;
@@ -273,10 +320,6 @@ SnarlSequenceFinder::find_haplotypes_not_at_source(unordered_set<handle_t> &touc
     // will be added to finished_haplotypes.
     vector<vector<handle_t>> finished_haplotypes;
 
-    // In addition, we need to put the new handle into to_search, because a path may have
-    // started on the new handle (which means we need to start a searchstate there.)
-    unordered_set<handle_t> to_search;
-
     // We don't need to ever check the sink handle, since paths from the sink handle
     // extend beyond snarl.
     handle_t sink_handle = _gbwt_graph.get_handle(rightmost_id);
@@ -288,8 +331,28 @@ SnarlSequenceFinder::find_haplotypes_not_at_source(unordered_set<handle_t> &touc
     //      makes a new entry to haplotype_queue.
     auto make_new_search = [&](handle_t handle) {
         // Are there any new threads starting at this handle?
+        // if (_gbwt_graph.get_id(handle) == )
+        // cerr << "make_new_search at handle: " << _gbwt_graph.get_id(handle) << endl;
         gbwt::SearchState new_search =
             _gbwt_graph.index->prefix(_gbwt_graph.handle_to_node(handle));
+        
+        // cerr << "what does the search state look like?" << endl;
+        // cerr << "adjacent handles to state of " << _gbwt_graph.get_id(_gbwt_graph.node_to_handle(new_search.node)) << " is: " << endl;
+        // _gbwt_graph.follow_paths(new_search,
+        //                          [&](const gbwt::SearchState next_search) -> bool {
+        //                              cerr << _gbwt_graph.get_id(_gbwt_graph.node_to_handle(next_search.node)) << endl;
+        //                              return true;
+        //                          });
+        // cerr << endl;
+        // gbwt::SearchState new_search_2 = _gbwt_graph.get_state(handle);
+        // cerr << "adjacent handles to *standard* state of " << _gbwt_graph.get_id(_gbwt_graph.node_to_handle(new_search_2.node)) << " is: " << endl;
+        // _gbwt_graph.follow_paths(new_search_2,
+        //                          [&](const gbwt::SearchState next_search) -> bool {
+        //                              cerr << _gbwt_graph.get_id(_gbwt_graph.node_to_handle(next_search.node)) << endl;
+        //                              return true;
+        //                          });
+        // cerr << endl;
+
         if (!new_search.empty()) {
             // Then add them to haplotype_queue.
             _gbwt_graph.follow_paths(
@@ -298,7 +361,11 @@ SnarlSequenceFinder::find_haplotypes_not_at_source(unordered_set<handle_t> &touc
 
                     /// check to make sure that the thread isn't already finished:
                     // if next_handle is the sink, or if this thread is only one handle
-                    // long, then there isn't any useful string to extract from this.
+                    // long, then there isn't any need for this function to make a new 
+                    // search from this. 
+                    // This is because I already have a separate method 
+                    // for storing haplotypes that have reached the sink in the while loop
+                    // below.
                     if (next_handle != sink_handle ||
                         next_search == gbwt::SearchState()) {
                         // establish a new thread to walk along.
@@ -311,17 +378,22 @@ SnarlSequenceFinder::find_haplotypes_not_at_source(unordered_set<handle_t> &touc
 
                         // add the new path to haplotype_queue to be extended.
                         haplotype_queue.push_back(make_pair(new_path, next_search));
-
-                        // if next_handle hasn't been checked for starting threads, add to
-                        // to_search.
-                        if (touched_handles.find(next_handle) == touched_handles.end()) {
-                            to_search.emplace(next_handle);
-                        }
                     }
                     return true;
                 });
         }
     };
+
+    _snarl.for_each_handle([&](const handle_t handle)
+    {
+        //todo: add quality to make_new_search that allows for handles that lead directly to sink next. 
+        //todo:     This is important because I haven't dealt with the edge case where I add 
+        //todo:     that path outside the while loop below; and the path might cover an edge that is uninvestigated in source_to_sink_haps.
+        if (_snarl.get_id(handle) != _source_id && _snarl.get_id(handle) != _sink_id )
+        {
+            make_new_search(_gbwt_graph.get_handle(_snarl.get_id(handle), _snarl.get_is_reverse(handle)));
+        }
+    });
 
     /// Extend any paths in haplotype_queue, and add any newly found handles to to_search.
     /// Then, check to see if there are any new threads on handles in to_search.
@@ -329,79 +401,62 @@ SnarlSequenceFinder::find_haplotypes_not_at_source(unordered_set<handle_t> &touc
     /// then search for threads again in to_search again... repeat until to_search remains
     /// emptied of new handles.
 
+    // cerr << "haplotype_queue.size() " << haplotype_queue.size() << endl;
     // for tracking whether the haplotype thread is still extending:
     bool still_extending;
-    while (!to_search.empty() || !haplotype_queue.empty()) {
-        while (!haplotype_queue.empty()) {
-            // get a haplotype to extend out of haplotype_queue - a tuple of
-            // (handles_traversed_so_far, last_touched_SearchState)
-            pair<vector<handle_t>, gbwt::SearchState> cur_haplotype =
-                haplotype_queue.back();
-            haplotype_queue.pop_back();
+    while (!haplotype_queue.empty()) {
+        // get a haplotype to extend out of haplotype_queue - a tuple of
+        // (handles_traversed_so_far, last_touched_SearchState)
+        pair<vector<handle_t>, gbwt::SearchState> cur_haplotype =
+            haplotype_queue.back();
+        haplotype_queue.pop_back();
 
-            // get all the subsequent search_states that immediately follow the
-            // searchstate from cur_haplotype.
-            vector<gbwt::SearchState> next_searches;
-            _gbwt_graph.follow_paths(cur_haplotype.second,
-                                     [&](const gbwt::SearchState &next_search) -> bool {
-                                         next_searches.push_back(next_search);
-                                         return true;
-                                     });
+        // get all the subsequent search_states that immediately follow the
+        // searchstate from cur_haplotype.
+        vector<gbwt::SearchState> next_searches;
+        _gbwt_graph.follow_paths(cur_haplotype.second,
+                                    [&](const gbwt::SearchState &next_search) -> bool {
+                                        next_searches.push_back(next_search);
+                                        return true;
+                                    });
 
-            for (gbwt::SearchState next_search : next_searches) {
-                handle_t next_handle = _gbwt_graph.node_to_handle(next_search.node);
+        for (gbwt::SearchState next_search : next_searches) {
+            handle_t next_handle = _gbwt_graph.node_to_handle(next_search.node);
 
-                // if next_search is empty, then we've fallen off the thread,
-                // and cur_haplotype can be placed in finished_haplotypes as is for this
-                // thread.
-                if (next_search == gbwt::SearchState()) {
-                    finished_haplotypes.push_back(cur_haplotype.first);
-                }
+            // if next_search is empty, then we've fallen off the thread,
+            // and cur_haplotype can be placed in finished_haplotypes as is for this
+            // thread.
+            if (next_search == gbwt::SearchState()) {
+                finished_haplotypes.push_back(cur_haplotype.first);
+            }
 
-                // if next_search is on the sink_handle,
-                // then cur_haplotype.first + next_search goes to finished_haplotypes.
-                else if (_gbwt_graph.get_id(next_handle) == rightmost_id) {
+            // if next_search is on the sink_handle,
+            // then cur_haplotype.first + next_search goes to finished_haplotypes.
+            else if (_gbwt_graph.get_id(next_handle) == rightmost_id) {
 
-                    // copy over the vector<handle_t> of cur_haplotype:
-                    vector<handle_t> next_handle_vec(cur_haplotype.first);
-                    // add next_handle
-                    next_handle_vec.push_back(next_handle);
-                    // place in finished_haplotypes
-                    finished_haplotypes.push_back(next_handle_vec);
+                // copy over the vector<handle_t> of cur_haplotype:
+                vector<handle_t> next_handle_vec(cur_haplotype.first);
+                // add next_handle
+                next_handle_vec.push_back(next_handle);
+                // place in finished_haplotypes
+                finished_haplotypes.push_back(next_handle_vec);
 
-                    // also, if next_handle hasn't been checked for new threads, add to
-                    // to_search.
-                    if (touched_handles.find(next_handle) != touched_handles.end()) {
-                        to_search.emplace(next_handle);
-                    }
 
-                }
-                // otherwise, just place an extended cur_haplotype in haplotype_queue.
-                else {
-                    // copy over cur_haplotype:
-                    pair<vector<handle_t>, gbwt::SearchState> cur_haplotype_copy =
-                        cur_haplotype;
-                    // modify with next_handle/search
-                    cur_haplotype_copy.first.push_back(next_handle);
-                    cur_haplotype_copy.second = next_search;
-                    // place back in haplotype_queue for further extension.
-                    haplotype_queue.push_back(cur_haplotype_copy);
-
-                    // also, if next_handle hasn't been checked for new threads, add to
-                    // to_search.
-                    if (touched_handles.find(next_handle) != touched_handles.end()) {
-                        to_search.emplace(next_handle);
-                    }
-                }
+            }
+            // otherwise, just place an extended cur_haplotype in haplotype_queue.
+            else {
+                // copy over cur_haplotype:
+                pair<vector<handle_t>, gbwt::SearchState> cur_haplotype_copy =
+                    cur_haplotype;
+                // modify with next_handle/search
+                cur_haplotype_copy.first.push_back(next_handle);
+                cur_haplotype_copy.second = next_search;
+                // place back in haplotype_queue for further extension.
+                haplotype_queue.push_back(cur_haplotype_copy);
             }
         }
-        // Then, make more new_searches from the handles in to_search.
-        for (handle_t handle : to_search) {
-            make_new_search(handle); // will add to haplotype_queue if there's any
-                                     // new_searches to be had.
-        }
-        to_search.clear();
     }
+    // cerr << "find_haplotypes_not_at_source end" << endl;
     return finished_haplotypes;
 }
 
