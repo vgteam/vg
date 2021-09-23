@@ -4673,10 +4673,10 @@ namespace vg {
         
                 SECTION("Save and load index") {
                     string file = "test_graph.dist.new"; 
-                    distance_index.save(file);
+                    distance_index.serialize(file);
 
 
-                    distance_index.load(file);
+                    distance_index.deserialize(file);
                     
 
                     REQUIRE(distance_index.minimum_distance(1, false, 0,7, false, 0) == 8);

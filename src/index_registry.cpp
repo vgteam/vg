@@ -3212,7 +3212,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         SnarlDistanceIndex distance_index;
         IntegratedSnarlFinder snarl_finder(graph);
         fill_in_distance_index(&distance_index, &graph, &snarl_finder); 
-        distance_index.save(output_name);
+        distance_index.serialize(output_name);
         
         output_names.push_back(output_name);
         return all_outputs;

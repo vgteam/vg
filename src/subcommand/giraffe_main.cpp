@@ -1112,7 +1112,7 @@ int main_giraffe(int argc, char** argv) {
 
     // Grab the distance index
     SnarlDistanceIndex distance_index;
-    distance_index.load(registry.require("Giraffe Distance Index").at(0));
+    distance_index.deserialize(registry.require("Giraffe Distance Index").at(0));
 
     // Set up the mapper
     if (show_progress) {
