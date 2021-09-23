@@ -2221,7 +2221,7 @@ namespace vg {
                          const PrejoinSide& left, const PrejoinSide& right,
                          const tuple<handle_t, size_t, int64_t>& left_location,
                          const tuple<handle_t, size_t, int64_t>& right_location,
-                         int64_t estimated_intron_length, size_t motif_idx)
+                         size_t motif_idx)
                 : joined_graph(graph, left.splice_region->get_subgraph(),
                                get<0>(left_location), get<1>(left_location),
                                right.splice_region->get_subgraph(),
@@ -2232,8 +2232,8 @@ namespace vg {
                   right_clip_length(right.clip_length),
                   left_candidate_idx(left.candidate_idx),
                   right_candidate_idx(right.candidate_idx),
-                  estimated_intron_length(estimated_intron_length),
-                  intron_score(splice_stats.intron_length_score(estimated_intron_length)),
+                  estimated_intron_length(-1),
+                  intron_score(0),
                   motif_idx(motif_idx),
                   untrimmed_score(left.untrimmed_score + right.untrimmed_score)
             {
@@ -2248,18 +2248,28 @@ namespace vg {
             int64_t right_clip_length;
             size_t left_candidate_idx;
             size_t right_candidate_idx;
-            int64_t estimated_intron_length;
-            int32_t intron_score;
-            size_t motif_idx;
             int32_t max_score;
             int32_t untrimmed_score;
+            size_t motif_idx;
+            // intron stats start uninitialized until measurign length
+            int32_t intron_score;
+            int64_t estimated_intron_length;
             // these two filled out after doing alignment
             Alignment connecting_aln;
             size_t splice_idx;
             
             int32_t fixed_score_components(const SpliceStats& splice_stats,
                                            const Alignment& opt) {
-                return splice_stats.motif_score(motif_idx) + untrimmed_score - opt.score() + intron_score;
+                return splice_stats.motif_score(motif_idx) + untrimmed_score - opt.score();
+            }
+            
+            void set_intron_length(int64_t estimated_intron_length,
+                                   const SpliceStats& splice_stats) {
+                
+                estimated_intron_length = estimated_intron_length;
+                intron_score = splice_stats.intron_length_score(estimated_intron_length);
+                // memoize the max score again
+                max_score += intron_score;
             }
             
             int32_t pre_align_max_score(const GSSWAligner& aligner,
@@ -2294,6 +2304,43 @@ namespace vg {
             return false;
 #endif
         }
+        
+        // we'll memoize the relatively expensive reference distance computations, since often
+        // there are multiple splice motifs on the same node
+        unordered_map<tuple<nid_t, bool, nid_t, bool>, int64_t> ref_length_memo;
+        auto get_reference_dist = [&](const pos_t& pos_1, const pos_t& pos_2) -> int64_t {
+            
+            tuple<nid_t, bool, nid_t, bool> key(id(pos_1), is_rev(pos_1), id(pos_2), is_rev(pos_2));
+            
+            auto it = ref_length_memo.find(key);
+            if (it != ref_length_memo.end()) {
+                // the reference distance of these nodes is already memoized
+                return it->second - offset(pos_1) + offset(pos_2);
+            }
+            else {
+                int64_t dist = numeric_limits<int64_t>::max();
+                if (xindex->get_path_count() != 0) {
+                    // estimate the distance using the reference path
+                    dist = algorithms::ref_path_distance(xindex, pos_1, pos_2,
+                                                         min_splice_ref_search_length,
+                                                         max_splice_ref_search_length);
+                }
+                if (distance_index && (dist < 0 || dist == numeric_limits<int64_t>::max())) {
+                    // they're probably still reachable if they got this far, get a worse estimate of the
+                    // distance from the distance index
+                    dist = distance_index->min_distance(pos_1, pos_2);
+                }
+                
+                if (dist != numeric_limits<int64_t>::max()) {
+                    // not memoizing unreachable distances, since distance index should
+                    // filter out most of those anyway, and they actually might change on
+                    // different positions on the node
+                    
+                    ref_length_memo[key] = dist + offset(pos_1) - offset(pos_2);
+                }
+                return dist;
+            }
+        };
         
         
 #ifdef debug_multipath_mapper
@@ -2435,41 +2482,49 @@ namespace vg {
 #ifdef debug_multipath_mapper
                             cerr << "\tchecking shared motif " << j << " with has positions " << l_pos << ", and " << r_pos << endl;
 #endif
-                            int64_t dist = numeric_limits<int64_t>::max();
-                            if (xindex->get_path_count() != 0) {
-                                // estimate the distance using the reference path
-                                dist = algorithms::ref_path_distance(xindex, l_pos, r_pos,
-                                                                     min_splice_ref_search_length,
-                                                                     max_splice_ref_search_length);
+                            
+                            putative_joins.emplace_back(*xindex, splice_stats, opt,
+                                                        *get_aligner(!alignment.quality().empty()),
+                                                        left_prejoin_side, right_prejoin_side,
+                                                        left_location, right_location, j);
+                            
+                            if (putative_joins.back().max_score < no_splice_log_odds) {
+#ifdef debug_multipath_mapper
+                                cerr << "\tscore bound of " << putative_joins.back().max_score << " ensures insigificant spliced alignment against prior log odds " << no_splice_log_odds << " before measuring intron length" << endl;
+#endif
+                                
+                                // this has no chance of becoming significant, let's skip it
+                                putative_joins.pop_back();
+                                continue;
                             }
-                            if (distance_index && (dist < 0 || dist == numeric_limits<int64_t>::max())) {
-                                // they're probably still reachable if they got this far, get a worse estimate of the
-                                // distance from the distance index
-                                dist = distance_index->min_distance(l_pos, r_pos);
+                            
+                            // measure the intron length
+                            int64_t dist = get_reference_dist(l_pos, r_pos);
+                            
+                            if (dist <= 0 || dist > max_intron_length || dist == numeric_limits<int64_t>::max()) {
+#ifdef debug_multipath_mapper
+                                cerr << "\tinconsistent intron length " << dist << ", skipping putative join" << endl;
+#endif
+                                putative_joins.pop_back();
+                                continue;
                             }
+                            
+                            putative_joins.back().set_intron_length(dist, splice_stats);
                             
                             // TODO: enforce pairing constraints?
                             
-                            if (dist > 0 && dist != numeric_limits<int64_t>::max() && dist < max_intron_length) {
-
+#ifdef debug_multipath_mapper
+                            cerr << "\tshared motif has a spliceable path of length " << dist << " (intron score: " << putative_joins.back().intron_score << "), adding as a putative join with score bound " << putative_joins.back().max_score << endl;
+#endif
+                            if (putative_joins.back().max_score < no_splice_log_odds) {
+#ifdef debug_multipath_mapper
+                                cerr << "\tscore bound of " << putative_joins.back().max_score << " ensures insigificant spliced alignment against prior log odds " << no_splice_log_odds << " before doing alignment" << endl;
+#endif
                                 
-                                // the positions can reach each other in under the max length, make a join
-                                putative_joins.emplace_back(*xindex, splice_stats, opt,
-                                                            *get_aligner(!alignment.quality().empty()),
-                                                            left_prejoin_side, right_prejoin_side,
-                                                            left_location, right_location, dist, j);
-#ifdef debug_multipath_mapper
-                                cerr << "\tshared motif has a spliceable path of length " << dist << " (intron score: " << putative_joins.back().intron_score << "), adding as a putative join with score bound " << putative_joins.back().max_score << endl;
-#endif
-                                if (putative_joins.back().max_score < no_splice_log_odds) {
-#ifdef debug_multipath_mapper
-                                    cerr << "\tscore bound of " << putative_joins.back().max_score << " ensures insigificant spliced alignment against prior log odds " << no_splice_log_odds << endl;
-#endif
-                                    
-                                    // this has no chance of becoming significant, let's skip it
-                                    putative_joins.pop_back();
-                                }
+                                // this has no chance of becoming significant, let's skip it
+                                putative_joins.pop_back();
                             }
+                            
                         }
                     }
                 }
