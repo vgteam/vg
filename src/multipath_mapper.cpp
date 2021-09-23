@@ -10,6 +10,7 @@
 //#define debug_report_startup_training
 //#define debug_pretty_print_alignments
 //#define debug_time_phases
+//#define debug_log_splice_align_stats
 
 #ifdef debug_time_phases
 #include <ctime>
@@ -2294,7 +2295,7 @@ namespace vg {
             
             int32_t post_align_net_score(const SpliceStats& splice_stats,
                                          const Alignment& opt) {
-                return fixed_score_components(splice_stats, opt) + connecting_aln.score();
+                return fixed_score_components(splice_stats, opt) + connecting_aln.score() + intron_score;
             }
         };
         
@@ -2500,7 +2501,6 @@ namespace vg {
                             
                             // measure the intron length
                             int64_t dist = get_reference_dist(l_pos, r_pos);
-                            
                             if (dist <= 0 || dist > max_intron_length || dist == numeric_limits<int64_t>::max()) {
 #ifdef debug_multipath_mapper
                                 cerr << "\tinconsistent intron length " << dist << ", skipping putative join" << endl;
@@ -3397,6 +3397,12 @@ namespace vg {
                                                                    strand, *rescue_anchor, rescue_multiplicity,
                                                                    rescue_left, interval);
                 }
+                
+#ifdef debug_log_splice_align_stats
+                string line = alignment.name() + '\t' + to_string(did_splice) + '\t' + to_string(interval.first) + '\t' + to_string(interval.second) + '\t' + to_string(do_left) + '\t' + to_string(mp_aln_candidates.size()) + '\t' + to_string(cluster_candidates.size()) + '\t' + to_string(hit_candidates.size()) + '\n';
+#pragma omp critical
+                cerr << line;
+#endif
                 
                 if (did_splice) {
                     // we may need to update the multiplicity based on the splicing
