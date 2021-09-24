@@ -1433,12 +1433,12 @@ namespace vg {
             
             // find splices independently, also use the mate to rescue missing splice segments
             bool did_splice_1 = false, did_splice_2 = false;
-            if (!likely_mismapping(multipath_alns_1.front())) {
+            if (!multipath_alns_1.empty() && !likely_mismapping(multipath_alns_1.front())) {
                 did_splice_1 = find_spliced_alignments(alignment1, multipath_alns_1, multiplicities_1, cluster_idxs_1,
                                                        mems1, cluster_graphs1, fanouts1,
                                                        rescue_anchor_2, true, rescue_multiplicity_2);
             }
-            if (!likely_mismapping(multipath_alns_2.front())) {
+            if (!multipath_alns_2.empty() && !likely_mismapping(multipath_alns_2.front())) {
                 did_splice_2 = find_spliced_alignments(alignment2, multipath_alns_2, multiplicities_2, cluster_idxs_2,
                                                        mems2, cluster_graphs2, fanouts2,
                                                        rescue_anchor_1, false, rescue_multiplicity_1);
