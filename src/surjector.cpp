@@ -113,6 +113,57 @@ using namespace std;
                                                    : extract_overlapping_paths(&memoizing_graph, *source_mp_aln,
                                                                                paths, connections);
         
+        // unordered_map<path_handle_t, pair<vector<Surjector::path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>
+        if (prune_suspicious_anchors) {
+            // we want to remove anchors that can be error-prone: short anchors in the tails and anchors in
+            // low complexity sequences
+            for (auto it = path_overlapping_anchors.begin(); it != path_overlapping_anchors.end(); ++it) {
+                auto& path_chunks = it->second.first;
+                auto& step_ranges = it->second.second;
+                vector<bool> keep(path_chunks.size(), true);
+                for (int i = 0; i < path_chunks.size(); ++i) {
+                    auto& chunk = path_chunks[i];
+                    if (((i == 0 || i + 1 == path_chunks.size()) && path_chunks.size() != 1)
+                        && path_from_length(chunk.second) <= max_tail_anchor_prune &&
+                        chunk.first.second - chunk.first.first <= max_tail_anchor_prune) {
+                        // this is a short anchor on one of the tails
+                        keep[i] = false;
+                        continue;
+                    }
+                    SeqComplexity<6> complexity(chunk.first.first, chunk.first.second);
+                    for (int order = 1; order <= 6; ++order) {
+                        if (complexity.p_value(order) < low_complexity_p_value) {
+                            // the sequences is repetitive at this order
+                            keep[i] = false;
+                            break;
+                        }
+                    }
+                }
+                // make sure we didn't flag all of the anchors for removal
+                bool keep_any = false;
+                for (bool b : keep) {
+                    keep_any = keep_any || b;
+                }
+                if (keep_any) {
+                    // we're keeping at least one anchor, so we should be able to throw away the other ones
+                    int removed_so_far = 0;
+                    for (int i = 0; i < path_chunks.size(); ++i) {
+                        if (!keep[i]) {
+                            ++removed_so_far;
+                        }
+                        else if (removed_so_far) {
+                            path_chunks[i - removed_so_far] = move(path_chunks[i]);
+                            step_ranges[i - removed_so_far] = move(step_ranges[i]);
+                        }
+                    }
+                    if (removed_so_far) {
+                        path_chunks.resize(path_chunks.size() - removed_so_far);
+                        step_ranges.resize(step_ranges.size() - removed_so_far);
+                    }
+                }
+            }
+        }
+        
         if (source_mp_aln) {
             // the multipath alignment anchor algorithm can produce redundant paths if
             // the alignment's graph is not parsimonious, so we filter the shorter ones out
