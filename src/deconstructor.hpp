@@ -41,6 +41,7 @@ public:
                      int ploidy,
                      bool include_nested,
                      bool keep_conflicted,
+                     bool strict_conflicts,
                      const unordered_map<string, pair<string, int>>* path_to_sample_phase = nullptr,
                      const unordered_map<string, int>* sample_ploidy = nullptr,
                      gbwt::GBWT* gbwt = nullptr,
@@ -131,6 +132,9 @@ private:
 
     // target window size for determining the correct reference position for allele traversals with path jaccard
     int path_jaccard_window = 10000;
+
+    // should we be strict about flagging and removing conflicted phases?
+    bool strict_conflict_checking = false;
 
     // recurse on child snarls
     bool include_nested = false;
