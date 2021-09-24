@@ -127,7 +127,7 @@ namespace vg {
             multipath_alns_out.back().clear_start();
         }
         
-        if (do_spliced_alignment) {
+        if (do_spliced_alignment && !likely_mismapping(multipath_alns_out.front())) {
             find_spliced_alignments(alignment, multipath_alns_out, multiplicities, cluster_idxs,
                                     mems, cluster_graphs, fanouts.get());
         }
