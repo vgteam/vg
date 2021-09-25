@@ -1281,7 +1281,10 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 // TODO: I don't think it should ever get here unless we limit the scores of the fragment clusters we look at
             });
             
-        
+
+// FIXME
+//std::cerr << aln.name() << ": extended " << kept_cluster_count << " / " << clusters.size() << " clusters" << std::endl;
+
         // We now estimate the best possible alignment score for each cluster.
         std::vector<int> cluster_extension_scores = this->score_extensions(cluster_extensions, aln, funnels[read_num]);
         
@@ -2816,10 +2819,14 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     double target_score = (base_target_score * this->minimizer_score_fraction) + 0.000001;
     double selected_score = 0.0;
 
-    // In order to consistently take either all or none of the minimizers in
-    // the read with a particular sequence, we track whether we took the
-    // previous one.
+    // We group all all occurrences of the same minimizer in the read together
+    // and either take all of them (if the total number of hits is low enough)
+    // or skip all of them. Such minimizers are expensive to process, because
+    // they tend to have many hits and each hit in the graph is matched with
+    // each occurrence in the read.
     bool took_last = false;
+    size_t start = 0, limit = 0;
+    size_t run_hits = 0;
 
     if (show_work) {
         #pragma omp critical (cerr)
@@ -2831,6 +2838,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
 
     // Select the minimizers we use for seeds.
     size_t rejected_count = 0;
+//size_t total_hits = 0; // FIXME
     std::vector<Seed> seeds;
     // Flag whether each minimizer in the read was located or not, for MAPQ capping.
     // We ignore minimizers with no hits (count them as not located), because
@@ -2844,9 +2852,20 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             funnel.processing_input(i);
         }
 
+        // Find the next run of identical minimizers.
+        if (i >= limit) {
+            start = i; limit = i + 1;
+            run_hits = minimizers[i].hits;
+            for (size_t j = i + 1; j < minimizers.size() && minimizers[j].value.key == minimizers[i].value.key; j++) {
+                limit++;
+                run_hits += minimizers[j].hits;
+            }
+        }
+
         // Select the minimizer if it is informative enough or if the total score
         // of the selected minimizers is not high enough.
         const Minimizer& minimizer = minimizers[i];
+// total_hits += minimizer.hits; // FIXME
 
         if (minimizer.hits == 0) {
             // A minimizer with no hits can't go on.
@@ -2856,8 +2875,8 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                 funnel.fail("any-hits", i);
             }
         } else if (minimizer.hits <= this->hit_cap ||
-            (minimizer.hits <= this->hard_hit_cap && selected_score + minimizer.score <= target_score) ||
-            (took_last && i > 0 && minimizer.value.key == minimizers[i - 1].value.key)) {
+            (run_hits <= this->hard_hit_cap && selected_score + minimizer.score <= target_score) ||
+            (took_last && i > start)) {
             
             // We should keep this minimizer instance because it is
             // sufficiently rare, or we want it to make target_score, or it is
@@ -2881,13 +2900,9 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                 seeds.push_back({ hit, i, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info), 
                     std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info) });
             }
-            
-            if (!(took_last && i > 0 && minimizer.value.key == minimizers[i - 1].value.key)) {
-                // We did not also take a previous identical-sequence minimizer, so count this one towards the score.
-                selected_score += minimizer.score;
-            }
 
             // Remember that we took this minimizer
+            selected_score += minimizer.score;
             took_last = true;
 
             if (this->track_provenance) {
@@ -2897,7 +2912,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                 funnel.pass("hit-cap||score-fraction", i, selected_score  / base_target_score);
                 funnel.expand(i, minimizer.hits);
             }
-        } else if (minimizer.hits <= this->hard_hit_cap) {
+        } else if (run_hits <= this->hard_hit_cap) {
             // Passed hard hit cap but failed score fraction/normal hit cap
             took_last = false;
             rejected_count++;
@@ -2950,6 +2965,9 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             }
         }
     }
+
+// FIXME
+//std::cerr << aln.name() << ": " << minimizers.size() << " minimizers with " << total_hits << " hits, used " << (minimizers.size() - rejected_count) << " with " << seeds.size() << " hits" << std::endl;
 
     if (show_work) {
         #pragma omp critical (cerr)
