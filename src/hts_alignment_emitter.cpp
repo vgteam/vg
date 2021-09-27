@@ -43,7 +43,7 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
         unordered_map<string, int64_t> subpath_to_length;
         std::tie(path_names_and_lengths, subpath_to_length) = extract_path_metadata(paths, *path_graph, true);
     
-        if (hts_spliced) {
+        if (flags & ALIGNMENT_EMITTER_FLAG_HTS_SPLICED) {
             // Use a splicing emitter as the final emitter
             emitter = make_unique<SplicedHTSAlignmentEmitter>(filename, format, path_names_and_lengths, subpath_to_length, *path_graph, max_threads);
         } else {
@@ -51,7 +51,7 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
             emitter = make_unique<HTSAlignmentEmitter>(filename, format, path_names_and_lengths, subpath_to_length, max_threads);
         }
         
-        if (!hts_raw) {
+        if (!(flags & ALIGNMENT_EMITTER_FLAG_HTS_RAW)) {
             // Need to surject
             
             // Make a set of the path handles to surject into
@@ -60,7 +60,8 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
                 target_paths.insert(get<0>(path_info));
             }
             // Interpose a surjecting AlignmentEmitter
-            emitter = make_unique<SurjectingAlignmentEmitter>(path_graph, target_paths, std::move(emitter));
+            emitter = make_unique<SurjectingAlignmentEmitter>(path_graph, target_paths, std::move(emitter),
+                flags & ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS);
         }
     
     } else {
