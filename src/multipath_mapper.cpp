@@ -2331,10 +2331,14 @@ namespace vg {
                                                          min_splice_ref_search_length,
                                                          max_splice_ref_search_length);
                 }
+                
                 if (distance_index && (dist < 0 || dist == numeric_limits<int64_t>::max())) {
                     // they're probably still reachable if they got this far, get a worse estimate of the
                     // distance from the distance index
-                    dist = distance_index->min_distance(pos_1, pos_2);
+                    int64_t min_dist = distance_index->min_distance(pos_1, pos_2);
+                    if (min_dist >= 0) {
+                        dist = min_dist;
+                    }
                 }
                 
                 if (dist != numeric_limits<int64_t>::max()) {
