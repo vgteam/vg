@@ -32,16 +32,16 @@ using namespace vg::io;
  */
 enum alignment_emitter_flags_t {
     /// Value for no flags set.
-    ALIGNMENT_EMITTER_FLAG_NONE = 0;
+    ALIGNMENT_EMITTER_FLAG_NONE = 0,
     /// Skip surjection, and expect pre-surjected alignments.
-    ALIGNMENT_EMITTER_FLAG_HTS_RAW = 1;
+    ALIGNMENT_EMITTER_FLAG_HTS_RAW = 1,
     /// Use splicing-aware conversion to HTSlib formats:
     /// alignments are spliced at known splice sites (i.e. edges in the graph), so
     /// form spliced CIGAR strings
-    ALIGNMENT_EMITTER_FLAG_HTS_SPLICED = 2;
+    ALIGNMENT_EMITTER_FLAG_HTS_SPLICED = 2,
     /// When surjecting, discard low-complexity anchors and realign more freely
     /// against the target path.
-    ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS = 4;
+    ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS = 4
 };
 
 /// Get an AlignmentEmitter that can emit to the given file (or "-") in the

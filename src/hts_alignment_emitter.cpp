@@ -20,8 +20,7 @@ using namespace std;
 
 unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format,
                                                    const vector<tuple<path_handle_t, size_t, size_t>>& paths, size_t max_threads,
-                                                   const HandleGraph* graph, bool hts_raw,
-                                                   bool hts_spliced) {
+                                                   const HandleGraph* graph, int flags) {
 
     
     unique_ptr<AlignmentEmitter> emitter;
