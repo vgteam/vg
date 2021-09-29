@@ -1,7 +1,7 @@
 <!-- !test program bash -eo pipefail -->
 # vg
 
-[![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Latest Release](https://img.shields.io/github/release/vgteam/vg.svg)](https://github.com/vgteam/vg/releases/latest) [![Performance Report](https://img.shields.io/badge/performance-report-brightgreen.svg)](https://vg-data.s3.amazonaws.com/vg_ci/vgci_reports/branch/master/index.html) 
+[![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Latest Release](https://img.shields.io/github/release/vgteam/vg.svg)](https://github.com/vgteam/vg/releases/latest) 
 [![Doxygen API Documentation](https://img.shields.io/badge/doxygen-docs-brightgreen.svg)](https://vgteam.github.io/vg/)
 
 ## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
@@ -241,8 +241,10 @@ Call only variants that are present in the graph (use `-g`):
 
 <!-- !test check Pack and call -->
 ```sh
-# Compute the read support from the gam (ignoring mapping and base qualitiy < 5)
-vg pack -x x.xg -g aln.gam -Q 5 -o aln.pack
+# Compute the read support from the gam
+# -Q 5: ignore mapping and base qualitiy < 5
+# -s 5: ignore first and last 5bp from each read
+vg pack -x x.xg -g aln.gam -Q 5 -s 5 -o aln.pack
 
 # Generate a VCF from the support.  
 vg call x.xg -k aln.pack > graph_calls.vcf
@@ -261,8 +263,8 @@ In order to also consider *novel* variants from the reads, use the augmented gra
 # Index our augmented graph
 vg index aug.vg -x aug.xg
 
-# Compute the read support from the augmented gam (with ignoring qualitiy < 5)
-vg pack -x aug.xg -g aug.gam -Q 5 -o aln_aug.pack
+# Compute the read support from the augmented gam (ignoring qualitiy < 5, and 1st and last 5bp of each read)
+vg pack -x aug.xg -g aug.gam -Q 5 -s 5 -o aln_aug.pack
 
 # Generate a VCF from the support
 vg call aug.xg -k aln_aug.pack > calls.vcf
@@ -372,7 +374,7 @@ A variety of commands are available:
 - *surject*: project graph alignments onto a linear reference
 - *augment*: adds variation from aligned reads into the graph
 - *call*: call variants from an augmented graph
-- *rna*: spliced graph construction and indexing
+- *rna*: construct splicing graphs and pantranscriptomes
 - *convert*: convert graph and alignment formats
 - *combine*: combine graphs
 - *chunk*: extract or break into subgraphs

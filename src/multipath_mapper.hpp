@@ -112,11 +112,22 @@ namespace vg {
         /// How big of a softclip should lead us to attempt spliced alignment?
         void set_min_softclip_length_for_splice(size_t length);
         
+        /// What should the prior odds against a spliced alignment be?
+        void set_log_odds_against_splice(double log_odds);
+        
+        /// Use a non-default intron length distribution
+        void set_intron_length_distribution(const vector<double>& intron_mixture_weights,
+                                            const vector<pair<double, double>>& intron_component_params);
+        
+        /// Decide how long of a tail alignment we want before we allow its subpath to be merged
+        void set_max_merge_supression_length();
+        
         // parameters
         
         size_t max_branch_trim_length = 1;
         bool agglomerate_multipath_alns = false;
         int64_t max_snarl_cut_size = 5;
+        size_t max_tail_merge_supress_length = 4;
         bool suppress_tail_anchors = false;
         size_t min_tail_anchor_length = 3;
         double band_padding_multiplier = 1.0;
@@ -145,7 +156,6 @@ namespace vg {
         double max_exponential_shape_intercept = 12.136;
         double max_exponential_shape_slope = 0.0113637;
         double max_mapping_p_value = 0.0001;
-        double max_splice_p_value = 0.001;
         double max_rescue_p_value = 0.1;
         size_t max_alt_mappings = 1;
         size_t max_single_end_mappings_for_rescue = 64;
@@ -155,8 +165,10 @@ namespace vg {
         double secondary_rescue_score_diff = 1.0;
         bool get_rescue_graph_from_paths = true;
         double rescue_graph_std_devs = 6.0;
+        double splice_rescue_graph_std_devs = 3.0;
         double mapq_scaling_factor = 1.0;
         bool report_group_mapq = false;
+        bool report_allelic_mapq = false;
         // There must be a ScoreProvider provided, and a positive population_max_paths, if this is true
         bool use_population_mapqs = false;
         // If this is nonzero, it takes precedence over any haplotype count
@@ -197,6 +209,7 @@ namespace vg {
         bool do_spliced_alignment = false;
         int64_t max_softclip_overlap = 8;
         int64_t max_splice_overhang = 3;
+        int64_t min_splice_rescue_matches = 6;
         // about 250k
         int64_t max_intron_length = 1 << 18;
         int64_t min_splice_ref_search_length = 6;
@@ -220,6 +233,11 @@ namespace vg {
         /// Represents the mismatches that were allowed in "MEMs" from the fanout
         /// match algorithm
         using match_fanouts_t = unordered_map<const MaximalExactMatch*, deque<pair<string::const_iterator, char>>>;
+        
+        /// Unique identifier for an unaligned splicing candidate. Specified by:
+        /// - Cluster candidate: (is read 1, cluster index, nullptr, pos_t())
+        /// - Hit candidate: (is read 1, -1, MEM, position)
+        using candidate_id_t = tuple<bool, int64_t, const MaximalExactMatch*, pos_t>;
         
     protected:
         
@@ -248,9 +266,16 @@ namespace vg {
         bool attempt_rescue(const multipath_alignment_t& multipath_aln, const Alignment& other_aln,
                             bool rescue_forward, multipath_alignment_t& rescue_multipath_aln);
         
+        /// Make an alignment to a rescue graph and translate it back to the original node space
+        /// Returns false if the alignment fails, but does not check statistical significance
+        bool do_rescue_alignment(const multipath_alignment_t& multipath_aln, const Alignment& other_aln,
+                                 bool rescue_forward, multipath_alignment_t& rescue_multipath_aln,
+                                 double rescue_mean_length, double num_std_devs) const;
+        
         /// Use the algorithm implied by the mapper settings to extract a subgraph to perform a rescue alignment against
         void extract_rescue_graph(const multipath_alignment_t& multipath_aln, const Alignment& other_aln,
-                                  bool rescue_forward, MutableHandleGraph* rescue_graph) const;
+                                  bool rescue_forward, MutableHandleGraph* rescue_graph,
+                                  double rescue_mean_length, double num_std_devs) const;
         
         /// After clustering MEMs, extracting graphs, and assigning hits to cluster graphs, perform
         /// multipath alignment.
@@ -410,7 +435,10 @@ namespace vg {
         bool find_spliced_alignments(const Alignment& alignment, vector<multipath_alignment_t>& multipath_alns_out,
                                      vector<double>& multiplicities, vector<size_t>& cluster_idxs,
                                      const vector<MaximalExactMatch>& mems, vector<clustergraph_t>& cluster_graphs,
-                                     const match_fanouts_t* fanouts = nullptr);
+                                     const match_fanouts_t* fanouts = nullptr,
+                                     const multipath_alignment_t* rescue_anchor = nullptr,
+                                     bool rescue_left = false,
+                                     double rescue_multiplicity = 1.0);
         
         /// Look for spliced alignments among the results of various stages in the mapping algorithm for pairs
         /// Returns true if any spliced alignments were made
@@ -460,17 +488,36 @@ namespace vg {
                                         const vector<pair<const MaximalExactMatch*, pos_t>>& hit_candidates,
                                         const pair<int64_t, int64_t>& primary_interval,
                                         bool searching_left,
-                                        vector<multipath_alignment_t>& candidates_out,
-                                        vector<double>& multiplicities_out,
+                                        bool is_read_1,
+                                        unordered_map<candidate_id_t, pair<multipath_alignment_t, double>>& unaligned_candidate_bank,
+                                        vector<candidate_id_t>& candidates_out,
                                         const match_fanouts_t* mem_fanouts = nullptr) const;
         
         /// Check whether splice segment candidates can form a statistically significant spliced
         /// alignment. Returns true if a spliced alignment is made
         bool test_splice_candidates(const Alignment& alignment, bool searching_left,
-                                    multipath_alignment_t& anchor_mp_aln, double& anchor_multiplicity,
+                                    multipath_alignment_t& anchor_mp_aln, double* anchor_multiplicity_out,
                                     SpliceStrand& strand, int64_t num_candidates,
                                     const function<const multipath_alignment_t&(int64_t)>& get_candidate,
-                                    const function<multipath_alignment_t&&(int64_t)>& consume_candidate);
+                                    const function<double(int64_t)>& get_multiplicity,
+                                    const function<multipath_alignment_t&&(int64_t)>& consume_candidate) const;
+        
+        /// Try to rescue an anchor for a missing spliced alignment section between
+        /// the reads in a pair
+        bool attempt_rescue_for_splice_segment(const Alignment& alignment,
+                                               const pair<int64_t, int64_t>& primary_interval,
+                                               const multipath_alignment_t& rescue_anchor,
+                                               bool rescue_left, multipath_alignment_t& rescued_out) const;
+        
+        /// See if we can find a spliced alignment segment by aligning between the pair
+        bool find_rescuable_spliced_alignments(const Alignment& alignment,
+                                               multipath_alignment_t& splice_anchor,
+                                               double& anchor_multiplicity,
+                                               SpliceStrand& strand,
+                                               const multipath_alignment_t& rescue_anchor,
+                                               double rescue_multiplicity,
+                                               bool rescue_left,
+                                               const pair<int64_t, int64_t>& primary_interval) const;
         
         /// Check if any of the unpaired spliced alignments can make pairs now
         /// If any pairs are identified, can invalidate the input alignments
@@ -619,8 +666,13 @@ namespace vg {
         int64_t min_softclip_length_for_splice = 20;
         int64_t min_softclipped_score_for_splice = 25;
         
+        // log odds against finding a spliced alignment, in natural log
+        double no_splice_natural_log_odds = 22.55;
+        // log odds against finding a spliced alignment, in same log base as score
+        int32_t no_splice_log_odds = 16;
+        
         DinucleotideMachine dinuc_machine;
-        SpliceMotifs splice_motifs;
+        SpliceStats splice_stats;
         SnarlManager* snarl_manager;
         MinimumDistanceIndex* distance_index;
         unique_ptr<PathComponentIndex> path_component_index;

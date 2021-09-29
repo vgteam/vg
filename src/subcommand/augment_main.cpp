@@ -57,6 +57,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << "    -q, --min-baseq N           ignore edits whose sequence have average base quality < N" << endl
          << "    -Q, --min-mapq N            ignore alignments with mapping quality < N" << endl
          << "    -N, --max-n F               maximum fraction of N bases in an edit for it to be included [default : 0.25]" << endl
+         << "    -E, --edges-only            only edges implied by reads, ignoring edits" << endl
          << "    -h, --help                  print this help message" << endl
          << "    -p, --progress              show progress" << endl
          << "    -v, --verbose               print information and warnings about vcf generation" << endl
@@ -115,6 +116,11 @@ int main_augment(int argc, char** argv) {
     // Maximum fraction of Ns
     double max_frac_n = 0.25;
 
+    // Only add edges (no new sequence)
+    // The motivation is to help vg call expect all breakpoint edges to be in graph, but in
+    // practice, it seems they already are.  Todo: remove?
+    double edges_only = false;
+
     // GAF format toggle
     string aln_format = "GAM";
 
@@ -140,6 +146,7 @@ int main_augment(int argc, char** argv) {
         {"min-baseq", required_argument, 0, 'q'},
         {"min-mapq", required_argument, 0, 'Q'},
         {"max-n", required_argument, 0, 'N'},
+        {"edges-only", no_argument, 0, 'E'},
         {"gaf", no_argument, 0, 'F'},
         {"help", no_argument, 0, 'h'},
         {"progress", required_argument, 0, 'p'},
@@ -150,7 +157,7 @@ int main_augment(int argc, char** argv) {
         {"include-gt", required_argument, 0, 'L'},
         {0, 0, 0, 0}
     };
-    static const char* short_options = "a:Z:A:iCSBhpvt:l:L:sm:c:q:Q:N:F";
+    static const char* short_options = "a:Z:A:iCSBhpvt:l:L:sm:c:q:Q:N:EF";
     optind = 2; // force optind past command positional arguments
 
     // This is our command-line parser
@@ -198,6 +205,9 @@ int main_augment(int argc, char** argv) {
             break;
         case 'N':
             max_frac_n = parse<double>(optarg);
+            break;
+        case 'E':
+            edges_only = true;
             break;
         case 'F':
             aln_format = "GAF";
@@ -261,8 +271,12 @@ int main_augment(int argc, char** argv) {
         cerr << "[vg augment] error: graph and gam can't both be from stdin." << endl;
         return 1;
     }
-    if (label_paths && (!gam_out_file_name.empty() || !translation_file_name.empty())) {
-        cerr << "[vg augment] error: Translation (-Z) and GAM (-A) output do not work with \"label-only\" (-B) mode" << endl;
+    if (label_paths && (!gam_out_file_name.empty() || !translation_file_name.empty() || edges_only)) {
+        cerr << "[vg augment] error: Translation (-Z), GAM (-A) output and edges-only (-E) do not work with \"label-only\" (-B) mode" << endl;
+        return 1;
+    }
+    if (include_paths && edges_only) {
+        cerr <<"vg augment] error: -E cannot be used with -i" << endl;
         return 1;
     }
     if (gam_in_file_name == "-" && !label_paths) {
@@ -285,16 +299,6 @@ int main_augment(int argc, char** argv) {
     HandleGraph* vectorizable_graph = nullptr;
     unique_ptr<Packer> packer;
     bdsg::VectorizableOverlayHelper overlay_helper;
-    // the packer's required for any kind of filtering logic -- so we use it when
-    // baseq is present as well, or n-fraction.
-    if (min_coverage > 0 || min_baseq || max_frac_n < 1.) {
-        vectorizable_graph = dynamic_cast<HandleGraph*>(overlay_helper.apply(graph.get()));
-        size_t data_width = Packer::estimate_data_width(expected_coverage);
-        size_t bin_count = Packer::estimate_bin_count(get_thread_count());
-        packer = make_unique<Packer>(vectorizable_graph, true, false, false, false, 0, bin_count, data_width);
-        // makes sure filters are activated. 
-        min_coverage = max(size_t(min_coverage), size_t(1));
-    }
     
     if (label_paths) {
         // Just add path names with extend()
@@ -320,6 +324,17 @@ int main_augment(int argc, char** argv) {
         }
     }
     else {
+        // the packer's required for any kind of filtering logic -- so we use it when
+        // baseq is present as well, or n-fraction.
+        if (min_coverage > 0 || min_baseq || max_frac_n < 1.) {
+            vectorizable_graph = dynamic_cast<HandleGraph*>(overlay_helper.apply(graph.get()));
+            size_t data_width = Packer::estimate_data_width(expected_coverage);
+            size_t bin_count = Packer::estimate_bin_count(get_thread_count());
+            packer = make_unique<Packer>(vectorizable_graph, true, false, false, false, 0, bin_count, data_width);
+            // makes sure filters are activated. 
+            min_coverage = max(size_t(min_coverage), size_t(1));
+        }
+    
         // Actually do augmentation
         vector<Translation> translation;
         if (!gam_out_file_name.empty()) {
@@ -387,7 +402,8 @@ int main_augment(int argc, char** argv) {
                     min_mapq,
                     packer.get(),
                     min_coverage,
-                    max_frac_n);
+                    max_frac_n,
+                    edges_only);
         } else {
             // much better to stream from a file so we can do two passes without storing in memory
             augment(graph.get(),
@@ -403,7 +419,8 @@ int main_augment(int argc, char** argv) {
                     min_mapq,
                     packer.get(),
                     min_coverage,
-                    max_frac_n);
+                    max_frac_n,
+                    edges_only);
         }
 
         // we don't have a streaming interface for translation:  write the buffer now

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 18
+plan tests 20
 
 vg construct -m 1000 -r tiny/tiny.fa >flat.vg
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTTTCTGGAGATCTATTATACTCCAACTCTCTG/' | vg view -Fv - >2snp.vg
@@ -115,4 +115,28 @@ vg map -x flat.vg -g flat.gcsa -s AACTCTCTG | vg view -a - | vg view -JaG - >> f
 vg pack -x flat.vg -o flat.cx -g flat.gam
 is $(vg pack -x flat.vg -i flat.cx -u | awk ' NR>1 {print $2 "\t" $3}' | sort -g | awk '{print $2}' | tr '\n' '-') 20-15-10-10-0-0-0-0-60-60- "average node qualities are correct"
 
-rm -f flat.vg flat.gcsa flat.gam flat.cx
+rm -f flat.gam flat.cx 
+
+vg map -x flat.vg -g flat.gcsa -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG > span2.gam
+vg map -x flat.vg -g flat.gcsa -s CAGAGAGTTGGAATATAATAGAACTCCAGAAAATTTCCAAGCCTTATTTG >> span2.gam
+vg pack -x flat.vg -g span2.gam -o span2.pack
+vg pack -x flat.vg -g span2.gam -s 10 -o span2.s10.pack
+rm -f span2.tsv
+for i in `seq 10`; do echo 0 >> span2.tsv ; done
+vg pack -x flat.vg -i span2.pack -d | sort -n -k 2 | tail -40 | head -30 | awk '{print $4}' >> span2.tsv
+for i in `seq 10`; do echo 0 >> span2.tsv ; done
+vg pack -x flat.vg -i span2.s10.pack -d | sort -n -k 2 | awk '{print $4}' | grep -v coverage >  span2.s10.tsv
+diff span2.tsv span2.s10.tsv
+is "$?" 0 "pack -s 10 sets fist and last 10bp of coverage to 0 like expected"
+
+# another quick test to check if results consisten when node size deoesn't exactly divide length
+vg pack -x flat.vg -g span2.gam -s 9 -o span2.s9.pack
+rm -f span2.tsv
+for i in `seq 9`; do echo 0 >> span2.tsv ; done
+vg pack -x flat.vg -i span2.pack -d | sort -n -k 2 | tail -41 | head -32 | awk '{print $4}' >> span2.tsv
+for i in `seq 9`; do echo 0 >> span2.tsv ; done
+vg pack -x flat.vg -i span2.s9.pack -d | sort -n -k 2 | awk '{print $4}' | grep -v coverage >  span2.s9.tsv
+diff span2.tsv span2.s9.tsv
+is "$?" 0 "pack -s 9 sets fist and last 9bp of coverage to 0 like expected"
+
+rm -f flat.vg flat.gcsa span2.gam span2.pack span2.s10.pack span2.tsv span2.s10.tsv span2.s9.tsv

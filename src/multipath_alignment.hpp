@@ -173,6 +173,10 @@ namespace vg {
     ///
     int32_t optimal_alignment_score(const multipath_alignment_t& multipath_aln,
                                     bool subpath_global = false);
+
+    /// Returns the score of the lowest-scoring source-to-sink alignment in the multipath_alignment_t.
+    /// Assumes that subpaths are topologically ordered and starts have been identified.
+    int32_t worst_alignment_score(const multipath_alignment_t& multipath_aln);
     
     /// Returns the top k highest-scoring alignments contained in the multipath_alignment_t.
     /// Note that some or all of these may be duplicate Alignments, which were spelled out
@@ -319,7 +323,9 @@ namespace vg {
     void transfer_proto_metadata(const MultipathAlignment& from, Alignment& to);
 
     /// Merges non-branching paths in a multipath alignment in place
-    void merge_non_branching_subpaths(multipath_alignment_t& multipath_aln);
+    /// Does not assume topological order among subpaths
+    void merge_non_branching_subpaths(multipath_alignment_t& multipath_aln,
+                                      const unordered_set<size_t>* prohibited_merges = nullptr);
 
     /// Removes all edit, mappings, and subpaths that have no aligned bases, and introduces transitive edges
     /// to preserve connectivity through any completely removed subpaths
@@ -547,8 +553,12 @@ namespace vg {
     inline bool multipath_alignment_t::has_start() const {
         return !_start.empty();
     }
+    
+    /// Define seed generation for shuffling multipath alignments
+    inline string make_shuffle_seed(const multipath_alignment_t& aln) {
+        return aln.sequence();
+    }
 }
-
 
 #endif /* multipath_alignment_hpp */
 

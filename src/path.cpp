@@ -76,7 +76,6 @@ string Paths::make_subpath_name(const string& path_name, size_t offset, size_t e
     return out_name;
 }
 
-
 mapping_t::mapping_t(void) : traversal(0), length(0), rank(1) { }
 
 mapping_t::mapping_t(const Mapping& m) {

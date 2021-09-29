@@ -358,6 +358,7 @@ void help_giraffe(char** argv) {
     << "  --fragment-stdev FLOAT        force the fragment length distribution to have this standard deviation (requires --fragment-mean)" << endl
     << "  --paired-distance-limit FLOAT cluster pairs of read using a distance limit FLOAT standard deviations greater than the mean [2.0]" << endl
     << "  --rescue-subgraph-size FLOAT  search for rescued alignments FLOAT standard deviations greater than the mean [4.0]" << endl
+    << "  --rescue-seed-limit INT       attempt rescue with at most INT seeds [100]" << endl
     << "  --track-provenance            track how internal intermediate alignment candidates were arrived at" << endl
     << "  --track-correctness           track if internal intermediate alignment candidates are correct (implies --track-provenance)" << endl
     << "  -t, --threads INT             number of mapping threads to use" << endl;
@@ -380,8 +381,9 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_FRAGMENT_STDEV 1006
     #define OPT_CLUSTER_STDEV 1007
     #define OPT_RESCUE_STDEV 1008
-    #define OPT_REF_PATHS 1009
-    #define OPT_SHOW_WORK 1010
+    #define OPT_RESCUE_SEED_LIMIT 1009
+    #define OPT_REF_PATHS 1010
+    #define OPT_SHOW_WORK 1011
     
 
     // initialize parameters with their default options
@@ -441,6 +443,8 @@ int main_giraffe(int argc, char** argv) {
     double cluster_stdev = 2.0;
     //How many stdevs do we look out when rescuing? 
     double rescue_stdev = 4.0;
+    // Attempt rescue with up to this many seeds.
+    size_t rescue_seed_limit = 100;
     // How many pairs should we be willing to buffer before giving up on fragment length estimation?
     size_t MAX_BUFFERED_PAIRS = 100000;
     // What sample name if any should we apply?
@@ -535,6 +539,7 @@ int main_giraffe(int argc, char** argv) {
             {"rescue-algorithm", required_argument, 0, 'A'},
             {"paired-distance-limit", required_argument, 0, OPT_CLUSTER_STDEV },
             {"rescue-subgraph-size", required_argument, 0, OPT_RESCUE_STDEV },
+            {"rescue-seed-limit", required_argument, 0, OPT_RESCUE_SEED_LIMIT},
             {"max-fragment-length", required_argument, 0, 'L' },
             {"fragment-mean", required_argument, 0, OPT_FRAGMENT_MEAN },
             {"fragment-stdev", required_argument, 0, OPT_FRAGMENT_STDEV },
@@ -905,6 +910,10 @@ int main_giraffe(int argc, char** argv) {
                 rescue_stdev = parse<double>(optarg);
                 break;
 
+            case OPT_RESCUE_SEED_LIMIT:
+                rescue_seed_limit = parse<size_t>(optarg);
+                break;
+
             case OPT_TRACK_PROVENANCE:
                 track_provenance = true;
                 break;
@@ -1031,26 +1040,33 @@ int main_giraffe(int argc, char** argv) {
     }
     
     // The IndexRegistry doesn't try to infer index files based on the
-    // basename, so do that here.
-    unordered_map<string, string> indexes_and_extensions = {
-        {"Giraffe GBZ", "gbz"},
-        {"XG", "xg"},
-        {"Giraffe GBWT", "gbwt"},
-        {"GBWTGraph", "gg"},
-        {"Giraffe Distance Index", "dist"},
-        {"Minimizers", "min"}
+    // basename, so do that here. We can have multiple extension options that
+    // we try in order of priority.
+    unordered_map<string, vector<string>> indexes_and_extensions = {
+        {"Giraffe GBZ", {"giraffe.gbz", "gbz"}},
+        {"XG", {"xg"}},
+        {"Giraffe GBWT", {"gbwt"}},
+        {"GBWTGraph", {"gg"}},
+        {"Giraffe Distance Index", {"dist"}},
+        {"Minimizers", {"min"}}
     };
     for (auto& completed : registry.completed_indexes()) {
         // Drop anything we already got from the list
         indexes_and_extensions.erase(completed);
     }
-    for (auto& index_and_extension : indexes_and_extensions) {
-        string inferred_filename = registry.get_prefix() + "." + index_and_extension.second;
-        if (ifstream(inferred_filename).is_open()) {
-            // A file with the appropriate name exists and we can read it
-            registry.provide(index_and_extension.first, inferred_filename);
-            // Report it because this may not be desired behavior
-            cerr << "Guessing that " << inferred_filename << " is " << index_and_extension.first << endl;
+    for (auto& index_and_extensions : indexes_and_extensions) {
+        // For each index type
+        for (auto& extension : index_and_extensions.second) {
+            // For each extension in priority order
+            string inferred_filename = registry.get_prefix() + "." + extension;
+            if (ifstream(inferred_filename).is_open()) {
+                // A file with the appropriate name exists and we can read it
+                registry.provide(index_and_extensions.first, inferred_filename);
+                // Report it because this may not be desired behavior
+                cerr << "Guessing that " << inferred_filename << " is " << index_and_extensions.first << endl;
+                // Skip other extension options for the index
+                break;
+            }
         }
     }
 
@@ -1275,12 +1291,14 @@ int main_giraffe(int argc, char** argv) {
             }
             cerr << "--paired-distance-limit " << cluster_stdev << endl;
             cerr << "--rescue-subgraph-size " << rescue_stdev << endl;
+            cerr << "--rescue-seed-limit " << rescue_seed_limit << endl;
             cerr << "--rescue-attempts " << rescue_attempts << endl;
             cerr << "--rescue-algorithm " << algorithm_names[rescue_algorithm] << endl;
         }
         minimizer_mapper.max_fragment_length = fragment_length;
         minimizer_mapper.paired_distance_stdevs = cluster_stdev;
         minimizer_mapper.rescue_subgraph_stdevs = rescue_stdev;
+        minimizer_mapper.rescue_seed_limit = rescue_seed_limit;
         minimizer_mapper.max_rescue_attempts = rescue_attempts;
         minimizer_mapper.rescue_algorithm = rescue_algorithm;
 
@@ -1350,7 +1368,7 @@ int main_giraffe(int argc, char** argv) {
         {
         
             // Look up all the paths we might need to surject to.
-            vector<path_handle_t> paths;
+            vector<tuple<path_handle_t, size_t, size_t>> paths;
             if (hts_output) {
                 // For htslib we need a non-empty list of paths.
                 assert(path_position_graph != nullptr);
@@ -1395,6 +1413,15 @@ int main_giraffe(int argc, char** argv) {
                     if (is_ready && !distribution_was_ready) {
                         // It has become ready now.
                         distribution_was_ready = true;
+                        
+                        if (show_progress) {
+                            // Report that it is now ready
+                            #pragma omp critical (cerr)
+                            {
+                                cerr << "Using fragment length estimate: " << minimizer_mapper.get_fragment_length_mean() << " +/- " << minimizer_mapper.get_fragment_length_stdev() << endl;
+                            }
+                        }
+                        
                         // Remember when now is.
                         all_threads_start = std::chrono::system_clock::now();
                     }
@@ -1418,7 +1445,7 @@ int main_giraffe(int argc, char** argv) {
 #ifdef __linux__
                     ensure_perf_for_thread();
 #endif
-                    
+
                     pair<vector<Alignment>, vector<Alignment>> mapped_pairs = minimizer_mapper.map_paired(aln1, aln2, ambiguous_pair_buffer);
                     if (!mapped_pairs.first.empty() && !mapped_pairs.second.empty()) {
                         //If we actually tried to map this paired end

@@ -4,38 +4,44 @@
  * Defines splicing related objects and functions
  *
  */
-#ifndef VG_SPLICE_REGION_HPP_INCLUDED
-#define VG_SPLICE_REGION_HPP_INCLUDED
+#ifndef VG_SPLICING_HPP_INCLUDED
+#define VG_SPLICING_HPP_INCLUDED
 
 #include "dinucleotide_machine.hpp"
 #include "incremental_subgraph.hpp"
 #include "aligner.hpp"
 #include "multipath_alignment.hpp"
+#include "statistics.hpp"
 
 namespace vg {
 
 using namespace std;
 
 /*
- * Object that represents a table of the acceptable splice motifs and their
- * scores
+ * Object that represents:
+ * 1. A table of the acceptable splice motifs and their scores
+ * 2. A distribution of intron lengths and their scores
  */
-class SpliceMotifs {
+class SpliceStats {
 public:
     // Defaults to the three canonical human splicing motifs with the frequencies
-    // reported in Burset, Seledstov, and Solovyev (2000):
+    // reported in Burset, Seledstov, and Solovyev (2000)
     // - GT-AG: 0.9924
     // - GC-AG: 0.0069
     // - AT-AC: 0.0005
-    SpliceMotifs(const GSSWAligner& scorer);
+    // and a default intron length distribution trained on GENCODE v.29.
+    SpliceStats(const GSSWAligner& scorer);
     
     // Construct with triples of (5' dinucleotide, 3' dinucleotide, frequency).
     // Frequencies may sum to < 1.0, but may not sum to > 1.0.
-    SpliceMotifs(const vector<tuple<string, string, double>>& motifs,
-                 const GSSWAligner& scorer);
+    // Lognormal parameters should be given in pairs of (mu, sigma).
+    SpliceStats(const vector<tuple<string, string, double>>& motifs,
+                const vector<double>& lognormal_mixture_weights,
+                const vector<pair<double, double>>& lognormal_component_params,
+                const GSSWAligner& scorer);
     
     // the number of splicing motifs
-    size_t size() const;
+    size_t motif_size() const;
     // the dinucleotide motif on one side in the order that the nucleotides
     // are encountered when traversing into the intron
     const string& oriented_motif(size_t motif_num, bool left_side) const;
@@ -45,19 +51,40 @@ public:
     // the dinucleotide motif on one side ins its standard representation
     string unoriented_motif(size_t motif_num, bool left_side) const;
     // the score associated with a splicing motif
-    int32_t score(size_t motif_num) const;
+    int32_t motif_score(size_t motif_num) const;
+    // the score associated with an intron length
+    int32_t intron_length_score(int64_t length) const;
+    // change the motifs
+    void update_motifs(const vector<tuple<string, string, double>>& motifs,
+                       const GSSWAligner& scorer);
+    // change the intron distribution
+    void update_intron_length_distribution(const vector<double>& lognormal_mixture_weights,
+                                           const vector<pair<double, double>>& lognormal_component_params,
+                                           const GSSWAligner& scorer);
     // must be called if scoring parameters are changed
     void update_scoring(const GSSWAligner& scorer);
 private:
     
     // internal function for the constructor
     void init(const vector<tuple<string, string, double>>& motifs,
+              const vector<double>& lognormal_mixture_weights,
+              const vector<pair<double, double>>& lognormal_component_params,
               const GSSWAligner& scorer);
     
+    double intron_length_log_likelihood(int64_t length) const;
+    
     // the splice table stored in its most useful form
-    vector<tuple<string, string, int32_t>> data;
+    vector<tuple<string, string, int32_t>> motif_data;
     // the original input data, in case we need to update the scoring
-    vector<tuple<string, string, double>> unaltered_data;
+    vector<tuple<string, string, double>> unaltered_motif_data;
+    // intron length distribution component weights
+    vector<double> mixture_weights;
+    // intron length distribution component parameters
+    vector<pair<double, double>> component_params;
+    // the maximum possible log likelihood for an intron length
+    double mode_log_likelihood;
+    // a copy of the aligner's log base (it's convenient to have it here)
+    double log_base;
 };
 
 
@@ -71,7 +98,7 @@ public:
     SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t search_dist,
                  const HandleGraph& graph,
                  const DinucleotideMachine& dinuc_machine,
-                 const SpliceMotifs& splice_motifs);
+                 const SpliceStats& splice_stats);
     SpliceRegion() = default;
     ~SpliceRegion() = default;
     
@@ -258,4 +285,4 @@ multipath_alignment_t&& fuse_spliced_alignments(const Alignment& alignment,
 
 }
 
-#endif // VG_SPLICE_REGION_HPP_INCLUDED
+#endif // VG_SPLICING_HPP_INCLUDED

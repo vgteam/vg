@@ -1024,6 +1024,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 bucket_checked_out_or_finished[copiable_vcf.second].store(true);
             }
             
+#ifdef debug_index_registry_recipes
+            cerr << "initializing chunked VCFs for output" << endl;
+#endif
+            
             // the output files
             vector<pair<htsFile*, bcf_hdr_t*>> bucket_vcfs(buckets.size());
             for (int64_t i = 0; i < buckets.size(); ++i) {
@@ -1047,6 +1051,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                         vcf_indexes.insert(contig_to_vcf_idx[contig.first]);
                     }
                 }
+#ifdef debug_index_registry_recipes
+                cerr << "bucket " << i << " will add samples from input VCFs:" << endl;
+                for (auto j : vcf_indexes) {
+                    cerr << "\t" << j << endl;
+                }
+#endif
                 // merge will all the input headers
                 unordered_set<string> samples_added;
                 for (auto vcf_idx : vcf_indexes) {
@@ -1082,6 +1092,20 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 if (sync_err_code != 0) {
                     cerr << "error:[IndexRegistry] error syncing VCF header" << endl;
                     exit(1);
+                }
+                if (bcf_hdr_nsamples(header_out) == 0) {
+                    // let's add a dummy so that HaplotypeIndexer doesn't get mad later
+                    int sample_add_code = bcf_hdr_add_sample(header_out, "dummy");
+                    if (sample_add_code != 0) {
+                        cerr << "error:[IndexRegistry] error initializing VCF header" << endl;
+                        exit(1);
+                    }
+                    // and re-sync, not sure if necessary, but it will be cheap regardless
+                    sync_err_code = bcf_hdr_sync(header_out);
+                    if (sync_err_code != 0) {
+                        cerr << "error:[IndexRegistry] error syncing VCF header" << endl;
+                        exit(1);
+                    }
                 }
                 int hdr_write_err_code = bcf_hdr_write(vcf_out, header_out);
                 if (hdr_write_err_code != 0) {
@@ -1844,13 +1868,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 // give away ownership of the graph to the Transcriptome
                 Transcriptome transcriptome(move(graph));
                 transcriptome.error_on_missing_path = !broadcasting_txs;
-                transcriptome.use_reference_paths = true;
                 transcriptome.feature_type = IndexingParameters::gff_feature_name;
                 transcriptome.transcript_tag = IndexingParameters::gff_transcript_tag;
                 
                 // add the splice edges
                 auto dummy = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
-                size_t transcripts_added = transcriptome.add_transcript_splice_junctions(infile_tx, dummy);
+                size_t transcripts_added = transcriptome.add_reference_transcripts(vector<istream *>({&infile_tx}), dummy, false, false);
                 
 #ifdef debug_index_registry_recipes
                 cerr << "spliced graph has " << transcriptome.splice_graph().get_node_count() << " nodes" << endl;
@@ -1864,11 +1887,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     }
                 }
                 
-                node_id_ranges[idx] = make_pair(transcriptome.splice_graph().min_node_id(),
-                                                transcriptome.splice_graph().max_node_id());
+                node_id_ranges[idx] = make_pair(transcriptome.graph().min_node_id(),
+                                                transcriptome.graph().max_node_id());
                 
                 // save the file
-                transcriptome.write_splice_graph(&outfile);
+                transcriptome.write_graph(&outfile);
             }
             else {
                 
@@ -2627,7 +2650,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             transcriptome.transcript_tag = IndexingParameters::gff_transcript_tag;
             
             // load up the transcripts and add edges on the reference path
-            size_t transcripts_added = transcriptome.add_transcript_splice_junctions(infile_tx, haplotype_index);
+            size_t transcripts_added = transcriptome.add_reference_transcripts(vector<istream *>({&infile_tx}), haplotype_index, false, true);
             
             if (broadcasting_txs && !path_names.empty() && transcripts_added == 0
                 && transcript_file_nonempty(tx_filenames[j])) {
@@ -2642,27 +2665,25 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             infile_tx.seekg(0);
             
             // add edges on other haplotypes
-            size_t num_transcripts_projected = transcriptome.add_transcripts(infile_tx, *haplotype_index);
+            size_t num_transcripts_projected = transcriptome.add_haplotype_transcripts(vector<istream *>({&infile_tx}), *haplotype_index, false);
             
             // init the haplotype transcript GBWT
-            size_t node_width = gbwt::bit_length(gbwt::Node::encode(transcriptome.splice_graph().max_node_id(), true));
+            size_t node_width = gbwt::bit_length(gbwt::Node::encode(transcriptome.graph().max_node_id(), true));
             gbwt::GBWTBuilder gbwt_builder(node_width,
                                            IndexingParameters::gbwt_insert_batch_size,
                                            IndexingParameters::gbwt_sampling_interval);
             // actually build it
-            transcriptome.add_transcripts_to_gbwt(&gbwt_builder,
-                                                  false, // don't output transcript paths as a FASTA
-                                                  IndexingParameters::bidirectional_haplo_tx_gbwt);
+            transcriptome.add_haplotype_transcripts_to_gbwt(&gbwt_builder, IndexingParameters::bidirectional_haplo_tx_gbwt);
             
             // save the haplotype transcript GBWT
             gbwt_builder.finish();
             save_gbwt(gbwt_builder.index, gbwt_name, IndexingParameters::verbosity == IndexingParameters::Debug);
             
             // write transcript origin info table
-            transcriptome.write_info(&info_outfile, *haplotype_index, false);
+            transcriptome.write_haplotype_transcript_info(&info_outfile, *haplotype_index, true);
             
             // save the graph with the transcript paths added
-            transcriptome.write_splice_graph(&tx_graph_outfile);
+            transcriptome.write_graph(&tx_graph_outfile);
             
             tx_graph_names[i] = tx_graph_name;
             tx_table_names[i] = info_table_name;

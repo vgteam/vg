@@ -39,6 +39,49 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+pair<vector<double>, vector<pair<double, double>>> parse_intron_distr_file(ifstream& strm) {
+    
+    auto bail = [&]() {
+        cerr << "error:[vg mpmap] Could not parse intron length distribution file." << endl;
+        exit(1);
+    };
+    
+    string line;
+    getline(strm, line);
+    size_t parse_len;
+    int num_comps = stoi(line, &parse_len);
+    if (parse_len != line.size()) {
+        bail();
+    }
+    
+    vector<double> weights;
+    vector<pair<double, double>> params;
+    for (int i = 0; i < 3 * num_comps; ++i) {
+        
+        if (!strm) {
+            bail();
+        }
+        line.clear();
+        getline(strm, line);
+        
+        double param = stod(line, &parse_len);
+        if (parse_len != line.size()) {
+            bail();
+        }
+        if (i < num_comps) {
+            weights.push_back(param);
+        }
+        else if ((i - num_comps) % 2 == 0) {
+            // have to switch the order relative to the script's output
+            params.emplace_back(0.0, param);
+        }
+        else {
+            params.back().first = param;
+        }
+    }
+    return make_pair(weights, params);
+}
+
 void help_mpmap(char** argv) {
     cerr
     << "usage: " << argv[0] << " mpmap [options] -x graph.xg -g index.gcsa [-f reads1.fq [-f reads2.fq] | -G reads.gam] > aln.gamp" << endl
@@ -83,6 +126,7 @@ void help_mpmap(char** argv) {
     //<< "  -T, --same-strand            read pairs are from the same strand of the DNA/RNA molecule" << endl
     << "  -a, --agglomerate-alns    combine separate multipath alignments into one (possibly disconnected) alignment" << endl
     << "  -X, --not-spliced         do not form spliced alignments, even if aligning with --nt-type 'rna'" << endl
+    << "  -r, --intron-distr FILE   intron length distribution (from scripts/intron_length_distribution.py)" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
     << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
     << "  -b, --frag-sample INT     look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
@@ -163,6 +207,9 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_ALT_PATHS 1030
     #define OPT_SUPPRESS_SUPPRESSION 1031
     #define OPT_SNARL_MAX_CUT 1032
+    #define OPT_SPLICE_ODDS 1033
+    #define OPT_REPORT_ALLELIC_MAPQ 1034
+    #define OPT_RESEED_LENGTH 1035
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -175,6 +222,7 @@ int main_mpmap(int argc, char** argv) {
     string fastq_name_2;
     string gam_file_name;
     string ref_paths_name;
+    string intron_distr_name;
     int match_score = default_match;
     int mismatch_score = default_mismatch;
     int gap_open_score = default_gap_open;
@@ -239,6 +287,7 @@ int main_mpmap(int argc, char** argv) {
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Exact;
     bool report_group_mapq = false;
+    bool report_allelic_mapq = false;
     double band_padding_multiplier = 1.0;
     int max_dist_error = 12;
     int default_num_alt_alns = 16;
@@ -291,6 +340,8 @@ int main_mpmap(int argc, char** argv) {
     bool do_spliced_alignment = false;
     int max_softclip_overlap = 8;
     int max_splice_overhang = 2 * max_softclip_overlap;
+    double no_splice_log_odds = 2.0;
+    double splice_rescue_graph_std_devs = 3.0;
     bool override_spliced_alignment = false;
     int match_score_arg = std::numeric_limits<int>::min();
     int mismatch_score_arg = std::numeric_limits<int>::min();
@@ -351,12 +402,13 @@ int main_mpmap(int argc, char** argv) {
             {"mq-max", required_argument, 0, 'Q'},
             {"agglomerate-alns", no_argument, 0, 'a'},
             {"report-group-mapq", no_argument, 0, 'U'},
+            {"report-allelic-mapq", no_argument, 0, OPT_REPORT_ALLELIC_MAPQ},
             {"padding-mult", required_argument, 0, OPT_BAND_PADDING_MULTIPLIER},
             {"map-attempts", required_argument, 0, 'u'},
             {"max-paths", required_argument, 0, OPT_MAX_PATHS},
             {"top-tracebacks", no_argument, 0, OPT_TOP_TRACEBACKS},
             {"max-multimaps", required_argument, 0, 'M'},
-            {"reseed-length", required_argument, 0, 'r'},
+            {"reseed-length", required_argument, 0, OPT_RESEED_LENGTH},
             {"reseed-diff", required_argument, 0, 'W'},
             {"clustlength", required_argument, 0, 'K'},
             {"stripped-match", no_argument, 0, OPT_STRIPPED_MATCH},
@@ -382,6 +434,8 @@ int main_mpmap(int argc, char** argv) {
             {"prune-exp", required_argument, 0, OPT_PRUNE_EXP},
             {"long-read-scoring", no_argument, 0, 'E'},
             {"not-spliced", no_argument, 0, 'X'},
+            {"splice-odds", required_argument, 0, OPT_SPLICE_ODDS},
+            {"intron-distr", required_argument, 0, 'r'},
             {"read-length", required_argument, 0, 'l'},
             {"nt-type", required_argument, 0, 'n'},
             {"error-rate", required_argument, 0, 'e'},
@@ -594,6 +648,10 @@ int main_mpmap(int argc, char** argv) {
                 report_group_mapq = true;
                 break;
                 
+            case OPT_REPORT_ALLELIC_MAPQ:
+                report_allelic_mapq = true;
+                break;
+                
             case OPT_BAND_PADDING_MULTIPLIER:
                 band_padding_multiplier = parse<double>(optarg);
                 break;
@@ -618,7 +676,7 @@ int main_mpmap(int argc, char** argv) {
                 max_num_mappings = parse<int>(optarg);
                 break;
                 
-            case 'r':
+            case OPT_RESEED_LENGTH:
                 reseed_length_arg = parse<int>(optarg);
                 break;
                 
@@ -729,6 +787,14 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'X':
                 override_spliced_alignment = true;
+                break;
+                
+            case OPT_SPLICE_ODDS:
+                no_splice_log_odds = parse<double>(optarg);
+                break;
+                
+            case 'r':
+                intron_distr_name = optarg;
                 break;
                 
             case 'l':
@@ -1314,6 +1380,10 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    if (no_splice_log_odds <= 0.0) {
+        cerr << "warning:[vg mpmap] Log odds against splicing (--splice-odds) set to " << no_splice_log_odds << ", non-positive values can lead to spurious identification of spliced alignments." << endl;
+    }
+    
     if ((match_score_arg != std::numeric_limits<int>::min() || mismatch_score_arg != std::numeric_limits<int>::min()) && !matrix_file_name.empty())  {
         cerr << "error:[vg mpmap] Cannot choose custom scoring matrix (-w) and custom match/mismatch score (-q/-z) simultaneously." << endl;
         exit(1);
@@ -1371,11 +1441,20 @@ int main_mpmap(int argc, char** argv) {
 
     ifstream matrix_stream;
     if (!matrix_file_name.empty()) {
-      matrix_stream.open(matrix_file_name);
-      if (!matrix_stream) {
-          cerr << "error:[vg mpmap] Cannot open scoring matrix file " << matrix_file_name << endl;
-          exit(1);
-      }
+        matrix_stream.open(matrix_file_name);
+        if (!matrix_stream) {
+            cerr << "error:[vg mpmap] Cannot open scoring matrix file " << matrix_file_name << endl;
+            exit(1);
+        }
+    }
+    
+    ifstream intron_distr_stream;
+    if (!intron_distr_name.empty()) {
+        intron_distr_stream.open(intron_distr_name);
+        if (!intron_distr_stream) {
+            cerr << "error:[vg mpmap] Cannot open intron length distribution file " << intron_distr_name << endl;
+            exit(1);
+        }
     }
     
     ifstream distance_index_stream;
@@ -1436,8 +1515,8 @@ int main_mpmap(int argc, char** argv) {
     time_t time_start;
     auto progress_boilerplate = [&]() {
         stringstream strm;
-        strm.precision(1);
         strm << fixed;
+        strm.precision(0);
         if (!clock_init) {
             time(&time_start);
             strm << 0.0 << " s";
@@ -1451,6 +1530,7 @@ int main_mpmap(int argc, char** argv) {
                 strm << secs << " s";
             }
             else {
+                strm.precision(1);
                 double mins = secs / 60.0;
                 if (mins <= 60.0) {
                     strm << mins << " m";
@@ -1476,6 +1556,12 @@ int main_mpmap(int argc, char** argv) {
             cerr << " " << argv[i];
         }
         cerr << endl;
+    }
+    
+    vector<double> intron_mixture_weights;
+    vector<pair<double, double>> intron_component_params;
+    if (!intron_distr_name.empty()) {
+        tie(intron_mixture_weights, intron_component_params) = parse_intron_distr_file(intron_distr_stream);
     }
     
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
@@ -1640,7 +1726,6 @@ int main_mpmap(int argc, char** argv) {
     }
     
     // Load structures that we need for HTS lib outputs
-    vector<path_handle_t> paths;
     unordered_set<path_handle_t> surjection_paths;
     vector<pair<string, int64_t>> path_names_and_length;
     unique_ptr<Surjector> surjector(nullptr);
@@ -1659,11 +1744,13 @@ int main_mpmap(int argc, char** argv) {
         }
         
         // Load all the paths in the right order
-        vector<path_handle_t> paths = get_sequence_dictionary(ref_paths_name, *path_position_handle_graph);
+        vector<tuple<path_handle_t, size_t, size_t>> paths = get_sequence_dictionary(ref_paths_name, *path_position_handle_graph);
         // Make them into a set for directing surjection.
-        std::copy(paths.begin(), paths.end(), std::inserter(surjection_paths, surjection_paths.begin()));
+        for (const auto& path_info : paths) {
+            surjection_paths.insert(get<0>(path_info));
+        }
         // Copy out the metadata for making the emitter later
-        path_names_and_length = extract_path_metadata(paths, *path_position_handle_graph);
+        path_names_and_length = extract_path_metadata(paths, *path_position_handle_graph).first;
     }
     
     // this also takes a while inside the MultipathMapper constructor, but it will only activate if we don't
@@ -1739,6 +1826,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.max_mapping_quality = max_mapq;
     multipath_mapper.mapq_scaling_factor = mapq_scaling_factor;
     multipath_mapper.report_group_mapq = report_group_mapq;
+    multipath_mapper.report_allelic_mapq = report_allelic_mapq;
     // Use population MAPQs when we have the right option combination to make that sensible.
     multipath_mapper.use_population_mapqs = (haplo_score_provider != nullptr && population_max_paths > 0);
     multipath_mapper.population_max_paths = population_max_paths;
@@ -1792,10 +1880,15 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.agglomerate_multipath_alns = agglomerate_multipath_alns;
     
     // splicing parameters
-    int64_t min_softclip_length_for_splice = int(ceil(log(total_seq_length * 2) / log(4.0))) + 2;
+    int64_t min_softclip_length_for_splice = max<int>(int(ceil(log(total_seq_length) / log(4.0)) - max_softclip_overlap) , 1);
     multipath_mapper.set_min_softclip_length_for_splice(min_softclip_length_for_splice);
+    multipath_mapper.set_log_odds_against_splice(no_splice_log_odds);
     multipath_mapper.max_softclip_overlap = max_softclip_overlap;
     multipath_mapper.max_splice_overhang = max_splice_overhang;
+    multipath_mapper.splice_rescue_graph_std_devs = splice_rescue_graph_std_devs;
+    if (!intron_distr_name.empty()) {
+        multipath_mapper.set_intron_length_distribution(intron_mixture_weights, intron_component_params);
+    }
 
 #ifdef mpmap_instrument_mem_statistics
     multipath_mapper._mem_stats.open(MEM_STATS_FILE);
@@ -2137,7 +2230,8 @@ int main_mpmap(int argc, char** argv) {
     // FASTQ input
     if (!fastq_name_1.empty()) {
         if (!suppress_progress) {
-            cerr << progress_boilerplate() << "Mapping reads from " << (fastq_name_1 == "-" ? "STDIN" : fastq_name_1) << (fastq_name_2.empty() ? "" : " and " + (fastq_name_2 == "-" ? "STDIN" : fastq_name_2)) << " using " << thread_count << " threads" << endl;
+            
+            cerr << progress_boilerplate() << "Mapping reads from " << (fastq_name_1 == "-" ? "STDIN" : fastq_name_1) << (fastq_name_2.empty() ? "" : " and " + (fastq_name_2 == "-" ? "STDIN" : fastq_name_2)) << " using " << thread_count << " thread" << (thread_count > 1 ? "s" : "") << endl;
         }
         
         if (interleaved_input) {
@@ -2156,7 +2250,7 @@ int main_mpmap(int argc, char** argv) {
     // GAM input
     if (!gam_file_name.empty()) {
         if (!suppress_progress) {
-            cerr << progress_boilerplate() << "Mapping reads from " << (gam_file_name == "-" ? "STDIN" : gam_file_name) << " using " << thread_count << " threads" << endl;
+            cerr << progress_boilerplate() << "Mapping reads from " << (gam_file_name == "-" ? "STDIN" : gam_file_name) << " using " << thread_count << " thread" << (thread_count > 1 ? "s" : "")  << endl;
         }
         
         function<void(istream&)> execute = [&](istream& gam_in) {

@@ -14,6 +14,7 @@
 #include "Variant.h"
 #include "Fasta.h"
 #include "handle.hpp"
+#include "path.hpp"
 #include "dozeu_interface.hpp"
 #include "deletion_aligner.hpp"
 
@@ -97,6 +98,15 @@ namespace vg {
         /// the mapping quality is always calculated as if its multiplicity is 1.
         static double maximum_mapping_quality_approx(const vector<double>& scaled_scores, size_t* max_idx_out,
                                                      const vector<double>* multiplicities = nullptr);
+        
+        /// Same as maximum_mapping_quality_exact except alway s computes mapping
+        /// quality for the first score
+        static double first_mapping_quality_exact(const vector<double>& scaled_scores,
+                                                  const vector<double>* multiplicities = nullptr);
+        /// Same as maximum_mapping_quality_approx except alway s computes mapping
+        /// quality for the first score
+        static double first_mapping_quality_approx(const vector<double>& scaled_scores,
+                                                   const vector<double>* multiplicities = nullptr);
     protected:
         double group_mapping_quality_exact(const vector<double>& scaled_scores, const vector<size_t>& group,
                                            const vector<double>* multiplicities = nullptr) const;
@@ -182,7 +192,7 @@ namespace vg {
         virtual int32_t score_full_length_bonus(bool left_side, const Alignment& alignment) const = 0;
                 
         /// Compute the score of a path against the given range of subsequence with the given qualities.
-        virtual int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
+        virtual int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const path_t& path,
                                                 string::const_iterator seq_begin, bool no_read_end_scoring = false) const = 0;
         
         /// Returns the score of an insert or deletion of the given length
@@ -216,11 +226,17 @@ namespace vg {
                                             double maybe_mq_threshold,
                                             double identity_weight) const;
         
+        /// Computes mapping quality for the first score in a vector of scores.
+        /// Optionally includes a vector of implicit counts >= 1 for the scores, but
+        /// the first mapping quality is always calculated as if it multiplicity is 1.
+        int32_t compute_first_mapping_quality(const vector<double>& scores, bool fast_approximation,
+                                              const vector<double>* multiplicities = nullptr) const;
+        
         /// Computes mapping quality for the optimal score in a vector of scores.
         /// Optionally includes a vector of implicit counts >= 1 for the scores, but
         /// the mapping quality is always calculated as if it multiplicity is 1.
-        int32_t compute_mapping_quality(const vector<double>& scores, bool fast_approximation,
-                                        const vector<double>* multiplicities = nullptr) const;
+        int32_t compute_max_mapping_quality(const vector<double>& scores, bool fast_approximation,
+                                            const vector<double>* multiplicities = nullptr) const;
         
         /// Computes mapping quality for a group of scores in a vector of scores (group given by indexes).
         /// Optionally includes a vector of implicit counts >= 1 for the score, but the mapping quality is always
@@ -370,7 +386,7 @@ namespace vg {
         
         int32_t score_full_length_bonus(bool left_side, const Alignment& alignment) const;
 
-        int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
+        int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const path_t& path,
                                         string::const_iterator seq_begin, bool no_read_end_scoring = false) const;
         
     private:
@@ -429,7 +445,7 @@ namespace vg {
         
         int32_t score_full_length_bonus(bool left_side, const Alignment& alignment) const;
         
-        int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
+        int32_t score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const path_t& path,
                                         string::const_iterator seq_begin, bool no_read_end_scoring = false) const;
         
         

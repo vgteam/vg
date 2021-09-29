@@ -443,21 +443,34 @@ int32_t GSSWAligner::score_gap(size_t gap_length) const {
     return gap_length ? -gap_open - (gap_length - 1) * gap_extension : 0;
 }
 
+double GSSWAligner::first_mapping_quality_exact(const vector<double>& scaled_scores,
+                                                const vector<double>* multiplicities) {
+    return maximum_mapping_quality_exact(scaled_scores, nullptr, multiplicities);
+}
+
+double GSSWAligner::first_mapping_quality_approx(const vector<double>& scaled_scores,
+                                                 const vector<double>* multiplicities) {
+    return maximum_mapping_quality_approx(scaled_scores, nullptr, multiplicities);
+}
+
 double GSSWAligner::maximum_mapping_quality_exact(const vector<double>& scaled_scores, size_t* max_idx_out,
                                                   const vector<double>* multiplicities) {
+
+    // TODO: this isn't very well-named now that it also supports computing non-maximum
+    // mapping qualities
     
     // work in log transformed values to avoid risk of overflow
     double log_sum_exp = numeric_limits<double>::lowest();
-    double max_score = numeric_limits<double>::lowest();
+    double to_score = numeric_limits<double>::lowest();
     
     // go in reverse order because this has fewer numerical problems when the scores are sorted (as usual)
     for (int64_t i = scaled_scores.size() - 1; i >= 0; i--) {
         // get the value of one copy of the score and check if it's the max
         double score = scaled_scores.at(i);
-        if (score >= max_score) {
+        if (max_idx_out && score >= to_score) {
             // Since we are going in reverse order, make sure to break ties in favor of the earlier item.
             *max_idx_out = i;
-            max_score = score;
+            to_score = score;
         }
         
         // add all copies of the score
@@ -479,7 +492,11 @@ double GSSWAligner::maximum_mapping_quality_exact(const vector<double>& scaled_s
         }
     }
     
-    double direct_mapq = -quality_scale_factor * subtract_log(0.0, max_score - log_sum_exp);
+    if (!max_idx_out) {
+        to_score = scaled_scores.empty() ? 0.0 : scaled_scores.front();
+    }
+    
+    double direct_mapq = -quality_scale_factor * subtract_log(0.0, to_score - log_sum_exp);
     return std::isinf(direct_mapq) ? (double) numeric_limits<int32_t>::max() : direct_mapq;
 }
 
@@ -521,6 +538,9 @@ double GSSWAligner::maximum_mapping_quality_exact(const vector<double>& scaled_s
 double GSSWAligner::maximum_mapping_quality_approx(const vector<double>& scaled_scores, size_t* max_idx_out,
                                                    const vector<double>* multiplicities) {
     assert(!scaled_scores.empty());
+    
+    // TODO: this isn't very well-named now that it also supports computing non-maximum
+    // mapping qualities
     
     // determine the maximum score and the count of the next highest score
     double max_score = scaled_scores.at(0);
@@ -571,9 +591,19 @@ double GSSWAligner::maximum_mapping_quality_approx(const vector<double>& scaled_
     }
    
     // record the index of the highest score
-    *max_idx_out = max_idx;
-
-    return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1.0 ? log(next_count) : 0.0)));
+    if (max_idx_out) {
+        *max_idx_out = max_idx;
+    }
+    if (max_idx_out || max_idx == 0) {
+        // we're either returning the mapping quality of whichever was the best, or we're
+        // returning the mapping quality of the first, which also is the best
+        return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1.0 ? log(next_count) : 0.0)));
+    }
+    else {
+        // we're returning the mapping quality of the first, which is not the best. the approximation
+        // gets complicated here, so lets just fall back on the exact computation
+        return maximum_mapping_quality_exact(scaled_scores, nullptr, multiplicities);
+    }
 }
 
 double GSSWAligner::group_mapping_quality_exact(const vector<double>& scaled_scores, const vector<size_t>& group,
@@ -696,8 +726,8 @@ void GSSWAligner::compute_mapping_quality(vector<Alignment>& alignments,
     }
 }
 
-int32_t GSSWAligner::compute_mapping_quality(const vector<double>& scores, bool fast_approximation,
-                                             const vector<double>* multiplicities) const {
+int32_t GSSWAligner::compute_max_mapping_quality(const vector<double>& scores, bool fast_approximation,
+                                                 const vector<double>* multiplicities) const {
     
     vector<double> scaled_scores(scores.size());
     for (size_t i = 0; i < scores.size(); i++) {
@@ -706,6 +736,16 @@ int32_t GSSWAligner::compute_mapping_quality(const vector<double>& scores, bool 
     size_t idx;
     return (int32_t) (fast_approximation ? maximum_mapping_quality_approx(scaled_scores, &idx, multiplicities)
                                          : maximum_mapping_quality_exact(scaled_scores, &idx, multiplicities));
+}
+
+int32_t GSSWAligner::compute_first_mapping_quality(const vector<double>& scores, bool fast_approximation,
+                                                   const vector<double>* multiplicities) const {
+    vector<double> scaled_scores(scores.size());
+    for (size_t i = 0; i < scores.size(); i++) {
+        scaled_scores[i] = log_base * scores[i];
+    }
+    return (int32_t) (fast_approximation ? first_mapping_quality_approx(scaled_scores, multiplicities)
+                                         : first_mapping_quality_exact(scaled_scores, multiplicities));
 }
 
 int32_t GSSWAligner::compute_group_mapping_quality(const vector<double>& scores, const vector<size_t>& group,
@@ -1559,17 +1599,17 @@ int32_t Aligner::score_full_length_bonus(bool left_side, const Alignment& alignm
     return full_length_bonus;
 }
 
-int32_t Aligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
+int32_t Aligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const path_t& path,
                                          string::const_iterator seq_begin, bool no_read_end_scoring) const {
     
     int32_t score = 0;
     string::const_iterator read_pos = seq_begin;
     bool in_deletion = false;
     for (size_t i = 0; i < path.mapping_size(); i++) {
-        const Mapping& mapping = path.mapping(i);
+        const auto& mapping = path.mapping(i);
         
         for (size_t j = 0; j < mapping.edit_size(); j++) {
-            const Edit& edit = mapping.edit(j);
+            const auto& edit = mapping.edit(j);
             
             if (edit.from_length() > 0) {
                 if (edit.to_length() > 0) {
@@ -2255,7 +2295,7 @@ int32_t QualAdjAligner::score_full_length_bonus(bool left_side, const Alignment&
                                    alignment.quality().begin());
 }
 
-int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
+int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const path_t& path,
                                                 string::const_iterator seq_begin, bool no_read_end_scoring) const {
     
     int32_t score = 0;
@@ -2264,7 +2304,7 @@ int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, cons
     
     bool in_deletion = false;
     for (size_t i = 0; i < path.mapping_size(); i++) {
-        const Mapping& mapping = path.mapping(i);
+        const auto& mapping = path.mapping(i);
         
         // get the sequence of this node on the proper strand
         string node_seq = graph.get_sequence(graph.get_handle(mapping.position().node_id(),
@@ -2273,7 +2313,7 @@ int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, cons
         string::const_iterator ref_pos = node_seq.begin() + mapping.position().offset();
         
         for (size_t j = 0; j < mapping.edit_size(); j++) {
-            const Edit& edit = mapping.edit(j);
+            const auto& edit = mapping.edit(j);
             
             if (edit.from_length() > 0) {
                 if (edit.to_length() > 0) {

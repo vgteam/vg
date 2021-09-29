@@ -199,7 +199,8 @@ using namespace std;
         /// make a sentinel meant to indicate an unmapped read
         static Alignment make_null_alignment(const Alignment& source);
         
-        static multipath_alignment_t make_null_mp_alignment(const multipath_alignment_t& source);
+        static multipath_alignment_t make_null_mp_alignment(const string& src_sequence,
+                                                            const string& src_quality);
         
         /// the graph we're surjecting onto
         const PathPositionHandleGraph* graph = nullptr;

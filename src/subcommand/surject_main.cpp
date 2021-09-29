@@ -234,25 +234,30 @@ int main_surject(int argc, char** argv) {
         exit(1);
     }
 
-    // if no paths were given take all of those in the index
-    if (path_names.empty()) {
-        xgidx->for_each_path_handle([&](path_handle_t path_handle) {
-            path_names.insert(xgidx->get_path_name(path_handle));
-        });
-    }
-    
+    // add the target paths.  if there are no path names, add them all.  otherwise, take into account possible subpath names.
     unordered_set<path_handle_t> paths;
-    for (const string& path_name : path_names) {
-        paths.insert(xgidx->get_path_handle(path_name));
-    }
+    xgidx->for_each_path_handle([&](path_handle_t path_handle) {
+        if (path_names.empty() || path_names.count(Paths::get_base_name(xgidx->get_path_name(path_handle)))) {
+            paths.insert(path_handle);
+        }
+        });
+    // don't use this anymore: it's no longer updated to include all paths when none given. 
+    path_names.clear();    
 
     // Make a single thread-safe Surjector.
     Surjector surjector(xgidx);
     surjector.adjust_alignments_for_base_quality = qual_adj;
-    surjector.min_splice_length = spliced ? min_splice_length : numeric_limits<int64_t>::max();
+    if (spliced) {
+        surjector.min_splice_length = min_splice_length;
+        // we have to bump this up to be sure to align most splice junctions
+        surjector.max_subgraph_bases = 1024 * 1024;
+    }
+    else {
+        surjector.min_splice_length = numeric_limits<int64_t>::max();
+    }
     
     // Get the paths to use in the HTSLib header sequence dictionary
-    vector<path_handle_t> sequence_dictionary = get_sequence_dictionary(ref_paths_name, *xgidx); 
+    vector<tuple<path_handle_t, size_t, size_t>> sequence_dictionary = get_sequence_dictionary(ref_paths_name, *xgidx); 
    
     // Count our threads
     int thread_count = get_thread_count();
@@ -365,7 +370,7 @@ int main_surject(int argc, char** argv) {
         }
     } else if (input_format == "GAMP") {
         // Working on multipath alignments. We need to set the emitter up ourselves.
-        auto path_order_and_length = extract_path_metadata(sequence_dictionary, *xgidx);
+        auto path_order_and_length = extract_path_metadata(sequence_dictionary, *xgidx).first;
         MultipathAlignmentEmitter mp_alignment_emitter("-", thread_count, output_format, xgidx, &path_order_and_length);
         mp_alignment_emitter.set_read_group(read_group);
         mp_alignment_emitter.set_sample_name(sample_name);
