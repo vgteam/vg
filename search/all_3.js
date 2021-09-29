@@ -125,7 +125,7 @@ var searchData=
   ['clip_5flow_5fdepth_5fnodes_598',['clip_low_depth_nodes',['../namespacevg.html#abd08fd8b46b28668b8923b059a9d174e',1,'vg']]],
   ['clip_5flow_5fdepth_5fnodes_5fgeneric_599',['clip_low_depth_nodes_generic',['../namespacevg.html#ae0ac1f551e17198949b97fe0538fd16a',1,'vg']]],
   ['clip_5fmain_2ecpp_600',['clip_main.cpp',['../clip__main_8cpp.html',1,'']]],
-  ['clock_601',['clock',['../classvg_1_1Watchdog.html#a7ef04f4ac4f47f7bb02f7ac1b17feb09',1,'vg::Watchdog']]],
+  ['clock_601',['clock',['../classvg_1_1Funnel.html#a8173e5288d688fbf38e324eeb1308978',1,'vg::Funnel::clock()'],['../classvg_1_1Watchdog.html#a7ef04f4ac4f47f7bb02f7ac1b17feb09',1,'vg::Watchdog::clock()']]],
   ['close_602',['close',['../structhFILE__backend.html#a590725a4192591efd3349067808cde27',1,'hFILE_backend::close()'],['../classvg_1_1Viz.html#a80cd5bc578f48ea2279e298405e71393',1,'vg::Viz::close()']]],
   ['close_5fedit_5ftmpfiles_603',['close_edit_tmpfiles',['../classvg_1_1Packer.html#afd2c25becb15d4780d62673b11b2bce9',1,'vg::Packer']]],
   ['close_5ffd_604',['close_fd',['../classhandlegraph_1_1TriviallySerializable.html#afc178fcc343f3447429904192127ce5e',1,'handlegraph::TriviallySerializable']]],

@@ -237,6 +237,8 @@ Protected Types</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
+<tr class="memitem:af629f2b0730c6f38794d4193740317cc"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#af629f2b0730c6f38794d4193740317cc">distance_to_annotation</a> (int64_t distance) const</td></tr>
+<tr class="separator:af629f2b0730c6f38794d4193740317cc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af3e5c53b0250173b6d0eb097cf884986"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#af3e5c53b0250173b6d0eb097cf884986">find_minimizers</a> (const std::string &amp;sequence, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
 <tr class="separator:af3e5c53b0250173b6d0eb097cf884986"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab9e0a0ad996ae2011c90e2a6d6dd4b4a"><td class="memItemLeft" align="right" valign="top">std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#a72644e4df554de0f0a2d3b50a9a3094a">Seed</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#ab9e0a0ad996ae2011c90e2a6d6dd4b4a">find_seeds</a> (const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
@@ -790,6 +792,33 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Get the distance between a pair of read alignments </p>
+
+</div>
+</div>
+<a id="af629f2b0730c6f38794d4193740317cc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af629f2b0730c6f38794d4193740317cc">&#9670;&nbsp;</a></span>distance_to_annotation()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::MinimizerMapper::distance_to_annotation </td>
+          <td>(</td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>distance</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Convert an integer distance, with limits standing for no distance, to a double annotation that can safely be parsed back from JSON into an integer if it is integral. </p>
 
 </div>
 </div>
