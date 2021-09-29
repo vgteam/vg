@@ -15,6 +15,7 @@ void Funnel::start(const string& name) {
 
     // (Re)start the funnel.
     funnel_name = name;
+    start_time = clock::now();
     
     // Clear out old data
     stage_name.clear();
@@ -25,6 +26,8 @@ void Funnel::start(const string& name) {
 void Funnel::stop() {
     // Stop any lingering stage (which takes care of substages)
     stage_stop();
+    // Stop the funnel overall
+    stop_time = clock::now();
 }
 
 void Funnel::stage(const string& name) {
@@ -40,6 +43,9 @@ void Funnel::stage(const string& name) {
     
     // Save the name
     stage_name = name;
+    
+    // Record the start time
+    stage_start_time = clock::now();
 }
 
 void Funnel::stage_stop() {
@@ -54,6 +60,10 @@ void Funnel::stage_stop() {
         
         // Say the stage is stopped 
         stage_name.clear();
+        
+        // Record the duration in seconds
+        auto stage_stop_time = clock::now();
+        stages.back().duration = chrono::duration_cast<chrono::duration<double>>(stage_stop_time - stage_start_time).count();
     }
 }
 
@@ -222,7 +232,7 @@ size_t Funnel::latest() const {
     return stages.back().items.size() - 1;
 }
 
-void Funnel::for_each_stage(const function<void(const string&, const vector<size_t>&)>& callback) const {
+void Funnel::for_each_stage(const function<void(const string&, const vector<size_t>&, const double&)>& callback) const {
     for (auto& stage : stages) {
         // Make a vector of item sizes
         vector<size_t> item_sizes;
@@ -231,7 +241,7 @@ void Funnel::for_each_stage(const function<void(const string&, const vector<size
             item_sizes.push_back(item.group_size);
         }
         // Report the name and item count of each stage.
-        callback(stage.name, item_sizes);
+        callback(stage.name, item_sizes, stage.duration);
     }
 }
 
@@ -396,9 +406,14 @@ void Funnel::to_dot(ostream& out) {
     out << "}" << endl;
 }
 void Funnel::annotate_mapped_alignment(Alignment& aln, bool annotate_correctness) {
-    for_each_stage([&](const string& stage, const vector<size_t>& result_sizes) {
+    // Save the total duration in the field set asside for it
+    aln.set_time_used(chrono::duration_cast<chrono::duration<double>>(stop_time - start_time).count());
+    
+    for_each_stage([&](const string& stage, const vector<size_t>& result_sizes, const double& duration) {
         // Save the number of items
         set_annotation(aln, "stage_" + stage + "_results", (double)result_sizes.size());
+        // And the per-stage duration
+        set_annotation(aln, "stage_" + stage + "_time", duration);
     });
 
     if (annotate_correctness) {
