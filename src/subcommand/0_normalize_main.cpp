@@ -7,6 +7,7 @@
 
 #include <gbwtgraph/gbwtgraph.h>
 #include "../gbwt_helper.hpp"
+#include "../gbwtgraph_helper.hpp"
 
 #include "subcommand.hpp"
 
@@ -28,7 +29,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-pair<shared_ptr<MutablePathDeletableHandleGraph>, gbwt::GBWT> run_norm(vector<const Snarl *> snarl_roots, int optind, int argc, char** argv, string gbwt_file, string gbwt_graph, int max_handle_size, int max_alignment_size){
+pair<shared_ptr<MutablePathDeletableHandleGraph>, gbwt::GBWT> run_norm(vector<const Snarl *> snarl_roots, int optind, int argc, char** argv, string gbwt_file, string gbwt_graph_file, int max_handle_size, int max_alignment_size){
   // getting graph of any type, except non-mutable graphs (e.g., xg)
   shared_ptr<MutablePathDeletableHandleGraph> graph;
   get_input_file(optind, argc, argv, [&](istream &in) {
@@ -43,21 +44,37 @@ pair<shared_ptr<MutablePathDeletableHandleGraph>, gbwt::GBWT> run_norm(vector<co
   // Load the GBWT from its container
   unique_ptr<gbwt::GBWT> gbwt;
   gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
-  unique_ptr<gbwtgraph::GBWTGraph> gbwt_graph_file;
-  // gbwtgraph::GBWTGraph* gbwt_graph_file;
-  if (gbwt_graph.size() == 0)
+  
+  // gbwtgraph::GBWTGraph gbwt_graph = gbwtgraph::GBWTGraph(*gbwt, *graph);
+  // algorithms::SnarlNormalizer normalizer = algorithms::SnarlNormalizer(
+  // *graph, *gbwt, gbwt_graph, max_handle_size, max_alignment_size);
+  
+  // gbwtgraph::GBWTGraph gbwt_graph = gbwtgraph::GBWTGraph(*gbwt, *graph);
+  // save_gbwtgraph(gbwt_graph, gbwt_file+".gg");
+  // unique_ptr<gbwtgraph::GBWTGraph> gbwt_graph_p;
+  // gbwt_graph_p = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(gbwt_file+".gg");
+  // algorithms::SnarlNormalizer normalizer = algorithms::SnarlNormalizer(
+  // *graph, *gbwt, *gbwt_graph_p, max_handle_size, max_alignment_size);
+
+  unique_ptr<gbwtgraph::GBWTGraph> gbwt_graph;
+  if (gbwt_graph_file.size() == 0)
   {
-    cerr << "gbwt_graph option is empty. Making new GBWTGraph from gbwt and graph." << endl;
-    *gbwt_graph_file = gbwtgraph::GBWTGraph(*gbwt, *graph);
+    string gbwt_graph_output_file = gbwt_file + ".gg";
+    cerr << "gbwt_graph option is empty. Making new GBWTGraph from gbwt and graph. Saving as " << gbwt_graph_output_file << endl;
+    gbwtgraph::GBWTGraph new_gbwt_graph = gbwtgraph::GBWTGraph(*gbwt, *graph);
+    save_gbwtgraph(new_gbwt_graph, gbwt_graph_output_file);
+    //todo: find way to load gbwtgraph's unique pointer without saving and then reloading file.
+    gbwt_graph = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(gbwt_graph_output_file);
+    gbwt_graph->set_gbwt(*gbwt);
   }
   else 
   {
-    gbwt_graph_file = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(gbwt_graph);
-    
+    gbwt_graph = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(gbwt_graph_file);
+    gbwt_graph->set_gbwt(*gbwt);
   }
 
   algorithms::SnarlNormalizer normalizer = algorithms::SnarlNormalizer(
-    *graph, *gbwt, *gbwt_graph_file, max_handle_size, max_alignment_size);
+    *graph, *gbwt, *gbwt_graph, max_handle_size, max_alignment_size);
 
   gbwt::GBWT normalized_gbwt = normalizer.normalize_snarls(snarl_roots);
   return make_pair(graph, normalized_gbwt);
