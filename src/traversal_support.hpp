@@ -100,12 +100,23 @@ public:
     /// set the threshold
     virtual void set_support_switch_threshold(size_t trav_thresh, size_t node_thresh);
 
+    /// set the breakpoint stricter upper override
+    virtual void set_min_bp_edge_override(bool bp_override);
+
+    /// apply the override to a set of traversals
+    virtual void apply_min_bp_edge_override(const vector<SnarlTraversal>& traversals,
+                                            const set<int>& tgt_travs,
+                                            vector<Support>& supports, int ref_trav_idx) const;
+
 protected:
 
     size_t average_traversal_support_switch_threshold = 50;
     /// Use average instead of minimum support when determining a node's support
     /// its position supports.
     size_t average_node_support_switch_threshold = 50;
+
+    /// If on, always apply minimum edge support for breakpoint (ref->offref) edges
+    bool min_bp_edge_override = false;
 
     const HandleGraph& graph;
 

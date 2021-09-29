@@ -56,7 +56,8 @@ void augment(MutablePathMutableHandleGraph* graph,
              double min_mapq = 0,
              Packer* packer = nullptr,
              size_t min_bp_coverage = 0,
-             double max_frac_n = 1.);
+             double max_frac_n = 1.,
+             bool edges_only = false);
 
 /// Like above, but operates on a vector of Alignments, instead of a file
 /// (Note: It is best to use file interface to stream large numbers of alignments to save memory)
@@ -73,7 +74,8 @@ void augment(MutablePathMutableHandleGraph* graph,
              double min_mapq = 0,
              Packer* packer = nullptr,
              size_t min_bp_coverage = 0,
-             double max_frac_n = 1.);
+             double max_frac_n = 1.,
+             bool edges_only = false);
 
 /// Generic version used to implement the above three methods.  
 void augment_impl(MutablePathMutableHandleGraph* graph,
@@ -89,7 +91,8 @@ void augment_impl(MutablePathMutableHandleGraph* graph,
                   double min_mapq,
                   Packer* packer,
                   size_t min_bp_coverage,
-                  double max_frac_n);
+                  double max_frac_n,
+                  bool edges_only);
 
 /// Add a path to the graph.  This is like VG::extend, and expects
 /// a path with no edits, and for all the nodes and edges in the path
@@ -192,6 +195,17 @@ vector<Translation> make_translation(const HandleGraph* graph,
                                      const unordered_map<id_t, Path>& added_nodes,
                                      const unordered_map<id_t, size_t>& orig_node_sizes);
   
+/// Add edges between consecutive mappings that aren't already in the graph
+/// note: offsets are completely ignored (a simplifying assumption designed
+/// to help with SV genotpying with pack/call as edge packing works similarly)
+///
+/// No existing nodes or edges are modified, and no nodes are added, just edges
+/// So the output graph will be id-space compatible, and any GAM/GAF will continue
+/// to be valid for it.  
+void add_edges_only(MutableHandleGraph* graph,
+                    function<void(function<void(Alignment&)>,bool, bool)> iterate_gam,
+                    double min_mapq,
+                    size_t min_bp_coverage);
 
 }
 

@@ -331,6 +331,9 @@ vector<Support> TraversalSupportFinder::get_traversal_set_support(const vector<S
                 tot_supports[i] = Support();
             }
         }
+        if (min_bp_edge_override && ref_trav_idx >= 0) {
+            apply_min_bp_edge_override(traversals, tgt_travs, tot_supports, ref_trav_idx);
+        }
         return tot_supports;
     } else {
         return use_avg_node_support ? min_supports_avg : min_supports_min;
@@ -415,6 +418,50 @@ unordered_map<id_t, size_t> TraversalSupportFinder::get_ref_offsets(const SnarlT
 void TraversalSupportFinder::set_support_switch_threshold(size_t trav_thresh, size_t node_thresh) {
     average_traversal_support_switch_threshold = trav_thresh;
     average_node_support_switch_threshold = node_thresh;
+}
+
+void TraversalSupportFinder::set_min_bp_edge_override(bool bp_override) {
+    min_bp_edge_override = bp_override;
+}
+
+void TraversalSupportFinder::apply_min_bp_edge_override(const vector<SnarlTraversal>& traversals,
+                                                        const set<int>& tgt_travs,
+                                                        vector<Support>& supports, int ref_trav_idx) const {
+    assert(ref_trav_idx >=0 && ref_trav_idx < supports.size());
+
+    // define a breakpoint edge as one that joins a ref and a non-ref node
+    // to find them, we index the reference nodes
+    unordered_set<nid_t> ref_nodes;
+    const SnarlTraversal& ref_trav = traversals[ref_trav_idx];
+    for (size_t i = 0; i < ref_trav.visit_size(); ++i) {
+        ref_nodes.insert(ref_trav.visit(i).node_id());
+    }
+
+    for (size_t i = 0; i < traversals.size(); ++i) {
+        if (tgt_travs.empty() || tgt_travs.count(i)) {
+            Support bp_edge_support;
+            bp_edge_support.set_forward(numeric_limits<double>::max());
+            const SnarlTraversal& trav = traversals[i];
+            const Visit* prev_visit = nullptr;
+            for (size_t j = 0; j < trav.visit_size(); ++j) {
+                const Visit& visit = trav.visit(j);
+                if (j > 0) {
+                    if (ref_nodes.count(visit.node_id()) != ref_nodes.count(prev_visit->node_id())) {
+                        Support edge_support = get_edge_support(prev_visit->node_id(), prev_visit->backward(),
+                                                                visit.node_id(), visit.backward());
+                        bp_edge_support = support_min(bp_edge_support, edge_support);                        
+                    }
+                }
+                prev_visit = &visit;
+            }
+            // todo: parameterize
+            // in practice, just takingthe min makes things worse.  so we hardcode a conservative cutoff
+            // here to prevent unsupported edges from leaking through
+            if (support_val(bp_edge_support) < 1) {
+                supports[i] = support_min(bp_edge_support, supports[i]);
+            }
+        }
+    }
 }
 
 PackedTraversalSupportFinder::PackedTraversalSupportFinder(const Packer& packer, SnarlManager& snarl_manager) :

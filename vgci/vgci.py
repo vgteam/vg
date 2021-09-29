@@ -53,11 +53,16 @@ class VGCITest(TestCase):
         # What (additional) portion of reads are allowed to get worse scores
         # when moving to a more inclusive reference?
         self.worse_threshold = 0.005
-        self.input_store = 'https://vg-data.s3.amazonaws.com/bakeoff'
+        # /public/groups/vg/vg-data on Courtyard is served as
+        # https://courtyard.gi.ucsc.edu/~anovak/vg-data/
+        self.vg_data = 'https://courtyard.gi.ucsc.edu/~anovak/vg-data'
+        self.input_store = self.vg_data + '/bakeoff'
         self.vg_docker = None
         self.container = None # Use default in toil-vg, which is Docker
         self.verify = True
         self.do_teardown = True
+        # This baseline nedds to be updated by CI, so we put it in S3 even
+        # though it won't be accessible without UCSC's S3 access
         self.baseline = 's3://vg-data/vg_ci/vgci_regression_baseline'
         self.cores = 8
         self.sim_chunk_size = 100000
@@ -139,25 +144,32 @@ class VGCITest(TestCase):
     def _read_baseline_file(self, tag, path):
         """ read a (small) text file from the baseline store """
         if self.baseline.startswith('s3://'):
-            toks = self.baseline[5:].split('/')
-            bname = toks[0]
-            keyname = '/{}/outstore-{}/{}'.format('/'.join(toks[1:]), tag, path)
-            
-            # Convert to a public HTTPS URL
-            url = 'https://{}.s3.amazonaws.com{}'.format(bname, keyname)
-            # And download it
-
             try:
-                connection = urllib.request.urlopen(url)
-                return connection.read().decode('utf-8')
-            except urllib.error.HTTPError as e:
-                if e.code == 404 or e.code == 403:
-                    # Baseline file doesn't yet exist. Give an empty string.
-                    # Nonexistent things give 403 to prevent enumeration.
-                    return ""
-                else:
-                    # Something else is wrong
-                    raise
+                # Try downloading from S3
+                return subprocess.check_output(['aws', 's3', 'cp', '/'.join([self.baseline, 'outstore-' + tag, path]), '-']).decode('utf-8')
+            except subprocess.CalledProcessError:
+                # If that doesn't work, we may not have access.
+                # See if it's available over HTTP (which it won't be if it's our vg-data bucket).
+                toks = self.baseline[5:].split('/')
+                bname = toks[0]
+                keyname = '/{}/outstore-{}/{}'.format('/'.join(toks[1:]), tag, path)
+                
+                # Convert to a public HTTPS URL
+                url = 'https://{}.s3.amazonaws.com{}'.format(bname, keyname)
+                # And download it
+
+                try:
+                    connection = urllib.request.urlopen(url)
+                    return connection.read().decode('utf-8')
+                except urllib.error.HTTPError as e:
+                    if e.code == 404 or e.code == 403:
+                        # Baseline file doesn't yet exist, or isn't public.
+                        # Give an empty string. Nonexistent things give 403 to
+                        # prevent enumeration.
+                        return ""
+                    else:
+                        # Something else is wrong
+                        raise
         else:
             # Assume it's a raw path.
             with io.open(os.path.join(self.baseline, 'outstore-{}'.format(tag), path), 'r', encoding='utf8') as f:
@@ -577,7 +589,10 @@ class VGCITest(TestCase):
             sim_chunks += 1
         opts += '--maxCores {} --sim_chunks {} --seed {} '.format(self.cores, sim_chunks, 8)
         if sim_opts:
-            opts += '--sim_opts \'{}\' '.format(sim_opts)
+            # Make sure to prefix the sim options string with a space so that
+            # Toil's parser doesn't see a leading dash and decide it's an
+            # option and not an argument.
+            opts += '--sim_opts \' {}\' '.format(sim_opts)
         if sim_fastq:
             opts += '--fastq {} '.format(sim_fastq)
         opts += '--annotate_xg {} '.format(base_xg_path)
@@ -603,7 +618,7 @@ class VGCITest(TestCase):
             # toil-vg map options
             # don't waste time sharding reads since we only run on one node
             single_reads_chunk = True,
-            mpmap_opts = ['-B', '-F GAM'],
+            mpmap_opts = ['-B', '-F', 'GAM', '-n', 'DNA'],
             more_mpmap_opts = more_mpmap_opts,
             force_outstore = self.force_outstore
         )
@@ -1198,10 +1213,10 @@ class VGCITest(TestCase):
         calling comparison between call, genotype and freebayes on an alignment extracted
         from the HG002 whole genome experiment run from the paper
         """
-        giab = 'https://vg-data.s3.amazonaws.com/giab/'
-        #self.input_store = 'https://vg-data.s3.amazonaws.com/CHR21_DEC3'
+        giab = self.vg_data + '/giab/'
+        #self.input_store = self.vg_data + '/CHR21_DEC3'
         # using this one until above is fixed
-        self.input_store = 'https://vg-data.s3.amazonaws.com/dnanexus'
+        self.input_store = self.vg_data + '/dnanexus'
         log.info("Test start at {}".format(datetime.now()))
         self._test_calleval('CHR21', 'snp1kg', "HG002",
                             self._input('snp1kg_21.vg'),
@@ -1323,7 +1338,7 @@ class VGCITest(TestCase):
         cactus_SK1 : keep only SK1 path
         cactus_S288c : keep only S288c (reference) path
         """
-        self.input_store = 'https://vg-data.s3.amazonaws.com/cactus_yeast'
+        self.input_store = self.vg_data + '/cactus_yeast'
         log.info("Test start at {}".format(datetime.now()))
         self._test_mapeval(100000, 'YEAST', 'cactus',
                            ['cactus', 'cactus_drop_SK1', 'cactus_SK1', 'cactus_S288c'],

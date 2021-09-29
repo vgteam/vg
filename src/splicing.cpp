@@ -19,100 +19,208 @@
 
 namespace vg {
 
-SpliceMotifs::SpliceMotifs(const GSSWAligner& scorer) {
+SpliceStats::SpliceStats(const GSSWAligner& scorer) {
     
-    vector<tuple<string, string, double>> default_motifs;
-    default_motifs.emplace_back("GT", "AG", 0.9924);
-    default_motifs.emplace_back("GC", "AG", 0.0069);
-    default_motifs.emplace_back("AT", "AC", 0.0005);
-    init(default_motifs, scorer);
+    vector<tuple<string, string, double>> default_motifs{
+        {string("GT"), string("AG"), 0.9924},
+        {string("GC"), string("AG"), 0.0069},
+        {string("AT"), string("AC"), 0.0005}
+    };
+    vector<double> default_mixture_weights{
+        0.056053626960353785,
+        0.08887092416144658,
+        0.24633134729683695,
+        0.0008866793308038118,
+        0.6078574222505589
+    };
+    vector<pair<double, double>> default_component_params{
+        {4.531698286987208, 0.137211790877491},
+        {5.272613870298457, 0.432711724560919},
+        {9.092960704882925, 1.3246330622550786},
+        {0.6443259788228138, 0.5969347049425677},
+        {7.256815224883574, 1.0409647232592127}
+    };
+    init(default_motifs, default_mixture_weights, default_component_params, scorer);
 }
 
-SpliceMotifs::SpliceMotifs(const vector<tuple<string, string, double>>& motifs,
-                           const GSSWAligner& scorer) {
-    init(motifs, scorer);
+SpliceStats::SpliceStats(const vector<tuple<string, string, double>>& motifs,
+                         const vector<double>& lognormal_mixture_weights,
+                         const vector<pair<double, double>>& lognormal_component_params,
+                         const GSSWAligner& scorer) {
+    init(motifs, lognormal_mixture_weights, lognormal_component_params, scorer);
 }
 
-size_t SpliceMotifs::size() const {
-    return data.size();
+size_t SpliceStats::motif_size() const {
+    return motif_data.size();
 }
 
-const string& SpliceMotifs::oriented_motif(size_t motif_num, bool left_side) const {
-    return left_side ? get<1>(data[motif_num]) : get<0>(data[motif_num]);
+const string& SpliceStats::oriented_motif(size_t motif_num, bool left_side) const {
+    return left_side ? get<1>(motif_data[motif_num]) : get<0>(motif_data[motif_num]);
 }
 
-bool SpliceMotifs::motif_is_reverse(size_t motif_num) const {
+bool SpliceStats::motif_is_reverse(size_t motif_num) const {
     return motif_num % 2;
 }
 
-string SpliceMotifs::unoriented_motif(size_t motif_num, bool left_side) const {
-    return left_side ? get<1>(unaltered_data[motif_num / 2]) : get<0>(unaltered_data[motif_num / 2]);
+string SpliceStats::unoriented_motif(size_t motif_num, bool left_side) const {
+    return left_side ? get<1>(unaltered_motif_data[motif_num / 2]) : get<0>(unaltered_motif_data[motif_num / 2]);
 }
 
-int32_t SpliceMotifs::score(size_t motif_num) const {
-    return get<2>(data[motif_num]);
+int32_t SpliceStats::motif_score(size_t motif_num) const {
+    return get<2>(motif_data[motif_num]);
 }
 
-void SpliceMotifs::update_scoring(const GSSWAligner& scorer) {
-    init(unaltered_data, scorer);
+int32_t SpliceStats::intron_length_score(int64_t length) const {
+    return round(intron_length_log_likelihood(length) - mode_log_likelihood) / log_base;
 }
 
-void SpliceMotifs::init(const vector<tuple<string, string, double>>& motifs,
+void SpliceStats::update_motifs(const vector<tuple<string, string, double>>& motifs,
+                                const GSSWAligner& scorer) {
+    init(motifs, mixture_weights, component_params, scorer);
+}
+
+void SpliceStats::update_intron_length_distribution(const vector<double>& lognormal_mixture_weights,
+                                                    const vector<pair<double, double>>& lognormal_component_params,
+                                                    const GSSWAligner& scorer) {
+    init(unaltered_motif_data, lognormal_mixture_weights, lognormal_component_params, scorer);
+}
+
+void SpliceStats::update_scoring(const GSSWAligner& scorer) {
+    init(unaltered_motif_data, mixture_weights, component_params, scorer);
+}
+
+double SpliceStats::intron_length_log_likelihood(int64_t length) const {
+    double x = length;
+    double likelihood = 0.0;
+    for (size_t i = 0; i < mixture_weights.size(); ++i) {
+        double mu, sigma;
+        tie(mu, sigma) = component_params[i];
+        likelihood += mixture_weights[i] * lognormal_pdf(x, mu, sigma);
+    }
+    return log(likelihood);
+}
+
+void SpliceStats::init(const vector<tuple<string, string, double>>& motifs,
+                        const vector<double>& lognormal_mixture_weights,
+                        const vector<pair<double, double>>& lognormal_component_params,
                         const GSSWAligner& scorer) {
+    
+    if (lognormal_mixture_weights.size() != lognormal_component_params.size()) {
+        cerr << "error:[SpliceStats] do not have same number of weights and component parameters" << endl;
+        exit(1);
+    }
+    double total_weight = 0.0;
+    for (auto wt : lognormal_mixture_weights) {
+        total_weight += wt;
+    }
+    if (abs(total_weight - 1.0) > .00001) {
+        cerr << "error:[SpliceStats] mixture component weights do not sum to 1" << endl;
+        exit(1);
+    }
+    if (motifs.empty()) {
+        cerr << "error:[SpliceStats] list of motifs is empty" << endl;
+        exit(1);
+    }
+    if (lognormal_mixture_weights.empty()) {
+        cerr << "error:[SpliceStats] list of intron length distribution parameters is empty" << endl;
+        exit(1);
+    }
     
     // TODO: does this normalization to 1 make sense?
     double total_frequency = 0.0;
     for (const auto& record : motifs) {
         if (get<0>(record).size() != 2 || get<1>(record).size() != 2) {
-             cerr << "error:[SpliceMotifs] Splice motif " << get<0>(record) << "-" << get<1>(record) << " is not a pair of dinucleotides." << endl;
+             cerr << "error:[SpliceStats] Splice motif " << get<0>(record) << "-" << get<1>(record) << " is not a pair of dinucleotides." << endl;
+            exit(1);
         }
         if (get<2>(record) < 0.0 || get<2>(record) > 1.0) {
-            cerr << "error:[SpliceMotifs] Frequency of splice motif " << get<0>(record) << "-" << get<1>(record) << " given as " << get<2>(record) << ". Must be a number between 0 and 1." << endl;
+            cerr << "error:[SpliceStats] Frequency of splice motif " << get<0>(record) << "-" << get<1>(record) << " given as " << get<2>(record) << ". Must be a number between 0 and 1." << endl;
+            exit(1);
         }
         total_frequency += get<2>(record);
     }
     // a little slop for numerical imprecision
     if (total_frequency > 1.000001) {
-        cerr << "error:[SpliceMotifs] Frequency of splice motifs sum to " << total_frequency << ". Must be a number between 0 and 1." << endl;
+        cerr << "error:[SpliceStats] Frequency of splice motifs sum to " << total_frequency << ". Must be a number between 0 and 1." << endl;
+        exit(1);
     }
     
     // in case we're resetting
-    data.clear();
-    unaltered_data = motifs;
+    motif_data.clear();
+    unaltered_motif_data = motifs;
     
 #ifdef debug_splice_region
     cerr << "recording splice table" << endl;
 #endif
     
-    data.reserve(motifs.size());
+    motif_data.reserve(motifs.size());
     for (const auto& record : motifs) {
         int32_t score = round(log(get<2>(record)) / scorer.log_base);
-        data.emplace_back();
-        get<0>(data.back()) = get<0>(record);
+        motif_data.emplace_back();
+        get<0>(motif_data.back()) = get<0>(record);
         // reverse the second string because it's encountered in reverse when going into
         // an intron
-        get<1>(data.back()) = string(get<1>(record).rbegin(), get<1>(record).rend());
+        get<1>(motif_data.back()) = string(get<1>(record).rbegin(), get<1>(record).rend());
         // convert frequency to a log likelihood
-        get<2>(data.back()) = score;
+        get<2>(motif_data.back()) = score;
         
         // now do the reverse complement
-        data.emplace_back();
-        get<0>(data.back()) = reverse_complement(get<1>(record));
-        get<1>(data.back()) = reverse_complement(string(get<0>(record).rbegin(), get<0>(record).rend()));
-        get<2>(data.back()) = score;
+        motif_data.emplace_back();
+        get<0>(motif_data.back()) = reverse_complement(get<1>(record));
+        get<1>(motif_data.back()) = reverse_complement(string(get<0>(record).rbegin(), get<0>(record).rend()));
+        get<2>(motif_data.back()) = score;
     }
+    
 #ifdef debug_splice_region
-    for (const auto& record : data) {
+    for (const auto& record : motif_data) {
         cerr << "\t" << get<0>(record) << "\t" << get<1>(record) << "\t" << get<2>(record) << endl;
     }
 #endif
+    
+    log_base = scorer.log_base;
+    mixture_weights = lognormal_mixture_weights;
+    component_params = lognormal_component_params;
+    
+    // find the mode of the mixture distribution
+    
+    // determine the interval we're going to search in
+    int64_t mode_range_min = numeric_limits<int64_t>::max();
+    int64_t mode_range_max = numeric_limits<int64_t>::min();
+    for (const auto& comp_params : component_params) {
+        double mu, sigma;
+        tie(mu, sigma) = comp_params;
+        mode_range_min = min<int64_t>(mode_range_min, floor(exp(mu - sigma * sigma)));
+        mode_range_max = max<int64_t>(mode_range_max, ceil(exp(mu)));
+    }
+    
+    // search for the modal log likeilhood
+    mode_log_likelihood = -numeric_limits<double>::max();
+    int64_t modal_length = -1;
+    
+    // in case of very wide distributions, limit the total number of steps (~100k)
+    int64_t max_num_steps = 128 * 1024;
+    int64_t step = max<int64_t>((mode_range_max - mode_range_min) / max_num_steps, 1);
+    for (int64_t l = mode_range_min; l <= mode_range_max; l += step) {
+        double log_likelihood = intron_length_log_likelihood(l);
+        if (log_likelihood > mode_log_likelihood) {
+            mode_log_likelihood = log_likelihood;
+            modal_length = l;
+        }
+    }
+    // refine in case the step was too small
+    for (int64_t l = max<int64_t>(0, modal_length - step); l < modal_length + step; ++l) {
+        double log_likelihood = intron_length_log_likelihood(l);
+        if (log_likelihood > mode_log_likelihood) {
+            mode_log_likelihood = log_likelihood;
+        }
+    }
 }
 
 SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t search_dist,
                            const HandleGraph& graph,
                            const DinucleotideMachine& dinuc_machine,
-                           const SpliceMotifs& splice_motifs)
-    : subgraph(graph, seed_pos, search_left, search_dist + 2), motif_matches(splice_motifs.size())
+                           const SpliceStats& splice_stats)
+    : subgraph(graph, seed_pos, search_left, search_dist + 2), motif_matches(splice_stats.motif_size())
 {
     
 #ifdef debug_splice_region
@@ -146,13 +254,13 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
     // check if we match any motifs at this location and if so remember it
     auto record_motif_matches = [&](handle_t handle, int64_t j,
                                     const vector<uint32_t>& states) {
-        for (size_t i = 0; i < splice_motifs.size(); ++i) {
-            if (dinuc_machine.matches(states[j], splice_motifs.oriented_motif(i, search_left))) {
+        for (size_t i = 0; i < splice_stats.motif_size(); ++i) {
+            if (dinuc_machine.matches(states[j], splice_stats.oriented_motif(i, search_left))) {
                 if ((j == 0 && !search_left) || (j + 1 == states.size() && search_left)) {
                     // we need to cross a node boundary to backtrack
                     subgraph.follow_edges(handle, !search_left, [&](const handle_t& prev) {
                         if (search_left) {
-                            if (subgraph.get_base(prev, 0) == splice_motifs.oriented_motif(i, true).front()) {
+                            if (subgraph.get_base(prev, 0) == splice_stats.oriented_motif(i, true).front()) {
                                 int64_t trav_dist = subgraph.min_distance_from_start(prev) + subgraph.get_length(prev) - 1;
                                 motif_matches[i].emplace_back(prev, 1, trav_dist);
 #ifdef debug_splice_region
@@ -162,7 +270,7 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
                         }
                         else {
                             size_t k = subgraph.get_length(prev) - 1;
-                            if (subgraph.get_base(prev, k) == splice_motifs.oriented_motif(i, false).front()) {
+                            if (subgraph.get_base(prev, k) == splice_stats.oriented_motif(i, false).front()) {
                                 int64_t trav_dist = subgraph.min_distance_from_start(prev) + k;
                                 motif_matches[i].emplace_back(prev, k, trav_dist);
 #ifdef debug_splice_region
@@ -719,7 +827,10 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
                 get_is_rev(get<0>(return_val)) = position.is_reverse();
                 get_offset(get<0>(return_val)) = position.offset() + mapping_from_length(mapping) - from_length;
                 if (dummy_mapping) {
-                    from_proto_position(mapping.position(), *dummy_mapping->mutable_position());
+                    auto dummy_position = dummy_mapping->mutable_position();
+                    dummy_position->set_node_id(id(get<0>(return_val)));
+                    dummy_position->set_is_reverse(is_rev(get<0>(return_val)));
+                    dummy_position->set_offset(offset(get<0>(return_val)));
                 }
             }
         }
@@ -825,11 +936,13 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
     else {
         begin = aln.sequence().begin();
     }
-#ifdef debug_trimming
-    cerr << "scoring trimmed subpath " << debug_string(dummy_path) << ", with substring " << (begin - aln.sequence().begin()) << ":" << (begin - aln.sequence().begin()) + get<1>(return_val) << endl;
-#endif
+
     
     get<2>(return_val) = aligner.score_partial_alignment(aln, graph, dummy_path, begin);
+    
+#ifdef debug_trimming
+    cerr << "scored trimmed subpath " << debug_string(dummy_path) << " with substring " << (begin - aln.sequence().begin()) << ":" << (begin - aln.sequence().begin()) + get<1>(return_val) << ": " << get<2>(return_val) << endl;
+#endif
     
     return return_val;
 }

@@ -40,13 +40,13 @@ pair<double, double> wellford_mean_var(size_t count, double mean, double M2, boo
     }
 }
 
-double phi(double x1, double x2) {
-    return (std::erf(x2/std::sqrt(2)) - std::erf(x1/std::sqrt(2)))/2;
+double Phi(double x) {
+    return 0.5 * (1.0 + std::erf(x / std::sqrt(2.0)));
 }
 
 // Modified from qnorm function in R source:
 // https://svn.r-project.org/R/trunk/src/nmath/qnorm.c
-double normal_inverse_cdf(double p) {
+double Phi_inv(double p) {
     assert(0.0 < p && p < 1.0);
     double q, r, val;
     
@@ -122,6 +122,19 @@ double normal_inverse_cdf(double p) {
         /* return (q >= 0.)? r : -r ;*/
     }
     return val;
+}
+
+double lognormal_pdf(double x, double mu, double sigma) {
+    const static double root_2pi = sqrt(2.0 * 3.14159265358979323846);
+    double density;
+    if (x > 0.0) {
+        double z = (log(x) - mu) / sigma;
+        density = exp(-z * z / 2.0) / (sigma * x);
+    }
+    else {
+        density = 0.0;
+    }
+    return density;
 }
 
 // https://stackoverflow.com/a/19039500/238609

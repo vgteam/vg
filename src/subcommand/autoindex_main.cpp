@@ -275,7 +275,7 @@ int main_autoindex(int argc, char** argv) {
     }
     
     if (IndexingParameters::verbosity >= IndexingParameters::Basic) {
-        cerr << "[vg autoindex] Excecuting command:";
+        cerr << "[vg autoindex] Executing command:";
         for (int i = 0; i < argc; ++i) {
             cerr << " " << argv[i];
         }

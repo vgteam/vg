@@ -162,6 +162,11 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     Funnel funnel;
     funnel.start(aln.name());
     
+    // Prepare the RNG for shuffling ties, if needed
+    LazyRNG rng([&]() {
+        return aln.sequence();
+    });
+    
     // Minimizers sorted by score in descending order.
     std::vector<Minimizer> minimizers = this->find_minimizers(aln.sequence(), funnel);
 
@@ -230,9 +235,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         }, [&](size_t a, size_t b) -> bool {
             return ((clusters[a].coverage > clusters[b].coverage) ||
                     (clusters[a].coverage == clusters[b].coverage && clusters[a].score > clusters[b].score));
-        },
-        cluster_coverage_threshold, min_extensions, max_extensions,
-        [&](size_t cluster_num) {
+        }, cluster_coverage_threshold, min_extensions, max_extensions, rng, [&](size_t cluster_num) {
             // Handle sufficiently good clusters in descending coverage order
             
             Cluster& cluster = clusters[cluster_num];
@@ -395,8 +398,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     
     // Go through the gapless extension groups in score order.
     process_until_threshold_b(cluster_extensions, cluster_extension_scores,
-        extension_set_score_threshold, 2, max_alignments,
-        [&](size_t extension_num) {
+        extension_set_score_threshold, 2, max_alignments, rng, [&](size_t extension_num) {
             // This extension set is good enough.
             // Called in descending score order.
             
@@ -467,7 +469,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 
                 // Do the DP and compute up to 2 alignments
                 best_alignments.emplace_back(aln);
-                find_optimal_tail_alignments(aln, extensions, best_alignments[0], best_alignments[1]);
+                find_optimal_tail_alignments(aln, extensions, rng, best_alignments[0], best_alignments[1]);
 
                 if (show_work) {
                     #pragma omp critical (cerr)
@@ -586,7 +588,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     
     process_until_threshold_a(alignments, (std::function<double(size_t)>) [&](size_t i) -> double {
         return alignments.at(i).score();
-    }, 0, 1, max_multimaps, [&](size_t alignment_num) {
+    }, 0, 1, max_multimaps, rng, [&](size_t alignment_num) {
         // This alignment makes it
         // Called in score order
         
@@ -636,7 +638,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
     // Use exact mapping quality 
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
-        get_regular_aligner()->compute_mapping_quality(scores, false) ;
+        get_regular_aligner()->compute_max_mapping_quality(scores, false) ;
 
 #ifdef print_minimizer_table
     double uncapped_mapq = mapq;
@@ -917,6 +919,11 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         aln2.set_read_group(read_group);
     }
     
+    // Prepare the RNG for shuffling ties, if needed
+    LazyRNG rng([&]() {
+        return aln1.sequence() + aln2.sequence();
+    });
+    
     // Minimizers for both reads, sorted by score in descending order.
     std::vector<std::vector<Minimizer>> minimizers_by_read(2);
     minimizers_by_read[0] = this->find_minimizers(aln1.sequence(), funnels[0]);
@@ -1019,12 +1026,12 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     }
 
     //Sort by the sum of the score and coverage of the best cluster for each end
-    std::sort(fragment_cluster_indices_by_score.begin(), fragment_cluster_indices_by_score.end(), [&](size_t a, size_t b) {
+    sort_shuffling_ties(fragment_cluster_indices_by_score.begin(), fragment_cluster_indices_by_score.end(), [&](size_t a, size_t b) {
         return cluster_coverage_by_fragment.first[a] + cluster_coverage_by_fragment.second[a] 
                + cluster_score_by_fragment.first[a] + cluster_score_by_fragment.second[a]  
             > cluster_coverage_by_fragment.first[b] + cluster_coverage_by_fragment.second[b] 
                 + cluster_score_by_fragment.first[b] + cluster_score_by_fragment.second[b];  
-    });
+    }, rng);
 
     // How many fragment clusters are at least as good as the one at each index
     vector<size_t> better_cluster_count (max_fragment_num+1); 
@@ -1164,8 +1171,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     return clusters[a].score > clusters[b].score;
                 }
             },
-            0, min_extensions, max_extensions,
-            [&](size_t cluster_num) {
+            0, min_extensions, max_extensions, rng, [&](size_t cluster_num) {
                 // Handle sufficiently good clusters 
                 Cluster& cluster = clusters[cluster_num];
                 if (!found_paired_cluster || fragment_cluster_has_pair[cluster.fragment] || 
@@ -1305,8 +1311,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
         // Go through the gapless extension groups in score order.
         process_until_threshold_b(cluster_extensions, cluster_extension_scores,
-            extension_set_score_threshold, 2, max_alignments,
-            [&](size_t extension_num) {
+            extension_set_score_threshold, 2, max_alignments, rng, [&](size_t extension_num) {
                 // This extension set is good enough.
                 // Called in descending score order.
                 
@@ -1367,7 +1372,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     
                     // Do the DP and compute up to 2 alignments
                     best_alignments.emplace_back(aln);
-                    find_optimal_tail_alignments(aln, extensions, best_alignments[0], best_alignments[1]);
+                    find_optimal_tail_alignments(aln, extensions, rng, best_alignments[0], best_alignments[1]);
 
                     
                     if (track_provenance) {
@@ -1609,23 +1614,23 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     cerr << log_name() << "Found no pairs and we aren't doing rescue: return best alignment for each read" << endl;
                 }
             }
-            tuple<size_t, size_t, size_t> best_index_1 (std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
+            tuple<size_t, size_t, size_t> best_index_1(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
             tuple<size_t, size_t, size_t> best_index_2(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
-            int64_t best_score_1 = 0;
-            int64_t best_score_2 = 0;
+            int32_t best_score_1 = 0;
+            int32_t best_score_2 = 0;
 
             for (tuple<size_t, size_t, bool> index : unpaired_alignments ) {
                 Alignment& alignment = std::get<2>(index) ? alignments[std::get<0>(index)].first[std::get<1>(index) ]
                                                           : alignments[std::get<0>(index)].second[std::get<1>(index)];
                 if (std::get<2>(index)) {
                     unpaired_scores[0].emplace_back(alignment.score());
-                    if (alignment.score() > best_score_1) {
+                    if (deterministic_beats(alignment.score(), best_score_1, rng)) {
                         best_index_1 = index;
                         best_score_1 = alignment.score();
                     }
                 } else {
                     unpaired_scores[1].emplace_back(alignment.score());
-                    if (alignment.score() > best_score_2) {
+                    if (deterministic_beats(alignment.score(), best_score_2, rng)) {
                         best_index_2 = index;
                         best_score_2 = alignment.score();
                     }
@@ -1706,7 +1711,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 tuple<size_t, size_t, bool>& index = unpaired_alignments.at(i);
                 return (double) std::get<2>(index) ? alignments[std::get<0>(index)].first[std::get<1>(index)].score()
                                                    : alignments[std::get<0>(index)].second[std::get<1>(index)].score();
-            }, 0, 1, max_rescue_attempts, [&](size_t i) {
+            }, 0, 1, max_rescue_attempts, rng, [&](size_t i) {
                 tuple<size_t, size_t, bool>& index = unpaired_alignments.at(i);
                 bool found_first = std::get<2>(index); 
                 size_t j = found_first ? alignment_indices[std::get<0>(index)].first[std::get<1>(index)]
@@ -1837,7 +1842,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
     process_until_threshold_a(paired_alignments, (std::function<double(size_t)>) [&](size_t i) -> double {
         return paired_scores[i];
-    }, 0, 1, max_multimaps, [&](size_t alignment_num) {
+    }, 0, 1, max_multimaps, rng, [&](size_t alignment_num) {
         // This alignment makes it
         // Called in score order
 
@@ -2008,7 +2013,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         // If all of the alignment pairs were found with rescue, use the multiplicities to determine mapq
         // Use exact mapping quality
         uncapped_mapq = scores[0] == 0 ? 0 : 
-            get_regular_aligner()->compute_mapping_quality(scores, false, multiplicities);
+            get_regular_aligner()->compute_max_mapping_quality(scores, false, multiplicities);
 
         //Cap mapq at 1 - 1 / # equivalent or better fragment clusters, including self
         if (better_cluster_count_by_mappings.front() > 1) {
@@ -2019,8 +2024,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
         //If one alignment was duplicated in other pairs, cap the mapq for that alignment at the mapq
         //of the group of duplicated alignments. Always compute this even if not quite sensible.
-        mapq_score_groups[0] = get_regular_aligner()->compute_mapping_quality(scores_group_1, false);
-        mapq_score_groups[1] = get_regular_aligner()->compute_mapping_quality(scores_group_2, false);
+        mapq_score_groups[0] = get_regular_aligner()->compute_max_mapping_quality(scores_group_1, false);
+        mapq_score_groups[1] = get_regular_aligner()->compute_max_mapping_quality(scores_group_2, false);
         
         for (auto read_num : {0, 1}) {
             // For each fragment
@@ -2061,7 +2066,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             if (types.front() == unpaired) {
                 //If this pair came from two different fragment cluster, then cap mapq at the mapq
                 //from only unpaired alignments of this read
-                mapq_cap = std::min(mapq_cap, (double)get_regular_aligner()->compute_mapping_quality(unpaired_scores[read_num], false));
+                mapq_cap = std::min(mapq_cap, (double)get_regular_aligner()->compute_max_mapping_quality(unpaired_scores[read_num], false));
             }
             
             // Find the MAPQ to cap
@@ -3316,7 +3321,7 @@ int32_t flank_penalty(size_t length, const std::vector<pareto_point>& frontier, 
     return result;
 }
 
-void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& best, Alignment& second_best) const {
+void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, LazyRNG& rng, Alignment& best, Alignment& second_best) const {
 
     // This assumes that full-length extensions have the highest scores.
     // We want to align at least two extensions and at least one
@@ -3393,8 +3398,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
     process_until_threshold_a<GaplessExtension, double>(extended_seeds,
         [&](size_t extended_seed_num) -> double {
             return static_cast<double>(extended_seeds[extended_seed_num].score);
-        }, extension_score_threshold, min_extensions, max_local_extensions,
-        [&](size_t extended_seed_num) -> bool {
+        }, extension_score_threshold, min_extensions, max_local_extensions, rng, [&](size_t extended_seed_num) -> bool {
        
             // This extended seed looks good enough.
             const GaplessExtension& extension = extended_seeds[extended_seed_num];
@@ -3459,7 +3463,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
                 
                 // Do right-pinned alignment
                 left_tail_result = std::move(get_best_alignment_against_any_tree(forest, before_sequence,
-                    extension.starting_position(gbwt_graph), false, longest_detectable_gap));
+                    extension.starting_position(gbwt_graph), false, longest_detectable_gap, rng));
             }
             
             if (!extension.right_full) {
@@ -3476,7 +3480,7 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
         
                 // Do left-pinned alignment
                 right_tail_result = std::move(get_best_alignment_against_any_tree(forest, trailing_sequence,
-                    extension.tail_position(gbwt_graph), true, longest_detectable_gap));
+                    extension.tail_position(gbwt_graph), true, longest_detectable_gap, rng));
             }
             
             // Compute total score
@@ -3617,12 +3621,12 @@ void MinimizerMapper::find_optimal_tail_alignments(const Alignment& aln, const v
 //-----------------------------------------------------------------------------
 
 pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const vector<TreeSubgraph>& trees,
-    const string& sequence, const Position& default_position, bool pin_left, size_t longest_detectable_gap) const {
+    const string& sequence, const Position& default_position, bool pin_left, size_t longest_detectable_gap, LazyRNG& rng) const {
    
     // We want the best alignment, to the base graph, done against any target path
     Path best_path;
     // And its score
-    int64_t best_score = 0;
+    int32_t best_score = 0;
     
     if (!sequence.empty()) {
         // We start out with the best alignment being a pure softclip.
@@ -3706,8 +3710,8 @@ pair<Path, size_t> MinimizerMapper::get_best_alignment_against_any_tree(const ve
                 }
             }
             
-            if (current_alignment.score() > best_score) {
-                // This is a new best alignment.
+            if (current_alignment.path().mapping_size() > 0 && deterministic_beats(current_alignment.score(), best_score, rng)) {
+                // This is a new best alignment, and it is nonempty.
                 best_path = current_alignment.path();
                 
                 if (!pin_left) {

@@ -265,8 +265,12 @@ protected:
     
     /// We have a clusterer
     SnarlSeedClusterer clusterer;
-
+    
+    /// We have a distribution for read fragment lengths that takes care of
+    /// knowing when we've observed enough good ones to learn a good
+    /// distribution.
     FragmentLengthDistribution fragment_length_distr;
+    /// We may need to complain exactly once that the distribution is bad.
     atomic_flag warned_about_bad_distribution = ATOMIC_FLAG_INIT;
 
 //-----------------------------------------------------------------------------
@@ -495,8 +499,10 @@ protected:
      * given extended perfect-match seeds and produce an optimal alignment into
      * the given output Alignment object, best, and the second best alignment
      * into second_best.
+     *
+     * Uses the given RNG to break ties.
      */
-    void find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& best, Alignment& second_best) const; 
+    void find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, LazyRNG& rng, Alignment& best, Alignment& second_best) const; 
     
     /**
      * Find for each pair of extended seeds all the haplotype-consistent graph
@@ -558,10 +564,10 @@ protected:
      *
      * Limits the length of the longest gap to longest_detectable_gap.
      *
-     * Returns alingments in gbwt_graph space.
+     * Returns alignments in gbwt_graph space.
      */
     pair<Path, size_t> get_best_alignment_against_any_tree(const vector<TreeSubgraph>& trees, const string& sequence,
-        const Position& default_position, bool pin_left, size_t longest_detectable_gap) const;
+        const Position& default_position, bool pin_left, size_t longest_detectable_gap, LazyRNG& rng) const;
         
     /// We define a type for shared-tail lists of Mappings, to avoid constantly
     /// copying Path objects.
@@ -618,11 +624,12 @@ protected:
     
     /**
      * Given a vector of items, a function to get the score of each, a
-     * score-difference-from-the-best cutoff, and a min and max processed item
-     * count, process items in descending score order by calling process_item
-     * with the item's number, until min_count items are processed and either
-     * max_count items are processed or the score difference threshold is hit
-     * (or we run out of items).
+     * score-difference-from-the-best cutoff, a min and max processed item
+     * count, and a function to get a sort-shuffling seed for breaking ties,
+     * process items in descending score order by calling process_item with the
+     * item's number, until min_count items are processed and either max_count
+     * items are processed or the score difference threshold is hit (or we run
+     * out of items).
      *
      * If process_item returns false, the item is skipped and does not count
      * against min_count or max_count.
@@ -636,6 +643,7 @@ protected:
     template<typename Item, typename Score = double>
     void process_until_threshold_a(const vector<Item>& items, const function<Score(size_t)>& get_score,
         double threshold, size_t min_count, size_t max_count,
+        LazyRNG& rng,
         const function<bool(size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const;
@@ -646,6 +654,7 @@ protected:
     template<typename Item, typename Score = double>
     void process_until_threshold_b(const vector<Item>& items, const vector<Score>& scores,
         double threshold, size_t min_count, size_t max_count,
+        LazyRNG& rng,
         const function<bool(size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const;
@@ -658,6 +667,7 @@ protected:
     void process_until_threshold_c(const vector<Item>& items, const function<Score(size_t)>& get_score,
         const function<bool(size_t, size_t)>& comparator,
         double threshold, size_t min_count, size_t max_count,
+        LazyRNG& get_seed,
         const function<bool(size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const;
@@ -682,18 +692,20 @@ protected:
 template<typename Item, typename Score>
 void MinimizerMapper::process_until_threshold_a(const vector<Item>& items, const function<Score(size_t)>& get_score,
     double threshold, size_t min_count, size_t max_count,
+    LazyRNG& rng,
     const function<bool(size_t)>& process_item,
     const function<void(size_t)>& discard_item_by_count,
     const function<void(size_t)>& discard_item_by_score) const {
 
     process_until_threshold_c<Item, Score>(items, get_score, [&](size_t a, size_t b) -> bool {
         return (get_score(a) > get_score(b));
-    },threshold, min_count, max_count, process_item, discard_item_by_count, discard_item_by_score);
+    },threshold, min_count, max_count, rng, process_item, discard_item_by_count, discard_item_by_score);
 }
 
 template<typename Item, typename Score>
 void MinimizerMapper::process_until_threshold_b(const vector<Item>& items, const vector<Score>& scores,
     double threshold, size_t min_count, size_t max_count,
+    LazyRNG& rng,
     const function<bool(size_t)>& process_item,
     const function<void(size_t)>& discard_item_by_count,
     const function<void(size_t)>& discard_item_by_score) const {
@@ -704,13 +716,14 @@ void MinimizerMapper::process_until_threshold_b(const vector<Item>& items, const
         return scores[i];
     }, [&](size_t a, size_t b) -> bool {
         return (scores[a] > scores[b]);
-    },threshold, min_count, max_count, process_item, discard_item_by_count, discard_item_by_score);
+    },threshold, min_count, max_count, rng, process_item, discard_item_by_count, discard_item_by_score);
 }
 
 template<typename Item, typename Score>
 void MinimizerMapper::process_until_threshold_c(const vector<Item>& items, const function<Score(size_t)>& get_score,
         const function<bool(size_t, size_t)>& comparator,
         double threshold, size_t min_count, size_t max_count,
+        LazyRNG& rng,
         const function<bool(size_t)>& process_item,
         const function<void(size_t)>& discard_item_by_count,
         const function<void(size_t)>& discard_item_by_score) const {
@@ -722,8 +735,9 @@ void MinimizerMapper::process_until_threshold_c(const vector<Item>& items, const
         indexes_in_order.push_back(i);
     }
     
-    // Put the highest scores first
-    std::sort(indexes_in_order.begin(), indexes_in_order.end(), comparator);
+    // Put the highest scores first, but shuffle top ties so reads spray evenly
+    // across equally good mappings
+    sort_shuffling_ties(indexes_in_order.begin(), indexes_in_order.end(), comparator, rng);
 
     // Retain items only if their score is at least as good as this
     double cutoff = items.size() == 0 ? 0 : get_score(indexes_in_order[0]) - threshold;
