@@ -1280,10 +1280,6 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 // This cluster is not sufficiently good.
                 // TODO: I don't think it should ever get here unless we limit the scores of the fragment clusters we look at
             });
-            
-
-// FIXME
-//std::cerr << aln.name() << ": extended " << kept_cluster_count << " / " << clusters.size() << " clusters" << std::endl;
 
         // We now estimate the best possible alignment score for each cluster.
         std::vector<int> cluster_extension_scores = this->score_extensions(cluster_extensions, aln, funnels[read_num]);
@@ -2838,7 +2834,6 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
 
     // Select the minimizers we use for seeds.
     size_t rejected_count = 0;
-//size_t total_hits = 0; // FIXME
     std::vector<Seed> seeds;
     // Flag whether each minimizer in the read was located or not, for MAPQ capping.
     // We ignore minimizers with no hits (count them as not located), because
@@ -2865,7 +2860,6 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         // Select the minimizer if it is informative enough or if the total score
         // of the selected minimizers is not high enough.
         const Minimizer& minimizer = minimizers[i];
-// total_hits += minimizer.hits; // FIXME
 
         if (minimizer.hits == 0) {
             // A minimizer with no hits can't go on.
@@ -2965,9 +2959,6 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             }
         }
     }
-
-// FIXME
-//std::cerr << aln.name() << ": " << minimizers.size() << " minimizers with " << total_hits << " hits, used " << (minimizers.size() - rejected_count) << " with " << seeds.size() << " hits" << std::endl;
 
     if (show_work) {
         #pragma omp critical (cerr)
