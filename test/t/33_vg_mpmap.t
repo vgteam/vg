@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 17
+plan tests 19
 
 
 # Exercise the GBWT
@@ -102,7 +102,7 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGCCATTTTAAGTTTCCTGTGGACTAAGGAC
 +
 HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH" > s.fq 
 
-is "$(vg mpmap -x s.xg -d s.dist -g s.gcsa -B -n rna -f s.fq | vg view -KG - | vg view -aj - | jq .score)" "108" "spliced alignments can be found when aligning RNA"
+is "$(vg mpmap -x s.xg -d s.dist -g s.gcsa -B -n rna -f s.fq | vg view -KG - | vg view -aj - | jq .score)" "106" "spliced alignments can be found when aligning RNA"
 
 echo "@read1
 CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAG
@@ -128,5 +128,34 @@ HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH
 is "$(vg mpmap -x s.xg -d s.dist -g s.gcsa -B -n rna -f s.fq -i -I 530 -D 10 | vg view -Kj - | grep connection | wc -l)" "1" "paired mapping can identify a splice junction on read 2"
 
 rm s.vg s.xg s.gcsa s.gcsa.lcp s.dist s.snarls s.fq
+
+# Now make sure we randomly choose between equivalent mappings
+vg construct -r small/x.fa > x.vg
+vg sim -a -p 200 -v 10 -l 50 -n 1000 -s 12345 -x x.vg >x.gam
+
+vg construct -r small/xy.fa >xy.vg
+vg snarls -T xy.vg > xy.snarls
+vg index xy.vg -x xy.xg -g xy.gcsa
+vg index xy.vg -j xy.dist -s xy.snarls
+
+vg mpmap -x xy.xg -d xy.dist -g xy.gcsa -G x.gam -F SAM -i --frag-mean 50 --frag-stddev 10 >xy.sam
+X_HITS="$(cat xy.sam | grep -v "^@" | cut -f3 | grep x | wc -l)"
+if [ "${X_HITS}" -lt 1200 ] && [ "${X_HITS}" -gt 800 ] ; then
+    IN_RANGE="1"
+else
+    IN_RANGE="0"
+fi
+is "${IN_RANGE}" "1" "paired reads are evenly split between equivalent mappings"
+
+vg mpmap -x xy.xg -d xy.dist -g xy.gcsa -G x.gam -F SAM >xy.sam
+X_HITS="$(cat xy.sam | grep -v "^@" | cut -f3 | grep x | wc -l)"
+if [ "${X_HITS}" -lt 1200 ] && [ "${X_HITS}" -gt 800 ] ; then
+    IN_RANGE="1"
+else
+    IN_RANGE="0"
+fi
+is "${IN_RANGE}" "1" "unpaired reads are evenly split between equivalent mappings"
+
+rm x.vg x.gam xy.vg xy.xg xy.gcsa xy.snarls xy.dist xy.sam
 
 

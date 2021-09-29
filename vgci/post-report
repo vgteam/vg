@@ -190,10 +190,12 @@ if [ ! -z "${CI}" ]; then
     fi
     
     # Upload the HTML to S3 as the current master report
-    aws s3 sync --quiet --acl public-read "${HTML_DIR_IN}" "s3://vg-data/${HTML_PATH}"
+    aws s3 sync --quiet "${HTML_DIR_IN}" "s3://vg-data/${HTML_PATH}"
     
     # Make the URL for the report HTML
-    REPORT_URL="http://vg-data.s3.amazonaws.com/${HTML_PATH}/index.html"
+    # TODO: Set this back to https:// when we set up a bucket we can make public again.
+    # For now people will have to download the reports with auth to read them.
+    REPORT_URL="s3://vg-data/${HTML_PATH}/index.html"
     
 else
     echo "Running locally"

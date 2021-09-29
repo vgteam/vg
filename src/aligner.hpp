@@ -98,6 +98,15 @@ namespace vg {
         /// the mapping quality is always calculated as if its multiplicity is 1.
         static double maximum_mapping_quality_approx(const vector<double>& scaled_scores, size_t* max_idx_out,
                                                      const vector<double>* multiplicities = nullptr);
+        
+        /// Same as maximum_mapping_quality_exact except alway s computes mapping
+        /// quality for the first score
+        static double first_mapping_quality_exact(const vector<double>& scaled_scores,
+                                                  const vector<double>* multiplicities = nullptr);
+        /// Same as maximum_mapping_quality_approx except alway s computes mapping
+        /// quality for the first score
+        static double first_mapping_quality_approx(const vector<double>& scaled_scores,
+                                                   const vector<double>* multiplicities = nullptr);
     protected:
         double group_mapping_quality_exact(const vector<double>& scaled_scores, const vector<size_t>& group,
                                            const vector<double>* multiplicities = nullptr) const;
@@ -217,11 +226,17 @@ namespace vg {
                                             double maybe_mq_threshold,
                                             double identity_weight) const;
         
+        /// Computes mapping quality for the first score in a vector of scores.
+        /// Optionally includes a vector of implicit counts >= 1 for the scores, but
+        /// the first mapping quality is always calculated as if it multiplicity is 1.
+        int32_t compute_first_mapping_quality(const vector<double>& scores, bool fast_approximation,
+                                              const vector<double>* multiplicities = nullptr) const;
+        
         /// Computes mapping quality for the optimal score in a vector of scores.
         /// Optionally includes a vector of implicit counts >= 1 for the scores, but
         /// the mapping quality is always calculated as if it multiplicity is 1.
-        int32_t compute_mapping_quality(const vector<double>& scores, bool fast_approximation,
-                                        const vector<double>* multiplicities = nullptr) const;
+        int32_t compute_max_mapping_quality(const vector<double>& scores, bool fast_approximation,
+                                            const vector<double>* multiplicities = nullptr) const;
         
         /// Computes mapping quality for a group of scores in a vector of scores (group given by indexes).
         /// Optionally includes a vector of implicit counts >= 1 for the score, but the mapping quality is always

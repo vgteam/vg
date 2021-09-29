@@ -175,5 +175,84 @@ TEST_CASE("Phred probability summation works", "[statistics]") {
     
 }
 
+TEST_CASE("Truncated normal functions produce correct results", "[statistics]") {
+    
+    random_device rd;
+    default_random_engine prng(rd());
+    
+    for (int s = 1; s <= 3; ++s) {
+        for (int m = -2; m <= 2; ++m) {
+            for (int x = m-4; x <= m+4; ++x) {
+                
+                double d_norm = normal_pdf<double>(x, m, s);
+                
+                truncated_normal_distribution<> trunc1(m, s, -numeric_limits<double>::max(), m);
+                truncated_normal_distribution<> trunc2(m, s, m, numeric_limits<double>::max());
+                
+                double d_trunc1 = trunc1.density(x);
+                double d_trunc2 = trunc2.density(x);
+                
+                double p_trunc1 = trunc1.cumul(x);
+                double p_trunc2 = trunc2.cumul(x);
+                if (x < m) {
+                    REQUIRE(abs((d_trunc1 / 2.0 - d_norm) / d_norm) < .0001);
+                    REQUIRE(d_trunc2 == 0.0);
+                    double p_norm1 = Phi(double(x - m) / s);
+                    REQUIRE(abs(p_trunc1 / 2.0 - p_norm1) / p_norm1 < .0001);
+                    REQUIRE(p_trunc2 == 0.0);
+                }
+                else if (x > m) {
+                    REQUIRE(abs((d_trunc2 / 2.0 - d_norm) / d_norm) < .0001);
+                    REQUIRE(d_trunc1 == 0.0);
+                    double p_norm2 = Phi(double(x - m) / s) - .5;
+                    REQUIRE(abs(p_trunc2 / 2.0 - p_norm2) / p_norm2 < .0001);
+                    REQUIRE(p_trunc1 == 1.0);
+                }
+                else {
+                    REQUIRE(abs(p_trunc1 - 1.0) < .0001);
+                    REQUIRE(p_trunc2 < .0001);
+                }
+                
+                for (int k = 0; k < 20; ++k) {
+                    REQUIRE(trunc1(prng) <= m);
+                    REQUIRE(trunc2(prng) >= m);
+                }
+            }
+        }
+    }
+    
+    for (int s = 1; s <= 3; ++s) {
+        for (int m = -2; m <= 2; ++m) {
+            for (int lo = m - 2; lo < m + 2; ++lo) {
+                for (int hi = lo + 1; hi <= m + 2; ++hi) {
+                    truncated_normal_distribution<> distr(m, s, lo, hi);
+                    //cerr << "m " << m << " s " << s << " l " << lo << " h " << hi << " mean " << distr.mean() << endl;
+                    REQUIRE(distr.stddev() < s);
+                    if (hi <= m) {
+                        REQUIRE(distr.mean() < m);
+                    }
+                    else if (lo >= m) {
+                        REQUIRE(distr.mean() > m);
+                    }
+                    else if ((m - lo) == (hi - m)) {
+                        REQUIRE(abs(distr.mean() - m) < .0001);
+                    }
+                    else if ((m - lo) > (hi - m)) {
+                        REQUIRE(distr.mean() < m);
+                    }
+                    else {
+                        REQUIRE(distr.mean() > m);
+                    }
+                    
+                    for (int k = 0; k < 20; ++k) {
+                        auto x = distr(prng);
+                        REQUIRE(x <= hi);
+                        REQUIRE(x >= lo);
+                    }
+                }
+            }
+        }
+    }
+}
 }
 }
