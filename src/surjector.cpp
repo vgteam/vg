@@ -163,6 +163,9 @@ using namespace std;
                         }
                     }
                     if (max_idx >= 0) {
+#ifdef debug_anchored_surject
+                        cerr << "reversing decision to prune anchor " << max_idx << endl;
+#endif
                         keep[max_idx] = true;
                     }
                 }
