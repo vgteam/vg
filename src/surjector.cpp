@@ -144,22 +144,36 @@ using namespace std;
                 for (bool b : keep) {
                     keep_any = keep_any || b;
                 }
-                if (keep_any) {
-                    // we're keeping at least one anchor, so we should be able to throw away the other ones
-                    int removed_so_far = 0;
+                if (!keep_any) {
+                    // we filtered out all of the anchors, choose the longest one to keep
+                    // even though it failed the filter
+                    int64_t max_idx = -1;
+                    int64_t max_len = 0;
                     for (int i = 0; i < path_chunks.size(); ++i) {
-                        if (!keep[i]) {
-                            ++removed_so_far;
-                        }
-                        else if (removed_so_far) {
-                            path_chunks[i - removed_so_far] = move(path_chunks[i]);
-                            step_ranges[i - removed_so_far] = move(step_ranges[i]);
+                        int64_t len = path_chunks[i].first.second - path_chunks[i].first.first;
+                        if (len > max_len) {
+                            max_idx = -1;
+                            max_len = len;
                         }
                     }
-                    if (removed_so_far) {
-                        path_chunks.resize(path_chunks.size() - removed_so_far);
-                        step_ranges.resize(step_ranges.size() - removed_so_far);
+                    if (max_idx >= 0) {
+                        keep[max_idx] = true;
                     }
+                }
+                // we're keeping at least one anchor, so we should be able to throw away the other ones
+                int removed_so_far = 0;
+                for (int i = 0; i < path_chunks.size(); ++i) {
+                    if (!keep[i]) {
+                        ++removed_so_far;
+                    }
+                    else if (removed_so_far) {
+                        path_chunks[i - removed_so_far] = move(path_chunks[i]);
+                        step_ranges[i - removed_so_far] = move(step_ranges[i]);
+                    }
+                }
+                if (removed_so_far) {
+                    path_chunks.resize(path_chunks.size() - removed_so_far);
+                    step_ranges.resize(step_ranges.size() - removed_so_far);
                 }
             }
         }
