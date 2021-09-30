@@ -3228,6 +3228,7 @@ namespace vg {
             
             if (subpath.next_size() + subpath.connection_size() > 1) {
                 cerr << "error: cannot convert a multipath alignment to a CIGAR unless is consists of a single non-branching path" << endl;
+                exit(1);
             }
             
             for (size_t j = 0; j < path.mapping_size(); ++j, ++num_mappings) {
