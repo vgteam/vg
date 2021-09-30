@@ -218,9 +218,9 @@ protected:
         int32_t candidates_per_window; // How many minimizers compete to be the best (index's w), or 1 for syncmers.  
         double score; // Scores as 1 + ln(hard_hit_cap) - ln(hits).
 
-        // Sort the minimizers in descending order by score.
+        // Sort the minimizers in descending order by score and group identical minimizers together.
         inline bool operator< (const Minimizer& another) const {
-            return (this->score > another.score);
+            return (this->score > another.score || (this->score == another.score && this->value.key < another.value.key));
         }
         
         /// Get the starting position of the given minimizer on the forward strand.
