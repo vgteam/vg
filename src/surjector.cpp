@@ -126,6 +126,9 @@ using namespace std;
                     if (((i == 0 || i + 1 == path_chunks.size()) && path_chunks.size() != 1)
                         && path_from_length(chunk.second) <= max_tail_anchor_prune &&
                         chunk.first.second - chunk.first.first <= max_tail_anchor_prune) {
+#ifdef debug_anchored_surject
+                        cerr << "anchor " << i << " pruned for being a short tail" << endl;
+#endif
                         // this is a short anchor on one of the tails
                         keep[i] = false;
                         continue;
@@ -133,6 +136,9 @@ using namespace std;
                     SeqComplexity<6> complexity(chunk.first.first, chunk.first.second);
                     for (int order = 1; order <= 6; ++order) {
                         if (complexity.p_value(order) < low_complexity_p_value) {
+#ifdef debug_anchored_surject
+                            cerr << "anchor " << i << " pruned being low complexity at order " << order << " with p-value " << complexity.p_value(order) << " and repetitive fraction " << complexity.repetitiveness(order) << endl;
+#endif
                             // the sequences is repetitive at this order
                             keep[i] = false;
                             break;
