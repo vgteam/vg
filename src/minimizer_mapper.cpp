@@ -19,6 +19,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <cfloat>
 
 // Turn on debugging prints
 //#define debug
@@ -697,9 +698,10 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     // Stop this alignment
     funnel.stop();
     
+    // Annotate with whatever's in the funnel
+    funnel.annotate_mapped_alignment(mappings[0], track_correctness);
+    
     if (track_provenance) {
-        funnel.annotate_mapped_alignment(mappings[0], track_correctness);
-        
         // Annotate with parameters used for the filters.
         set_annotation(mappings[0], "param_hit-cap", (double) hit_cap);
         set_annotation(mappings[0], "param_hard-hit-cap", (double) hard_hit_cap);
@@ -1286,8 +1288,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 // This cluster is not sufficiently good.
                 // TODO: I don't think it should ever get here unless we limit the scores of the fragment clusters we look at
             });
-            
-        
+
         // We now estimate the best possible alignment score for each cluster.
         std::vector<int> cluster_extension_scores = this->score_extensions(cluster_extensions, aln, funnels[read_num]);
         
@@ -1683,10 +1684,10 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 funnels[0].stop();
                 funnels[1].stop();
                 
-                if (track_provenance) {
-                    funnels[0].annotate_mapped_alignment(paired_mappings.first[0], track_correctness);
-                    funnels[0].annotate_mapped_alignment(paired_mappings.second[0], track_correctness);
-                }
+                // Annotate with whatever's in the funnel
+                funnels[0].annotate_mapped_alignment(paired_mappings.first[0], track_correctness);
+                funnels[0].annotate_mapped_alignment(paired_mappings.second[0], track_correctness);
+                
                 return paired_mappings;
             } else if (best_score_1 != 0 and best_score_2 != 0) {
                 //We are attempting rescue, but we still want to keep the best alignments as a potential (unpaired) pair 
@@ -1744,8 +1745,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
                     set_annotation(mapped_aln, "rescuer", true);
                     set_annotation(rescued_aln, "rescued", true);
-                    set_annotation(mapped_aln,  "fragment_length", (double)fragment_dist);
-                    set_annotation(rescued_aln, "fragment_length", (double)fragment_dist);
+                    set_annotation(mapped_aln,  "fragment_length", distance_to_annotation(fragment_dist));
+                    set_annotation(rescued_aln, "fragment_length", distance_to_annotation(fragment_dist));
                     bool properly_paired = fragment_dist == std::numeric_limits<int64_t>::max() ? false :
                         (std::abs(fragment_dist-fragment_length_distr.mean()) <= 6.0*fragment_length_distr.std_dev()) ;
                     set_annotation(mapped_aln, "proper_pair", properly_paired);
@@ -2102,8 +2103,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         }
         
         //Annotate top pair with its fragment distance, fragment length distrubution, and secondary scores
-        set_annotation(mappings.first.front(), "fragment_length", (double) distances.front());
-        set_annotation(mappings.second.front(), "fragment_length", (double) distances.front());
+        set_annotation(mappings.first.front(), "fragment_length", distance_to_annotation(distances.front()));
+        set_annotation(mappings.second.front(), "fragment_length", distance_to_annotation(distances.front()));
         bool properly_paired = distances.front() == std::numeric_limits<int64_t>::max() ? false :
             (std::abs(distances.front()-fragment_length_distr.mean()) <= 6.0*fragment_length_distr.std_dev()) ;
         set_annotation(mappings.first.front(), "proper_pair", properly_paired);
@@ -2129,10 +2130,11 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     funnels[0].stop();
     funnels[1].stop();
     
+    // Annotate with whatever's in the funnel.
+    funnels[0].annotate_mapped_alignment(mappings.first[0], track_correctness);
+    funnels[1].annotate_mapped_alignment(mappings.second[0], track_correctness);
+    
     if (track_provenance) {
-        funnels[0].annotate_mapped_alignment(mappings.first[0], track_correctness);
-        funnels[1].annotate_mapped_alignment(mappings.second[0], track_correctness);
-        
         // Annotate with parameters used for the filters.
         set_annotation(mappings.first[0] , "param_hit-cap", (double) hit_cap);
         set_annotation(mappings.first[0] , "param_hard-hit-cap", (double) hard_hit_cap);
@@ -2822,10 +2824,14 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     double target_score = (base_target_score * this->minimizer_score_fraction) + 0.000001;
     double selected_score = 0.0;
 
-    // In order to consistently take either all or none of the minimizers in
-    // the read with a particular sequence, we track whether we took the
-    // previous one.
+    // We group all all occurrences of the same minimizer in the read together
+    // and either take all of them (if the total number of hits is low enough)
+    // or skip all of them. Such minimizers are expensive to process, because
+    // they tend to have many hits and each hit in the graph is matched with
+    // each occurrence in the read.
     bool took_last = false;
+    size_t start = 0, limit = 0;
+    size_t run_hits = 0;
 
     if (show_work) {
         #pragma omp critical (cerr)
@@ -2850,6 +2856,16 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             funnel.processing_input(i);
         }
 
+        // Find the next run of identical minimizers.
+        if (i >= limit) {
+            start = i; limit = i + 1;
+            run_hits = minimizers[i].hits;
+            for (size_t j = i + 1; j < minimizers.size() && minimizers[j].value.key == minimizers[i].value.key; j++) {
+                limit++;
+                run_hits += minimizers[j].hits;
+            }
+        }
+
         // Select the minimizer if it is informative enough or if the total score
         // of the selected minimizers is not high enough.
         const Minimizer& minimizer = minimizers[i];
@@ -2862,8 +2878,8 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                 funnel.fail("any-hits", i);
             }
         } else if (minimizer.hits <= this->hit_cap ||
-            (minimizer.hits <= this->hard_hit_cap && selected_score + minimizer.score <= target_score) ||
-            (took_last && i > 0 && minimizer.value.key == minimizers[i - 1].value.key)) {
+            (run_hits <= this->hard_hit_cap && selected_score + minimizer.score <= target_score) ||
+            (took_last && i > start)) {
             
             // We should keep this minimizer instance because it is
             // sufficiently rare, or we want it to make target_score, or it is
@@ -2889,13 +2905,9 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                 // std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info), 
                 //    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info) });
             }
-            
-            if (!(took_last && i > 0 && minimizer.value.key == minimizers[i - 1].value.key)) {
-                // We did not also take a previous identical-sequence minimizer, so count this one towards the score.
-                selected_score += minimizer.score;
-            }
 
             // Remember that we took this minimizer
+            selected_score += minimizer.score;
             took_last = true;
 
             if (this->track_provenance) {
@@ -2905,7 +2917,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                 funnel.pass("hit-cap||score-fraction", i, selected_score  / base_target_score);
                 funnel.expand(i, minimizer.hits);
             }
-        } else if (minimizer.hits <= this->hard_hit_cap) {
+        } else if (run_hits <= this->hard_hit_cap) {
             // Passed hard hit cap but failed score fraction/normal hit cap
             took_last = false;
             rejected_count++;
@@ -4001,6 +4013,22 @@ double MinimizerMapper::score_alignment_pair(Alignment& aln1, Alignment& aln2, i
     double worse_score = std::min(aln1.score(), aln2.score());
 
     return std::max(score, worse_score);;
+}
+
+double MinimizerMapper::distance_to_annotation(int64_t distance) const {
+    // We use numeric_limits<int64_t>::max() to represent no distance. But that
+    // can't convert to double (which rounds up) and then safely back to int64.
+    // We also aren't allowed inf or nan in a Protobuf double Value. So change
+    // the sentinel value to 0 which is probably not a fragment length.
+    if (distance == numeric_limits<int64_t>::max()) {
+        distance = 0;
+    }
+    
+    // Make sure we can't generate any >64 bit integers in the double cast by
+    // clamping to the doubles that are also integers.
+    static_assert(DBL_MANT_DIG <= 64, "We assume doubles have <64 bits of mantissa");
+    double max_int_double = (double)((int64_t)1 << DBL_MANT_DIG);
+    return max(min((double) distance, max_int_double), -max_int_double);
 }
 
 }
