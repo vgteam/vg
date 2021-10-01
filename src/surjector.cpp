@@ -113,7 +113,6 @@ using namespace std;
                                                    : extract_overlapping_paths(&memoizing_graph, *source_mp_aln,
                                                                                paths, connections);
         
-        
         if (source_mp_aln) {
             // the multipath alignment anchor algorithm can produce redundant paths if
             // the alignment's graph is not parsimonious, so we filter the shorter ones out
@@ -149,8 +148,6 @@ using namespace std;
         }
 #endif
         
-        
-        // unordered_map<path_handle_t, pair<vector<Surjector::path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>
         if (prune_suspicious_anchors) {
             // we want to remove anchors that can be error-prone: short anchors in the tails and anchors in
             // low complexity sequences
@@ -182,48 +179,48 @@ using namespace std;
                         }
                     }
                 }
-            }
-            
-            // make sure we didn't flag all of the anchors for removal
-            bool keep_any = false;
-            for (bool b : keep) {
-                keep_any = keep_any || b;
-            }
-            if (!keep_any) {
-                // we filtered out all of the anchors, choose the longest one to keep
-                // even though it failed the filter
-                int64_t max_idx = -1;
-                int64_t max_len = 0;
-                for (int i = 0; i < path_chunks.size(); ++i) {
-                    int64_t len = path_chunks[i].first.second - path_chunks[i].first.first;
-                    if (len > max_len) {
-                        max_idx = -1;
-                        max_len = len;
+                // make sure we didn't flag all of the anchors for removal
+                bool keep_any = false;
+                for (bool b : keep) {
+                    keep_any = keep_any || b;
+                }
+                if (!keep_any) {
+                    // we filtered out all of the anchors, choose the longest one to keep
+                    // even though it failed the filter
+                    int64_t max_idx = -1;
+                    int64_t max_len = 0;
+                    for (int i = 0; i < path_chunks.size(); ++i) {
+                        int64_t len = path_chunks[i].first.second - path_chunks[i].first.first;
+                        if (len > max_len) {
+                            max_idx = i;
+                            max_len = len;
+                        }
+                    }
+                    if (max_idx >= 0) {
+#ifdef debug_anchored_surject
+                        cerr << "reversing decision to prune " << max_idx << endl;
+#endif
+                        keep[max_idx] = true;
                     }
                 }
-                if (max_idx >= 0) {
-#ifdef debug_anchored_surject
-                    cerr << "reversing decision to prune anchor " << max_idx << endl;
-#endif
-                    keep[max_idx] = true;
+                // we're keeping at least one anchor, so we should be able to throw away the other ones
+                int removed_so_far = 0;
+                for (int i = 0; i < path_chunks.size(); ++i) {
+                    if (!keep[i]) {
+                        ++removed_so_far;
+                    }
+                    else if (removed_so_far) {
+                        path_chunks[i - removed_so_far] = move(path_chunks[i]);
+                        step_ranges[i - removed_so_far] = move(step_ranges[i]);
+                    }
                 }
-            }
-            // we're keeping at least one anchor, so we should be able to throw away the other ones
-            int removed_so_far = 0;
-            for (int i = 0; i < path_chunks.size(); ++i) {
-                if (!keep[i]) {
-                    ++removed_so_far;
+                if (removed_so_far) {
+                    path_chunks.resize(path_chunks.size() - removed_so_far);
+                    step_ranges.resize(step_ranges.size() - removed_so_far);
                 }
-                else if (removed_so_far) {
-                    path_chunks[i - removed_so_far] = move(path_chunks[i]);
-                    step_ranges[i - removed_so_far] = move(step_ranges[i]);
-                }
-            }
-            if (removed_so_far) {
-                path_chunks.resize(path_chunks.size() - removed_so_far);
-                step_ranges.resize(step_ranges.size() - removed_so_far);
             }
         }
+        
         
         // the surjected alignment for each path we overlapped
         unordered_map<path_handle_t, pair<Alignment, pair<step_handle_t, step_handle_t>>> aln_surjections;

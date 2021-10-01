@@ -97,7 +97,7 @@ using namespace std;
         ///
         bool prune_suspicious_anchors = false;
         int64_t max_tail_anchor_prune = 4;
-        double low_complexity_p_value = .01;
+        double low_complexity_p_value = .001;
         
     protected:
         
