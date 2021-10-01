@@ -358,11 +358,14 @@ DEPS += $(INC_DIR)/atomic_queue.h
 # These libraries provide no headers to affect the vg build.	
 LINK_DEPS =
 
-#ifneq ($(shell uname -s),Darwin)
+ifneq ($(shell uname -s),Darwin)
     # Use jemalloc
-#	LINK_DEPS += $(LIB_DIR)/libjemalloc.a
-#	LD_LIB_FLAGS += -ljemalloc
-#endif
+	LINK_DEPS += $(LIB_DIR)/libjemalloc.a
+	LD_LIB_FLAGS += -ljemalloc
+    CONFIGURATION_OBJ += $(OBJ_DIR)/allocator_config_jemalloc.o
+else
+    CONFIGURATION_OBJ += $(OBJ_DIR)/allocator_config_system.o
+endif
 
 .PHONY: clean get-deps deps test set-path objs static static-docker docs man .pre-build .check-environment .check-git .no-git 
 
@@ -435,7 +438,7 @@ test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/vg.hpp
 	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp -lvg $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(FILTER)
 
 $(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
-	+. ./source_me.sh && rm -Rf $(CWD)/$(INC_DIR)/jemalloc && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
+	+. ./source_me.sh && rm -Rf $(CWD)/$(INC_DIR)/jemalloc && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
 
 # Use fake patterns to tell Make that this rule generates all these files when run once.
 # Here % should always match "lib" which is a common substring.
