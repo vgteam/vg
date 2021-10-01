@@ -332,7 +332,7 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
                     most_frequent_travs.push_back(sorted_travs[i]);
                     used_phases.insert(phase);
                 }
-            } else {
+            } else if (strict_conflict_checking) {
                 phasing_conflict = true;
             }
         }
@@ -746,6 +746,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                                 int ploidy,
                                 bool include_nested,
                                 bool keep_conflicted,
+                                bool strict_conflicts,
                                 const unordered_map<string, pair<string, int>>* path_to_sample_phase,
                                 const unordered_map<string, int>* sample_ploidys,
                                 gbwt::GBWT* gbwt,
@@ -761,6 +762,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     this->include_nested = include_nested;
     this->translation = translation;
     this->keep_conflicted_genotypes = keep_conflicted;
+    this->strict_conflict_checking = strict_conflicts;
     assert(path_to_sample_phase == nullptr || path_restricted || gbwt);
     if (gbwt) {
         this->gbwt_pos_caches.resize(get_thread_count(), nullptr);

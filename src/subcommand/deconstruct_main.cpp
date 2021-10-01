@@ -39,6 +39,7 @@ void help_deconstruct(char** argv){
          << "    -a, --all-snarls         Process all snarls, including nested snarls (by default only top-level snarls reported)." << endl
          << "    -d, --ploidy N           Expected ploidy.  If more traversals found, they will be flagged as conflicts (default: 2)" << endl
          << "    -K, --keep-conflicted    Retain conflicted genotypes in output." << endl
+         << "    -S, --strict-conflicts   Drop genotypes when we have more than one haplotype for any given phase (set by default when using GBWT input)." << endl
          << "    -t, --threads N          Use N threads" << endl
          << "    -v, --verbose            Print some status messages" << endl
          << endl;
@@ -63,6 +64,7 @@ int main_deconstruct(int argc, char** argv){
     bool set_ploidy = false;
     bool all_snarls = false;
     bool keep_conflicted = false;
+    bool strict_conflicts = false;
     string path_sep;
     
     int c;
@@ -82,13 +84,14 @@ int main_deconstruct(int argc, char** argv){
                 {"ploidy", required_argument, 0, 'd'},
                 {"all-snarls", no_argument, 0, 'a'},
                 {"keep-conflicted", no_argument, 0, 'K'},
+                {"strict-conflicts", no_argument, 0, 'S'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:P:H:r:g:T:eKd:at:v",
+        c = getopt_long (argc, argv, "hp:P:H:r:g:T:eKSd:at:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -127,6 +130,9 @@ int main_deconstruct(int argc, char** argv){
             break;
         case 'K':
             keep_conflicted = true;
+            break;
+        case 'S':
+            strict_conflicts = true;
             break;
         case 't':
             omp_set_num_threads(parse<int>(optarg));
@@ -327,6 +333,7 @@ int main_deconstruct(int argc, char** argv){
     dd.deconstruct(refpaths, graph, snarl_manager.get(), path_restricted_traversals, ploidy,
                    all_snarls,
                    keep_conflicted,
+                   strict_conflicts,
                    !alt_path_to_sample_phase.empty() ? &alt_path_to_sample_phase : nullptr,
                    &sample_ploidy,
                    gbwt_index.get(), translation.get());
