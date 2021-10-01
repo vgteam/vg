@@ -3408,9 +3408,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 
     // FIXME We may not always want to store the minimizer index. Rebuilding the index may be
     // faster than loading it from a network drive.
-    // TODO: I'm taking out the cached distances from the minimizers for now, maybe permanently
-    //registry.register_recipe({"Minimizers"}, {"Giraffe Distance Index", "Giraffe GBZ"},
-    registry.register_recipe({"Minimizers"}, {"Giraffe GBZ"},
+    registry.register_recipe({"Minimizers"}, {"Giraffe Distance Index", "Giraffe GBZ"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -3421,9 +3419,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         // TODO: should the distance index input be a joint simplification to avoid serializing it?
         
-        assert(inputs.size() == 1);
-        auto gbz_filenames = inputs[0]->get_filenames();
+        assert(inputs.size() == 2);
+        auto dist_filenames = inputs[0]->get_filenames();
+        auto gbz_filenames = inputs[1]->get_filenames();
+        assert(dist_filenames.size() == 1);
         assert(gbz_filenames.size() == 1);
+        auto dist_filename = dist_filenames.front();
         auto gbz_filename = gbz_filenames.front();
                 
         assert(constructing.size() == 1);
@@ -3431,9 +3432,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto minimizer_output = *constructing.begin();
         auto& output_names = all_outputs[0];
         
-        //ifstream infile_dist;
-        //init_in(infile_dist, dist_filename);
-        //auto dist_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(infile_dist);
+        ifstream infile_dist;
+        init_in(infile_dist, dist_filename);
+        auto dist_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(infile_dist);
 
         ifstream infile_gbz;
         init_in(infile_gbz, gbz_filename);
@@ -3446,7 +3447,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                     IndexingParameters::use_bounded_syncmers);
                 
         gbwtgraph::index_haplotypes(gbz->graph, minimizers, [&](const pos_t& pos) -> gbwtgraph::payload_type {
-            return MIPayload::NO_CODE;
+            return MIPayload::encode(dist_index->get_minimizer_distances(pos));
         });
         
         string output_name = plan->output_filepath(minimizer_output);

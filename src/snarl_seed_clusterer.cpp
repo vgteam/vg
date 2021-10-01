@@ -288,7 +288,21 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
             std::vector<NodeClusters>::iterator insert_itr = std::upper_bound(input_vector.begin(), input_vector.end(),
                0, [&](size_t val, NodeClusters vector_item) {
                    //This should return true if the vector_item goes after the item with rank val
-                   return distance_index.is_ordered_in_chain(item.containing_net_handle, vector_item.containing_net_handle);
+
+                   //Get one seed in this cluster and if it's a top level seed, then get cached information from the seed instead
+                   //of going to the distance index
+                   const Seed& item_seed = tree_state.all_seeds->at(item.read_cluster_heads.begin()->first.first)->at(item.read_cluster_heads.begin()->first.second);
+                   size_t item_offset = item_seed.in_top_level_chain 
+                                            ? item_seed.offset_in_parent 
+                                            : distance_index.get_record_offset_in_chain(item.containing_net_handle); 
+
+                   //Same for things in the vector
+                   const Seed& vector_item_seed = tree_state.all_seeds->at(item.read_cluster_heads.begin()->first.first)->at(item.read_cluster_heads.begin()->first.second);
+                   size_t vector_item_offset = vector_item_seed.in_top_level_chain 
+                                               ? vector_item_seed.offset_in_parent 
+                                               : distance_index.get_record_offset_in_chain(vector_item.containing_net_handle); 
+
+                   return item_offset < vector_item_offset;
                });
             //Add the item to the vector in sorted order
             input_vector.insert(insert_itr, std::move(item));
@@ -316,8 +330,9 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                  //And the node to a chain
                 if (seen_nodes.count(id) < 1) {
                      seen_nodes.insert(id);
-                     net_handle_t parent = distance_index.get_parent(distance_index.get_node_net_handle(id));
-                     size_t depth = distance_index.get_depth(parent);
+                     net_handle_t parent = seeds->at(i).in_top_level_chain ? distance_index.get_net_handle(seeds->at(i).parent_offset)
+                                      : distance_index.get_parent(distance_index.get_node_net_handle(id));
+                     size_t depth = seeds->at(i).in_top_level_chain ? 1 : distance_index.get_depth(parent);
                      if (depth+1 > chain_to_children_by_level.size()) {
                          chain_to_children_by_level.resize(depth+1);
                      }

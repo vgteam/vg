@@ -19,6 +19,20 @@ class NewSnarlSeedClusterer {
             pos_t  pos;
             size_t source; // Source minimizer.
 
+            //For nodes on boundary nodes of top-level chain
+            bool in_top_level_chain;
+            size_t parent_offset; // Component id in the distance index.
+            size_t offset_in_parent; // Offset in the root chain.
+            
+            //For nodes on top-level simple bubbles
+            bool in_top_level_snarl;
+            size_t snarl_rank; //Rank of the snarl in the chain
+            size_t start_length; //Length of the snarl start node (relative     to a fd traversal of the chain)
+            size_t end_length; //Length of the snarl end node
+            size_t node_length; //Length of the node the position is on
+            bool rev_in_chain; //True if this node is traversed backward in     the chain
+
+
 
         };
 
