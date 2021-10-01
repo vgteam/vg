@@ -361,7 +361,8 @@ LINK_DEPS =
 ifneq ($(shell uname -s),Darwin)
     # Use jemalloc
 	LINK_DEPS += $(LIB_DIR)/libjemalloc.a
-	LD_LIB_FLAGS += -ljemalloc
+    # We have to use it statically or we can't get at its secret symbols.
+	LD_LIB_FLAGS += $(LIB_DIR)/libjemalloc.a
     CONFIGURATION_OBJ += $(OBJ_DIR)/allocator_config_jemalloc.o
 else
     CONFIGURATION_OBJ += $(OBJ_DIR)/allocator_config_system.o
