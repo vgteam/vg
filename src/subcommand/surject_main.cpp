@@ -284,8 +284,11 @@ int main_surject(int argc, char** argv) {
         };
         
         // Set up output to an emitter that will handle serialization.
-        // It should process output raw, without any surjection, and it should respect our parameter for whether to think with splicing.
-        unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, sequence_dictionary, thread_count, xgidx, true, spliced);
+        // It should process output raw, without any surjection, and it should
+        // respect our parameter for whether to think with splicing.
+        unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", 
+            output_format, sequence_dictionary, thread_count, xgidx,
+            ALIGNMENT_EMITTER_FLAG_HTS_RAW | (spliced * ALIGNMENT_EMITTER_FLAG_HTS_SPLICED));
 
         if (interleaved) {
             // GAM input is paired, and for HTS output reads need to know their pair partners' mapping locations.
