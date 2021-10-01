@@ -14,7 +14,7 @@
 #include "utility.hpp"
 #include "crash.hpp"
 #include "preflight.hpp"
-#include "allocator_config.hpp"
+#include "config/allocator_config.hpp"
 #include "io/register_libvg_io.hpp"
 
 // New subcommand system provides all the subcommands that used to live here
