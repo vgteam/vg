@@ -827,6 +827,10 @@ tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> get_mini
     }
 
 }
+tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> get_minimizer_distances () {
+    return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(false, MIPayload::NO_VALUE, MIPayload::NO_VALUE,
+             false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
+}
     
 
 

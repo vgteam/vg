@@ -47,6 +47,10 @@ public:
 tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>  get_minimizer_distances (const SnarlDistanceIndex& distance_index, pos_t pos);
 
 
+//Empty distances so that the minimizers won't cache anything
+tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>  get_empty_minimizer_distances ();
+
+
 
 /**
  * The encoding of distances for positions in top-level chains or top-level simple bubbles.
