@@ -137,13 +137,13 @@ static bool gfa_to_handle_graph_in_memory(istream& in, MutableHandleGraph* graph
     for (const auto& links_record : gg.get_seq_to_edges()) {
         for (const auto& edge : links_record.second) {
             validate_gfa_edge(edge);
-            nid_t a_id = parse_gfa_sequence_id(e.source_name, id_map_info);
+            nid_t a_id = parse_gfa_sequence_id(edge.source_name, id_map_info);
             if (!graph->has_node(a_id)) {
-                throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge starts at nonexistent GFA node " + e.source_name);
+                throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge starts at nonexistent GFA node \"" + edge.source_name + "\"");
             }
-            nid_t b_id = parse_gfa_sequence_id(e.sink_name, id_map_info);
+            nid_t b_id = parse_gfa_sequence_id(edge.sink_name, id_map_info);
             if (!graph->has_node(b_id)) {
-                throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge ends at nonexistent GFA node " + e.sink_name);
+                throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge ends at nonexistent GFA node \"" + edge.sink_name + "\"");
             }
             
             // note: we're counting on implementations de-duplicating edges
@@ -187,11 +187,11 @@ static bool gfa_to_handle_graph_on_disk(const string& filename, MutableHandleGra
         validate_gfa_edge(e);
         nid_t a_id = parse_gfa_sequence_id(e.source_name, id_map_info);
         if (!graph->has_node(a_id)) {
-            throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge starts at nonexistent GFA node " + e.source_name);
+            throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge starts at nonexistent GFA node \"" + e.source_name + "\"");
         }
         nid_t b_id = parse_gfa_sequence_id(e.sink_name, id_map_info);
         if (!graph->has_node(b_id)) {
-            throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge ends at nonexistent GFA node " + e.sink_name);
+            throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge ends at nonexistent GFA node \"" + e.sink_name + "\"");
         }
         
         handle_t a = graph->get_handle(a_id, !e.source_orientation_forward);
@@ -264,7 +264,7 @@ static void gfa_to_handle_graph_add_paths(const string& filename, istream* unsee
                 // We need to make sure the GFA isn't lying about the nodes
                 // that exist or we will fail with weird errors in get_handle
                 // or even later.
-                throw GFAFormatError("error:[gfa_to_handle_graph] GFA path " + path_name_raw + " visits nonexistent GFA node " + node_id);
+                throw GFAFormatError("error:[gfa_to_handle_graph] GFA path " + path_name_raw + " visits nonexistent GFA node \"" + node_id + "\"");
             }
             handle_t step = graph->get_handle(target_node_id, is_rev);
             graph->append_step(path, step);
@@ -287,7 +287,7 @@ static void gfa_to_handle_graph_add_paths(const string& filename, istream* unsee
                 nid_t target_node_id = parse_gfa_sequence_id(node_id, id_map_info);
                 if (!graph->has_node(target_node_id)) {
                     // The GFA wants to go somewhere that doesn't exist
-                    throw GFAFormatError("error:[gfa_to_handle_graph] GFA path " + path_name_raw + " visits nonexistent GFA node " + node_id);
+                    throw GFAFormatError("error:[gfa_to_handle_graph] GFA path " + path_record.first + " visits nonexistent GFA node \"" + node_id + "\"");
                 }
                 handle_t step = graph->get_handle(target_node_id, !path_record.second.orientations.at(i));
                 graph->append_step(path, step);
