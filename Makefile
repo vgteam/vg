@@ -787,7 +787,7 @@ $(UNITTEST_OBJ): $(UNITTEST_OBJ_DIR)/%.o : $(UNITTEST_SRC_DIR)/%.cpp $(UNITTEST_
 $(CONFIG_OBJ_DIR)/allocator_config_jemalloc.o: $(CONFIG_SRC_DIR)/allocator_config_jemalloc.cpp $(CONFIG_OBJ_DIR)/allocator_config_jemalloc.d $(DEPS) $(LIB_DIR)/libjemalloc.a
 	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(DEPGEN_FLAGS) -c -o $@ $< $(FILTER)
 	@touch $@
-$(CONFIG_OBJ_DIR)/allocator_config_system.o: $(CONFIG_SRC_DIR)/allocator_config_jemalloc.cpp $(CONFIG_OBJ_DIR)/allocator_config_jemalloc.d $(DEPS)
+$(CONFIG_OBJ_DIR)/allocator_config_system.o: $(CONFIG_SRC_DIR)/allocator_config_system.cpp $(CONFIG_OBJ_DIR)/allocator_config_system.d $(DEPS)
 	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(DEPGEN_FLAGS) -c -o $@ $< $(FILTER)
 	@touch $@
 
