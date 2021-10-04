@@ -260,7 +260,7 @@ int main_surject(int argc, char** argv) {
     vector<tuple<path_handle_t, size_t, size_t>> sequence_dictionary = get_sequence_dictionary(ref_paths_name, *xgidx); 
    
     // Count our threads
-    int thread_count = get_thread_count();
+    int thread_count = vg::get_thread_count();
     
     if (input_format == "GAM" || input_format == "GAF") {
         

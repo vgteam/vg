@@ -1910,7 +1910,7 @@ int main_mpmap(int argc, char** argv) {
     
     
     // Count our threads 
-    int thread_count = get_thread_count();
+    int thread_count = vg::get_thread_count();
     
     // Establish a watchdog to find reads that take too long to map.
     // If we see any, we will issue a warning.
