@@ -69,6 +69,7 @@ $(function() {
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a> &#124;
+<a href="#enum-members">Enumerations</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">hts_alignment_emitter.hpp File Reference</div>  </div>
@@ -101,10 +102,19 @@ Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
+Enumerations</h2></td></tr>
+<tr class="memitem:a43fe994695e911cc22e05195e327f5b5"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5">vg::alignment_emitter_flags_t</a> { <a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5a77d3ea80cba8f3d89e573bf723ea7f4f">vg::ALIGNMENT_EMITTER_FLAG_NONE</a> = 0, 
+<a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5a311ead9579740c16ac55d9eaff3953e0">vg::ALIGNMENT_EMITTER_FLAG_HTS_RAW</a> = 1, 
+<a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5a3388a03ab2e5b8dec8d422db673b00b3">vg::ALIGNMENT_EMITTER_FLAG_HTS_SPLICED</a> = 2, 
+<a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5ad2539e657e6f87051e9f12489f9bb557">vg::ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS</a> = 4
+ }</td></tr>
+<tr class="separator:a43fe994695e911cc22e05195e327f5b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:ae6d5de03d0ac3d34e0fcd511a936b2c8"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; AlignmentEmitter &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae6d5de03d0ac3d34e0fcd511a936b2c8">vg::get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const vector&lt; tuple&lt; path_handle_t, size_t, size_t &gt;&gt; &amp;paths, size_t max_threads, const HandleGraph *graph, bool hts_raw, bool hts_spliced)</td></tr>
-<tr class="separator:ae6d5de03d0ac3d34e0fcd511a936b2c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa95de659d860fc90fda95df414c89baf"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; AlignmentEmitter &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa95de659d860fc90fda95df414c89baf">vg::get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const vector&lt; tuple&lt; path_handle_t, size_t, size_t &gt;&gt; &amp;paths, size_t max_threads, const HandleGraph *graph, int flags)</td></tr>
+<tr class="separator:aa95de659d860fc90fda95df414c89baf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a34cbea72ddd9dd9ad9208f8455a3ff7f"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; path_handle_t, size_t, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a34cbea72ddd9dd9ad9208f8455a3ff7f">vg::get_sequence_dictionary</a> (const string &amp;filename, const PathPositionHandleGraph &amp;graph)</td></tr>
 <tr class="separator:a34cbea72ddd9dd9ad9208f8455a3ff7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa381cdc7f966379fc7cc9ea11257f632"><td class="memItemLeft" align="right" valign="top">pair&lt; vector&lt; pair&lt; string, int64_t &gt; &gt;, unordered_map&lt; string, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa381cdc7f966379fc7cc9ea11257f632">vg::extract_path_metadata</a> (const vector&lt; tuple&lt; path_handle_t, size_t, size_t &gt;&gt; &amp;paths, const PathPositionHandleGraph &amp;graph, bool subpath_support)</td></tr>

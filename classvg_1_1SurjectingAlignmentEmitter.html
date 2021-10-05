@@ -90,8 +90,8 @@ Inheritance diagram for vg::SurjectingAlignmentEmitter:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:aceea90f0af7725a266f7235d728778cd"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#aceea90f0af7725a266f7235d728778cd">SurjectingAlignmentEmitter</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; <a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a3193ef16804780255b9d0bbcef8dc6ca">paths</a>, unique_ptr&lt; <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt; &amp;&amp;<a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#af0f444c46830595ef5e59b3a5a3ecf7f">backing</a>)</td></tr>
-<tr class="separator:aceea90f0af7725a266f7235d728778cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acf03c9f7eedb8d8dd58d6ffab24f139f"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#acf03c9f7eedb8d8dd58d6ffab24f139f">SurjectingAlignmentEmitter</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; <a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a3193ef16804780255b9d0bbcef8dc6ca">paths</a>, unique_ptr&lt; <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt; &amp;&amp;<a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#af0f444c46830595ef5e59b3a5a3ecf7f">backing</a>, bool prune_suspicious_anchors=false)</td></tr>
+<tr class="separator:acf03c9f7eedb8d8dd58d6ffab24f139f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a60e0c7fa81a98961a04bfaa42dc8e3af"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a60e0c7fa81a98961a04bfaa42dc8e3af">emit_singles</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;aln_batch)</td></tr>
 <tr class="memdesc:a60e0c7fa81a98961a04bfaa42dc8e3af"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a batch of Alignments.  <a href="classvg_1_1SurjectingAlignmentEmitter.html#a60e0c7fa81a98961a04bfaa42dc8e3af">More...</a><br /></td></tr>
 <tr class="separator:a60e0c7fa81a98961a04bfaa42dc8e3af"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -144,8 +144,8 @@ Protected Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>An AlignmentEmitter implementation that surjects alignments before emitting them via a backing AlignmentEmitter, which it owns. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="aceea90f0af7725a266f7235d728778cd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aceea90f0af7725a266f7235d728778cd">&#9670;&nbsp;</a></span>SurjectingAlignmentEmitter()</h2>
+<a id="acf03c9f7eedb8d8dd58d6ffab24f139f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acf03c9f7eedb8d8dd58d6ffab24f139f">&#9670;&nbsp;</a></span>SurjectingAlignmentEmitter()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -166,7 +166,13 @@ Protected Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">unique_ptr&lt; <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt; &amp;&amp;&#160;</td>
-          <td class="paramname"><em>backing</em>&#160;</td>
+          <td class="paramname"><em>backing</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>prune_suspicious_anchors</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -175,7 +181,8 @@ Protected Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Surject alignments using the given graph, into the given paths, and send them to the given AlignmentEmitter. Takes ownership of the AlignmentEmitter. Copies the set of paths. </p>
+<p>Surject alignments using the given graph, into the given paths, and send them to the given AlignmentEmitter. Takes ownership of the AlignmentEmitter. Copies the set of paths.</p>
+<p>If prune_suspicious_anchors is set, prunes out repetitive-looking anchors when surjecting and lets those parts of reads be realigned. </p>
 
 </div>
 </div>

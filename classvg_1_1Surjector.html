@@ -128,6 +128,12 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:affb3a5676516b7042d5c2d08734ea3c8"><td class="memItemLeft" align="right" valign="top">atomic_flag&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#affb3a5676516b7042d5c2d08734ea3c8">warned_about_subgraph_size</a> = ATOMIC_FLAG_INIT</td></tr>
 <tr class="memdesc:affb3a5676516b7042d5c2d08734ea3c8"><td class="mdescLeft">&#160;</td><td class="mdescRight">And have we complained about hitting it?  <a href="classvg_1_1Surjector.html#affb3a5676516b7042d5c2d08734ea3c8">More...</a><br /></td></tr>
 <tr class="separator:affb3a5676516b7042d5c2d08734ea3c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af01db9677cefc7952fee698f8ee2b672"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#af01db9677cefc7952fee698f8ee2b672">prune_suspicious_anchors</a> = false</td></tr>
+<tr class="separator:af01db9677cefc7952fee698f8ee2b672"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a59034e11562bb0969c25defd215f166b"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a59034e11562bb0969c25defd215f166b">max_tail_anchor_prune</a> = 4</td></tr>
+<tr class="separator:a59034e11562bb0969c25defd215f166b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1df336db06fea7951c960f71265d513d"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a1df336db06fea7951c960f71265d513d">low_complexity_p_value</a> = .001</td></tr>
+<tr class="separator:a1df336db06fea7951c960f71265d513d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_attribs_classvg_1_1AlignerClient"><td colspan="2" onclick="javascript:toggleInherit('pub_attribs_classvg_1_1AlignerClient')"><img src="closed.png" alt="-"/>&#160;Public Attributes inherited from <a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
 <tr class="memitem:a25db3953c246e94a7e08ef59fc31b82f inherit pub_attribs_classvg_1_1AlignerClient"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html#a25db3953c246e94a7e08ef59fc31b82f">adjust_alignments_for_base_quality</a> = false</td></tr>
 <tr class="separator:a25db3953c246e94a7e08ef59fc31b82f inherit pub_attribs_classvg_1_1AlignerClient"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1335,6 +1341,20 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a1df336db06fea7951c960f71265d513d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1df336db06fea7951c960f71265d513d">&#9670;&nbsp;</a></span>low_complexity_p_value</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::Surjector::low_complexity_p_value = .001</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a77d7a865fffb0ebbc979ba8139f026c5"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a77d7a865fffb0ebbc979ba8139f026c5">&#9670;&nbsp;</a></span>max_subgraph_bases</h2>
 
@@ -1351,6 +1371,20 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a59034e11562bb0969c25defd215f166b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a59034e11562bb0969c25defd215f166b">&#9670;&nbsp;</a></span>max_tail_anchor_prune</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t vg::Surjector::max_tail_anchor_prune = 4</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a9046bb2c7267f996a6636518e2747b89"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a9046bb2c7267f996a6636518e2747b89">&#9670;&nbsp;</a></span>min_splice_length</h2>
 
@@ -1364,6 +1398,20 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>the minimum length deletion that the spliced algorithm will interpret as a splice event </p>
+
+</div>
+</div>
+<a id="af01db9677cefc7952fee698f8ee2b672"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af01db9677cefc7952fee698f8ee2b672">&#9670;&nbsp;</a></span>prune_suspicious_anchors</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Surjector::prune_suspicious_anchors = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>

@@ -757,6 +757,12 @@ Typedefs</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
 Enumerations</h2></td></tr>
+<tr class="memitem:a43fe994695e911cc22e05195e327f5b5"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5">alignment_emitter_flags_t</a> { <a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5a77d3ea80cba8f3d89e573bf723ea7f4f">ALIGNMENT_EMITTER_FLAG_NONE</a> = 0, 
+<a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5a311ead9579740c16ac55d9eaff3953e0">ALIGNMENT_EMITTER_FLAG_HTS_RAW</a> = 1, 
+<a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5a3388a03ab2e5b8dec8d422db673b00b3">ALIGNMENT_EMITTER_FLAG_HTS_SPLICED</a> = 2, 
+<a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5ad2539e657e6f87051e9f12489f9bb557">ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS</a> = 4
+ }</td></tr>
+<tr class="separator:a43fe994695e911cc22e05195e327f5b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae8af508a4586e2447fdbf2a30a213b39"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39">MappingQualityMethod</a> { <a class="el" href="namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39a9ab31888ec6c2da1a29c051c49f2d5ea">Approx</a>, 
 <a class="el" href="namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39a71ab21548d5ec730cee91982aa78275e">Exact</a>, 
 <a class="el" href="namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39a0f1da9e8a7bb929e940b4fa8be187340">Adaptive</a>, 
@@ -1379,8 +1385,8 @@ Functions</h2></td></tr>
 <tr class="separator:ab0f225fb74f28ea09c6c8917ec14db73"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a49c06960d6bc461b281de34fe7604dc7"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; <a class="el" href="namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2">thread_t</a>, int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a49c06960d6bc461b281de34fe7604dc7">list_haplotypes</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;source, const gbwt::GBWT &amp;haplotype_database, gbwt::node_type start_node, int extend_distance)</td></tr>
 <tr class="separator:a49c06960d6bc461b281de34fe7604dc7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae6d5de03d0ac3d34e0fcd511a936b2c8"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae6d5de03d0ac3d34e0fcd511a936b2c8">get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const vector&lt; tuple&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, size_t, size_t &gt;&gt; &amp;paths, size_t max_threads, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, bool hts_raw, bool hts_spliced)</td></tr>
-<tr class="separator:ae6d5de03d0ac3d34e0fcd511a936b2c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa95de659d860fc90fda95df414c89baf"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa95de659d860fc90fda95df414c89baf">get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const vector&lt; tuple&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, size_t, size_t &gt;&gt; &amp;paths, size_t max_threads, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, int flags)</td></tr>
+<tr class="separator:aa95de659d860fc90fda95df414c89baf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa381cdc7f966379fc7cc9ea11257f632"><td class="memItemLeft" align="right" valign="top">pair&lt; vector&lt; pair&lt; string, int64_t &gt; &gt;, unordered_map&lt; string, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa381cdc7f966379fc7cc9ea11257f632">extract_path_metadata</a> (const vector&lt; tuple&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, size_t, size_t &gt;&gt; &amp;paths, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, bool subpath_support)</td></tr>
 <tr class="separator:aa381cdc7f966379fc7cc9ea11257f632"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a34cbea72ddd9dd9ad9208f8455a3ff7f"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, size_t, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a34cbea72ddd9dd9ad9208f8455a3ff7f">get_sequence_dictionary</a> (const string &amp;filename, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph)</td></tr>
@@ -2891,6 +2897,31 @@ Variables</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Enumeration Type Documentation</h2>
+<a id="a43fe994695e911cc22e05195e327f5b5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a43fe994695e911cc22e05195e327f5b5">&#9670;&nbsp;</a></span>alignment_emitter_flags_t</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5">vg::alignment_emitter_flags_t</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Flag enum for controlling the behavior of alignment emiotters behind <a class="el" href="namespacevg.html#aa95de659d860fc90fda95df414c89baf">get_alignment_emitter()</a>. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a43fe994695e911cc22e05195e327f5b5a77d3ea80cba8f3d89e573bf723ea7f4f"></a>ALIGNMENT_EMITTER_FLAG_NONE&#160;</td><td class="fielddoc"><p>Value for no flags set. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a43fe994695e911cc22e05195e327f5b5a311ead9579740c16ac55d9eaff3953e0"></a>ALIGNMENT_EMITTER_FLAG_HTS_RAW&#160;</td><td class="fielddoc"><p>Skip surjection, and expect pre-surjected alignments. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a43fe994695e911cc22e05195e327f5b5a3388a03ab2e5b8dec8d422db673b00b3"></a>ALIGNMENT_EMITTER_FLAG_HTS_SPLICED&#160;</td><td class="fielddoc"><p>Use splicing-aware conversion to HTSlib formats: alignments are spliced at known splice sites (i.e. edges in the graph), so form spliced CIGAR strings </p>
+</td></tr>
+<tr><td class="fieldname"><a id="a43fe994695e911cc22e05195e327f5b5ad2539e657e6f87051e9f12489f9bb557"></a>ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS&#160;</td><td class="fielddoc"><p>When surjecting, discard low-complexity anchors and realign more freely against the target path. </p>
+</td></tr>
+</table>
+
+</div>
+</div>
 <a id="ae8af508a4586e2447fdbf2a30a213b39"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ae8af508a4586e2447fdbf2a30a213b39">&#9670;&nbsp;</a></span>MappingQualityMethod</h2>
 
@@ -9489,8 +9520,8 @@ template&lt;typename ProbIn &gt; </div>
 
 </div>
 </div>
-<a id="ae6d5de03d0ac3d34e0fcd511a936b2c8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae6d5de03d0ac3d34e0fcd511a936b2c8">&#9670;&nbsp;</a></span>get_alignment_emitter()</h2>
+<a id="aa95de659d860fc90fda95df414c89baf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa95de659d860fc90fda95df414c89baf">&#9670;&nbsp;</a></span>get_alignment_emitter()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -9528,14 +9559,8 @@ template&lt;typename ProbIn &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>hts_raw</em> = <code>false</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>hts_spliced</em> = <code>false</code>&#160;</td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>flags</em> = <code><a class="el" href="namespacevg.html#a43fe994695e911cc22e05195e327f5b5a77d3ea80cba8f3d89e573bf723ea7f4f">ALIGNMENT_EMITTER_FLAG_NONE</a></code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -9545,8 +9570,7 @@ template&lt;typename ProbIn &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Get an AlignmentEmitter that can emit to the given file (or "-") in the given format. When writing HTSlib formats (SAM, BAM, CRAM), paths should contain the paths in the linear reference in sequence dictionary order (see get_sequence_dictionary), and a PathPositionHandleGraph must be provided. When writing GAF, a HandleGraph must be provided for obtaining node lengths and sequences. Other formats do not need a graph.</p>
-<p>If hts_raw is set, skips surjection, and expects pre-surjected alignments.</p>
-<p>If hts_spliced is set, uses splicing-aware conversion to HTSlib formats: alignments are spliced at known splice sites (i.e. edges in the graph), so form spliced CIGAR strings</p>
+<p>flags is an ORed together set of flags from alignment_emitter_flags_t.</p>
 <p>Automatically applies per-thread buffering, but needs to know how many OMP threads will be in use. </p>
 
 </div>
