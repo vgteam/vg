@@ -252,24 +252,31 @@ int main_deconstruct(int argc, char** argv){
     // process the prefixes
     if (!refpath_prefixes.empty() || !path_sep.empty()) {
         // determine phase identifiers
-        set<string> seen_phases;
+        map<string, set<string>> sample_seen_phases;
         graph->for_each_path_handle([&](const path_handle_t& path_handle) {
             string path_name = graph->get_path_name(path_handle);
             vector<string> vals = split(path_name, path_sep);
             if (vals.size() > 1) {
+                auto& sample_name = vals[0];
                 auto& phase_str = vals[1];
+                /*
                 if (is_number(phase_str)) {
                     seen_phases.insert(phase_str);
                 }
+                */
+                sample_seen_phases[sample_name].insert(phase_str);
             }
         });
-        map<string, int> phase_name_to_id;
+        map<string, map<string, int>> sample_phase_name_to_id;
         {
-            int i = 0;
-            for (auto& phase : seen_phases) {
-                phase_name_to_id[phase] = i++;
+            for (auto& sample : sample_seen_phases) {
+                int i = 0;
+                for (auto& phase : sample.second) {
+                    sample_phase_name_to_id[sample.first][phase] = i++;
+                }
             }
         }
+        /*
         if (seen_phases.size() > ploidy) {
             cerr << "Error [vg deconstruct]: We saw " << seen_phases.size()
                  << " phases, but ploidy is " << ploidy
@@ -281,6 +288,7 @@ int main_deconstruct(int argc, char** argv){
             }
             return 1;
         }
+        */
         unordered_map<string, set<int>> sample_phases;
         // our phase identifiers now map into a dense range
         graph->for_each_path_handle([&](const path_handle_t& path_handle) {
@@ -298,9 +306,9 @@ int main_deconstruct(int argc, char** argv){
                 if (!is_ref) {
                     auto& sample_name = vals[0];
                     int phase = 0;
-                    if (vals.size() > 1
-                        && is_number(vals[1])) {
-                        phase = phase_name_to_id[vals[1]];
+                    if (vals.size() > 1) {
+                        //&& is_number(vals[1])) {
+                        phase = sample_phase_name_to_id[sample_name][vals[1]];
                     } else {
                         phase = 0;
                     }
