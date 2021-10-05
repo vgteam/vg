@@ -42,8 +42,12 @@ jobs:
         run: scripts/restore-deps.sh
        
       - name: Install packages
-        # We don't use artemnovichkov/action-homebrew because that's for Linux
-        run: brew bundle
+        # We don't use artemnovichkov/action-homebrew because that's for Linux.
+        # We uninstall everything we don't need in order to prevent linking
+        # conflicts with existing/outdated packages, which we can't resolve
+        # because there's no way to tell Homebrew to force-link when installing
+        # from a Brewfile.
+        run: brew bundle cleanup --force && brew bundle install
 
       - name: Run build and test
         run: |
