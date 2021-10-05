@@ -100,11 +100,10 @@ vg index cyclic_tiny.vg -x cyclic_tiny.xg
 vg find -x cyclic_tiny.xg  -n 10 -n 11 -n 12 -n 13 -n 14 -n 15 -c 1 > cycle.vg
 vg index cycle.vg -x cycle.xg
 vg deconstruct cycle.xg -p y -e -t 1 > cycle_decon.vcf
-is $(grep -v "#" cycle_decon.vcf | wc -l) 2 "cyclic reference deconstruction has correct number of variants"
+is $(grep -v "#" cycle_decon.vcf | wc -l) 1 "cyclic reference deconstruction has correct number of variants"
 grep -v "#" cycle_decon.vcf | grep 20 | awk '{print $1 "\t" $2 "\t" $4 "\t" $5 "\t" $10}' > cycle_decon.tsv
 grep -v "#" cycle_decon.vcf | grep 44 | awk '{print $1 "\t" $2 "\t" $4 "\t" $5 "\t" $10}' >> cycle_decon.tsv
-printf "y\t20\tT\tA\t0\n" > cycle_decon_truth.tsv
-printf "y\t44\tA\tT\t1\n" >> cycle_decon_truth.tsv
+printf "y\t44\tA\tT\t1\n" > cycle_decon_truth.tsv
 diff cycle_decon.tsv cycle_decon_truth.tsv
 is "$?" 0 "deconstruct correctly handles cycle in the reference path that spans snarl"
 
@@ -123,7 +122,7 @@ vg deconstruct tiny_names.xg -P ref -H . -e -d 1 | sort > tiny_names_decon.vcf
 is $(grep -v "#" tiny_names_decon.vcf | wc -l) 2 "-P -H options return correct number of variants"
 is $(grep -v "#" tiny_names_decon.vcf | grep ref.1 | wc -l) 2 "-P -A options use correct reference name"
 is $(grep -v "#" tiny_names_decon.vcf | grep ref.1 | grep 14 | grep "CONFLICT=alt1" | wc -l) 1 "-P -A identifies conflict in alt1 in second variant"
-vg deconstruct tiny_names.vg -P ref -A alt1 -A alt2 -e -d 1 | sort > tiny_names_decon_vg.vcf
+vg deconstruct tiny_names.vg -P ref -H . -e -d 1 | sort > tiny_names_decon_vg.vcf
 diff tiny_names_decon.vcf tiny_names_decon_vg.vcf
 is "$?" 0 "deconstructing vg graph gives same output as xg graph"
 
