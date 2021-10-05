@@ -270,6 +270,17 @@ int main_deconstruct(int argc, char** argv){
                 phase_name_to_id[phase] = i++;
             }
         }
+        if (seen_phases.size() > ploidy) {
+            cerr << "Error [vg deconstruct]: We saw " << seen_phases.size()
+                 << " phases, but ploidy is " << ploidy
+                 << ". With -H '" << path_sep << "', the phase identifier in sample'"
+                 << path_sep << "'phase1 is \"phase1\"."
+                 << " You have too many unique phase identifiers in the input for the given ploidy:" << endl;
+            for (auto& phase : seen_phases) {
+                cerr << "phase_name: " << phase << " -> phase_id: " << phase_name_to_id[phase] << endl;
+            }
+            return 1;
+        }
         unordered_map<string, set<int>> sample_phases;
         // our phase identifiers now map into a dense range
         graph->for_each_path_handle([&](const path_handle_t& path_handle) {
