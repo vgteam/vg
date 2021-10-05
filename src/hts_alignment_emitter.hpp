@@ -27,6 +27,23 @@ using namespace std;
 
 using namespace vg::io;
 
+/**
+ * Flag enum for controlling the behavior of alignment emiotters behind get_alignment_emitter().
+ */
+enum alignment_emitter_flags_t {
+    /// Value for no flags set.
+    ALIGNMENT_EMITTER_FLAG_NONE = 0,
+    /// Skip surjection, and expect pre-surjected alignments.
+    ALIGNMENT_EMITTER_FLAG_HTS_RAW = 1,
+    /// Use splicing-aware conversion to HTSlib formats:
+    /// alignments are spliced at known splice sites (i.e. edges in the graph), so
+    /// form spliced CIGAR strings
+    ALIGNMENT_EMITTER_FLAG_HTS_SPLICED = 2,
+    /// When surjecting, discard low-complexity anchors and realign more freely
+    /// against the target path.
+    ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS = 4
+};
+
 /// Get an AlignmentEmitter that can emit to the given file (or "-") in the
 /// given format. When writing HTSlib formats (SAM, BAM, CRAM), paths should
 /// contain the paths in the linear reference in sequence dictionary order (see
@@ -34,18 +51,13 @@ using namespace vg::io;
 /// When writing GAF, a HandleGraph must be provided for obtaining node lengths
 /// and sequences. Other formats do not need a graph.
 ///
-/// If hts_raw is set, skips surjection, and expects pre-surjected alignments.
-///
-/// If hts_spliced is set, uses splicing-aware conversion to HTSlib formats:
-/// alignments are spliced at known splice sites (i.e. edges in the graph), so
-/// form spliced CIGAR strings
+/// flags is an ORed together set of flags from alignment_emitter_flags_t.
 ///
 /// Automatically applies per-thread buffering, but needs to know how many OMP
 /// threads will be in use.
 unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, 
                                                    const vector<tuple<path_handle_t, size_t, size_t>>& paths, size_t max_threads,
-                                                   const HandleGraph* graph = nullptr, bool hts_raw = false,
-                                                   bool hts_spliced = false);
+                                                   const HandleGraph* graph = nullptr, int flags = ALIGNMENT_EMITTER_FLAG_NONE);
 
 /**
  * Produce a list of path handles in a fixed order, suitable for use with

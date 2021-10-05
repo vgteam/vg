@@ -29,8 +29,13 @@ public:
      * Surject alignments using the given graph, into the given paths, and send them to the given AlignmentEmitter.
      * Takes ownership of the AlignmentEmitter.
      * Copies the set of paths.
+     *
+     * If prune_suspicious_anchors is set, prunes out repetitive-looking
+     * anchors when surjecting and lets those parts of reads be realigned.
      */
-    SurjectingAlignmentEmitter(const PathPositionHandleGraph* graph, unordered_set<path_handle_t> paths, unique_ptr<AlignmentEmitter>&& backing);
+    SurjectingAlignmentEmitter(const PathPositionHandleGraph* graph,
+        unordered_set<path_handle_t> paths, unique_ptr<AlignmentEmitter>&& backing,
+        bool prune_suspicious_anchors = false);
    
     ///  Force full length alignment in surjection resolution 
     bool surject_subpath_global = true;
