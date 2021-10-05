@@ -554,7 +554,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 
     // map from each path_trav index to the ref_trav index it best maps to
     vector<int> path_trav_to_ref_trav;
-    if (ref_travs.size() > 1) {
+    if (ref_travs.size() > 1 && this->path_jaccard_window) {
         path_trav_to_ref_trav.resize(path_travs.first.size());
 #ifdef debug
 #pragma omp critical (cerr)
@@ -758,6 +758,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                                 bool path_restricted_traversals,
                                 int ploidy,
                                 bool include_nested,
+                                int context_jaccard_window,
                                 bool keep_conflicted,
                                 bool strict_conflicts,
                                 const unordered_map<string, pair<string, int>>* path_to_sample_phase,
@@ -773,6 +774,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     this->path_to_sample_phase = path_to_sample_phase;
     this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
     this->include_nested = include_nested;
+    this->path_jaccard_window = context_jaccard_window;
     this->translation = translation;
     this->keep_conflicted_genotypes = keep_conflicted;
     this->strict_conflict_checking = strict_conflicts;

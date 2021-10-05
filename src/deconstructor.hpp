@@ -40,6 +40,7 @@ public:
                      bool path_restricted_traversals,
                      int ploidy,
                      bool include_nested,
+                     int context_jaccard_window,
                      bool keep_conflicted,
                      bool strict_conflicts,
                      const unordered_map<string, pair<string, int>>* path_to_sample_phase = nullptr,

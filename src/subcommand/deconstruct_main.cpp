@@ -29,7 +29,6 @@ void help_deconstruct(char** argv){
          << "options: " << endl
          << "    -p, --path NAME          A reference path to deconstruct against (multiple allowed)." << endl
          << "    -P, --path-prefix NAME   All paths (and/or GBWT threads) beginning with NAME used as reference (multiple allowed)." << endl
-        //<< "    -A, --alt-prefix NAME    Non-reference paths (and/or GBWT threads) beginning with NAME get lumped together to same sample in VCF (multiple allowed)." << endl
          << "                             Other non-ref paths not considered as samples.  When using a GBWT, select only samples with given prefix." << endl
          << "    -H, --path-sep SEP       Obtain alt paths from the set of paths, assuming a path name hierarchy (e.g. SEP='#' and sample#phase#contig)" << endl
          << "    -r, --snarls FILE        Snarls file (from vg snarls) to avoid recomputing." << endl
@@ -38,6 +37,7 @@ void help_deconstruct(char** argv){
          << "    -e, --path-traversals    Only consider traversals that correspond to paths in the graph." << endl
          << "    -a, --all-snarls         Process all snarls, including nested snarls (by default only top-level snarls reported)." << endl
          << "    -d, --ploidy N           Expected ploidy.  If more traversals found, they will be flagged as conflicts (default: 2)" << endl
+         << "    -c, --context-jaccard N  Set context mapping size used to disambiguate alleles at sites with multiple reference traversals (default: 10000)." << endl
          << "    -K, --keep-conflicted    Retain conflicted genotypes in output." << endl
          << "    -S, --strict-conflicts   Drop genotypes when we have more than one haplotype for any given phase (set by default when using GBWT input)." << endl
          << "    -t, --threads N          Use N threads" << endl
@@ -65,6 +65,7 @@ int main_deconstruct(int argc, char** argv){
     bool all_snarls = false;
     bool keep_conflicted = false;
     bool strict_conflicts = false;
+    int context_jaccard_window = 10000;
     string path_sep;
     
     int c;
@@ -82,6 +83,7 @@ int main_deconstruct(int argc, char** argv){
                 {"translation", required_argument, 0, 'T'},
                 {"path-traversals", no_argument, 0, 'e'},
                 {"ploidy", required_argument, 0, 'd'},
+                {"context-jaccard", required_argument, 0, 'c'},
                 {"all-snarls", no_argument, 0, 'a'},
                 {"keep-conflicted", no_argument, 0, 'K'},
                 {"strict-conflicts", no_argument, 0, 'S'},
@@ -91,7 +93,7 @@ int main_deconstruct(int argc, char** argv){
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:P:H:r:g:T:eKSd:at:v",
+        c = getopt_long (argc, argv, "hp:P:H:r:g:T:eKSd:c:at:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -124,6 +126,9 @@ int main_deconstruct(int argc, char** argv){
         case 'd':
             ploidy = parse<int>(optarg);
             set_ploidy = true;
+            break;
+        case 'c':
+            context_jaccard_window = parse<int>(optarg);
             break;
         case 'a':
             all_snarls = true;
@@ -351,6 +356,7 @@ int main_deconstruct(int argc, char** argv){
     }
     dd.deconstruct(refpaths, graph, snarl_manager.get(), path_restricted_traversals, ploidy,
                    all_snarls,
+                   context_jaccard_window,
                    keep_conflicted,
                    strict_conflicts,
                    !alt_path_to_sample_phase.empty() ? &alt_path_to_sample_phase : nullptr,
