@@ -107,6 +107,12 @@ class NewSnarlSeedClusterer {
             net_handle_t containing_net_handle; 
 
 
+            //Is this a node and is the node in a top-level chain
+            bool is_top_level_node = false;
+            //If this is a top level node, then what is the offset of the node in its parent (from cached distances in seeds)
+            size_t top_level_node_offset_in_parent = std::numeric_limits<size_t>::max();
+
+
             //set of the indices of heads of clusters (group ids in the 
             //union find)
             //TODO: Add cluster distances here
@@ -131,6 +137,13 @@ class NewSnarlSeedClusterer {
             //read_count is the number of reads in a fragment (2 for paired end)
             NodeClusters( net_handle_t net, size_t read_count) :
                 containing_net_handle(net),
+                fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
+                read_best_left(read_count, std::numeric_limits<size_t>::max()), 
+                read_best_right(read_count, std::numeric_limits<size_t>::max()){}
+            NodeClusters( net_handle_t net, size_t read_count, bool is_top_level_node, size_t offset_in_top_chain) :
+                containing_net_handle(net),
+                is_top_level_node(is_top_level_node),
+                top_level_node_offset_in_parent(offset_in_top_chain),
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
                 read_best_left(read_count, std::numeric_limits<size_t>::max()), 
                 read_best_right(read_count, std::numeric_limits<size_t>::max()){}

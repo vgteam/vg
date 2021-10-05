@@ -802,10 +802,9 @@ tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> get_mini
 
     if (distance_index.is_root(parent_handle)) {
         //If this node is a child of the root, then we don't want to cache values
-        return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(false, MIPayload::NO_VALUE, MIPayload::NO_VALUE,
-                 false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
+        return get_empty_minimizer_distances();
 
-    } else if (distance_index.is_chain(parent_handle)) {
+    } else if (distance_index.is_chain(parent_handle) && !distance_index.is_trivial_chain(node_handle)) {
         if (!distance_index.is_snarl(distance_index.get_parent(parent_handle)) 
             && distance_index.is_root(distance_index.get_parent(parent_handle))) {
             
@@ -814,20 +813,17 @@ tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> get_mini
                 false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
         } else {
             //If the parent is a nested chain
-            return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(
-                 false, MIPayload::NO_VALUE, MIPayload::NO_VALUE,
-                 false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
+            return get_empty_minimizer_distances();
         }
     } else if (distance_index.is_snarl(parent_handle)) {
         //TODO: Add the snrl version later
-        return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(false, MIPayload::NO_VALUE, MIPayload::NO_VALUE,
-                 false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
+        return get_empty_minimizer_distances();
     } else {
         throw runtime_error("error: parent of node isn't a snarl or chain");
     }
 
 }
-tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> get_minimizer_distances () {
+tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> get_empty_minimizer_distances () {
     return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(false, MIPayload::NO_VALUE, MIPayload::NO_VALUE,
              false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
 }

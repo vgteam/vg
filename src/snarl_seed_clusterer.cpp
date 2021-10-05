@@ -291,15 +291,13 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 
                    //Get one seed in this cluster and if it's a top level seed, then get cached information from the seed instead
                    //of going to the distance index
-                   const Seed& item_seed = tree_state.all_seeds->at(item.read_cluster_heads.begin()->first.first)->at(item.read_cluster_heads.begin()->first.second);
-                   size_t item_offset = item_seed.in_top_level_chain 
-                                            ? item_seed.offset_in_parent 
+                   size_t item_offset = item.is_top_level_node 
+                                            ? item.top_level_node_offset_in_parent
                                             : distance_index.get_record_offset_in_chain(item.containing_net_handle); 
 
                    //Same for things in the vector
-                   const Seed& vector_item_seed = tree_state.all_seeds->at(item.read_cluster_heads.begin()->first.first)->at(item.read_cluster_heads.begin()->first.second);
-                   size_t vector_item_offset = vector_item_seed.in_top_level_chain 
-                                               ? vector_item_seed.offset_in_parent 
+                   size_t vector_item_offset = vector_item.is_top_level_node 
+                                               ? vector_item.top_level_node_offset_in_parent
                                                : distance_index.get_record_offset_in_chain(vector_item.containing_net_handle); 
 
                    return item_offset < vector_item_offset;
@@ -341,10 +339,15 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                          vector<NodeClusters> empty_vector;
                          chain_to_children_by_level[depth].emplace(parent, std::move(empty_vector));
                      }
-                     insert_in_order(chain_to_children_by_level[depth][parent],
+                     if (seeds->at(i).in_top_level_chain) {
+                         insert_in_order(chain_to_children_by_level[depth][parent],
+                                     NodeClusters(distance_index.get_node_net_handle(id), tree_state.all_seeds->size(),
+                                     true, seeds->at(i).offset_in_parent));
+                     } else {
+                         insert_in_order(chain_to_children_by_level[depth][parent],
                                      NodeClusters(distance_index.get_node_net_handle(id), tree_state.all_seeds->size()));
-                 } else {
-                 }
+                     }
+                 } 
 //                }
                 /* TODO: This uses cached distance index information, which I might put back but hopefully it won't be necessary anymore
                  * else if (seeds->at(i).is_top_level_node) {

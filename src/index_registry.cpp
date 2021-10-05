@@ -3432,9 +3432,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto minimizer_output = *constructing.begin();
         auto& output_names = all_outputs[0];
         
-        ifstream infile_dist;
-        init_in(infile_dist, dist_filename);
-        auto dist_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(infile_dist);
+        SnarlDistanceIndex dist_index;
+        dist_index.deserialize(dist_filename);
 
         ifstream infile_gbz;
         init_in(infile_gbz, gbz_filename);
@@ -3447,7 +3446,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                     IndexingParameters::use_bounded_syncmers);
                 
         gbwtgraph::index_haplotypes(gbz->graph, minimizers, [&](const pos_t& pos) -> gbwtgraph::payload_type {
-            return MIPayload::encode(dist_index->get_minimizer_distances(pos));
+            return MIPayload::encode(get_minimizer_distances(dist_index, pos));
         });
         
         string output_name = plan->output_filepath(minimizer_output);

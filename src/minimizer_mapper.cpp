@@ -2896,14 +2896,13 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                 // Extract component id and offset in the root chain, if we have them for this seed.
                 // TODO: Get all the seed values here
                 // TODO: Don't use the seed payload anymore
-                //tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info
-                //    (false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false );
-                //if (minimizer.occs[j].payload != MIPayload::NO_CODE) {
-                //    chain_info = MIPayload::decode(minimizer.occs[j].payload);
-                //}
-                seeds.push_back({ hit, i});
-                // std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info), 
-                //    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info) });
+                tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info
+                    (false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false );
+                if (minimizer.occs[j].payload != MIPayload::NO_CODE) {
+                    chain_info = MIPayload::decode(minimizer.occs[j].payload);
+                }
+                seeds.push_back({ hit, i, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info), 
+                    std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info) });
             }
 
             // Remember that we took this minimizer
