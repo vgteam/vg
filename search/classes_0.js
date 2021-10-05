@@ -1,15 +1,15 @@
 var searchData=
 [
-  ['affinity_5480',['Affinity',['../structvg_1_1Genotyper_1_1Affinity.html',1,'vg::Genotyper']]],
-  ['aliasgraph_5481',['AliasGraph',['../classvg_1_1AliasGraph.html',1,'vg']]],
-  ['aligner_5482',['Aligner',['../classvg_1_1Aligner.html',1,'vg']]],
-  ['alignerclient_5483',['AlignerClient',['../classvg_1_1AlignerClient.html',1,'vg']]],
-  ['alignment_5484',['Alignment',['../structvg_1_1Alignment.html',1,'vg']]],
-  ['alignmentchainmodel_5485',['AlignmentChainModel',['../classvg_1_1AlignmentChainModel.html',1,'vg']]],
-  ['alignmentchainmodelvertex_5486',['AlignmentChainModelVertex',['../classvg_1_1AlignmentChainModelVertex.html',1,'vg']]],
-  ['alignmentemitter_5487',['AlignmentEmitter',['../classvg_1_1io_1_1AlignmentEmitter.html',1,'vg::io']]],
-  ['alttracebackstack_5488',['AltTracebackStack',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html',1,'vg::BandedGlobalAligner']]],
-  ['annotation_5489',['Annotation',['../structvg_1_1Annotation.html',1,'vg']]],
-  ['appendhaplotypecommand_5490',['AppendHaplotypeCommand',['../structvg_1_1AppendHaplotypeCommand.html',1,'vg']]],
-  ['augmentedgraph_5491',['AugmentedGraph',['../structvg_1_1AugmentedGraph.html',1,'vg']]]
+  ['affinity_5485',['Affinity',['../structvg_1_1Genotyper_1_1Affinity.html',1,'vg::Genotyper']]],
+  ['aliasgraph_5486',['AliasGraph',['../classvg_1_1AliasGraph.html',1,'vg']]],
+  ['aligner_5487',['Aligner',['../classvg_1_1Aligner.html',1,'vg']]],
+  ['alignerclient_5488',['AlignerClient',['../classvg_1_1AlignerClient.html',1,'vg']]],
+  ['alignment_5489',['Alignment',['../structvg_1_1Alignment.html',1,'vg']]],
+  ['alignmentchainmodel_5490',['AlignmentChainModel',['../classvg_1_1AlignmentChainModel.html',1,'vg']]],
+  ['alignmentchainmodelvertex_5491',['AlignmentChainModelVertex',['../classvg_1_1AlignmentChainModelVertex.html',1,'vg']]],
+  ['alignmentemitter_5492',['AlignmentEmitter',['../classvg_1_1io_1_1AlignmentEmitter.html',1,'vg::io']]],
+  ['alttracebackstack_5493',['AltTracebackStack',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html',1,'vg::BandedGlobalAligner']]],
+  ['annotation_5494',['Annotation',['../structvg_1_1Annotation.html',1,'vg']]],
+  ['appendhaplotypecommand_5495',['AppendHaplotypeCommand',['../structvg_1_1AppendHaplotypeCommand.html',1,'vg']]],
+  ['augmentedgraph_5496',['AugmentedGraph',['../structvg_1_1AugmentedGraph.html',1,'vg']]]
 ];

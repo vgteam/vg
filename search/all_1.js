@@ -12,7 +12,7 @@ var searchData=
   ['adaptive_5freseed_5fdiff_45',['adaptive_reseed_diff',['../classvg_1_1BaseMapper.html#acf7556c347ea7596624700482dc58c8c',1,'vg::BaseMapper']]],
   ['adaptive_5freseed_5flength_5fmemo_46',['adaptive_reseed_length_memo',['../classvg_1_1BaseMapper.html#a279b5883907a56ada69b41796230b209',1,'vg::BaseMapper']]],
   ['add_47',['add',['../classvg_1_1Packer.html#a8a8cb2dd528dc7cc178e32e69e42212b',1,'vg::Packer']]],
-  ['add_5fallele_5fpath_5fto_5finfo_48',['add_allele_path_to_info',['../classvg_1_1Deconstructor.html#a5db03b6ca9bf9fccd85838826be52e02',1,'vg::Deconstructor']]],
+  ['add_5fallele_5fpath_5fto_5finfo_48',['add_allele_path_to_info',['../classvg_1_1Deconstructor.html#a98a2a2990d816ea2947111faabcaa49a',1,'vg::Deconstructor']]],
   ['add_5falt_5fallele_49',['add_alt_allele',['../namespacevg.html#a6391a10ec421fbb6c487f491bd978ef6',1,'vg']]],
   ['add_5fbv_50',['add_bv',['../classVectorizer.html#a88203fab4049c471c963135c4c52ce03',1,'Vectorizer']]],
   ['add_5fchain_5fchild_51',['add_chain_child',['../classvg_1_1NetGraph.html#a0fadfaf9261a911ec04b4c10f75c5b9b',1,'vg::NetGraph']]],

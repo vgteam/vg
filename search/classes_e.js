@@ -1,11 +1,11 @@
 var searchData=
 [
-  ['option_5737',['Option',['../classvg_1_1Option.html',1,'vg']]],
-  ['option_3c_20vector_3c_20item_20_3e_2c_20parser_20_3e_5738',['Option&lt; vector&lt; Item &gt;, Parser &gt;',['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html',1,'vg']]],
-  ['optioninterface_5739',['OptionInterface',['../classvg_1_1OptionInterface.html',1,'vg']]],
-  ['optionvalueparser_5740',['OptionValueParser',['../classvg_1_1OptionValueParser.html',1,'vg']]],
-  ['optionvalueparser_3c_20vector_3c_20item_20_3e_20_3e_5741',['OptionValueParser&lt; vector&lt; Item &gt; &gt;',['../classvg_1_1OptionValueParser_3_01vector_3_01Item_01_4_01_4.html',1,'vg']]],
-  ['orderedgraph_5742',['OrderedGraph',['../structvg_1_1DozeuInterface_1_1OrderedGraph.html',1,'vg::DozeuInterface']]],
-  ['orienteddistanceclusterer_5743',['OrientedDistanceClusterer',['../classvg_1_1OrientedDistanceClusterer.html',1,'vg']]],
-  ['orienteddistancemeasurer_5744',['OrientedDistanceMeasurer',['../classvg_1_1OrientedDistanceMeasurer.html',1,'vg']]]
+  ['option_5742',['Option',['../classvg_1_1Option.html',1,'vg']]],
+  ['option_3c_20vector_3c_20item_20_3e_2c_20parser_20_3e_5743',['Option&lt; vector&lt; Item &gt;, Parser &gt;',['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html',1,'vg']]],
+  ['optioninterface_5744',['OptionInterface',['../classvg_1_1OptionInterface.html',1,'vg']]],
+  ['optionvalueparser_5745',['OptionValueParser',['../classvg_1_1OptionValueParser.html',1,'vg']]],
+  ['optionvalueparser_3c_20vector_3c_20item_20_3e_20_3e_5746',['OptionValueParser&lt; vector&lt; Item &gt; &gt;',['../classvg_1_1OptionValueParser_3_01vector_3_01Item_01_4_01_4.html',1,'vg']]],
+  ['orderedgraph_5747',['OrderedGraph',['../structvg_1_1DozeuInterface_1_1OrderedGraph.html',1,'vg::DozeuInterface']]],
+  ['orienteddistanceclusterer_5748',['OrientedDistanceClusterer',['../classvg_1_1OrientedDistanceClusterer.html',1,'vg']]],
+  ['orienteddistancemeasurer_5749',['OrientedDistanceMeasurer',['../classvg_1_1OrientedDistanceMeasurer.html',1,'vg']]]
 ];
