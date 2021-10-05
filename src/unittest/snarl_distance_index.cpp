@@ -75,7 +75,7 @@ namespace vg {
             }
         }
         TEST_CASE( "Snarl decomposition can deal with multiple connected components",
-                  "[snarl_distance][bug]" ) {
+                  "[snarl_distance]" ) {
         
         
             // This graph will have a snarl from 1 to 8, a snarl from 2 to 7,
@@ -113,6 +113,12 @@ namespace vg {
             Edge* e13 = graph.create_edge(n10, n11);
             Edge* e14 = graph.create_edge(n11, n12);
             Edge* e15 = graph.create_edge(n11, n12, false, true);
+
+            path_handle_t path_handle = graph.create_path_handle("path");
+            graph.append_step(path_handle,graph.get_handle(n2->id(), false)); 
+            graph.append_step(path_handle,graph.get_handle(n3->id(), false)); 
+            graph.append_step(path_handle,graph.get_handle(n4->id(), false)); 
+
             
             //get the snarls
             IntegratedSnarlFinder snarl_finder(graph); 
@@ -360,6 +366,16 @@ namespace vg {
                          n9->id(), false, 0, n12->id(), false, 0) == 5);
             }
         
+            SECTION("Snarl based subgraph gets correct nodes") {
+                std::unordered_set<nid_t> subgraph;
+                subgraph_containing_path_snarls(distance_index, &graph, path_from_path_handle(graph, path_handle), subgraph); 
+                REQUIRE(subgraph.count(n2->id()));
+                REQUIRE(subgraph.count(n3->id()));
+                REQUIRE(subgraph.count(n4->id()));
+                REQUIRE(subgraph.count(n5->id()));
+                REQUIRE(subgraph.count(n6->id()));
+                REQUIRE(subgraph.size() == 5);
+            }
         }
         TEST_CASE( "Snarl decomposition can allow traversal of a simple net graph",
                   "[snarl_distance]" ) {
@@ -4225,6 +4241,9 @@ namespace vg {
             Edge* e18 = graph.create_edge(n11, n11, false, true);
             Edge* e19 = graph.create_edge(n6, n6, false, true);
             
+            path_handle_t path_handle = graph.create_path_handle("path");
+            graph.append_step(path_handle,graph.get_handle(n4->id(), false)); 
+            graph.append_step(path_handle,graph.get_handle(n6->id(), false)); 
            
             IntegratedSnarlFinder snarl_finder(graph); 
             SnarlDistanceIndex distance_index;
@@ -4259,6 +4278,14 @@ namespace vg {
                          10, true, 0, 4, false, 0) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.minimum_distance(
                          11, true, 0, 4, false, 0) == std::numeric_limits<size_t>::max());
+            }
+            SECTION("Snarl based subgraph gets correct nodes") {
+                std::unordered_set<nid_t> subgraph;
+                subgraph_containing_path_snarls(distance_index, &graph, path_from_path_handle(graph, path_handle), subgraph); 
+                REQUIRE(subgraph.count(n4->id()));
+                REQUIRE(subgraph.count(n5->id()));
+                REQUIRE(subgraph.count(n6->id()));
+                REQUIRE(subgraph.size() == 3);
             }
         }
         TEST_CASE( "Snarl distance index can deal with loops in a snarl", "[snarl_distance]" ) {

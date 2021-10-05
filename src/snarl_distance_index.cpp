@@ -1,6 +1,7 @@
 //#define debug_distance_indexing
 //#define debug_snarl_traversal
 //#define debug_distances
+//#define debug_subgraph
 
 #include "snarl_distance_index.hpp"
 
@@ -69,7 +70,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
 
         //Fill in node in chain
         stack.emplace_back(SnarlDistanceIndex::TEMP_CHAIN, temp_index.temp_chain_records.size());
-        id_t node_id = graph->get_id(chain_start_handle);
+        nid_t node_id = graph->get_id(chain_start_handle);
         temp_index.temp_chain_records.emplace_back();
         auto& temp_chain = temp_index.temp_chain_records.back();
         temp_chain.start_node_id = node_id; 
@@ -97,7 +98,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
 
         assert(chain_index.first == SnarlDistanceIndex::TEMP_CHAIN);
         SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryChainRecord& temp_chain_record = temp_index.temp_chain_records.at(chain_index.second);
-        id_t node_id = graph->get_id(chain_end_handle);
+        nid_t node_id = graph->get_id(chain_end_handle);
 
         //Fill in node in chain
         temp_chain_record.end_node_id = node_id;
@@ -115,7 +116,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
             //If this was the last thing on the stack, then this was a root
 
             //Check to see if there is anything connected to the ends of the chain
-            vector<id_t> reachable_nodes;
+            vector<nid_t> reachable_nodes;
             graph->follow_edges(graph->get_handle(temp_chain_record.start_node_id, !temp_chain_record.start_node_rev),
                 false, [&] (const handle_t& next) {
                     if (graph->get_id(next) != temp_chain_record.start_node_id &&
@@ -143,7 +144,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
                 //And remember that it's in a connected component of the root
                 temp_chain_record.root_snarl_index = temp_index.root_snarl_components.size();
                 temp_index.root_snarl_components.emplace_back(chain_index);
-                for (id_t next_id : reachable_nodes) {
+                for (nid_t next_id : reachable_nodes) {
                     //For each node that this is connected to, check if we've already seen it and if we have, then
                     //union this chain and that node's chain
                     SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryNodeRecord& node_record = temp_index.temp_node_records[next_id-temp_index.min_node_id];
@@ -209,7 +210,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
         assert(snarl_index.first == SnarlDistanceIndex::TEMP_SNARL);
         assert(stack.back().first == SnarlDistanceIndex::TEMP_CHAIN);
         SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = temp_index.temp_snarl_records[snarl_index.second];
-        id_t node_id = graph->get_id(snarl_end_handle);
+        nid_t node_id = graph->get_id(snarl_end_handle);
 
         //Record the end node in the snarl
         temp_snarl_record.end_node_id = node_id;
@@ -578,7 +579,7 @@ void populate_snarl_index(
              && start_index.second != temp_snarl_record.end_node_id) 
             || 
             (start_index.first == SnarlDistanceIndex::TEMP_CHAIN && temp_index.temp_chain_records.at(start_index.second).is_trivial)) {
-            id_t node_id = start_index.first == SnarlDistanceIndex::TEMP_NODE ? start_index.second : temp_index.temp_chain_records.at(start_index.second).start_node_id;
+            nid_t node_id = start_index.first == SnarlDistanceIndex::TEMP_NODE ? start_index.second : temp_index.temp_chain_records.at(start_index.second).start_node_id;
             size_t rank = start_index.first == SnarlDistanceIndex::TEMP_NODE ? temp_index.temp_node_records.at(start_index.second-temp_index.min_node_id).rank_in_parent 
                                                           : temp_index.temp_chain_records.at(start_index.second).rank_in_parent;
             
@@ -779,6 +780,151 @@ void populate_snarl_index(
         }
     }
     temp_index.max_index_size += temp_snarl_record.get_max_record_length();
+}
+
+
+//Given an alignment to a graph and a range, find the set of nodes in the
+//graph for which the minimum distance from the position to any position
+//in the node is within the given distance range
+//If look_forward is true, then start from the start of the path forward,
+//otherwise start from the end going backward
+void subgraph_in_distance_range(const Path& path, const HandleGraph* super_graph, int64_t min_distance,
+                                        int64_t max_distance, std::unordered_set<nid_t>& subgraph, bool look_forward){
+    return;
+}
+
+
+///Helper for subgraph_in_distance_range
+///Given starting handles in the super graph and the distances to each handle (including the start position and
+//the first position in the handle), add all nodes within the distance range, excluding nodes in seen_nodes
+void add_nodes_in_distance_range(const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance,
+                        std::unordered_set<nid_t>& subgraph, vector<tuple<handle_t, int64_t>>& start_nodes,
+                        hash_set<pair<nid_t, bool>>& seen_nodes) {
+#ifdef debug_subgraph
+    cerr << "Starting search from nodes ";
+    for (auto& start_handle : start_nodes) {
+        cerr << super_graph->get_id(std::get<0>(start_handle)) << " " << super_graph->get_is_reverse(std::get<0>(start_handle))
+             << " with distance " << std::get<1>(start_handle) << endl;
+    }
+#endif
+
+    //Order based on the distance to the position (handle)
+    auto cmp =  [] (const tuple<handle_t, int64_t> a, const tuple<handle_t, int64_t> b ) {
+            return std::get<1>(a) > std::get<1>(b);
+        };
+    priority_queue< tuple<handle_t, int64_t>, vector<tuple<handle_t, int64_t>>, decltype(cmp)> next_handles (cmp);
+    for (auto& start_handle : start_nodes) {
+        next_handles.emplace(start_handle);
+    }
+    bool first_node = true;
+
+    while (next_handles.size() > 0) {
+        //Traverse the graph, adding nodes if they are within the range
+        handle_t curr_handle; int64_t curr_distance;
+        std::tie(curr_handle, curr_distance) = next_handles.top();
+        next_handles.pop();
+        if (seen_nodes.count(make_pair(super_graph->get_id(curr_handle), super_graph->get_is_reverse(curr_handle))) == 0) {
+            seen_nodes.emplace(super_graph->get_id(curr_handle), super_graph->get_is_reverse(curr_handle));
+
+            int64_t node_len = super_graph->get_length(curr_handle);
+            int64_t curr_distance_end = curr_distance + node_len - 1;
+            if ((curr_distance >= min_distance && curr_distance <= max_distance) ||
+                 (curr_distance_end >= min_distance && curr_distance_end <= max_distance) ||
+                 (curr_distance <= min_distance && curr_distance_end >= max_distance)) {
+#ifdef debugSubgraph
+                cerr << "\tadding node " << super_graph->get_id(curr_handle) << " " << super_graph->get_is_reverse(curr_handle) << " with distance "
+                     << curr_distance << " and node length " << node_len << endl;
+#endif
+                subgraph.insert(super_graph->get_id(curr_handle));
+
+            }
+#ifdef debugSubgraph
+            else {
+                cerr << "\tdisregarding node " << super_graph->get_id(curr_handle) << " " << super_graph->get_is_reverse(curr_handle)
+                     << " with distance " << curr_distance << " and node length " << node_len << endl;
+            }
+#endif
+            curr_distance += node_len;
+
+            //If the end of this node is still within the range, add the next nodes that are within
+            if (curr_distance-1 <= max_distance ) {
+                super_graph->follow_edges(curr_handle, false, [&](const handle_t& next) {
+                    nid_t next_id = super_graph->get_id(next);
+                    if (seen_nodes.count(make_pair(next_id, super_graph->get_is_reverse(next))) == 0) {
+                        next_handles.emplace(next, curr_distance);
+                    }
+                    return true;
+                });
+            }
+            first_node = false;
+        }
+
+    }
+
+    return;
+}
+
+void subgraph_containing_path_snarls(const SnarlDistanceIndex& distance_index, const HandleGraph* graph, const Path& path, std::unordered_set<nid_t>& subgraph) {
+    //Get the start and end of the path
+    pos_t start_pos = initial_position(path);
+    net_handle_t start_node = distance_index.get_node_net_handle(get_id(start_pos));
+    subgraph.insert(get_id(start_pos));
+
+    pos_t end_pos = final_position(path);
+    net_handle_t end_node = distance_index.get_node_net_handle(get_id(end_pos));
+    subgraph.insert(get_id(end_pos));
+
+    //Get the lowest common ancestor
+    pair<net_handle_t, bool> lowest_ancestor_bool = distance_index.lowest_common_ancestor(start_node, end_node);
+    net_handle_t common_ancestor = lowest_ancestor_bool.first;
+    
+    
+    if (distance_index.is_snarl(common_ancestor) || common_ancestor == start_node) {
+        //If the lowest common ancestor is a snarl, just add the entire snarl
+
+        add_descendants_to_subgraph(distance_index, common_ancestor, subgraph);
+
+    } else if (distance_index.is_chain(common_ancestor)) {
+
+        //Get the ancestors of the nodes that are children of the common ancestor
+        net_handle_t ancestor1 = distance_index.get_parent(start_node);
+        while (ancestor1 != common_ancestor) {
+            start_node = ancestor1;
+            ancestor1 = distance_index.get_parent(start_node);
+        }
+        net_handle_t ancestor2 = distance_index.get_parent(end_node);
+        while (ancestor2 != common_ancestor) {
+            end_node = ancestor2;
+            ancestor2 = distance_index.get_parent(end_node);
+        }
+
+
+        //Walk from one ancestor to the other and add everything in the chain
+        net_handle_t current_child = distance_index.canonical(distance_index.is_ordered_in_chain(start_node, end_node) ? start_node : end_node);
+        net_handle_t end_child = distance_index.canonical(distance_index.is_ordered_in_chain(start_node, end_node) ? end_node : start_node);
+
+        while (current_child != end_child) {
+            distance_index.follow_net_edges(current_child, graph, false, [&](const net_handle_t& next) {
+                add_descendants_to_subgraph(distance_index, next, subgraph);
+                current_child = next;
+
+            });
+        }
+
+    }
+    
+}
+
+
+//Recursively add all nodes in parent to the subgraph
+void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const net_handle_t& parent, std::unordered_set<nid_t>& subgraph) {
+    if (distance_index.is_node(parent)) {
+        subgraph.insert(distance_index.node_id(parent));
+    } else {
+        distance_index.for_each_child(parent, [&](const net_handle_t& child) {
+            add_descendants_to_subgraph(distance_index, child, subgraph);
+        });
+    }
 }
 
 //Given a position, return distances that can be stored by a minimizer

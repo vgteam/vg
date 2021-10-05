@@ -51,6 +51,32 @@ tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>  get_min
 tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>  get_empty_minimizer_distances ();
 
 
+//Given an alignment to a graph and a range, find the set of nodes in the
+//graph for which the minimum distance from the position to any position
+//in the node is within the given distance range
+//If look_forward is true, then start from the start of the path forward,
+//otherwise start from the end going backward
+void subgraph_in_distance_range(const Path& path, const HandleGraph* super_graph, int64_t min_distance,
+                                int64_t max_distance, std::unordered_set<nid_t>& subgraph, bool look_forward);
+///Helper for subgraph_in_distance_range
+///Given starting handles in the super graph and the distances to each handle (including the start position and
+//the first position in the handle), add all nodes within the distance range, excluding nodes in seen_nodes
+void add_nodes_in_distance_range(const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance,
+                        std::unordered_set<nid_t>& subgraph, vector<tuple<handle_t, int64_t>>& start_nodes,
+                        hash_set<pair<nid_t, bool>>& seen_nodes);
+
+
+//Add nodes to the subgraph if they are near the path in the snarl tree
+//Walks up the snarl tree from either end of the path, then takes everything
+//in between them
+void subgraph_containing_path_snarls(const SnarlDistanceIndex& distance_index, const HandleGraph* graph, const Path& path, std::unordered_set<nid_t>& subgraph);
+
+
+//Helper function for subgraph_containing_path_snarls
+//Add all the nodes in the parent to the subgraph
+void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const net_handle_t& parent, std::unordered_set<nid_t>& subgraph);
+
+
 
 /**
  * The encoding of distances for positions in top-level chains or top-level simple bubbles.
