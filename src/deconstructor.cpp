@@ -581,8 +581,13 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
         auto get_context = [&path_travs,this](const int& trav_idx) {
             step_handle_t start_step = path_travs.second[trav_idx].first;
             step_handle_t end_step = path_travs.second[trav_idx].second;
+            if (graph->get_position_of_step(start_step)
+                > graph->get_position_of_step(end_step)) {
+                std::swap(start_step, end_step);
+            }
             // by definition, our start and end are shared among all traversals
-            // we ignore the internal region in the bubble and expand outward a given distance
+            // we establish a graph context sketch including the nodes traversed in the bubble
+            // and flanks upstream and downstream of path_jaccard_window bp
             vector<nid_t> context;
             step_handle_t curr = start_step;
             const int check_distance = this->path_jaccard_window; // how far we look in each direction
@@ -592,6 +597,14 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
                 auto h = graph->get_handle_of_step(curr);
                 context.push_back(graph->get_id(h));
                 distance_checked += graph->get_length(h);
+            }
+            // add the nodes in the bubble
+            curr = start_step;
+            context.push_back(graph->get_id(graph->get_handle_of_step(curr)));
+            while (graph->has_next_step(curr) &&
+                   curr != end_step) {
+                curr = graph->get_next_step(curr);
+                context.push_back(graph->get_id(graph->get_handle_of_step(curr)));
             }
             distance_checked = 0;
             curr = end_step;
