@@ -364,7 +364,7 @@ pair<double, double> fit_weibull(const vector<double>& x) {
     vector<double> y(X.size());
     for (size_t i = 1; i < x_local.size(); ++i) {
         X[i - 1][1] = log(x_local[i]);
-        y[i] = log(-log(1.0 - double(i) / double(x.size())));
+        y[i - 1] = log(-log(1.0 - double(i) / double(x.size())));
     }
     vector<double> coefs = regress(X, y);
     
