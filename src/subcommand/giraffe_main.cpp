@@ -332,6 +332,7 @@ void help_giraffe(char** argv) {
     << "  -R, --read-group NAME         add this read group" << endl
     << "  -o, --output-format NAME      output the alignments in NAME format (gam / gaf / json / tsv / SAM / BAM / CRAM) [gam]" << endl
     << "  --ref-paths FILE              ordered list of paths in the graph, one per line or HTSlib .dict, for HTSLib @SQ headers" << endl
+    << "  -P, --prune-low-cplx          prune short and low complexity anchors during linear format realignment" << endl
     << "  -n, --discard                 discard all output alignments (for profiling)" << endl
     << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
     << "  --report-name NAME            write a TSV of output file and mapping speed to the given file" << endl
@@ -483,6 +484,8 @@ int main_giraffe(int argc, char** argv) {
 
     // For HTSlib formats, where do we get sequence header info?
     std::string ref_paths_name;
+    // And shoudl we drop low complexity anchors when surjectng?
+    bool prune_anchors = false;
 
     // Map algorithm names to rescue algorithms
     std::map<std::string, MinimizerMapper::RescueAlgorithm> rescue_algorithms = {
@@ -519,6 +522,7 @@ int main_giraffe(int argc, char** argv) {
             {"read-group", required_argument, 0, 'R'},
             {"output-format", required_argument, 0, 'o'},
             {"ref-paths", required_argument, 0, OPT_REF_PATHS},
+            {"prune-low-cplx", no_argument, 0, 'P'},
             {"discard", no_argument, 0, 'n'},
             {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
             {"report-name", required_argument, 0, OPT_REPORT_NAME},
@@ -551,7 +555,7 @@ int main_giraffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hZ:x:g:H:m:s:d:pG:f:iM:N:R:o:nb:c:C:D:F:e:a:S:u:v:w:Ot:r:A:L:",
+        c = getopt_long (argc, argv, "hZ:x:g:H:m:s:d:pG:f:iM:N:R:o:Pnb:c:C:D:F:e:a:S:u:v:w:Ot:r:A:L:",
                          long_options, &option_index);
 
 
@@ -713,6 +717,10 @@ int main_giraffe(int argc, char** argv) {
                 
             case OPT_REF_PATHS:
                 ref_paths_name = optarg;
+                break;
+                
+            case 'P':
+                prune_anchors = true;
                 break;
 
             case 'n':
@@ -1202,6 +1210,10 @@ int main_giraffe(int argc, char** argv) {
         if (show_progress && interleaved) {
             cerr << "--interleaved" << endl;
         }
+        
+        if (show_progress && prune_anchors) {
+            cerr << "--prune-low-cplx" << endl;
+        }
 
         if (show_progress) {
             cerr << "--hit-cap " << hit_cap << endl;
@@ -1379,7 +1391,9 @@ int main_giraffe(int argc, char** argv) {
             // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
             unique_ptr<AlignmentEmitter> alignment_emitter = discard_alignments ?
                 make_unique<NullAlignmentEmitter>() :
-                get_alignment_emitter("-", output_format, paths, thread_count, path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)&(gbz->graph));
+                get_alignment_emitter("-", output_format, paths, thread_count,
+                    path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)&(gbz->graph),
+                    ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS * prune_anchors);
             
 #ifdef USE_CALLGRIND
             // We want to profile the alignment, not the loading.

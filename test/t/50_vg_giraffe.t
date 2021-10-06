@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 26
+plan tests 29
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -32,6 +32,8 @@ is "${?}" "0" "a read can be mapped with the minimizer index being regenerated"
 vg giraffe -Z x.giraffe.gbz -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with the indexes being inferred by name"
 
+is "$(vg view -aj mapped1.gam | grep 'time_used' | wc -l)" "1" "Mapping logs runtime per read"
+
 vg minimizer -k 29 -b -s 18 -g x.gbwt -o x.sync x.xg
 
 vg giraffe -x x.xg -H x.gbwt -m x.sync -d x.dist -f reads/small.middle.ref.fq > mapped.sync.gam
@@ -50,9 +52,10 @@ is "${?}" "0" "a read can be mapped with just FASTA and VCF without crashing"
 
 # These files can differ as serialized and still represent the same data, due to protobuf field order not being specified.
 # Tripping through JSON will sort all the keys.
-vg view -aj mapped1.gam >mapped1.json
-vg view -aj mapped2.gam >mapped2.json
-vg view -aj mapped.sync.gam >mapped.sync.json
+# Make sure to also remove time info
+vg view -aj mapped1.gam | jq -c '.time_used = null' >mapped1.json
+vg view -aj mapped2.gam | jq -c '.time_used = null' >mapped2.json
+vg view -aj mapped.sync.gam | jq -c '.time_used = null' >mapped.sync.json
 
 # Make sure at least one file converted successfully
 SIZE="$(wc -c mapped2.json | cut -f1 -d' ')"
@@ -129,6 +132,12 @@ else
     IN_RANGE="0"
 fi
 is "${IN_RANGE}" "1" "unpaired reads are evenly split between equivalent mappings"
+
+vg giraffe xy.fa xy.vcf.gz -G x.gam -o SAM --track-provenance --discard
+is $? "0" "provenance tracking succeeds for unpaired reads"
+
+vg giraffe xy.fa xy.vcf.gz -G x.gam -o SAM -i --fragment-mean 200 --fragment-stdev 10 --distance-limit 50 --track-provenance --discard
+is $? "0" "provenance tracking succeeds for paired reads"
 
 rm -f x.vg x.gam xy.sam
 rm -f xy.vg xy.gbwt xy.xg xy.snarls xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi

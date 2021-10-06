@@ -137,9 +137,18 @@ static bool gfa_to_handle_graph_in_memory(istream& in, MutableHandleGraph* graph
     for (const auto& links_record : gg.get_seq_to_edges()) {
         for (const auto& edge : links_record.second) {
             validate_gfa_edge(edge);
+            nid_t a_id = parse_gfa_sequence_id(edge.source_name, id_map_info);
+            if (!graph->has_node(a_id)) {
+                throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge starts at nonexistent GFA node \"" + edge.source_name + "\"");
+            }
+            nid_t b_id = parse_gfa_sequence_id(edge.sink_name, id_map_info);
+            if (!graph->has_node(b_id)) {
+                throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge ends at nonexistent GFA node \"" + edge.sink_name + "\"");
+            }
+            
             // note: we're counting on implementations de-duplicating edges
-            handle_t a = graph->get_handle(parse_gfa_sequence_id(edge.source_name, id_map_info), !edge.source_orientation_forward);
-            handle_t b = graph->get_handle(parse_gfa_sequence_id(edge.sink_name, id_map_info), !edge.sink_orientation_forward);
+            handle_t a = graph->get_handle(a_id, !edge.source_orientation_forward);
+            handle_t b = graph->get_handle(b_id, !edge.sink_orientation_forward);
             graph->create_edge(a, b);
         }
     }
@@ -176,8 +185,17 @@ static bool gfa_to_handle_graph_on_disk(const string& filename, MutableHandleGra
     // add in all edges
     gg.for_each_edge_line_in_file(filename.c_str(), [&](gfak::edge_elem e) {
         validate_gfa_edge(e);
-        handle_t a = graph->get_handle(parse_gfa_sequence_id(e.source_name, id_map_info), !e.source_orientation_forward);
-        handle_t b = graph->get_handle(parse_gfa_sequence_id(e.sink_name, id_map_info), !e.sink_orientation_forward);
+        nid_t a_id = parse_gfa_sequence_id(e.source_name, id_map_info);
+        if (!graph->has_node(a_id)) {
+            throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge starts at nonexistent GFA node \"" + e.source_name + "\"");
+        }
+        nid_t b_id = parse_gfa_sequence_id(e.sink_name, id_map_info);
+        if (!graph->has_node(b_id)) {
+            throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge ends at nonexistent GFA node \"" + e.sink_name + "\"");
+        }
+        
+        handle_t a = graph->get_handle(a_id, !e.source_orientation_forward);
+        handle_t b = graph->get_handle(b_id, !e.sink_orientation_forward);
         graph->create_edge(a, b);
     });
     return has_rgfa_tags;
@@ -241,7 +259,14 @@ static void gfa_to_handle_graph_add_paths(const string& filename, istream* unsee
             }
             
             // add the step
-            handle_t step = graph->get_handle(parse_gfa_sequence_id(node_id, id_map_info), is_rev);
+            nid_t target_node_id = parse_gfa_sequence_id(node_id, id_map_info);
+            if (!graph->has_node(target_node_id)) {
+                // We need to make sure the GFA isn't lying about the nodes
+                // that exist or we will fail with weird errors in get_handle
+                // or even later.
+                throw GFAFormatError("error:[gfa_to_handle_graph] GFA path " + path_name_raw + " visits nonexistent GFA node \"" + node_id + "\"");
+            }
+            handle_t step = graph->get_handle(target_node_id, is_rev);
             graph->append_step(path, step);
         });
     } else {
@@ -258,8 +283,13 @@ static void gfa_to_handle_graph_add_paths(const string& filename, istream* unsee
             path_handle_t path = graph->create_path_handle(path_name);
             
             for (size_t i = 0; i < path_record.second.segment_names.size(); ++i) {
-                handle_t step = graph->get_handle(parse_gfa_sequence_id(path_record.second.segment_names.at(i), id_map_info),
-                                                  !path_record.second.orientations.at(i));
+                const string& node_id = path_record.second.segment_names.at(i);
+                nid_t target_node_id = parse_gfa_sequence_id(node_id, id_map_info);
+                if (!graph->has_node(target_node_id)) {
+                    // The GFA wants to go somewhere that doesn't exist
+                    throw GFAFormatError("error:[gfa_to_handle_graph] GFA path " + path_record.first + " visits nonexistent GFA node \"" + node_id + "\"");
+                }
+                handle_t step = graph->get_handle(target_node_id, !path_record.second.orientations.at(i));
                 graph->append_step(path, step);
             }
         }
@@ -297,6 +327,7 @@ static void gfa_to_handle_graph_add_rgfa_paths(const string filename, istream* u
                 val.first = rgfa_rank;
             }
             nid_t seq_id = parse_gfa_sequence_id(s.name, id_map_info);
+            // We can assume the nodes exist because we're looking at sequence lines already here.
             val.second.push_back(make_pair(seq_id, rgfa_offset));
         }
     };

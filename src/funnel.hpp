@@ -5,6 +5,7 @@
 #include <vector>
 #include <unordered_map>
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <functional>
 #include <iostream>
@@ -129,8 +130,9 @@ public:
     /// Get the index of the most recent item created in the current stage.
     size_t latest() const;
     
-    /// Call the given callback with stage name, and vector of result item sizes at that stage, for each stage.
-    void for_each_stage(const function<void(const string&, const vector<size_t>&)>& callback) const;
+    /// Call the given callback with stage name, and vector of result item
+    /// sizes at that stage, and a duration in seconds, for each stage.
+    void for_each_stage(const function<void(const string&, const vector<size_t>&, const double&)>& callback) const;
     
     /// Represents the performance of a filter, for either item counts or total item sizes.
     /// Note that passing_correct and failing_correct will always be 0 if nothing is tagged correct.
@@ -163,11 +165,25 @@ public:
     
 protected:
     
+    /// Pick a clock to use for measuring stage duration
+    using clock = std::chrono::high_resolution_clock;
+    /// And a type to represent stage transition times
+    using time_point = clock::time_point;
+    
     /// What's the name of the funnel we start()-ed. Will be empty if nothing is running.
     string funnel_name;
     
+    /// At what time did we start()
+    time_point start_time;
+    
+    /// At what time did we stop()
+    time_point stop_time;
+    
     /// What's the name of the current stage? Will be empty if no stage is running.
     string stage_name;
+    
+    /// At what time did the stage start?
+    time_point stage_start_time;
     
     /// What's the name of the current substage? Will be empty if no substage is running.
     string substage_name;
@@ -204,6 +220,8 @@ protected:
     struct Stage {
         string name;
         vector<Item> items;
+        /// How long did the stage last, in seconds?
+        float duration;
         /// How many of the items were actually projected?
         /// Needed because items may need to expand to hold information for items that have not been projected yet.
         size_t projected_count = 0;

@@ -18,6 +18,7 @@
 #include "multipath_alignment_graph.hpp"
 #include "memoizing_graph.hpp"
 #include "split_strand_graph.hpp"
+#include "sequence_complexity.hpp"
 
 #include "bdsg/hash_graph.hpp"
 
@@ -92,6 +93,11 @@ using namespace std;
         
         /// And have we complained about hitting it?
         mutable atomic_flag warned_about_subgraph_size = ATOMIC_FLAG_INIT;
+        
+        ///
+        bool prune_suspicious_anchors = false;
+        int64_t max_tail_anchor_prune = 4;
+        double low_complexity_p_value = .001;
         
     protected:
         
