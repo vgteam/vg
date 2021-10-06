@@ -61,8 +61,28 @@ SnarlNormalizer::SnarlNormalizer(MutablePathDeletableHandleGraph &graph,
  * Iterates over all top-level snarls in _graph, and normalizes them.
  * @param snarl_stream file stream from .snarl.pb output of vg snarls
 */
-gbwt::GBWT SnarlNormalizer::normalize_snarls(vector<const Snarl *> snarl_roots) {
-    // cerr << "disambiguate_top_level_snarls" << endl;
+gbwt::GBWT SnarlNormalizer::normalize_snarls(vector<const Snarl *> snarl_roots, int batch_size) {
+    //batch_dist: the max number of nodes of distance a snarl can have from another snarl while still being included in the normalize_region.  
+    int batch_dist = 100;
+    //Extend each of the normalize_regions to encompass multiple snarls from snarl_roots, if batch_size > 1.
+    //normalize_regions is a pair indicating: leftmost_id, rightmost_id. Note this is equivalent to a snarl of source_id=leftmost_id, sink_id=rightmost_id, backward=false.
+    vector<pair<id_t, id_t>> normalize_regions = get_normalize_regions(snarl_roots, batch_size, batch_dist);
+    // cerr << "first region: " << normalize_regions[0].first << " " << normalize_regions[0].second << endl;
+    // SubHandleGraph snarl = extract_subgraph(_graph, normalize_regions[0].first, normalize_regions[0].second);
+    // if (!handlealgs::is_acyclic(&snarl)) {
+    //     cerr << "snarl at " << normalize_regions[0].first << " is cyclic." << endl;
+    // }
+
+    // cerr << "first region: " << normalize_regions[0].second << " " << normalize_regions[0].first << endl;
+    // SubHandleGraph snarl_two = extract_subgraph(_graph, normalize_regions[0].second, normalize_regions[0].first);
+    // if (!handlealgs::is_acyclic(&snarl_two)) {
+    //     cerr << "snarl at " << normalize_regions[0].second << " is cyclic." << endl;
+    // }
+
+
+    // return _gbwt;
+
+    
     int num_snarls_normalized = 0;
     int num_snarls_skipped = 0;
     
@@ -96,9 +116,14 @@ gbwt::GBWT SnarlNormalizer::normalize_snarls(vector<const Snarl *> snarl_roots) 
     // get_all_gbwt_sequences(1, 15, false);
 
     int snarl_num = 0;
-    for (auto roots : snarl_roots) 
+    // for (auto roots : snarl_roots) 
+    for (auto region : normalize_regions) 
     {
         snarl_num++;
+        // if (snarl_num!= 1663)
+        // {
+        //     continue;
+        // }
         // if (snarl_num > start_snarl_num)
         // {
         //     cerr << "in for loop" << endl;
@@ -151,15 +176,16 @@ gbwt::GBWT SnarlNormalizer::normalize_snarls(vector<const Snarl *> snarl_roots) 
         // {
         //     cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
         // }
-        // cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
-
+        // cerr << "normalizing snarl number " << snarl_num << " with source at: " << region.first << " and sink at: " << region.second << endl;
         if (_full_log_print)
         {
-            cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
+            // cerr << "normalizing region number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
+            cerr << "normalizing region number " << snarl_num << " with source at: " << region.first << " and sink at: " << region.second << endl;
         }
         else if (snarl_num%10000 == 0)
         {
-            cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
+            // cerr << "normalizing region number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
+            cerr << "normalizing region number " << snarl_num << " with source at: " << region.first << " and sink at: " << region.second << endl;
         }
 
         // if (!roots->start().backward())
@@ -191,7 +217,8 @@ gbwt::GBWT SnarlNormalizer::normalize_snarls(vector<const Snarl *> snarl_roots) 
             //         << " source: " << roots->start().node_id()
             //         << " sink: " << roots->end().node_id() << endl;
 
-            one_snarl_error_record = normalize_snarl(roots->start().node_id(), roots->end().node_id(), roots->start().backward(), snarl_num);
+            // one_snarl_error_record = normalize_snarl(roots->start().node_id(), roots->end().node_id(), roots->start().backward(), snarl_num);
+            one_snarl_error_record = normalize_snarl(region.first, region.second, false, snarl_num);
             if (!(one_snarl_error_record[0] || one_snarl_error_record[1] ||
                     one_snarl_error_record[2] || one_snarl_error_record[3] ||
                     one_snarl_error_record[6])) {
@@ -319,6 +346,10 @@ gbwt::GBWT SnarlNormalizer::normalize_snarls(vector<const Snarl *> snarl_roots) 
     //     }
     // }
     
+    // _gbwt_graph.weakly_connected_components(_graph);
+    //todo: use weakly_connected below for multithreading
+    // handlegraph::algorithms::weakly_connected_components(_graph)
+    // gbwtgraph::weakly_connected_components(_graph);
     gbwt::GBWT output_gbwt = rebuild_gbwt(_gbwt, _gbwt_changelog);
     cerr << "finished generating gbwt." << endl;
     
@@ -348,6 +379,124 @@ gbwt::GBWT SnarlNormalizer::normalize_snarls(vector<const Snarl *> snarl_roots) 
     return output_gbwt;
 
 
+}
+
+vector<pair<id_t, id_t>> SnarlNormalizer::get_normalize_regions(vector<const Snarl *> snarl_roots, int batch_size, int batch_dist) {
+    //todo: implement compatibility with reverse snarls. 
+
+    //todo: implement distance index for normalize regions?
+    
+    //todo: probably overflow to do with cur_snarl <= snarl_roots.size() edge case?
+    cerr << "get_normalize_regions" << endl;
+    vector<pair<id_t, id_t>> normalize_regions;
+
+    int cur_snarl = 0;
+    int stop_point = 10;
+    // int debug_i = 0;
+
+    while (cur_snarl < snarl_roots.size())
+    {
+        // debug_i ++;
+        // if (debug_i == 50)
+        // {
+        //     break;
+        // }
+        // cerr << "while 1, cur_snarl: " << cur_snarl << " size of snarl_roots: " << snarl_roots.size() << endl;
+        
+        pair<id_t, id_t> batch;
+        if (snarl_roots[cur_snarl]->start().backward())
+        {
+            batch.first = snarl_roots[cur_snarl]->end().node_id();
+            batch.second = snarl_roots[cur_snarl]->start().node_id();
+            // SubHandleGraph snarl = extract_subgraph(_graph, batch.first, batch.second);
+            // cerr << "backward." << batch.first << " " << batch.second << " cyclic?: " << !handlealgs::is_acyclic(&snarl) << endl;
+        }
+        else
+        {
+            batch.first = snarl_roots[cur_snarl]->start().node_id();
+            batch.second = snarl_roots[cur_snarl]->end().node_id();
+            // SubHandleGraph snarl = extract_subgraph(_graph, batch.first, batch.second);
+            // cerr << "forward." << batch.first << " " << batch.second << " cyclic?: " << !handlealgs::is_acyclic(&snarl) << endl;
+        }
+        cur_snarl++;
+        
+        int cur_batch_size = 1;
+        while (cur_batch_size != batch_size && cur_snarl < snarl_roots.size())
+        {
+            // cerr << "batch.first: " << batch.first << endl;
+            // cerr << "batch.second: " << batch.second << endl;
+            // cerr << "snarl_roots[cur_snarl]->start().node_id()" << snarl_roots[cur_snarl]->start().node_id() << endl;
+            // cerr << "snarl_roots[cur_snarl]->end().node_id()" << snarl_roots[cur_snarl]->end().node_id() << endl << endl;
+            //find which part of the batch to replace with this snarl:
+            if (batch.first == snarl_roots[cur_snarl]->end().node_id())
+            {
+                batch.first = snarl_roots[cur_snarl]->start().node_id();
+                // cerr << 1 << endl;
+                // cerr << batch.first << " " << batch.second << endl;
+            }
+            else if (batch.first == snarl_roots[cur_snarl]->start().node_id())
+            {
+                batch.first = snarl_roots[cur_snarl]->end().node_id();
+                // cerr << 2 << endl;
+                // cerr << batch.first << " " << batch.second << endl;
+            }
+            else if (batch.second == snarl_roots[cur_snarl]->end().node_id())
+            {
+                batch.second = snarl_roots[cur_snarl]->start().node_id();
+                // cerr << 3 << endl;
+                // cerr << batch.first << " " << batch.second << endl;
+            }
+            else if (batch.second == snarl_roots[cur_snarl]->start().node_id())
+            {
+                batch.second = snarl_roots[cur_snarl]->end().node_id();
+                // cerr << 4 << endl;
+                // cerr << batch.first << " " << batch.second << endl;
+            }
+            else
+            {
+                // the current snarl is not adjacent to the previous snarl; we have left 
+                // the snarl chain. (which means that we have left the connected 
+                // component, assuming that -T option was on for vg snarls. Which, we are.)
+                cerr << "exited the connected component? Breaking." << endl;
+                break;
+            }
+            
+            // if (snarl_roots[cur_snarl-1]->end().node_id() - snarl_roots[cur_snarl]->start().node_id() <= batch_dist) //todo: how to properly determine distance between two snarls? Do I need to use the distance index? How do I do that?
+            // {
+            //     if (snarl_roots[cur_snarl]->start().backward())
+            //     {
+            //         batch.first = snarl_roots[cur_snarl]->end().node_id();
+            //         // SubHandleGraph snarl = extract_subgraph(_graph, batch.first, batch.second);
+            //         // cerr << "extension backward." << batch.first << " " << batch.second << " cyclic?: " << !handlealgs::is_acyclic(&snarl) << endl;
+            //     }
+            //     else
+            //     {
+            //         batch.second = snarl_roots[cur_snarl]->end().node_id();
+            //         // SubHandleGraph snarl = extract_subgraph(_graph, batch.first, batch.second);
+            //         // cerr << "extension forward." << batch.first << " " << batch.second << " cyclic?: " << !handlealgs::is_acyclic(&snarl) << endl;
+            //     }
+            cur_snarl++;
+            cur_batch_size++;
+            // }
+        }
+
+        // batch.second = snarl_roots[cur_snarl-1]->end().node_id();
+        normalize_regions.push_back(batch);
+    }
+    //todo: debug_code:
+    cerr << "first " << stop_point << " batches for the graph:" << endl;
+    int i = 0;
+    for (auto batch : normalize_regions)
+    {
+        i++;
+        cerr << batch.first << " " << batch.second << endl;
+        if (i == stop_point)
+        {
+            break;
+        }
+    }
+
+    return normalize_regions;
 }
 
 /**

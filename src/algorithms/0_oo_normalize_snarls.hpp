@@ -18,7 +18,7 @@ class SnarlNormalizer {
                     const string &path_finder = "GBWT" /*alternative is "exhaustive"*/);
 
 
-    virtual gbwt::GBWT normalize_snarls(vector<const Snarl *> snarl_roots);
+    virtual gbwt::GBWT normalize_snarls(vector<const Snarl *> snarl_roots, int batch_size);
 
     virtual vector<int> normalize_snarl(id_t source_id, id_t sink_id, const bool backwards, const int snarl_num);
 
@@ -52,6 +52,8 @@ class SnarlNormalizer {
                                     
     vector<int> check_handle_as_start_of_path_seq(const string &handle_seq,
                                                   const string &path_seq);
+
+    vector<pair<id_t, id_t>> get_normalize_regions(vector<const Snarl *> snarl_roots, int batch_size, int batch_dist);
 
     //////////////////////////////////////////////////////////////////////////////////////
     // creation of new graph:

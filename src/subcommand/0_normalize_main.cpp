@@ -29,7 +29,7 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
-pair<shared_ptr<MutablePathDeletableHandleGraph>, gbwt::GBWT> run_norm(vector<const Snarl *> snarl_roots, int optind, int argc, char** argv, string gbwt_file, string gbwt_graph_file, int max_handle_size, int max_alignment_size){
+pair<shared_ptr<MutablePathDeletableHandleGraph>, gbwt::GBWT> run_norm(vector<const Snarl *> snarl_roots, int optind, int argc, char** argv, string gbwt_file, string gbwt_graph_file, int max_handle_size, int max_alignment_size, int batch_size){
   // getting graph of any type, except non-mutable graphs (e.g., xg)
   shared_ptr<MutablePathDeletableHandleGraph> graph;
   get_input_file(optind, argc, argv, [&](istream &in) {
@@ -76,12 +76,12 @@ pair<shared_ptr<MutablePathDeletableHandleGraph>, gbwt::GBWT> run_norm(vector<co
   algorithms::SnarlNormalizer normalizer = algorithms::SnarlNormalizer(
     *graph, *gbwt, *gbwt_graph, max_handle_size, max_alignment_size);
 
-  gbwt::GBWT normalized_gbwt = normalizer.normalize_snarls(snarl_roots);
+  gbwt::GBWT normalized_gbwt = normalizer.normalize_snarls(snarl_roots, batch_size);
   return make_pair(graph, normalized_gbwt);
 }
 
 //binary search:
-void binary_search_norm(vector<const Snarl *> chosen_snarls, int snarl_start, int snarl_end, int optind, int argc, char** argv, string gbwt_file, string gbwt_graph, int max_handle_size, int max_alignment_size) // pass 0 and chosen_snarls.size() for first snarl_start/end. 
+void binary_search_norm(vector<const Snarl *> chosen_snarls, int snarl_start, int snarl_end, int optind, int argc, char** argv, string gbwt_file, string gbwt_graph, int max_handle_size, int max_alignment_size, int batch_size) // pass 0 and chosen_snarls.size() for first snarl_start/end. 
 {
   cerr << "\nnormalizing snarls between: " << snarl_start << " and " << snarl_end << endl;
   if (snarl_end - snarl_start  == 0)
@@ -92,7 +92,7 @@ void binary_search_norm(vector<const Snarl *> chosen_snarls, int snarl_start, in
   {
     try
     {
-      run_norm(chosen_snarls, optind, argc, argv, gbwt_file, gbwt_graph, max_handle_size, max_alignment_size);
+      run_norm(chosen_snarls, optind, argc, argv, gbwt_file, gbwt_graph, max_handle_size, max_alignment_size, batch_size);
     } catch (const std::out_of_range& e) {
       vector<const Snarl *>::const_iterator first = chosen_snarls.begin();
       vector<const Snarl *>::const_iterator mid = chosen_snarls.begin() + chosen_snarls.size()/2;
@@ -100,8 +100,8 @@ void binary_search_norm(vector<const Snarl *> chosen_snarls, int snarl_start, in
       vector<const Snarl *> first_half(first, mid);
       vector<const Snarl *> second_half(mid, last);
       cerr << "normalizing snarls between: " << snarl_start << " and " << snarl_end << " failed. Splitting." << endl;
-      binary_search_norm(first_half, snarl_start, snarl_start + chosen_snarls.size()/2, optind, argc, argv, gbwt_file, gbwt_graph, max_handle_size, max_alignment_size);
-      binary_search_norm(second_half, snarl_start + chosen_snarls.size()/2, snarl_end, optind, argc, argv, gbwt_file, gbwt_graph, max_handle_size, max_alignment_size);
+      binary_search_norm(first_half, snarl_start, snarl_start + chosen_snarls.size()/2, optind, argc, argv, gbwt_file, gbwt_graph, max_handle_size, max_alignment_size, batch_size);
+      binary_search_norm(second_half, snarl_start + chosen_snarls.size()/2, snarl_end, optind, argc, argv, gbwt_file, gbwt_graph, max_handle_size, max_alignment_size, batch_size);
     } catch (...) {
       cerr << "snarls between: " << snarl_start << " and " << snarl_end << " ended successfully." << endl;
     }
@@ -147,7 +147,7 @@ void help_normalize(char **argv) {
          "format 'source\tsink\tsize\n'. When passed this argument, there is "
          "no normalization."
       << endl
-      << "    -k, --snarl_sizes_skip_source_sink      when passed in "
+      << "    -j, --snarl_sizes_skip_source_sink      when passed in "
          "conjunction with --snarl_sizes/-i, the snarl size counting ignores "
          "the sequence in the source and sink. This avoids double-counting the "
          "sequence in a source/sink node between two adjacent snarls."
@@ -164,6 +164,8 @@ void help_normalize(char **argv) {
       << "    -c, --start_snarl_num      counting starting from 1, determines which snarls from the .snarls.pb will be normalized if normalize_type='all'."
       << endl
       << "    -v, --end_snarl_num      counting starting from 1, determines which snarls from the .snarls.pb will be normalized if normalize_type='all'."
+      << endl
+      << "    -k, --batch_size      The max number of snarls to be realigned together at once, assuming they are close enough together to be reasonably realigned together. Default: 1." //todo: change to somehow be a metric of the size of a snarl cluster to be aligned. Maybe max number of snarls to be aligned at once? No, something better than that...
       << endl
       << "    -h, --help      print this help info." << endl;
 }
@@ -194,6 +196,7 @@ int main_normalize(int argc, char **argv) {
   //todo: note: options mostly for debugging:
   int start_snarl_num = 0;
   int end_snarl_num = 0;
+  int batch_size = 1;
 
 
   int c;
@@ -212,15 +215,16 @@ int main_normalize(int argc, char **argv) {
          {"paths_right_to_left", no_argument, 0, 'p'},
          {"max_alignment_size", required_argument, 0, 'm'},
          {"snarl_sizes", required_argument, 0, 'i'},
-         {"snarl_sizes_skip_source_sink", no_argument, 0, 'k'},
+         {"snarl_sizes_skip_source_sink", no_argument, 0, 'j'},
          {"max_handle_size", required_argument, 0, 'h'},
          {"handles_in_snarl", no_argument, 0, 'x'},
          {"start_snarl_num", required_argument, 0, 'c'},
          {"end_snarl_num", required_argument, 0, 'v'},
+         {"batch_size", required_argument, 0, 'k'},
          {0, 0, 0, 0}};
 
     int option_index = 0;
-    c = getopt_long(argc, argv, "hg:r:s:o:n:a:b:pm:i:kh:xc:v:", long_options,
+    c = getopt_long(argc, argv, "hg:r:s:o:n:a:b:pm:i:jh:xc:v:k:", long_options,
                     &option_index);
 
     // Detect the end of the options.
@@ -275,7 +279,7 @@ int main_normalize(int argc, char **argv) {
       // normalize_type = "none";
       break;
 
-    case 'k':
+    case 'j':
       snarl_sizes_skip_source_sink = true;
       break;
 
@@ -296,6 +300,10 @@ int main_normalize(int argc, char **argv) {
       end_snarl_num = parse<int>(optarg);
       break;
 
+    case 'k':
+      batch_size = parse<int>(optarg);
+      break;
+      
     default:
       cerr << "error:[vg normalize] abort" << endl;
       abort();
@@ -331,7 +339,7 @@ int main_normalize(int argc, char **argv) {
     // vector<const Snarl *> chosen_snarls(snarl_roots.begin() + 1370135, snarl_roots.begin() + 1370136); 
     // run_norm(chosen_snarls, optind, argc, argv, gbwt, max_handle_size, max_alignment_size);
     /// for binary search:
-    // binary_search_norm(snarl_roots, 0, snarl_roots.size(), optind, argc, argv, gbwt, max_handle_size, max_alignment_size);
+    // binary_search_norm(snarl_roots, 0, snarl_roots.size(), optind, argc, argv, gbwt, max_handle_size, max_alignment_size, batch_size);
 
     
     cerr << "running normalize!" << endl;
@@ -347,7 +355,7 @@ int main_normalize(int argc, char **argv) {
     //standard, normalize all snarls:
     if (start_snarl_num == 0 && end_snarl_num == 0)
     {
-      output = run_norm(snarl_roots, optind, argc, argv, gbwt, gbwt_graph, max_handle_size, max_alignment_size);
+      output = run_norm(snarl_roots, optind, argc, argv, gbwt, gbwt_graph, max_handle_size, max_alignment_size, batch_size);
     }
     //normalize select snarls:
     else
@@ -366,7 +374,7 @@ int main_normalize(int argc, char **argv) {
       vector<const Snarl *> chosen_snarls(snarl_roots.begin() + start_snarl_num, snarl_roots.begin() + end_snarl_num); 
 
       cerr << "of snarl selection that is " << chosen_snarls.size() << " long, first snarl selected has source: " << (*chosen_snarls.front()).start().node_id() << " and sink: " << (*chosen_snarls.front()).end().node_id() << endl; 
-      output = run_norm(chosen_snarls, optind, argc, argv, gbwt, gbwt_graph, max_handle_size, max_alignment_size);
+      output = run_norm(chosen_snarls, optind, argc, argv, gbwt, gbwt_graph, max_handle_size, max_alignment_size, batch_size);
     }
     save_gbwt(output.second, output_gbwt, true);
 
