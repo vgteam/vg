@@ -107,6 +107,10 @@ namespace vg {
         }
     }
 
+    bool multipath_alignment_t::has_annotation(const string& annotation_name) const {
+        return _annotation.count(annotation_name);
+    }
+
     void multipath_alignment_t::set_annotation(const string& annotation_name) {
         clear_annotation(annotation_name);
         _annotation[annotation_name] = make_pair(Null, (void*) nullptr);

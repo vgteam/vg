@@ -230,6 +230,7 @@ using namespace std;
             // to hold the path interval that corresponds to the path we surject to
             pair<step_handle_t, step_handle_t> path_range;
             if (!preserve_deletions && source_aln) {
+                // unspliced GAM -> GAM surjection
                 auto surjection = realigning_surject(&memoizing_graph, *source_aln, surj_record.first,
                                                      surj_record.second.first, path_range, allow_negative_scores,
                                                      false, false);
@@ -238,6 +239,7 @@ using namespace std;
                 }
             }
             else if (source_aln) {
+                // spliced GAM -> GAM surjection
                 auto surjection = spliced_surject(&memoizing_graph, source_aln->sequence(), source_aln->quality(),
                                                  source_aln->mapping_quality(), surj_record.first, surj_record.second.first,
                                                  surj_record.second.second, connections[surj_record.first], path_range,
@@ -251,12 +253,20 @@ using namespace std;
                 }
             }
             else {
+                // surjecting a multipath alignment (they always use the spliced pathway even if not
+                // doing spliced alignment)
                 auto surjection = spliced_surject(&memoizing_graph, source_mp_aln->sequence(),
                                                   source_mp_aln->quality(), source_mp_aln->mapping_quality(),
                                                   surj_record.first, surj_record.second.first,
                                                   surj_record.second.second, connections[surj_record.first],
                                                   path_range, allow_negative_scores, preserve_deletions);
                 if (surjection.subpath_size() != 0) {
+                    // the surjection was a success
+                    
+                    // copy over annotations
+                    transfer_read_metadata(*source_mp_aln, surjection);
+                    
+                    // record the result for this path
                     mp_aln_surjections[surj_record.first] = make_pair(move(surjection), path_range);
                 }
             }
