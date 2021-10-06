@@ -13,9 +13,10 @@ class SnarlNormalizer {
     virtual ~SnarlNormalizer() = default;
 
     SnarlNormalizer(MutablePathDeletableHandleGraph &graph, const gbwt::GBWT &gbwt, const gbwtgraph::GBWTGraph & gbwt_graph,
-                    const int& _max_handle_size, 
+                    const int& max_handle_size, 
                     const int &max_alignment_size = INT_MAX, //TODO: add a _max_handle_length default length
-                    const string &path_finder = "GBWT" /*alternative is "exhaustive"*/);
+                    const string &path_finder = "GBWT", /*alternative is "exhaustive"*/
+                    const bool &debug_print = false);
 
 
     virtual gbwt::GBWT normalize_snarls(vector<const Snarl *> snarl_roots, int batch_size);
@@ -41,8 +42,7 @@ class SnarlNormalizer {
     const int &_max_alignment_size;
     const int &_max_handle_size;
     const string &_path_finder;
-    //todo: either make this an optional argument for the class, or remove as a debug var.
-    bool _full_log_print = false; // for printing info that isn't necessarily something gone wrong.
+    bool _debug_print; // for printing info that isn't necessarily something gone wrong.
 
     //////////////////////////////////////////////////////////////////////////////////////
     // finding information on original graph:

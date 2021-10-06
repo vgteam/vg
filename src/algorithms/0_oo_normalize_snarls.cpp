@@ -50,11 +50,13 @@ namespace algorithms{
 SnarlNormalizer::SnarlNormalizer(MutablePathDeletableHandleGraph &graph,
                                  const gbwt::GBWT &gbwt,
                                  const gbwtgraph::GBWTGraph &gbwt_graph,
-                                 const int& max_handle_size, 
-                                 const int &max_alignment_size /*= MAX_INT*/,
-                                 const string &path_finder /*= "GBWT"*/)
+                                 const int &max_handle_size, 
+                                 const int &max_alignment_size, /*= MAX_INT*/
+                                 const string &path_finder, /*= "GBWT"*/
+                                 const bool &debug_print /*= false*/)
     : _graph(graph), _gbwt(gbwt), _max_alignment_size(max_alignment_size),
-      _max_handle_size(max_handle_size), _path_finder(path_finder), _gbwt_graph(gbwt_graph){}
+      _max_handle_size(max_handle_size), _path_finder(path_finder), _gbwt_graph(gbwt_graph),
+      _debug_print(debug_print){}
 
 
 /**
@@ -177,7 +179,7 @@ gbwt::GBWT SnarlNormalizer::normalize_snarls(vector<const Snarl *> snarl_roots, 
         //     cerr << "normalizing snarl number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
         // }
         // cerr << "normalizing snarl number " << snarl_num << " with source at: " << region.first << " and sink at: " << region.second << endl;
-        if (_full_log_print)
+        if (_debug_print)
         {
             // cerr << "normalizing region number " << snarl_num << " with source at: " << roots->start().node_id() << " and sink at: " << roots->end().node_id() << endl;
             cerr << "normalizing region number " << snarl_num << " with source at: " << region.first << " and sink at: " << region.second << endl;
@@ -569,12 +571,12 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
     });
     if (num_handles_in_snarl <= 2)
     {
-        if (_full_log_print)
-        {
-            cerr << "snarl with source " << source_id << " and sink " << sink_id << " has"
-                << " only " << num_handles_in_snarl << " nodes. Skipping normalization of"
-                << " trivial snarl." << endl;
-        }
+        // if (_debug_print)
+        // {
+        //     cerr << "snarl with source " << source_id << " and sink " << sink_id << " has"
+        //         << " only " << num_handles_in_snarl << " nodes. Skipping normalization of"
+        //         << " trivial snarl." << endl;
+        // }
         error_record[6] += 1;
         return error_record;
     }
@@ -847,7 +849,7 @@ vector<int> SnarlNormalizer::normalize_snarl(id_t source_id, id_t sink_id, const
     }
     // todo: decide if we should only normalize snarls that decrease in size.
     if (error_record[5] > error_record[4]) {
-        if (_full_log_print)
+        if (_debug_print)
         {
             cerr << "**************************in UNIT-TEST for normalize_snarl: **************************" << endl;
             cerr << "NOTE: normalized a snarl which *increased* in sequence quantity, "
