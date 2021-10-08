@@ -264,6 +264,7 @@ using namespace std;
                     // the surjection was a success
                     
                     // copy over annotations
+                    // TODO: also redundantly copies over sequence and quality
                     transfer_read_metadata(*source_mp_aln, surjection);
                     
                     // record the result for this path
