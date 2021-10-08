@@ -124,6 +124,7 @@ namespace vg {
         void set_annotation(const string& annotation_name, bool value);
         void set_annotation(const string& annotation_name, const string& value);
         void clear_annotation(const string& annotation_name);
+        bool has_annotation(const string& annotation_name) const;
         pair<anno_type_t, const void*> get_annotation(const string& annotation_name) const;
         void for_each_annotation(function<void(const string&, anno_type_t, const void*)> lambda) const;
     private:

@@ -107,6 +107,10 @@ namespace vg {
         }
     }
 
+    bool multipath_alignment_t::has_annotation(const string& annotation_name) const {
+        return _annotation.count(annotation_name);
+    }
+
     void multipath_alignment_t::set_annotation(const string& annotation_name) {
         clear_annotation(annotation_name);
         _annotation[annotation_name] = make_pair(Null, (void*) nullptr);
@@ -3228,6 +3232,7 @@ namespace vg {
             
             if (subpath.next_size() + subpath.connection_size() > 1) {
                 cerr << "error: cannot convert a multipath alignment to a CIGAR unless is consists of a single non-branching path" << endl;
+                exit(1);
             }
             
             for (size_t j = 0; j < path.mapping_size(); ++j, ++num_mappings) {

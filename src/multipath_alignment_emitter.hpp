@@ -89,6 +89,9 @@ private:
                                const string& ref_name_2, bool ref_rev_2, int64_t ref_pos_2,
                                int64_t tlen_limit, bam_hdr_t* header, vector<bam1_t*>& dest) const;
     
+    /// transfer the allelic mapq annotation to a BAM record
+    void add_allelic_mapq(const multipath_alignment_t& mp_aln, bam1_t* bam) const;
+    
     const PathPositionHandleGraph* graph;
     
     /// an Alignment emitter for each thread
