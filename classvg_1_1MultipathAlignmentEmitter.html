@@ -152,6 +152,9 @@ Private Member Functions</h2></td></tr>
 <tr class="memitem:aff86d0fed6f025e037468c9f94dc47d7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#aff86d0fed6f025e037468c9f94dc47d7">convert_to_hts_paired</a> (const string &amp;name_1, const string &amp;name_2, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;mp_aln_1, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;mp_aln_2, const string &amp;ref_name_1, bool ref_rev_1, int64_t ref_pos_1, const string &amp;ref_name_2, bool ref_rev_2, int64_t ref_pos_2, int64_t tlen_limit, bam_hdr_t *header, vector&lt; bam1_t * &gt; &amp;dest) const</td></tr>
 <tr class="memdesc:aff86d0fed6f025e037468c9f94dc47d7"><td class="mdescLeft">&#160;</td><td class="mdescRight">store two paired bam1_t objects with the indicated data in the dest vector  <a href="classvg_1_1MultipathAlignmentEmitter.html#aff86d0fed6f025e037468c9f94dc47d7">More...</a><br /></td></tr>
 <tr class="separator:aff86d0fed6f025e037468c9f94dc47d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a16f1487892be3126deaabf2ee7d22c7f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentEmitter.html#a16f1487892be3126deaabf2ee7d22c7f">add_allelic_mapq</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;mp_aln, bam1_t *bam) const</td></tr>
+<tr class="memdesc:a16f1487892be3126deaabf2ee7d22c7f"><td class="mdescLeft">&#160;</td><td class="mdescRight">transfer the allelic mapq annotation to a BAM record  <a href="classvg_1_1MultipathAlignmentEmitter.html#a16f1487892be3126deaabf2ee7d22c7f">More...</a><br /></td></tr>
+<tr class="separator:a16f1487892be3126deaabf2ee7d22c7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
@@ -324,6 +327,44 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a16f1487892be3126deaabf2ee7d22c7f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a16f1487892be3126deaabf2ee7d22c7f">&#9670;&nbsp;</a></span>add_allelic_mapq()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MultipathAlignmentEmitter::add_allelic_mapq </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>mp_aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bam1_t *&#160;</td>
+          <td class="paramname"><em>bam</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>transfer the allelic mapq annotation to a BAM record </p>
+
+</div>
+</div>
 <a id="a968d8ce848da6dfda8ef0493f6044625"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a968d8ce848da6dfda8ef0493f6044625">&#9670;&nbsp;</a></span>convert_to_alignment()</h2>
 
