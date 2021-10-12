@@ -60,14 +60,14 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
  * iterate_handles is a hack to generalize this function to whole graphs or snarls
  */
 void clip_low_depth_nodes_generic(MutablePathMutableHandleGraph* graph, function<void(function<void(handle_t, const Region*)>)> iterate_handles,
-                                  int64_t min_depth, const string& ref_prefix,
+                                  int64_t min_depth, const vector<string>& ref_prefixes,
                                   int64_t min_fragment_len, bool verbose);
 
 
 /**
  * Run above function on graph
  */
-void clip_low_depth_nodes(MutablePathMutableHandleGraph* graph, int64_t min_depth, const string& ref_prefix,
+void clip_low_depth_nodes(MutablePathMutableHandleGraph* graph, int64_t min_depth, const vector<string>& ref_prefixes,
                           int64_t min_fragment_len, bool verbose);
 
 /**
