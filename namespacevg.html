@@ -1383,8 +1383,8 @@ Functions</h2></td></tr>
 <tr class="separator:a5b7416f4636f53c22bcb1fab81d63de8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab0f225fb74f28ea09c6c8917ec14db73"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Path.html">Path</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab0f225fb74f28ea09c6c8917ec14db73">path_from_thread_t</a> (<a class="el" href="namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2">thread_t</a> &amp;t, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;source)</td></tr>
 <tr class="separator:ab0f225fb74f28ea09c6c8917ec14db73"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a49c06960d6bc461b281de34fe7604dc7"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; <a class="el" href="namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2">thread_t</a>, int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a49c06960d6bc461b281de34fe7604dc7">list_haplotypes</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;source, const gbwt::GBWT &amp;haplotype_database, gbwt::node_type start_node, int extend_distance)</td></tr>
-<tr class="separator:a49c06960d6bc461b281de34fe7604dc7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abe3c447c811f77c28669a36c4d3376b9"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; vector&lt; gbwt::node_type &gt;, gbwt::SearchState &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abe3c447c811f77c28669a36c4d3376b9">list_haplotypes</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const gbwt::GBWT &amp;gbwt, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> start, function&lt; bool(const vector&lt; gbwt::node_type &gt; &amp;)&gt; stop_fn)</td></tr>
+<tr class="separator:abe3c447c811f77c28669a36c4d3376b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa95de659d860fc90fda95df414c89baf"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa95de659d860fc90fda95df414c89baf">get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const vector&lt; tuple&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, size_t, size_t &gt;&gt; &amp;paths, size_t max_threads, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, int flags)</td></tr>
 <tr class="separator:aa95de659d860fc90fda95df414c89baf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa381cdc7f966379fc7cc9ea11257f632"><td class="memItemLeft" align="right" valign="top">pair&lt; vector&lt; pair&lt; string, int64_t &gt; &gt;, unordered_map&lt; string, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa381cdc7f966379fc7cc9ea11257f632">extract_path_metadata</a> (const vector&lt; tuple&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, size_t, size_t &gt;&gt; &amp;paths, const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, bool subpath_support)</td></tr>
@@ -11664,35 +11664,35 @@ template&lt;class Element &gt; </div>
 
 </div>
 </div>
-<a id="a49c06960d6bc461b281de34fe7604dc7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a49c06960d6bc461b281de34fe7604dc7">&#9670;&nbsp;</a></span>list_haplotypes()</h2>
+<a id="abe3c447c811f77c28669a36c4d3376b9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abe3c447c811f77c28669a36c4d3376b9">&#9670;&nbsp;</a></span>list_haplotypes()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt; pair&lt; <a class="el" href="namespacevg.html#a31b8b476fb46de6667b26514b7b24fd2">thread_t</a>, int &gt; &gt; vg::list_haplotypes </td>
+          <td class="memname">vector&lt; pair&lt; vector&lt; gbwt::node_type &gt;, gbwt::SearchState &gt; &gt; vg::list_haplotypes </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
-          <td class="paramname"><em>source</em>, </td>
+          <td class="paramname"><em>graph</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const gbwt::GBWT &amp;&#160;</td>
-          <td class="paramname"><em>haplotype_database</em>, </td>
+          <td class="paramname"><em>gbwt</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">gbwt::node_type&#160;</td>
-          <td class="paramname"><em>start_node</em>, </td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td>
+          <td class="paramname"><em>start</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>extend_distance</em>&#160;</td>
+          <td class="paramtype">function&lt; bool(const vector&lt; gbwt::node_type &gt; &amp;)&gt;&#160;</td>
+          <td class="paramname"><em>stop_fn</em>&#160;</td>
         </tr>
         <tr>
           <td></td>

@@ -251,7 +251,7 @@ var searchData=
   ['get_5fsnp_5fref_5fposition_7617',['get_SNP_ref_position',['../structhaplo_1_1linear__haplo__structure.html#a312a7a7a748cc4acd3c4b75717db1fe6',1,'haplo::linear_haplo_structure']]],
   ['get_5fsnv_5fallele_7618',['get_SNV_allele',['../structhaplo_1_1linear__haplo__structure.html#a353eefc81d042a96f98980b7cb2a72aa',1,'haplo::linear_haplo_structure']]],
   ['get_5fsource_5fhandle_7619',['get_source_handle',['../classvg_1_1SourceSinkOverlay.html#a4126d6851b442614cb115668eaeeb89f',1,'vg::SourceSinkOverlay']]],
-  ['get_5fspanning_5fhaplotypes_7620',['get_spanning_haplotypes',['../classvg_1_1GBWTTraversalFinder.html#a2c441f9f829c35974d37e16a543a2f84',1,'vg::GBWTTraversalFinder']]],
+  ['get_5fspanning_5fhaplotypes_7620',['get_spanning_haplotypes',['../classvg_1_1GBWTTraversalFinder.html#a88b35f62878ceab005faf07f7386691c',1,'vg::GBWTTraversalFinder']]],
   ['get_5fstart_7621',['get_start',['../classvg_1_1NetGraph.html#a35e17fbdc2bade4b5b0195d03cb0dc22',1,'vg::NetGraph']]],
   ['get_5fstart_5fbound_7622',['get_start_bound',['../classhandlegraph_1_1SnarlDecomposition.html#a63eea99ca9840f16ef358ee664ecda23',1,'handlegraph::SnarlDecomposition']]],
   ['get_5fstart_5fof_7623',['get_start_of',['../namespacevg.html#afa918cf29c1c8238d88f2bbc94b6abef',1,'vg']]],
