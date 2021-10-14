@@ -158,6 +158,8 @@ namespace vg {
             REQUIRE(distance_index.get_depth(chain1) == 1);
             size_t child_i = 0;
             net_handle_t top_snarl;
+            net_handle_t start_node;
+            net_handle_t end_node;
             vector<net_handle_t> child_handles;//This should be start node, snarl, end node
             bool first = true;
             net_handle_t last_child;
@@ -169,6 +171,7 @@ namespace vg {
                     REQUIRE(distance_index.is_node(child));
                     REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == 1);
                     REQUIRE(distance_index.get_depth(child) == 1);
+                    start_node=child;
                 } else if (child_i == 1) {
                     REQUIRE(distance_index.is_snarl(child));
                     child_handles.emplace_back(child);
@@ -178,6 +181,7 @@ namespace vg {
                     REQUIRE(distance_index.is_node(child));
                     REQUIRE(graph.get_id(distance_index.get_handle(child, &graph)) == 8);
                     REQUIRE(distance_index.get_depth(child) == 1);
+                    end_node = child;
                 } else {
                     //The chain should only contain two nodes and a snarl
                     REQUIRE(false);
@@ -187,6 +191,22 @@ namespace vg {
                 child_i++;
                 return true;
             });
+            SECTION("The sentinels are correct") {
+                net_handle_t start_sentinel_in = distance_index.get_bound(top_snarl, false, true);
+                REQUIRE(distance_index.is_sentinel(start_sentinel_in));
+                net_handle_t start_node_in = distance_index.get_node_from_sentinel(start_sentinel_in);
+                REQUIRE(distance_index.is_node(start_node_in));
+                REQUIRE(distance_index.node_id(start_node_in) == distance_index.node_id(start_node));
+                REQUIRE(start_node_in == start_node);
+
+                net_handle_t end_sentinel_out = distance_index.get_bound(top_snarl, true, false); 
+                REQUIRE(distance_index.is_sentinel(end_sentinel_out));
+                net_handle_t end_node_out = distance_index.get_node_from_sentinel(end_sentinel_out);
+                REQUIRE(distance_index.is_node(end_node_out));
+                REQUIRE(distance_index.node_id(end_node_out) == distance_index.node_id(end_node));
+                REQUIRE(end_node_out == end_node);
+
+            }
             SECTION("The distances in the top-level chain are correct"){
                 REQUIRE(distance_index.distance_in_parent(chain1, 
                         distance_index.get_net(graph.get_handle(n1->id(), false), &graph),
@@ -2162,6 +2182,8 @@ namespace vg {
            
             SECTION( "SnarlManager can correctly extract the contents of a snarl containing cycles and tips") {
                 //TODO: Add tests for identifying tips
+                //
+                //Chain: 1 - (snarl 2-7) - 8
                 
                 VG graph;
                 
@@ -2302,6 +2324,8 @@ namespace vg {
                 });
                 REQUIRE(snarl_child_count == 2);
                 size_t edge_count = 0;
+
+                //Node 3 is a tip connected to chain 4-6
                 distance_index.follow_net_edges(node_3, &graph, false, [&](const net_handle_t& next) {
                     REQUIRE(distance_index.is_chain(next));
                     id_t start = graph.get_id(distance_index.get_handle(
@@ -3579,6 +3603,7 @@ namespace vg {
                 net_handle_t chain_start_in_handle = distance_index.get_bound(top_chain_handle, false, true);
                 net_handle_t chain_end_out_handle = distance_index.get_bound(top_chain_handle, true, false);
                 REQUIRE(chain_start_in_handle != chain_end_out_handle);
+                cerr << "Chain starting at " << distance_index.net_handle_as_string(chain_start_in_handle) << " and ending at " << distance_index.net_handle_as_string(chain_end_out_handle) << endl;
 
                 //Traverse start node in, to reach middle node going forward
                 bool found_next_node = false;
@@ -3591,6 +3616,7 @@ namespace vg {
                 REQUIRE(found_next_node);
                 //Traverse middle node going forward to reach the end node (start) going in (out)
                 found_next_node = false;
+                cerr << "Find child after " << distance_index.net_handle_as_string(middle_forward_handle) << endl;
                 distance_index.follow_net_edges(middle_forward_handle, &graph, false, [&](const net_handle_t& next) {
                     REQUIRE(distance_index.is_node(next));
                     REQUIRE(next == chain_end_out_handle);
@@ -3616,8 +3642,8 @@ namespace vg {
                 distance_index.for_each_child(root_handle, [&](const net_handle_t& child) {
                     top_chain_handle = child;
                 });
-                net_handle_t chain_end_in_handle = distance_index.get_bound(top_chain_handle, false, false);
-                net_handle_t chain_start_out_handle = distance_index.get_bound(top_chain_handle, true, true);
+                net_handle_t chain_start_out_handle = distance_index.get_bound(top_chain_handle, false, false);
+                net_handle_t chain_end_in_handle = distance_index.get_bound(top_chain_handle, true, true);
                 REQUIRE(chain_end_in_handle != chain_start_out_handle);
 
                 //Traverse end node in, to reach middle node going backward
@@ -4208,6 +4234,7 @@ namespace vg {
         TEST_CASE( "Snarl distance index can deal with loops in a chain", "[snarl_distance]") {
             VG graph;
                 
+            //chain 1-8-10-12
             Node* n1 = graph.create_node("GCA");
             Node* n2 = graph.create_node("T");
             Node* n3 = graph.create_node("G");

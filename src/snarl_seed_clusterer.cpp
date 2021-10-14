@@ -289,16 +289,10 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
            0, [&](size_t val, NodeClusters vector_item) {
                //This should return true if the vector_item goes after the item with rank val
 
-               //Get one seed in this cluster and if it's a top level seed, then get cached information from the seed instead
-               //of going to the distance index
-               size_t item_offset = item.is_top_level_node 
-                                        ? item.top_level_node_offset_in_parent
-                                        : distance_index.get_record_offset_in_chain(item.containing_net_handle); 
+               size_t item_offset = distance_index.get_record_offset_in_chain(item.containing_net_handle); 
 
                //Same for things in the vector
-               size_t vector_item_offset = vector_item.is_top_level_node 
-                                           ? vector_item.top_level_node_offset_in_parent
-                                           : distance_index.get_record_offset_in_chain(vector_item.containing_net_handle); 
+               size_t vector_item_offset =  distance_index.get_record_offset_in_chain(vector_item.containing_net_handle); 
 
                return item_offset < vector_item_offset;
            });
@@ -312,14 +306,11 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
         const vector<Seed>* seeds = tree_state.all_seeds->at(read_num);
         vector<pair<id_t, size_t>>& node_to_seeds = tree_state.node_to_seeds.at(read_num);
         for (size_t i = 0; i < seeds->size(); i++) {
-            pos_t pos = seeds->at(i).pos;
+            const Seed& seed = seeds->at(i);
+            pos_t pos = seed.pos;
             id_t id = get_id(pos);
             
 
-            //Assign the seed to a node
-//                if (!seeds->at(i).is_top_level_node && !seeds->at(i).is_top_level_snarl) {
-                //If this seed is not on a top-level chain or top-level simple bubble
-                //A seed can still be added here if it is on a top-level chain
             node_to_seeds.emplace_back(id, i);
 #ifdef DEBUG_CLUSTER
             cerr << read_num << ":" << pos << ", ";
@@ -328,9 +319,8 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
              //And the node to a chain
             if (seen_nodes.count(id) < 1) {
                  seen_nodes.insert(id);
-                 net_handle_t parent = seeds->at(i).in_top_level_chain ? distance_index.get_net_handle(seeds->at(i).parent_offset)
-                                  : distance_index.get_parent(distance_index.get_node_net_handle(id));
-                 size_t depth = seeds->at(i).in_top_level_chain ? 1 : distance_index.get_depth(parent);
+                 net_handle_t parent =distance_index.get_parent(distance_index.get_net_handle(seed.record_offset));
+                 size_t depth = distance_index.get_depth(parent);
                  if (depth+1 > chain_to_children_by_level.size()) {
                      chain_to_children_by_level.resize(depth+1);
                  }
@@ -339,14 +329,9 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                      vector<NodeClusters> empty_vector;
                      chain_to_children_by_level[depth].emplace(parent, std::move(empty_vector));
                  }
-                 if (seeds->at(i).in_top_level_chain) {
-                     insert_in_order(chain_to_children_by_level[depth][parent],
-                                 NodeClusters(distance_index.get_node_net_handle(id), tree_state.all_seeds->size(),
-                                 true, seeds->at(i).offset_in_parent));
-                 } else {
-                     insert_in_order(chain_to_children_by_level[depth][parent],
-                                 NodeClusters(distance_index.get_node_net_handle(id), tree_state.all_seeds->size()));
-                 }
+                 insert_in_order(chain_to_children_by_level[depth][parent],
+                                 NodeClusters(distance_index.get_net_handle(seed.record_offset), tree_state.all_seeds->size(),
+                                              seed.is_reversed_in_parent, seed.node_length, id));
              } 
 //                }
             /* TODO: This uses cached distance index information, which I might put back but hopefully it won't be necessary anymore
@@ -462,8 +447,8 @@ void NewSnarlSeedClusterer::cluster_one_node(
     cerr << "Finding clusters on node " << distance_index.net_handle_as_string(node_clusters.containing_net_handle) << endl;
 #endif
 
-    size_t node_length = distance_index.node_length(node_clusters.containing_net_handle);
-    nid_t node_id = distance_index.node_id(node_clusters.containing_net_handle);
+    size_t node_length = node_clusters.node_length;
+    nid_t node_id = node_clusters.node_id;
 
 
     if (tree_state.read_distance_limit >= node_length) {

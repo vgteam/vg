@@ -19,20 +19,10 @@ class NewSnarlSeedClusterer {
             pos_t  pos;
             size_t source; // Source minimizer.
 
-            //For nodes on boundary nodes of top-level chain
-            bool in_top_level_chain;
-            size_t parent_offset; // Component id in the distance index.
-            size_t offset_in_parent; // Offset in the root chain.
-            
-            //For nodes on top-level simple bubbles
-            bool in_top_level_snarl;
-            size_t snarl_rank; //Rank of the snarl in the chain
-            size_t start_length; //Length of the snarl start node (relative     to a fd traversal of the chain)
-            size_t end_length; //Length of the snarl end node
-            size_t node_length; //Length of the node the position is on
-            bool rev_in_chain; //True if this node is traversed backward in     the chain
-
-
+            //For nodes
+            bool is_reversed_in_parent;
+            size_t node_length;
+            size_t record_offset;//offset of node record in snarl_tree_records
 
         };
 
@@ -106,12 +96,12 @@ class NewSnarlSeedClusterer {
             //The snarl tree node that the clusters are on
             net_handle_t containing_net_handle; 
 
+            //Only set these for nodes
+            nid_t node_id = 0;
+            bool is_reversed_in_parent = false;;
+            size_t node_length = std::numeric_limits<size_t>::max();
 
-            //Is this a node and is the node in a top-level chain
-            bool is_top_level_node = false;
-            //If this is a top level node, then what is the offset of the node in its parent (from cached distances in seeds)
-            size_t top_level_node_offset_in_parent = std::numeric_limits<size_t>::max();
-
+            
 
             //set of the indices of heads of clusters (group ids in the 
             //union find)
@@ -140,10 +130,11 @@ class NewSnarlSeedClusterer {
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
                 read_best_left(read_count, std::numeric_limits<size_t>::max()), 
                 read_best_right(read_count, std::numeric_limits<size_t>::max()){}
-            NodeClusters( net_handle_t net, size_t read_count, bool is_top_level_node, size_t offset_in_top_chain) :
+            NodeClusters( net_handle_t net, size_t read_count, bool is_reversed_in_parent, size_t node_length, nid_t node_id) :
                 containing_net_handle(net),
-                is_top_level_node(is_top_level_node),
-                top_level_node_offset_in_parent(offset_in_top_chain),
+                is_reversed_in_parent(is_reversed_in_parent),
+                node_length(node_length),
+                node_id(node_id),
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
                 read_best_left(read_count, std::numeric_limits<size_t>::max()), 
                 read_best_right(read_count, std::numeric_limits<size_t>::max()){}

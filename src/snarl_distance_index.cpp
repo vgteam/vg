@@ -927,8 +927,27 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
     }
 }
 
-//Given a position, return distances that can be stored by a minimizer
-//
+/*Given a position, return distances that can be stored by a minimizer
+ *
+ * This stores if it's reversed in its parent, the length of the node, 
+ * and the offset of the node record
+ *
+ */
+
+
+tuple<bool, size_t, size_t> get_minimizer_distances (const SnarlDistanceIndex& distance_index,pos_t pos) {
+
+    net_handle_t node_handle = distance_index.get_node_net_handle(get_id(pos));
+
+    return tuple<bool, size_t, size_t>(
+                distance_index.is_reversed_in_parent(node_handle), 
+                distance_index.node_length(node_handle),
+                distance_index.get_record_offset_in_chain(node_handle) );
+
+
+
+//TODO: This used to store top-level node information but I'm changing it to store node info for everything 
+/*
 //If the position is on a boundary node of a top level chain, then return true, 
 //the offset of the parent chain, and the offset of the node in the chain
 //The second bool will be false and the remaining size_t's will be 0
@@ -940,38 +959,33 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
 //
 //If the position is not on a root node (that is, a boundary node of a snarl in a root chain), returns
 //false and MIPayload::NO_VALUE for all values
-
-tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> get_minimizer_distances (
-    const SnarlDistanceIndex& distance_index,pos_t pos) {
-    net_handle_t node_handle = distance_index.get_node_net_handle(get_id(pos));
-    net_handle_t parent_handle = distance_index.get_parent(node_handle);
-
-    if (distance_index.is_root(parent_handle)) {
-        //If this node is a child of the root, then we don't want to cache values
-        return get_empty_minimizer_distances();
-
-    } else if (distance_index.is_chain(parent_handle) && !distance_index.is_trivial_chain(node_handle)) {
-        if (!distance_index.is_snarl(distance_index.get_parent(parent_handle)) 
-            && distance_index.is_root(distance_index.get_parent(parent_handle))) {
-            
-            return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(
-                true, distance_index.get_record_offset(parent_handle), distance_index.get_record_offset_in_chain(node_handle),
-                false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
-        } else {
-            //If the parent is a nested chain
-            return get_empty_minimizer_distances();
-        }
-    } else if (distance_index.is_snarl(parent_handle)) {
-        //TODO: Add the snrl version later
-        return get_empty_minimizer_distances();
-    } else {
-        throw runtime_error("error: parent of node isn't a snarl or chain");
-    }
-
-}
-tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> get_empty_minimizer_distances () {
-    return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(false, MIPayload::NO_VALUE, MIPayload::NO_VALUE,
-             false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
+*/
+//
+//    net_handle_t node_handle = distance_index.get_node_net_handle(get_id(pos));
+//    net_handle_t parent_handle = distance_index.get_parent(node_handle);
+//
+//    if (distance_index.is_root(parent_handle)) {
+//        //If this node is a child of the root, then we don't want to cache values
+//        return get_empty_minimizer_distances();
+//
+//    } else if (distance_index.is_chain(parent_handle) && !distance_index.is_trivial_chain(node_handle)) {
+//        if (!distance_index.is_snarl(distance_index.get_parent(parent_handle)) 
+//            && distance_index.is_root(distance_index.get_parent(parent_handle))) {
+//            
+//            return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(
+//                true, distance_index.get_record_offset(parent_handle), distance_index.get_record_offset_in_chain(node_handle),
+//                false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
+//        } else {
+//            //If the parent is a nested chain
+//            return get_empty_minimizer_distances();
+//        }
+//    } else if (distance_index.is_snarl(parent_handle)) {
+//        //TODO: Add the snrl version later
+//        return get_empty_minimizer_distances();
+//    } else {
+//        throw runtime_error("error: parent of node isn't a snarl or chain");
+//    }
+//
 }
     
 

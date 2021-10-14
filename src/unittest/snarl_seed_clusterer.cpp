@@ -57,8 +57,7 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
 
             vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
@@ -103,8 +102,7 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
 
             vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 6); 
@@ -119,8 +117,7 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
 
             vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
@@ -152,8 +149,7 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info));
             }
 
             vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
@@ -203,8 +199,7 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info));
             }
 
             vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 11); 
@@ -219,8 +214,7 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info));
             }
 
             vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
@@ -235,8 +229,7 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
 
             vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 8); 
@@ -251,8 +244,7 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
 
             vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
@@ -312,8 +304,7 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
 
             vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
@@ -329,8 +320,7 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
 
 
@@ -372,15 +362,13 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
             vector<NewSnarlSeedClusterer::Seed> seeds1;
             for (id_t n : seed_nodes1) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds1.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds1.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
             vector<vector<NewSnarlSeedClusterer::Seed>> all_seeds;
             all_seeds.push_back(seeds);
@@ -406,15 +394,13 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
             vector<NewSnarlSeedClusterer::Seed> seeds1;
             for (id_t n : seed_nodes1) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds1.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds1.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
             vector<vector<NewSnarlSeedClusterer::Seed>> all_seeds;
             all_seeds.push_back(seeds);
@@ -440,15 +426,13 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
             vector<NewSnarlSeedClusterer::Seed> seeds1;
             for (id_t n : seed_nodes1) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds1.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds1.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
             vector<vector<NewSnarlSeedClusterer::Seed>> all_seeds;
             all_seeds.push_back(seeds);
@@ -476,15 +460,13 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
             vector<NewSnarlSeedClusterer::Seed> seeds1;
             for (id_t n : seed_nodes1) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds1.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds1.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
             vector<vector<NewSnarlSeedClusterer::Seed>> all_seeds;
             all_seeds.push_back(seeds);
@@ -548,8 +530,7 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
 
 
@@ -631,8 +612,7 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
 
             vector<NewSnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 20); 
@@ -645,8 +625,7 @@ namespace unittest {
             for (id_t n : seed_nodes) {
                 pos_t pos = make_pos_t(n, false, 0);
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
 
             vector<NewSnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 20); 
@@ -692,8 +671,7 @@ namespace unittest {
             for (pos_t pos : pos_ts){
 
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
             vector<NewSnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
 
@@ -770,8 +748,7 @@ namespace unittest {
             for (pos_t pos : pos_ts){
 
                 auto chain_info = get_minimizer_distances(dist_index, pos);
-                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-                   std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+                seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
             }
             vector<NewSnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 3); 
 
@@ -1725,8 +1702,7 @@ namespace unittest {
 
         for (pos_t pos : pos_ts) {
             std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_info = dist_index.get_minimizer_distances(pos);
-            seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info),
-               std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info)});
+            seeds.push_back({ pos, 0, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info)});
         }
         vector<NewSnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 30); 
         REQUIRE(clusters.size() == 1);
