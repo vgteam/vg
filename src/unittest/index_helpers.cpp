@@ -142,11 +142,21 @@ TEST_CASE("GBWT reconstruction", "[index_helpers]") {
     }
 }
 
-TEST_CASE("Parallel GBWT reconstruction", "[index_helpers]") {
+TEST_CASE("Multiple rebuild_gbwt jobs", "[index_helpers]") {
+    // We order the threads by (phase, contig), but rebuild_gbwt() will
+    // reorder them by contig (with stable sorting).
     std::vector<gbwt::vector_type> source {
         sample_1_a, sample_1_b, sample_2_a, sample_2_b,
     };
     gbwt::GBWT index = get_gbwt(source);
+    index.addMetadata();
+    index.metadata.setSamples(1);
+    index.metadata.setHaplotypes(2);
+    index.metadata.setContigs(2);
+    index.metadata.addPath(0, 0, 0, 0);
+    index.metadata.addPath(0, 1, 0, 0);
+    index.metadata.addPath(0, 0, 1, 0);
+    index.metadata.addPath(0, 1, 1, 0);
 
     std::vector<RebuildJob> jobs {
         {
@@ -174,11 +184,20 @@ TEST_CASE("Parallel GBWT reconstruction", "[index_helpers]") {
         { 42, 44, 46, 47, 43 },
         { 42, 44, 49, 50 },
     };
+    gbwt::Metadata true_metadata;
+    true_metadata.setSamples(1);
+    true_metadata.setHaplotypes(2);
+    true_metadata.setContigs(2);
+    true_metadata.addPath(0, 0, 0, 0);
+    true_metadata.addPath(0, 0, 1, 0);
+    true_metadata.addPath(0, 1, 0, 0);
+    true_metadata.addPath(0, 1, 1, 0);
 
     SECTION("single-threaded") {
         RebuildParameters parameters;
         gbwt::GBWT rebuilt = rebuild_gbwt(index, jobs, node_to_job, parameters);
         check_paths(rebuilt, truth);
+        REQUIRE(rebuilt.metadata == true_metadata);
     }
 
     SECTION("multi-threaded") {
@@ -186,6 +205,7 @@ TEST_CASE("Parallel GBWT reconstruction", "[index_helpers]") {
         parameters.num_jobs = 2;
         gbwt::GBWT rebuilt = rebuild_gbwt(index, jobs, node_to_job, parameters);
         check_paths(rebuilt, truth);
+        REQUIRE(rebuilt.metadata == true_metadata);
     }
 }
 

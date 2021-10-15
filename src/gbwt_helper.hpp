@@ -203,6 +203,9 @@ struct RebuildParameters {
 /// from the largest to the smallest.
 ///
 /// `node_to_job` maps each node identifier to the corresponding job identifier.
+///
+/// NOTE: Threads may be reordered if there are multiple jobs. Old thread ids are
+/// no longer valid after rebuilding the GBWT.
 gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index,
                         const std::vector<RebuildJob>& jobs,
                         const std::unordered_map<nid_t, size_t>& node_to_job,

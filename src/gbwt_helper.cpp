@@ -317,6 +317,23 @@ gbwt::GBWT rebuild_gbwt_job(const gbwt::GBWT& gbwt_index, const RebuildJob& job,
     return gbwt::GBWT(builder.index);
 }
 
+// Copy metadata from source to target, but reorder path names according to the merging order.
+void copy_metadata(const gbwt::GBWT& source, gbwt::GBWT& target, const std::vector<std::vector<gbwt::size_type>>& jobs, const std::vector<size_t>& job_order) {
+    if (!source.hasMetadata()) {
+        return;
+    }
+    target.addMetadata();
+    target.metadata = source.metadata;
+    if (source.metadata.hasPathNames()) {
+        target.metadata.clearPathNames();
+        for (size_t job : job_order) {
+            for (gbwt::size_type sequence : jobs[job]) {
+                target.metadata.addPath(source.metadata.path(gbwt::Path::id(sequence)));
+            }
+        }
+    }
+}
+
 gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index,
                         const std::vector<RebuildJob>& jobs,
                         const std::unordered_map<nid_t, size_t>& node_to_job,
@@ -379,10 +396,7 @@ gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index,
     }
     gbwt::GBWT merged(indexes);
     indexes.clear();
-    if (gbwt_index.hasMetadata()) {
-        merged.addMetadata();
-        merged.metadata = gbwt_index.metadata;
-    }
+    copy_metadata(gbwt_index, merged, sequences_by_job, jobs_by_size);
 
     return merged;
 }
