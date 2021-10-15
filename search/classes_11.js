@@ -1,17 +1,19 @@
 var searchData=
 [
-  ['range_5804',['Range',['../structvg_1_1Range.html',1,'vg']]],
-  ['rankedhandlegraph_5805',['RankedHandleGraph',['../classhandlegraph_1_1RankedHandleGraph.html',1,'handlegraph']]],
-  ['rarevariantsimplifier_5806',['RareVariantSimplifier',['../classvg_1_1RareVariantSimplifier.html',1,'vg']]],
-  ['ratiosupportsnarlcaller_5807',['RatioSupportSnarlCaller',['../classvg_1_1RatioSupportSnarlCaller.html',1,'vg']]],
-  ['readfilter_5808',['ReadFilter',['../classvg_1_1ReadFilter.html',1,'vg']]],
-  ['readrestrictedtraversalfinder_5809',['ReadRestrictedTraversalFinder',['../classvg_1_1ReadRestrictedTraversalFinder.html',1,'vg']]],
-  ['region_5810',['Region',['../structvg_1_1Region.html',1,'vg']]],
-  ['regionexpander_5811',['RegionExpander',['../classvg_1_1RegionExpander.html',1,'vg']]],
-  ['registry_5812',['Registry',['../classvg_1_1io_1_1Registry.html',1,'vg::io']]],
-  ['replacelocalhaplotypecommand_5813',['ReplaceLocalHaplotypeCommand',['../structvg_1_1ReplaceLocalHaplotypeCommand.html',1,'vg']]],
-  ['replacesnarlhaplotypecommand_5814',['ReplaceSnarlHaplotypeCommand',['../structvg_1_1ReplaceSnarlHaplotypeCommand.html',1,'vg']]],
-  ['representativetraversalfinder_5815',['RepresentativeTraversalFinder',['../classvg_1_1RepresentativeTraversalFinder.html',1,'vg']]],
-  ['reversegraph_5816',['ReverseGraph',['../classvg_1_1ReverseGraph.html',1,'vg']]],
-  ['rrmemo_5817',['RRMemo',['../structhaplo_1_1haploMath_1_1RRMemo.html',1,'haplo::haploMath']]]
+  ['range_5815',['Range',['../structvg_1_1Range.html',1,'vg']]],
+  ['rankedhandlegraph_5816',['RankedHandleGraph',['../classhandlegraph_1_1RankedHandleGraph.html',1,'handlegraph']]],
+  ['rarevariantsimplifier_5817',['RareVariantSimplifier',['../classvg_1_1RareVariantSimplifier.html',1,'vg']]],
+  ['ratiosupportsnarlcaller_5818',['RatioSupportSnarlCaller',['../classvg_1_1RatioSupportSnarlCaller.html',1,'vg']]],
+  ['readfilter_5819',['ReadFilter',['../classvg_1_1ReadFilter.html',1,'vg']]],
+  ['readrestrictedtraversalfinder_5820',['ReadRestrictedTraversalFinder',['../classvg_1_1ReadRestrictedTraversalFinder.html',1,'vg']]],
+  ['rebuildjob_5821',['RebuildJob',['../structvg_1_1RebuildJob.html',1,'vg']]],
+  ['rebuildparameters_5822',['RebuildParameters',['../structvg_1_1RebuildParameters.html',1,'vg']]],
+  ['region_5823',['Region',['../structvg_1_1Region.html',1,'vg']]],
+  ['regionexpander_5824',['RegionExpander',['../classvg_1_1RegionExpander.html',1,'vg']]],
+  ['registry_5825',['Registry',['../classvg_1_1io_1_1Registry.html',1,'vg::io']]],
+  ['replacelocalhaplotypecommand_5826',['ReplaceLocalHaplotypeCommand',['../structvg_1_1ReplaceLocalHaplotypeCommand.html',1,'vg']]],
+  ['replacesnarlhaplotypecommand_5827',['ReplaceSnarlHaplotypeCommand',['../structvg_1_1ReplaceSnarlHaplotypeCommand.html',1,'vg']]],
+  ['representativetraversalfinder_5828',['RepresentativeTraversalFinder',['../classvg_1_1RepresentativeTraversalFinder.html',1,'vg']]],
+  ['reversegraph_5829',['ReverseGraph',['../classvg_1_1ReverseGraph.html',1,'vg']]],
+  ['rrmemo_5830',['RRMemo',['../structhaplo_1_1haploMath_1_1RRMemo.html',1,'haplo::haploMath']]]
 ];

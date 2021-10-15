@@ -488,6 +488,11 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadRestrictedTraversalFinder.html">ReadRestrictedTraversalFinder</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1RebuildJob.html">RebuildJob</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1RebuildParameters.html">RebuildParameters</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parameters for <code>rebuild_gbwt</code>.  <a href="structvg_1_1RebuildParameters.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Region.html">Region</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1RegionExpander.html">RegionExpander</a></td></tr>
@@ -1193,8 +1198,17 @@ Functions</h2></td></tr>
 <tr class="memitem:a50d4b5eef7efd656daeb423af1f6a3c6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a50d4b5eef7efd656daeb423af1f6a3c6">save_r_index</a> (const gbwt::FastLocate &amp;index, const std::string &amp;filename, bool show_progress=false)</td></tr>
 <tr class="memdesc:a50d4b5eef7efd656daeb423af1f6a3c6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Save an r-index to the file.  <a href="namespacevg.html#a50d4b5eef7efd656daeb423af1f6a3c6">More...</a><br /></td></tr>
 <tr class="separator:a50d4b5eef7efd656daeb423af1f6a3c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1c1952daa0e6b195dceb36bc7822baba"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1c1952daa0e6b195dceb36bc7822baba">rebuild_gbwt</a> (const gbwt::GBWT &amp;gbwt_index, const std::vector&lt; std::pair&lt; gbwt::vector_type, gbwt::vector_type &gt;&gt; &amp;mappings)</td></tr>
-<tr class="separator:a1c1952daa0e6b195dceb36bc7822baba"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a802baeeacfe4ee75781afabac562588b"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::vector&lt; gbwt::size_type &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a802baeeacfe4ee75781afabac562588b">partition_gbwt_sequences</a> (const gbwt::GBWT &amp;gbwt_index, const std::unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t &gt; &amp;node_to_job, size_t num_jobs)</td></tr>
+<tr class="separator:a802baeeacfe4ee75781afabac562588b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aec4970f98c4a004a1c07c1beaec524ae"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aec4970f98c4a004a1c07c1beaec524ae">rebuild_gbwt_job</a> (const gbwt::GBWT &amp;gbwt_index, const <a class="el" href="structvg_1_1RebuildJob.html">RebuildJob</a> &amp;job, const std::vector&lt; gbwt::size_type &gt; &amp;sequences, const <a class="el" href="structvg_1_1RebuildParameters.html">RebuildParameters</a> &amp;parameters)</td></tr>
+<tr class="separator:aec4970f98c4a004a1c07c1beaec524ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab2237df8adff809619083730f10d0e2e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab2237df8adff809619083730f10d0e2e">copy_metadata</a> (const gbwt::GBWT &amp;source, gbwt::GBWT &amp;target, const std::vector&lt; std::vector&lt; gbwt::size_type &gt;&gt; &amp;jobs, const std::vector&lt; size_t &gt; &amp;job_order)</td></tr>
+<tr class="separator:ab2237df8adff809619083730f10d0e2e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a95d54bf0a30125f9ded043bb099cb25f"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a95d54bf0a30125f9ded043bb099cb25f">rebuild_gbwt</a> (const gbwt::GBWT &amp;gbwt_index, const std::vector&lt; <a class="el" href="structvg_1_1RebuildJob.html">RebuildJob</a> &gt; &amp;jobs, const std::unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t &gt; &amp;node_to_job, const <a class="el" href="structvg_1_1RebuildParameters.html">RebuildParameters</a> &amp;parameters)</td></tr>
+<tr class="separator:a95d54bf0a30125f9ded043bb099cb25f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ade5b1e6daa5da7101533d444d3d8ff41"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ade5b1e6daa5da7101533d444d3d8ff41">rebuild_gbwt</a> (const gbwt::GBWT &amp;gbwt_index, const std::vector&lt; <a class="el" href="structvg_1_1RebuildJob.html#afdbb259fb3fc369a7824f6420b2043c0">RebuildJob::mapping_type</a> &gt; &amp;mappings)</td></tr>
+<tr class="memdesc:ade5b1e6daa5da7101533d444d3d8ff41"><td class="mdescLeft">&#160;</td><td class="mdescRight">As the general <code>rebuild_gbwt</code>, but always using a single job with default parameters.  <a href="namespacevg.html#ade5b1e6daa5da7101533d444d3d8ff41">More...</a><br /></td></tr>
+<tr class="separator:ade5b1e6daa5da7101533d444d3d8ff41"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2d4b0a9961f932a8caccb1d0723fd171"><td class="memItemLeft" align="right" valign="top">std::vector&lt; gbwt::size_type &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2d4b0a9961f932a8caccb1d0723fd171">threads_for_sample</a> (const gbwt::GBWT &amp;gbwt_index, const std::string &amp;sample_name)</td></tr>
 <tr class="memdesc:a2d4b0a9961f932a8caccb1d0723fd171"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the list of thread ids / gbwt path ids for the given sample.  <a href="namespacevg.html#a2d4b0a9961f932a8caccb1d0723fd171">More...</a><br /></td></tr>
 <tr class="separator:a2d4b0a9961f932a8caccb1d0723fd171"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -6554,6 +6568,46 @@ template&lt;typename T &gt; </div>
           <td></td>
           <td class="paramtype">const string &amp;&#160;</td>
           <td class="paramname"><em>to_fp</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ab2237df8adff809619083730f10d0e2e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab2237df8adff809619083730f10d0e2e">&#9670;&nbsp;</a></span>copy_metadata()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::copy_metadata </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>source</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>target</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; std::vector&lt; gbwt::size_type &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>jobs</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>job_order</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -16472,6 +16526,40 @@ template&lt;typename Result &gt; </div>
 
 </div>
 </div>
+<a id="a802baeeacfe4ee75781afabac562588b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a802baeeacfe4ee75781afabac562588b">&#9670;&nbsp;</a></span>partition_gbwt_sequences()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::vector&lt;std::vector&lt;gbwt::size_type&gt; &gt; vg::partition_gbwt_sequences </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>gbwt_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>node_to_job</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>num_jobs</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="af505a96db454fbd06e026f11cb6fbfba"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#af505a96db454fbd06e026f11cb6fbfba">&#9670;&nbsp;</a></span>path_end_position()</h2>
 
@@ -17759,8 +17847,8 @@ template&lt;class Decoder &gt; </div>
 
 </div>
 </div>
-<a id="a1c1952daa0e6b195dceb36bc7822baba"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1c1952daa0e6b195dceb36bc7822baba">&#9670;&nbsp;</a></span>rebuild_gbwt()</h2>
+<a id="a95d54bf0a30125f9ded043bb099cb25f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a95d54bf0a30125f9ded043bb099cb25f">&#9670;&nbsp;</a></span>rebuild_gbwt() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -17774,8 +17862,20 @@ template&lt;class Decoder &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::vector&lt; std::pair&lt; gbwt::vector_type, gbwt::vector_type &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>mappings</em>&#160;</td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1RebuildJob.html">RebuildJob</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>jobs</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>node_to_job</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1RebuildParameters.html">RebuildParameters</a> &amp;&#160;</td>
+          <td class="paramname"><em>parameters</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -17788,7 +17888,79 @@ template&lt;class Decoder &gt; </div>
 <p>The mappings will be applied in both orientations. The reverse mapping replaces the reverse of the original subpath with the reverse of the new subpath.</p>
 <p>The first and the last node can be used as context. For example (aXb, aYb) can be interpreted as "replace X with Y in context a b". If both subpaths end with the same node, the cursor will point at that node after the mapping. Otherwise the cursor will be set past the original subpath.</p>
 <p>NOTE: To avoid infinite loops, the cursor will proceed after a mapping of the type (a, Xa).</p>
-<p>TODO: We could provide construction parameters and an option to parallelize by contig. </p>
+<p>The process can be partitioned into multiple non-overlapping jobs, each of them corresponding to one or more weakly connected components in the graph. Multiple jobs can be run in parallel using 2 threads each, and the jobs will be started from the largest to the smallest.</p>
+<p><code>node_to_job</code> maps each node identifier to the corresponding job identifier.</p>
+<p>NOTE: Threads may be reordered if there are multiple jobs. Old thread ids are no longer valid after rebuilding the GBWT. </p>
+
+</div>
+</div>
+<a id="ade5b1e6daa5da7101533d444d3d8ff41"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ade5b1e6daa5da7101533d444d3d8ff41">&#9670;&nbsp;</a></span>rebuild_gbwt() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwt::GBWT vg::rebuild_gbwt </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>gbwt_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1RebuildJob.html#afdbb259fb3fc369a7824f6420b2043c0">RebuildJob::mapping_type</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>mappings</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>As the general <code>rebuild_gbwt</code>, but always using a single job with default parameters. </p>
+
+</div>
+</div>
+<a id="aec4970f98c4a004a1c07c1beaec524ae"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aec4970f98c4a004a1c07c1beaec524ae">&#9670;&nbsp;</a></span>rebuild_gbwt_job()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">gbwt::GBWT vg::rebuild_gbwt_job </td>
+          <td>(</td>
+          <td class="paramtype">const gbwt::GBWT &amp;&#160;</td>
+          <td class="paramname"><em>gbwt_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1RebuildJob.html">RebuildJob</a> &amp;&#160;</td>
+          <td class="paramname"><em>job</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; gbwt::size_type &gt; &amp;&#160;</td>
+          <td class="paramname"><em>sequences</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1RebuildParameters.html">RebuildParameters</a> &amp;&#160;</td>
+          <td class="paramname"><em>parameters</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
