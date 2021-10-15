@@ -150,6 +150,37 @@ struct GBWTHandler {
 
 //------------------------------------------------------------------------------
 
+/// A GBWT construction job in `rebuild_gbwt`. Each job corresponds to one or more
+/// weakly connected components in the graph. All mappings must replace subpaths in
+/// these components. When there are multiple jobs, no component may appear in more
+/// than one job and the node identifiers used in the mappings must not overlap
+/// between jobs.
+struct RebuildJob {
+    /// Replace the first subpath with the second subpath.
+    typedef std::pair<gbwt::vector_type, gbwt::vector_type> mapping_type;
+
+    /// Mappings that should be applied in this job.
+    std::vector<mapping_type> mappings;
+
+    /// Total size of the graph components in nodes.
+    size_t total_size = 0;
+};
+
+/// Parameters for `rebuild_gbwt`.
+struct RebuildParameters {
+    /// Maximum number of parallel construction jobs.
+    size_t num_jobs = 1;
+
+    /// Print progress information to stderr.
+    bool show_progress = false;
+
+    /// Size of the GBWT construction buffer in nodes.
+    gbwt::size_type batch_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE;
+
+    /// Sample interval for locate queries.
+    gbwt::size_type sample_interval = gbwt::DynamicGBWT::SAMPLE_INTERVAL;
+};
+
 /// Rebuild the GBWT by applying all provided mappings. Each mapping is a pair
 /// (original subpath, new subpath). If the original subpath is empty, the
 /// mapping is ignored. If there are multiple applicable mappings, the first one
@@ -166,9 +197,19 @@ struct GBWTHandler {
 /// NOTE: To avoid infinite loops, the cursor will proceed after a mapping of the
 /// type (a, Xa).
 ///
-/// TODO: We could provide construction parameters and an option to parallelize
-/// by contig.
-gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index, const std::vector<std::pair<gbwt::vector_type, gbwt::vector_type>>& mappings);
+/// The process can be partitioned into multiple non-overlapping jobs, each of them
+/// corresponding to one or more weakly connected components in the graph. Multiple
+/// jobs can be run in parallel using 2 threads each, and the jobs will be started
+/// from the largest to the smallest.
+///
+/// `node_to_job` maps each node identifier to the corresponding job identifier.
+gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index,
+                        const std::vector<RebuildJob>& jobs,
+                        const std::unordered_map<nid_t, size_t>& node_to_job,
+                        const RebuildParameters& parameters);
+
+/// As the general `rebuild_gbwt`, but always using a single job with default parameters.
+gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index, const std::vector<RebuildJob::mapping_type>& mappings);
 
 //------------------------------------------------------------------------------
 

@@ -240,15 +240,29 @@ void GBWTHandler::clear() {
 
 //------------------------------------------------------------------------------
 
-gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index, const std::vector<std::pair<gbwt::vector_type, gbwt::vector_type>>& mappings) {
-    if (gbwt_index.empty() || mappings.empty()) {
-        return gbwt_index;
+// Partition the GBWT seqeuences between jobs by the first node.
+std::vector<std::vector<gbwt::size_type>> partition_gbwt_sequences(const gbwt::GBWT& gbwt_index, const std::unordered_map<nid_t, size_t>& node_to_job, size_t num_jobs) {
+    std::vector<std::vector<gbwt::size_type>> result(num_jobs);
+    for (gbwt::size_type sequence = 0; sequence < gbwt_index.sequences(); sequence += 2) {
+        gbwt::edge_type start = gbwt_index.start(sequence);
+        if (start != gbwt::invalid_edge()) {
+            nid_t node = gbwt::Node::id(start.first);
+            auto iter = node_to_job.find(node);
+            if (iter != node_to_job.end()) {
+                result[iter->second].push_back(sequence);
+            }
+        }
     }
+    return result;
+}
+
+// Build a GBWT by inserting the specified sequences and applying the specified mappings.
+gbwt::GBWT rebuild_gbwt_job(const gbwt::GBWT& gbwt_index, const RebuildJob& job, const std::vector<gbwt::size_type>& sequences, const RebuildParameters& parameters) {
 
     // Partition the mappings by the first node and determine node width.
     gbwt::size_type node_width = sdsl::bits::length(gbwt_index.sigma() - 1);
-    std::unordered_map<gbwt::node_type, std::vector<std::pair<gbwt::vector_type, gbwt::vector_type>>> mappings_by_first_node;
-    for (auto& mapping : mappings) {
+    std::unordered_map<gbwt::node_type, std::vector<RebuildJob::mapping_type>> mappings_by_first_node;
+    for (auto& mapping : job.mappings) {
         if (mapping.first.empty() || mapping.first == mapping.second) {
             continue;
         }
@@ -262,11 +276,10 @@ gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index, const std::vector<std::pai
         }
     }
 
-    // Build the new GBWT.
-    gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
-    gbwt::GBWTBuilder builder(node_width);
-    for (gbwt::size_type id = 0; id < gbwt_index.sequences(); id += 2) {
-        gbwt::vector_type path = gbwt_index.extract(id);
+    // Insert the sequences from the original GBWT and apply the mappings.
+    gbwt::GBWTBuilder builder(node_width, parameters.batch_size, parameters.sample_interval);
+    for (gbwt::size_type sequence : sequences) {
+        gbwt::vector_type path = gbwt_index.extract(sequence);
         gbwt::vector_type mapped;
         size_t i = 0;
         while (i < path.size()) {
@@ -301,13 +314,82 @@ gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index, const std::vector<std::pai
     }
     builder.finish();
 
-    // Copy the metadata.
+    return gbwt::GBWT(builder.index);
+}
+
+gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index,
+                        const std::vector<RebuildJob>& jobs,
+                        const std::unordered_map<nid_t, size_t>& node_to_job,
+                        const RebuildParameters& parameters) {
+
+    if (gbwt_index.empty() || jobs.empty()) {
+        return gbwt_index;
+    }
+    gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
+
+    // Sort the jobs in descending order by size.
+    std::vector<size_t> jobs_by_size(jobs.size());
+    for (size_t i = 0; i < jobs_by_size.size(); i++) {
+        jobs_by_size[i] = i;
+    }
+    std::sort(jobs_by_size.begin(), jobs_by_size.end(), [&](size_t a, size_t b) -> bool {
+        return (jobs[a].total_size > jobs[b].total_size);
+    });
+
+    // Build indexes in parallel.
+    if (parameters.show_progress) {
+        std::cerr << "rebuild_gbwt(): Building " << jobs.size() << " partial GBWTs using up to " << parameters.num_jobs << " parallel jobs" << std::endl;
+    }
+    std::vector<gbwt::GBWT> indexes(jobs.size());
+    std::vector<std::vector<gbwt::size_type>> sequences_by_job = partition_gbwt_sequences(gbwt_index, node_to_job, jobs.size());
+    int old_max_threads = omp_get_max_threads();
+    omp_set_num_threads(parameters.num_jobs);
+    #pragma omp parallel for schedule(dynamic, 1)
+    for (size_t i = 0; i < jobs.size(); i++) {
+        size_t job = jobs_by_size[i];
+        if (parameters.show_progress) {
+            #pragma omp critical
+            {
+                std::cerr << "rebuild_gbwt(): Starting job " << job << std::endl;
+            }
+        }
+        indexes[job] = rebuild_gbwt_job(gbwt_index, jobs[job], sequences_by_job[job], parameters);
+        if (parameters.show_progress) {
+            #pragma omp critical
+            {
+                std::cerr << "rebuild_gbwt(): Inserted " << sequences_by_job[job].size() << " threads in job " << job << std::endl;
+            }
+        }
+    }
+    omp_set_num_threads(old_max_threads);
+
+    // Merge the partial GBWTs and copy the metadata.
+    if (parameters.show_progress) {
+        std::cerr << "rebuild_gbwt(): Merging the partial GBWTs" << std::endl;
+    }
+    gbwt::GBWT merged(indexes);
+    indexes.clear();
     if (gbwt_index.hasMetadata()) {
-        builder.index.addMetadata();
-        builder.index.metadata = gbwt_index.metadata;
+        merged.addMetadata();
+        merged.metadata = gbwt_index.metadata;
     }
 
-    return gbwt::GBWT(builder.index);
+    return merged;
+}
+
+gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index, const std::vector<RebuildJob::mapping_type>& mappings) {
+    std::vector<RebuildJob> jobs {
+        { mappings, 0 }
+    };
+    std::unordered_map<nid_t, size_t> node_to_job;
+    for (gbwt::size_type i = 0; i < gbwt_index.sequences(); i += 2) {
+        gbwt::edge_type start = gbwt_index.start(i);
+        if (start != gbwt::invalid_edge()) {
+            node_to_job[gbwt::Node::id(start.first)] = 0;
+        }
+    }
+    RebuildParameters parameters;
+    return rebuild_gbwt(gbwt_index, jobs, node_to_job, parameters);
 }
 
 //------------------------------------------------------------------------------
