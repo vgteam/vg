@@ -363,6 +363,16 @@ gbwt::GBWT rebuild_gbwt(const gbwt::GBWT& gbwt_index,
     }
     omp_set_num_threads(old_max_threads);
 
+    // We can avoid merging if we had only one job.
+    if (indexes.size() == 1) {
+        gbwt::GBWT result(std::move(indexes.front()));
+        if (gbwt_index.hasMetadata()) {
+            result.addMetadata();
+            result.metadata = gbwt_index.metadata;
+        }
+        return result;
+    }
+
     // Merge the partial GBWTs and copy the metadata.
     if (parameters.show_progress) {
         std::cerr << "rebuild_gbwt(): Merging the partial GBWTs" << std::endl;
