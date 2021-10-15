@@ -14,6 +14,7 @@
 #include "utility.hpp"
 #include "crash.hpp"
 #include "preflight.hpp"
+#include "config/allocator_config.hpp"
 #include "io/register_libvg_io.hpp"
 
 // New subcommand system provides all the subcommands that used to live here
@@ -53,7 +54,10 @@ int main(int argc, char *argv[]) {
 
     // Make sure the system meets system requirements (i.e. has all the instructions we need)
     preflight_check();
-
+    
+    // Make sure we configure the memory allocator appropriately for our environment
+    configure_memory_allocator();
+    
     // Set up stack trace support from crash.hpp
     enable_crash_handling();
 

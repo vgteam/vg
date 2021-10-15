@@ -348,7 +348,9 @@ void MultipathAlignmentEmitter::convert_to_hts_unpaired(const string& name, cons
     auto cigar = cigar_against_path(mp_aln, ref_name, ref_rev, ref_pos, *graph, min_splice_length);
     Alignment shim;
     create_alignment_shim(name, mp_aln, shim);
-    dest.push_back(alignment_to_bam(header, shim, ref_name, ref_pos, ref_rev, cigar));
+    auto bam = alignment_to_bam(header, shim, ref_name, ref_pos, ref_rev, cigar);
+    add_allelic_mapq(mp_aln, bam);
+    dest.push_back(bam);
 }
 
 void MultipathAlignmentEmitter::convert_to_hts_paired(const string& name_1, const string& name_2,
@@ -367,10 +369,41 @@ void MultipathAlignmentEmitter::convert_to_hts_paired(const string& name_1, cons
     
     auto tlens = compute_template_lengths(ref_pos_1, cigar_1, ref_pos_2, cigar_2);
     
-    dest.push_back(alignment_to_bam(header, shim_1, ref_name_1, ref_pos_1, ref_rev_1, cigar_1,
-                                    ref_name_2, ref_pos_2, ref_rev_2, tlens.first, tlen_limit));
-    dest.push_back(alignment_to_bam(header, shim_2, ref_name_2, ref_pos_2, ref_rev_2, cigar_2,
-                                    ref_name_1, ref_pos_1, ref_rev_1, tlens.second, tlen_limit));
+    auto bam_1 = alignment_to_bam(header, shim_1, ref_name_1, ref_pos_1, ref_rev_1, cigar_1,
+                                  ref_name_2, ref_pos_2, ref_rev_2, tlens.first, tlen_limit);
+    auto bam_2 = alignment_to_bam(header, shim_2, ref_name_2, ref_pos_2, ref_rev_2, cigar_2,
+                                  ref_name_1, ref_pos_1, ref_rev_1, tlens.second, tlen_limit);
+    
+    if (mp_aln_1.has_annotation("proper_pair")) {
+        // we've annotated proper pairing, let this override the tlen limit
+        auto anno = mp_aln_1.get_annotation("proper_pair");
+        assert(anno.first == multipath_alignment_t::Bool);
+        bool proper_pair = *((bool*) anno.second);
+        // we assume proper pairing applies to both reads
+        if (proper_pair) {
+            bam_1->core.flag |= BAM_FPROPER_PAIR;
+            bam_2->core.flag |= BAM_FPROPER_PAIR;
+        }
+        else {
+            bam_1->core.flag &= ~BAM_FPROPER_PAIR;
+            bam_2->core.flag &= ~BAM_FPROPER_PAIR;
+        }
+    }
+    
+    add_allelic_mapq(mp_aln_1, bam_1);
+    add_allelic_mapq(mp_aln_2, bam_2);
+    
+    dest.push_back(bam_1);
+    dest.push_back(bam_2);
+}
+
+void MultipathAlignmentEmitter::add_allelic_mapq(const multipath_alignment_t& mp_aln, bam1_t* bam) const {
+    if (mp_aln.has_annotation("allelic_mapq")) {
+        auto anno = mp_aln.get_annotation("allelic_mapq");
+        assert(anno.first == multipath_alignment_t::Double);
+        int64_t allelic_mapq = *((double*) anno.second);
+        bam_aux_update_int(bam, "AQ", allelic_mapq);
+    }
 }
 
 }

@@ -147,6 +147,81 @@ using namespace std;
             }
         }
 #endif
+        
+        if (prune_suspicious_anchors) {
+            // we want to remove anchors that can be error-prone: short anchors in the tails and anchors in
+            // low complexity sequences
+            for (auto it = path_overlapping_anchors.begin(); it != path_overlapping_anchors.end(); ++it) {
+                auto& path_chunks = it->second.first;
+                auto& step_ranges = it->second.second;
+                vector<bool> keep(path_chunks.size(), true);
+                for (int i = 0; i < path_chunks.size(); ++i) {
+                    auto& chunk = path_chunks[i];
+                    if (((i == 0 || i + 1 == path_chunks.size()) && path_chunks.size() != 1)
+                        && path_from_length(chunk.second) <= max_tail_anchor_prune &&
+                        chunk.first.second - chunk.first.first <= max_tail_anchor_prune) {
+#ifdef debug_anchored_surject
+                        cerr << "anchor " << i << " pruned for being a short tail" << endl;
+#endif
+                        // this is a short anchor on one of the tails
+                        keep[i] = false;
+                        continue;
+                    }
+                    SeqComplexity<6> complexity(chunk.first.first, chunk.first.second);
+                    for (int order = 1; order <= 6; ++order) {
+                        if (complexity.p_value(order) < low_complexity_p_value) {
+#ifdef debug_anchored_surject
+                            cerr << "anchor " << i << " pruned being low complexity at order " << order << " with p-value " << complexity.p_value(order) << " and repetitive fraction " << complexity.repetitiveness(order) << endl;
+#endif
+                            // the sequences is repetitive at this order
+                            keep[i] = false;
+                            break;
+                        }
+                    }
+                }
+                // make sure we didn't flag all of the anchors for removal
+                bool keep_any = false;
+                for (bool b : keep) {
+                    keep_any = keep_any || b;
+                }
+                if (!keep_any) {
+                    // we filtered out all of the anchors, choose the longest one to keep
+                    // even though it failed the filter
+                    int64_t max_idx = -1;
+                    int64_t max_len = 0;
+                    for (int i = 0; i < path_chunks.size(); ++i) {
+                        int64_t len = path_chunks[i].first.second - path_chunks[i].first.first;
+                        if (len > max_len) {
+                            max_idx = i;
+                            max_len = len;
+                        }
+                    }
+                    if (max_idx >= 0) {
+#ifdef debug_anchored_surject
+                        cerr << "reversing decision to prune " << max_idx << endl;
+#endif
+                        keep[max_idx] = true;
+                    }
+                }
+                // we're keeping at least one anchor, so we should be able to throw away the other ones
+                int removed_so_far = 0;
+                for (int i = 0; i < path_chunks.size(); ++i) {
+                    if (!keep[i]) {
+                        ++removed_so_far;
+                    }
+                    else if (removed_so_far) {
+                        path_chunks[i - removed_so_far] = move(path_chunks[i]);
+                        step_ranges[i - removed_so_far] = move(step_ranges[i]);
+                    }
+                }
+                if (removed_so_far) {
+                    path_chunks.resize(path_chunks.size() - removed_so_far);
+                    step_ranges.resize(step_ranges.size() - removed_so_far);
+                }
+            }
+        }
+        
+        
         // the surjected alignment for each path we overlapped
         unordered_map<path_handle_t, pair<Alignment, pair<step_handle_t, step_handle_t>>> aln_surjections;
         unordered_map<path_handle_t, pair<multipath_alignment_t, pair<step_handle_t, step_handle_t>>> mp_aln_surjections;
@@ -155,6 +230,7 @@ using namespace std;
             // to hold the path interval that corresponds to the path we surject to
             pair<step_handle_t, step_handle_t> path_range;
             if (!preserve_deletions && source_aln) {
+                // unspliced GAM -> GAM surjection
                 auto surjection = realigning_surject(&memoizing_graph, *source_aln, surj_record.first,
                                                      surj_record.second.first, path_range, allow_negative_scores,
                                                      false, false);
@@ -163,6 +239,7 @@ using namespace std;
                 }
             }
             else if (source_aln) {
+                // spliced GAM -> GAM surjection
                 auto surjection = spliced_surject(&memoizing_graph, source_aln->sequence(), source_aln->quality(),
                                                  source_aln->mapping_quality(), surj_record.first, surj_record.second.first,
                                                  surj_record.second.second, connections[surj_record.first], path_range,
@@ -176,12 +253,21 @@ using namespace std;
                 }
             }
             else {
+                // surjecting a multipath alignment (they always use the spliced pathway even if not
+                // doing spliced alignment)
                 auto surjection = spliced_surject(&memoizing_graph, source_mp_aln->sequence(),
                                                   source_mp_aln->quality(), source_mp_aln->mapping_quality(),
                                                   surj_record.first, surj_record.second.first,
                                                   surj_record.second.second, connections[surj_record.first],
                                                   path_range, allow_negative_scores, preserve_deletions);
                 if (surjection.subpath_size() != 0) {
+                    // the surjection was a success
+                    
+                    // copy over annotations
+                    // TODO: also redundantly copies over sequence and quality
+                    transfer_read_metadata(*source_mp_aln, surjection);
+                    
+                    // record the result for this path
                     mp_aln_surjections[surj_record.first] = make_pair(move(surjection), path_range);
                 }
             }

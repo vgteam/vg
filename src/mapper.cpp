@@ -851,7 +851,7 @@ vector<pos_t> BaseMapper::walk_fanout_path(string::const_iterator begin,
         while (off < node_len && read_it != end) {
             // get either the read char or the fanout char
             char rch;
-            if (read_it == next_break->first) {
+            if (next_break != fanout_breaks.end() && read_it == next_break->first) {
                 rch = next_break->second;
                 ++next_break;
             }
@@ -2897,7 +2897,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                      max_mem_length,
                                                      min_mem_length,
                                                      mem_reseed_length,
-                                                     false, true, true, false);
+                                                     false, true, true, true); // Make sure to actually fill in the longest LCP.
 
     vector<MaximalExactMatch> mems2 = find_mems_deep(read2.sequence().begin(),
                                                      read2.sequence().end(),
@@ -2906,7 +2906,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                                      max_mem_length,
                                                      min_mem_length,
                                                      mem_reseed_length,
-                                                     false, true, true, false);
+                                                     false, true, true, true); // Make sure to actually fill in the longest LCP.
 
     double mq_cap1, mq_cap2;
     mq_cap1 = mq_cap2 = max_mapping_quality;

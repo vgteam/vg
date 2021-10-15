@@ -11,6 +11,8 @@
 #include "bdsg/packed_graph.hpp"
 #include "save_handle_graph.hpp"
 
+#include <iostream>
+
 namespace vg {
 
 namespace io {
@@ -94,13 +96,29 @@ void register_loader_saver_gfa() {
     Registry::register_bare_loader_saver_with_header_check<GFAHandleGraph, MutablePathDeletableHandleGraph, MutablePathMutableHandleGraph, MutableHandleGraph, PathHandleGraph, HandleGraph>("GFA", sniff_gfa, [](istream& input, const string& filename) -> void* {
         // Allocate a PackedGraph
         GFAHandleGraph* gfa_graph = new GFAHandleGraph();
-
-        if (!filename.empty() && filename != "-") {
-            // Load it from a file
-            algorithms::gfa_to_path_handle_graph(filename, gfa_graph);
-        } else {
-            // Load it from the stream, falling back to temp file if necessary
-            algorithms::gfa_to_path_handle_graph_stream(input, gfa_graph);
+        
+        try {
+        
+            if (!filename.empty() && filename != "-") {
+                // Load it from a file
+                algorithms::gfa_to_path_handle_graph(filename, gfa_graph);
+            } else {
+                // Load it from the stream, falling back to temp file if necessary
+                algorithms::gfa_to_path_handle_graph_stream(input, gfa_graph);
+            }
+        
+        } catch (algorithms::GFAFormatError& e) {
+            // There is something wrong with the input GFA file.
+            // Explain that without a long stack trace, and bail.
+            cerr << "error[register_loader_saver_gfa] GFA ";
+            if (!filename.empty() && filename != "-") {
+                cerr << "file " << filename;
+            } else {
+                cerr << "stream";
+            }
+            cerr << " is corrupt and cannot be loaded." << endl;
+            cerr << e.what() << endl;
+            exit(1);
         }
         
         // Return it so the caller owns it.
