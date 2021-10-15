@@ -289,10 +289,10 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
            0, [&](size_t val, NodeClusters vector_item) {
                //This should return true if the vector_item goes after the item with rank val
 
-               size_t item_offset = distance_index.get_record_offset_in_chain(item.containing_net_handle); 
+               size_t item_offset = distance_index.get_record_offset(item.containing_net_handle); 
 
                //Same for things in the vector
-               size_t vector_item_offset =  distance_index.get_record_offset_in_chain(vector_item.containing_net_handle); 
+               size_t vector_item_offset =  distance_index.get_record_offset(vector_item.containing_net_handle); 
 
                return item_offset < vector_item_offset;
            });
@@ -897,6 +897,12 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
      * If this is the root, then the distances are infinite since it has no start/end
      */
     if (is_root){
+        if (distance_left_left == std::numeric_limits<size_t>::max() &&
+            distance_left_right == std::numeric_limits<size_t>::max() &&
+            distance_right_right == std::numeric_limits<size_t>::max() &&
+            distance_right_left == std::numeric_limits<size_t>::max()) {
+            return;
+        }
 
         child_clusters1.distance_start_left = std::numeric_limits<size_t>::max();
         child_clusters1.distance_start_right = std::numeric_limits<size_t>::max();
