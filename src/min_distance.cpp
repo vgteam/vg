@@ -2785,7 +2785,5 @@ size_t MinimumDistanceIndex::get_connected_component(id_t node_id) {
 
 constexpr MIPayload::code_type MIPayload::NO_CODE;
 constexpr size_t MIPayload::NO_VALUE;
-constexpr size_t MIPayload::ID_OFFSET;
-constexpr MIPayload::code_type MIPayload::OFFSET_MASK;
 
 }

@@ -942,7 +942,7 @@ tuple<bool, size_t, size_t> get_minimizer_distances (const SnarlDistanceIndex& d
     return tuple<bool, size_t, size_t>(
                 distance_index.is_reversed_in_parent(node_handle), 
                 distance_index.node_length(node_handle),
-                distance_index.get_record_offset_in_chain(node_handle) );
+                distance_index.get_record_offset(node_handle) );
 
 
 

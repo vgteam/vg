@@ -319,7 +319,9 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
              //And the node to a chain
             if (seen_nodes.count(id) < 1) {
                  seen_nodes.insert(id);
-                 net_handle_t parent =distance_index.get_parent(distance_index.get_net_handle(seed.record_offset));
+                 net_handle_t node_net_handle = seed.record_offset == 0 ? distance_index.get_node_net_handle(id) 
+                                                                        : distance_index.get_net_handle(seed.record_offset); 
+                 net_handle_t parent =distance_index.get_parent(node_net_handle);
                  size_t depth = distance_index.get_depth(parent);
                  if (depth+1 > chain_to_children_by_level.size()) {
                      chain_to_children_by_level.resize(depth+1);
@@ -329,9 +331,13 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                      vector<NodeClusters> empty_vector;
                      chain_to_children_by_level[depth].emplace(parent, std::move(empty_vector));
                  }
+                 bool is_reversed_in_parent = seed.record_offset == 0 ? distance_index.is_reversed_in_parent(node_net_handle)
+                                                                      : seed.is_reversed_in_parent;
+                 size_t node_length = seed.record_offset == 0 ? distance_index.node_length(node_net_handle)
+                                                                      : seed.node_length;
                  insert_in_order(chain_to_children_by_level[depth][parent],
-                                 NodeClusters(distance_index.get_net_handle(seed.record_offset), tree_state.all_seeds->size(),
-                                              seed.is_reversed_in_parent, seed.node_length, id));
+                                 NodeClusters(std::move(node_net_handle), tree_state.all_seeds->size(),
+                                              is_reversed_in_parent, node_length, id));
              } 
 //                }
             /* TODO: This uses cached distance index information, which I might put back but hopefully it won't be necessary anymore
