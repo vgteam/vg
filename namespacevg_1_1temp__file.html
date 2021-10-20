@@ -93,6 +93,8 @@ Functions</h2></td></tr>
 <tr class="separator:a0f3d35f494b316980ad8ceab4992747e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9885078330e16129fccc5fb6d8717ec5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1temp__file.html#a9885078330e16129fccc5fb6d8717ec5">remove</a> (const string &amp;filename)</td></tr>
 <tr class="separator:a9885078330e16129fccc5fb6d8717ec5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac061a6d187921157d4e62930445996e8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1temp__file.html#ac061a6d187921157d4e62930445996e8">set_system_dir</a> ()</td></tr>
+<tr class="separator:ac061a6d187921157d4e62930445996e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a13270094cd53cedbd540c7fd4412f0d6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1temp__file.html#a13270094cd53cedbd540c7fd4412f0d6">set_dir</a> (const string &amp;new_temp_dir)</td></tr>
 <tr class="separator:a13270094cd53cedbd540c7fd4412f0d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab1b0884547b4f3403e8cde0ca8b75b7c"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1temp__file.html#ab1b0884547b4f3403e8cde0ca8b75b7c">get_dir</a> ()</td></tr>
@@ -109,7 +111,8 @@ Variables</h2></td></tr>
 <tr class="separator:a2982fa51abc5775fe3719a7ca83fd43c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Temporary files and directories. Create with <a class="el" href="namespacevg_1_1temp__file.html#a84ef71efd10b4010f206ae8510545f40" title="Create a temporary file starting with the given base name.">create()</a> or <a class="el" href="namespacevg_1_1temp__file.html#a0f3d35f494b316980ad8ceab4992747e" title="Create a temporary directory.">create_directory()</a> and remove with <a class="el" href="namespacevg_1_1temp__file.html#a9885078330e16129fccc5fb6d8717ec5">remove()</a>. All temporary files and directories will be deleted when the program exits normally or with std::exit(). The files will be created in a directory determined from environment variables, though this can be overridden with <a class="el" href="namespacevg_1_1temp__file.html#a13270094cd53cedbd540c7fd4412f0d6">set_dir()</a>. The interface is thread-safe. </p>
+<div class="textblock"><p>Temporary files and directories. Create with <a class="el" href="namespacevg_1_1temp__file.html#a84ef71efd10b4010f206ae8510545f40" title="Create a temporary file starting with the given base name.">create()</a> or <a class="el" href="namespacevg_1_1temp__file.html#a0f3d35f494b316980ad8ceab4992747e" title="Create a temporary directory.">create_directory()</a> and remove with <a class="el" href="namespacevg_1_1temp__file.html#a9885078330e16129fccc5fb6d8717ec5">remove()</a>. All temporary files and directories will be deleted when the program exits normally or with std::exit(). The files will be created in a directory determined from environment variables, though this can be overridden with <a class="el" href="namespacevg_1_1temp__file.html#a13270094cd53cedbd540c7fd4412f0d6">set_dir()</a>. The interface is thread-safe.</p>
+<p>The temporary directory will be propagated to submodules (gbwt, gcsa2, xg). </p>
 </div><h2 class="groupheader">Function Documentation</h2>
 <a id="a24d977ff5083290a0ed89afac03d4810"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a24d977ff5083290a0ed89afac03d4810">&#9670;&nbsp;</a></span>create() <span class="overload">[1/2]</span></h2>
@@ -223,6 +226,24 @@ Variables</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Set a directory for placing temporary files and directories in, overriding system defaults and environment variables. </p>
+
+</div>
+</div>
+<a id="ac061a6d187921157d4e62930445996e8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac061a6d187921157d4e62930445996e8">&#9670;&nbsp;</a></span>set_system_dir()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::temp_file::set_system_dir </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Reset the temporary directory back to the default based on environment variables and system defaults. </p>
 
 </div>
 </div>
