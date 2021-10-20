@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-//#define DEBUG_CLUSTER
+#define DEBUG_CLUSTER
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index) :
@@ -915,6 +915,8 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
         child_clusters1.distance_end_right = std::numeric_limits<size_t>::max();
 
     } else {
+        distance_index.set_cached_start_bound(parent_handle, true, false);
+        distance_index.set_cached_end_bound(parent_handle, true, false);
         net_handle_t parent_start_in = parent_handle.start_bound_in;
         net_handle_t parent_end_in = parent_handle.end_bound_in;
         size_t start_length = !distance_index.is_chain(parent_handle.net) ? 0 
@@ -1263,7 +1265,7 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_snarl(
     //Get the clusters on this snarl, assumes that all of the snarls children have been clustered already.
     
 #ifdef DEBUG_CLUSTER
-        cerr << "Finding clusters on snarl " << distance_index.net_handle_as_string(snarl_handle) << endl;
+        cerr << "Finding clusters on snarl " << distance_index.net_handle_as_string(snarl_handle.net) << endl;
 #endif
 
     //Keep track of all clusters on this snarl
@@ -1286,7 +1288,7 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_snarl(
             NodeClusters& child_clusters_j = children[j];
 
 #ifdef DEBUG_CLUSTER
-            cerr << "\tComparing two children of " << distance_index.net_handle_as_string(snarl_handle) << ": " 
+            cerr << "\tComparing two children of " << distance_index.net_handle_as_string(snarl_handle.net) << ": " 
                  << distance_index.net_handle_as_string(child_clusters_i.containing_net_handle.net) << " and " 
                  << distance_index.net_handle_as_string(child_clusters_j.containing_net_handle.net) << endl;
                  
@@ -1300,7 +1302,7 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_snarl(
         }
     }
 #ifdef DEBUG_CLUSTER
-    cerr << "\tFound clusters on " << distance_index.net_handle_as_string(snarl_handle) << endl;
+    cerr << "\tFound clusters on " << distance_index.net_handle_as_string(snarl_handle.net) << endl;
     cerr << "\t   with best left and right values: " << snarl_clusters.fragment_best_left << " "
          << snarl_clusters.fragment_best_right << endl;
     bool got_left = false;
@@ -1372,8 +1374,8 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(Tre
 
 
 #ifdef DEBUG_CLUSTER
-    cerr << "Cluster chain " << distance_index.net_handle_as_string(chain_handle) << endl;
-    cerr << "\t chain has " << tree_state.chain_to_children[chain_handle].size() << " children" << endl;
+    cerr << "Cluster chain " << distance_index.net_handle_as_string(chain_handle.net) << endl;
+    cerr << "\t chain has " << tree_state.chain_to_children[chain_handle.net].size() << " children" << endl;
 #endif
 
     /*Go through the chain child by child 
@@ -1463,7 +1465,7 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(Tre
     }
 
 #ifdef DEBUG_CLUSTER
-    cerr << "\tFound clusters on " << distance_index.net_handle_as_string(chain_handle) << endl;
+    cerr << "\tFound clusters on " << distance_index.net_handle_as_string(chain_handle.net) << endl;
     cerr << "\t   with best left and right values: " << chain_clusters.fragment_best_left << " "
          << chain_clusters.fragment_best_right << endl;
     bool got_left = false;
