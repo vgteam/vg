@@ -119,8 +119,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:a7b50b8796e2599d6027cd4734e7107b2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a7b50b8796e2599d6027cd4734e7107b2">emit_variant</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="classvg_1_1SnarlCaller.html">SnarlCaller</a> &amp;snarl_caller, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;called_traversals, const vector&lt; int &gt; &amp;genotype, int ref_trav_idx, const unique_ptr&lt; <a class="el" href="structvg_1_1SnarlCaller_1_1CallInfo.html">SnarlCaller::CallInfo</a> &gt; &amp;call_info, const string &amp;ref_path_name, int ref_offset, bool genotype_snarls, int ploidy, function&lt; string(const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;, const vector&lt; int &gt; &amp;, int, int, int)&gt; trav_to_string=nullptr)</td></tr>
 <tr class="memdesc:a7b50b8796e2599d6027cd4734e7107b2"><td class="mdescLeft">&#160;</td><td class="mdescRight">print a vcf variant  <a href="classvg_1_1VCFOutputCaller.html#a7b50b8796e2599d6027cd4734e7107b2">More...</a><br /></td></tr>
 <tr class="separator:a7b50b8796e2599d6027cd4734e7107b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad4c2985e85c4c7db2cc428928f41698c"><td class="memItemLeft" align="right" valign="top">tuple&lt; size_t, size_t, bool, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#ad4c2985e85c4c7db2cc428928f41698c">get_ref_interval</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const string &amp;ref_path_name) const</td></tr>
-<tr class="separator:ad4c2985e85c4c7db2cc428928f41698c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab382edfcd67f4f3e73fe032cf8f96b04"><td class="memItemLeft" align="right" valign="top">tuple&lt; int64_t, int64_t, bool, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#ab382edfcd67f4f3e73fe032cf8f96b04">get_ref_interval</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const string &amp;ref_path_name) const</td></tr>
+<tr class="separator:ab382edfcd67f4f3e73fe032cf8f96b04"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa2d19e56299e843d868e8e5fa5b45d49"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#aa2d19e56299e843d868e8e5fa5b45d49">flatten_common_allele_ends</a> (vcflib::Variant &amp;variant, bool backward, size_t len_override) const</td></tr>
 <tr class="separator:aa2d19e56299e843d868e8e5fa5b45d49"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4caf27532f13b728ac5f115f5a76752f"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a4caf27532f13b728ac5f115f5a76752f">print_snarl</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, bool in_brackets=true) const</td></tr>
@@ -351,8 +351,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="ad4c2985e85c4c7db2cc428928f41698c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad4c2985e85c4c7db2cc428928f41698c">&#9670;&nbsp;</a></span>get_ref_interval()</h2>
+<a id="ab382edfcd67f4f3e73fe032cf8f96b04"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab382edfcd67f4f3e73fe032cf8f96b04">&#9670;&nbsp;</a></span>get_ref_interval()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -361,7 +361,7 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">tuple&lt; size_t, size_t, bool, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; vg::VCFOutputCaller::get_ref_interval </td>
+          <td class="memname">tuple&lt; int64_t, int64_t, bool, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; vg::VCFOutputCaller::get_ref_interval </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
@@ -390,7 +390,8 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>get the interval of a snarl from our reference path using the PathPositionHandleGraph interface the bool is true if the snarl's backward on the path </p>
+<p>get the interval of a snarl from our reference path using the PathPositionHandleGraph interface the bool is true if the snarl's backward on the path first returned value -1 if no traversal found <br  />
+ </p>
 
 </div>
 </div>

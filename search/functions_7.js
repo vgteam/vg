@@ -222,7 +222,7 @@ var searchData=
   ['get_5fread_5fname_7603',['get_read_name',['../classvg_1_1NGSSimulator.html#a44c1fcd6a665cc7804e561a7c8700a04',1,'vg::NGSSimulator']]],
   ['get_5fread_5foffset_7604',['get_read_offset',['../classvg_1_1GaplessExtender.html#a5c568cad31cb0cc1007ef05183c197ab',1,'vg::GaplessExtender']]],
   ['get_5fref_5ffollowing_7605',['get_ref_following',['../structhaplo_1_1linear__haplo__structure.html#a2e9ec5540a31571c3daba83abf03d18d',1,'haplo::linear_haplo_structure']]],
-  ['get_5fref_5finterval_7606',['get_ref_interval',['../classvg_1_1VCFOutputCaller.html#ad4c2985e85c4c7db2cc428928f41698c',1,'vg::VCFOutputCaller']]],
+  ['get_5fref_5finterval_7606',['get_ref_interval',['../classvg_1_1VCFOutputCaller.html#ab382edfcd67f4f3e73fe032cf8f96b04',1,'vg::VCFOutputCaller']]],
   ['get_5fref_5foffsets_7607',['get_ref_offsets',['../classvg_1_1RatioSupportSnarlCaller.html#a7f838a459153e23e7963a2bd779711de',1,'vg::RatioSupportSnarlCaller::get_ref_offsets()'],['../classvg_1_1TraversalSupportFinder.html#a437e9478fc7551f23246d954af4b0d90',1,'vg::TraversalSupportFinder::get_ref_offsets()']]],
   ['get_5fref_5fposition_7608',['get_ref_position',['../classvg_1_1MCMCCaller.html#a368d2f5dbd85941acceec2a1d7d44d41',1,'vg::MCMCCaller']]],
   ['get_5fref_5fpositions_7609',['get_ref_positions',['../classvg_1_1VCFGenotyper.html#a60af53e97463c30ff180d3c1b8356df7',1,'vg::VCFGenotyper']]],
