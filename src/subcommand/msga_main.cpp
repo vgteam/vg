@@ -555,9 +555,6 @@ int main_msga(int argc, char** argv) {
     gcsa::LCPArray* lcpidx = nullptr;
     xg::XG* xgidx = nullptr;
     size_t iter = 0;
-    
-    // Configure GCSA temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(temp_file::get_dir());
 
     auto rebuild = [&](VG* graph, int name_idx) {
         delete mapper;
@@ -588,9 +585,6 @@ int main_msga(int argc, char** argv) {
         if (debug) cerr << "building GCSA2 index" << endl;
         // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
         if(!debug) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
-        
-        // Configure its temp directory to the system temp directory
-        gcsa::TempFile::setDirectory(temp_file::get_dir());
 
         // Replace "graph" with a subsetted graph, and use it below when creating
         // the GCSA index.

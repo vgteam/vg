@@ -255,10 +255,7 @@ namespace vg {
                 IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
 
-                // Configure GCSA temp directory to the system temp directory
-                gcsa::TempFile::setDirectory(temp_file::get_dir());
-                
-                // And make it quiet
+                // Make GCSA quiet
                 gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
                 
                 // Make pointers to fill in
@@ -368,9 +365,7 @@ namespace vg {
                 CactusSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls();
 
-                // Configure GCSA temp directory to the system temp directory
-                gcsa::TempFile::setDirectory(temp_file::get_dir());
-                // And make it quiet
+                // Make GCSA quiet
                 gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
                 
                 // Make pointers to fill in
@@ -493,9 +488,7 @@ namespace vg {
 				IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
 
-                // Configure GCSA temp directory to the system temp directory
-                gcsa::TempFile::setDirectory(temp_file::get_dir());
-                // And make it quiet
+                // Make GCSA quiet
                 gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
                 
                 // Make pointers to fill in
@@ -627,9 +620,7 @@ namespace vg {
                     IntegratedSnarlFinder bubble_finder(graph);
                     SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
 
-                    // Configure GCSA temp directory to the system temp directory
-                    gcsa::TempFile::setDirectory(temp_file::get_dir());
-                    // And make it quiet
+                    // Make GCSA quiet
                     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
                     
                     // Make pointers to fill in
@@ -787,9 +778,7 @@ namespace vg {
                 IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
 
-                // Configure GCSA temp directory to the system temp directory
-                gcsa::TempFile::setDirectory(temp_file::get_dir());
-                // And make it quiet
+                // Make GCSA quiet
                 gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
                 
                 // Make pointers to fill in
@@ -908,9 +897,7 @@ namespace vg {
 				IntegratedSnarlFinder bubble_finder(graph);
                 SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
 
-                // Configure GCSA temp directory to the system temp directory
-                gcsa::TempFile::setDirectory(temp_file::get_dir());
-                // And make it quiet
+                // Make GCSA quiet
                 gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
                 
                 // Make pointers to fill in
@@ -1068,9 +1055,7 @@ namespace vg {
             IntegratedSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
 
-            // Configure GCSA temp directory to the system temp directory
-            gcsa::TempFile::setDirectory(temp_file::get_dir());
-            // And make it quiet
+            // Make GCSA quiet
             gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
             
             // Make pointers to fill in
@@ -1247,9 +1232,7 @@ namespace vg {
             IntegratedSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls_parallel();
 
-            // Configure GCSA temp directory to the system temp directory
-            gcsa::TempFile::setDirectory(temp_file::get_dir());
-            // And make it quiet
+            // Make GCSA quiet
             gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
             
             // Make pointers to fill in

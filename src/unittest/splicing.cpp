@@ -1644,9 +1644,7 @@ TEST_CASE("MultipathMapper can make splice alignments from different candidates"
     graph.append_step(ph, h4);
     graph.append_step(ph, h5);
     
-    // Configure GCSA temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(temp_file::get_dir());
-    // And make it quiet
+    // Make GCSA quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
     // Make pointers to fill in

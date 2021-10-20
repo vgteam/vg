@@ -34,9 +34,7 @@ TEST_CASE( "Mapper can map to a one-node graph", "[mapping][mapper]" ) {
     VG graph;
     graph.extend(proto_graph);
     
-    // Configure GCSA temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(temp_file::get_dir());
-    // And make it quiet
+    // Make GCSA quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
     // Make pointers to fill in
@@ -256,9 +254,7 @@ TEST_CASE( "Mapper finds optimal mapping for read starting with node-border MEM"
     VG graph;
     graph.extend(proto_graph);
     
-    // Configure GCSA temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(temp_file::get_dir());
-    // And make it quiet
+    // Make GCSA quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
     // Make pointers to fill in
@@ -324,9 +320,7 @@ TEST_CASE( "Mapper can annotate positions correctly on both strands", "[mapper][
     VG graph;
     graph.extend(proto_graph);
     
-    // Configure GCSA temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(temp_file::get_dir());
-    // And make it quiet
+    // Make GCSA quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
     // Make pointers to fill in
@@ -560,9 +554,7 @@ TEST_CASE( "Mapper can walk paths from fan-out MEM algorithm", "[mapping][mapper
     graph.create_edge(h4, h10);
     graph.create_edge(h5, h11);
     
-    // Configure GCSA temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(temp_file::get_dir());
-    // And make it quiet
+    // Make GCSA quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
     // Make pointers to fill in
