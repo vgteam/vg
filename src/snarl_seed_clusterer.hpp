@@ -95,7 +95,7 @@ class NewSnarlSeedClusterer {
             // or a snarl in a chain
 
             //The snarl tree node that the clusters are on
-            net_handle_t containing_net_handle; 
+            SnarlDistanceIndex::CachedNetHandle containing_net_handle; 
 
             //Only set these for nodes
             nid_t node_id = 0;
@@ -126,12 +126,12 @@ class NewSnarlSeedClusterer {
 
             //Constructor
             //read_count is the number of reads in a fragment (2 for paired end)
-            NodeClusters( net_handle_t net, size_t read_count) :
-                containing_net_handle(net),
+            NodeClusters( SnarlDistanceIndex::CachedNetHandle net, size_t read_count) :
+                containing_net_handle(std::move(net)),
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
                 read_best_left(read_count, std::numeric_limits<size_t>::max()), 
                 read_best_right(read_count, std::numeric_limits<size_t>::max()){}
-            NodeClusters( net_handle_t net, size_t read_count, bool is_reversed_in_parent, size_t node_length, nid_t node_id) :
+            NodeClusters( SnarlDistanceIndex::CachedNetHandle net, size_t read_count, bool is_reversed_in_parent, size_t node_length, nid_t node_id) :
                 containing_net_handle(net),
                 is_reversed_in_parent(is_reversed_in_parent),
                 node_length(node_length),
@@ -273,12 +273,12 @@ class NewSnarlSeedClusterer {
         void cluster_one_node(TreeState& tree_state, NodeClusters& node_clusters) const; 
 
         //Cluster the seeds in a snarl given by its net handle
-        NodeClusters cluster_one_snarl(TreeState& tree_state, net_handle_t snarl_handle) const;
+        NodeClusters cluster_one_snarl(TreeState& tree_state, SnarlDistanceIndex::CachedNetHandle snarl_handle) const;
 
         //Cluster the seeds in a chain given by chain_index_i, an index into
         //distance_index.chain_indexes
         //If the depth is 0, also incorporate the top-level seeds from tree_state.top_level_seed_clusters
-        NodeClusters cluster_one_chain(TreeState& tree_state, net_handle_t chain_handle) const;
+        NodeClusters cluster_one_chain(TreeState& tree_state, SnarlDistanceIndex::CachedNetHandle chain_handle) const;
 
         //Cluster in the root 
         void cluster_root(TreeState& tree_state) const;
