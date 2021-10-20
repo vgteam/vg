@@ -195,9 +195,6 @@ int main_vectorize(int argc, char** argv){
 
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
-    
-    // Configure its temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(temp_file::get_dir());
 
     unique_ptr<gcsa::GCSA> gcsa_index;
     unique_ptr<gcsa::LCPArray> lcp_index;

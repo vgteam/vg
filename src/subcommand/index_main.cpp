@@ -401,11 +401,6 @@ int main_index(int argc, char** argv) {
         file_names.push_back(file_name);
     }
 
-    // Use the same temp directory in submodules.
-    gcsa::TempFile::setDirectory(temp_file::get_dir());
-    gbwt::TempFile::setDirectory(temp_file::get_dir());
-    xg::temp_file::set_dir(temp_file::get_dir());
-
 
     if (xg_name.empty() && gbwt_name.empty() &&
         gcsa_name.empty() && !build_gai_index && !build_vgi_index && dist_name.empty()) {

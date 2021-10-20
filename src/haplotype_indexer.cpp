@@ -21,9 +21,6 @@ using namespace std;
 namespace vg {
 
 HaplotypeIndexer::HaplotypeIndexer() {
-    // Use the same temp directory as VG for GBWT temp files.
-    gbwt::TempFile::setDirectory(temp_file::get_dir());
-
     // Build the GBWTs silently.
     gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
 }

@@ -63,7 +63,10 @@ int main(int argc, char *argv[]) {
 
     // Determine a sensible default number of threads and apply it.
     choose_good_thread_count();
-    
+
+    // Determine temp directory from environment variables.
+    temp_file::set_system_dir();
+
     // Tell the IO library about libvg types.
     // TODO: Make a more generic libvg startup function?
     if (!vg::io::register_libvg_io()) {
