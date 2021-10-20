@@ -34,7 +34,7 @@ void help_clip(char** argv) {
        << "    -l, --max-reflen-prop F   Ignore snarls whose reference traversal spans more than F (0<=F<=1) of the whole reference path" << endl
        << "    -L, --max-reflen N        Ignore snarls whose reference traversal spans more than N bp" << endl
        << "general options: " << endl
-       << "    -P, --path-prefix STRING  Do not clip out alleles on paths beginning with given prefix (such references must be specified either with -P or -b). " << endl
+       << "    -P, --path-prefix STRING  Do not clip out alleles on paths beginning with given prefix (such references must be specified either with -P or -b). Multiple allowed" << endl
        << "    -m, --min-fragment-len N  Don't write novel path fragment if it is less than N bp long" << endl
        << "    -B, --output-bed          Write BED-style file of affected intervals instead of clipped graph. " << endl
        << "                              Columns 4-9 are: snarl node-count edge-count shallow-node-count shallow-edge-count avg-degree" << endl
@@ -47,7 +47,7 @@ int main_clip(int argc, char** argv) {
 
     string bed_path;
     string snarls_path;
-    string ref_prefix;
+    vector<string> ref_prefixes;
     int64_t min_depth = -1;
     int64_t min_fragment_len = 0;
     bool verbose = false;
@@ -142,7 +142,7 @@ int main_clip(int argc, char** argv) {
             snarl_option = true;
             break;            
         case 'P':
-            ref_prefix = optarg;
+            ref_prefixes.push_back(optarg);
             break;            
         case 'r':
             snarls_path = optarg;
@@ -171,7 +171,7 @@ int main_clip(int argc, char** argv) {
         }
     }
 
-    if (bed_path.empty() == ref_prefix.empty()) {
+    if (bed_path.empty() == ref_prefixes.empty()) {
         cerr << "error:[vg-clip] Reference intervals must be specified with one of -b or -P" << endl;
         return 1;
     }
@@ -249,7 +249,7 @@ int main_clip(int argc, char** argv) {
             }
             swap(bed_regions, bed_regions_in_graph);
         } else {
-            assert(!ref_prefix.empty());
+            assert(!ref_prefixes.empty());
             // load the bed regions from the reference path prefix
             pp_graph->for_each_path_handle([&](path_handle_t path_handle) {
                     string path_name = pp_graph->get_path_name(path_handle);
@@ -259,9 +259,12 @@ int main_clip(int argc, char** argv) {
                         path_name = get<1>(sp_info);
                         offset = get<2>(sp_info);
                     }
-                    if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
-                        Region region = {path_name, offset, offset + (int64_t)pp_graph->get_path_length(path_handle) - 1};
-                        bed_regions.push_back(region);
+                    for (const string& ref_prefix : ref_prefixes) {
+                        if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
+                            Region region = {path_name, offset, offset + (int64_t)pp_graph->get_path_length(path_handle) - 1};
+                            bed_regions.push_back(region);
+                            break;
+                        }
                     }
                 });
             if (verbose) {
@@ -274,7 +277,7 @@ int main_clip(int argc, char** argv) {
         // run the depth clipping       
         if (bed_path.empty()) {            
             // do the whole graph
-            clip_low_depth_nodes(graph.get(), min_depth, ref_prefix, min_fragment_len, verbose);
+            clip_low_depth_nodes(graph.get(), min_depth, ref_prefixes, min_fragment_len, verbose);
         } else {
             // do the contained snarls
             clip_contained_low_depth_nodes(graph.get(), pp_graph, bed_regions, *snarl_manager, false, min_depth, min_fragment_len, verbose);
