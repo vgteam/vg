@@ -477,7 +477,7 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     }
 }
 
-tuple<size_t, size_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get_ref_interval(
+tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get_ref_interval(
     const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name) const {
     path_handle_t path_handle = graph.get_path_handle(ref_path_name);
 
@@ -500,38 +500,58 @@ tuple<size_t, size_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get_r
     assert(start_steps.size() > 0 && end_steps.size() > 0);
     step_handle_t start_step = start_steps.begin()->second;
     step_handle_t end_step = end_steps.begin()->second;
-    bool scan_backward = graph.get_is_reverse(graph.get_handle_of_step(start_step)) != snarl.start().backward();
-
+    // just because we found a pair of steps on our path that correspond to the snarl ends, doesn't
+    // mean the path threads the snarl.  verify that we can actaully walk, either forwards or backwards
+    // along the path from the start node and hit then end node in the right orientation. 
+    bool start_rev = graph.get_is_reverse(graph.get_handle_of_step(start_step)) != snarl.start().backward();
+    bool end_rev = graph.get_is_reverse(graph.get_handle_of_step(end_step)) != snarl.end().backward();
+    bool found_end = start_rev == end_rev && start_rev == start_steps.begin()->first > end_steps.begin()->first;
+        
     // if we're on a cycle, we keep our start step and find the end step by scanning the path
     if (start_steps.size() > 1 || end_steps.size() > 1) {
-        bool found_end = false;
-
-        if (scan_backward) {
-            for (step_handle_t cur_step = start_step; graph.has_previous_step(end_step) && !found_end;
-                 cur_step = graph.get_previous_step(cur_step)) {
-                if (graph.get_id(graph.get_handle_of_step(cur_step)) == graph.get_id(end_handle)) {
-                    end_step = cur_step;
-                    found_end = true;
+        cerr << "cycle check" << endl;
+        found_end = false;
+        // try each start step
+        for (auto i = start_steps.begin(); i != start_steps.end() && !found_end; ++i) {
+            start_step = i->second;
+            bool scan_backward = graph.get_is_reverse(graph.get_handle_of_step(start_step)) != snarl.start().backward();
+            if (scan_backward) {
+                // if we're going backward, we expect to reach the end backward
+                end_handle = graph.get_handle(snarl.end().node_id(), !snarl.end().backward());
+            }            
+            if (scan_backward) {
+                for (step_handle_t cur_step = start_step; graph.has_previous_step(cur_step) && !found_end;
+                     cur_step = graph.get_previous_step(cur_step)) {
+                    if (graph.get_handle_of_step(cur_step) == end_handle) {
+                        end_step = cur_step;
+                        found_end = true;
+                        cerr << "found on a backscan" << endl;
+                    }
+                }
+            } else {
+                for (step_handle_t cur_step = start_step; graph.has_next_step(cur_step) && !found_end;
+                     cur_step = graph.get_next_step(cur_step)) {
+                    if (graph.get_handle_of_step(cur_step) == end_handle) {
+                        end_step = cur_step;
+                        found_end = true;
+                        cerr << "found on a frontscan " << endl;
+                    }
                 }
             }
-            assert(found_end);
-        } else {
-            for (step_handle_t cur_step = start_step; graph.has_next_step(end_step) && !found_end;
-                 cur_step = graph.get_next_step(cur_step)) {
-                if (graph.get_id(graph.get_handle_of_step(cur_step)) == graph.get_id(end_handle)) {
-                    end_step = cur_step;
-                    found_end = true;
-                }
-            }
-            assert(found_end);
         }
     }
-    
-    size_t start_position = start_steps.begin()->first;
-    step_handle_t out_start_step = start_steps.begin()->second;
-    size_t end_position = end_step == end_steps.begin()->second ? end_steps.begin()->first : graph.get_position_of_step(end_step);
+    int64_t start_position = start_steps.begin()->first;
+    step_handle_t out_start_step = start_step;
+    int64_t end_position = end_step == end_steps.begin()->second ? end_steps.begin()->first : graph.get_position_of_step(end_step);
     step_handle_t out_end_step = end_step == end_steps.begin()->second ? end_steps.begin()->second : end_step;
     bool backward = end_position < start_position;
+    
+
+    if (!found_end) {
+        // oops, once of the above checks failed.  we tell caller we coudlnt find by hacking in a -1 coordinate.
+        start_position = -1;
+        end_position = -1;
+    }
 
     if (backward) {
         return make_tuple(end_position, start_position, backward, out_end_step, out_start_step);
@@ -1483,7 +1503,11 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
     string& ref_path_name = common_names.front();
 
     // find the reference traversal and coordinates using the path position graph interface
-    tuple<size_t, size_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(graph, snarl, ref_path_name);
+    tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(graph, snarl, ref_path_name);
+    if (get<0>(ref_interval) == -1) {
+        // could not find reference path interval consisten with snarl due to orientation conflict
+        return false;
+    }
     if (get<2>(ref_interval) == true) {
         // calling code assumes snarl forward on reference
         flip_snarl(snarl);
@@ -1697,7 +1721,7 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
     string ref_path_name;
     SnarlTraversal ref_trav;
     int ref_trav_idx = -1;
-    tuple<size_t, size_t, bool, step_handle_t, step_handle_t> ref_interval;
+    tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> ref_interval;
     string gt_ref_path_name;
     pair<size_t, size_t> gt_ref_interval;
     
@@ -1706,6 +1730,10 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
 
         // find the reference traversal and coordinates using the path position graph interface
         ref_interval = get_ref_interval(graph, snarl, ref_path_name);
+        if (get<0>(ref_interval) == -1) {
+            // no reference path found due to orientation conflict
+            return false;
+        }
         if (get<2>(ref_interval) == true) {
             // calling code assumes snarl forward on reference
             flip_snarl(snarl);

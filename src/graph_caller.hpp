@@ -97,7 +97,8 @@ protected:
 
     /// get the interval of a snarl from our reference path using the PathPositionHandleGraph interface
     /// the bool is true if the snarl's backward on the path
-    tuple<size_t, size_t, bool, step_handle_t, step_handle_t> get_ref_interval(const PathPositionHandleGraph& graph, const Snarl& snarl,
+    /// first returned value -1 if no traversal found 
+    tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> get_ref_interval(const PathPositionHandleGraph& graph, const Snarl& snarl,
                                                                                const string& ref_path_name) const;
 
     /// clean up the alleles to not share common prefixes / suffixes
