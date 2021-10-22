@@ -1986,6 +1986,8 @@ int main_mpmap(int argc, char** argv) {
             watchdog->check_in(thread_num, alignment.name());
         }
         
+        toUppercaseInPlace(*alignment.mutable_sequence());
+        
         bool is_rna = uses_Us(alignment);
         if (is_rna) {
             convert_Us_to_Ts(alignment);
@@ -2048,6 +2050,9 @@ int main_mpmap(int argc, char** argv) {
         if (watchdog) {
             watchdog->check_in(thread_num, alignment_1.name());
         }
+        
+        toUppercaseInPlace(*alignment_1.mutable_sequence());
+        toUppercaseInPlace(*alignment_2.mutable_sequence());
         
         bool is_rna = (uses_Us(alignment_1) || uses_Us(alignment_2));
         if (is_rna) {

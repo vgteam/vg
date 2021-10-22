@@ -1458,6 +1458,8 @@ int main_giraffe(int argc, char** argv) {
 #ifdef __linux__
                     ensure_perf_for_thread();
 #endif
+                    toUppercaseInPlace(*aln1.mutable_sequence());
+                    toUppercaseInPlace(*aln2.mutable_sequence());
 
                     pair<vector<Alignment>, vector<Alignment>> mapped_pairs = minimizer_mapper.map_paired(aln1, aln2, ambiguous_pair_buffer);
                     if (!mapped_pairs.first.empty() && !mapped_pairs.second.empty()) {
@@ -1533,6 +1535,7 @@ int main_giraffe(int argc, char** argv) {
 #ifdef __linux__
                     ensure_perf_for_thread();
 #endif
+                    toUppercaseInPlace(*aln.mutable_sequence());
                 
                     // Map the read with the MinimizerMapper.
                     minimizer_mapper.map(aln, *alignment_emitter);

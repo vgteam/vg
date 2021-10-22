@@ -67,6 +67,7 @@ string nonATGCNtoN(const string& s);
 string allAmbiguousToN(const string& s);
 // Convert ASCII-encoded DNA to upper case
 string toUppercase(const string& s);
+void toUppercaseInPlace(string& s);
 
 // write a fasta sqeuence
 void write_fasta_sequence(const std::string& name, const std::string& sequence, ostream& os, size_t width=80);
