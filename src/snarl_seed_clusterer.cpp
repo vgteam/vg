@@ -317,6 +317,13 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                  seen_nodes.insert(id);
                  net_handle_t node_net_handle = seed.record_offset == 0 ? distance_index.get_node_net_handle(id) 
                                                                         : distance_index.get_net_handle(seed.record_offset); 
+                 //Look up important values for the node here and cache them
+                 SnarlDistanceIndex::CachedNetHandle cached_net_handle = distance_index.get_cached_net_handle(node_net_handle);
+                 distance_index.set_cached_min_length(cached_net_handle);
+                 distance_index.set_cached_rank(cached_net_handle);
+                 distance_index.set_cached_parent_offset(cached_net_handle);
+                 distance_index.set_cached_node_values(cached_net_handle);
+
                  net_handle_t parent =distance_index.get_parent(node_net_handle);
                  size_t depth = distance_index.get_depth(parent);
                  if (depth+1 > chain_to_children_by_level.size()) {
@@ -329,16 +336,9 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                  }
                  bool is_reversed_in_parent = seed.record_offset == 0 ? distance_index.is_reversed_in_parent(node_net_handle)
                                                                       : seed.is_reversed_in_parent;
-                 size_t node_length = seed.record_offset == 0 ? distance_index.node_length(node_net_handle)
-                                                                      : seed.node_length;
+                 size_t node_length = cached_net_handle.min_length;
 
 
-                 //Look up important values for the node here and cache them
-                 SnarlDistanceIndex::CachedNetHandle cached_net_handle = distance_index.get_cached_net_handle(node_net_handle);
-                 distance_index.set_cached_min_length(cached_net_handle);
-                 distance_index.set_cached_rank(cached_net_handle);
-                 distance_index.set_cached_parent_offset(cached_net_handle);
-                 distance_index.set_cached_node_values(cached_net_handle);
 
                  insert_in_order(chain_to_children_by_level[depth][parent],
                                  NodeClusters(std::move(cached_net_handle), tree_state.all_seeds->size(),
@@ -1269,6 +1269,9 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_snarl(
 #endif
 
     //Keep track of all clusters on this snarl
+
+    distance_index.set_cached_start_bound(snarl_handle, false, false);
+    distance_index.set_cached_end_bound(snarl_handle, false, false);
     NodeClusters snarl_clusters(snarl_handle, tree_state.all_seeds->size());
 
 
@@ -1400,6 +1403,8 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(Tre
     */
 
     //This will hold the clusters of the chain
+    distance_index.set_cached_start_bound(chain_handle, false, false);
+    distance_index.set_cached_end_bound(chain_handle, false, false);
     NodeClusters chain_clusters(chain_handle, tree_state.all_seeds->size());
 
 
@@ -1589,7 +1594,7 @@ void NewSnarlSeedClusterer::add_child_to_vector(hash_map<net_handle_t, vector<No
             std::vector<NodeClusters>::iterator insert_itr = std::upper_bound(input_vector.begin(), input_vector.end(),
                0, [&](size_t val, NodeClusters vector_item) {
                    //This should return true if the vector_item goes after the item with rank val
-                   return distance_index.is_ordered_in_chain(item.containing_net_handle.net, vector_item.containing_net_handle.net);
+                   return item.containing_net_handle.rank <= vector_item.containing_net_handle.rank;
                });
             //Add the item to the vector in sorted order
             input_vector.insert(insert_itr, std::move(item));
