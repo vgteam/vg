@@ -8,6 +8,7 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <cctype>
 
 
 // For setting the temporary directory in submodules.
@@ -282,6 +283,12 @@ string toUppercase(const string& s) {
         }
     }
     return n;
+}
+
+void toUppercaseInPlace(string& s) {
+    for (int i = 0; i < s.size(); ++i) {
+        s[i] = toupper(s[i]);
+    }
 }
 
 void write_fasta_sequence(const std::string& name, const std::string& sequence, ostream& os, size_t width) {
