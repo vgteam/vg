@@ -43,6 +43,7 @@
 #include "algorithms/locally_expand_graph.hpp"
 #include "algorithms/jump_along_path.hpp"
 #include "algorithms/ref_path_distance.hpp"
+#include "algorithms/component_paths.hpp"
 
 
 // note: only activated for single end mapping
@@ -212,8 +213,8 @@ namespace vg {
         int64_t min_splice_rescue_matches = 6;
         // about 250k
         int64_t max_intron_length = 1 << 18;
-        int64_t min_splice_ref_search_length = 6;
         int64_t max_splice_ref_search_length = 32;
+        unordered_set<path_handle_t> ref_path_handles;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;

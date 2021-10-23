@@ -20,7 +20,7 @@ using namespace std;
 /// them along any paths found during this search. Returns numeric_limits<int64_t>::max()
 /// if no shared path is found.
 int64_t ref_path_distance(const PathPositionHandleGraph* graph, const pos_t& pos_1, const pos_t& pos_2,
-                          int64_t min_search_dist, int64_t max_search_dist);
+                          const unordered_set<path_handle_t>& ref_paths, int64_t max_search_dist);
 
 }
 

@@ -2327,8 +2327,7 @@ namespace vg {
                 int64_t dist = numeric_limits<int64_t>::max();
                 if (xindex->get_path_count() != 0) {
                     // estimate the distance using the reference path
-                    dist = algorithms::ref_path_distance(xindex, pos_1, pos_2,
-                                                         min_splice_ref_search_length,
+                    dist = algorithms::ref_path_distance(xindex, pos_1, pos_2, ref_path_handles,
                                                          max_splice_ref_search_length);
                 }
                 
