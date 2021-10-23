@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#define DEBUG_CLUSTER
+//#define DEBUG_CLUSTER
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index) :
@@ -290,7 +290,8 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                //This should return true if the vector_item goes after the item with rank val
                //based on the "rank" in the cached net handle, which is th e  offset in the chain
 
-               return item.containing_net_handle.rank < vector_item.containing_net_handle.rank;
+               return distance_index.get_cached_rank(item.containing_net_handle) 
+                      <= distance_index.get_cached_rank(vector_item.containing_net_handle);
            });
         //Add the item to the vector in sorted order
         input_vector.insert(insert_itr, std::move(item));
@@ -915,10 +916,12 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
         child_clusters1.distance_end_right = std::numeric_limits<size_t>::max();
 
     } else {
-        distance_index.set_cached_start_bound(parent_handle, true, false);
-        distance_index.set_cached_end_bound(parent_handle, true, false);
-        net_handle_t parent_start_in = parent_handle.start_bound_in;
+        distance_index.set_cached_start_bound(parent_handle, false, true);
+        distance_index.set_cached_end_bound(parent_handle, false, true);
+
+        net_handle_t parent_start_in = parent_handle.start_bound_in ;
         net_handle_t parent_end_in = parent_handle.end_bound_in;
+
         size_t start_length = !distance_index.is_chain(parent_handle.net) ? 0 
                     : distance_index.get_cached_start_bound_length(parent_handle);
         size_t end_length = !distance_index.is_chain(parent_handle.net) ? 0 
@@ -1594,7 +1597,8 @@ void NewSnarlSeedClusterer::add_child_to_vector(hash_map<net_handle_t, vector<No
             std::vector<NodeClusters>::iterator insert_itr = std::upper_bound(input_vector.begin(), input_vector.end(),
                0, [&](size_t val, NodeClusters vector_item) {
                    //This should return true if the vector_item goes after the item with rank val
-                   return item.containing_net_handle.rank <= vector_item.containing_net_handle.rank;
+                   return distance_index.get_cached_rank(item.containing_net_handle)
+                           <= distance_index.get_cached_rank(vector_item.containing_net_handle);
                });
             //Add the item to the vector in sorted order
             input_vector.insert(insert_itr, std::move(item));
