@@ -121,6 +121,8 @@ Functions</h2></td></tr>
 <tr class="memitem:ae18b50d29d9accb763b44d6e065dac58"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ae18b50d29d9accb763b44d6e065dac58">min_approx_path_distance</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos1, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos2, uint64_t max_search)</td></tr>
 <tr class="memdesc:ae18b50d29d9accb763b44d6e065dac58"><td class="mdescLeft">&#160;</td><td class="mdescRight">use the embedded paths to get an estimated minimum distance between the positions  <a href="namespacevg_1_1algorithms.html#ae18b50d29d9accb763b44d6e065dac58">More...</a><br /></td></tr>
 <tr class="separator:ae18b50d29d9accb763b44d6e065dac58"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a51f810108840ab4014eb58b2bfe19ac1"><td class="memItemLeft" align="right" valign="top">vector&lt; unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a51f810108840ab4014eb58b2bfe19ac1">component_paths</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph)</td></tr>
+<tr class="separator:a51f810108840ab4014eb58b2bfe19ac1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abd431ebd9786d796f708a7046e643e2e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#abd431ebd9786d796f708a7046e643e2e">packed_depths</a> (const <a class="el" href="classvg_1_1Packer.html">Packer</a> &amp;packer, const string &amp;path_name, size_t min_coverage, ostream &amp;out_stream)</td></tr>
 <tr class="separator:abd431ebd9786d796f708a7046e643e2e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a62ebbcbfe1250940eb8ebf0a2dcbc19a"><td class="memItemLeft" align="right" valign="top">pair&lt; double, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a62ebbcbfe1250940eb8ebf0a2dcbc19a">packed_depth_of_bin</a> (const <a class="el" href="classvg_1_1Packer.html">Packer</a> &amp;packer, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> start_step, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> end_plus_one_step, size_t min_coverage, bool include_deletions)</td></tr>
@@ -251,8 +253,8 @@ Functions</h2></td></tr>
 <tr class="separator:a83e87cf3f8a5ca4362776cf1a3050242"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a96020f05a81255adfca3821f538c02b9"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a96020f05a81255adfca3821f538c02b9">remove_high_degree_nodes</a> (<a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> &amp;g, int max_degree)</td></tr>
 <tr class="separator:a96020f05a81255adfca3821f538c02b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0b4e366c6fd12bf363cb4be42658ca4d"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a0b4e366c6fd12bf363cb4be42658ca4d">ref_path_distance</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos_1, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos_2, int64_t min_search_dist, int64_t max_search_dist)</td></tr>
-<tr class="separator:a0b4e366c6fd12bf363cb4be42658ca4d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa5e4dc632e98b58b67a99af6749d9e05"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aa5e4dc632e98b58b67a99af6749d9e05">ref_path_distance</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos_1, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos_2, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;ref_paths, int64_t max_search_dist)</td></tr>
+<tr class="separator:aa5e4dc632e98b58b67a99af6749d9e05"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af51e5eafc2c18f33dd6a120c753247a3"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#af51e5eafc2c18f33dd6a120c753247a3">bellman_ford_shortest_cycle_length</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;source, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;layout, const unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt; &amp;handle_index, const vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;feedback_edges)</td></tr>
 <tr class="separator:af51e5eafc2c18f33dd6a120c753247a3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a40d6162a9f0dba28306c836d07d7d6e3"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a40d6162a9f0dba28306c836d07d7d6e3">dijkstra_shortest_cycle_length</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;source)</td></tr>
@@ -889,6 +891,24 @@ template&lt;class DistHeuristic &gt; </div>
           <td></td>
           <td>)</td>
           <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a51f810108840ab4014eb58b2bfe19ac1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a51f810108840ab4014eb58b2bfe19ac1">&#9670;&nbsp;</a></span>component_paths()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &gt; vg::algorithms::component_paths </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em></td><td>)</td>
+          <td></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -3281,8 +3301,8 @@ template&lt;class DistHeuristic &gt; </div>
 
 </div>
 </div>
-<a id="a0b4e366c6fd12bf363cb4be42658ca4d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0b4e366c6fd12bf363cb4be42658ca4d">&#9670;&nbsp;</a></span>ref_path_distance()</h2>
+<a id="aa5e4dc632e98b58b67a99af6749d9e05"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa5e4dc632e98b58b67a99af6749d9e05">&#9670;&nbsp;</a></span>ref_path_distance()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3308,8 +3328,8 @@ template&lt;class DistHeuristic &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>min_search_dist</em>, </td>
+          <td class="paramtype">const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>ref_paths</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
