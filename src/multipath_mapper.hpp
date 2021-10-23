@@ -43,6 +43,7 @@
 #include "algorithms/locally_expand_graph.hpp"
 #include "algorithms/jump_along_path.hpp"
 #include "algorithms/ref_path_distance.hpp"
+#include "algorithms/component_paths.hpp"
 
 
 // note: only activated for single end mapping
@@ -96,6 +97,11 @@ namespace vg {
         
         /// Should be called once after construction, or any time the band padding multiplier is changed
         void init_band_padding_memo();
+        
+        /// Should be once after construction if we're doing spliced alignment. Identifies a subset of the
+        /// embedded paths that are references, based on the heuristic that these should be the longest
+        /// path in the connected component
+        void identify_reference_paths();
         
         /// Set all the aligner scoring parameters and create the stored aligner instances.
         void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus);
@@ -212,7 +218,6 @@ namespace vg {
         int64_t min_splice_rescue_matches = 6;
         // about 250k
         int64_t max_intron_length = 1 << 18;
-        int64_t min_splice_ref_search_length = 6;
         int64_t max_splice_ref_search_length = 32;
         
         //static size_t PRUNE_COUNTER;
@@ -676,6 +681,7 @@ namespace vg {
         SnarlManager* snarl_manager;
         MinimumDistanceIndex* distance_index;
         unique_ptr<PathComponentIndex> path_component_index;
+        unordered_set<path_handle_t> ref_path_handles;
         
         static const size_t RESCUED;
         

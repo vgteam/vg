@@ -1905,6 +1905,12 @@ int main_mpmap(int argc, char** argv) {
     // now we can start doing spliced alignment
     multipath_mapper.do_spliced_alignment = do_spliced_alignment;
     
+    if (do_spliced_alignment) {
+        if (!suppress_progress) {
+            cerr << progress_boilerplate() << "Identifying reference paths." << endl;
+        }
+        multipath_mapper.identify_reference_paths();
+    }
     
     // Count our threads 
     int thread_count = get_thread_count();
