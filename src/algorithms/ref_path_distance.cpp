@@ -14,6 +14,10 @@ using namespace std;
 int64_t ref_path_distance(const PathPositionHandleGraph* graph, const pos_t& pos_1, const pos_t& pos_2,
                           const unordered_set<path_handle_t>& ref_paths, int64_t max_search_dist) {
     
+#ifdef debug_ref_path_distance
+    cerr << "[ref_path_distance] measuring approx reference dist from " << pos_1 << " to " << pos_2 << endl;
+#endif
+    
     // to record the nearest position on the strands of paths for each of the
     // two positions
     unordered_map<pair<path_handle_t, bool>, int64_t> nearby_paths_1, nearby_paths_2;
@@ -58,7 +62,7 @@ int64_t ref_path_distance(const PathPositionHandleGraph* graph, const pos_t& pos
             pair<path_handle_t, bool> oriented_path(graph->get_path_handle_of_step(step),
                                                     graph->get_handle_of_step(step) != handle);
 #ifdef debug_ref_path_distance
-            cerr << "[ref_path_distance] on path " << graph->get_path_name(oriented_path.first) << ", on rev? " << oriented_path.second << ", path offset " << graph->get_position_of_step(step) << endl;
+            cerr << "[ref_path_distance] on path " << graph->get_path_name(oriented_path.first) << ", on rev? " << oriented_path.second << ", step offset " << graph->get_position_of_step(step) << endl;
 #endif
             if (!nearby_paths->count(oriented_path)) {
                 
@@ -87,7 +91,7 @@ int64_t ref_path_distance(const PathPositionHandleGraph* graph, const pos_t& pos
                     path_offset += offset(pos_1);
                 }
                 else if (!from_pos_1 && handle == handle_2) {
-                    path_offset += offset(pos_2);
+                    path_offset -= graph->get_length(handle) - offset(pos_2);
                 }
                 
 #ifdef debug_ref_path_distance
@@ -101,9 +105,9 @@ int64_t ref_path_distance(const PathPositionHandleGraph* graph, const pos_t& pos
             }
         });
                     
-        
+        // only queue up the next if we're still within the max distance and haven't found a shared
+        // reference path
         if (shared_refs.empty()) {
-            // only queue up the next if we're still within the max distance
             int64_t dist_thru = top.second + graph->get_length(handle);
             if (dist_thru <= max_search_dist) {
                 graph->follow_edges(handle, !from_pos_1, [&](const handle_t& next) {
@@ -113,29 +117,28 @@ int64_t ref_path_distance(const PathPositionHandleGraph* graph, const pos_t& pos
         }
     }
     
-#ifdef debug_ref_path_distance
-    cerr << "[ref_path_distance] choosing max absolute distance on shared paths" << endl;
-#endif
-    
     int64_t approx_ref_dist = numeric_limits<int64_t>::max();
     if (!shared_refs.empty()) {
         // we found a labeled reference, measure distance using that
         for (const auto& ref : shared_refs) {
             int64_t dist = nearby_paths_2[ref] - nearby_paths_1[ref];
+#ifdef debug_ref_path_distance
+            cerr << "[ref_path_distance] distance on pre-labled reference path " << graph->get_path_name(ref.first) << " is " << dist << " from interval " << nearby_paths_1[ref] << ":" << nearby_paths_2[ref] << endl;
+#endif
             if (approx_ref_dist == numeric_limits<int64_t>::max() || dist > approx_ref_dist) {
                 approx_ref_dist = dist;
             }
         }
     }
     else {
-        // try among the remaining paths
+        // try among the non-reference paths since we didn't find a reference
         for (const auto& path_record_1 : nearby_paths_1) {
             auto it = nearby_paths_2.find(path_record_1.first);
             if (it != nearby_paths_2.end()) {
                 int64_t dist = it->second - path_record_1.second;
                 
 #ifdef debug_ref_path_distance
-                cerr << "[ref_path_distance] distance on path " << graph->get_path_name(path_record_1.first.first) << " is " << dist << endl;
+                cerr << "[ref_path_distance] distance on non-reference path " << graph->get_path_name(path_record_1.first.first) << " is " << dist << " from interval " << path_record_1.second << ":" << it->second << endl;
 #endif
                 if (approx_ref_dist == numeric_limits<int64_t>::max() || dist > approx_ref_dist) {
                     approx_ref_dist = dist;
@@ -145,7 +148,7 @@ int64_t ref_path_distance(const PathPositionHandleGraph* graph, const pos_t& pos
     }
     
 #ifdef debug_ref_path_distance
-    cerr << "[ref_path_distance] max absolute distance is " << approx_ref_dist << endl;
+    cerr << "[ref_path_distance] approximate ref distance is " << approx_ref_dist << endl;
 #endif
     
     return approx_ref_dist;

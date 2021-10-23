@@ -1645,6 +1645,32 @@ int main_mpmap(int argc, char** argv) {
     bdsg::PathPositionOverlayHelper overlay_helper;
     PathPositionHandleGraph* path_position_handle_graph = overlay_helper.apply(path_handle_graph.get());
     
+    // identify these before loading later data structures to reduce peak memory use
+    // (the bit vector used to detect which nodes have been visited is not exactly small)
+    unordered_set<path_handle_t> ref_path_handles;
+    if (do_spliced_alignment) {
+        if (!suppress_progress) {
+            cerr << progress_boilerplate() << "Identifying reference paths." << endl;
+        }
+        vector<unordered_set<path_handle_t>> component_path_sets = algorithms::component_paths(*path_position_handle_graph);
+        for (const auto& path_set : component_path_sets) {
+            // remove dependency on system hash ordering
+            vector<path_handle_t> ordered_path_set(path_set.begin(), path_set.end());
+            std::sort(ordered_path_set.begin(), ordered_path_set.end());
+            
+            int64_t max_length = 0;
+            path_handle_t max_handle;
+            for (path_handle_t path_handle : ordered_path_set) {
+                int64_t length = path_position_handle_graph->get_path_length(path_handle);
+                if (length >= max_length) {
+                    max_length = length;
+                    max_handle = path_handle;
+                }
+            }
+            ref_path_handles.insert(max_handle);
+        }
+    }
+    
     // compute this once in case the backing graph doesn't have an efficient implementation
     size_t total_seq_length = path_position_handle_graph->get_total_length();
     
@@ -1883,6 +1909,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.max_softclip_overlap = max_softclip_overlap;
     multipath_mapper.max_splice_overhang = max_splice_overhang;
     multipath_mapper.splice_rescue_graph_std_devs = splice_rescue_graph_std_devs;
+    multipath_mapper.ref_path_handles = move(ref_path_handles);
     if (!intron_distr_name.empty()) {
         multipath_mapper.set_intron_length_distribution(intron_mixture_weights, intron_component_params);
     }
@@ -1904,13 +1931,6 @@ int main_mpmap(int argc, char** argv) {
     
     // now we can start doing spliced alignment
     multipath_mapper.do_spliced_alignment = do_spliced_alignment;
-    
-    if (do_spliced_alignment) {
-        if (!suppress_progress) {
-            cerr << progress_boilerplate() << "Identifying reference paths." << endl;
-        }
-        multipath_mapper.identify_reference_paths();
-    }
     
     // Count our threads 
     int thread_count = get_thread_count();

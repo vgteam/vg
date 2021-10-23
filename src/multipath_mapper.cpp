@@ -896,28 +896,6 @@ namespace vg {
         }
     }
 
-    void MultipathMapper::identify_reference_paths() {
-        
-        vector<unordered_set<path_handle_t>> component_path_sets = algorithms::component_paths(*xindex);
-        
-        for (const auto& path_set : component_path_sets) {
-            // remove dependency on system hash ordering
-            vector<path_handle_t> ordered_path_set(path_set.begin(), path_set.end());
-            std::sort(ordered_path_set.begin(), ordered_path_set.end());
-            
-            int64_t max_length = 0;
-            path_handle_t max_handle;
-            for (path_handle_t path_handle : ordered_path_set) {
-                int64_t length = xindex->get_path_length(path_handle);
-                if (length >= max_length) {
-                    max_length = length;
-                    max_handle = path_handle;
-                }
-            }
-            ref_path_handles.insert(max_handle);
-        }
-    }
-
     void MultipathMapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend,
                                                int8_t full_length_bonus) {
         AlignerClient::set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus);
