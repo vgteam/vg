@@ -262,9 +262,9 @@ int main_paths(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
     if (!gbwt_file.empty()) {
-        bool need_graph = (extract_as_gam || extract_as_gaf || extract_as_vg || drop_paths || retain_paths || extract_as_fasta);
+        bool need_graph = (extract_as_gam || extract_as_gaf || extract_as_vg || drop_paths || retain_paths || extract_as_fasta || list_lengths);
         if (need_graph && xg_file.empty() && vg_file.empty()) {
-            std::cerr << "error: [vg paths] an XG index or vg graph needed for extracting threads in -X, -A, -V, -d, -r or -F format" << std::endl;
+            std::cerr << "error: [vg paths] an XG index or vg graph needed for extracting threads in -X, -A, -V, -d, -r, -E or -F format" << std::endl;
             std::exit(EXIT_FAILURE);
         }
         if (!need_graph && (!xg_file.empty() || !vg_file.empty())) {
