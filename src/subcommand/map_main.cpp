@@ -586,10 +586,11 @@ int main_map(int argc, char** argv) {
             xdrop_alignment = true;
             break;
 
-        case 'h':
         case '^':
             log_time = true;
             break;
+
+        case 'h':
         case '?':
             /* getopt_long already printed an error message. */
             help_map(argv);
