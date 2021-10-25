@@ -132,7 +132,7 @@ class NewSnarlSeedClusterer {
                 read_best_left(read_count, std::numeric_limits<size_t>::max()), 
                 read_best_right(read_count, std::numeric_limits<size_t>::max()){}
             NodeClusters( SnarlDistanceIndex::CachedNetHandle net, size_t read_count, bool is_reversed_in_parent, size_t node_length, nid_t node_id) :
-                containing_net_handle(net),
+                containing_net_handle(std::move(net)),
                 is_reversed_in_parent(is_reversed_in_parent),
                 node_length(node_length),
                 node_id(node_id),
@@ -273,12 +273,12 @@ class NewSnarlSeedClusterer {
         void cluster_one_node(TreeState& tree_state, NodeClusters& node_clusters) const; 
 
         //Cluster the seeds in a snarl given by its net handle
-        NodeClusters cluster_one_snarl(TreeState& tree_state, SnarlDistanceIndex::CachedNetHandle snarl_handle) const;
+        NodeClusters cluster_one_snarl(TreeState& tree_state, SnarlDistanceIndex::CachedNetHandle& snarl_handle) const;
 
         //Cluster the seeds in a chain given by chain_index_i, an index into
         //distance_index.chain_indexes
         //If the depth is 0, also incorporate the top-level seeds from tree_state.top_level_seed_clusters
-        NodeClusters cluster_one_chain(TreeState& tree_state, SnarlDistanceIndex::CachedNetHandle chain_handle) const;
+        NodeClusters cluster_one_chain(TreeState& tree_state, SnarlDistanceIndex::CachedNetHandle& chain_handle) const;
 
         //Cluster in the root 
         void cluster_root(TreeState& tree_state) const;

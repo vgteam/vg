@@ -1264,7 +1264,7 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
 
 
 NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_snarl(
-                TreeState& tree_state, SnarlDistanceIndex::CachedNetHandle snarl_handle) const {
+                TreeState& tree_state, SnarlDistanceIndex::CachedNetHandle& snarl_handle) const {
     //Get the clusters on this snarl, assumes that all of the snarls children have been clustered already.
     
 #ifdef DEBUG_CLUSTER
@@ -1357,7 +1357,7 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_snarl(
 
 
 
-NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, SnarlDistanceIndex::CachedNetHandle chain_handle) const {
+NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, SnarlDistanceIndex::CachedNetHandle& chain_handle) const {
     if (distance_index.is_trivial_chain(chain_handle.net)){
         //If this is just a node pretending to be a chain, cluster the node and claim it's a chain
 #ifdef DEBUG_CLUSTER
