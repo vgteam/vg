@@ -1766,20 +1766,29 @@ using namespace std;
         // the alignment we will fill out
         Alignment surjected;
         
-        // find the interval of the ref path we need to consider
+        // find the end-inclusive interval of the ref path we need to consider
         pair<size_t, size_t> ref_path_interval = compute_path_interval(path_position_graph, source, path_handle,
                                                                        path_chunks);
-        
-        // having a buffer helps ensure that we get the correct anchoring position for some edge cases
-        // of a full deletion that occurs on a node boundary
-        if (ref_path_interval.first > 0) {
-            --ref_path_interval.first;
+        if (ref_path_interval.first <= ref_path_interval.second) {
+            // We actually got a nonempty range, so expand it.
+            
+            // having a buffer helps ensure that we get the correct anchoring position for some edge cases
+            // of a full deletion that occurs on a node boundary
+            if (ref_path_interval.first > 0) {
+                --ref_path_interval.first;
+            }
+            if (ref_path_interval.second + 1 < path_position_graph->get_path_length(path_handle)) {
+                ++ref_path_interval.second;
+            }
         }
-        if (ref_path_interval.second + 1 < path_position_graph->get_path_length(path_handle)) {
-            ++ref_path_interval.second;
-        }
         
-        if (path_chunks.size() == 1
+        if (path_chunks.size() == 0) {
+#ifdef debug_anchored_surject
+            cerr << "no path chunks provided, surjecting as unmapped" << endl;
+#endif
+            // Leave surjected path empty
+        }
+        else if (path_chunks.size() == 1
             && path_chunks.front().first.first == source.sequence().begin()
             && path_chunks.front().first.second == source.sequence().end()) {
 #ifdef debug_anchored_surject
@@ -1796,10 +1805,13 @@ using namespace std;
         else {
             // we're going to have to realign some portions
             
-            
 #ifdef debug_anchored_surject
             cerr << "final path interval is " << ref_path_interval.first << ":" << ref_path_interval.second << " on path of length " << path_position_graph->get_path_length(path_handle) << endl;
 #endif
+
+            // If we put in path chunks we need to have ended up with a
+            // nonempty path interval that they cover.
+            assert(ref_path_interval.first <= ref_path_interval.second);
             
             // get the path graph corresponding to this interval
             bdsg::HashGraph path_graph;

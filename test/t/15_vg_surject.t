@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 37
+plan tests 39
 
 vg construct -r small/x.fa >j.vg
 vg index -x j.xg j.vg
@@ -160,9 +160,13 @@ is "$?" 0 "vg surject correctly fetches base path length from input file"
 
 rm -f h.vg h.gcsa r.gam r.sam x.sub.fa j.sub.vg j.sub.gcsa r.sub.gam r.sub.sam r.sub.sam
 
-vg surject -s --prune-low-cplx -x surject/perpendicular.vg surject/perpendicular.gam > perpendicular.sam
+vg surject -s -x surject/perpendicular.vg surject/perpendicular.gam > perpendicular.sam
 is "$?" 0 "vg surject does not crash when surjecting a read that grazes the reference with a deletion"
-is "$(cat perpendigular.sam | grep -v "^@" | cut -f2)" "4" "vg surject leaves a read that grazes the reference with a deletion unmapped"
+is "$(cat perpendicular.sam | grep -v "^@" | cut -f2)" "4" "vg surject leaves a read that grazes the reference with a deletion unmapped"
+
+vg surject -s --prune-low-cplx -x surject/perpendicular.vg surject/perpendicular.gam > perpendicular.sam
+is "$?" 0 "vg surject does not crash when surjecting a read that grazes the reference with a deletion and pruning low complexity anchors"
+is "$(cat perpendicular.sam | grep -v "^@" | cut -f2)" "4" "vg surject leaves a read that grazes the reference with a deletion unmapped when pruning low complexity anchors"
 
 rm -f perpendicular.sam
 

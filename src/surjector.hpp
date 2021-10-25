@@ -147,7 +147,9 @@ using namespace std;
                                           vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                           vector<tuple<size_t, size_t, int32_t>>& connections) const;
         
-        /// compute the widest interval of path positions that the realigned sequence could align to
+        /// Compute the widest end-inclusive interval of path positions that
+        /// the realigned sequence could align to, or an interval where start >
+        /// end if there are no path chunks.
         pair<size_t, size_t>
         compute_path_interval(const PathPositionHandleGraph* graph, const Alignment& source, path_handle_t path_handle,
                               const vector<path_chunk_t>& path_chunks) const;
