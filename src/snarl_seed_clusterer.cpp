@@ -1470,6 +1470,7 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(Tre
     }
 
     //If the chain loops, then we also have to compare the first thing we saw to the last things
+    bool is_looping_chain = distance_index.get_record_offset(chain_handle.start_bound_in) == distance_index.get_record_offset(chain_handle.end_bound_in); 
     if (distance_index.is_looping_chain(chain_handle.net)) {
         NodeClusters& first_child_cluster = children_in_chain.front(); 
         for (NodeClusters* previous_child_node : last_child_clusters) {
