@@ -2426,6 +2426,20 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
 //-----------------------------------------------------------------------------
 
+bool MinimizerMapper::share_terminal_positions(const Alignment& aln1, const Alignment& aln2) const {
+    if (aln1.path().mapping_size() == 0 || aln2.path().mapping_size() == 0) {
+        // One of them doesn't actually have any terminal positions
+        return false;
+    }
+    
+    // We don't care if any starts meet any ends, just if starts meet starts or
+    // ends meet ends.
+    // TODO: Maybe instead of sharing terminal positions, we really want to be
+    // deduplicating placements based on something else?
+    return (initial_position(aln1.path()) == initial_position(aln2.path()) ||
+            final_position(aln1.path()) == final_position(aln2.path()));
+}
+
 double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<size_t>& minimizers_explored,
     const string& sequence, const string& quality_bytes) {
 

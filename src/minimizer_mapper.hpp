@@ -352,41 +352,8 @@ protected:
     /**
      * Return true if any start or end positions are shared between the two alignments.
      */
-    bool share_terminal_positions(const Alignment& aln_1, const Alignment& aln_2) const;
+    bool share_terminal_positions(const Alignment& aln1, const Alignment& aln2) const;
 
-    /**
-     * Compute MAPQ caps based on all minimizers that are explored, for some definition of explored.
-     *
-     * Needs access to the input alignment for sequence and quality
-     * information.
-     *
-     * Returns only an "extended" cap at the moment.
-     */
-    double compute_mapq_caps(const Alignment& aln, const std::vector<Minimizer>& minimizers,
-                             const SmallBitset& explored);
-
-    /**
-     * Compute a bound on the Phred score probability of having created the
-     * agglomerations of the specified minimizers by base errors from the given
-     * sequence, which was sequenced with the given qualities.
-     *
-     * No limit is imposed if broken is empty.
-     *
-     * Takes the collection of all minimizers found, and a vector of the
-     * indices of minimizers we are interested in the agglomerations of. May
-     * modify the order of that index vector.
-     *
-     * Also takes the sequence of the read (to avoid Ns) and the quality string
-     * (interpreted as a byte array).
-     *
-     * Currently computes a lower-score-bound, upper-probability-bound,
-     * suitable for use as a mapping quality cap, by assuming the
-     * easiest-to-disrupt possible layout of the windows, and the lowest
-     * possible qualities for the disrupting bases.
-     */
-    static double window_breaking_quality(const vector<Minimizer>& minimizers, vector<size_t>& broken,
-        const string& sequence, const string& quality_bytes);
-    
     /**
      * Compute a bound on the Phred score probability of a mapping beign wrong
      * due to base errors and unlocated minimizer hits prevented us from
