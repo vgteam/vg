@@ -344,30 +344,15 @@ protected:
     void fix_dozeu_score(Alignment& rescued_alignment, const HandleGraph& rescue_graph,
                          const std::vector<handle_t>& topological_order) const;
 
-//-----------------------------------------------------------------------------
-
-    // Helper functions.
-
-    /**
-     * Get the distance between a pair of read alignments
-     */
-    int64_t distance_between(const Alignment& aln1, const Alignment& aln2);
-
-    /**
-     * Convert the GaplessExtension into an alignment. This assumes that the
-     * extension is a full-length alignment and that the sequence field of the
-     * alignment has been set.
-     */
-    void extension_to_alignment(const GaplessExtension& extension, Alignment& alignment) const;
-    
-    /**
-     * Set pair partner references for paired mapping results.
-     */
-    void pair_all(pair<vector<Alignment>, vector<Alignment>>& mappings) const;
-    
-
 
 //-----------------------------------------------------------------------------
+
+    // MAPQ.
+
+    /**
+     * Return true if any start or end positions are shared between the two alignments.
+     */
+    bool share_terminal_positions(const Alignment& aln_1, const Alignment& aln_2) const;
 
     /**
      * Compute MAPQ caps based on all minimizers that are explored, for some definition of explored.
@@ -485,6 +470,27 @@ protected:
         const string& sequence, const string& quality_bytes,
         const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
         size_t index);
+        
+//-----------------------------------------------------------------------------
+
+    // Helper functions.
+
+    /**
+     * Get the distance between a pair of read alignments
+     */
+    int64_t distance_between(const Alignment& aln1, const Alignment& aln2);
+
+    /**
+     * Convert the GaplessExtension into an alignment. This assumes that the
+     * extension is a full-length alignment and that the sequence field of the
+     * alignment has been set.
+     */
+    void extension_to_alignment(const GaplessExtension& extension, Alignment& alignment) const;
+    
+    /**
+     * Set pair partner references for paired mapping results.
+     */
+    void pair_all(pair<vector<Alignment>, vector<Alignment>>& mappings) const;
     
     /**
      * Score the given group of gapless extensions. Determines the best score

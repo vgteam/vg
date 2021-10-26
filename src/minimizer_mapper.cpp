@@ -586,6 +586,9 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     // Grab all the scores in order for MAPQ computation.
     vector<double> scores;
     scores.reserve(alignments.size());
+    // Identify which score indexes in scores share endpoints on the read
+    // placement and shouldn't count against MAPQ.
+    vector<size_t> duplicate_endpoints;
     
     process_until_threshold_a(alignments, (std::function<double(size_t)>) [&](size_t i) -> double {
         return alignments.at(i).score();
@@ -598,6 +601,16 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         
         // Remember the output alignment
         mappings.emplace_back(std::move(alignments[alignment_num]));
+        
+        if (mappings.size() == 1) {
+            // The winning placement has duplicate endpoints with itself
+            duplicate_endpoints.push_back(0);
+        } else {
+            if (share_terminal_positions(mappings[0], mappings.back())) {
+                // If we share any endpoints with the winning placement, note it.
+                duplicate_endpoints.push_back(scores.size() - 1);
+            }
+        }
         
         if (track_provenance) {
             // Tell the funnel
@@ -612,6 +625,13 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
         
         // Remember the score at its rank anyway
         scores.emplace_back(alignments[alignment_num].score());
+        
+        // We assume we have a winning mapping. We need to see if we share
+        // endpoints with it.
+        if (share_terminal_positions(mappings[0], alignments[alignment_num])) {
+            // If we share any endpoints with the winning placement, note it.
+            duplicate_endpoints.push_back(scores.size() - 1);
+        }
         
         if (track_provenance) {
             funnel.fail("max-multimaps", alignment_num);
@@ -637,9 +657,10 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
 
     assert(!mappings.empty());
     // Compute MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
-    // Use exact mapping quality 
+    // Use exact mapping quality.
+    // TODO: mpmap drops mappings with duplicate endpoints but we preserve them.
     double mapq = (mappings.front().path().mapping_size() == 0) ? 0 : 
-        get_regular_aligner()->compute_max_mapping_quality(scores, false) ;
+        get_regular_aligner()->compute_group_mapping_quality(scores, duplicate_endpoints);
 
 #ifdef print_minimizer_table
     double uncapped_mapq = mapq;
@@ -1909,21 +1930,30 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         }
     }
 
-    
-    
     if (track_provenance) {
         // Now say we are finding the winner(s)
         funnels[0].stage("winner");
         funnels[1].stage("winner");
     }
-
+    
     // Fill this in with the alignments we will output
     pair<vector<Alignment>, vector<Alignment>> mappings;
     // Grab all the scores in order for MAPQ computation.
     vector<double> scores;
+    // And all scores from other pairs that use the same first read alignment hit 
     vector<double> scores_group_1;
+    // And all scores from other pairs that use the same second read alignment hit
     vector<double> scores_group_2;
+    // Identify which score indexes in scores share endpoints on the read 1
+    // placement and shouldn't count against read 1's MAPQ.
+    vector<size_t> duplicate_endpoints_1;
+    // Similarly for read 2
+    vector<size_t> duplicate_endpoints_2;
+    // TODO: mpmap completely drops pairs that share endpoints on both
+    // ends, but we don't. Should we?
+    // For each entry in mappings, give the pair distance
     vector<int64_t> distances;
+    // And the type of paired-end mapping we eneded up doing.
     vector<PairType> types; 
     mappings.first.reserve(paired_alignments.size());
     mappings.second.reserve(paired_alignments.size());
@@ -1944,9 +1974,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     }, 0, 1, max_multimaps, rng, [&](size_t pair_num) {
         // This pair makes it
         // Called in score order
-
         pair<alignment_index_t, alignment_index_t> index_pair = paired_alignments[pair_num];
-        
         
         // Remember the score at its rank
         scores.emplace_back(paired_scores[pair_num]);
@@ -1957,32 +1985,45 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         mappings.first.emplace_back(follow_alignment_index(index_pair.first, true));
         mappings.second.emplace_back(follow_alignment_index(index_pair.second, false));
 
-        if (mappings.first.size() == 1 && found_pair) {
-            //If this is the best pair of alignments that we're going to return and we didn't attempt rescue, 
-            //get the group scores for mapq
+        if (mappings.first.size() == 1) {
+            // If this is the best pair of alignments that we're going to return
+            if (found_pair) {
+                // If we didn't attempt rescue, get the group score values for
+                // mapq, based on re-use of the alignments in other pairs
 
-            //Get the scores of this pair 
-            scores_group_1.push_back(paired_scores[pair_num]);
-            scores_group_2.push_back(paired_scores[pair_num]);
+                //Get the scores of this pair 
+                scores_group_1.push_back(paired_scores[pair_num]);
+                scores_group_2.push_back(paired_scores[pair_num]);
 
-            //The indices (into paired_alignments) of pairs with the same first read as this
-            vector<size_t>& alignment_group_1 = get_pairs_featuring_alignment(index_pair.first, true);
-            //And second read
-            vector<size_t>& alignment_group_2 = get_pairs_featuring_alignment(index_pair.second, false);
+                //The indices (into paired_alignments) of pairs with the same first read as this
+                vector<size_t>& alignment_group_1 = get_pairs_featuring_alignment(index_pair.first, true);
+                //And second read
+                vector<size_t>& alignment_group_2 = get_pairs_featuring_alignment(index_pair.second, false);
 
-            for (size_t other_pair_num : alignment_group_1) {
-                if (other_pair_num != pair_num) {
-                    scores_group_1.push_back(paired_scores[other_pair_num]);
+                for (size_t other_pair_num : alignment_group_1) {
+                    if (other_pair_num != pair_num) {
+                        scores_group_1.push_back(paired_scores[other_pair_num]);
+                    }
+                }
+                for (size_t other_pair_num : alignment_group_2) {
+                    if (other_pair_num != pair_num) {
+                        scores_group_2.push_back(paired_scores[other_pair_num]);
+                    }
                 }
             }
-            for (size_t other_pair_num : alignment_group_2) {
-                if (other_pair_num != pair_num) {
-                    scores_group_2.push_back(paired_scores[other_pair_num]);
-                }
+            
+            // Also mark the score as having duplicate endpoints with itself on both reads
+            duplicate_endpoints_1.push_back(0);
+            duplicate_endpoints_2.push_back(0);
+        } else {
+            // This is not the best pair, but we need to see if any read endpoints are shared
+            if (share_terminal_positions(mappings.first[0], mappings.first.back())) {
+                duplicate_endpoints_1.push_back(scores.size() - 1);
+            }
+            if (share_terminal_positions(mappings.second[0], mappings.second.back())) {
+                duplicate_endpoints_2.push_back(scores.size() - 1);
             }
         }
-
-
 
         // Flip aln2 back to input orientation
         reverse_complement_alignment_in_place(&mappings.second.back(), [&](vg::id_t node_id) {
@@ -2011,6 +2052,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         return true;
     }, [&](size_t pair_num) {
         // We already have enough alignments, although this one has a good score
+        pair<alignment_index_t, alignment_index_t> index_pair = paired_alignments[pair_num];
         
         // Remember the score at its rank anyway
         scores.emplace_back(paired_scores[pair_num]);
@@ -2018,6 +2060,16 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         types.emplace_back(pair_types[pair_num]);
         better_cluster_count_by_mappings.emplace_back(better_cluster_count_by_pairs[pair_num]);
 
+        // TODO: Should we fill in scores_group_1 or scores_group_2 with this pair score?
+
+        // We assume the best pair actually exists already and has its alignments recorded.
+        // We need to decide whether the score we just emitted shares a read placement for either read.
+        if (share_terminal_positions(mappings.first[0], follow_alignment_index(index_pair.first, true))) {
+            duplicate_endpoints_1.push_back(scores.size() - 1);
+        }
+        if (share_terminal_positions(mappings.second[0], follow_alignment_index(index_pair.second, false))) {
+            duplicate_endpoints_2.push_back(scores.size() - 1);
+        }
  
 #ifdef print_minimizer_table
         pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair = paired_alignments[pair_num];
@@ -2037,7 +2089,6 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         funnels[0].substage("mapq");
         funnels[1].substage("mapq");
     }
-
     
     // Compute raw explored caps (with 2.0 scaling, like for single-end) and raw group caps.
     // Non-capping caps stay at infinity.
@@ -2045,8 +2096,9 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     vector<double> mapq_score_groups(2, std::numeric_limits<float>::infinity());
     // We also have one fragment_cluster_cap across both ends.
     double fragment_cluster_cap = std::numeric_limits<float>::infinity();
-    // And one base uncapped MAPQ
-    double uncapped_mapq = 0;
+    // And a base uncapped MAPQ for each read, accounting for different shared
+    // endpoint/duplicate placement structure
+    vector<double> uncapped_mapq(2, 0);
     double new_cluster_cap = numeric_limits<double>::infinity();
 
     // Store multiplicities, if we fill them in
@@ -2107,12 +2159,17 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     paired_multiplicities.push_back(estimated_multiplicity_from_2);
             }
         }
+        // Pick multiplicities vector to actually use, if any.
         const vector<double>* multiplicities = all_rescued ? &paired_multiplicities : nullptr; 
-        // Compute base MAPQ if not unmapped. Otherwise use 0 instead of the 50% this would give us.
-        // If all of the alignment pairs were found with rescue, use the multiplicities to determine mapq
-        // Use exact mapping quality
-        uncapped_mapq = scores[0] == 0 ? 0 : 
-            get_regular_aligner()->compute_max_mapping_quality(scores, false, multiplicities);
+
+        if (scores[0] != 0) {
+            // Compute a nonzero base MAPQ for each read if not unmapped.
+            // If all of the alignment pairs were found with rescue, use the multiplicities to determine mapq.
+            // Make sure not to count against each read the scores from other pairs that place the read at about the same place.
+            // Use exact mapping quality
+            uncapped_mapq[0] = get_regular_aligner()->compute_group_mapping_quality(scores, duplicate_endpoints_1, multiplicities);
+            uncapped_mapq[1] = get_regular_aligner()->compute_group_mapping_quality(scores, duplicate_endpoints_2, multiplicities);
+        }
 
         //Cap mapq at 1 - 1 / # equivalent or better fragment clusters, including self
         if (better_cluster_count_by_mappings.front() > 1) {
@@ -2127,8 +2184,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         mapq_score_groups[1] = get_regular_aligner()->compute_max_mapping_quality(scores_group_2, false);
         
         for (auto read_num : {0, 1}) {
-            // For each fragment
-
+            // For each read in the pair
+            
             // Find the source read
             auto& aln = read_num == 0 ? aln1 : aln2;
             
@@ -2158,7 +2215,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             // For each fragment
 
             // Compute the overall cap for just this read, now that the individual cap components are filled in for both reads.
-            double escape_bonus = uncapped_mapq < std::numeric_limits<int32_t>::max() ? 1.0 : 2.0;
+            double escape_bonus = uncapped_mapq[read_num] < std::numeric_limits<int32_t>::max() ? 1.0 : 2.0;
             double mapq_cap = std::min(fragment_cluster_cap, ((mapq_explored_caps[0] + mapq_explored_caps[1])*escape_bonus) );
 
             //TODO: How to cap mapq when the reads were unpaired
@@ -2169,7 +2226,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             }
             
             // Find the MAPQ to cap
-            double read_mapq = uncapped_mapq;
+            double read_mapq = uncapped_mapq[read_num];
             
             // Remember the uncapped MAPQ
             auto& to_annotate = (read_num == 0 ? mappings.first : mappings.second).front();
@@ -2191,7 +2248,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
-                    cerr << log_name() << "MAPQ for read " << read_num << " is " << read_mapq << ", was " << uncapped_mapq
+                    cerr << log_name() << "MAPQ for read " << read_num << " is " << read_mapq << ", was " << uncapped_mapq[read_num]
                         << " capped by fragment cluster cap " << fragment_cluster_cap
                         << ", score group cap " << (mapq_score_groups[read_num] / 2.0)
                         << ", combined explored cap " << ((mapq_explored_caps[0] + mapq_explored_caps[1]) / 2.0)  << endl;
@@ -2280,7 +2337,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
              assert(minimizer.hits<=hard_hit_cap) ;
          }
     }
-    cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_groups[0] << "\t" 
+    cerr << "\t" << uncapped_mapq[0] << "\t" << fragment_cluster_cap << "\t" << mapq_score_groups[0] << "\t" 
          << mapq_explored_caps[0] << "\t" << new_cluster_cap << "\t" << mappings.first.front().mapping_quality() << "\t";  
     for (size_t i = 0 ; i < scores.size() ; i++) {
         pair<pair<size_t, size_t>, pair<size_t, size_t>> indices = pair_indices[i];
@@ -2326,7 +2383,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
              assert(minimizer.hits<=hard_hit_cap) ;
          }
     }
-    cerr << "\t" << uncapped_mapq << "\t" << fragment_cluster_cap << "\t" << mapq_score_groups[1] << "\t" 
+    cerr << "\t" << uncapped_mapq[1] << "\t" << fragment_cluster_cap << "\t" << mapq_score_groups[1] << "\t" 
          << mapq_explored_caps[1] << "\t" << new_cluster_cap << "\t" << mappings.second.front().mapping_quality() << "\t";
 
     for (size_t i = 0 ; i < scores.size() ; i++) {
