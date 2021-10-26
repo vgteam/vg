@@ -1359,6 +1359,7 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_snarl(
 
 
 NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, SnarlDistanceIndex::CachedNetHandle chain_handle) const {
+    //Note: This is the first time we deal with the CachedNetHandle for this chain, so it will be empty
     if (distance_index.is_trivial_chain(chain_handle.net)){
         //If this is just a node pretending to be a chain, cluster the node and claim it's a chain
 #ifdef DEBUG_CLUSTER
@@ -1423,7 +1424,6 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(Tre
     vector<NodeClusters*> last_child_clusters;
 
     //Get the children of this chain from the tree state. They will be ordered by their order in the chain
-    //Maps the offset in the chain records to the node cluster (offset doesn't matter for anything other than putting them in order)
     vector<NodeClusters>& children_in_chain = tree_state.chain_to_children[chain_handle.net];
 
     for (NodeClusters& child_clusters: children_in_chain) {
@@ -1466,7 +1466,21 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(Tre
 
         }
         //Remember that we saw this child so we can compare against it later
-        last_child_clusters.emplace_back(&child_clusters);
+        //But only do this if its minimum distance to the ends of the child is smaller than the distance limit
+        size_t best_distance_right = child_clusters.is_reversed_in_parent 
+                                   ? *std::min_element(child_clusters.read_best_left.begin(), child_clusters.read_best_left.end())
+                                   : *std::min_element(child_clusters.read_best_right.begin(), child_clusters.read_best_right.end());
+        size_t best_distance_left = child_clusters.is_reversed_in_parent 
+                                   ? *std::min_element(child_clusters.read_best_right.begin(), child_clusters.read_best_right.end())
+                                   : *std::min_element(child_clusters.read_best_left.begin(), child_clusters.read_best_left.end());
+        bool reachable_right = best_distance_right <= tree_state.read_distance_limit || 
+            (tree_state.fragment_distance_limit != 0 && best_distance_right <= tree_state.fragment_distance_limit);
+        bool reachable_left = best_distance_left <= tree_state.read_distance_limit || 
+            (tree_state.fragment_distance_limit != 0 && best_distance_left <= tree_state.fragment_distance_limit);
+        //TODO: I'm pretty sure only the distance to the right matters but it doesn't work without the left distance too
+        if (reachable_right || reachable_left) { 
+            last_child_clusters.emplace_back(&child_clusters);
+        }
     }
 
     //If the chain loops, then we also have to compare the first thing we saw to the last things
