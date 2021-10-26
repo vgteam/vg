@@ -1461,19 +1461,93 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         funnels[0].stage("pairing");
         funnels[1].stage("pairing");
     }
-    // Fill this in with the indexes of pairs of alignments we will output
-    // each alignment is stored as <fragment index, alignment index> into alignments
-    // fragment_index should be the same for both ends, unless one was rescued
-    vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> paired_alignments;
+    
+    // Define a way to refer to alignments, to define pairs.
+    // We refer to alignments as <fragment index, alignment index of alignment for that fragment>
+    using alignment_index_t = pair<size_t, size_t>;
+    // And some associated accessors
+    /// Get the Alignment referred to by an alignment_index_t, given we know
+    /// whether it is for the first or second read.
+    auto follow_alignment_index = [&](const alignment_index_t& index, bool for_first_read) -> Alignment& {
+        auto& fragment_alns = alignments[index.first];
+        if (for_first_read) {
+            // Second number is for first read
+            return fragment_alns.first[index.second];
+        } else {
+            // Second number is for second read
+            return fragment_alns.second[index.second];
+        }
+    };
+    
+    // Fill this in with the indexes of pairs of alignments we will output.
+    // fragment index should be the same for both ends, unless one was rescued.
+    vector<pair<alignment_index_t, alignment_index_t>> paired_alignments;
     paired_alignments.reserve(alignments.size());
-
+    
+    // And ways to refer to an alignment of either read
+    // This is <fragment index, alignment_index, true if its the first end>
+    using alignment_ref_t = tuple<size_t, size_t, bool>;
+    // And we need a sentinel
+    alignment_ref_t NO_ALIGNMENT(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), false);
+    // And accessors for it
+    /// Make an alignment ref
+    auto make_alignment_ref = [](const alignment_index_t& fragment_and_alignment, bool is_first_read) {
+        return alignment_ref_t(fragment_and_alignment.first, fragment_and_alignment.second, is_first_read);
+    };
+    /// Get the Alignment referred to by an alignment_ref_t
+    auto follow_alignment_ref = [&](const alignment_ref_t& ref) -> Alignment& {
+        if (std::get<2>(ref)) {
+            // Get first read
+            return alignments[std::get<0>(ref)].first[std::get<1>(ref)];
+        } else {
+            // Get second read
+            return alignments[std::get<0>(ref)].second[std::get<1>(ref)];
+        }
+    };
+    /// Get the global index of the Alignment referred to by an alignment_ref_t
+    auto get_alignment_ref_global_index = [&](const alignment_ref_t& ref) -> size_t {
+        if (std::get<2>(ref)) {
+            // Get first read
+            return alignment_indices[std::get<0>(ref)].first[std::get<1>(ref)];
+        } else {
+            // Get second read
+            return alignment_indices[std::get<0>(ref)].second[std::get<1>(ref)];
+        }
+    };
+    /// Assuming you know which read you are looking at, get the
+    /// alignment_index_t within that read for the Alignment this
+    /// alignment_ref_t refers to
+    auto alignment_ref_to_index = [](const alignment_ref_t& ref) -> alignment_index_t {
+        return make_pair(std::get<0>(ref), std::get<1>(ref));
+    };
+    /// Determine if an alignment_ref_t refers to an alignment of the first read.
+    auto is_first_read = [](const alignment_ref_t& ref) -> bool {
+        return std::get<2>(ref);
+    };
+    
+    
 
 #ifdef print_minimizer_table
     vector<pair<bool, bool>> alignment_was_rescued;
 #endif
 
-    //For each alignment in alignments, which paired_alignment includes it. Follows structure of alignments
-    vector<pair<vector<vector<size_t>>, vector<vector<size_t>>>> alignment_groups(alignments.size());
+    // For each alignment in alignments, which paired_alignments entries include it?
+    // Follows structure of alignments, meaning that it is organized by
+    // fragment cluster number, then by read (first or second), then by
+    // alignment number for that cluster and read, and the innermost collection
+    // is a collection of pair numbers.
+    vector<pair<vector<vector<size_t>>, vector<vector<size_t>>>> pairs_featuring_alignment(alignments.size());
+    /// Lookup function for getting the pairs featuring an alignment of a given read
+    auto get_pairs_featuring_alignment = [&](const alignment_index_t& index, bool for_first_read) -> vector<size_t>& {
+        auto& fragment_pairs = pairs_featuring_alignment[index.first];
+        if (for_first_read) {
+            // Second number is for first read
+            return fragment_pairs.first[index.second];
+        } else {
+            // Second number is for second read
+            return fragment_pairs.second[index.second];
+        }
+    };
 
     // Grab all the scores in order for MAPQ computation.
     vector<double> paired_scores;
@@ -1494,19 +1568,20 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     bool found_pair = false;
 
     //Alignments that don't have a mate
-    // <fragment index, alignment_index, true if its the first end> 
-    vector<tuple<size_t, size_t, bool>> unpaired_alignments;
+    vector<alignment_ref_t> unpaired_alignments;
     size_t unpaired_count_1 = 0;
     size_t unpaired_count_2 = 0;
 
     for (size_t fragment_num = 0 ; fragment_num < alignments.size() ; fragment_num ++ ) {
-        //Get pairs of plausible alignments
-        alignment_groups[fragment_num].first.resize(alignments[fragment_num].first.size());
-        alignment_groups[fragment_num].second.resize(alignments[fragment_num].second.size());
+        // For each fragment, get pairs of plausible alignments
+        
+        // Make space for pairs featuring alignments of these fragments
+        pairs_featuring_alignment[fragment_num].first.resize(alignments[fragment_num].first.size());
+        pairs_featuring_alignment[fragment_num].second.resize(alignments[fragment_num].second.size());
         
         pair<vector<Alignment>, vector<Alignment>>& fragment_alignments = alignments[fragment_num];
-        if (!fragment_alignments.first.empty() && ! fragment_alignments.second.empty()) {
-            //Only keep pairs of alignments that were in the same fragment cluster
+        if (!fragment_alignments.first.empty() && !fragment_alignments.second.empty()) {
+            // If the fragment has both reads, only keep pairs of alignments that were in the same fragment cluster
             found_pair = true;
             for (size_t aln_index1 = 0 ; aln_index1 < fragment_alignments.first.size() ; aln_index1++)  {
                 Alignment& alignment1 = fragment_alignments.first[aln_index1];
@@ -1519,9 +1594,9 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     int64_t fragment_distance = distance_between(alignment1, alignment2); 
 
                     double score = score_alignment_pair(alignment1, alignment2, fragment_distance);
-                    alignment_groups[fragment_num].first[aln_index1].emplace_back(paired_alignments.size());
-                    alignment_groups[fragment_num].second[aln_index2].emplace_back(paired_alignments.size());
-                    paired_alignments.emplace_back(make_pair(fragment_num, aln_index1), make_pair(fragment_num, aln_index2));
+                    pairs_featuring_alignment[fragment_num].first[aln_index1].emplace_back(paired_alignments.size());
+                    pairs_featuring_alignment[fragment_num].second[aln_index2].emplace_back(paired_alignments.size());
+                    paired_alignments.emplace_back(alignment_index_t(fragment_num, aln_index1), alignment_index_t(fragment_num, aln_index2));
                     paired_scores.emplace_back(score);
                     fragment_distances.emplace_back(fragment_distance);
                     better_cluster_count_by_pairs.emplace_back(better_cluster_count[fragment_num]);
@@ -1559,7 +1634,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 }
             }
         } else if (!fragment_alignments.first.empty()) {
-            //If this fragment cluster has only alignments from the first read
+            // If this fragment cluster has only alignments from the first read, log them as unpaired
             
             if (show_work) {
                 #pragma omp critical (cerr)
@@ -1578,7 +1653,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 }
             }
         } else if (!fragment_alignments.second.empty()) {
-            //If this fragment cluster has only alignments from the second read
+            // If this fragment cluster has only alignments from the second read, log them as unpaired
             if (show_work) {
                 #pragma omp critical (cerr)
                 {
@@ -1616,8 +1691,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     cerr << log_name() << "Found no pairs and we aren't doing rescue: return best alignment for each read" << endl;
                 }
             }
-            tuple<size_t, size_t, size_t> best_index_1(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
-            tuple<size_t, size_t, size_t> best_index_2(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
+            tuple<size_t, size_t, size_t> best_index_1 = NO_ALIGNMENT;
+            tuple<size_t, size_t, size_t> best_index_2 = NO_ALIGNMENT;
             int32_t best_score_1 = 0;
             int32_t best_score_2 = 0;
 
@@ -1639,13 +1714,14 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 }
             }
             if (max_rescue_attempts == 0 ) { 
-                //If we aren't attempting rescue, just return the best alignment from each end
+                // If we aren't attempting rescue, just return the best alignment from each end
+                // TODO: Why are we using references here? They can never move, and then we adjust our input alignments.
                 Alignment& best_aln1 = aln1;
                 Alignment& best_aln2 = aln2;
     
-                if (std::get<0>(best_index_1) != std::numeric_limits<size_t>::max()) {
+                if (best_index_1 != NO_ALIGNMENT) {
                     //If there was a best alignment for 1, use it
-                    best_aln1 = alignments[std::get<0>(best_index_1)].first[std::get<1>(best_index_1)]; 
+                    best_aln1 = follow_alignment_ref(best_index_1); 
                 } else {
                     //Otherwise return an empty alignment
                     best_aln1.clear_refpos();
@@ -1655,9 +1731,9 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     best_aln1.set_mapping_quality(0);
                 }
 
-                if (std::get<0>(best_index_2) != std::numeric_limits<size_t>::max()) {
+                if (best_index_2 != NO_ALIGNMENT) {
                     //If there was a best alignment for 2, use it
-                    best_aln2 = alignments[std::get<0>(best_index_2)].second[std::get<2>(best_index_2)]; 
+                    best_aln2 = follow_alignment_ref(best_index_2); 
                 } else {
                     //Otherwise return an empty alignment
                     best_aln2.clear_refpos();
@@ -1697,17 +1773,17 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     // Work out what the paired-up alignments are numbered in the funnel.
                     // TODO: can we flatten these lookup paths or change tuples
                     // to structs to be more understandable?
-                    funnel_index1 = alignment_indices[std::get<0>(best_index_1)].first[std::get<1>(best_index_1)];
-                    funnel_index2 = alignment_indices[std::get<0>(best_index_2)].second[std::get<1>(best_index_2)];
+                    funnel_index1 = get_alignment_ref_global_index(best_index_1);
+                    funnel_index2 = get_alignment_ref_global_index(best_index_2);
                     funnels[0].processing_input(funnel_index1);
                     funnels[1].processing_input(funnel_index2);
                 }
                 
-                pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair =  make_pair(make_pair(std::get<0>(best_index_1), std::get<1>(best_index_1)), 
-                                                                                         make_pair(std::get<0>(best_index_2), std::get<1>(best_index_2)));
+                pair<alignment_index_t, alignment_index_t> index_pair =  make_pair(alignment_ref_to_index(best_index_1), 
+                                                                                   alignment_ref_to_index(best_index_2));
 
-                Alignment& aln1 = alignments[std::get<0>(best_index_1)].first[std::get<1>(best_index_1)];
-                Alignment& aln2 = alignments[std::get<0>(best_index_2)].second[std::get<1>(best_index_2)];
+                Alignment& aln1 = follow_alignment_ref(best_index_1);
+                Alignment& aln2 = follow_alignment_ref(best_index_2);
                 paired_alignments.push_back(index_pair);
                 //Assume the distance between them is infinite
                 double pair_score = score_alignment_pair(aln1, aln2, std::numeric_limits<int64_t>::max());
@@ -1735,20 +1811,17 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             //Attempt rescue on unpaired alignments if either we didn't find any pairs or if the unpaired alignments are very good
 
             process_until_threshold_a(unpaired_alignments, (std::function<double(size_t)>) [&](size_t i) -> double{
-                tuple<size_t, size_t, bool>& index = unpaired_alignments.at(i);
-                return (double) std::get<2>(index) ? alignments[std::get<0>(index)].first[std::get<1>(index)].score()
-                                                   : alignments[std::get<0>(index)].second[std::get<1>(index)].score();
+                alignment_ref_t& index = unpaired_alignments.at(i);
+                return (double) follow_alignment_ref(index).score();
             }, 0, 1, max_rescue_attempts, rng, [&](size_t i) {
-                tuple<size_t, size_t, bool>& index = unpaired_alignments.at(i);
-                bool found_first = std::get<2>(index); 
-                size_t j = found_first ? alignment_indices[std::get<0>(index)].first[std::get<1>(index)]
-                                        : alignment_indices[std::get<0>(index)].second[std::get<1>(index)];
+                alignment_ref_t& index = unpaired_alignments.at(i);
+                bool found_first = is_first_read(index); 
+                size_t j = get_alignment_ref_global_index(index);
                 if (track_provenance) {
                     funnels[found_first ? 0 : 1].processing_input(j);
                     funnels[found_first ? 0 : 1].substage("rescue");
                 }
-                Alignment& mapped_aln = found_first ? alignments[std::get<0>(index)].first[std::get<1>(index)]
-                                                    : alignments[std::get<0>(index)].second[std::get<1>(index)];
+                Alignment& mapped_aln = follow_alignment_ref(index);
                 Alignment rescued_aln = found_first ? aln2 : aln1;
                 rescued_aln.clear_path();
 
@@ -1777,18 +1850,18 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                     set_annotation(mapped_aln, "proper_pair", properly_paired);
                     set_annotation(rescued_aln, "proper_pair", properly_paired);
 
-                    //Since we're still accumulating a list of indexes of pairs of alignments,
-                    //add the new alignment to the list of alignments 
-                    //(in a separate "fragment cluster" vector for rescued alignments) and keep track of its index
-                    //
-                    pair<size_t, size_t> mapped_index (std::get<0>(index), std::get<1>(index)); 
-                    pair<size_t, size_t> rescued_index (alignments.size() - 1, 
+                    // Since we're still accumulating a list of indexes of pairs of alignments,
+                    // add the new alignment to the list of alignments 
+                    // (in a separate "fragment cluster" vector for rescued alignments) and keep track of its index.
+                    // And allow it to be featured in pairs.
+                    alignment_index_t mapped_index = alignment_ref_to_index(index); 
+                    alignment_index_t rescued_index (alignments.size() - 1, 
                                 found_first ? alignments.back().second.size() : alignments.back().first.size());
                     found_first ? alignments.back().second.emplace_back(std::move(rescued_aln)) 
                                 : alignments.back().first.emplace_back(std::move(rescued_aln));
                     found_first ? rescued_count_1++ : rescued_count_2++;
 
-                    found_first ? alignment_groups.back().second.emplace_back() : alignment_groups.back().first.emplace_back();
+                    found_first ? pairs_featuring_alignment.back().second.emplace_back() : pairs_featuring_alignment.back().first.emplace_back();
                     pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair = found_first ? 
                                 make_pair(mapped_index, rescued_index) : make_pair(rescued_index, mapped_index);
                     paired_alignments.push_back(index_pair);
@@ -1816,10 +1889,9 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             }, [&](size_t i) {
                 //This alignment is good enough but we already rescued enough
                 if (track_provenance) {
-                    tuple<size_t, size_t, bool> index = unpaired_alignments.at(i);
-                    bool found_first = std::get<2>(index); 
-                    size_t j = found_first ? alignment_indices[std::get<0>(index)].first[std::get<1>(index)]
-                                            : alignment_indices[std::get<0>(index)].second[std::get<1>(index)];
+                    alignment_ref_t index = unpaired_alignments.at(i);
+                    bool found_first = is_first_read(index); 
+                    size_t j = get_alignment_ref_global_index(index);
                     funnels[found_first ? 0 : 1].fail("max-rescue-attempts", j);
                 }
                 return;
@@ -1827,10 +1899,10 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 //This alignment is insufficiently good
                 if (track_provenance) {
                     //TODO: Fail something here
-                    tuple<size_t, size_t, bool> index = unpaired_alignments.at(i);
-                    bool found_first = std::get<2>(index); 
-                    size_t j = found_first ? alignment_indices[std::get<0>(index)].first[std::get<1>(index)]
-                                            : alignment_indices[std::get<0>(index)].second[std::get<1>(index)];
+                    alignment_ref_t index = unpaired_alignments.at(i);
+                    bool found_first = is_first_read(index); 
+                    size_t j = get_alignment_ref_global_index(index);
+                    // TODO: Now what?
                 }
                 return;
             });
@@ -1869,43 +1941,43 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
     process_until_threshold_a(paired_alignments, (std::function<double(size_t)>) [&](size_t i) -> double {
         return paired_scores[i];
-    }, 0, 1, max_multimaps, rng, [&](size_t alignment_num) {
-        // This alignment makes it
+    }, 0, 1, max_multimaps, rng, [&](size_t pair_num) {
+        // This pair makes it
         // Called in score order
 
-        pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair = paired_alignments[alignment_num];
+        pair<alignment_index_t, alignment_index_t> index_pair = paired_alignments[pair_num];
         
         
         // Remember the score at its rank
-        scores.emplace_back(paired_scores[alignment_num]);
-        distances.emplace_back(fragment_distances[alignment_num]);
-        types.emplace_back(pair_types[alignment_num]);
-        better_cluster_count_by_mappings.emplace_back(better_cluster_count_by_pairs[alignment_num]);
+        scores.emplace_back(paired_scores[pair_num]);
+        distances.emplace_back(fragment_distances[pair_num]);
+        types.emplace_back(pair_types[pair_num]);
+        better_cluster_count_by_mappings.emplace_back(better_cluster_count_by_pairs[pair_num]);
         // Remember the output alignment
-        mappings.first.emplace_back(alignments[index_pair.first.first].first[index_pair.first.second]);
-        mappings.second.emplace_back(alignments[index_pair.second.first].second[index_pair.second.second]);
+        mappings.first.emplace_back(follow_alignment_index(index_pair.first, true));
+        mappings.second.emplace_back(follow_alignment_index(index_pair.second, false));
 
         if (mappings.first.size() == 1 && found_pair) {
             //If this is the best pair of alignments that we're going to return and we didn't attempt rescue, 
             //get the group scores for mapq
 
             //Get the scores of this pair 
-            scores_group_1.push_back(paired_scores[alignment_num]);
-            scores_group_2.push_back(paired_scores[alignment_num]);
+            scores_group_1.push_back(paired_scores[pair_num]);
+            scores_group_2.push_back(paired_scores[pair_num]);
 
             //The indices (into paired_alignments) of pairs with the same first read as this
-            vector<size_t>& alignment_group_1 = alignment_groups[index_pair.first.first].first[index_pair.first.second];
+            vector<size_t>& alignment_group_1 = get_pairs_featuring_alignment(index_pair.first, true);
             //And second read
-            vector<size_t>& alignment_group_2 = alignment_groups[index_pair.second.first].second[index_pair.second.second];
+            vector<size_t>& alignment_group_2 = get_pairs_featuring_alignment(index_pair.second, false);
 
-            for (size_t other_alignment_num : alignment_group_1) {
-                if (other_alignment_num != alignment_num) {
-                    scores_group_1.push_back(paired_scores[other_alignment_num]);
+            for (size_t other_pair_num : alignment_group_1) {
+                if (other_pair_num != pair_num) {
+                    scores_group_1.push_back(paired_scores[other_pair_num]);
                 }
             }
-            for (size_t other_alignment_num : alignment_group_2) {
-                if (other_alignment_num != alignment_num) {
-                    scores_group_2.push_back(paired_scores[other_alignment_num]);
+            for (size_t other_pair_num : alignment_group_2) {
+                if (other_pair_num != pair_num) {
+                    scores_group_2.push_back(paired_scores[other_pair_num]);
                 }
             }
         }
@@ -1922,41 +1994,41 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         }
 
 #ifdef print_minimizer_table
-        mapping_was_rescued.emplace_back(alignment_was_rescued[alignment_num]);
+        mapping_was_rescued.emplace_back(alignment_was_rescued[pair_num]);
         pair_indices.push_back(index_pair);
 #endif
         
         if (track_provenance) {
             // Tell the funnel
-            funnels[0].pass("max-multimaps", alignment_num);
-            funnels[0].project(alignment_num);
+            funnels[0].pass("max-multimaps", pair_num);
+            funnels[0].project(pair_num);
             funnels[0].score(funnels[0].latest(), scores.back());
-            funnels[1].pass("max-multimaps", alignment_num);
-            funnels[1].project(alignment_num);
+            funnels[1].pass("max-multimaps", pair_num);
+            funnels[1].project(pair_num);
             funnels[1].score(funnels[1].latest(), scores.back());
         }
         
         return true;
-    }, [&](size_t alignment_num) {
+    }, [&](size_t pair_num) {
         // We already have enough alignments, although this one has a good score
         
         // Remember the score at its rank anyway
-        scores.emplace_back(paired_scores[alignment_num]);
-        distances.emplace_back(fragment_distances[alignment_num]);
-        types.emplace_back(pair_types[alignment_num]);
-        better_cluster_count_by_mappings.emplace_back(better_cluster_count_by_pairs[alignment_num]);
+        scores.emplace_back(paired_scores[pair_num]);
+        distances.emplace_back(fragment_distances[pair_num]);
+        types.emplace_back(pair_types[pair_num]);
+        better_cluster_count_by_mappings.emplace_back(better_cluster_count_by_pairs[pair_num]);
 
  
 #ifdef print_minimizer_table
-        pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair = paired_alignments[alignment_num];
+        pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair = paired_alignments[pair_num];
         pair_indices.push_back(index_pair);
 #endif       
         if (track_provenance) {
-            funnels[0].fail("max-multimaps", alignment_num);
-            funnels[1].fail("max-multimaps", alignment_num);
+            funnels[0].fail("max-multimaps", pair_num);
+            funnels[1].fail("max-multimaps", pair_num);
         }
-    }, [&](size_t alignment_num) {
-        // This alignment does not have a sufficiently good score
+    }, [&](size_t pair_num) {
+        // This pair does not have a sufficiently good score
         // Score threshold is 0; this should never happen
         assert(false);
     });
