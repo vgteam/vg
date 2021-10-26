@@ -412,7 +412,21 @@ void NewSnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state) const {
             //If this snarl is in a chain, cluster and add let the
             //tree state know which chain it belongs to (in order)
 
-            add_child_to_vector(tree_state.parent_chain_to_children, distance_index.get_parent(snarl_handle), cluster_one_snarl(tree_state, distance_index.get_cached_net_handle(snarl_handle)));
+            //Cluster the snarl
+            NodeClusters snarl_clusters = cluster_one_snarl(tree_state, distance_index.get_cached_net_handle(snarl_handle));
+
+            //Now check the best distance of any seed to the ends of the snarl
+            size_t best_distance_left = *std::min_element(snarl_clusters.read_best_left.begin(), snarl_clusters.read_best_left.end());
+            size_t best_distance_right = *std::min_element(snarl_clusters.read_best_right.begin(), snarl_clusters.read_best_right.end());
+            //Is the distance small enough that we can cluster it with something else?
+            bool reachable_right = best_distance_right <= tree_state.read_distance_limit || 
+                (tree_state.fragment_distance_limit != 0 && best_distance_right <= tree_state.fragment_distance_limit);
+            bool reachable_left = best_distance_left <= tree_state.read_distance_limit || 
+                (tree_state.fragment_distance_limit != 0 && best_distance_left <= tree_state.fragment_distance_limit);
+            //If so, add it to the tree state to be clustered further
+            if (reachable_left || reachable_right) {
+                add_child_to_vector(tree_state.parent_chain_to_children, distance_index.get_parent(snarl_handle), std::move(snarl_clusters));
+            }
 
 #ifdef DEBUG_CLUSTER
             cerr << "\tRecording snarl " << distance_index.net_handle_as_string(snarl_handle)  << " as a child of "
@@ -440,14 +454,26 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
 #endif
 
         // Compute the clusters for the chain
-        if (distance_index.is_root(distance_index.get_parent(chain_handle))) {
-            tree_state.root_children.emplace_back(cluster_one_chain(tree_state, distance_index.get_cached_net_handle(chain_handle)));
-        } else {
-            add_child_to_vector(tree_state.snarl_to_children, distance_index.get_parent(chain_handle), cluster_one_chain(tree_state, distance_index.get_cached_net_handle(chain_handle)));
+        NodeClusters chain_clusters = cluster_one_chain(tree_state, distance_index.get_cached_net_handle(chain_handle));
+        //Now check the best distance of any seed to the ends of the chain
+        size_t best_distance_left = *std::min_element(chain_clusters.read_best_left.begin(), chain_clusters.read_best_left.end());
+        size_t best_distance_right = *std::min_element(chain_clusters.read_best_right.begin(), chain_clusters.read_best_right.end());
+        //Is the distance small enough that we can cluster it with something else?
+        bool reachable_right = best_distance_right <= tree_state.read_distance_limit || 
+            (tree_state.fragment_distance_limit != 0 && best_distance_right <= tree_state.fragment_distance_limit);
+        bool reachable_left = best_distance_left <= tree_state.read_distance_limit || 
+            (tree_state.fragment_distance_limit != 0 && best_distance_left <= tree_state.fragment_distance_limit);
+        //If so, add it to the tree state to be clustered further
+        if (reachable_left || reachable_right) {
+            if (distance_index.is_root(distance_index.get_parent(chain_handle))) {
+                tree_state.root_children.emplace_back(std::move(chain_clusters));
+            } else {
+                add_child_to_vector(tree_state.snarl_to_children, distance_index.get_parent(chain_handle), std::move(chain_clusters));
 #ifdef DEBUG_CLUSTER
             cerr << "\tRecording " << distance_index.net_handle_as_string(chain_handle)
                 << " as a child of " << distance_index.net_handle_as_string(distance_index.get_parent(chain_handle)) << endl;
 #endif
+            }
         }
     }
 }
