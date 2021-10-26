@@ -1271,8 +1271,8 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_snarl(
 
     //Keep track of all clusters on this snarl
 
-    distance_index.set_cached_start_bound(snarl_handle, false, false);
-    distance_index.set_cached_end_bound(snarl_handle, false, false);
+    distance_index.set_cached_start_bound(snarl_handle, true, true);
+    distance_index.set_cached_end_bound(snarl_handle, true, true);
     distance_index.set_cached_min_length(snarl_handle);
     distance_index.set_cached_rank(snarl_handle);
     distance_index.set_cached_parent_offset(snarl_handle);
