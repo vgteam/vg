@@ -345,41 +345,6 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                                  NodeClusters(std::move(cached_net_handle), tree_state.all_seeds->size(),
                                               is_reversed_in_parent, node_length, id));
              } 
-//                }
-            /* TODO: This uses cached distance index information, which I might put back but hopefully it won't be necessary anymore
-             * else if (seeds->at(i).is_top_level_node) {
-                //If this is a top-level seed, defer clustering until we reach the top-level
-                size_t component = seeds->at(i).component;
-                if (tree_state.component_to_index.count(component) == 0) {
-                    tree_state.component_to_index.emplace(component, tree_state.top_level_seed_clusters.size());
-                    tree_state.top_level_seed_clusters.emplace_back();
-                    tree_state.simple_snarl_to_nodes_by_component.emplace_back();
-                }
-                tree_state.top_level_seed_clusters[tree_state.component_to_index.at(component)].emplace_back(read_num, i);
-
-            } else if (seeds->at(i).is_top_level_snarl) {
-                //This is a top-level simple snarl
-#ifdef DEBUG_CLUSTER
-                cerr << "(bubble)" << read_num << ":" << pos << " " << seeds->at(i).start_length << " " << seeds->at(i).end_length << " " << seeds->at(i).snarl_rank << " " << seeds->at(i).rev_in_chain << ", ";
-#endif
-
-                node_to_seeds.emplace_back(id, i);
-
-                size_t component = distance_index.get_connected_component(id);
-                if (tree_state.component_to_index.count(component) == 0) {
-                    tree_state.component_to_index.emplace(component, tree_state.top_level_seed_clusters.size());
-                    tree_state.top_level_seed_clusters.emplace_back();
-                    tree_state.simple_snarl_to_nodes_by_component.emplace_back();
-                }
-                hash_map<size_t, vector<tuple<id_t, bool, size_t, size_t, size_t>>>& simple_snarl_to_nodes = 
-                    tree_state.simple_snarl_to_nodes_by_component[tree_state.component_to_index.at(component)];
-                if (seen_nodes.count(id) < 1) {
-                    seen_nodes.insert(id);
-                    simple_snarl_to_nodes[seeds->at(i).snarl_rank].emplace_back(
-                        id, seeds->at(i).rev_in_chain, seeds->at(i).start_length, seeds->at(i).end_length, seeds->at(i).node_length);
-                }
-            }
-            */
         }
         std::sort(node_to_seeds.begin(), node_to_seeds.end());
     }
@@ -742,169 +707,13 @@ void NewSnarlSeedClusterer::cluster_one_node(
 };
 
 
-/*
-//Given a structure and its parent, try to combine the clusters on the children
-//TODO: I think this is correct:
-//This doesn't update the distances to the ends of the child structure, since any updates would be found using paths in
-//the parent structure, so these distances would be taken into account later anyway
-//TODO: I think I might not need a separate function for things on the same structure, I could just do the one on different child structures but give it the same structure twice
-void NewSnarlSeedClusterer::compare_and_combine_cluster_on_same_structure(TreeState& tree_state, NodeClusters& child_clusters, 
-    NodeClusters& parent_clusters) {
-    net_handle_t& child_handle = child_clusters.containin_net_handle;
-    net_handle_t& parent_handle = parent_clusters.containing_net_handle;
-
-    //Get the distances between the two sides of the child in the parent
-    size_t distance_left_left = distance_index.distance_in_parent(parent_handle, distance_index.flip(child_handle), distance_index.flip(child_handle));
-    size_t distance_right_right = distance_index.distance_in_parent(parent_handle, child_handle, child_handle);
-    size_t distance_left_right = distance_index.distance_in_parent(parent_handle, distance_index.flip(child_handle), child_handle);
-
-    //The cluster heads that will be removed from read_cluster_heads
-    vector<pair<size_t, size_t>> to_erase;
-
-    //These will be the cluster heads and distances of everything combined by taking the indicated path
-    //one cluster head per read
-    //pair< pair<read_num, seed_num>, pair<left dist, right_dist>>
-    //The default value will be ((inf, 0), (0,0)). Only the inf gets checked to see if it's a real value so I filled it in with 0 so I wouldn't have to type out inf 
-    vector<pair<pair<size_t, size_t>, pair<size_t, size_t>> new_cluster_head_left_left_by_read(tree_state.all-seeds->size(), 
-            make_pair(make_pair(std::numeric_limits<size_t>::max(), 0), make_pair(0, 0)));
-    vector<pair<pair<size_t, size_t>, pair<size_t, size_t>> new_cluster_head_right_right_by_read(tree_state.all-seeds->size(),
-        make_pair(make_pair(std::numeric_limits<size_t>::max(), 0), make_pair(0, 0)));
-    vector<pair<pair<size_t, size_t>, pair<size_t, size_t>> new_cluster_head_left_right_by_read(tree_state.all-seeds->size(),
-        make_pair(make_pair(std::numeric_limits<size_t>::max(), 0), make_pair(0, 0)));
-
-    //And the new cluster heads for the fragment
-    //These are the values of the cluster heads in the union finds, which include the values from read_index_offset
-    size_t new_cluster_head_left_left_fragment;
-    size_t new_cluster_head_right_right_fragment;
-    size_t new_cluster_head_left_right_fragment;
-
-    //Go through the clusters once, and see which ones can be put in each of the four possible combined clusters
-    //If a cluster can be combined with another cluster by taking the right-right loop, then any cluster 
-    //with a right distance that is less than the distance limit - the best right distance for the child will
-    //be combined with the cluster with the best right distances. So in the end there will only be three combined
-    //clusters, one for each path
-    //This strategy ends up unioning a cluster with itself but it only goes through the clusters once so I think
-    //it's efficient
-    for (auto& cluster_head_and_distance : child_clusters.read_cluster_heads) {
-        size_t read_num = cluster_head_and_distance.first.first;
-        size_t cluster_num = cluster_head_and_distance.first.second;
-        pair<size_t, size_t>& distances = cluster_head_and_distance.second;
-
-        //Try to combine going left-left
-
-        //TODO: Use sum to sum infinities better
-        if (distances.first + distance_left_left + child_clusters.read_best_left.at(read_num) <= tree_state.read_distance_limit) {
-            //If this can be combined with the new left-left read cluster
-            if (new_cluster_head_left_left_by_read.at(read_num) == std::numeric_limits<size_t>::max()){
-                //new cluster head
-                new_cluster_head_left_left_by_read.at(read_num) = make_pair(read_num, cluster_num);
-            } else {
-                //Combine with old cluster head
-                tree_state.read_union_find.at(read_num).union_groups(cluster_num, new_cluster_head_left_left.at(read_num));
-                new_cluster_head_left_left_by_read.at(read_num) = make_pair(read_num, tree_state.read_union_find.at(read_num).find_group(cluster_num));
-            }
-            to_erase.emplace_back(read_num, cluster_num);
-            tree_state.fragment_union_find.union_groups(cluster_num+tree_state.read_index_offsets[read_num], 
-                                                                new_cluster_head_left_left_fragment);
-            new_cluster_head_left_left_fragment = tree_state.fragment_union_find.find_group(new_cluster_head_left_left_fragment);
-
-        } else if (tree_state.fragment_distance_limit != 0 && 
-                    distances.first + distance_left_left + child_clusters.fragment_best_left <= tree_state.fragment_distance_limit ) {
-            //Just union the fragment
-            tree_state.fragment_union_find.union_groups(cluster_num+tree_state.read_index_offsets[read_num], 
-                                                                new_cluster_head_left_left_fragment);
-            new_cluster_head_left_left_fragment = tree_state.fragment_union_find.find_group(new_cluster_head_left_left_fragment);
-        }
-
-        //Try to combine going right-right
-
-        //TODO: Use sum to sum infinities better
-        if (distances.second + distance_right_right + child_clusters.read_best_right.at(read_num) <= tree_state.read_distance_limit) {
-            //If this can be combined with the new right-right read cluster
-            if (new_cluster_head_right_right_by_read.at(read_num) == std::numeric_limits<size_t>::max()){
-                //new cluster head
-                new_cluster_head_right_right_by_read.at(read_num) = make_pair(read_num, cluster_num);
-            } else {
-                //Combine with old cluster head
-                tree_state.read_union_find.at(read_num).union_groups(cluster_num, new_cluster_head_right_right.at(read_num));
-                new_cluster_head_right_right_by_read.at(read_num) = make_pair(read_num, tree_state.read_union_find.at(read_num).find_group(cluster_num));
-            }
-            to_erase.emplace_back(read_num, cluster_num);
-            tree_state.fragment_union_find.union_groups(cluster_num+tree_state.read_index_offsets[read_num], 
-                                                                new_cluster_head_right_right_fragment);
-            new_cluster_head_right_right_fragment = tree_state.fragment_union_find.find_group(new_cluster_head_right_right_fragment);
-
-        } else if (tree_state.fragment_distance_limit != 0 && 
-                    distances.second + distance_right_right + child_clusters.fragment_best_right <= tree_state.fragment_distance_limit ) {
-            //Just union the fragment
-            tree_state.fragment_union_find.union_groups(cluster_num+tree_state.read_index_offsets[read_num], 
-                                                                new_cluster_head_right_right_fragment);
-            new_cluster_head_right_right_fragment = tree_state.fragment_union_find.find_group(new_cluster_head_right_right_fragment);
-        }
-        //Try to combine going left-right
-
-        //TODO: Use sum to sum infinities better
-        if (distances.first + distance_left_right + child_clusters.read_best_right.at(read_num) <= tree_state.read_distance_limit ||
-            distances.second + distance_left_right + child_clusters.read_best_left.at(read_num) <= tree_state.read_distance_limit ) {
-            //If this can be combined with the new left-right read cluster
-            if (new_cluster_head_left_right_by_read.at(read_num) == std::numeric_limits<size_t>::max()){
-                //new cluster head
-                new_cluster_head_left_right_by_read.at(read_num) = make_pair(read_num, cluster_num);
-            } else {
-                //Combine with old cluster head
-                tree_state.read_union_find.at(read_num).union_groups(cluster_num, new_cluster_head_left_right.at(read_num));
-                new_cluster_head_left_right_by_read.at(read_num) = make_pair(read_num, tree_state.read_union_find.at(read_num).find_group(cluster_num));
-            }
-            to_erase.emplace_back(read_num, cluster_num);
-            tree_state.fragment_union_find.union_groups(cluster_num+tree_state.read_index_offsets[read_num], 
-                                                                new_cluster_head_left_right_fragment);
-            new_cluster_head_left_right_fragment = tree_state.fragment_union_find.find_group(new_cluster_head_left_right_fragment);
-
-        } else if (tree_state.fragment_distance_limit != 0 && 
-                    distances.first + distance_left_right + child_clusters.fragment_best_right <= tree_state.fragment_distance_limit ||
-                    distances.second + distance_left_right + child_clusters.fragment_best_left <= tree_state.fragment_distance_limit) {
-            //Just union the fragment
-            tree_state.fragment_union_find.union_groups(cluster_num+tree_state.read_index_offsets[read_num], 
-                                                                new_cluster_head_left_right_fragment);
-            new_cluster_head_left_right_fragment = tree_state.fragment_union_find.find_group(new_cluster_head_left_right_fragment);
-        }
-    }
-
-    //Now remove cluster heads that got combined with new ones
-    for (pair<size_t, size_t>& cluster_head : to_erase) {
-        child_clusters.read_cluster_heads.erase(cluster_head);
-    }
-    //And add back in the new cluster heads
-    for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++) {
-        if (new_cluster_head_left_left_by_read.at(read_num).first != std::numeric_limits<size_t>::max()) {
-            read_cluster_heads.insert(new_cluster_head_left_left_by_read.at(read_num));
-        }
-        if (new_cluster_head_right_right_by_read.at(read_num).first != std::numeric_limits<size_t>::max()) {
-            read_cluster_heads.insert(new_cluster_head_right_right_by_read.at(read_num));
-        }
-        if (new_cluster_head_left_right_by_read.at(read_num).first != std::numeric_limits<size_t>::max()) {
-            read_cluster_heads.insert(new_cluster_head_left_right_by_read.at(read_num));
-        }
-    }
-
-    
-
-
-}
-*/
-
-
 //Go through pairs of clusters of the two children and see which ones can be combined
 //The first child may not have been seen before, so all of it's clusters may be added to the parent, then
 //anything that was combined gets removed and only the cluster heads get added.
 //For the second child, everything is already in the parent so remove ones that were combined then
 //add the head of the combined clusters
 //
-//
-//This does basically the same thing as compare_and_combine_cluster_on_same_structure, except that
-//it updates the parent clusters
-//
-//Be sure to update the distances to the ends of the parent for the second child's clusters
+//Also updates the distances to the ends of the parent for the second child's clusters
 //TODO: Make sure to add the first child's clusters to the parent before looking at pairs and calling this
 void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(TreeState& tree_state, NodeClusters& child_clusters1, 
     NodeClusters& child_clusters2, NodeClusters& parent_clusters, bool is_root) const {
@@ -1073,11 +882,10 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
         size_t cluster_num = tree_state.read_union_find[read_num].find_group(cluster_head_and_distance.first.second);
         pair<size_t, size_t> distances = cluster_head_and_distance.second;
 
-        //TODO: This gets done many times, maybe we could save it somewhere - in the NodeClusters as an optional field maybe
-        size_t new_dist_left = std::min(SnarlDistanceIndex::sum({distances.first,child_clusters1.distance_start_left}),
-                                        SnarlDistanceIndex::sum({distances.second,child_clusters1.distance_start_right}));
-        size_t new_dist_right= std::min(SnarlDistanceIndex::sum({distances.first,child_clusters1.distance_end_left}),
-                                        SnarlDistanceIndex::sum({distances.second,child_clusters1.distance_end_right}));
+        size_t new_dist_left = std::min(SnarlDistanceIndex::sum({distances.first, child_clusters1.distance_start_left}),
+                                        SnarlDistanceIndex::sum({distances.second, child_clusters1.distance_start_right}));
+        size_t new_dist_right= std::min(SnarlDistanceIndex::sum({distances.first, child_clusters1.distance_end_left}),
+                                        SnarlDistanceIndex::sum({distances.second, child_clusters1.distance_end_right}));
         pair<size_t, size_t> distances_to_parent = make_pair(new_dist_left, new_dist_right);
         if (parent_clusters.read_cluster_heads.count(make_pair(read_num, cluster_num)) > 0) {
             distances_to_parent = make_pair(
@@ -1087,42 +895,40 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
             
 
         //Check if the left of 1 can connect with the left of 2
-//#ifdef DEBUG_CLUSTER
-//        cerr << "\t\tCheck any clusters in 1 going left to left of 2" << endl;
-//#endif
         combined = combined | compare_and_combine_clusters (read_num, cluster_num, 
-            SnarlDistanceIndex::sum({distances.first,distance_left_left,child_clusters2.read_best_left[read_num]}), 
-            SnarlDistanceIndex::sum({distances.first,distance_left_left,child_clusters2.fragment_best_left}), 
+            SnarlDistanceIndex::sum({distances.first,distance_left_left, child_clusters2.read_best_left[read_num]}), 
+            SnarlDistanceIndex::sum({distances.first,distance_left_left, child_clusters2.fragment_best_left}), 
             distances_to_parent,
             new_cluster_left_left_by_read[read_num], new_cluster_left_left_fragment);
+
         //Check if the left of 1 can connect with the right of 2
-//#ifdef DEBUG_CLUSTER
-//            cerr << "\t\tCheck any clusters in 1 going left to right of 2" << endl;
-//#endif
         combined = combined | compare_and_combine_clusters (read_num, cluster_num, 
-            SnarlDistanceIndex::sum({distances.first,distance_left_right,child_clusters2.read_best_right[read_num]}), 
-            SnarlDistanceIndex::sum({distances.first,distance_left_right,child_clusters2.fragment_best_right}), 
+            SnarlDistanceIndex::sum({distances.first,distance_left_right, child_clusters2.read_best_right[read_num]}), 
+            SnarlDistanceIndex::sum({distances.first,distance_left_right, child_clusters2.fragment_best_right}), 
             distances_to_parent, new_cluster_left_right_by_read[read_num], new_cluster_left_right_fragment);
+
         //Check if the right of 1 can connect with the right of 2
-//#ifdef DEBUG_CLUSTER
-//            cerr << "\t\tCheck any clusters in 1 going right to right of 2" << endl;
-//#endif
         combined = combined | compare_and_combine_clusters (read_num, cluster_num, 
-            SnarlDistanceIndex::sum({distances.second,distance_right_right,child_clusters2.read_best_right[read_num]}), 
-            SnarlDistanceIndex::sum({distances.second,distance_right_right,child_clusters2.fragment_best_right}), 
+            SnarlDistanceIndex::sum({distances.second,distance_right_right, child_clusters2.read_best_right[read_num]}), 
+            SnarlDistanceIndex::sum({distances.second,distance_right_right, child_clusters2.fragment_best_right}), 
             distances_to_parent,new_cluster_right_right_by_read[read_num], new_cluster_right_right_fragment);
+
         //Check if the right of 1 can connect with the left of 2
-//#ifdef DEBUG_CLUSTER
-//            cerr << "\t\tCheck any clusters in 1 going right to left of 2" << endl;
-//#endif
         combined = combined | compare_and_combine_clusters (read_num, cluster_num, 
-            SnarlDistanceIndex::sum({distances.second,distance_right_left,child_clusters2.read_best_left[read_num]}), 
-            SnarlDistanceIndex::sum({distances.second,distance_right_left,child_clusters2.fragment_best_left}), 
+            SnarlDistanceIndex::sum({distances.second,distance_right_left, child_clusters2.read_best_left[read_num]}), 
+            SnarlDistanceIndex::sum({distances.second,distance_right_left, child_clusters2.fragment_best_left}), 
             distances_to_parent, new_cluster_right_left_by_read[read_num], new_cluster_right_left_fragment);
 
-        //If this cluster wasn't combined and hasn't been seen before, add it to the parent
         size_t cluster_head = tree_state.read_union_find[read_num].find_group(cluster_num); 
-        if (!combined && parent_clusters.read_cluster_heads.count(make_pair(read_num, cluster_head)) == 0) {
+
+        //Is the distance small enough that we can cluster it with something else?
+        bool reachable_left = distances_to_parent.first <= tree_state.read_distance_limit || 
+            (tree_state.fragment_distance_limit != 0 && distances_to_parent.first <= tree_state.fragment_distance_limit);
+        bool reachable_right = distances_to_parent.second <= tree_state.read_distance_limit || 
+            (tree_state.fragment_distance_limit != 0 && distances_to_parent.second <= tree_state.fragment_distance_limit);
+        //If this cluster wasn't combined and hasn't been seen before and its reachable from other clusters, add it to the parent
+        if (!combined && parent_clusters.read_cluster_heads.count(make_pair(read_num, cluster_head)) == 0 &&
+            (reachable_left || reachable_right)) {
             parent_clusters.read_cluster_heads[make_pair(read_num, cluster_head)] = distances_to_parent;
         }
     }
@@ -1147,33 +953,24 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
         }
 
         //Check if the left of 1 can connect with the left of 2
-//#ifdef DEBUG_CLUSTER
-//            cerr << "\t\tCheck any clusters in 2 going left to left of 1" << endl;
-//#endif
         compare_and_combine_clusters (read_num, cluster_num, 
             SnarlDistanceIndex::sum({distances.first,distance_left_left,child_clusters1.read_best_left[read_num]}), 
             SnarlDistanceIndex::sum({distances.first,distance_left_left,child_clusters1.fragment_best_left}), 
             distances_to_parent, new_cluster_left_left_by_read[read_num], new_cluster_left_left_fragment);
+
         //Check if the left of 1 can connect with the right of 2
-//#ifdef DEBUG_CLUSTER
-//       cerr << "\t\tCheck any clusters in 2 going right to left of 1" << endl;
-//#endif
         compare_and_combine_clusters (read_num, cluster_num, 
             SnarlDistanceIndex::sum({distances.second,distance_left_right,child_clusters1.read_best_left[read_num]}),
             SnarlDistanceIndex::sum({distances.second,distance_left_right,child_clusters1.fragment_best_left}),
             distances_to_parent, new_cluster_left_right_by_read[read_num], new_cluster_left_right_fragment);
+
         //Check if the right of 1 can connect with the right of 2
-//#ifdef DEBUG_CLUSTER
-//        cerr << "\t\tCheck any clusters in 2 going right to right of 1" << endl;
-//#endif
         compare_and_combine_clusters (read_num, cluster_num, 
             SnarlDistanceIndex::sum({distances.second,distance_right_right,child_clusters1.read_best_right[read_num]}),
             SnarlDistanceIndex::sum({distances.second,distance_right_right,child_clusters1.fragment_best_right}),
             distances_to_parent, new_cluster_right_right_by_read[read_num], new_cluster_right_right_fragment);
+
         //Check if the right of 1 can connect with the left of 2
-//#ifdef DEBUG_CLUSTER
-//        cerr << "\t\tCheck any clusters in 2 going left to right of 1" << endl;
-//#endif
         compare_and_combine_clusters (read_num, cluster_num, 
             SnarlDistanceIndex::sum({distances.first,distance_right_left,child_clusters1.read_best_right[read_num]}),
             SnarlDistanceIndex::sum({distances.first,distance_right_left,child_clusters1.fragment_best_right}),
@@ -1193,33 +990,77 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
             pair<size_t, size_t> old_distances = parent_clusters.read_cluster_heads.count(new_cluster_left_left_by_read.at(read_num).first) == 0
                 ? make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max())
                 : parent_clusters.read_cluster_heads.at(new_cluster_left_left_by_read.at(read_num).first);
-            parent_clusters.read_cluster_heads[new_cluster_left_left_by_read.at(read_num).first] = 
-                make_pair(std::min(new_cluster_left_left_by_read.at(read_num).second.first, old_distances.first),
-                          std::min(new_cluster_left_left_by_read.at(read_num).second.second, old_distances.second));
+
+            //Is the distance small enough that we can cluster it with something else?
+            size_t best_left = std::min(new_cluster_left_left_by_read.at(read_num).second.first, old_distances.first);
+            size_t best_right = std::min(new_cluster_left_left_by_read.at(read_num).second.second, old_distances.second);
+            bool reachable_left = best_left <= tree_state.read_distance_limit || 
+                (tree_state.fragment_distance_limit != 0 && best_left <= tree_state.fragment_distance_limit);
+            bool reachable_right = best_right <= tree_state.read_distance_limit || 
+                (tree_state.fragment_distance_limit != 0 && best_right <= tree_state.fragment_distance_limit);
+
+            if (reachable_left || reachable_right) {
+                parent_clusters.read_cluster_heads[new_cluster_left_left_by_read.at(read_num).first] = 
+                    make_pair(best_left,best_right);
+            } else {
+                parent_clusters.read_cluster_heads.erase(new_cluster_left_left_by_read.at(read_num).first);
+            }
         }
         if (new_cluster_right_right_by_read.at(read_num).first.first != std::numeric_limits<size_t>::max()) {
             pair<size_t, size_t> old_distances = parent_clusters.read_cluster_heads.count(new_cluster_right_right_by_read.at(read_num).first) == 0
                 ? make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max())
                 : parent_clusters.read_cluster_heads.at(new_cluster_right_right_by_read.at(read_num).first);
-            parent_clusters.read_cluster_heads[new_cluster_right_right_by_read.at(read_num).first] = 
-                make_pair(std::min(new_cluster_right_right_by_read.at(read_num).second.first, old_distances.first),
-                          std::min(new_cluster_right_right_by_read.at(read_num).second.second, old_distances.second));
+
+            size_t best_left = std::min(new_cluster_right_right_by_read.at(read_num).second.first, old_distances.first);
+            size_t best_right = std::min(new_cluster_right_right_by_read.at(read_num).second.second, old_distances.second);
+            bool reachable_left = best_left <= tree_state.read_distance_limit || 
+                (tree_state.fragment_distance_limit != 0 && best_left <= tree_state.fragment_distance_limit);
+            bool reachable_right = best_right <= tree_state.read_distance_limit || 
+                (tree_state.fragment_distance_limit != 0 && best_right <= tree_state.fragment_distance_limit);
+
+            if (reachable_left || reachable_right) {
+                parent_clusters.read_cluster_heads[new_cluster_right_right_by_read.at(read_num).first] = 
+                    make_pair(best_left,best_right);
+            } else {
+                parent_clusters.read_cluster_heads.erase(new_cluster_right_right_by_read.at(read_num).first);
+            }
         }
         if (new_cluster_left_right_by_read.at(read_num).first.first != std::numeric_limits<size_t>::max()) {
             pair<size_t, size_t> old_distances = parent_clusters.read_cluster_heads.count(new_cluster_left_right_by_read.at(read_num).first) == 0
                 ? make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max())
                 : parent_clusters.read_cluster_heads.at(new_cluster_left_right_by_read.at(read_num).first);
-            parent_clusters.read_cluster_heads[new_cluster_left_right_by_read.at(read_num).first] = 
-                make_pair(std::min(new_cluster_left_right_by_read.at(read_num).second.first, old_distances.first),
-                          std::min(new_cluster_left_right_by_read.at(read_num).second.second, old_distances.second));
+
+            size_t best_left = std::min(new_cluster_left_right_by_read.at(read_num).second.first, old_distances.first);
+            size_t best_right = std::min(new_cluster_left_right_by_read.at(read_num).second.second, old_distances.second);
+            bool reachable_left = best_left <= tree_state.read_distance_limit || 
+                (tree_state.fragment_distance_limit != 0 && best_left <= tree_state.fragment_distance_limit);
+            bool reachable_right = best_right <= tree_state.read_distance_limit || 
+                (tree_state.fragment_distance_limit != 0 && best_right <= tree_state.fragment_distance_limit);
+
+            if (reachable_left || reachable_right) {
+                parent_clusters.read_cluster_heads[new_cluster_left_right_by_read.at(read_num).first] = 
+                    make_pair(best_left, best_right);
+            } else {
+                parent_clusters.read_cluster_heads.erase(new_cluster_left_right_by_read.at(read_num).first);
+            }
         }
         if (new_cluster_right_left_by_read.at(read_num).first.first != std::numeric_limits<size_t>::max()) {
             pair<size_t, size_t> old_distances = parent_clusters.read_cluster_heads.count(new_cluster_right_left_by_read.at(read_num).first) == 0
                 ? make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max())
                 : parent_clusters.read_cluster_heads.at(new_cluster_right_left_by_read.at(read_num).first);
-            parent_clusters.read_cluster_heads[new_cluster_right_left_by_read.at(read_num).first] = 
-                make_pair(std::min(new_cluster_right_left_by_read.at(read_num).second.first, old_distances.first),
-                          std::min(new_cluster_right_left_by_read.at(read_num).second.second, old_distances.second));
+            size_t best_left = std::min(new_cluster_right_left_by_read.at(read_num).second.first, old_distances.first);
+            size_t best_right = std::min(new_cluster_right_left_by_read.at(read_num).second.second, old_distances.second);
+            bool reachable_left = best_left <= tree_state.read_distance_limit || 
+                (tree_state.fragment_distance_limit != 0 && best_left <= tree_state.fragment_distance_limit);
+            bool reachable_right = best_right <= tree_state.read_distance_limit || 
+                (tree_state.fragment_distance_limit != 0 && best_right <= tree_state.fragment_distance_limit);
+
+            if (reachable_left || reachable_right) {
+                parent_clusters.read_cluster_heads[new_cluster_right_left_by_read.at(read_num).first] = 
+                    make_pair(best_left, best_right);
+            } else {
+                parent_clusters.read_cluster_heads.erase(new_cluster_right_left_by_read.at(read_num).first);
+            }
         }
     }
 
