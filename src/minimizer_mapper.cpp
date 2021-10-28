@@ -2017,20 +2017,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             duplicate_endpoints_2.push_back(0);
         } else {
             // This is not the best pair, but we need to see if any read endpoints are shared
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Check pair " << scores.size() - 1 << " read 1 for shared endpoints with the winner" << endl;
-                }
-            }
             if (share_terminal_positions(mappings.first[0], mappings.first.back())) {
                 duplicate_endpoints_1.push_back(scores.size() - 1);
-            }
-            if (show_work) {
-                #pragma omp critical (cerr)
-                {
-                    cerr << log_name() << "Check pair " <<scores.size() - 1 << " read 2 for shared endpoints with the winner" << endl;
-                }
             }
             if (share_terminal_positions(mappings.second[0], mappings.second.back())) {
                 duplicate_endpoints_2.push_back(scores.size() - 1);
@@ -2072,20 +2060,8 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
         // We assume the best pair actually exists already and has its alignments recorded.
         // We need to decide whether the score we just emitted shares a read placement for either read.
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Check discarded pair " << scores.size() - 1 << " read 1 for shared endpoints with the winner" << endl;
-            }
-        }
         if (share_terminal_positions(mappings.first[0], follow_alignment_index(index_pair.first, true))) {
             duplicate_endpoints_1.push_back(scores.size() - 1);
-        }
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Check discarded pair " << scores.size() - 1 << " read 2 for shared endpoints with the winner" << endl;
-            }
         }
         if (share_terminal_positions(mappings.second[0], follow_alignment_index(index_pair.second, false))) {
             duplicate_endpoints_2.push_back(scores.size() - 1);
@@ -2506,13 +2482,6 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 bool MinimizerMapper::share_terminal_positions(const Alignment& aln1, const Alignment& aln2) const {
     if (aln1.path().mapping_size() == 0 || aln2.path().mapping_size() == 0) {
         // One of them doesn't actually have any terminal positions
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "No shared endpoints because a path is empty" << endl;
-            }
-        }
-        
         return false;
     }
     
@@ -2520,47 +2489,8 @@ bool MinimizerMapper::share_terminal_positions(const Alignment& aln1, const Alig
     // ends meet ends.
     // TODO: Maybe instead of sharing terminal positions, we really want to be
     // deduplicating placements based on something else?
-    
-    pos_t s1 = initial_position(aln1.path());
-    pos_t s2 = initial_position(aln2.path());
-    
-    if (s1 == s2) {
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Detected shared start " << s1 << endl;
-            }
-        }
-        return true;
-    } else {
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Starts " << s1 << " and " << s2 << " are different" << endl;
-            }
-        }
-    }
-    
-    pos_t e1 = final_position(aln1.path());
-    pos_t e2 = final_position(aln2.path());
-    
-    if (e1 == e2) {
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Detected shared end " << e1 << endl;
-            }
-        }
-        return true;
-    } else {
-        if (show_work) {
-            #pragma omp critical (cerr)
-            {
-                cerr << log_name() << "Ends " << e1 << " and " << e2 << " are different" << endl;
-            }
-        }
-    }
-    return false;
+    return (initial_position(aln1.path()) == initial_position(aln2.path()) ||
+            final_position(aln1.path()) == final_position(aln2.path()));
 }
 
 double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<size_t>& minimizers_explored,
