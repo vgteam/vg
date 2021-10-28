@@ -2017,18 +2017,26 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
             duplicate_endpoints_2.push_back(0);
         } else {
             // This is not the best pair, but we need to see if any read endpoints are shared
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Check pair " << scores.size() - 1 << " read 1 for shared endpoints with the winner" << endl;
+                }
+            }
             if (share_terminal_positions(mappings.first[0], mappings.first.back())) {
                 duplicate_endpoints_1.push_back(scores.size() - 1);
+            }
+            if (show_work) {
+                #pragma omp critical (cerr)
+                {
+                    cerr << log_name() << "Check pair " <<scores.size() - 1 << " read 2 for shared endpoints with the winner" << endl;
+                }
             }
             if (share_terminal_positions(mappings.second[0], mappings.second.back())) {
                 duplicate_endpoints_2.push_back(scores.size() - 1);
             }
         }
 
-        // Flip aln2 back to input orientation
-        reverse_complement_alignment_in_place(&mappings.second.back(), [&](vg::id_t node_id) {
-            return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
-        });
         if (mappings.first.size() > 1) {
             mappings.first.back().set_is_secondary(true);
             mappings.second.back().set_is_secondary(true);
@@ -2064,8 +2072,20 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
         // We assume the best pair actually exists already and has its alignments recorded.
         // We need to decide whether the score we just emitted shares a read placement for either read.
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Check discarded pair " << scores.size() - 1 << " read 1 for shared endpoints with the winner" << endl;
+            }
+        }
         if (share_terminal_positions(mappings.first[0], follow_alignment_index(index_pair.first, true))) {
             duplicate_endpoints_1.push_back(scores.size() - 1);
+        }
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Check discarded pair " << scores.size() - 1 << " read 2 for shared endpoints with the winner" << endl;
+            }
         }
         if (share_terminal_positions(mappings.second[0], follow_alignment_index(index_pair.second, false))) {
             duplicate_endpoints_2.push_back(scores.size() - 1);
@@ -2084,7 +2104,16 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         // Score threshold is 0; this should never happen
         assert(false);
     });
-
+    
+    for (auto& aln : mappings.second) {
+        // Now flip all the read 2 alignments we got to be the input orientation,
+        // after we've had the chance to compare all the endpoints in a consistent
+        // orientation.
+        reverse_complement_alignment_in_place(&aln, [&](vg::id_t node_id) {
+            return gbwt_graph.get_length(gbwt_graph.get_handle(node_id));
+        });
+    }
+    
     if (track_provenance) {
         funnels[0].substage("mapq");
         funnels[1].substage("mapq");
@@ -2136,8 +2165,55 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         if (show_work) {
             #pragma omp critical (cerr)
             {
-                cerr << log_name() << "For scores";
-                for (auto& score : scores) cerr << " " << score << ":" << endl;
+                cerr << log_name() << duplicate_endpoints_1.size() << " first and " << duplicate_endpoints_2.size() << " second read equivalent pairs" << endl;
+                cerr << log_name() << "D Score\t\tS1\t\tE1\t\tS2\t\tE2" << endl;
+                // We need to print all the scores and mark them if they are
+                // grouped for base MAPQ for either read 1 or read 2 or both.
+                // The duplicate-on-each-end vectors are sorted indexes in the
+                // pair list, so we can walk cursors up them as we go throught
+                // the pairs.
+                size_t dupe_cursor_1 = 0;
+                size_t dupe_cursor_2 = 0;
+                for (size_t i = 0; i < scores.size(); i++) {
+                    bool is_dupe_1 = false;
+                    bool is_dupe_2 = false;
+                    if (dupe_cursor_1 < duplicate_endpoints_1.size() && duplicate_endpoints_1[dupe_cursor_1] == i) {
+                        // This pair's placement of read 1 is MAPQ-equivalent to that of the winnign pair
+                        is_dupe_1 = true;
+                        dupe_cursor_1++;
+                    }
+                    if (dupe_cursor_2 < duplicate_endpoints_2.size() && duplicate_endpoints_2[dupe_cursor_2] == i) {
+                        // This pair's placement of read 2 is MAPQ-equivalent to that of the winnign pair
+                        is_dupe_2 = true;
+                        dupe_cursor_2++;
+                    }
+                    // Print some nice ASCII art
+                    cerr << log_name();
+                    if (is_dupe_1) {
+                        if (is_dupe_2) {
+                            cerr << "█ ";
+                        } else {
+                            cerr << "▌ ";
+                        }
+                    } else {
+                        if (is_dupe_2) {
+                            cerr << "▐ ";
+                        } else {
+                            cerr << "  ";
+                        }
+                    }
+                    cerr << scores[i];
+                    if (i < mappings.first.size() && i < mappings.second.size()) {
+                        // Dump initial and final positions for each read we have handy
+                        cerr << "\t";
+                        pos_t s1 = initial_position(mappings.first[i].path());
+                        pos_t e1 = final_position(mappings.first[i].path());
+                        pos_t s2 = initial_position(mappings.second[i].path());
+                        pos_t e2 = final_position(mappings.second[i].path());
+                        cerr << s1 << "\t" << e1 << "\t" << s2 << "\t" << e2;
+                    }
+                    cerr << endl;
+                }
             }
         }
 
@@ -2163,7 +2239,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         const vector<double>* multiplicities = all_rescued ? &paired_multiplicities : nullptr; 
 
         if (scores[0] != 0) {
-            // Compute a nonzero base MAPQ for each read if not unmapped.
+            // Compute a base MAPQ for each read if not unmapped, replacing the 0 default.
             // If all of the alignment pairs were found with rescue, use the multiplicities to determine mapq.
             // Make sure not to count against each read the scores from other pairs that place the read at about the same place.
             // Use exact mapping quality
@@ -2180,6 +2256,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
         //If one alignment was duplicated in other pairs, cap the mapq for that alignment at the mapq
         //of the group of duplicated alignments. Always compute this even if not quite sensible.
+        // TODO: This doesn't actually get used!
         mapq_score_groups[0] = get_regular_aligner()->compute_max_mapping_quality(scores_group_1, false);
         mapq_score_groups[1] = get_regular_aligner()->compute_max_mapping_quality(scores_group_2, false);
         
@@ -2429,6 +2506,13 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 bool MinimizerMapper::share_terminal_positions(const Alignment& aln1, const Alignment& aln2) const {
     if (aln1.path().mapping_size() == 0 || aln2.path().mapping_size() == 0) {
         // One of them doesn't actually have any terminal positions
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "No shared endpoints because a path is empty" << endl;
+            }
+        }
+        
         return false;
     }
     
@@ -2436,8 +2520,47 @@ bool MinimizerMapper::share_terminal_positions(const Alignment& aln1, const Alig
     // ends meet ends.
     // TODO: Maybe instead of sharing terminal positions, we really want to be
     // deduplicating placements based on something else?
-    return (initial_position(aln1.path()) == initial_position(aln2.path()) ||
-            final_position(aln1.path()) == final_position(aln2.path()));
+    
+    pos_t s1 = initial_position(aln1.path());
+    pos_t s2 = initial_position(aln2.path());
+    
+    if (s1 == s2) {
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Detected shared start " << s1 << endl;
+            }
+        }
+        return true;
+    } else {
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Starts " << s1 << " and " << s2 << " are different" << endl;
+            }
+        }
+    }
+    
+    pos_t e1 = final_position(aln1.path());
+    pos_t e2 = final_position(aln2.path());
+    
+    if (e1 == e2) {
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Detected shared end " << e1 << endl;
+            }
+        }
+        return true;
+    } else {
+        if (show_work) {
+            #pragma omp critical (cerr)
+            {
+                cerr << log_name() << "Ends " << e1 << " and " << e2 << " are different" << endl;
+            }
+        }
+    }
+    return false;
 }
 
 double MinimizerMapper::faster_cap(const vector<Minimizer>& minimizers, vector<size_t>& minimizers_explored,
