@@ -182,9 +182,13 @@ class NewSnarlSeedClusterer {
             //The array is sorted.
             vector<vector<pair<id_t, size_t>>> node_to_seeds;
 
+            //This stores all the node clusters so we stop spending all our time allocating lots of vectors of NodeClusters
+            vector<NodeClusters> all_node_clusters;
+
             //Map from each snarl's net_handle_t to it's child net_handle_ts 
             //clusters at the node
-            hash_map<net_handle_t,vector<NodeClusters>> snarl_to_children;
+            //size_t is the index into all_node_clusters
+            hash_map<net_handle_t,vector<size_t>> snarl_to_children;
             
             //Map each chain to the snarls (only ones that contain seeds) that
             //comprise it. 
@@ -193,16 +197,19 @@ class NewSnarlSeedClusterer {
             //Map maps the rank of the snarl to the snarl and snarl's clusters
             //  Since maps are ordered, it will be in the order of traversal
             //  of the snarls in the chain
-            hash_map<net_handle_t, vector<NodeClusters>> chain_to_children;
+            //  size_t is the index into all_node_clusters
+            hash_map<net_handle_t, vector<size_t>> chain_to_children;
 
 
             //Same structure as chain_to_children but for the level of the snarl
             //tree above the current one
             //This gets updated as the current level is processed
-            hash_map<net_handle_t,vector<NodeClusters>> parent_chain_to_children;
+            //size_t is the index into all_node_clusters
+            hash_map<net_handle_t,vector<size_t>> parent_chain_to_children;
 
             //This holds all the child clusters of the root
-            vector<NodeClusters> root_children;
+            //size_t is the index into all_node_clusters
+            vector<size_t> root_children;
 
 
 /*
@@ -257,8 +264,9 @@ class NewSnarlSeedClusterer {
         //seeds to a snarl, organized by the level of the snarl in the snarl 
         //tree. snarl_to_nodes_by_level will be used to populate snarl_to_nodes
         //in the tree state as each level is processed
+        //size_t is the index into all_node_clusters
         void get_nodes( TreeState& tree_state,
-                        vector<hash_map<net_handle_t, vector< NodeClusters>>>& chain_to_children_by_level) const;
+                        vector<hash_map<net_handle_t, vector< size_t>>>& chain_to_children_by_level) const;
 
         //Cluster all the snarls at the current level and update the tree_state
         //to add each of the snarls to the parent level
@@ -290,8 +298,8 @@ class NewSnarlSeedClusterer {
 
         //Helper function to add to one of the cluster/snarl_to_children hash_maps.
         //Adds parent -> child_cluster to the parent_to_child_map
-        void add_child_to_vector(hash_map<net_handle_t, vector<NodeClusters>>& parent_to_child_map, const net_handle_t& parent,
-            NodeClusters child_cluster) const;
+        void add_child_to_vector(TreeState& tree_state, hash_map<net_handle_t, vector<size_t>>& parent_to_child_map, const net_handle_t& parent,
+            size_t child_cluster_index) const;
 };
 }
 
