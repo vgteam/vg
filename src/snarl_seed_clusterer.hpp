@@ -100,7 +100,6 @@ class NewSnarlSeedClusterer {
             //Only set these for nodes
             nid_t node_id = 0;
             bool is_reversed_in_parent = false;;
-            size_t node_length = std::numeric_limits<size_t>::max();
 
             
 
@@ -131,10 +130,9 @@ class NewSnarlSeedClusterer {
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
                 read_best_left(read_count, std::numeric_limits<size_t>::max()), 
                 read_best_right(read_count, std::numeric_limits<size_t>::max()){}
-            NodeClusters( SnarlDistanceIndex::CachedNetHandle net, size_t read_count, bool is_reversed_in_parent, size_t node_length, nid_t node_id) :
+            NodeClusters( SnarlDistanceIndex::CachedNetHandle net, size_t read_count, bool is_reversed_in_parent, nid_t node_id) :
                 containing_net_handle(net),
                 is_reversed_in_parent(is_reversed_in_parent),
-                node_length(node_length),
                 node_id(node_id),
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
                 read_best_left(read_count, std::numeric_limits<size_t>::max()), 

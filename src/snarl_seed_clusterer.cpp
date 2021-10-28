@@ -343,7 +343,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 
                  insert_in_order(chain_to_children_by_level[depth][parent],
                                  NodeClusters(std::move(cached_net_handle), tree_state.all_seeds->size(),
-                                              is_reversed_in_parent, node_length, id));
+                                              is_reversed_in_parent, id));
              } 
         }
         std::sort(node_to_seeds.begin(), node_to_seeds.end());
@@ -450,7 +450,7 @@ void NewSnarlSeedClusterer::cluster_one_node(
     cerr << "Finding clusters on node " << distance_index.net_handle_as_string(node_clusters.containing_net_handle.net) << endl;
 #endif
 
-    size_t node_length = node_clusters.node_length;
+    size_t node_length = distance_index.get_cached_min_length(node_clusters.containing_net_handle);
     nid_t node_id = node_clusters.node_id;
 
 
@@ -817,8 +817,8 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
     //the relevant combined cluster head for the fragment
     //Returns true if this cluster got combined
     auto compare_and_combine_clusters = [&] (size_t read_num, size_t cluster_num, size_t distance_between_reads, 
-            size_t distance_between_fragments, pair<size_t, size_t> old_distances, pair<pair<size_t, size_t>, 
-            pair<size_t, size_t>>& new_cluster_head_and_distances, size_t& new_cluster_head_fragment){
+            size_t distance_between_fragments, pair<size_t, size_t> old_distances, 
+            pair<pair<size_t, size_t>, pair<size_t, size_t>>& new_cluster_head_and_distances, size_t& new_cluster_head_fragment){
         if (read_num == new_cluster_head_and_distances.first.first && cluster_num ==  new_cluster_head_and_distances.first.second) {
             //If this is the same as the old cluster head, then don't bother trying to compare
             return false;
@@ -1140,7 +1140,6 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_snarl(
 
     distance_index.set_cached_start_bound(snarl_handle, true, true);
     distance_index.set_cached_end_bound(snarl_handle, true, true);
-    distance_index.set_cached_min_length(snarl_handle);
     distance_index.set_cached_rank(snarl_handle);
     distance_index.set_cached_parent_offset(snarl_handle);
     NodeClusters snarl_clusters(snarl_handle, tree_state.all_seeds->size());
@@ -1280,7 +1279,6 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(Tre
     //This will hold the clusters of the chain
     distance_index.set_cached_start_bound(chain_handle, true, true);
     distance_index.set_cached_end_bound(chain_handle, true, true);
-    distance_index.set_cached_min_length(chain_handle);
     distance_index.set_cached_rank(chain_handle);
     distance_index.set_cached_parent_offset(chain_handle);
     NodeClusters chain_clusters(chain_handle, tree_state.all_seeds->size());
