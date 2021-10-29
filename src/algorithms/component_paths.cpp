@@ -3,8 +3,13 @@
  */
 
 #include <queue>
+#include <thread>
+#include <atomic>
+#include <mutex>
 
+#include "../cluster.hpp"
 #include "component_paths.hpp"
+#include "utility.hpp"
 #include "sdsl/bit_vectors.hpp"
 
 
@@ -80,6 +85,61 @@ vector<unordered_set<path_handle_t>> component_paths(const PathHandleGraph& grap
     });
     
     return component_path_sets;
+}
+
+vector<unordered_set<path_handle_t>> component_paths(const PathHandleGraph& graph) {
+    
+    vector<unordered_set<path_handle_t>> return_val;
+    
+    nid_t min_id = graph.min_node_id();
+    nid_t id_range = graph.max_node_id() - min_id + 1;
+    size_t num_nodes = graph.get_node_count();
+    double id_density = double(num_nodes) / double(id_range);
+    int thread_count = get_thread_count();
+    if (id_density < 1.0 / double(thread_count)) {
+        // the coverage of the node ID space is too diffuse for this algorithm
+        // to work well
+        return_val = component_path(graph);
+    }
+    else {
+        // we use a technique to generate a high-entropy shuffle in O(1) space
+        // and time per
+        
+        int which_prime = 0;
+        while (spaced_primes[which_prime] <= id_range + 1) {
+            ++which_prime;
+        }
+        
+        size_t prime = spaced_primes[which_prime];
+        size_t primitive_root = primitive_roots_of_unity[which_prime];
+        size_t permuted = 1;
+        
+        atomic<size_t> num_visited(0);
+        
+        vector<int> visitor(num_nodes, -1);
+        vector<int> thread_current_id()
+        
+        mutex get_seed_mutex;
+        vector<thread> workers;
+        for (int i = 0; i < thread_count; ++i) {
+            workers.emplace_back([&]() {
+                while (num_visited.load() < num_nodes) {
+                    
+                    get_seed_mutex.lock();
+                    
+                    while (true) {
+                        id_t node_id = min_node_id + permuted - 1;
+                        //
+                        permuted = (permuted * primitive_root) % prime;
+                    }
+                    
+                    get_seed_mutex.unlock();
+                    
+                    
+                }
+            });
+        }
+    }
 }
     
 }
