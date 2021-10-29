@@ -230,6 +230,12 @@ const string hash_alignment(const Alignment& aln);
 Alignment reverse_complement_alignment(const Alignment& aln, const function<int64_t(id_t)>& node_length);
 void reverse_complement_alignment_in_place(Alignment* aln, const function<int64_t(id_t)>& node_length);
 vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length);
+
+/**
+ * 
+ */
+void left_shift_alignment_in_place(Alignment* aln, const HandleGraph& graph);
+
 int non_match_start(const Alignment& alignment);
 int non_match_end(const Alignment& alignment);
 int softclip_start(const Alignment& alignment);

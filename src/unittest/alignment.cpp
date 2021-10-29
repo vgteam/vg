@@ -240,6 +240,197 @@ TEST_CASE("Target to alignment extraction", "[target-to-aln]") {
     
 }
 
+TEST_CASE("Alignments can be left-shifted", "[left-shift]") {
+    
+    HashGraph g;
+    
+    //                                                              v We have a substitution here
+    handle_t n1 = g.create_handle("AAAACATTAGCATTAGCATTAGCATTAGCATTATCATTAGAAAA");
+    // This will be node 1
+    
+    SECTION("when a deletion is in a homopolymer") {
+        Alignment aln;
+        json2pb(aln, R"(
+            {"path": {"mapping": [
+                {"position": {"node_id": "1"}, "edit": {[
+                    {"from": 3, "to": 3},
+                    {"from": 1, "to": 0},
+                    {"from": 1, "to": 1}
+                ]}}
+            ]}}
+        )");
+        
+        left_shift_alignment_in_place(&aln, g);
+        
+        REQUIRE(aln.path().mapping(0).edit_size() == 2);
+        REQUIRE(aln.path().mapping(0).edit(0).from() == 1);
+        REQUIRE(aln.path().mapping(0).edit(0).to() == 0);
+        REQUIRE(aln.path().mapping(0).edit(0).sequence() == ""); 
+        REQUIRE(aln.path().mapping(0).edit(1).from() == 4);
+        REQUIRE(aln.path().mapping(0).edit(1).to() == 4);
+        REQUIRE(aln.path().mapping(0).edit(1).sequence() == "");
+    }
+    
+    SECTION("when deletions in a homopolymer must merge") {
+        Alignment aln;
+        json2pb(aln, R"(
+            {"path": {"mapping": [
+                {"position": {"node_id": "1"}, "edit": {[
+                    {"from": 1, "to": 1},
+                    {"from": 1, "to": 0},
+                    {"from": 1, "to": 1},
+                    {"from": 1, "to": 0},
+                    {"from": 1, "to": 1}
+                ]}}
+            ]}}
+        )");
+        
+        left_shift_alignment_in_place(&aln, g);
+        
+        REQUIRE(aln.path().mapping(0).edit_size() == 2);
+        REQUIRE(aln.path().mapping(0).edit(0).from() == 2);
+        REQUIRE(aln.path().mapping(0).edit(0).to() == 0);
+        REQUIRE(aln.path().mapping(0).edit(0).sequence() == "");
+        REQUIRE(aln.path().mapping(0).edit(1).from() == 3);
+        REQUIRE(aln.path().mapping(0).edit(1).to() == 3);
+        REQUIRE(aln.path().mapping(0).edit(1).sequence() == "");
+    }
+    
+    SECTION("when an insertion is in a homopolymer") {
+        Alignment aln;
+        json2pb(aln, R"(
+            {"path": {"mapping": [
+                {"position": {"node_id": "1"}, "edit": {[
+                    {"from": 4, "to": 4},
+                    {"from": 0, "to": 1, "sequence": "A"},
+                    {"from": 1, "to": 1}
+                ]}}
+            ]}}
+        )");
+        
+        left_shift_alignment_in_place(&aln, g);
+        
+        REQUIRE(aln.path().mapping(0).edit_size() == 2);
+        REQUIRE(aln.path().mapping(0).edit(0).from() == 0);
+        REQUIRE(aln.path().mapping(0).edit(0).to() == 1);
+        REQUIRE(aln.path().mapping(0).edit(0).sequence() == "A");
+        REQUIRE(aln.path().mapping(0).edit(1).from() == 5);
+        REQUIRE(aln.path().mapping(0).edit(1).to() == 5);
+        REQUIRE(aln.path().mapping(0).edit(1).sequence() == "");
+    }
+    
+    SECTION("when insertions in a homopolymer must merge") {
+        Alignment aln;
+        json2pb(aln, R"(
+            {"path": {"mapping": [
+                {"position": {"node_id": "1"}, "edit": {[
+                    {"from": 2, "to": 2},
+                    {"from": 0, "to": 1, "sequence": "A"},
+                    {"from": 2, "to": 2},
+                    {"from": 0, "to": 1, "sequence": "A"},
+                    {"from": 1, "to": 1}
+                ]}}
+            ]}}
+        )");
+        
+        left_shift_alignment_in_place(&aln, g);
+        
+        REQUIRE(aln.path().mapping(0).edit_size() == 2);
+        REQUIRE(aln.path().mapping(0).edit(0).from() == 0);
+        REQUIRE(aln.path().mapping(0).edit(0).to() == 2);
+        REQUIRE(aln.path().mapping(0).edit(0).sequence() == "AA");
+        REQUIRE(aln.path().mapping(0).edit(1).from() == 5);
+        REQUIRE(aln.path().mapping(0).edit(1).to() == 5);
+        REQUIRE(aln.path().mapping(0).edit(1).sequence() == "");
+    }
+    
+    SECTION("when an insertion in a homopolymer must merge with an immovable insertion") {
+        Alignment aln;
+        json2pb(aln, R"(
+            {"path": {"mapping": [
+                {"position": {"node_id": "1"}, "edit": {[
+                    {"from": 2, "to": 2},
+                    {"from": 0, "to": 1, "sequence": "G"},
+                    {"from": 2, "to": 2},
+                    {"from": 0, "to": 1, "sequence": "A"},
+                    {"from": 1, "to": 1}
+                ]}}
+            ]}}
+        )");
+        
+        left_shift_alignment_in_place(&aln, g);
+        
+        REQUIRE(aln.path().mapping(0).edit_size() == 3);
+        REQUIRE(aln.path().mapping(0).edit(0).from() == 2);
+        REQUIRE(aln.path().mapping(0).edit(0).to() == 2);
+        REQUIRE(aln.path().mapping(0).edit(0).sequence() == "");
+        REQUIRE(aln.path().mapping(0).edit(1).from() == 0);
+        REQUIRE(aln.path().mapping(0).edit(1).to() == 2);
+        REQUIRE(aln.path().mapping(0).edit(1).sequence() == "GA");
+        REQUIRE(aln.path().mapping(0).edit(2).from() == 3);
+        REQUIRE(aln.path().mapping(0).edit(2).to() == 3);
+        REQUIRE(aln.path().mapping(0).edit(2).sequence() == "");
+    }
+
+    SECTION("when the last matching repeat is deleted") {
+        Alignment aln;
+        json2pb(aln, R"(
+            {"path": {"mapping": [
+                {"position": {"node_id": "1"}, "edit": {[
+                    {"from": 22, "to": 22},
+                    {"from": 6, "to": 0},
+                    {"from": 16, "to": 16}
+                ]}}
+            ]}}
+        )");
+        
+        left_shift_alignment_in_place(&aln, g);
+        
+        REQUIRE(aln.path().mapping(0).edit_size() == 3);
+        REQUIRE(aln.path().mapping(0).edit(0).from() == 4);
+        REQUIRE(aln.path().mapping(0).edit(0).to() == 4);
+        REQUIRE(aln.path().mapping(0).edit(0).sequence() == "");
+        REQUIRE(aln.path().mapping(0).edit(1).from() == 6);
+        REQUIRE(aln.path().mapping(0).edit(1).to() == 0);
+        REQUIRE(aln.path().mapping(0).edit(1).sequence() == "");
+        REQUIRE(aln.path().mapping(0).edit(2).from() == 34);
+        REQUIRE(aln.path().mapping(0).edit(2).to() == 34);
+        REQUIRE(aln.path().mapping(0).edit(2).sequence() == "");
+    }
+    
+    SECTION("when the next matching repeat is deleted and the previous repeat made to match") {
+        // TODO: should this one even be caught??? Does Freebayes catch it?
+        Alignment aln;
+        json2pb(aln, R"(
+            {"path": {"mapping": [
+                {"position": {"node_id": "1"}, "edit": {[
+                    {"from": 28, "to": 28},
+                    {"from": 5, "to": 5},
+                    {"from": 1, "to": 1, "sequence": "G"},
+                    {"from": 6, "to": 0},
+                    {"from": 4, "to": 4}
+                ]}}
+            ]}}
+        )");
+        
+        left_shift_alignment_in_place(&aln, g);
+        
+        // Comes out as a deletion of the repeat that was actually distinctive
+        REQUIRE(aln.path().mapping(0).edit_size() == 3);
+        REQUIRE(aln.path().mapping(0).edit(0).from() == 28);
+        REQUIRE(aln.path().mapping(0).edit(0).to() == 28);
+        REQUIRE(aln.path().mapping(0).edit(0).sequence() == "");
+        REQUIRE(aln.path().mapping(0).edit(1).from() == 6);
+        REQUIRE(aln.path().mapping(0).edit(1).to() == 0);
+        REQUIRE(aln.path().mapping(0).edit(1).sequence() == "");
+        REQUIRE(aln.path().mapping(0).edit(2).from() == 10);
+        REQUIRE(aln.path().mapping(0).edit(2).to() == 10);
+        REQUIRE(aln.path().mapping(0).edit(2).sequence() == "");
+    }
+    
+}
+    
+
 TEST_CASE("consolidate_ID_runs merges runs of adjacent I's and D's in cigars", "[alignment][surject]") {
     
     vector<pair<int, char>> cigar{
