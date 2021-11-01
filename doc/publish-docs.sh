@@ -36,16 +36,28 @@ make docs
 SCRATCH_DIR="$(pwd)/../tmp"
 mkdir -p "${SCRATCH_DIR}"
 
+# Despite the _SECRET_FILE ending we used to use the contents of
+# GITLAB_SECRET_FILE_DOCS_SSH_KEY as the key. But now we want to support it as
+# a file instead.
 
-# Set up our SSH key
-touch "${SCRATCH_DIR}/deploy_key"
-
-# Protect it so the agent is happy
-chmod 600 "${SCRATCH_DIR}/deploy_key"
-
-# Fill it in with NO COMMAND ECHO
+# Turn off echo to protect key
 set +x
-echo "${GITLAB_SECRET_FILE_DOCS_SSH_KEY}" > ${SCRATCH_DIR}/deploy_key
+
+if [[ -e "${GITLAB_SECRET_FILE_DOCS_SSH_KEY}" ]] ; then
+    # It's a file, so copy it into place
+    cp "${GITLAB_SECRET_FILE_DOCS_SSH_KEY}" "${SCRATCH_DIR}/deploy_key"
+else
+    # Old style CI: it's a value.
+
+    # Set up our SSH key
+    touch "${SCRATCH_DIR}/deploy_key"
+
+    # Protect it so the agent is happy
+    chmod 600 "${SCRATCH_DIR}/deploy_key"
+
+    # Fill it in
+    echo "${GITLAB_SECRET_FILE_DOCS_SSH_KEY}" > ${SCRATCH_DIR}/deploy_key
+fi
 
 # Turn on echo so we can see what we're doing.
 # This MUST happen only AFTER we are done touching the encryption stuff.
