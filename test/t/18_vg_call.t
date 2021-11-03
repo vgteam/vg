@@ -163,8 +163,8 @@ rm -f x.vg x.gbwt sim.gam x.pack call.vcf callg.vcf
 
 
 # subpath test
-sed small/x.fa -e 's/x/x[100]/g' > x_sub1.fa
-sed small/x.fa -e 's/x/x[10000]/g' > x_sub2.fa
+sed -e 's/x/x[100]/g' small/x.fa > x_sub1.fa
+sed -e 's/x/x[10000]/g' small/x.fa > x_sub2.fa
 gzip -dc small/x.vcf.gz | sed -e 's/x/x[100]/g' | bgzip > x_sub1.vcf.gz && tabix -fp vcf x_sub1.vcf.gz
 gzip -dc small/x.vcf.gz | sed -e 's/x/x[10000]/g' | bgzip > x_sub2.vcf.gz && tabix -fp vcf x_sub2.vcf.gz
 vg construct -r x_sub1.fa -v x_sub1.vcf.gz -r x_sub2.fa -v x_sub2.vcf.gz > x_subs.vg
