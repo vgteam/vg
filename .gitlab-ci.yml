@@ -18,11 +18,14 @@ before_script:
     if [[ ! -z "${DOCKER_HUB_MIRROR}" ]] ; then
       if [[ "${DOCKER_HUB_MIRROR}" == https* ]] ; then
         # Set up a secure mirror
-        echo "{\"registry-mirrors\": [\"${DOCKER_HUB_MIRROR}\", \"https://mirror.gcr.io\"]}\"]}" | sudo tee /etc/docker/daemon.json
+        echo "{\"registry-mirrors\": [\"${DOCKER_HUB_MIRROR}\", \"https://mirror.gcr.io\"]}" | sudo tee /etc/docker/daemon.json
       else
         # Set up an insecure mirror
         echo "{\"registry-mirrors\": [\"${DOCKER_HUB_MIRROR}\", \"https://mirror.gcr.io\"], \"insecure-registries\": [\"${DOCKER_HUB_MIRROR##*://}\"]}" | sudo tee /etc/docker/daemon.json
       fi
+    else
+      # Always use this mirror as an option
+      echo "{\"registry-mirrors\": [\"https://mirror.gcr.io\"]}" | sudo tee /etc/docker/daemon.json
     fi
   - startdocker || true
   - docker info
