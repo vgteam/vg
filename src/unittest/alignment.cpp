@@ -6,6 +6,7 @@
 #include <iostream>
 #include <string>
 #include "vg/io/json2pb.h"
+#include <bdsg/hash_graph.hpp>
 #include <vg/vg.pb.h>
 #include "../alignment.hpp"
 #include "../vg.hpp"
@@ -263,11 +264,11 @@ TEST_CASE("Alignments can be left-shifted", "[left-shift]") {
         left_shift_alignment_in_place(&aln, g);
         
         REQUIRE(aln.path().mapping(0).edit_size() == 2);
-        REQUIRE(aln.path().mapping(0).edit(0).from() == 1);
-        REQUIRE(aln.path().mapping(0).edit(0).to() == 0);
+        REQUIRE(aln.path().mapping(0).edit(0).from_length() == 1);
+        REQUIRE(aln.path().mapping(0).edit(0).to_length() == 0);
         REQUIRE(aln.path().mapping(0).edit(0).sequence() == ""); 
-        REQUIRE(aln.path().mapping(0).edit(1).from() == 4);
-        REQUIRE(aln.path().mapping(0).edit(1).to() == 4);
+        REQUIRE(aln.path().mapping(0).edit(1).from_length() == 4);
+        REQUIRE(aln.path().mapping(0).edit(1).to_length() == 4);
         REQUIRE(aln.path().mapping(0).edit(1).sequence() == "");
     }
     
@@ -288,11 +289,11 @@ TEST_CASE("Alignments can be left-shifted", "[left-shift]") {
         left_shift_alignment_in_place(&aln, g);
         
         REQUIRE(aln.path().mapping(0).edit_size() == 2);
-        REQUIRE(aln.path().mapping(0).edit(0).from() == 2);
-        REQUIRE(aln.path().mapping(0).edit(0).to() == 0);
+        REQUIRE(aln.path().mapping(0).edit(0).from_length() == 2);
+        REQUIRE(aln.path().mapping(0).edit(0).to_length() == 0);
         REQUIRE(aln.path().mapping(0).edit(0).sequence() == "");
-        REQUIRE(aln.path().mapping(0).edit(1).from() == 3);
-        REQUIRE(aln.path().mapping(0).edit(1).to() == 3);
+        REQUIRE(aln.path().mapping(0).edit(1).from_length() == 3);
+        REQUIRE(aln.path().mapping(0).edit(1).to_length() == 3);
         REQUIRE(aln.path().mapping(0).edit(1).sequence() == "");
     }
     
@@ -311,11 +312,11 @@ TEST_CASE("Alignments can be left-shifted", "[left-shift]") {
         left_shift_alignment_in_place(&aln, g);
         
         REQUIRE(aln.path().mapping(0).edit_size() == 2);
-        REQUIRE(aln.path().mapping(0).edit(0).from() == 0);
-        REQUIRE(aln.path().mapping(0).edit(0).to() == 1);
+        REQUIRE(aln.path().mapping(0).edit(0).from_length() == 0);
+        REQUIRE(aln.path().mapping(0).edit(0).to_length() == 1);
         REQUIRE(aln.path().mapping(0).edit(0).sequence() == "A");
-        REQUIRE(aln.path().mapping(0).edit(1).from() == 5);
-        REQUIRE(aln.path().mapping(0).edit(1).to() == 5);
+        REQUIRE(aln.path().mapping(0).edit(1).from_length() == 5);
+        REQUIRE(aln.path().mapping(0).edit(1).to_length() == 5);
         REQUIRE(aln.path().mapping(0).edit(1).sequence() == "");
     }
     
@@ -336,11 +337,11 @@ TEST_CASE("Alignments can be left-shifted", "[left-shift]") {
         left_shift_alignment_in_place(&aln, g);
         
         REQUIRE(aln.path().mapping(0).edit_size() == 2);
-        REQUIRE(aln.path().mapping(0).edit(0).from() == 0);
-        REQUIRE(aln.path().mapping(0).edit(0).to() == 2);
+        REQUIRE(aln.path().mapping(0).edit(0).from_length() == 0);
+        REQUIRE(aln.path().mapping(0).edit(0).to_length() == 2);
         REQUIRE(aln.path().mapping(0).edit(0).sequence() == "AA");
-        REQUIRE(aln.path().mapping(0).edit(1).from() == 5);
-        REQUIRE(aln.path().mapping(0).edit(1).to() == 5);
+        REQUIRE(aln.path().mapping(0).edit(1).from_length() == 5);
+        REQUIRE(aln.path().mapping(0).edit(1).to_length() == 5);
         REQUIRE(aln.path().mapping(0).edit(1).sequence() == "");
     }
     
@@ -361,14 +362,14 @@ TEST_CASE("Alignments can be left-shifted", "[left-shift]") {
         left_shift_alignment_in_place(&aln, g);
         
         REQUIRE(aln.path().mapping(0).edit_size() == 3);
-        REQUIRE(aln.path().mapping(0).edit(0).from() == 2);
-        REQUIRE(aln.path().mapping(0).edit(0).to() == 2);
+        REQUIRE(aln.path().mapping(0).edit(0).from_length() == 2);
+        REQUIRE(aln.path().mapping(0).edit(0).to_length() == 2);
         REQUIRE(aln.path().mapping(0).edit(0).sequence() == "");
-        REQUIRE(aln.path().mapping(0).edit(1).from() == 0);
-        REQUIRE(aln.path().mapping(0).edit(1).to() == 2);
+        REQUIRE(aln.path().mapping(0).edit(1).from_length() == 0);
+        REQUIRE(aln.path().mapping(0).edit(1).to_length() == 2);
         REQUIRE(aln.path().mapping(0).edit(1).sequence() == "GA");
-        REQUIRE(aln.path().mapping(0).edit(2).from() == 3);
-        REQUIRE(aln.path().mapping(0).edit(2).to() == 3);
+        REQUIRE(aln.path().mapping(0).edit(2).from_length() == 3);
+        REQUIRE(aln.path().mapping(0).edit(2).to_length() == 3);
         REQUIRE(aln.path().mapping(0).edit(2).sequence() == "");
     }
 
@@ -387,14 +388,14 @@ TEST_CASE("Alignments can be left-shifted", "[left-shift]") {
         left_shift_alignment_in_place(&aln, g);
         
         REQUIRE(aln.path().mapping(0).edit_size() == 3);
-        REQUIRE(aln.path().mapping(0).edit(0).from() == 4);
-        REQUIRE(aln.path().mapping(0).edit(0).to() == 4);
+        REQUIRE(aln.path().mapping(0).edit(0).from_length() == 4);
+        REQUIRE(aln.path().mapping(0).edit(0).to_length() == 4);
         REQUIRE(aln.path().mapping(0).edit(0).sequence() == "");
-        REQUIRE(aln.path().mapping(0).edit(1).from() == 6);
-        REQUIRE(aln.path().mapping(0).edit(1).to() == 0);
+        REQUIRE(aln.path().mapping(0).edit(1).from_length() == 6);
+        REQUIRE(aln.path().mapping(0).edit(1).to_length() == 0);
         REQUIRE(aln.path().mapping(0).edit(1).sequence() == "");
-        REQUIRE(aln.path().mapping(0).edit(2).from() == 34);
-        REQUIRE(aln.path().mapping(0).edit(2).to() == 34);
+        REQUIRE(aln.path().mapping(0).edit(2).from_length() == 34);
+        REQUIRE(aln.path().mapping(0).edit(2).to_length() == 34);
         REQUIRE(aln.path().mapping(0).edit(2).sequence() == "");
     }
     
@@ -417,14 +418,14 @@ TEST_CASE("Alignments can be left-shifted", "[left-shift]") {
         
         // Comes out as a deletion of the repeat that was actually distinctive
         REQUIRE(aln.path().mapping(0).edit_size() == 3);
-        REQUIRE(aln.path().mapping(0).edit(0).from() == 28);
-        REQUIRE(aln.path().mapping(0).edit(0).to() == 28);
+        REQUIRE(aln.path().mapping(0).edit(0).from_length() == 28);
+        REQUIRE(aln.path().mapping(0).edit(0).to_length() == 28);
         REQUIRE(aln.path().mapping(0).edit(0).sequence() == "");
-        REQUIRE(aln.path().mapping(0).edit(1).from() == 6);
-        REQUIRE(aln.path().mapping(0).edit(1).to() == 0);
+        REQUIRE(aln.path().mapping(0).edit(1).from_length() == 6);
+        REQUIRE(aln.path().mapping(0).edit(1).to_length() == 0);
         REQUIRE(aln.path().mapping(0).edit(1).sequence() == "");
-        REQUIRE(aln.path().mapping(0).edit(2).from() == 10);
-        REQUIRE(aln.path().mapping(0).edit(2).to() == 10);
+        REQUIRE(aln.path().mapping(0).edit(2).from_length() == 10);
+        REQUIRE(aln.path().mapping(0).edit(2).to_length() == 10);
         REQUIRE(aln.path().mapping(0).edit(2).sequence() == "");
     }
     
