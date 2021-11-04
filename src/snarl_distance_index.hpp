@@ -49,12 +49,9 @@ public:
 
 
 //Given a position, return the distances that can be stored by a minimizer
-//For any node, this stores:
-// - true if it is reversed in its parent
-// - the length of the node
-// - the offset in snarl_tree_records of the node record
+//This is just the net handle for the node as an integer
 // 
-tuple<bool, size_t, size_t>  get_minimizer_distances (const SnarlDistanceIndex& distance_index, pos_t pos);
+uint64_t  get_minimizer_distances (const SnarlDistanceIndex& distance_index, pos_t pos);
 
 
 
@@ -119,33 +116,19 @@ struct MIPayload {
     typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::payload_type.
 
     constexpr static code_type NO_CODE = std::numeric_limits<code_type>::max();
-    constexpr static size_t NO_VALUE = std::numeric_limits<size_t>::max(); // From offset_in_root_chain().
+    constexpr static std::uint64_t NO_VALUE = std::numeric_limits<uint64_t>::max(); // From offset_in_root_chain().
 
-    constexpr static size_t LENGTH_OFFSET = 33;
-    constexpr static size_t LENGTH_WIDTH = 31;
-    constexpr static size_t RECORD_OFFSET_WIDTH = 32;
-    constexpr static code_type RECORD_OFFSET_MASK = (static_cast<code_type>(1) << RECORD_OFFSET_WIDTH) - 1;
+    static code_type encode(uint64_t info) {
 
-    static code_type encode(std::tuple<bool, size_t, size_t> info) {
-        bool is_rev_in_parent; size_t node_length; size_t record_offset; 
-        std::tie(is_rev_in_parent, node_length, record_offset) = info;
-        if (node_length >= (static_cast<code_type>(1) << 31) - 1 
-            || record_offset >= static_cast<size_t>(RECORD_OFFSET_MASK) ) {
-            //If the values are too large to be stored
-            return NO_CODE;
-        }
-
-        return (node_length << LENGTH_OFFSET) | (record_offset << 1) | static_cast<code_type>(is_rev_in_parent);
+        return info;
 
     }
 
-    static std::tuple<bool, size_t, size_t> decode(code_type code) {
+    static uint64_t decode(code_type code) {
         if (code == NO_CODE) {
-            return std::tuple<bool, size_t, size_t>(false, NO_VALUE, NO_VALUE);
+            return NO_VALUE;
         } else {
-            //This is a top-level chain
-            return std::tuple<bool, size_t, size_t>
-                    (code & 1, code >> LENGTH_OFFSET, code >> 1 & RECORD_OFFSET_MASK);
+            return code;
         }
     }
 };

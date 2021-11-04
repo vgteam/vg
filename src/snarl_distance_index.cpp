@@ -935,14 +935,11 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
  */
 
 
-tuple<bool, size_t, size_t> get_minimizer_distances (const SnarlDistanceIndex& distance_index,pos_t pos) {
+uint64_t get_minimizer_distances (const SnarlDistanceIndex& distance_index,pos_t pos) {
 
     net_handle_t node_handle = distance_index.get_node_net_handle(get_id(pos));
 
-    return tuple<bool, size_t, size_t>(
-                distance_index.is_reversed_in_parent(node_handle), 
-                distance_index.node_length(node_handle),
-                distance_index.get_record_offset(node_handle) );
+    return as_integer(node_handle);
 
 
 

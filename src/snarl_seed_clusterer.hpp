@@ -20,10 +20,7 @@ class NewSnarlSeedClusterer {
             size_t source; // Source minimizer.
 
             //For nodes
-            bool is_reversed_in_parent = false;
-            size_t node_length=0;
-            size_t record_offset=0;//offset of node record in snarl_tree_records
-            //This will never be 0 so 0 indicates that it wasn't set
+            uint64_t node_net_handle_as_integer=MIPayload::NO_VALUE;
 
         };
 

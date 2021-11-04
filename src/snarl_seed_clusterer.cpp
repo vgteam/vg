@@ -316,8 +316,8 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
              //And the node to a chain
             if (seen_nodes.count(id) < 1) {
                  seen_nodes.insert(id);
-                 net_handle_t node_net_handle = seed.record_offset == 0 ? distance_index.get_node_net_handle(id) 
-                                                                        : distance_index.get_net_handle(seed.record_offset); 
+                 net_handle_t node_net_handle = seed.node_net_handle_as_integer == MIPayload::NO_VALUE ? distance_index.get_node_net_handle(id) 
+                                                                        : as_net_handle(seed.node_net_handle_as_integer); 
                  //Look up important values for the node here and cache them
                  SnarlDistanceIndex::CachedNetHandle cached_net_handle = distance_index.get_cached_net_handle(node_net_handle);
                  distance_index.set_cached_min_length(cached_net_handle);
@@ -335,8 +335,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                      vector<size_t> empty_vector;
                      chain_to_children_by_level[depth].emplace(parent, std::move(empty_vector));
                  }
-                 bool is_reversed_in_parent = seed.record_offset == 0 ? distance_index.is_reversed_in_parent(node_net_handle)
-                                                                      : seed.is_reversed_in_parent;
+                 bool is_reversed_in_parent = distance_index.is_reversed_in_parent(node_net_handle);
                  size_t node_length = cached_net_handle.min_length;
 
 
