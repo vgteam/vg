@@ -88,6 +88,9 @@ private:
 
     // get a snarl name, using trnaslation if availabe
     string snarl_name(const Snarl* snarl) const;
+
+    // update the PS and LV tags in the output buffer (call just before write_variants)
+    void update_nesting_info_tags();
     
     // toggle between exhaustive and path restricted traversal finder
     bool path_restricted = false;
