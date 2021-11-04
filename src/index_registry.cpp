@@ -3024,8 +3024,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         init_out(outfile_gcsa, gcsa_output_name);
         init_out(outfile_lcp, lcp_output_name);
         
-        // configure GCSA to use scratch in the general temp directory
-        gcsa::TempFile::setDirectory(temp_file::get_dir());
         if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
             gcsa::Verbosity::set(gcsa::Verbosity::BASIC);
         }

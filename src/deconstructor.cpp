@@ -725,14 +725,9 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 
         // Fill in some snarl hierarchy information
         if (include_nested) {
-            // would be nicer to do this constant time!
-            size_t level = 0;
-            for (const Snarl* cur = snarl; !snarl_manager->is_root(cur); cur = snarl_manager->parent_of(cur)) {
-                ++level;
-            }
-            v.info["LV"].push_back(std::to_string(level));
-            if (level > 0) {
-                const Snarl* parent = snarl_manager->parent_of(snarl);
+            // do PS now.  LV gets added later
+            const Snarl* parent = snarl_manager->parent_of(snarl);
+            if (parent) {
                 string parent_id = snarl_name(parent);
                 v.info["PS"].push_back(parent_id);
             } 
@@ -946,6 +941,13 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         auto& snarl = snarls_todo[i];
         deconstruct_site(snarl);
     }
+
+    if (include_nested) {
+        // if parent snarls aren't done before their children anymore, and we want the
+        // nesting tags to be aware of which snarls were done and which weren't, then they
+        // need to be added in a second pass:
+        update_nesting_info_tags();
+    }
     
     // write variants in sorted order
     write_variants(cout);
@@ -1074,5 +1076,96 @@ tuple<bool, handle_t, size_t> Deconstructor::get_gbwt_path_position(const SnarlT
     return rval;
 }
 
+void Deconstructor::update_nesting_info_tags() {
+
+    // all string tokenizing happens in these buffers
+    vector<string> toks;
+    vector<string> info_toks;
+
+    // vcf is stored as strings at this point:
+    function<pair<string, string>(const string&)> extract_id_ps = [&] (const string& vcf_line) {
+        toks.clear();
+        split_delims(vcf_line, "\t", toks, 9);        
+        const string& id = toks[2];
+        const string& info = toks[7];
+        info_toks.clear();
+        split_delims(info, ";", info_toks);
+        string ps = "";
+        for (const string& info_tok : info_toks) {
+            if (info_tok.compare(0, 3, "PS=") == 0) {
+                ps = info_tok.substr(3, string::npos);
+                break;
+            }
+        }
+        return make_pair(id, ps);
+    };
+
+    // remember parents from current PS tags (empty string means no parent)
+    unordered_map<string, string> id_to_ps;
+
+    // pass 1: store parent hierachy as given in PS tags
+    for (auto& thread_buf : output_variants) {
+        for (auto& output_variant_record : thread_buf) {
+            string& output_variant_string = output_variant_record.second;
+            id_to_ps.insert(extract_id_ps(output_variant_string));
+        }
+    }
+    
+    // pass 2: update ps tags ; add lv tags
+    for (auto& thread_buf : output_variants) {
+        for (auto& output_variant_record : thread_buf) {
+            string& output_variant_string = output_variant_record.second;
+            int64_t lv = 0;
+            pair<string, string> id_ps = extract_id_ps(output_variant_string);
+            if (!id_ps.second.empty() && !id_to_ps.count(id_ps.second)) {
+                // PS tag as written not a variant in output: we delete it
+                id_ps.second = "";                
+            }
+            const string* cur_ps = &id_ps.second;
+            while (!cur_ps->empty()) {
+                if (id_to_ps.count(*cur_ps)) {
+                    ++lv;
+                    cur_ps = &id_to_ps[*cur_ps];
+                } else {
+                    break;
+                }
+            }
+            assert(id_ps.second.empty() == (lv == 0));
+            bool overwrite_ps_with_lv = false;
+            for (string& info_tok : info_toks) {
+                if (info_tok.compare(0, 3, "PS=") == 0) {
+                    if (!id_ps.second.empty()) {
+                        info_tok = "PS=" + id_ps.second;
+                    } else {
+                        info_tok = "LV=" + std::to_string(lv);
+                        overwrite_ps_with_lv = true;
+                    }
+                    break;
+                }
+            }
+            if (!overwrite_ps_with_lv) {
+                info_toks.push_back("LV=" + std::to_string(lv));
+            }
+
+            // rewrite the output string using the updated info toks
+            output_variant_string.clear();
+            for (size_t i = 0; i < toks.size(); ++i) {
+                if (i == 7) {
+                    for (size_t j = 0; j < info_toks.size(); ++j) {
+                        output_variant_string += info_toks[j];
+                        if (j != info_toks.size() - 1) {
+                            output_variant_string += ";";
+                        }
+                    }
+                } else {
+                    output_variant_string += toks[i];
+                }
+                if (i != toks.size() - 1) {
+                    output_variant_string += "\t";
+                }
+            }
+        }
+    }
+}
 }
 

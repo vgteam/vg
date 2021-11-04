@@ -31,9 +31,7 @@ TEST_CASE("MEMAccelerator returns same ranges as direct LF queries",
         bdsg::HashGraph graph;
         random_graph(seq_size, var_length, var_count, &graph);
         
-        // Configure GCSA temp directory to the system temp directory
-        gcsa::TempFile::setDirectory(temp_file::get_dir());
-        // And make it quiet
+        // Make GCSA quiet
         gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
         
         // Make pointers to fill in
