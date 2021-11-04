@@ -1240,8 +1240,6 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(Tre
         //This will hold the clusters of the chain
         assert(tree_state.chain_to_children[chain_handle.net].size() == 1); 
 
-        distance_index.set_cached_start_bound(chain_handle, false, false);
-        distance_index.set_cached_end_bound(chain_handle, false, false);
 
         cluster_one_node(tree_state, tree_state.all_node_clusters[tree_state.chain_to_children[chain_handle.net].back()]);
 
