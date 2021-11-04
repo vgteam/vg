@@ -188,8 +188,6 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     ss << "##fileformat=VCFv4.2" << endl;
     for (int i = 0; i < contigs.size(); ++i) {
         const string& contig = contigs[i];
-        path_handle_t path_handle = graph.get_path_handle(contig);
-        string path_name = graph.get_path_name(path_handle);
         size_t length;
         if (i < contig_length_overrides.size()) {
             // length override provided
@@ -417,10 +415,18 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         out_variant.alleles[allele_gt.second] = allele_gt.first;
     }
 
+    // resolve subpath naming
+    string basepath_name = ref_path_name;
+    size_t basepath_offset = 0;
+    auto subpath_info = Paths::parse_subpath_name(ref_path_name);
+    if (get<0>(subpath_info)) {
+        basepath_name = get<1>(subpath_info);
+        basepath_offset = get<2>(subpath_info);
+    }
     // fill out the rest of the variant
-    out_variant.sequenceName = ref_path_name;
+    out_variant.sequenceName = basepath_name;
     // +1 to convert to 1-based VCF
-    out_variant.position = get<0>(get_ref_interval(graph, snarl, ref_path_name)) + ref_offset + 1; 
+    out_variant.position = get<0>(get_ref_interval(graph, snarl, ref_path_name)) + ref_offset + 1 + basepath_offset;
     out_variant.id = print_snarl(snarl, false);
     out_variant.filter = "PASS";
     out_variant.updateAlleleIndexes();
@@ -509,7 +515,6 @@ tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get
         
     // if we're on a cycle, we keep our start step and find the end step by scanning the path
     if (start_steps.size() > 1 || end_steps.size() > 1) {
-        cerr << "cycle check" << endl;
         found_end = false;
         // try each start step
         for (auto i = start_steps.begin(); i != start_steps.end() && !found_end; ++i) {
@@ -525,7 +530,6 @@ tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get
                     if (graph.get_handle_of_step(cur_step) == end_handle) {
                         end_step = cur_step;
                         found_end = true;
-                        cerr << "found on a backscan" << endl;
                     }
                 }
             } else {
@@ -534,7 +538,6 @@ tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get
                     if (graph.get_handle_of_step(cur_step) == end_handle) {
                         end_step = cur_step;
                         found_end = true;
-                        cerr << "found on a frontscan " << endl;
                     }
                 }
             }
@@ -1607,7 +1610,7 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
 
 string FlowCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides) const {
-    string header = VCFOutputCaller::vcf_header(graph, ref_paths, contig_length_overrides);
+    string header = VCFOutputCaller::vcf_header(graph, contigs, contig_length_overrides);
     header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
     snarl_caller.update_vcf_header(header);
     header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
@@ -2063,7 +2066,7 @@ string NestedFlowCaller::flatten_alt_allele(const string& nested_allele, int all
 
 string NestedFlowCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides) const {
-    string header = VCFOutputCaller::vcf_header(graph, ref_paths, contig_length_overrides);
+    string header = VCFOutputCaller::vcf_header(graph, contigs, contig_length_overrides);
     header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
     snarl_caller.update_vcf_header(header);
     header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";

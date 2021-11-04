@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 12
+plan tests 18
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -160,3 +160,31 @@ vg call x.vg -k x.pack -g x.gbwt > callg.vcf
 is "$(grep -v 0/0 callg.vcf | wc -l)" "$(grep -v 0/0 call.vcf | wc -l)" "vg call finds same variants when using gbwt to enumerate traversals"
 
 rm -f x.vg x.gbwt sim.gam x.pack call.vcf callg.vcf
+
+
+# subpath test
+sed -e 's/x/x[100]/g' small/x.fa > x_sub1.fa
+sed -e 's/x/x[10000]/g' small/x.fa > x_sub2.fa
+gzip -dc small/x.vcf.gz | sed -e 's/x/x[100]/g' | bgzip > x_sub1.vcf.gz && tabix -fp vcf x_sub1.vcf.gz
+gzip -dc small/x.vcf.gz | sed -e 's/x/x[10000]/g' | bgzip > x_sub2.vcf.gz && tabix -fp vcf x_sub2.vcf.gz
+vg construct -r x_sub1.fa -v x_sub1.vcf.gz -r x_sub2.fa -v x_sub2.vcf.gz > x_subs.vg
+vg sim -x x_subs.vg -n 1000 -a -s 23 > sim.gam
+vg pack -x x_subs.vg -o x_subs.pack -g sim.gam
+vg call x_subs.vg -k x_subs.pack > x_subs.vcf
+is $(grep "^##contig=<ID=x,length=11001>" x_subs.vcf | wc -l) 1 "vg call makes currect base path header with subpath input"
+is $(grep "^##contig" x_subs.vcf | wc -l) 1 "vg call makes only currect base path header with subpath input"
+is "$(grep -v "^#" x_subs.vcf | wc -l)" "$(grep "^x" x_subs.vcf | grep -v "\[" | wc -l)" "vg call only reports base paths with subpath input"
+vg call x_subs.vg -k x_subs.pack -p x -l 50000 > x_subs_override.vcf
+is $(grep "^##contig=<ID=x,length=50000>" x_subs_override.vcf | wc -l) 1 "vg call makes currect base path header with subpath input and override"
+is $(grep "^##contig" x_subs_override.vcf | wc -l) 1 "vg call makes only currect base path header with subpath input and override"
+grep -v "##contig" x_subs.vcf > x_subs_nocontig.vcf
+grep -v "##contig" x_subs_override.vcf > x_subs_override_nocontig.vcf
+diff x_subs_nocontig.vcf x_subs_override_nocontig.vcf
+is $? 0 "overriding contig length does not change calls"
+
+rm -f x_sub1.fa x_sub1.fa.fai x_sub2.fa x_sub2.fa.fai x_sub1.vcf.gz x_sub1.vcf.gz.tbi  x_sub2.vcf.gz x_sub2.vcf.gz.tbi sim.gam x_subs.vcf x_subs_override.vcf x_subs_nocontig.vcf x_subs_override_nocontig.vcf
+
+
+
+
+
