@@ -1112,6 +1112,8 @@ Functions</h2></td></tr>
 <tr class="separator:a6c71c900d4e21bd508c1cd99db28488c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac276d736096285e8d8414ee3a3dd08e4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac276d736096285e8d8414ee3a3dd08e4">clip_contained_low_depth_nodes</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *pp_graph, const vector&lt; <a class="el" href="structvg_1_1Region.html">Region</a> &gt; &amp;regions, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;snarl_manager, bool include_endpoints, int64_t min_depth, int64_t min_fragment_len, bool verbose)</td></tr>
 <tr class="separator:ac276d736096285e8d8414ee3a3dd08e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4f58b3aa775dcde39a1d511a9d838b97"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4f58b3aa775dcde39a1d511a9d838b97">clip_deletion_edges</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, int64_t max_deletion, int64_t context_steps, const vector&lt; string &gt; &amp;ref_prefixes, int64_t min_fragment_len, bool verbose)</td></tr>
+<tr class="separator:a4f58b3aa775dcde39a1d511a9d838b97"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa65ea58e40ea30264407f9fdbce2a83d"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; gcsa::node_type, size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa65ea58e40ea30264407f9fdbce2a83d">mem_node_start_positions</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="classvg_1_1MaximalExactMatch.html">vg::MaximalExactMatch</a> &amp;mem)</td></tr>
 <tr class="memdesc:aa65ea58e40ea30264407f9fdbce2a83d"><td class="mdescLeft">&#160;</td><td class="mdescRight">get the handles that a mem covers  <a href="namespacevg.html#aa65ea58e40ea30264407f9fdbce2a83d">More...</a><br /></td></tr>
 <tr class="separator:aa65ea58e40ea30264407f9fdbce2a83d"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -5787,6 +5789,59 @@ template&lt;typename Annotated &gt; </div>
 <p>IMPORTANT: for any given snarl, the first region that contains it is used. <br  />
 </p>
 <p>Update: now accepts some snarl complexity thresholds to ignore simple enough snarls </p>
+
+</div>
+</div>
+<a id="a4f58b3aa775dcde39a1d511a9d838b97"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4f58b3aa775dcde39a1d511a9d838b97">&#9670;&nbsp;</a></span>clip_deletion_edges()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::clip_deletion_edges </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>max_deletion</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>context_steps</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>ref_prefixes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>min_fragment_len</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>verbose</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>clip out deletion edges </p>
 
 </div>
 </div>
