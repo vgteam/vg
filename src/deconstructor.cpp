@@ -723,16 +723,6 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
             get_genotypes(v, path_trav_names, trav_to_allele, trav_thread_ids);
         }
 
-        // Fill in some snarl hierarchy information
-        if (include_nested) {
-            // do PS now.  LV gets added later
-            const Snarl* parent = snarl_manager->parent_of(snarl);
-            if (parent) {
-                string parent_id = snarl_name(parent);
-                v.info["PS"].push_back(parent_id);
-            } 
-        }
-
         // we only bother printing out sites with at least 1 non-reference allele
         if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return (i == 0 || i == -1); })) {
             if (path_restricted || gbwt_trav_finder.get()) {
@@ -1078,87 +1068,64 @@ tuple<bool, handle_t, size_t> Deconstructor::get_gbwt_path_position(const SnarlT
 
 void Deconstructor::update_nesting_info_tags() {
 
-    // all string tokenizing happens in these buffers
-    vector<string> toks;
-    vector<string> info_toks;
+    // index the snarl tree by name
+    unordered_map<string, const Snarl*> name_to_snarl;
+    snarl_manager->for_each_snarl_preorder([&](const Snarl* snarl) {
+            name_to_snarl[snarl_name(snarl)] = snarl;
+        });
 
-    // vcf is stored as strings at this point:
-    function<pair<string, string>(const string&)> extract_id_ps = [&] (const string& vcf_line) {
-        toks.clear();
-        split_delims(vcf_line, "\t", toks, 9);        
-        const string& id = toks[2];
-        const string& info = toks[7];
-        info_toks.clear();
-        split_delims(info, ";", info_toks);
-        string ps = "";
-        for (const string& info_tok : info_toks) {
-            if (info_tok.compare(0, 3, "PS=") == 0) {
-                ps = info_tok.substr(3, string::npos);
-                break;
-            }
-        }
-        return make_pair(id, ps);
-    };
-
-    // remember parents from current PS tags (empty string means no parent)
-    unordered_map<string, string> id_to_ps;
-
-    // pass 1: store parent hierachy as given in PS tags
+    // pass 1) index sites in vcf
+    // (todo: this could be done more quickly upstream)
+    unordered_set<string> names_in_vcf;
     for (auto& thread_buf : output_variants) {
         for (auto& output_variant_record : thread_buf) {
             string& output_variant_string = output_variant_record.second;
-            id_to_ps.insert(extract_id_ps(output_variant_string));
+            vector<string> toks = split_delims(output_variant_string, "\t", 4);
+            names_in_vcf.insert(toks[2]);
         }
     }
+
+    // determine the tags from the index
+    function<pair<size_t, string>(const string&)> get_lv_ps_tags = [&](const string& name) {
+        string parent_name;
+        size_t ancestor_count = 0;
+        const Snarl* snarl = name_to_snarl.at(name);
+        assert(snarl != nullptr);
+        // walk up the snarl tree
+        while (snarl = snarl_manager->parent_of(snarl)) {
+            string cur_name = snarl_name(snarl);
+            if (names_in_vcf.count(cur_name)) {
+                // only count snarls that are in the vcf
+                ++ancestor_count;
+                if (parent_name.empty()) {
+                    // remembert the first parent
+                    parent_name = cur_name;
+                }
+            }
+        }
+        return make_pair(ancestor_count, parent_name);
+    };
     
-    // pass 2: update ps tags ; add lv tags
+    // pass 2) add the LV and PS tags
     for (auto& thread_buf : output_variants) {
         for (auto& output_variant_record : thread_buf) {
             string& output_variant_string = output_variant_record.second;
-            int64_t lv = 0;
-            pair<string, string> id_ps = extract_id_ps(output_variant_string);
-            if (!id_ps.second.empty() && !id_to_ps.count(id_ps.second)) {
-                // PS tag as written not a variant in output: we delete it
-                id_ps.second = "";                
-            }
-            const string* cur_ps = &id_ps.second;
-            while (!cur_ps->empty()) {
-                if (id_to_ps.count(*cur_ps)) {
-                    ++lv;
-                    cur_ps = &id_to_ps[*cur_ps];
-                } else {
-                    break;
-                }
-            }
-            assert(id_ps.second.empty() == (lv == 0));
-            bool overwrite_ps_with_lv = false;
-            for (string& info_tok : info_toks) {
-                if (info_tok.compare(0, 3, "PS=") == 0) {
-                    if (!id_ps.second.empty()) {
-                        info_tok = "PS=" + id_ps.second;
-                    } else {
-                        info_tok = "LV=" + std::to_string(lv);
-                        overwrite_ps_with_lv = true;
-                    }
-                    break;
-                }
-            }
-            if (!overwrite_ps_with_lv) {
-                info_toks.push_back("LV=" + std::to_string(lv));
+            vector<string> toks = split_delims(output_variant_string, "\t", 9);
+            const string& name = toks[2];
+            
+            pair<size_t, string> lv_ps = get_lv_ps_tags(name);
+            string nesting_tags = ";LV=" + std::to_string(lv_ps.first);
+            if (lv_ps.first != 0) {
+                assert(!lv_ps.second.empty());
+                nesting_tags += ";PS=" + lv_ps.second;
             }
 
             // rewrite the output string using the updated info toks
             output_variant_string.clear();
             for (size_t i = 0; i < toks.size(); ++i) {
+                output_variant_string += toks[i];
                 if (i == 7) {
-                    for (size_t j = 0; j < info_toks.size(); ++j) {
-                        output_variant_string += info_toks[j];
-                        if (j != info_toks.size() - 1) {
-                            output_variant_string += ";";
-                        }
-                    }
-                } else {
-                    output_variant_string += toks[i];
+                    output_variant_string += nesting_tags;
                 }
                 if (i != toks.size() - 1) {
                     output_variant_string += "\t";
