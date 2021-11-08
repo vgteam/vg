@@ -207,9 +207,9 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
     // keep the memory use down
     //   note: this has to be done on the heap because the deleted copy assignment
     //   and copy construction for atomic ints means vectors can never be resized
-    vector<atomic<int8_t>>* id_vec_8 = new vector<atomic<int8_t>>(id_range);
-    vector<atomic<int16_t>>* id_vec_16 = nullptr;
-    vector<atomic<int32_t>>* id_vec_32 = nullptr;
+    vector<atomic<uint8_t>>* id_vec_8 = new vector<atomic<uint8_t>>(id_range);
+    vector<atomic<uint16_t>>* id_vec_16 = nullptr;
+    vector<atomic<uint32_t>>* id_vec_32 = nullptr;
     // in parallel initialize with sentinels, which will be replaced by search IDs
     static const size_t block_size = 4096;
     atomic<size_t> block_idx(0);
@@ -222,7 +222,7 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
                     break;
                 }
                 for (size_t j = begin, end = min<size_t>(begin + block_size, id_vec_8->size()); j < end; ++j) {
-                    (*id_vec_8)[j].store(-1);
+                    (*id_vec_8)[j].store(0);
                 }
             }
         });
@@ -238,10 +238,10 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
     // the values 0, 1, or 2
     uint8_t which_vec = 0;
     // the last search ID we can accommodate for each vector
-    const int32_t max_search_id[3] = {
-        numeric_limits<int8_t>::max(),
-        numeric_limits<int16_t>::max(),
-        numeric_limits<int32_t>::max()
+    const uint32_t max_search_id[3] = {
+        numeric_limits<uint8_t>::max(),
+        numeric_limits<uint16_t>::max(),
+        numeric_limits<uint32_t>::max()
     };
     
     
@@ -254,7 +254,7 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
     
     // perform atomic load on whichever vector we're currently using
     auto load = [&](int64_t i) {
-        int32_t loaded;
+        uint32_t loaded;
         switch (which_vec) {
             case 0:
                 loaded = (*id_vec_8)[i].load();
@@ -269,13 +269,13 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
         return loaded;
     };
     // perform atomic compare-exchange on whichever vector we're currently using
-    auto compare_exchange = [&](int64_t i, int32_t& expected, int32_t desired) {
+    auto compare_exchange = [&](int64_t i, uint32_t& expected, uint32_t desired) {
         bool exchanged;
         switch (which_vec) {
             case 0:
             {
-                int8_t expected_8 = expected;
-                int8_t desired_8 = desired;
+                uint8_t expected_8 = expected;
+                uint8_t desired_8 = desired;
                 exchanged = (*id_vec_8)[i].compare_exchange_strong(expected_8, desired_8);
                 if (!exchanged) {
                     expected = expected_8;
@@ -284,8 +284,8 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
             }
             case 1:
             {
-                int16_t expected_16 = expected;
-                int16_t desired_16 = desired;
+                uint16_t expected_16 = expected;
+                uint16_t desired_16 = desired;
                 exchanged = (*id_vec_16)[i].compare_exchange_strong(expected_16, desired_16);
                 if (!exchanged) {
                     expected = expected_16;
@@ -305,7 +305,7 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
     // to keep track of the index of the path we will use to seed a BFS next
     atomic<int64_t> next_path(0);
     // to keep track of the ID of the next seeded search
-    atomic<int32_t> next_search_id(0);
+    atomic<uint32_t> next_search_id(1);
     // initialize the swarm of workers
     vector<thread> workers;
     for (int i = 0; i < thread_count; ++i) {
@@ -333,7 +333,7 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
                 // seed a BFS search off of the first node in this path
                 handle_t seed = graph.get_handle_of_step(graph.path_begin(path));
                 
-                if (load(graph.get_id(seed) - min_id) != -1) {
+                if (load(graph.get_id(seed) - min_id) != 0) {
                     // another thread has already traversed over this node, no need
                     // to start a search here
 #ifdef debug_parallel_component_paths
@@ -346,7 +346,7 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
                 
                 
                 // we're going to initiate a BFS from the seed, assign a new search ID
-                int32_t search_id = next_search_id++;
+                uint32_t search_id = next_search_id++;
                 
                 // TODO: add finer-grain reallocations so that neighbors and
                 // search_path_sets don't need to get so large to guarantee that
@@ -388,7 +388,7 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
                 // function to call on each subsequent handle we navigate to
                 function<bool(const handle_t&)> record_paths_and_enqueue = [&](const handle_t& here) {
                     int64_t idx = graph.get_id(here) - min_id;
-                    int32_t visit_id = -1;
+                    uint32_t visit_id = 0;
                     bool exchanged = compare_exchange(idx, visit_id, search_id);
                     if (exchanged) {
                         // we found the unvisited sentinel and replaced it with our search ID
