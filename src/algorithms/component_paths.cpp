@@ -148,10 +148,6 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
         return graph.get_step_count(a) > graph.get_step_count(b);
     });
     
-    // we'll be using the ID space as vector indices, calculat evalues we'll use for that
-    nid_t min_id = graph.min_node_id();
-    nid_t id_range = graph.max_node_id() - min_id + 1;
-    
     int thread_count = get_thread_count();
     
     // the number of threads that haven't exited
@@ -199,13 +195,17 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
         }
     };
     
+    // we'll be using the ID space as vector indices, calculat evalues we'll use for that
+    nid_t min_id = graph.min_node_id();
+    nid_t id_range = graph.max_node_id() - min_id + 1;
+    
     // we'll try to accomplish the job with the minimum int size possible to
     // keep the memory use down
     //   note: this has to be done on the heap because the deleted copy assignment
-    //   and constructtion for atomic ints means vectors can never be resized
+    //   and copy construction for atomic ints means vectors can never be resized
+    vector<atomic<int8_t>>* id_vec_8 = new vector<atomic<int8_t>>(id_range);
     vector<atomic<int16_t>>* id_vec_16 = nullptr;
     vector<atomic<int32_t>>* id_vec_32 = nullptr;
-    vector<atomic<int8_t>>* id_vec_8 = new vector<atomic<int8_t>>(id_range);
     // in parallel initialize with sentinels, which will be replaced by search IDs
     static const size_t block_size = 4096;
     atomic<size_t> block_idx(0);
