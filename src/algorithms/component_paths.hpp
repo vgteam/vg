@@ -20,7 +20,7 @@ vector<unordered_set<path_handle_t>> component_paths(const PathHandleGraph& grap
 
 // the same semantics as the previous, but multithreaded and more
 // memory intensive
-vector<unordered_set<path_handle_t>> component_paths_parallele(const PathHandleGraph& graph);
+vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGraph& graph);
 }
 
 }
