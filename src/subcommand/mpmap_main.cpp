@@ -1652,7 +1652,7 @@ int main_mpmap(int argc, char** argv) {
         if (!suppress_progress) {
             cerr << progress_boilerplate() << "Identifying reference paths." << endl;
         }
-        vector<unordered_set<path_handle_t>> component_path_sets = algorithms::component_paths(*path_position_handle_graph);
+        vector<unordered_set<path_handle_t>> component_path_sets = algorithms::component_paths_parallel(*path_position_handle_graph);
         for (const auto& path_set : component_path_sets) {
             // remove dependency on system hash ordering
             vector<path_handle_t> ordered_path_set(path_set.begin(), path_set.end());

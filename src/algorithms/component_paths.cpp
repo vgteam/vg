@@ -14,6 +14,8 @@
 #include "sdsl/bit_vectors.hpp"
 #include "sdsl/int_vector.hpp"
 
+//#define debug_component_paths
+//#define debug_parallel_component_paths
 
 namespace vg {
 namespace algorithms {
@@ -135,6 +137,9 @@ void reallocate_atomic_int_vector(vector<atomic<Int1>>*& vec1, vector<atomic<Int
 
 vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGraph& graph) {
 
+#ifdef debug_parallel_component_paths
+    cerr << "computing component paths in parallel" << endl;
+#endif
     
     // get all paths
     vector<path_handle_t> paths;
@@ -155,7 +160,7 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
     
     // a system that lets one thread freeze the others at checkpoints while it does
     // some job
-    atomic<int> frozen(false);
+    atomic<int> frozen(0);
     atomic<int64_t> num_frozen(0);
     
     // checkpoint to wait if any other thread wants us to freeze
@@ -183,8 +188,7 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
             }
             else {
                 while (num_frozen.load() < threads_active.load() - 1) {
-                    // spin lock waiting for the other threads to reach a
-                    // checkpoint
+                    // spin lock waiting for the other threads to reach a checkpoint
                 }
                 // execute the function
                 exec();
@@ -223,6 +227,7 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
             }
         });
     }
+    // TODO: switch to unsigned ints and use 0 as the sentinel
     
     // barrier sync
     for (auto& initializer : initializers) {
@@ -275,6 +280,7 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
                 if (!exchanged) {
                     expected = expected_8;
                 }
+                break;
             }
             case 1:
             {
@@ -284,10 +290,12 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
                 if (!exchanged) {
                     expected = expected_16;
                 }
+                break;
             }
             default:
             {
                 exchanged = (*id_vec_32)[i].compare_exchange_strong(expected, desired);
+                break;
             }
         }
         return exchanged;
@@ -301,14 +309,19 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
     // initialize the swarm of workers
     vector<thread> workers;
     for (int i = 0; i < thread_count; ++i) {
-        workers.emplace_back([&]() {
+        workers.emplace_back([&,i]() {
             while (true) {
                 
                 int64_t path_idx = next_path++;
-                if (path_idx > paths.size()) {
+                
+                if (path_idx >= paths.size()) {
                     // all of the paths have been explored, we can exit
                     break;
                 }
+                
+#ifdef debug_parallel_component_paths
+                cerr << ("worker " + to_string(i) + " got path idx " + to_string(path_idx) + ": " + graph.get_path_name(paths[path_idx]) + " with step count " + to_string(graph.get_step_count(paths[path_idx])) + "\n");
+#endif
                 
                 path_handle_t path = paths[path_idx];
                 if (graph.get_step_count(path) == 0) {
@@ -323,9 +336,14 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
                 if (load(graph.get_id(seed) - min_id) != -1) {
                     // another thread has already traversed over this node, no need
                     // to start a search here
+#ifdef debug_parallel_component_paths
+                    cerr << ("worker " + to_string(i) + " skipping seed " + to_string(graph.get_id(seed)) + ", which was previously visited by " + to_string(load(graph.get_id(seed) - min_id)) + "\n");
+#endif
                     check_freeze();
                     continue;
                 }
+                
+                
                 
                 // we're going to initiate a BFS from the seed, assign a new search ID
                 int32_t search_id = next_search_id++;
@@ -360,12 +378,15 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
                     });
                 }
                 
+#ifdef debug_parallel_component_paths
+                cerr << ("worker " + to_string(i) + " starting search on seed " + to_string(graph.get_id(seed)) + " with search ID " + to_string(search_id) + "\n");
+#endif
+                
                 // FIFO queue for BFS
                 deque<handle_t> queue;
                 
                 // function to call on each subsequent handle we navigate to
                 function<bool(const handle_t&)> record_paths_and_enqueue = [&](const handle_t& here) {
-                    
                     int64_t idx = graph.get_id(here) - min_id;
                     int32_t visit_id = -1;
                     bool exchanged = compare_exchange(idx, visit_id, search_id);
@@ -407,6 +428,9 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
             }
             // keep track of the fact this thread is exiting
             --threads_active;
+#ifdef debug_parallel_component_paths
+            cerr << ("worker " + to_string(i) + " exiting\n");
+#endif
         });
     }
     
