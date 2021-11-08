@@ -123,6 +123,11 @@ Functions</h2></td></tr>
 <tr class="separator:ae18b50d29d9accb763b44d6e065dac58"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a51f810108840ab4014eb58b2bfe19ac1"><td class="memItemLeft" align="right" valign="top">vector&lt; unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a51f810108840ab4014eb58b2bfe19ac1">component_paths</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph)</td></tr>
 <tr class="separator:a51f810108840ab4014eb58b2bfe19ac1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acd891e00c4846e53f760d504434ead12"><td class="memTemplParams" colspan="2">template&lt;typename Int1 , typename Int2 &gt; </td></tr>
+<tr class="memitem:acd891e00c4846e53f760d504434ead12"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#acd891e00c4846e53f760d504434ead12">reallocate_atomic_int_vector</a> (vector&lt; atomic&lt; Int1 &gt;&gt; *&amp;vec1, vector&lt; atomic&lt; Int2 &gt;&gt; *&amp;vec2)</td></tr>
+<tr class="separator:acd891e00c4846e53f760d504434ead12"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a10b07f6f41f8dd36c5d3b1ff9a03ce93"><td class="memItemLeft" align="right" valign="top">vector&lt; unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a10b07f6f41f8dd36c5d3b1ff9a03ce93">component_paths_parallel</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph)</td></tr>
+<tr class="separator:a10b07f6f41f8dd36c5d3b1ff9a03ce93"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abd431ebd9786d796f708a7046e643e2e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#abd431ebd9786d796f708a7046e643e2e">packed_depths</a> (const <a class="el" href="classvg_1_1Packer.html">Packer</a> &amp;packer, const string &amp;path_name, size_t min_coverage, ostream &amp;out_stream)</td></tr>
 <tr class="separator:abd431ebd9786d796f708a7046e643e2e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a62ebbcbfe1250940eb8ebf0a2dcbc19a"><td class="memItemLeft" align="right" valign="top">pair&lt; double, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a62ebbcbfe1250940eb8ebf0a2dcbc19a">packed_depth_of_bin</a> (const <a class="el" href="classvg_1_1Packer.html">Packer</a> &amp;packer, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> start_step, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> end_plus_one_step, size_t min_coverage, bool include_deletions)</td></tr>
@@ -905,6 +910,24 @@ template&lt;class DistHeuristic &gt; </div>
       <table class="memname">
         <tr>
           <td class="memname">vector&lt; unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &gt; vg::algorithms::component_paths </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a10b07f6f41f8dd36c5d3b1ff9a03ce93"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a10b07f6f41f8dd36c5d3b1ff9a03ce93">&#9670;&nbsp;</a></span>component_paths_parallel()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &gt; vg::algorithms::component_paths_parallel </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>graph</em></td><td>)</td>
@@ -3298,6 +3321,36 @@ template&lt;class DistHeuristic &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Remove any weakly connected components that have total sequence length under the minimum size. Returns the number of nodes removed. </p>
+
+</div>
+</div>
+<a id="acd891e00c4846e53f760d504434ead12"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acd891e00c4846e53f760d504434ead12">&#9670;&nbsp;</a></span>reallocate_atomic_int_vector()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Int1 , typename Int2 &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::reallocate_atomic_int_vector </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; atomic&lt; Int1 &gt;&gt; *&amp;&#160;</td>
+          <td class="paramname"><em>vec1</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; atomic&lt; Int2 &gt;&gt; *&amp;&#160;</td>
+          <td class="paramname"><em>vec2</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
