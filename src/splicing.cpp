@@ -172,8 +172,9 @@ void SpliceStats::init(const vector<tuple<string, string, double>>& motifs,
     }
     
 #ifdef debug_splice_region
-    for (const auto& record : motif_data) {
-        cerr << "\t" << get<0>(record) << "\t" << get<1>(record) << "\t" << get<2>(record) << endl;
+    for (int i = 0; i < motif_data.size(); ++i) {
+        const auto& record = motif_data[i];
+        cerr << (i % 2 == 0 ? "+" : "-") << "\t" << get<0>(record) << "\t" << get<1>(record) << "\t" << get<2>(record) << endl;
     }
 #endif
     
@@ -757,6 +758,16 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
             if (final_mapping.edit(final_mapping.edit_size() - 1).from_length() == 0) {
                 // we have to walk further to skip the softclips
                 len += final_mapping.edit(final_mapping.edit_size() - 1).to_length();
+#ifdef debug_trimming
+                cerr << "bump walk length up to " << len << " for right side soft-clip" << endl;
+#endif
+            }
+            if (path.mapping(0).edit(0).from_length() == 0) {
+                // we don't want to walk onto the softclip on the other end
+                len = min<int64_t>(len, aln.sequence().size() - path.mapping(0).edit(0).to_length());
+#ifdef debug_trimming
+                cerr << "cap walk length to " << len << " for left side soft-clip" << endl;
+#endif
             }
             int64_t i = path.mapping_size() - 1;
             while (i >= 0 && (len > mapping_to_length(path.mapping(i))
@@ -838,6 +849,17 @@ tuple<pos_t, int64_t, int32_t> trimmed_end(const Alignment& aln, int64_t len, bo
             if (path.mapping(0).edit(0).from_length() == 0) {
                 // we have to walk further to skip the softclips
                 len += path.mapping(0).edit(0).to_length();
+#ifdef debug_trimming
+                cerr << "bump walk length up to " << len << " for left side soft-clip" << endl;
+#endif
+            }
+            const Mapping& final_mapping = path.mapping(path.mapping_size() - 1);
+            if (final_mapping.edit(final_mapping.edit_size() - 1).from_length() == 0) {
+                // we don't want to walk onto the softclip on the other end
+                len = min<int64_t>(len, aln.sequence().size() - final_mapping.edit(final_mapping.edit_size() - 1).to_length());
+#ifdef debug_trimming
+                cerr << "cap walk length to " << len << " for right side soft-clip" << endl;
+#endif
             }
             int64_t i = 0;
             while (i < path.mapping_size() && (len > mapping_to_length(path.mapping(i))

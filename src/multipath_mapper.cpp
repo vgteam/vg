@@ -2257,7 +2257,7 @@ namespace vg {
             int32_t max_score;
             int32_t untrimmed_score;
             size_t motif_idx;
-            // intron stats start uninitialized until measurign length
+            // intron stats start uninitialized until measuring length
             int32_t intron_score;
             int64_t estimated_intron_length;
             // these two filled out after doing alignment
@@ -2532,7 +2532,6 @@ namespace vg {
                                 // this has no chance of becoming significant, let's skip it
                                 putative_joins.pop_back();
                             }
-                            
                         }
                     }
                 }
@@ -2559,9 +2558,9 @@ namespace vg {
             
             auto& join = putative_joins.front();
             
-            size_t read_len = alignment.sequence().size();
-            size_t connect_len = join.left_clip_length + join.right_clip_length - read_len;
-            size_t connect_begin = read_len - join.left_clip_length;
+            
+            size_t connect_begin = alignment.sequence().size() - join.left_clip_length;
+            size_t connect_len = join.left_clip_length + join.right_clip_length - alignment.sequence().size();
             
             join.connecting_aln.set_sequence(alignment.sequence().substr(connect_begin, connect_len));
             if (!alignment.quality().empty()) {
@@ -2576,7 +2575,7 @@ namespace vg {
             int32_t net_score = join.post_align_net_score(splice_stats, opt);
             
 #ifdef debug_multipath_mapper
-            cerr << "next candidate spliced alignment with score bound " << join.max_score << " has net score " << net_score << ", must get " << no_splice_log_odds << " for significance"  << endl;
+            cerr << "next candidate spliced alignment with score bound " << join.max_score << " has net score " << net_score << " after realigning read interval " << connect_begin << ":" << (connect_begin + connect_len) << ", must get " << no_splice_log_odds << " for significance"  << endl;
 #endif
             
             if (net_score > no_splice_log_odds) {
