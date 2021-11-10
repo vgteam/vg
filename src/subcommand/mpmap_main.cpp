@@ -1521,7 +1521,7 @@ int main_mpmap(int argc, char** argv) {
     bool clock_init = false;
     time_t time_start;
     mutex progress_mutex;
-    auto log_progress = [&](const string& progress) {
+    auto log_progress = [&](const string progress) {
         if (!suppress_progress) {
             progress_mutex.lock();
             stringstream strm;
@@ -1567,7 +1567,6 @@ int main_mpmap(int argc, char** argv) {
         for (size_t i = 0; i < argc; ++i) {
             strm << " " << argv[i];
         }
-        strm << endl;
         log_progress(strm.str());
     }
     
@@ -1641,7 +1640,7 @@ int main_mpmap(int argc, char** argv) {
             strm << "XG format is recommended for most mapping tasks. ";
         }
         
-        strm << "See `vg convert` if you want to change graph formats." << endl;
+        strm << "See `vg convert` if you want to change graph formats.";
         log_progress(strm.str());
     }
     
@@ -1685,7 +1684,7 @@ int main_mpmap(int argc, char** argv) {
     // start at 1 for the main thread
     atomic<int> threads_active(1);
     list<thread> background_processes;
-    auto background_process = [&](const string& progress, function<void(void)>& lambda) {
+    auto background_process = [&](const string progress, function<void(void)> lambda) {
         // try to add an active thread
         int curr_thread_active = threads_active++;
         if (curr_thread_active >= thread_count) {
@@ -1696,7 +1695,7 @@ int main_mpmap(int argc, char** argv) {
         }
         else {
             // do the process in a background thread
-            background_processes.emplace_back([&]() {
+            background_processes.emplace_back([&log_progress,&lambda,&threads_active,progress]() {
                 log_progress(progress + " (in background)");
                 lambda();
                 --threads_active;
