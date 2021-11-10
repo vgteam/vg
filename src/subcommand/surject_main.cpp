@@ -258,7 +258,7 @@ int main_surject(int argc, char** argv) {
     if (spliced) {
         surjector.min_splice_length = min_splice_length;
         // we have to bump this up to be sure to align most splice junctions
-        surjector.max_subgraph_bases = 1024 * 1024;
+        surjector.max_subgraph_bases = 16 * 1024 * 1024;
     }
     else {
         surjector.min_splice_length = numeric_limits<int64_t>::max();

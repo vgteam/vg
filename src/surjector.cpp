@@ -1162,6 +1162,8 @@ using namespace std;
             return dist;
         };
         
+        multipath_alignment_t surjected;
+        
         // checks whether the end of i is connected to the beginning of j by an edge
         
         
@@ -1650,6 +1652,8 @@ using namespace std;
                     backpointer[get<0>(edge)] = i;
                 }
                 else if (extended_score == score_dp[get<0>(edge)]
+                         && sections[i].path().mapping_size() != 0
+                         && sections[get<0>(edge)].path().mapping_size() != 0
                          && backpointer[get<0>(edge)] >= 0
                          && (abs<int64_t>(graph->get_position_of_step(section_path_ranges[i].first)
                                           - graph->get_position_of_step(section_path_ranges[get<0>(edge)].first))
@@ -1694,7 +1698,6 @@ using namespace std;
         }
         
         // make an alignment to build out the path in
-        multipath_alignment_t surjected;
         surjected.set_sequence(src_sequence);
         surjected.set_quality(src_quality);
         surjected.set_mapping_quality(src_mapping_quality);
@@ -1708,7 +1711,8 @@ using namespace std;
             if (copy_path.mapping_size() == 0) {
                 // the DP chose a segment that was unsurjectable
                 path_range_out.first = path_range_out.second = graph->path_end(path_handle);
-                return make_null_mp_alignment(src_sequence, src_quality);
+                surjected = make_null_mp_alignment(src_sequence, src_quality);
+                return surjected;
             }
 #ifdef debug_spliced_surject
             cerr << "appending path section " << pb2json(copy_path) << endl;
