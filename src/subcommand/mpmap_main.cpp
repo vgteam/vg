@@ -1582,6 +1582,7 @@ int main_mpmap(int argc, char** argv) {
     // Load required indexes
     log_progress("Loading graph from " + graph_name);
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_name);
+    log_progress("Completed loading graph");
     
     if (!suppress_progress) {
         // let's be a friendly guide to selecting a graph
@@ -1684,43 +1685,52 @@ int main_mpmap(int argc, char** argv) {
     // start at 1 for the main thread
     atomic<int> threads_active(1);
     list<thread> background_processes;
-    auto background_process = [&](const string progress, function<void(void)> lambda) {
-        // try to add an active thread
-        int curr_thread_active = threads_active++;
-        if (curr_thread_active >= thread_count) {
-            // take back the increment and don't let it go multithreaded
-            --threads_active;
-            log_progress(progress);
-            lambda();
-        }
-        else {
-            // do the process in a background thread
-            background_processes.emplace_back([&log_progress,&lambda,&threads_active,progress]() {
-                log_progress(progress + " (in background)");
-                lambda();
-                --threads_active;
-                log_progress(progress + " (completed)");
-            });
-        }
-    };
     
     // for the indexes whose loading involves non-trivial computation, do them in the
     // background to maximize IO
     
     unique_ptr<SnarlManager> snarl_manager;
     if (!snarls_name.empty() && (distance_index_name.empty() || no_clustering)) {
-        function<void(void)> load_snarls = [&]() {
+        // try to add an active thread
+        int curr_thread_active = threads_active++;
+        if (curr_thread_active >= thread_count) {
+            // take back the increment and don't let it go multithreaded
+            --threads_active;
+            log_progress("Loading snarls from " + snarls_name);
             snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
-        };
-        background_process("Loading snarls from " + snarls_name, load_snarls);
+            log_progress("Completed loading snarls");
+        }
+        else {
+            // do the process in a background thread
+            background_processes.emplace_back([&]() {
+                log_progress("Loading snarls from " + snarls_name + " (in background)");
+                snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
+                --threads_active;
+                log_progress("Completed loading snarls");
+            });
+        }
     }
     
     unique_ptr<MinimumDistanceIndex> distance_index;
     if (!distance_index_name.empty() && !(no_clustering && !snarls_name.empty())) {
-        function<void(void)> load_distance_index = [&]() {
+        // try to add an active thread
+        int curr_thread_active = threads_active++;
+        if (curr_thread_active >= thread_count) {
+            // take back the increment and don't let it go multithreaded
+            --threads_active;
+            log_progress("Loading distance index from " + distance_index_name);
             distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_index_stream);
-        };
-        background_process("Loading distance index from " + distance_index_name, load_distance_index);
+            log_progress("Completed loading distance index");
+        }
+        else {
+            // do the process in a background thread
+            background_processes.emplace_back([&]() {
+                log_progress("Loading distance index from " + distance_index_name + " (in background)");
+                distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_index_stream);
+                --threads_active;
+                log_progress("Completed loading distance index");
+            });
+        }
     }
     
     // compute this once in case the backing graph doesn't have an efficient implementation
@@ -1728,20 +1738,36 @@ int main_mpmap(int argc, char** argv) {
     
     log_progress("Loading GCSA2 from " + gcsa_name);
     unique_ptr<gcsa::GCSA> gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
+    log_progress("Completed loading GCSA2");
     
     unique_ptr<MEMAccelerator> mem_accelerator;
     unique_ptr<gcsa::LCPArray> lcp_array;
     if (!use_stripped_match_alg) {
         // don't make a huge table for a small graph
         mem_accelerator_length = min<int>(mem_accelerator_length, round(log(total_seq_length) / log(4.0)));
-        function<void(void)> memoize_gcsa2 = [&]() {
+        // try to add an active thread
+        int curr_thread_active = threads_active++;
+        if (curr_thread_active >= thread_count) {
+            // take back the increment and don't let it go multithreaded
+            --threads_active;
+            log_progress("Memoizing GCSA2 queries");
             mem_accelerator = unique_ptr<MEMAccelerator>(new MEMAccelerator(*gcsa_index, mem_accelerator_length));
-        };
-        background_process("Memoizing GCSA2 queries", memoize_gcsa2);
+            log_progress("Completed memoizing GCSA2 queries");
+        }
+        else {
+            // do the process in a background thread
+            background_processes.emplace_back([&]() {
+                log_progress("Memoizing GCSA2 queries (in background)");
+                mem_accelerator = unique_ptr<MEMAccelerator>(new MEMAccelerator(*gcsa_index, mem_accelerator_length));
+                --threads_active;
+                log_progress("Completed memoizing GCSA2 queries");
+            });
+        }
         
         // The stripped algorithm doesn't use the LCP, but we aren't doing it
         log_progress("Loading LCP from " + lcp_name);
         lcp_array = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
+        log_progress("Completed loading LCP");
     }
     
     // Load optional indexes
@@ -1753,6 +1779,7 @@ int main_mpmap(int argc, char** argv) {
         log_progress("Loading GBWT from " + gbwt_name);
         // Load the GBWT from its container
         gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
+        log_progress("Completed loading GBWT");
 
         if (gbwt.get() == nullptr) {
           // Complain if we couldn't.
@@ -1772,6 +1799,7 @@ int main_mpmap(int argc, char** argv) {
         sublinearLS = new linear_haplo_structure(ls_stream, -9 * 2.3, -6 * 2.3, *path_position_handle_graph,
                                                  path_position_handle_graph->get_path_handle(sublinearLS_ref_path));
         haplo_score_provider = new haplo::LinearScoreProvider(*sublinearLS);
+        log_progress("Completed loading LS index");
     }
     
     // Load structures that we need for HTS lib outputs
