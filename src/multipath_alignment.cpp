@@ -666,7 +666,8 @@ namespace vg {
                 size_t mapping_start_idx = 0;
                 // merge mappings if they occur on the same node and same strand
                 if (curr_end_mapping->position().node_id() == next_start_mapping.position().node_id()
-                    && curr_end_mapping->position().is_reverse() == next_start_mapping.position().is_reverse()) {
+                    && curr_end_mapping->position().is_reverse() == next_start_mapping.position().is_reverse()
+                    && curr_end_mapping->position().offset() + mapping_from_length(*curr_end_mapping) == next_start_mapping.position().offset()) {
                     
                     Edit* last_edit = curr_end_mapping->mutable_edit(curr_end_mapping->edit_size() - 1);
                     const edit_t& first_edit = next_start_mapping.edit(0);

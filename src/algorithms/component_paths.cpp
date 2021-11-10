@@ -227,7 +227,6 @@ vector<unordered_set<path_handle_t>> component_paths_parallel(const PathHandleGr
             }
         });
     }
-    // TODO: switch to unsigned ints and use 0 as the sentinel
     
     // barrier sync
     for (auto& initializer : initializers) {
