@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <ctime>
 #include <getopt.h>
+#include <thread>
 
 #include "subcommand.hpp"
 
@@ -1480,6 +1481,9 @@ int main_mpmap(int argc, char** argv) {
         }
     }
     
+    // Count our threads
+    int thread_count = get_thread_count();
+    
     ifstream gbwt_stream;
     ifstream ls_stream;
     if (!gbwt_name.empty()) {
@@ -1649,6 +1653,7 @@ int main_mpmap(int argc, char** argv) {
     // (the bit vector used to detect which nodes have been visited is not exactly small)
     unordered_set<path_handle_t> ref_path_handles;
     if (do_spliced_alignment) {
+        // TODO: could let IO continue while doing this, but it risks increasing peak memory for some graphs...
         if (!suppress_progress) {
             cerr << progress_boilerplate() << "Identifying reference paths." << endl;
         }
@@ -1681,13 +1686,23 @@ int main_mpmap(int argc, char** argv) {
     
     unique_ptr<MEMAccelerator> mem_accelerator;
     unique_ptr<gcsa::LCPArray> lcp_array;
+    unique_ptr<thread> mem_accelerator_thread;
     if (!use_stripped_match_alg) {
         // don't make a huge table for a small graph
         mem_accelerator_length = min<int>(mem_accelerator_length, round(log(total_seq_length) / log(4.0)));
-        if (!suppress_progress) {
-            cerr << progress_boilerplate() << "Memoizing GCSA2 queries" << endl;
+        if (thread_count == 1) {
+            // don't let it go multithreaded
+            if (!suppress_progress) {
+                cerr << progress_boilerplate() << "Memoizing GCSA2 queries" << endl;
+            }
+            mem_accelerator = unique_ptr<MEMAccelerator>(new MEMAccelerator(*gcsa_index, mem_accelerator_length));
         }
-        mem_accelerator = unique_ptr<MEMAccelerator>(new MEMAccelerator(*gcsa_index, mem_accelerator_length));
+        else {
+            // construct the MEM accelerator in a thread, since it doesn't use IO like the rest of the load
+            mem_accelerator_thread = unique_ptr<thread>(new thread([&]() {
+                mem_accelerator = unique_ptr<MEMAccelerator>(new MEMAccelerator(*gcsa_index, mem_accelerator_length));
+            }));
+        }
         // The stripped algorithm doesn't use the LCP, but we aren't doing it
         if (!suppress_progress) {
             cerr << progress_boilerplate() << "Loading LCP from " << lcp_name << endl;
@@ -1785,7 +1800,13 @@ int main_mpmap(int argc, char** argv) {
     MultipathMapper multipath_mapper(path_position_handle_graph, gcsa_index.get(), lcp_array.get(), haplo_score_provider,
         snarl_manager.get(), distance_index.get());
     // give it the MEMAccelerator
-    multipath_mapper.accelerator = mem_accelerator.get();
+    if (mem_accelerator_thread.get() != nullptr) {
+        // sync the thread first
+        mem_accelerator_thread->join();
+    }
+    if (mem_accelerator.get() != nullptr) {
+        multipath_mapper.accelerator = mem_accelerator.get();
+    }
     
     // set alignment parameters
     if (matrix_stream.is_open()) {
@@ -1924,16 +1945,13 @@ int main_mpmap(int argc, char** argv) {
     // if directed to, auto calibrate the mismapping detection to the graph
     if (auto_calibrate_mismapping_detection && !suppress_mismapping_detection) {
         if (!suppress_progress) {
-            cerr << progress_boilerplate() << "Building null model to calibrate mismapping detection (can take some time)." << endl;
+            cerr << progress_boilerplate() << "Building null model to calibrate mismapping detection." << endl;
         }
         multipath_mapper.calibrate_mismapping_detection(num_calibration_simulations, calibration_read_lengths);
     }
     
     // now we can start doing spliced alignment
     multipath_mapper.do_spliced_alignment = do_spliced_alignment;
-    
-    // Count our threads 
-    int thread_count = get_thread_count();
     
     // Establish a watchdog to find reads that take too long to map.
     // If we see any, we will issue a warning.

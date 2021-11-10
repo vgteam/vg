@@ -1084,11 +1084,13 @@ pair<pair<path_t, int32_t>, pair<path_t, int32_t>> split_splice_segment(const Al
         path_mapping_t* post_trace_mapping = nullptr;
         size_t trace_leading_from_length = 0;
         const auto& trace_mapping = splice_segment.path().mapping(get<0>(left_trace));
+        // walk edits that come before the traced location
         for (int64_t j = 0; j < get<1>(left_trace); ++j) {
             left_leading_to_length += trace_mapping.edit(j).to_length();
             trace_leading_from_length += trace_mapping.edit(j).from_length();
         }
         if (get<1>(left_trace) < trace_mapping.edit_size()) {
+            // the trace ends in an edit
             const auto& trace_edit = trace_mapping.edit(get<1>(left_trace));
             if (trace_edit.to_length() != 0) {
                 left_leading_to_length += get<2>(left_trace);
@@ -1097,6 +1099,7 @@ pair<pair<path_t, int32_t>, pair<path_t, int32_t>> split_splice_segment(const Al
                 trace_leading_from_length += get<2>(left_trace);
             }
             if (get<2>(left_trace) < max(trace_edit.from_length(), trace_edit.to_length())) {
+                
                 post_trace_mapping = left_path.add_mapping();
                 auto edit = post_trace_mapping->add_edit();
                 edit->set_from_length(max<int64_t>(0, trace_edit.from_length() - get<2>(left_trace)));
@@ -1112,6 +1115,7 @@ pair<pair<path_t, int32_t>, pair<path_t, int32_t>> split_splice_segment(const Al
                 post_trace_mapping = left_path.add_mapping();
             }
             from_proto_edit(trace_mapping.edit(j), *post_trace_mapping->add_edit());
+            left_to_length += trace_mapping.edit(j).to_length();
         }
         if (post_trace_mapping) {
             const auto& trace_pos = trace_mapping.position();
@@ -1180,6 +1184,10 @@ pair<pair<path_t, int32_t>, pair<path_t, int32_t>> split_splice_segment(const Al
             }
         }
     }
+    
+#ifdef debug_linker_split
+    cerr << "scoring split segments with read interval starts " << left_leading_to_length << " and " << (left_to_length + left_leading_to_length) << endl;
+#endif
     
     // score the two halves (but don't take the full length bonus, since this isn't actually
     // the end of the full read)

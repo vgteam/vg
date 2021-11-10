@@ -757,7 +757,7 @@ namespace vg {
         translate_oriented_node_ids(*aln.mutable_path(), translator);
         
 #ifdef debug_multipath_mapper
-        cerr << "resecued direct alignment is" << endl;
+        cerr << "rescued direct alignment is" << endl;
         cerr << pb2json(aln) << endl;
 #endif
         
@@ -2847,11 +2847,13 @@ namespace vg {
             rescued_interval.second += (begin - alignment.sequence().begin());
             
             succeeded = (rescued_interval.first >= primary_interval.second - max_softclip_overlap
-                         && rescued_interval.second - max(rescued_interval.first, primary_interval.second) >= min_splice_rescue_matches);
+                         && rescued_interval.second - max(rescued_interval.first, primary_interval.second) >= min_splice_rescue_matches
+                         && rescued_interval.second > primary_interval.first);
         }
         else {
             succeeded = (rescued_interval.second <= primary_interval.first + max_softclip_overlap
-                         && min(rescued_interval.second, primary_interval.first) >= min_splice_rescue_matches);
+                         && min(rescued_interval.second, primary_interval.first) >= min_splice_rescue_matches
+                         && rescued_interval.first < primary_interval.first);
         }
 #ifdef debug_multipath_mapper
         cerr << "rescue candidate covers read interval " << rescued_interval.first << ":" << rescued_interval.second << " compared to primary interval " << primary_interval.first << ":" << primary_interval.second << ", considered successful? " << succeeded << endl;
