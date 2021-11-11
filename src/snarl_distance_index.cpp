@@ -527,6 +527,7 @@ void populate_snarl_index(
     assert(snarl_index.first == SnarlDistanceIndex::TEMP_SNARL);
 #endif
     SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = temp_index.temp_snarl_records.at(snarl_index.second);
+    temp_snarl_record.is_simple=true;
 
 
 
@@ -573,12 +574,16 @@ void populate_snarl_index(
         const pair<SnarlDistanceIndex::temp_record_t, size_t> start_index = std::move(all_children.back());
         all_children.pop_back();
 
+        bool is_internal_node = false;
+
         //Check if this node is a tip
         if ((start_index.first == SnarlDistanceIndex::TEMP_NODE 
              && start_index.second != temp_snarl_record.start_node_id 
              && start_index.second != temp_snarl_record.end_node_id) 
             || 
             (start_index.first == SnarlDistanceIndex::TEMP_CHAIN && temp_index.temp_chain_records.at(start_index.second).is_trivial)) {
+            //If this is an internal node
+            is_internal_node = true;
             nid_t node_id = start_index.first == SnarlDistanceIndex::TEMP_NODE ? start_index.second : temp_index.temp_chain_records.at(start_index.second).start_node_id;
             size_t rank = start_index.first == SnarlDistanceIndex::TEMP_NODE ? temp_index.temp_node_records.at(start_index.second-temp_index.min_node_id).rank_in_parent 
                                                           : temp_index.temp_chain_records.at(start_index.second).rank_in_parent;
@@ -590,6 +595,7 @@ void populate_snarl_index(
             if (!has_edges) {
                 temp_index.temp_node_records.at(node_id-temp_index.min_node_id).is_tip = true;
                 temp_snarl_record.tippy_child_ranks.insert(rank);
+                temp_snarl_record.is_simple=false; //It is a tip so this isn't simple snarl
             }
             has_edges = false;
             graph->follow_edges(graph->get_handle(node_id, true), false, [&](const handle_t next_handle) {
@@ -598,7 +604,11 @@ void populate_snarl_index(
             if (!has_edges) {
                 temp_index.temp_node_records.at(node_id-temp_index.min_node_id).is_tip = true;
                 temp_snarl_record.tippy_child_ranks.insert(rank);
+                temp_snarl_record.is_simple=false; //It is a tip so this isn't simple snarl
             }
+        } else if (start_index.first == SnarlDistanceIndex::TEMP_CHAIN && !temp_index.temp_chain_records.at(start_index.second).is_trivial) {
+            //If this is an internal chain, then it isn't a simple snarl
+            temp_snarl_record.is_simple=false;
         }
 
         bool start_is_tip = start_index.first == SnarlDistanceIndex::TEMP_NODE 
@@ -638,6 +648,7 @@ void populate_snarl_index(
         for (bool start_rev : directions) {
             //Start a dijkstra traversal from start_index going in the direction indicated by start_rev
             //Record the distances to each node (child of the snarl) found
+            size_t reachable_node_count = 0; //How many nodes can we reach from this node side?
 
 #ifdef debug_distance_indexing
             cerr << "  Starting from child " << temp_index.structure_start_end_as_string(start_index)
@@ -671,38 +682,22 @@ void populate_snarl_index(
                                                         !temp_index.temp_chain_records[current_index.second].start_node_rev) 
                                   : graph->get_handle(temp_index.temp_chain_records[current_index.second].end_node_id, 
                                                       temp_index.temp_chain_records[current_index.second].end_node_rev));
+                if (current_index.first != SnarlDistanceIndex::TEMP_NODE) {
+                    temp_snarl_record.is_simple = false;
+                }
+
 #ifdef debug_distance_indexing
                         cerr << "    at child " << temp_index.structure_start_end_as_string(current_index) << " going "
                              << (current_rev ? "rev" : "fd") << " at actual node " << graph->get_id(current_end_handle) 
                              << (graph->get_is_reverse(current_end_handle) ? "rev" : "fd") << endl;
 #endif
                 graph->follow_edges(current_end_handle, false, [&](const handle_t next_handle) {
+
+                    reachable_node_count++;
                     //At each of the nodes reachable from the current one, fill in the distance from the start
                     //node to the next node (current_distance). If this handle isn't leaving the snarl,
                     //add the next nodes along with the distance to the end of the next node
                     auto& node_record = temp_index.temp_node_records.at(graph->get_id(next_handle)-temp_index.min_node_id);
-//TODO: The snarl decomposition should find tips now
-//                    if (node_record.node_id == 0) {
-//#ifdef debug_distance_indexing
-//                        cerr << "Adding a tip " <<  graph->get_id(next_handle) << endl;
-//#endif
-//                        //If we haven't seen this node before, it means that it was a tip
-//                        node_record.node_id = graph->get_id(next_handle);
-//                        node_record.node_length = graph->get_length(next_handle);
-//                        node_record.rank_in_parent = temp_snarl_record.node_count+2;
-//                        node_record.reversed_in_parent = false;
-//                        node_record.parent = snarl_index; 
-//                        node_record.is_tip = true;
-//
-//                        //also update the parent
-//                        temp_snarl_record.node_count ++;
-//                        temp_snarl_record.is_trivial = false;
-//                        temp_snarl_record.children.emplace_back(SnarlDistanceIndex::TEMP_NODE, graph->get_id(next_handle));
-//                        temp_snarl_record.tippy_child_ranks.insert(node_record.rank_in_parent);
-//
-//                        //TODO: Is it bad to change the list as we're walking through it?
-//                        all_children.emplace_back(SnarlDistanceIndex::TEMP_NODE, graph->get_id(next_handle)); 
-//                    }
 
                     //The index of the snarl's child that next_handle represents
                     pair<SnarlDistanceIndex::temp_record_t, size_t> next_index = get_ancestor_of_node(make_pair(SnarlDistanceIndex::TEMP_NODE, graph->get_id(next_handle))); 
@@ -719,7 +714,12 @@ void populate_snarl_index(
                         next_rank = 0;
                     } else if (next_index.first == SnarlDistanceIndex::TEMP_NODE && next_index.second == temp_snarl_record.end_node_id) {
                         next_rank = 1;
-                    } //TODO: This won't be true of root snarls 
+                    } else {
+                        //If the next thing wasn't a boundary node and this was an internal node, then it isn't a simple snarl
+                        if (is_internal_node) {
+                            temp_snarl_record.is_simple = false;
+                        }
+                    }//TODO: This won't be true of root snarls 
                       //else {
                       //  assert(next_rank != 0 && next_rank != 1);
                       //}
@@ -776,6 +776,10 @@ void populate_snarl_index(
                          << (next_rev ? "rev" : "fd") << " with distance " << current_distance << " for ranks " << start_rank << " " << next_rank << endl;
 #endif
                 });
+            }
+            if (is_internal_node && reachable_node_count != 1) {
+                //If this is an internal node, then it must have only one edge for it to be a simple snarl
+                temp_snarl_record.is_simple = false;
             }
         }
     }
