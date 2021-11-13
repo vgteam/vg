@@ -682,9 +682,6 @@ void populate_snarl_index(
                                                         !temp_index.temp_chain_records[current_index.second].start_node_rev) 
                                   : graph->get_handle(temp_index.temp_chain_records[current_index.second].end_node_id, 
                                                       temp_index.temp_chain_records[current_index.second].end_node_rev));
-                if (current_index.first != SnarlDistanceIndex::TEMP_NODE) {
-                    temp_snarl_record.is_simple = false;
-                }
 
 #ifdef debug_distance_indexing
                         cerr << "    at child " << temp_index.structure_start_end_as_string(current_index) << " going "
@@ -692,6 +689,10 @@ void populate_snarl_index(
                              << (graph->get_is_reverse(current_end_handle) ? "rev" : "fd") << endl;
 #endif
                 graph->follow_edges(current_end_handle, false, [&](const handle_t next_handle) {
+                    if (graph->get_id(current_end_handle) == graph->get_id(next_handle)){
+                        //If there are any loops then this isn't a simple snarl
+                        temp_snarl_record.is_simple = false;
+                    }
 
                     reachable_node_count++;
                     //At each of the nodes reachable from the current one, fill in the distance from the start
