@@ -27,10 +27,10 @@ namespace vg {
     namespace unittest {
     
         TEST_CASE( "Load",
-                  "[bug]" ) {
+                  "[load]" ) {
             SnarlDistanceIndex distance_index;
-            distance_index.deserialize("/public/groups/cgl/graph-genomes/xhchang/hgsvc_v2/HGSVC_hs38d1.dist.new");
-            distance_index.validate_index();
+            distance_index.deserialize("/public/groups/cgl/graph-genomes/xhchang/1000gp_nosegdup/1000gp.dist.new");
+            distance_index.print_stats();
         }
         
         TEST_CASE( "Build a snarl distance index for a graph with one node",
@@ -82,7 +82,7 @@ namespace vg {
             }
         }
         TEST_CASE( "Snarl decomposition can deal with multiple connected components",
-                  "[snarl_distance]" ) {
+                  "[snarl_distance][bug]" ) {
         
         
             // This graph will have a snarl from 1 to 8, a snarl from 2 to 7,
@@ -150,6 +150,16 @@ namespace vg {
                     child_count++;
                 });
                 REQUIRE(child_count == 3);
+            }
+
+            SECTION("Node 4 is in a simple snarl") {
+                net_handle_t node4 = distance_index.get_node_net_handle(n4->id());
+                REQUIRE(distance_index.node_id(node4) == n4->id());
+                net_handle_t chain4 = distance_index.get_parent(node4);
+                REQUIRE(distance_index.is_chain(chain4));
+                net_handle_t snarl4 = distance_index.get_parent(chain4);
+                cerr << distance_index.net_handle_as_string(node4) << " is a child of " << distance_index.net_handle_as_string(chain4) << " is a child of " << distance_index.net_handle_as_string(snarl4) << endl;
+                REQUIRE(distance_index.is_simple_snarl(snarl4));
             }
 
             //Handle for first node facing in
@@ -2859,6 +2869,7 @@ namespace vg {
                                     REQUIRE((distance_index.is_node(child) || distance_index.is_snarl(child)));
                                     if (distance_index.is_snarl(child)){
                                         distance_index.for_each_child(child, [&](const net_handle_t& grandchild) {
+                                            cerr << "child " << distance_index.net_handle_as_string(grandchild) << endl;
                                             REQUIRE(distance_index.is_trivial_chain(grandchild));
                                         });
                                     }
