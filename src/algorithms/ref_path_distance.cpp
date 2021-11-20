@@ -123,7 +123,7 @@ int64_t ref_path_distance(const PathPositionHandleGraph* graph, const pos_t& pos
         for (const auto& ref : shared_refs) {
             int64_t dist = nearby_paths_2[ref] - nearby_paths_1[ref];
 #ifdef debug_ref_path_distance
-            cerr << "[ref_path_distance] distance on pre-labled reference path " << graph->get_path_name(ref.first) << " is " << dist << " from interval " << nearby_paths_1[ref] << ":" << nearby_paths_2[ref] << endl;
+            cerr << "[ref_path_distance] distance on pre-labeled reference path " << graph->get_path_name(ref.first) << " is " << dist << " from interval " << nearby_paths_1[ref] << ":" << nearby_paths_2[ref] << endl;
 #endif
             if (approx_ref_dist == numeric_limits<int64_t>::max() || dist > approx_ref_dist) {
                 approx_ref_dist = dist;

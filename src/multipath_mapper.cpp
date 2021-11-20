@@ -2329,9 +2329,12 @@ namespace vg {
                     // estimate the distance using the reference path
                     dist = algorithms::ref_path_distance(xindex, pos_1, pos_2, ref_path_handles,
                                                          max_splice_ref_search_length);
+                    
                 }
                 
-                if (distance_index && (dist < 0 || dist == numeric_limits<int64_t>::max())) {
+                if (distance_index && dist == numeric_limits<int64_t>::max()) {
+                    // FIXME: this will still sometimes produce finite distances for reads that
+                    // can't reach each other along a surjection path in cyclic graphs
                     // they're probably still reachable if they got this far, get a worse estimate of the
                     // distance from the distance index
                     int64_t min_dist = distance_index->min_distance(pos_1, pos_2);
@@ -2344,7 +2347,6 @@ namespace vg {
                     // not memoizing unreachable distances, since distance index should
                     // filter out most of those anyway, and they actually might change on
                     // different positions on the node
-                    
                     ref_length_memo[key] = dist + offset(pos_1) - offset(pos_2);
                 }
                 return dist;
@@ -2465,7 +2467,7 @@ namespace vg {
 #ifdef debug_multipath_mapper
                     cerr << "got distance index test distance " << test_dist << " between seed positions " << left_seed_pos << " and " << right_seed_pos << endl;
 #endif
-                    if (test_dist < 0 || test_dist == numeric_limits<int64_t>::max()) {
+                    if (test_dist < 0 || test_dist == numeric_limits<int64_t>::max() || test_dist > max_intron_length) {
 #ifdef debug_multipath_mapper
                         cerr << "test distance shows that this pair of candidates cannot reach each other" << endl;
 #endif
