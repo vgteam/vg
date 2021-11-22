@@ -565,13 +565,14 @@ static multimap<int64_t, edge_t> find_deletion_candidate_edges(PathHandleGraph* 
         // scan a context of our current step, trying to avoid touching back
         // on the reference path
         // todo: can do better job of constraining with more step_on_path lookups
-        unordered_set<handle_t> context;
+        unordered_set<nid_t> context;
         vector<handle_t> cur_handles = {handle};
         for (int64_t i = 0; i < context_steps; ++i) {
             vector<handle_t> next_handles;
             for (auto& h : cur_handles) {
-                if (!context.count(h)) {
-                    context.insert(h);
+                nid_t cur_id = graph->get_id(h);
+                if (!context.count(cur_id)) {
+                    context.insert(cur_id);
                     graph->follow_edges(h, false, [&](handle_t n) {
                             if (!edge_blacklist.count(graph->edge_handle(h, n)) && !handle_to_position.count(n)) {
                                 next_handles.push_back(n);
@@ -588,8 +589,7 @@ static multimap<int64_t, edge_t> find_deletion_candidate_edges(PathHandleGraph* 
         }
 
         // assig everything in the context to the current position
-        for (handle_t context_handle : context) {
-            nid_t id = graph->get_id(context_handle);
+        for (nid_t id : context) {
             auto it = id_to_min_pos.find(id);
             if (it == id_to_min_pos.end()) {
                 id_to_min_pos[id] = pos;
@@ -671,6 +671,10 @@ static int64_t get_max_deletion(const PathHandleGraph* graph,
             for (auto& h : cur_handles) {
                 if (!context.count(h)) {
                     context.insert(h);
+                    if (i == 0) {
+                        // keep search directional from origin
+                        context.insert(graph->flip(h));
+                    }
                     // stop search once we hit reference path
                     if (handle_to_position.count(h)) {
                         ref_context.insert(h);
@@ -681,7 +685,7 @@ static int64_t get_max_deletion(const PathHandleGraph* graph,
                                 }
                             });
                         if (i > 0) {
-                            // only directional on edge itself, during seach any connectivity will do
+                            // keep search directional from origin
                             graph->follow_edges(h, true, [&](handle_t p) {
                                     if (!edge_blacklist.count(graph->edge_handle(p, h))) {
                                         next_handles.push_back(p);
