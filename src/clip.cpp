@@ -644,8 +644,6 @@ static multimap<int64_t, edge_t> find_deletion_candidate_edges(PathHandleGraph* 
             nid_t id1 = graph->get_id(edge.first);
             nid_t id2 = graph->get_id(edge.second);
             int64_t delta = max(abs(id_to_max_pos.at(id1) - id_to_min_pos.at(id2)), abs(id_to_max_pos.at(id2) - id_to_min_pos.at(id1)));
-        //cerr << "id1 " << id1 << " id2 " << id2 << " mp1 " << id_to_min_pos[id1] << " maxp1 " << id_to_max_pos[id1]
-        //                  << " mp2 " << id_to_min_pos[id2] << " maxp2 " << id_to_max_pos[id2] <<  " delta " << delta << endl;
             
             if (delta > max_deletion) {
                 length_to_edge.insert(make_pair(delta, edge));
