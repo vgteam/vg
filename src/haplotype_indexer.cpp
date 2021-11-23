@@ -165,12 +165,13 @@ std::vector<std::string> HaplotypeIndexer::parse_vcf(const std::string& filename
                 // it in the graph.
                 var.sequenceName = path_name;
             }
-
+            
             // Determine the reference nodes for the current variant and create a variant site.
             // If the variant is not an insertion, there should be a path for the ref allele.
             std::string var_name = make_variant_id(var);
             std::string ref_path_name = "_alt_" + var_name + "_0";
             gbwt::vector_type ref_path = extract_as_gbwt_path(graph, ref_path_name);
+            
             size_t ref_pos = variants.invalid_position();
             if (!ref_path.empty()) {
                 ref_pos = variants.firstOccurrence(ref_path.front());
@@ -230,11 +231,7 @@ std::vector<std::string> HaplotypeIndexer::parse_vcf(const std::string& filename
             // Add alternate alleles to the site.
             for (size_t alt_index = 1; alt_index < var.alleles.size(); alt_index++) {
                 std::string alt_path_name = "_alt_" + var_name + "_" + std::to_string(alt_index);
-                if (graph.has_path(alt_path_name)) {
-                    variants.addAllele(extract_as_gbwt_path(graph, alt_path_name));
-                } else {
-                    variants.addAllele(ref_path);
-                }
+                variants.addAllele(extract_as_gbwt_path(graph, alt_path_name));
             }
 
             // Store the phasings in PhasingInformation structures.
