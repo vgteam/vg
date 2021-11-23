@@ -39,7 +39,7 @@ MinimizerMapper::MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
     SnarlDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph) :
     path_graph(path_graph), minimizer_index(minimizer_index),
     distance_index(distance_index), gbwt_graph(graph),
-    extender(gbwt_graph, *(get_regular_aligner())), clusterer(distance_index),
+    extender(gbwt_graph, *(get_regular_aligner())), clusterer(distance_index, &graph),
     fragment_length_distr(1000,1000,0.95) {
     
     // The GBWTGraph needs a GBWT

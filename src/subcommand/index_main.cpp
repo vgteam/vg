@@ -718,9 +718,12 @@ int main_index(int argc, char** argv) {
                 IntegratedSnarlFinder snarl_finder(*xg.get());
                 // Create the MinimumDistanceIndex
                 SnarlDistanceIndex distance_index;
-                fill_in_distance_index(&distance_index, xg.get(), &snarl_finder);
-                // Save the completed DistanceIndex
+                // Save the incomplete DistanceIndex
                 distance_index.serialize(dist_name);
+                //Load it
+                distance_index.deserialize(dist_name);
+                //And then fill it in
+                fill_in_distance_index(&distance_index, xg.get(), &snarl_finder);
             } else {
                 // May be GBZ or a HandleGraph.
                 auto options = vg::io::VPKG::try_load_first<gbwtgraph::GBZ, handlegraph::HandleGraph>(file_names.at(0));
