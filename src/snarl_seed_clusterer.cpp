@@ -5,8 +5,9 @@
 //#define DEBUG_CLUSTER
 namespace vg {
 
-NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index) :
-                                        distance_index(distance_index){
+NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
+                                        distance_index(distance_index),
+                                        graph(graph){
 };
 
 vector<NewSnarlSeedClusterer::Cluster> NewSnarlSeedClusterer::cluster_seeds (const vector<Seed>& seeds, size_t read_distance_limit) const {
@@ -732,10 +733,10 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
 
 
     //Get the distances between the two sides of the children in the parent
-    size_t distance_left_left = distance_index.distance_in_parent(parent_handle, child_handle1, true, child_handle2, true);
-    size_t distance_left_right = distance_index.distance_in_parent(parent_handle, child_handle1, true, child_handle2, false);
-    size_t distance_right_right = distance_index.distance_in_parent(parent_handle, child_handle1, false, child_handle2, false);
-    size_t distance_right_left = distance_index.distance_in_parent(parent_handle, child_handle1, false, child_handle2, true);
+    size_t distance_left_left = distance_index.distance_in_parent(parent_handle, child_handle1, true, child_handle2, true, graph);
+    size_t distance_left_right = distance_index.distance_in_parent(parent_handle, child_handle1, true, child_handle2, false, graph);
+    size_t distance_right_right = distance_index.distance_in_parent(parent_handle, child_handle1, false, child_handle2, false, graph);
+    size_t distance_right_left = distance_index.distance_in_parent(parent_handle, child_handle1, false, child_handle2, true, graph);
 
     /* Find the distances from the start/end of the parent to the left/right of the first child
      * If this is the root, then the distances are infinite since it has no start/end
@@ -764,13 +765,13 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
                     : distance_index.get_cached_end_bound_length(parent_handle);
 
         child_clusters1.distance_start_left = child_handle1.net == parent_start_in ? 0 :
-            SnarlDistanceIndex::sum({start_length, distance_index.distance_to_parent_bound(parent_handle, true, child_handle1, true)});
+            SnarlDistanceIndex::sum({start_length, distance_index.distance_to_parent_bound(parent_handle, true, child_handle1, true, graph)});
         child_clusters1.distance_start_right = distance_index.flip(child_handle1.net) == parent_start_in ? 0 :
-             SnarlDistanceIndex::sum({start_length, distance_index.distance_to_parent_bound(parent_handle, true, child_handle1, false)});
+             SnarlDistanceIndex::sum({start_length, distance_index.distance_to_parent_bound(parent_handle, true, child_handle1, false, graph)});
         child_clusters1.distance_end_left = child_handle1.net == parent_end_in ? 0 :
-             SnarlDistanceIndex::sum({end_length, distance_index.distance_to_parent_bound(parent_handle, false, child_handle1, true)});
+             SnarlDistanceIndex::sum({end_length, distance_index.distance_to_parent_bound(parent_handle, false, child_handle1, true, graph)});
         child_clusters1.distance_end_right = distance_index.flip(child_handle1.net) == parent_end_in ? 0  :
-            SnarlDistanceIndex::sum({end_length, distance_index.distance_to_parent_bound(parent_handle, false, child_handle1,false)});
+            SnarlDistanceIndex::sum({end_length, distance_index.distance_to_parent_bound(parent_handle, false, child_handle1,false, graph)});
 
     }
 #ifdef DEBUG_CLUSTER

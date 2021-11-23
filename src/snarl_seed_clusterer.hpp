@@ -12,6 +12,8 @@ namespace vg{
 
 class NewSnarlSeedClusterer {
 
+
+
     public:
 
         /// Seed information used in Giraffe.
@@ -33,7 +35,7 @@ class NewSnarlSeedClusterer {
             SmallBitset present; // Minimizers that are present in the cluster.
         };
 
-        NewSnarlSeedClusterer(const SnarlDistanceIndex& distance_index);
+        NewSnarlSeedClusterer(const SnarlDistanceIndex& distance_index, const HandleGraph* graph);
 
         //TODO: I don't want to be too tied to the minimizer_mapper implementation with seed structs
 
@@ -67,6 +69,7 @@ class NewSnarlSeedClusterer {
                 size_t read_distance_limit, size_t fragment_distance_limit=0) const;
 
         const SnarlDistanceIndex& distance_index;
+        const HandleGraph* graph;
 
         enum ChildNodeType {CHAIN, SNARL, NODE};
 
@@ -139,6 +142,7 @@ class NewSnarlSeedClusterer {
 
         struct TreeState {
             //Hold all the tree relationships, seed locations, and cluster info
+
             //for the current level of the snarl tree and the parent level
             //As clustering occurs at the current level, the parent level
             //is updated to know about its children
