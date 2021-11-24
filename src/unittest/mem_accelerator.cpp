@@ -80,7 +80,6 @@ TEST_CASE("MEMAccelerator returns same ranges as direct LF queries",
                 --cursor;
             }
             
-            std::cerr << "Kmer " << seq << " memo " << memo_range << " direct " << direct_range << std::endl;
             REQUIRE(memo_range == direct_range);
         }
         

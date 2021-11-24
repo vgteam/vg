@@ -12,11 +12,18 @@ namespace vg {
 
 MEMAccelerator::MEMAccelerator(const gcsa::GCSA& gcsa_index, size_t k) : k(k)
 {
-    // compute the minimum width required to express the integers
+    // Compute the minimum width required to express the integers.
+    // We need to be able to represent numbers up to th index size + 1, to
+    // account for empty ranges where the first number is greater than the
+    // second and the second is the index size. 
     uint8_t width = 0;
-    for (size_t log_cntr = 1; log_cntr <= gcsa_index.size(); log_cntr *= 2) {
+    size_t log_cntr;
+    for (log_cntr = 1; log_cntr <= gcsa_index.size() + 1; log_cntr *= 2) {
         ++width;
     }
+    
+    std::cerr << "Use " << (int)width << " bits storing values 0 through " << (log_cntr - 1) << " for an index size of " << gcsa_index.size() << std::endl;
+    
     range_table.width(max<uint8_t>(width, 1));
     // range table is initialized to size 2^(2k + 1) = 2 * 4^k
     range_table.resize(1 << (2 * k + 1));
@@ -32,7 +39,9 @@ MEMAccelerator::MEMAccelerator(const gcsa::GCSA& gcsa_index, size_t k) : k(k)
     while (!stack.empty()) {
         if (stack.size() == k + 1) {
             // we've walked the full k-mers
+            assert(get<2>(stack.back()).first <= log_cntr - 1);
             range_table[2 * get<1>(stack.back())] = get<2>(stack.back()).first;
+            assert(get<2>(stack.back()).second <= log_cntr - 1);
             range_table[2 * get<1>(stack.back()) + 1] = get<2>(stack.back()).second;
             stack.pop_back();
         }
