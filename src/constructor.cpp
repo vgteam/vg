@@ -1047,8 +1047,7 @@ namespace vg {
                                     deletion_starts.insert(arc_start);
                                     
                                     // No alt path mappings necessary for the
-                                    // deletion; the existence of the empty
-                                    // path is sufficient.
+                                    // deletion
                                 }
 
                             }

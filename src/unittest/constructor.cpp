@@ -203,7 +203,7 @@ TEST_CASE( "Max node length is respected", "[constructor]" ) {
 /**
  * Testing wrapper to build a graph chunk from a VCF string. Adds alt paths by default.
  */
-ConstructedChunk construct_test_chunk(string ref_sequence, string ref_name, string vcf_data) {
+static ConstructedChunk construct_test_chunk(string ref_sequence, string ref_name, string vcf_data) {
     
     // Make a stream out of the data
     std::stringstream vcf_stream(vcf_data);
@@ -233,7 +233,7 @@ ConstructedChunk construct_test_chunk(string ref_sequence, string ref_name, stri
 /**
  * Testing wrapper to build a whole graph from a VCF string. Adds alt paths by default.
  */
-Graph construct_test_graph(string fasta_data, string vcf_data, size_t max_node_size,
+static Graph construct_test_graph(string fasta_data, string vcf_data, size_t max_node_size,
     bool do_svs, bool use_flat_alts = false) {
     
     // Merge all the graphs we get into this graph
@@ -292,7 +292,7 @@ Graph construct_test_graph(string fasta_data, string vcf_data, size_t max_node_s
 /**
  * Testing wrapper to build a whole graph from a VCF string into a HandleGraph
  */
-unique_ptr<PathHandleGraph> construct_test_handle_graph(string fasta_data, string vcf_data, 
+static unique_ptr<PathHandleGraph> construct_test_handle_graph(string fasta_data, string vcf_data, 
     size_t max_node_size, bool do_svs, bool use_flat_alts = false) {
   
     // Make an empty graph
@@ -341,6 +341,23 @@ unique_ptr<PathHandleGraph> construct_test_handle_graph(string fasta_data, strin
     
     // Return the result
     return std::move(graph);
+}
+
+// Find and copy path in the graph that ends with the given name suffix, or
+// produce an empty Path.
+static Path find_path_by_suffix(const Graph& g, const std::string& suffix) {
+    for (size_t i = 0; i < g.path_size(); i++) {
+        auto& path = g.path(i);
+        if (path.name().size() >= suffix.size()) {
+            // This could be it
+            if (std::equal(suffix.rbegin(), suffix.rend(), path.name().rbegin())) {
+                // Path does end with suffix
+                return path;
+            }
+        }
+    }
+    // If we get here no path matches
+    return Path();
 }
 
 TEST_CASE( "A SNP can be constructed", "[constructor]" ) {
@@ -465,87 +482,71 @@ ref	5	rs1337	A	G	29	PASS	.	GT
         
     }
     
-    SECTION("the graph should have three named paths") {
-        REQUIRE(result.graph.path_size() == 3);
+    // Find the primary path, and the paths for the two alleles, filling in
+    // empty paths if absent.
+    Path primary = find_path_by_suffix(result.graph, "ref");
+    Path allele0 = find_path_by_suffix(result.graph, "0");
+    Path allele1 = find_path_by_suffix(result.graph, "1");
+    
+    SECTION("only one allele should be allowed to be empty") {
+        REQUIRE(primary.mapping_size() > 0);
+        REQUIRE(allele0.mapping_size() + allele1.mapping_size() > 0);
+    }
         
-        // Find the primary path, and the paths for the two alleles
-        Path primary;
-        Path allele0;
-        Path allele1;
+    SECTION("primary, ref allele, and alt allele paths should be named correctly") {
+        REQUIRE(primary.name() == "ref");
+        REQUIRE(allele0.name().substr(0, 5) == "_alt_");
+        REQUIRE(allele0.name().substr(allele0.name().size() - 2, 2) == "_0");
+        REQUIRE(allele1.name().substr(0, 5) == "_alt_");
+        REQUIRE(allele1.name().substr(allele1.name().size() - 2, 2) == "_1");
         
-        for (size_t i = 0; i < result.graph.path_size(); i++) {
-            auto& path = result.graph.path(i);
+        // And the two alleles have to be of the same variant
+        REQUIRE(allele0.name().substr(5, allele0.name().size() - (5 + 2)) == 
+            allele1.name().substr(5, allele1.name().size() - (5 + 2)));
             
-            // Path names can't be empty for us to inspect them how we want.
-            REQUIRE(path.name().size() > 0);
+        SECTION("the primary path should trace the reference") {
+            REQUIRE(primary.mapping_size() == 3);
             
-            if (path.name() == "ref") {
-                primary = path;
-            } else if (path.name()[path.name().size() - 1] == '0') {
-                // The name ends with 0, so it ought to be the ref allele path
-                allele0 = path;
-            } else if (path.name()[path.name().size() - 1] == '1') {
-                // The name ends with 1, so it ought to be the alt allele path
-                allele1 = path;
-            }
+            REQUIRE(primary.mapping(0).position().node_id() == before.id());
+            REQUIRE(primary.mapping(0).position().offset() == 0);
+            REQUIRE(primary.mapping(0).position().is_reverse() == false);
+            REQUIRE(mapping_is_match(primary.mapping(0)));
+            REQUIRE(from_length(primary.mapping(0)) == before.sequence().size());
+            
+            REQUIRE(primary.mapping(1).position().node_id() == snp_ref.id());
+            REQUIRE(primary.mapping(1).position().offset() == 0);
+            REQUIRE(primary.mapping(1).position().is_reverse() == false);
+            REQUIRE(mapping_is_match(primary.mapping(1)));
+            REQUIRE(from_length(primary.mapping(1)) == snp_ref.sequence().size());
+            
+            REQUIRE(primary.mapping(2).position().node_id() == after.id());
+            REQUIRE(primary.mapping(2).position().offset() == 0);
+            REQUIRE(primary.mapping(2).position().is_reverse() == false);
+            REQUIRE(mapping_is_match(primary.mapping(2)));
+            REQUIRE(from_length(primary.mapping(2)) == after.sequence().size());
+            
         }
         
-        SECTION("primary, ref allele, and alt allele paths should be named correctly") {
-            REQUIRE(primary.name() == "ref");
-            REQUIRE(allele0.name().substr(0, 5) == "_alt_");
-            REQUIRE(allele0.name().substr(allele0.name().size() - 2, 2) == "_0");
-            REQUIRE(allele1.name().substr(0, 5) == "_alt_");
-            REQUIRE(allele1.name().substr(allele1.name().size() - 2, 2) == "_1");
+        SECTION("the ref allele path should visit the ref allele") {
+            REQUIRE(allele0.mapping_size() == 1);
             
-            // And the two alleles have to be of the same variant
-            REQUIRE(allele0.name().substr(5, allele0.name().size() - (5 + 2)) == 
-                allele1.name().substr(5, allele1.name().size() - (5 + 2)));
-                
-            SECTION("the primary path should trace the reference") {
-                REQUIRE(primary.mapping_size() == 3);
-                
-                REQUIRE(primary.mapping(0).position().node_id() == before.id());
-                REQUIRE(primary.mapping(0).position().offset() == 0);
-                REQUIRE(primary.mapping(0).position().is_reverse() == false);
-                REQUIRE(mapping_is_match(primary.mapping(0)));
-                REQUIRE(from_length(primary.mapping(0)) == before.sequence().size());
-                
-                REQUIRE(primary.mapping(1).position().node_id() == snp_ref.id());
-                REQUIRE(primary.mapping(1).position().offset() == 0);
-                REQUIRE(primary.mapping(1).position().is_reverse() == false);
-                REQUIRE(mapping_is_match(primary.mapping(1)));
-                REQUIRE(from_length(primary.mapping(1)) == snp_ref.sequence().size());
-                
-                REQUIRE(primary.mapping(2).position().node_id() == after.id());
-                REQUIRE(primary.mapping(2).position().offset() == 0);
-                REQUIRE(primary.mapping(2).position().is_reverse() == false);
-                REQUIRE(mapping_is_match(primary.mapping(2)));
-                REQUIRE(from_length(primary.mapping(2)) == after.sequence().size());
-                
-            }
-            
-            SECTION("the ref allele path should visit the ref allele") {
-                REQUIRE(allele0.mapping_size() == 1);
-                
-                REQUIRE(allele0.mapping(0).position().node_id() == snp_ref.id());
-                REQUIRE(allele0.mapping(0).position().offset() == 0);
-                REQUIRE(allele0.mapping(0).position().is_reverse() == false);
-                REQUIRE(mapping_is_match(allele0.mapping(0)));
-                REQUIRE(from_length(allele0.mapping(0)) == snp_ref.sequence().size());
-            }
-            
-            SECTION("the alt allele path should visit the alt allele") {
-                REQUIRE(allele1.mapping_size() == 1);
-                
-                REQUIRE(allele1.mapping(0).position().node_id() == snp_alt.id());
-                REQUIRE(allele1.mapping(0).position().offset() == 0);
-                REQUIRE(allele1.mapping(0).position().is_reverse() == false);
-                REQUIRE(mapping_is_match(allele0.mapping(0)));
-                REQUIRE(from_length(allele0.mapping(0)) == snp_alt.sequence().size());
-            }
-                
+            REQUIRE(allele0.mapping(0).position().node_id() == snp_ref.id());
+            REQUIRE(allele0.mapping(0).position().offset() == 0);
+            REQUIRE(allele0.mapping(0).position().is_reverse() == false);
+            REQUIRE(mapping_is_match(allele0.mapping(0)));
+            REQUIRE(from_length(allele0.mapping(0)) == snp_ref.sequence().size());
         }
         
+        SECTION("the alt allele path should visit the alt allele") {
+            REQUIRE(allele1.mapping_size() == 1);
+            
+            REQUIRE(allele1.mapping(0).position().node_id() == snp_alt.id());
+            REQUIRE(allele1.mapping(0).position().offset() == 0);
+            REQUIRE(allele1.mapping(0).position().is_reverse() == false);
+            REQUIRE(mapping_is_match(allele0.mapping(0)));
+            REQUIRE(from_length(allele0.mapping(0)) == snp_alt.sequence().size());
+        }
+                
         SECTION("the reference path should be path 0") {
             REQUIRE(result.graph.path(0).name() == primary.name());
         }
@@ -588,46 +589,31 @@ ref	5	rs1337	AC	A	29	PASS	.	GT
         REQUIRE(result.graph.edge_size() == result.graph.node_size());
     }
 
-    SECTION("the graph should have 3 paths") {
-        REQUIRE(result.graph.path_size() == 3);
-        
-        // Find the primary path, and the paths for the two alleles
-        Path primary;
-        Path allele0;
-        Path allele1;
-        
-        for (size_t i = 0; i < result.graph.path_size(); i++) {
-            auto& path = result.graph.path(i);
-            
-            // Path names can't be empty for us to inspect them how we want.
-            REQUIRE(path.name().size() > 0);
-            
-            if (path.name() == "ref") {
-                primary = path;
-            } else if (path.name()[path.name().size() - 1] == '0') {
-                // The name ends with 0, so it ought to be the ref allele path
-                allele0 = path;
-            } else if (path.name()[path.name().size() - 1] == '1') {
-                // The name ends with 1, so it ought to be the alt allele path
-                allele1 = path;
-            }
-        }
-        
-        SECTION("the path for the alt should not include the deleted sequence") {
-            if (allele1.mapping_size() == 0) {
-                // This definitely lacks the C
-                REQUIRE(true);
-            } else {
-                for (size_t i = 0; i < allele1.mapping_size(); i++) {
-                    // Look at all the nodes along the path
-                    id_t node_id = allele1.mapping(i).position().node_id();
-                    
-                    for (size_t j = 0; j < result.graph.node_size(); j++) {
-                        // Brute force the whole graph to find the node
-                        if(node_id == result.graph.node(j).id()) {
-                            // In the node we actually visit, there can't be a "C", since we deleted them all
-                            REQUIRE(result.graph.node(j).sequence().find("C") == string::npos);
-                        }
+    // Find the primary path, and the paths for the two alleles, filling in
+    // empty paths if absent.
+    Path primary = find_path_by_suffix(result.graph, "ref");
+    Path allele0 = find_path_by_suffix(result.graph, "0");
+    Path allele1 = find_path_by_suffix(result.graph, "1");
+    
+    SECTION("only one allele should be allowed to be empty") {
+        REQUIRE(primary.mapping_size() > 0);
+        REQUIRE(allele0.mapping_size() + allele1.mapping_size() > 0);
+    }
+    
+    SECTION("the path for the alt should not include the deleted sequence") {
+        if (allele1.mapping_size() == 0) {
+            // This definitely lacks the C
+            REQUIRE(true);
+        } else {
+            for (size_t i = 0; i < allele1.mapping_size(); i++) {
+                // Look at all the nodes along the path
+                id_t node_id = allele1.mapping(i).position().node_id();
+                
+                for (size_t j = 0; j < result.graph.node_size(); j++) {
+                    // Brute force the whole graph to find the node
+                    if(node_id == result.graph.node(j).id()) {
+                        // In the node we actually visit, there can't be a "C", since we deleted them all
+                        REQUIRE(result.graph.node(j).sequence().find("C") == string::npos);
                     }
                 }
             }
@@ -671,46 +657,31 @@ ref	5	rs1337	A	AC	29	PASS	.	GT
         REQUIRE(result.graph.edge_size() == result.graph.node_size());
     }
 
-    SECTION("the graph should have 3 paths") {
-        REQUIRE(result.graph.path_size() == 3);
+    // Find the primary path, and the paths for the two alleles, filling in
+    // empty paths if absent.
+    Path primary = find_path_by_suffix(result.graph, "ref");
+    Path allele0 = find_path_by_suffix(result.graph, "0");
+    Path allele1 = find_path_by_suffix(result.graph, "1");
+    
+    SECTION("only one allele should be allowed to be empty") {
+        REQUIRE(primary.mapping_size() > 0);
+        REQUIRE(allele0.mapping_size() + allele1.mapping_size() > 0);
+    }
         
-        // Find the primary path, and the paths for the two alleles
-        Path primary;
-        Path allele0;
-        Path allele1;
-        
-        for (size_t i = 0; i < result.graph.path_size(); i++) {
-            auto& path = result.graph.path(i);
-            
-            // Path names can't be empty for us to inspect them how we want.
-            REQUIRE(path.name().size() > 0);
-            
-            if (path.name() == "ref") {
-                primary = path;
-            } else if (path.name()[path.name().size() - 1] == '0') {
-                // The name ends with 0, so it ought to be the ref allele path
-                allele0 = path;
-            } else if (path.name()[path.name().size() - 1] == '1') {
-                // The name ends with 1, so it ought to be the alt allele path
-                allele1 = path;
-            }
-        }
-        
-        SECTION("the path for the ref should not include the inserted sequence") {
-            if (allele0.mapping_size() == 0) {
-                // This definitely lacks the C
-                REQUIRE(true);
-            } else {
-                for (size_t i = 0; i < allele0.mapping_size(); i++) {
-                    // Look at all the nodes along the path
-                    id_t node_id = allele0.mapping(i).position().node_id();
-                    
-                    for (size_t j = 0; j < result.graph.node_size(); j++) {
-                        // Brute force the whole graph to find the node
-                        if(node_id == result.graph.node(j).id()) {
-                            // In the node we actually visit, there can't be a "C", since we inserted the only one
-                            REQUIRE(result.graph.node(j).sequence().find("C") == string::npos);
-                        }
+    SECTION("the path for the ref should not include the inserted sequence") {
+        if (allele0.mapping_size() == 0) {
+            // This definitely lacks the C
+            REQUIRE(true);
+        } else {
+            for (size_t i = 0; i < allele0.mapping_size(); i++) {
+                // Look at all the nodes along the path
+                id_t node_id = allele0.mapping(i).position().node_id();
+                
+                for (size_t j = 0; j < result.graph.node_size(); j++) {
+                    // Brute force the whole graph to find the node
+                    if(node_id == result.graph.node(j).id()) {
+                        // In the node we actually visit, there can't be a "C", since we inserted the only one
+                        REQUIRE(result.graph.node(j).sequence().find("C") == string::npos);
                     }
                 }
             }
@@ -936,38 +907,23 @@ ref	3	rs1337	TTC	TTAC	29	PASS	.	GT
         REQUIRE(result.graph.edge_size() == 3);
     }
 
-    SECTION("the graph should have 3 paths") {
-        REQUIRE(result.graph.path_size() == 3);
-        
-        // Find the primary path, and the paths for the two alleles
-        Path primary;
-        Path allele0;
-        Path allele1;
-        
-        for (size_t i = 0; i < result.graph.path_size(); i++) {
-            auto& path = result.graph.path(i);
-            
-            // Path names can't be empty for us to inspect them how we want.
-            REQUIRE(path.name().size() > 0);
-            
-            if (path.name() == "ref") {
-                primary = path;
-            } else if (path.name()[path.name().size() - 1] == '0') {
-                // The name ends with 0, so it ought to be the ref allele path
-                allele0 = path;
-            } else if (path.name()[path.name().size() - 1] == '1') {
-                // The name ends with 1, so it ought to be the alt allele path
-                allele1 = path;
-            }
-        }
-        
-        SECTION("the path for the ref allele should be completely empty") {
-            CHECK(allele0.mapping_size() == 0);
-        }
-        
-        SECTION("the path for the alt allele should have just one node") {
-            CHECK(allele1.mapping_size() == 1);
-        }
+    // Find the primary path, and the paths for the two alleles, filling in
+    // empty paths if absent.
+    Path primary = find_path_by_suffix(result.graph, "ref");
+    Path allele0 = find_path_by_suffix(result.graph, "0");
+    Path allele1 = find_path_by_suffix(result.graph, "1");
+    
+    SECTION("only one allele should be allowed to be empty") {
+        REQUIRE(primary.mapping_size() > 0);
+        REQUIRE(allele0.mapping_size() + allele1.mapping_size() > 0);
+    }
+    
+    SECTION("the path for the ref allele should be completely empty") {
+        CHECK(allele0.mapping_size() == 0);
+    }
+    
+    SECTION("the path for the alt allele should have just one node") {
+        CHECK(allele1.mapping_size() == 1);
     }
 
 }
@@ -1019,38 +975,23 @@ ref	2	rs1337	CATTTAATTATTAATTAAATAATTTAATTTATTTATTATTATAAATTTATTAATATAAATTAAATA	
         REQUIRE(result.graph.edge_size() == 4);
     }
 
-    SECTION("the graph should have 3 paths") {
-        REQUIRE(result.graph.path_size() == 3);
+    // Find the primary path, and the paths for the two alleles, filling in
+    // empty paths if absent.
+    Path primary = find_path_by_suffix(result.graph, "ref");
+    Path allele0 = find_path_by_suffix(result.graph, "0");
+    Path allele1 = find_path_by_suffix(result.graph, "1");
+    
+    SECTION("only one allele should be allowed to be empty") {
+        REQUIRE(primary.mapping_size() > 0);
+        REQUIRE(allele0.mapping_size() + allele1.mapping_size() > 0);
+    }
         
-        // Find the primary path, and the paths for the two alleles
-        Path primary;
-        Path allele0;
-        Path allele1;
-        
-        for (size_t i = 0; i < result.graph.path_size(); i++) {
-            auto& path = result.graph.path(i);
-            
-            // Path names can't be empty for us to inspect them how we want.
-            REQUIRE(path.name().size() > 0);
-            
-            if (path.name() == "ref") {
-                primary = path;
-            } else if (path.name()[path.name().size() - 1] == '0') {
-                // The name ends with 0, so it ought to be the ref allele path
-                allele0 = path;
-            } else if (path.name()[path.name().size() - 1] == '1') {
-                // The name ends with 1, so it ought to be the alt allele path
-                allele1 = path;
-            }
-        }
-        
-        SECTION("the path for the ref allele should have 2 nodes") {
-            CHECK(allele0.mapping_size() == 2);
-        }
-        
-        SECTION("the path for the alt allele should be completely empty") {
-            CHECK(allele1.mapping_size() == 0);
-        }
+    SECTION("the path for the ref allele should have 2 nodes") {
+        CHECK(allele0.mapping_size() == 2);
+    }
+    
+    SECTION("the path for the alt allele should be completely empty") {
+        CHECK(allele1.mapping_size() == 0);
     }
 
 }
@@ -1152,49 +1093,33 @@ ref	2	rs554978012;rs201121256	GTA	GTATA,G	.	GT
         REQUIRE(result.graph.edge_size() == 5);
     }
 
-    SECTION("the graph should have 4 paths") {
-        REQUIRE(result.graph.path_size() == 4);
+    // Find the primary path, and the paths for the two alleles, filling in
+    // empty paths if absent.
+    Path primary = find_path_by_suffix(result.graph, "ref");
+    Path allele0 = find_path_by_suffix(result.graph, "0");
+    Path allele1 = find_path_by_suffix(result.graph, "1");
+    Path allele2 = find_path_by_suffix(result.graph, "2");
+    
+    SECTION("only one allele should be allowed to be empty") {
+        REQUIRE(primary.mapping_size() > 0);
+        REQUIRE(allele0.mapping_size() + allele1.mapping_size() > 0);
+        REQUIRE(allele1.mapping_size() + allele2.mapping_size() > 0);
+        REQUIRE(allele0.mapping_size() + allele2.mapping_size() > 0);
+    }
         
-        // Find the primary path, and the paths for the two alleles
-        Path primary;
-        Path allele0;
-        Path allele1;
-        Path allele2;
-        
-        for (size_t i = 0; i < result.graph.path_size(); i++) {
-            auto& path = result.graph.path(i);
-            
-            // Path names can't be empty for us to inspect them how we want.
-            REQUIRE(path.name().size() > 0);
-            
-            if (path.name() == "ref") {
-                primary = path;
-            } else if (path.name()[path.name().size() - 1] == '0') {
-                // The name ends with 0, so it ought to be the ref allele path
-                allele0 = path;
-            } else if (path.name()[path.name().size() - 1] == '1') {
-                // The name ends with 1, so it ought to be the long alt allele path
-                allele1 = path;
-            } else if (path.name()[path.name().size() - 1] == '2') {
-                // The name ends with 2, so it ought to be the short alt allele path
-                allele2 = path;
-            }
-        }
-        
-        SECTION("the path for the reference alt should visit the second TA node") {
-            REQUIRE(allele0.mapping_size() == 1);
-            REQUIRE(allele0.mapping(0).position().node_id() == 3);
-        }
-        
-        SECTION("the path for the insert alt should visit the second first and second TA nodes") {
-            REQUIRE(allele1.mapping_size() == 2);
-            REQUIRE(allele1.mapping(0).position().node_id() == 2);
-            REQUIRE(allele1.mapping(1).position().node_id() == 3);
-        }
-        
-        SECTION("the path for the delete alt should be empty") {
-            REQUIRE(allele2.mapping_size() == 0);
-        }
+    SECTION("the path for the reference alt should visit the second TA node") {
+        REQUIRE(allele0.mapping_size() == 1);
+        REQUIRE(allele0.mapping(0).position().node_id() == 3);
+    }
+    
+    SECTION("the path for the insert alt should visit the second first and second TA nodes") {
+        REQUIRE(allele1.mapping_size() == 2);
+        REQUIRE(allele1.mapping(0).position().node_id() == 2);
+        REQUIRE(allele1.mapping(1).position().node_id() == 3);
+    }
+    
+    SECTION("the path for the delete alt should be empty") {
+        REQUIRE(allele2.mapping_size() == 0);
     }
 
 }
