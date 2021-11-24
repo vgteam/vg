@@ -13,7 +13,7 @@ GraphCaller::GraphCaller(SnarlCaller& snarl_caller,
 GraphCaller::~GraphCaller() {
 }
 
-void GraphCaller::call_top_level_snarls(const HandleGraph& graph, bool recurse_on_fail) {
+void GraphCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type) {
 
     // Used to recurse on children of parents that can't be called
     size_t thread_count = get_thread_count();
@@ -29,7 +29,7 @@ void GraphCaller::call_top_level_snarls(const HandleGraph& graph, bool recurse_o
 #endif
 
             bool was_called = call_snarl(*snarl);
-            if (!was_called && recurse_on_fail) {
+            if (recurse_type == RecurseAlways || (!was_called && recurse_type == RecurseOnFail)) {
                 const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
                 vector<const Snarl*>& thread_queue = snarl_queue[omp_get_thread_num()];
                 thread_queue.insert(thread_queue.end(), children.begin(), children.end());
@@ -64,7 +64,7 @@ static void flip_snarl(Snarl& snarl) {
     *snarl.mutable_end() = reverse(v);
 }
 
-void GraphCaller::call_top_level_chains(const HandleGraph& graph, size_t max_edges, size_t max_trivial, bool recurse_on_fail) {
+void GraphCaller::call_top_level_chains(const HandleGraph& graph, size_t max_edges, size_t max_trivial, RecurseType recurse_type) {
     // Used to recurse on children of parents that can't be called
     size_t thread_count = get_thread_count();
     vector<vector<Chain>> chain_queue(thread_count);
@@ -98,7 +98,7 @@ void GraphCaller::call_top_level_chains(const HandleGraph& graph, size_t max_edg
 #endif
             
             bool was_called = call_snarl(fake_snarl);
-            if (!was_called && recurse_on_fail) {
+            if (recurse_type == RecurseAlways || (!was_called && recurse_type == RecurseOnFail)) {
                 vector<Chain>& thread_queue = chain_queue[omp_get_thread_num()];                
                 for (pair<const Snarl*, bool> chain_link : chain_piece) {
                     const deque<Chain>& child_chains = snarl_manager.chains_of(chain_link.first);
@@ -1411,7 +1411,8 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
                        bool traversals_only,
                        bool gaf_output,
                        size_t trav_padding,
-                       bool genotype_snarls) :
+                       bool genotype_snarls,
+                       const pair<int64_t, int64_t>& ref_allele_length_range) :
     GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
     GAFOutputCaller(aln_emitter, sample_name, ref_paths, trav_padding),
@@ -1420,7 +1421,8 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
     ref_paths(ref_paths),
     traversals_only(traversals_only),
     gaf_output(gaf_output),
-    genotype_snarls(genotype_snarls)
+    genotype_snarls(genotype_snarls),
+    ref_allele_length_range(ref_allele_length_range)
 {
     for (int i = 0; i < ref_paths.size(); ++i) {
         ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
@@ -1578,6 +1580,16 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
         ref_trav_idx = travs.size();
         // we didn't get the reference traversal from the finder, so we add it here
         travs.push_back(ref_trav);
+    }
+
+    if (ref_trav_idx != -1 && ref_allele_length_range.first > 0 || ref_allele_length_range.second < numeric_limits<int64_t>::max()) {
+        size_t ref_trav_len = 0;
+        for (size_t j = 1; j < travs[ref_trav_idx].visit_size() - 1; ++j) {
+            ref_trav_len += graph.get_length(graph.get_handle(travs[ref_trav_idx].visit(j).node_id()));
+        }
+        if (ref_trav_len < ref_allele_length_range.first || ref_trav_len > ref_allele_length_range.second) {
+            return false;
+        }        
     }
 
     bool ret_val = true;
