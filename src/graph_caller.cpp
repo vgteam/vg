@@ -1551,6 +1551,17 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
     }
     assert(ref_trav.visit(0) == snarl.start() && ref_trav.visit(ref_trav.visit_size() - 1) == snarl.end());
 
+    // optional reference length clamp can, ex, avoid trying to resolve a giant snarl
+    if (ref_trav.visit_size() > 1 && ref_allele_length_range.first > 0 || ref_allele_length_range.second < numeric_limits<int64_t>::max()) {
+        size_t ref_trav_len = 0;
+        for (size_t j = 1; j < ref_trav.visit_size() - 1; ++j) {
+            ref_trav_len += graph.get_length(graph.get_handle(ref_trav.visit(j).node_id()));
+        }
+        if (ref_trav_len < ref_allele_length_range.first || ref_trav_len > ref_allele_length_range.second) {
+            return false;
+        }        
+    }
+
     vector<SnarlTraversal> travs;
     FlowTraversalFinder* flow_trav_finder = dynamic_cast<FlowTraversalFinder*>(&traversal_finder);
     if (flow_trav_finder != nullptr) {
@@ -1580,16 +1591,6 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
         ref_trav_idx = travs.size();
         // we didn't get the reference traversal from the finder, so we add it here
         travs.push_back(ref_trav);
-    }
-
-    if (ref_trav_idx != -1 && ref_allele_length_range.first > 0 || ref_allele_length_range.second < numeric_limits<int64_t>::max()) {
-        size_t ref_trav_len = 0;
-        for (size_t j = 1; j < travs[ref_trav_idx].visit_size() - 1; ++j) {
-            ref_trav_len += graph.get_length(graph.get_handle(travs[ref_trav_idx].visit(j).node_id()));
-        }
-        if (ref_trav_len < ref_allele_length_range.first || ref_trav_len > ref_allele_length_range.second) {
-            return false;
-        }        
     }
 
     bool ret_val = true;
