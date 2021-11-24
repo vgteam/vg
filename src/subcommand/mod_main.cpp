@@ -413,13 +413,7 @@ int main_mod(int argc, char** argv) {
             // Grab its id, or make one by hashing stuff if it doesn't
             // have an ID.
             string var_name = make_variant_id(variant);
-
-            if(!graph->has_path("_alt_" + var_name + "_0")) {
-                // There isn't a reference alt path for this variant. Someone messed up.
-                cerr << variant << endl;
-                throw runtime_error("Reference alt for " + var_name + " not in graph!");
-            }
-
+            
             // For now always work on sample 0. TODO: let the user specify a
             // name and find it.
             int sample_number = 0;
@@ -446,15 +440,15 @@ int main_mod(int argc, char** argv) {
                     allele_number = stoi(it->str());
                 }
 
-
-
                 // Make the name for its alt path
                 string alt_path_name = "_alt_" + var_name + "_" + to_string(allele_number);
-                
-                graph->for_each_step_in_path(graph->get_path_handle(alt_path_name), [&](const step_handle_t& s) {
-                    // Un-mark all nodes that are on this alt path, since it is used by the sample.
-                    alt_path_ids.erase(graph->get_id(graph->get_handle_of_step(s)));
-                });
+                if (graph->has_path(alt_path_name)) {
+                    // This alt path is existent and may be nonempty.
+                    graph->for_each_step_in_path(graph->get_path_handle(alt_path_name), [&](const step_handle_t& s) {
+                        // Un-mark all nodes that are on this alt path, since it is used by the sample.
+                        alt_path_ids.erase(graph->get_id(graph->get_handle_of_step(s)));
+                    });
+                }
             }
 
         };
