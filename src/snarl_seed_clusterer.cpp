@@ -1242,8 +1242,7 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(Tre
 
         cluster_one_node(tree_state, tree_state.all_node_clusters[tree_state.chain_to_children[chain_handle.net].back()]);
 
-        //TODO: move() this?
-        NodeClusters chain_clusters = tree_state.all_node_clusters[tree_state.chain_to_children[chain_handle.net].back()];
+        NodeClusters chain_clusters = std::move(tree_state.all_node_clusters[tree_state.chain_to_children[chain_handle.net].back()]);
         chain_clusters.containing_net_handle = std::move(chain_handle);
 
         return chain_clusters;
