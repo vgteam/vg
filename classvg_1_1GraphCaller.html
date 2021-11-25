@@ -67,6 +67,7 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
+<a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="#pro-attribs">Protected Attributes</a> &#124;
@@ -90,16 +91,24 @@ Inheritance diagram for vg::GraphCaller:</div>
   </map>
 </div></div>
 <table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
+Public Types</h2></td></tr>
+<tr class="memitem:a12de4df65cc92e2d62f057c56cb46ac5"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5">RecurseType</a> { <a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5ae25246a2b8e3ba65437d72bf513be31c">RecurseOnFail</a>, 
+<a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5ade8537831952f7d91199da0ded53a8d2">RecurseAlways</a>, 
+<a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5ad50ac99caa8bae55f8d5d8ed7a4aef04">RecurseNever</a>
+ }</td></tr>
+<tr class="separator:a12de4df65cc92e2d62f057c56cb46ac5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a621386ff80a0fe3289719c75c282bc5a"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a621386ff80a0fe3289719c75c282bc5a">GraphCaller</a> (<a class="el" href="classvg_1_1SnarlCaller.html">SnarlCaller</a> &amp;<a class="el" href="classvg_1_1GraphCaller.html#a4b8c6f32019db8528bb6835fdce12ddb">snarl_caller</a>, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1GraphCaller.html#a55afa68762956066ccbea2e332342266">snarl_manager</a>)</td></tr>
 <tr class="separator:a621386ff80a0fe3289719c75c282bc5a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a443486cd8ab78a5392b5ed47506ca4c4"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a443486cd8ab78a5392b5ed47506ca4c4">~GraphCaller</a> ()</td></tr>
 <tr class="separator:a443486cd8ab78a5392b5ed47506ca4c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aaeb583d885497c341bc4c2f9c1325fb5"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#aaeb583d885497c341bc4c2f9c1325fb5">call_top_level_snarls</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, bool recurse_on_fail=true)</td></tr>
-<tr class="separator:aaeb583d885497c341bc4c2f9c1325fb5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a94c2aa4a9681ea41fbed81b9dce03c26"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a94c2aa4a9681ea41fbed81b9dce03c26">call_top_level_chains</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t max_edges, size_t max_trivial, bool recurse_on_fail=true)</td></tr>
-<tr class="separator:a94c2aa4a9681ea41fbed81b9dce03c26"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a905253c21cb1a94605587ac7759d4aa6"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a905253c21cb1a94605587ac7759d4aa6">call_top_level_snarls</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, <a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5">RecurseType</a> recurse_type=<a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5ae25246a2b8e3ba65437d72bf513be31c">RecurseOnFail</a>)</td></tr>
+<tr class="separator:a905253c21cb1a94605587ac7759d4aa6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae39e4d55f2c5599a941957a080f3cd10"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#ae39e4d55f2c5599a941957a080f3cd10">call_top_level_chains</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t max_edges, size_t max_trivial, <a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5">RecurseType</a> recurise_type=<a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5ae25246a2b8e3ba65437d72bf513be31c">RecurseOnFail</a>)</td></tr>
+<tr class="separator:ae39e4d55f2c5599a941957a080f3cd10"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6064d47ccef10174fab1037764a3cf29"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GraphCaller.html#a6064d47ccef10174fab1037764a3cf29">call_snarl</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl)=0</td></tr>
 <tr class="memdesc:a6064d47ccef10174fab1037764a3cf29"><td class="mdescLeft">&#160;</td><td class="mdescRight">Call a given snarl, and print the output to out_stream.  <a href="classvg_1_1GraphCaller.html#a6064d47ccef10174fab1037764a3cf29">More...</a><br /></td></tr>
 <tr class="separator:a6064d47ccef10174fab1037764a3cf29"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -121,7 +130,27 @@ Protected Attributes</h2></td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p><a class="el" href="classvg_1_1GraphCaller.html">GraphCaller</a>: Use the snarl decomposition to call snarls in a graph </p>
-</div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+</div><h2 class="groupheader">Member Enumeration Documentation</h2>
+<a id="a12de4df65cc92e2d62f057c56cb46ac5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a12de4df65cc92e2d62f057c56cb46ac5">&#9670;&nbsp;</a></span>RecurseType</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5">vg::GraphCaller::RecurseType</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a12de4df65cc92e2d62f057c56cb46ac5ae25246a2b8e3ba65437d72bf513be31c"></a>RecurseOnFail&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a12de4df65cc92e2d62f057c56cb46ac5ade8537831952f7d91199da0ded53a8d2"></a>RecurseAlways&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="a12de4df65cc92e2d62f057c56cb46ac5ad50ac99caa8bae55f8d5d8ed7a4aef04"></a>RecurseNever&#160;</td><td class="fielddoc"></td></tr>
+</table>
+
+</div>
+</div>
+<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a621386ff80a0fe3289719c75c282bc5a"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a621386ff80a0fe3289719c75c282bc5a">&#9670;&nbsp;</a></span>GraphCaller()</h2>
 
@@ -256,8 +285,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a94c2aa4a9681ea41fbed81b9dce03c26"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a94c2aa4a9681ea41fbed81b9dce03c26">&#9670;&nbsp;</a></span>call_top_level_chains()</h2>
+<a id="ae39e4d55f2c5599a941957a080f3cd10"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae39e4d55f2c5599a941957a080f3cd10">&#9670;&nbsp;</a></span>call_top_level_chains()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -286,8 +315,8 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>recurse_on_fail</em> = <code>true</code>&#160;</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5">RecurseType</a>&#160;</td>
+          <td class="paramname"><em>recurise_type</em> = <code><a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5ae25246a2b8e3ba65437d72bf513be31c">RecurseOnFail</a></code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -305,8 +334,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aaeb583d885497c341bc4c2f9c1325fb5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aaeb583d885497c341bc4c2f9c1325fb5">&#9670;&nbsp;</a></span>call_top_level_snarls()</h2>
+<a id="a905253c21cb1a94605587ac7759d4aa6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a905253c21cb1a94605587ac7759d4aa6">&#9670;&nbsp;</a></span>call_top_level_snarls()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -323,8 +352,8 @@ Protected Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>recurse_on_fail</em> = <code>true</code>&#160;</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5">RecurseType</a>&#160;</td>
+          <td class="paramname"><em>recurse_type</em> = <code><a class="el" href="classvg_1_1GraphCaller.html#a12de4df65cc92e2d62f057c56cb46ac5ae25246a2b8e3ba65437d72bf513be31c">RecurseOnFail</a></code>&#160;</td>
         </tr>
         <tr>
           <td></td>
