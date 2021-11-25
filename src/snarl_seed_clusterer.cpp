@@ -1151,7 +1151,7 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_snarl(
 
 
     //Get the children of this snarl and their clusters
-    vector<size_t>& children = tree_state.snarl_to_children[snarl_handle.net];
+    vector<size_t> children = std::move(tree_state.snarl_to_children[snarl_handle.net]);
 
     for (size_t i = 0; i < children.size() ; i++) {
         //Go through each child node of the netgraph
