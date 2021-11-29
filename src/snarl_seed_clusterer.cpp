@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-//#define DEBUG_CLUSTER
+#define DEBUG_CLUSTER
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
@@ -1231,12 +1231,24 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(Tre
      */
 
      auto update_distances_on_same_child = [&] (NodeClusters& child_clusters) {
-         //Distance to go forward in the chain and back
-         size_t loop_right = SnarlDistanceIndex::sum({child_clusters.containing_net_handle.end_forward_loop_val,
-                                                      2*child_clusters.containing_net_handle.end_bound_length});
+         //Distance to go forward (relative to the child) in the chain and back
+         size_t loop_right;
          //Distance to go backward in the chain and back
-         size_t loop_left = SnarlDistanceIndex::sum({child_clusters.containing_net_handle.reverse_loop_val,
-                                                     2*child_clusters.containing_net_handle.start_bound_length});
+         size_t loop_left;
+         if (distance_index.is_node(child_clusters.containing_net_handle.net)) {
+             //If this is a node
+             bool is_reversed = distance_index.get_cached_is_reverse(child_clusters.containing_net_handle);
+             loop_left = is_reversed ?  child_clusters.containing_net_handle.forward_loop_val 
+                                      : child_clusters.containing_net_handle.reverse_loop_val;
+             loop_right = is_reversed ?  child_clusters.containing_net_handle.reverse_loop_val 
+                                      : child_clusters.containing_net_handle.forward_loop_val;
+         } else {
+             //If this is a snarl
+            loop_right = SnarlDistanceIndex::sum({child_clusters.containing_net_handle.end_forward_loop_val,
+                                                         2*child_clusters.containing_net_handle.end_bound_length});
+            loop_left = SnarlDistanceIndex::sum({child_clusters.containing_net_handle.reverse_loop_val,
+                                                        2*child_clusters.containing_net_handle.start_bound_length});
+         }
 
 
          //Combined clusters in case we can combine anything
@@ -1260,6 +1272,9 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(Tre
 
 
             if (updated_left < old_left || updated_right < old_right ) {
+#ifdef DEBUG_CLUSTER
+                cerr << "Updating cluster to have new distances: " << old_left << " " << old_right << "=>" << updated_left << " " << updated_right << endl;
+#endif
                 //Update the distances
                 child_clusters.read_cluster_heads[child_cluster_head_and_distance.first] = 
                         std::make_pair(updated_left, updated_right);
@@ -1511,6 +1526,9 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
 
             if (distance_between <= tree_state.read_distance_limit) {
                 to_erase.emplace_back(child_cluster_head_and_distance.first);
+#ifdef DEBUG_CLUSTER
+                cerr << "\t\tCombine child cluster " << read_num << ":" << cluster_num << endl;
+#endif
                 //If this cluster can be merged with anything on the chain
                 if (new_cluster_by_read[read_num].first.first == std::numeric_limits<size_t>::max()){
                     //If nothing is in the combined cluster yet, this is the new combined cluster
@@ -1577,6 +1595,9 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
                                          distance_from_current_end_to_end_of_chain}));
                  
             if (distance_between <= tree_state.read_distance_limit) {
+#ifdef DEBUG_CLUSTER
+                cerr << "\t\tCombine chain cluster " << read_num << ":" << cluster_num << endl;
+#endif
                 to_erase.emplace_back(chain_cluster_head_and_distance.first);
                 //If we can union the reads
                 if (new_cluster_by_read[read_num].first.first == std::numeric_limits<size_t>::max()) {
@@ -1630,6 +1651,48 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
         //Update the last node we saw to this one
         last_child = child_handle;
 
+#ifdef DEBUG_CLUSTER
+    cerr << "\tintermediate clusters on " << distance_index.net_handle_as_string(chain_handle.net) << " after child " << distance_index.net_handle_as_string(child_handle.net) << endl;
+    cerr << "\t   with best left and right values: " << chain_clusters.fragment_best_left << " "
+         << chain_clusters.fragment_best_right << endl;
+    bool got_left = false;
+    bool got_right = false;
+    for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++) {
+        cerr << "\t for read num " << read_num << " best left: " << chain_clusters.read_best_left[read_num] << " best right: " << chain_clusters.read_best_right[read_num] << endl;
+        bool got_read_left=false;
+        bool got_read_right = false;
+        bool any_clusters = false;
+        for (pair<pair<size_t, size_t>, pair<size_t,size_t>> c : chain_clusters.read_cluster_heads) {
+            if (c.first.first == read_num) {
+                any_clusters = true;
+                pair<size_t, size_t> dists = c.second;
+                cerr << "\t\t" << c.first.first << ":"<<c.first.second << ": left: " << dists.first << " right : " << dists.second << ": ";
+                bool has_seeds = false;
+                for (size_t x = 0 ; x < tree_state.all_seeds->at(c.first.first)->size() ; x++) {
+                    if (tree_state.read_union_find[c.first.first].find_group(x) == c.first.second) {
+                        cerr << tree_state.all_seeds->at(c.first.first)->at(x).pos << " ";
+                        has_seeds = true;
+                    }
+                }
+            }
+        }
+    }
+    vector<Seed> ordered_seeds;
+    for (size_t i = 0 ; i < tree_state.all_seeds->size() ; i++) {
+        const auto v = tree_state.all_seeds->at(i);
+        for ( auto x : *v) {
+            ordered_seeds.push_back(x);
+        }
+    }
+    cerr << "Found intermediate fragment clusters : " << endl;
+    for (auto group : tree_state.fragment_union_find.all_groups()){
+        cerr << "\t";
+        for (size_t c : group) {
+           cerr << ordered_seeds[c].pos << " ";
+        }
+        cerr << endl;
+    }
+#endif
     }
     //If the chain loops, then we also have to compare the first thing we saw to the last things
     bool is_looping_chain = distance_index.get_record_offset(chain_handle.start_bound_in) == distance_index.get_record_offset(chain_handle.end_bound_in); 
