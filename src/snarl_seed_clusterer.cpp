@@ -1430,7 +1430,10 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(Tre
 
         //See if this clusters of this child can be combined with each other
         //Also updates the minimum distances to include loops in the chain
-        update_distances_on_same_child(child_clusters);
+        //This only matters for snarls, since any path would have to pass through a node anyway
+        if (distance_index.is_snarl(child_clusters.containing_net_handle.net)){
+            update_distances_on_same_child(child_clusters);
+        }
 
 
         //The distance from the right side of the last child to the left side of this child 
