@@ -45,7 +45,7 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
-        NewSnarlSeedClusterer clusterer(dist_index);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
         
         //graph.to_dot(cerr);
 
@@ -96,7 +96,7 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
-        NewSnarlSeedClusterer clusterer(dist_index);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
         
         //graph.to_dot(cerr);
 
@@ -211,7 +211,7 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
-        NewSnarlSeedClusterer clusterer(dist_index);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
         
         //graph.to_dot(cerr);
 
@@ -339,7 +339,7 @@ namespace unittest {
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
-        NewSnarlSeedClusterer clusterer(dist_index);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
         
         //graph.to_dot(cerr);
 
@@ -601,7 +601,7 @@ namespace unittest {
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
 
-        NewSnarlSeedClusterer clusterer(dist_index);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
 
         SECTION( "Same snarl" ) {
             vector<id_t> seed_nodes ({3, 4});
@@ -670,7 +670,7 @@ namespace unittest {
         SnarlDistanceIndex dist_index;
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
-        NewSnarlSeedClusterer clusterer(dist_index);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
 
         SECTION( "One cluster" ) {
             vector<id_t> seed_nodes ({7, 7, 6});
@@ -739,7 +739,7 @@ namespace unittest {
         SnarlDistanceIndex dist_index;
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
-        NewSnarlSeedClusterer clusterer(dist_index);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
 
         SECTION( "One cluster taking node loop" ) {
             vector<NewSnarlSeedClusterer::Seed> seeds;
@@ -809,7 +809,7 @@ namespace unittest {
         SnarlDistanceIndex dist_index;
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
-        NewSnarlSeedClusterer clusterer(dist_index);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
 
 
         SECTION( "Two clusters in a chain and loop of snarl boundary" ) {
@@ -995,7 +995,7 @@ namespace unittest {
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
 
-        NewSnarlSeedClusterer clusterer(dist_index);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
 
 
 
@@ -1122,7 +1122,7 @@ namespace unittest {
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
 
-        NewSnarlSeedClusterer clusterer(dist_index);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
 
         SECTION("Snarl then seed") {
 
@@ -1271,7 +1271,7 @@ namespace unittest {
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
 
-        NewSnarlSeedClusterer clusterer(dist_index);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
 
         SECTION("Two clusters") {
             vector<NewSnarlSeedClusterer::Seed> seeds;
@@ -1430,7 +1430,7 @@ namespace unittest {
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
 
-        NewSnarlSeedClusterer clusterer(dist_index);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
 
         SECTION("Two clusters") {
             vector<NewSnarlSeedClusterer::Seed> seeds;
@@ -1511,7 +1511,7 @@ namespace unittest {
 
 
 
-        NewSnarlSeedClusterer clusterer(dist_index);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
         //Unary snarl at 8 nested in unary snarl at 6 nested in 
         //unary snarl at  4 nested in regular snarl at 2 (ending at 3)
         //nested in unary snarl at 1
@@ -1591,7 +1591,7 @@ namespace unittest {
         SnarlDistanceIndex dist_index;
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
-        NewSnarlSeedClusterer clusterer(dist_index);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
 
         SECTION( "Top level seeds" ) {
             vector<id_t> ids({1, 2, 4});
@@ -1634,7 +1634,7 @@ namespace unittest {
 
 
 
-        NewSnarlSeedClusterer clusterer(dist_index);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
 
         SECTION( "Two cluster" ) {
             vector<id_t> ids({4, 5});
@@ -1703,7 +1703,7 @@ namespace unittest {
         SnarlDistanceIndex dist_index;
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
-        NewSnarlSeedClusterer clusterer(dist_index);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
 
         SECTION( "One cluster" ) {
             vector<id_t> ids({1, 2});
@@ -1782,7 +1782,7 @@ namespace unittest {
         SnarlDistanceIndex dist_index;
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
-        NewSnarlSeedClusterer clusterer(dist_index);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
 
         SECTION( "One cluster" ) {
             vector<id_t> ids({1, 2});
@@ -1852,7 +1852,7 @@ namespace unittest {
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
 
-        NewSnarlSeedClusterer clusterer(dist_index);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
 
         size_t read_lim = 20;// Distance between read clusters
         size_t fragment_lim = 30;// Distance between fragment clusters
@@ -1883,7 +1883,7 @@ namespace unittest {
 
 
         dist_index.print_self();
-        NewSnarlSeedClusterer clusterer(dist_index);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
 
 
 
@@ -1909,12 +1909,12 @@ namespace unittest {
             // For each random graph
             
             default_random_engine generator(time(NULL));
-            uniform_int_distribution<int> variant_count(5, 50);
-            uniform_int_distribution<int> chrom_len(10, 1000);
+            uniform_int_distribution<int> variant_count(5, 10);
+            uniform_int_distribution<int> chrom_len(10, 100);
 
             //Make a random graph with three chromosomes of random lengths
             HashGraph graph;
-            random_graph({chrom_len(generator), chrom_len(generator), chrom_len(generator)}, 15, variant_count(generator), &graph);
+            random_graph({chrom_len(generator)}, 15, variant_count(generator), &graph);
             graph.serialize("testGraph.hg");
 
 
@@ -1924,7 +1924,7 @@ namespace unittest {
     
 
 
-            NewSnarlSeedClusterer clusterer(dist_index);
+            NewSnarlSeedClusterer clusterer(dist_index, &graph);
 
 
             vector<id_t> all_nodes;
@@ -1938,15 +1938,15 @@ namespace unittest {
             uniform_int_distribution<int> randPosIndex(0, all_nodes.size()-1);
             for (bool use_minimizers : {true, false}) {
 
-                for (size_t k = 0; k < 20 ; k++) {
+                for (size_t k = 0; k < 10 ; k++) {
 
                     vector<vector<NewSnarlSeedClusterer::Seed>> all_seeds;
                     all_seeds.emplace_back();
                     all_seeds.emplace_back();
-                    size_t read_lim = 30;// Distance between read clusters
-                    size_t fragment_lim = 50;// Distance between fragment clusters
+                    size_t read_lim = 10;// Distance between read clusters
+                    size_t fragment_lim = 15;// Distance between fragment clusters
                     for (size_t read = 0 ; read < 2 ; read ++) {
-                        uniform_int_distribution<int> randPosCount(1, 100);
+                        uniform_int_distribution<int> randPosCount(1, 20);
                         for (int j = 0; j < randPosCount(generator); j++) {
                             //Check clusters of j random positions 
  

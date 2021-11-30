@@ -26,12 +26,12 @@
 namespace vg {
     namespace unittest {
     
-        TEST_CASE( "Load",
-                  "[load]" ) {
-            SnarlDistanceIndex distance_index;
-            distance_index.deserialize("/public/groups/cgl/graph-genomes/xhchang/1000gp_nosegdup/1000gp.dist.new");
-            distance_index.print_stats();
-        }
+        //TEST_CASE( "Load",
+        //          "[load]" ) {
+        //    SnarlDistanceIndex distance_index;
+        //    distance_index.deserialize("/public/groups/cgl/graph-genomes/xhchang/1000gp_nosegdup/1000gp.dist.new");
+        //    distance_index.print_stats();
+        //}
         
         TEST_CASE( "Build a snarl distance index for a graph with one node",
                   "[snarl_distance]" ) {
@@ -82,7 +82,7 @@ namespace vg {
             }
         }
         TEST_CASE( "Snarl decomposition can deal with multiple connected components",
-                  "[snarl_distance][bug]" ) {
+                  "[snarl_distance]" ) {
         
         
             // This graph will have a snarl from 1 to 8, a snarl from 2 to 7,
@@ -5384,6 +5384,173 @@ namespace vg {
             }
         }
 
+        TEST_CASE( "Oversized snarl","[snarl_distance][bug]" ) {
+            VG graph;
+         
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("G");
+            Node* n7 = graph.create_node("GCA");
+            Node* n8 = graph.create_node("T");
+            Node* n9 = graph.create_node("G");
+            Node* n10 = graph.create_node("CTGA");
+            Node* n11 = graph.create_node("GCA");
+            Node* n12 = graph.create_node("G");
+         
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n9);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n2, n4);
+            Edge* e5 = graph.create_edge(n2, n8, false, true);
+            Edge* e6 = graph.create_edge(n3, n4);
+            Edge* e7 = graph.create_edge(n3, n5);
+            Edge* e8 = graph.create_edge(n4, n6);
+            Edge* e9 = graph.create_edge(n4, n7);
+            Edge* e10 = graph.create_edge(n5, n8);
+            Edge* e11 = graph.create_edge(n6, n8);
+            Edge* e12 = graph.create_edge(n7, n8);
+            Edge* e13 = graph.create_edge(n8, n9);
+            Edge* e14 = graph.create_edge(n9, n10);
+            Edge* e15 = graph.create_edge(n10, n11);
+            Edge* e16 = graph.create_edge(n10, n12);
+            Edge* e17 = graph.create_edge(n11, n12);
+         
+            IntegratedSnarlFinder snarl_finder(graph);
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder, 3);
+         
+            SECTION( "Traverse the top-level chain" ) {
+                net_handle_t node_1 = distance_index.get_node_net_handle(n1->id());
+                net_handle_t node_9 = distance_index.get_node_net_handle(n9->id());
+                net_handle_t node_10 = distance_index.get_node_net_handle(n10->id());
+                net_handle_t node_12 = distance_index.get_node_net_handle(n12->id());
+
+                net_handle_t snarl;
+                distance_index.follow_net_edges(node_1, &graph, false, [&](const net_handle_t& other) {
+                    snarl=other;
+                    REQUIRE(distance_index.is_snarl(other));
+                    size_t child_count = 0;
+                    distance_index.for_each_child(other, [&](const net_handle_t& child) {
+                        REQUIRE(distance_index.is_chain(child));
+                        distance_index.for_each_child(child, [&](const net_handle_t& grandchild) {
+
+                            child_count++;
+                            REQUIRE(distance_index.is_node(grandchild));
+                        });
+                    });
+                    REQUIRE(child_count==7);
+
+                    return true;
+                });
+
+
+                distance_index.follow_net_edges(snarl, &graph, false, [&](const net_handle_t& other) {
+                    REQUIRE(node_9 == other);
+                    return true;
+                });
+                distance_index.follow_net_edges(node_9, &graph, false, [&](const net_handle_t& other) {
+                    REQUIRE(node_10 == other);
+                    return true;
+                });
+                net_handle_t snarl2;
+                distance_index.follow_net_edges(node_10, &graph, false, [&](const net_handle_t& other) {
+                    REQUIRE(distance_index.is_snarl(other));
+                    REQUIRE(distance_index.is_simple_snarl(other));
+                    snarl2 = other;
+                    return true;
+                });
+                distance_index.follow_net_edges(snarl2, &graph, false, [&](const net_handle_t& other) {
+                    REQUIRE(node_12 == other);
+                    return true;
+                });
+            }
+            SECTION( "Minimum distances" ) {
+                REQUIRE(distance_index.minimum_distance(n1->id(), false, 0, n2->id(), false, 0, false, &graph) == 3);
+                REQUIRE(distance_index.minimum_distance(n1->id(), false, 0, n4->id(), false, 0, false, &graph) == 4);
+                REQUIRE(distance_index.minimum_distance(n1->id(), false, 0, n7->id(), false, 0,  false,&graph) == 8);
+                REQUIRE(distance_index.minimum_distance(n1->id(), false, 0, n8->id(), false, 0, false, &graph) == 8);
+                REQUIRE(distance_index.minimum_distance(n8->id(), false, 0, n2->id(), true,  0, false, &graph) == 1);
+            }
+        }
+        TEST_CASE( "Nested oversized snarl","[snarl_distance][bug]" ) {
+            VG graph;
+         
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("G");
+            Node* n7 = graph.create_node("GCA");
+            Node* n8 = graph.create_node("T");
+            Node* n9 = graph.create_node("GTACA");
+            Node* n10 = graph.create_node("CTGA");
+            Node* n11 = graph.create_node("GCA");
+            Node* n12 = graph.create_node("G");
+         
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n7);
+            Edge* e3 = graph.create_edge(n1, n9);
+            Edge* e4 = graph.create_edge(n2, n3);
+            Edge* e5 = graph.create_edge(n2, n5);
+            Edge* e6 = graph.create_edge(n2, n6);
+            Edge* e7 = graph.create_edge(n3, n4);
+            Edge* e8 = graph.create_edge(n3, n5);
+            Edge* e9 = graph.create_edge(n4, n5);
+            Edge* e10 = graph.create_edge(n5, n6);
+            Edge* e11 = graph.create_edge(n6, n11);
+            Edge* e12 = graph.create_edge(n7, n8);
+            Edge* e13 = graph.create_edge(n8, n11);
+            Edge* e14 = graph.create_edge(n9, n10);
+            Edge* e15 = graph.create_edge(n9, n11);
+            Edge* e16 = graph.create_edge(n10, n11);
+            Edge* e17 = graph.create_edge(n11, n12);
+         
+            IntegratedSnarlFinder snarl_finder(graph);
+            SnarlDistanceIndex distance_index;
+            fill_in_distance_index(&distance_index, &graph, &snarl_finder, 3);
+         
+            SECTION( "Traverse the top-level chain" ) {
+                net_handle_t node_1 = distance_index.get_node_net_handle(n1->id());
+                net_handle_t node_11 = distance_index.get_node_net_handle(n11->id());
+                net_handle_t node_12 = distance_index.get_node_net_handle(n12->id());
+
+                net_handle_t snarl;
+                distance_index.follow_net_edges(node_1, &graph, false, [&](const net_handle_t& other) {
+                    snarl=other;
+                    REQUIRE(distance_index.is_snarl(other));
+                    size_t child_count = 0;
+                    distance_index.for_each_child(other, [&](const net_handle_t& child) {
+                        REQUIRE(distance_index.is_chain(child));
+                        child_count++;
+                    });
+                    REQUIRE(child_count==4);
+
+                    return true;
+                });
+
+
+                distance_index.follow_net_edges(snarl, &graph, false, [&](const net_handle_t& other) {
+                    REQUIRE(node_11 == other);
+                    return true;
+                });
+                distance_index.follow_net_edges(node_11, &graph, false, [&](const net_handle_t& other) {
+                    REQUIRE(node_12 == other);
+                    return true;
+                });
+            }
+            SECTION( "Minimum distances" ) {
+                REQUIRE(distance_index.minimum_distance(n1->id(), false, 0, n2->id(), false, 0, false, &graph) == 3);
+                REQUIRE(distance_index.minimum_distance(n1->id(), false, 0, n4->id(), false, 0, false, &graph) == 5);
+                REQUIRE(distance_index.minimum_distance(n1->id(), false, 0, n7->id(), false, 0,  false,&graph) == 3);
+                REQUIRE(distance_index.minimum_distance(n1->id(), false, 0, n8->id(), false, 0, false, &graph) == 6);
+                REQUIRE(distance_index.minimum_distance(n2->id(), false, 0, n5->id(), false,  0, false, &graph) == 1);
+            }
+        }
+
 
 
         TEST_CASE("Failed unit test", "[failed]") {
@@ -5445,12 +5612,15 @@ namespace vg {
             
             for (size_t repeat = 0; repeat < 1000; repeat++) {
             
-                uniform_int_distribution<size_t> bases_dist(100, 1000);
+                uniform_int_distribution<size_t> bases_dist(100, 2000);
                 size_t bases = bases_dist(generator);
                 uniform_int_distribution<size_t> variant_bases_dist(1, bases/20);
                 size_t variant_bases = variant_bases_dist(generator);
-                uniform_int_distribution<size_t> variant_count_dist(1, bases/20);
+                uniform_int_distribution<size_t> variant_count_dist(1, bases/10);
                 size_t variant_count = variant_count_dist(generator);
+
+                uniform_int_distribution<size_t> snarl_size_limit_dist(2, 50);
+                size_t size_limit = snarl_size_limit_dist(generator);
                         
 #ifdef debug
                 cerr << repeat << ": Do graph of " << bases << " bp with ~" << variant_bases << " bp large variant length and " << variant_count << " events" << endl;
@@ -5460,7 +5630,8 @@ namespace vg {
                 random_graph(bases, variant_bases, variant_count, &graph);
                 IntegratedSnarlFinder finder(graph); 
                 SnarlDistanceIndex distance_index;
-                fill_in_distance_index(&distance_index, &graph, &finder);
+                cerr << size_limit << endl;
+                fill_in_distance_index(&distance_index, &graph, &finder, size_limit);
 
                 //Make sure that the distance index found all the nodes
                 for (id_t id = graph.min_node_id() ; id <= graph.max_node_id() ; id++) {
