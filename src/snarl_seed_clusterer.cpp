@@ -1494,7 +1494,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
         vector<size_t> old_best_right_by_read = std::move(chain_clusters.read_best_right);
         chain_clusters.read_best_right = vector<size_t>(old_best_right_by_read.size(), std::numeric_limits<size_t>::max());
 
-        if (distance_from_last_child_to_current_child 
+        if (SnarlDistanceIndex::sum({distance_from_last_child_to_current_child, old_best_right}) 
               > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)) {
 #ifdef DEBUG_CLUSTER
             cerr << "This child is too far away from the last one to cluster anything" << endl;
