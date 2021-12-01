@@ -107,7 +107,7 @@ class NewSnarlSeedClusterer {
             //union find)
             //TODO: Add cluster distances here
             //maps pair of <read index, seed index> to pair of <left distance, right distance>
-            hash_map<pair<size_t,size_t>, pair<size_t, size_t>> read_cluster_heads;
+            hash_set<pair<size_t, size_t>> read_cluster_heads;
 
             //The shortest distance from any seed in any cluster to the 
             //left/right end of the snarl tree node that contains these
@@ -173,6 +173,8 @@ class NewSnarlSeedClusterer {
             //TODO: I'm getting rid of this and putting it in the clusters themselves
             //vector<vector<pair<size_t, size_t>>> read_cluster_dists;
 
+            //For each seed that is the head of a cluster, what are the best left and right distances
+            vector<vector<pair<size_t,size_t>>> read_cluster_heads_to_distances;
 
 
             //////////Data structures to hold snarl tree relationships
@@ -245,7 +247,8 @@ class NewSnarlSeedClusterer {
                 read_distance_limit(read_distance_limit),
                 fragment_distance_limit(fragment_distance_limit),
                 fragment_union_find (seed_count, false),
-                read_index_offsets(1,0){
+                read_index_offsets(1,0),
+                read_cluster_heads_to_distances(all_seeds->size()){
 
                 for (size_t i = 0 ; i < all_seeds->size() ; i++) {
                     size_t size = all_seeds->at(i)->size();
@@ -254,6 +257,8 @@ class NewSnarlSeedClusterer {
                     node_to_seeds.emplace_back();
                     node_to_seeds.back().reserve(size);
                     read_union_find.emplace_back(size, false);
+
+                    read_cluster_heads_to_distances[i] = vector<pair<size_t,size_t>>(size, make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
                 }
             }
         };
@@ -294,8 +299,12 @@ class NewSnarlSeedClusterer {
         //This assumes that the first node hasn't been seen before but the second one has, so all of the
         //first node's clusters get added to the parent but assume that all of the second ones are already
         //part of the parent
+        //old_distances contains the distances for cluster heads in the children, 
+        //since the distances in tree_state.read_cluster_heads_to_distances will get updated
         void compare_and_combine_cluster_on_child_structures(TreeState& tree_state, NodeClusters& child_clusters1,
-                NodeClusters& child_clusters2, NodeClusters& parent_clusters, bool is_root=false) const;
+                NodeClusters& child_clusters2, NodeClusters& parent_clusters, 
+                vector<vector<pair<size_t, size_t>>>& child_distances, 
+                bool is_root=false) const;
 
         //Helper function to add to one of the cluster/snarl_to_children hash_maps.
         //Adds parent -> child_cluster to the parent_to_child_map
