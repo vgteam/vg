@@ -321,12 +321,12 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                                                                         : as_net_handle(seed.node_net_handle_as_integer); 
                  //Look up important values for the node here and cache them
                  SnarlDistanceIndex::CachedNetHandle cached_net_handle = distance_index.get_cached_net_handle(node_net_handle);
-                 distance_index.set_cached_min_length(cached_net_handle);
                  distance_index.set_cached_rank(cached_net_handle);
-                 distance_index.set_cached_parent_offset(cached_net_handle);
                  distance_index.set_cached_node_values(cached_net_handle);
+                 net_handle_t parent = distance_index.get_parent(cached_net_handle);
+                 bool is_reversed_in_parent = distance_index.get_cached_is_reverse(cached_net_handle);
+                 size_t node_length = distance_index.get_cached_min_length(cached_net_handle);
 
-                 net_handle_t parent = distance_index.get_parent(node_net_handle);
                  size_t depth = distance_index.get_depth(parent);
                  if (depth+1 > chain_to_children_by_level.size()) {
                      chain_to_children_by_level.resize(depth+1);
@@ -335,8 +335,6 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                  if (chain_to_children_by_level[depth].count(parent) == 0) {
                      chain_to_children_by_level[depth].emplace(parent, vector<size_t>());
                  }
-                 bool is_reversed_in_parent = distance_index.is_reversed_in_parent(node_net_handle);
-                 size_t node_length = distance_index.get_cached_min_length(cached_net_handle);
 
 
 

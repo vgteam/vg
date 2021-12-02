@@ -215,28 +215,6 @@ class NewSnarlSeedClusterer {
             vector<size_t> root_children;
 
 
-/*
- * TODO: Not doing this anymore
-            /////////////////// Hold the top-level clusters
-
-
-            //maps connected component number to index into top_level_seed_clusters and top_level_clusters
-            hash_map<size_t, size_t> component_to_index;
-
-            //Indexes of seeds that occur on a top level chain, separated into components
-            vector<vector<pair<size_t, size_t>>> top_level_seed_clusters;
-
-            //For each component, maps each snarl (as the rank of the snarl in the chain) to
-            //a list of nodes it contains as <node id, is rev in chain, node length, start length, end length>
-            //where start length and end length are the lengths of the start and end nodes of
-            //the snarl (relative to the orientation in the chain
-            //TODO: this is a mess
-            //Only for top-level simple snarls, instead of snarl_to_nodes
-            vector<hash_map<size_t, vector<tuple<id_t, bool, size_t, size_t, size_t>>>> simple_snarl_to_nodes_by_component;
-
-*/
-
-
             /////////////////////////////////////////////////////////
 
             //Constructor takes in a pointer to the seeds, the distance limits, and 
@@ -260,6 +238,10 @@ class NewSnarlSeedClusterer {
 
                     read_cluster_heads_to_distances[i] = vector<pair<size_t,size_t>>(size, make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
                 }
+
+                all_node_clusters.reserve(seed_count);
+                snarl_to_children.reserve(seed_count);
+                chain_to_children.reserve(seed_count);
             }
         };
 
