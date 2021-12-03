@@ -170,10 +170,6 @@ class NewSnarlSeedClusterer {
             //of the netgraph node of the cluster it belongs to
             //These values are only relevant for seeds that represent a cluster
             //in union_find_reads
-            //TODO: I'm getting rid of this and putting it in the clusters themselves
-            //vector<vector<pair<size_t, size_t>>> read_cluster_dists;
-
-            //For each seed that is the head of a cluster, what are the best left and right distances
             vector<vector<pair<size_t,size_t>>> read_cluster_heads_to_distances;
 
 
@@ -191,7 +187,7 @@ class NewSnarlSeedClusterer {
             //Map from each snarl's net_handle_t to it's child net_handle_ts 
             //clusters at the node
             //size_t is the index into all_node_clusters
-            hash_map<net_handle_t,vector<size_t>> snarl_to_children;
+            hash_map<net_handle_t, pair<size_t, vector<size_t>>> snarl_to_children;
             
             //Map each chain to the snarls (only ones that contain seeds) that
             //comprise it. 
@@ -201,14 +197,15 @@ class NewSnarlSeedClusterer {
             //  Since maps are ordered, it will be in the order of traversal
             //  of the snarls in the chain
             //  size_t is the index into all_node_clusters
-            hash_map<net_handle_t, vector<size_t>> chain_to_children;
+            hash_map<net_handle_t, pair<size_t, vector<size_t>>> chain_to_children;
 
 
+            //TODO: Not using this anymore
             //Same structure as chain_to_children but for the level of the snarl
             //tree above the current one
             //This gets updated as the current level is processed
             //size_t is the index into all_node_clusters
-            hash_map<net_handle_t,vector<size_t>> parent_chain_to_children;
+            //hash_map<net_handle_t,vector<size_t>> parent_chain_to_children;
 
             //This holds all the child clusters of the root
             //size_t is the index into all_node_clusters
@@ -254,7 +251,11 @@ class NewSnarlSeedClusterer {
         //in the tree state as each level is processed
         //size_t is the index into all_node_clusters
         void get_nodes( TreeState& tree_state,
-                        vector<hash_map<net_handle_t, vector< size_t>>>& chain_to_children_by_level) const;
+                        vector<hash_map<net_handle_t, pair<size_t, vector<size_t>>>>& chain_to_children_by_level) const;
+
+        //Get everything we need from the distance index - snarl tree relationships, etc
+        void get_snarl_tree( TreeState& tree_state, 
+                        vector<hash_map<net_handle_t, pair<size_t, vector<size_t>>>>& chain_to_children_by_level) const;
 
         //Cluster all the snarls at the current level and update the tree_state
         //to add each of the snarls to the parent level
@@ -267,12 +268,12 @@ class NewSnarlSeedClusterer {
         void cluster_one_node(TreeState& tree_state, NodeClusters& node_clusters) const; 
 
         //Cluster the seeds in a snarl given by its net handle
-        NodeClusters cluster_one_snarl(TreeState& tree_state, SnarlDistanceIndex::CachedNetHandle snarl_handle) const;
+        void cluster_one_snarl(TreeState& tree_state, NodeClusters& snarl_clusters) const;
 
         //Cluster the seeds in a chain given by chain_index_i, an index into
         //distance_index.chain_indexes
         //If the depth is 0, also incorporate the top-level seeds from tree_state.top_level_seed_clusters
-        NodeClusters cluster_one_chain(TreeState& tree_state, SnarlDistanceIndex::CachedNetHandle chain_handle) const;
+        void cluster_one_chain(TreeState& tree_state, NodeClusters& chain_clusters) const;
 
         //Cluster in the root 
         void cluster_root(TreeState& tree_state) const;
@@ -290,7 +291,7 @@ class NewSnarlSeedClusterer {
 
         //Helper function to add to one of the cluster/snarl_to_children hash_maps.
         //Adds parent -> child_cluster to the parent_to_child_map
-        void add_child_to_vector(TreeState& tree_state, hash_map<net_handle_t, vector<size_t>>& parent_to_child_map, const net_handle_t& parent,
+        void add_child_to_vector(TreeState& tree_state, hash_map<net_handle_t, pair<size_t, vector<size_t>>>& parent_to_child_map, const net_handle_t& parent,
             size_t child_cluster_index) const;
 };
 }
