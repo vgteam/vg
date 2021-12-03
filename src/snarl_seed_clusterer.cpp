@@ -1173,6 +1173,11 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, NodeCluster
 
         //Remember the distances for this child since they will get overwritten
         NodeClusters& child_clusters_i = tree_state.all_node_clusters[children[i]];
+        if (child_clusters_i.fragment_best_left > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit) &&  
+            child_clusters_i.fragment_best_right > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)) {
+            continue;
+        }
+
         for (const pair<size_t, size_t>& head : child_clusters_i.read_cluster_heads) {
             child_distances[head.first][head.second] = tree_state.read_cluster_heads_to_distances[head.first][head.second];
         }
@@ -1182,6 +1187,10 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, NodeCluster
 
             //Get the other node and its clusters
             NodeClusters& child_clusters_j = tree_state.all_node_clusters[children[j]];
+        if (child_clusters_j.fragment_best_left > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit) &&  
+            child_clusters_j.fragment_best_right > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)) {
+            continue;
+        }
 
 #ifdef DEBUG_CLUSTER
             cerr << "\tComparing two children of " << distance_index.net_handle_as_string(snarl_handle.net) << ": " 
@@ -1462,11 +1471,16 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
         //The NodeClusters we're currently looking at
         NodeClusters& child_clusters = tree_state.all_node_clusters[child_clusters_i];
 
-        //If this is a node, we need to cluster it first
+        //If cluster the children here
         if (distance_index.is_node(child_clusters.containing_net_handle.net)){
             cluster_one_node(tree_state, child_clusters);
         } else {
             cluster_one_snarl(tree_state, child_clusters);
+        }
+        //Skip this child if its seeds are all too far away
+        if (child_clusters.fragment_best_left > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit) &&  
+            child_clusters.fragment_best_right > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)) {
+            continue;
         }
         SnarlDistanceIndex::CachedNetHandle& child_handle = child_clusters.containing_net_handle;
 #ifdef DEBUG_CLUSTER
