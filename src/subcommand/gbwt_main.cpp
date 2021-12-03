@@ -261,6 +261,7 @@ void help_gbwt(char** argv) {
     std::cerr << "        --path-fields X     map regex submatches to these fields (default " << gbwtgraph::GFAParsingParameters::DEFAULT_FIELDS << ")" << std::endl;
     std::cerr << "        --translation FILE  write the segment to node translation table to FILE" << std::endl;
     std::cerr << "    -Z, --gbz-input         extract GBWT and GBWTGraph from GBZ input (one input arg)" << std::endl;
+    std::cerr << "        --translation FILE  write the segment to node translation table to FILE" << std::endl;
     std::cerr << "    -E, --index-paths       index the embedded non-alt paths in the graph (requires -x, no input args)" << std::endl;
     std::cerr << "        --paths-as-samples  each path becomes a sample instead of a contig in the metadata" << std::endl;
     std::cerr << "    -A, --alignment-input   index the alignments in the GAF files specified in input args (requires -x)" << std::endl;
