@@ -316,6 +316,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                  SnarlDistanceIndex::CachedNetHandle cached_net_handle = distance_index.get_cached_net_handle(node_net_handle);
                  distance_index.set_cached_rank(cached_net_handle);
                  distance_index.set_cached_node_values(cached_net_handle);
+                 distance_index.set_cached_min_length(cached_net_handle);
                  net_handle_t parent = distance_index.get_parent(cached_net_handle);
                  bool is_reversed_in_parent = distance_index.get_cached_is_reverse(cached_net_handle);
                  size_t node_length = distance_index.get_cached_min_length(cached_net_handle);
@@ -369,6 +370,7 @@ void NewSnarlSeedClusterer::get_snarl_tree( TreeState& tree_state,
                 distance_index.set_cached_end_bound(cached_chain_handle, true, true);
             }
             distance_index.set_cached_rank(cached_chain_handle);
+            distance_index.set_cached_min_length(cached_chain_handle);
             net_handle_t chain_parent = distance_index.get_parent(cached_chain_handle); 
 
             if (distance_index.is_root(chain_parent)) {
@@ -392,6 +394,7 @@ void NewSnarlSeedClusterer::get_snarl_tree( TreeState& tree_state,
             distance_index.set_cached_start_bound(cached_snarl_handle, true, true);
             distance_index.set_cached_end_bound(cached_snarl_handle, true, true);
             distance_index.set_cached_rank(cached_snarl_handle);
+            distance_index.set_cached_min_length(cached_snarl_handle);
             net_handle_t snarl_parent = distance_index.get_parent(cached_snarl_handle); 
 
             //Add this to its parent chain in the level above
