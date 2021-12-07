@@ -5553,6 +5553,7 @@ namespace vg {
 
 
 
+/*
         TEST_CASE("Failed unit test", "[failed]") {
             //Load failed random graph
             ifstream vg_stream("test_graph.vg");
@@ -5721,7 +5722,7 @@ namespace vg {
 
                 }
 
-                /*
+                /
                  * TODO: I don't think I can do this anymore
                 auto manager = finder.find_snarls_parallel();
                 
@@ -5775,12 +5776,13 @@ namespace vg {
                         REQUIRE(edges.count(make_pair(net_graph.flip(edge.second), net_graph.flip(edge.first))));
                     }
                 });
-                */
+                /
                     
             }
         
             
         }
+*/
        
    }
 }
