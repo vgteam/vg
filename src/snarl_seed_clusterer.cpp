@@ -1135,7 +1135,7 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_snarl(
     distance_index.set_cached_start_bound(snarl_handle, true, true);
     distance_index.set_cached_end_bound(snarl_handle, true, true);
     distance_index.set_cached_rank(snarl_handle);
-    distance_index.set_cached_parent_offset(snarl_handle);
+    distance_index.set_cached_parent(snarl_handle);
     NodeClusters snarl_clusters(snarl_handle, tree_state.all_seeds->size());
 
     //Get the children of this snarl and their clusters
@@ -1415,7 +1415,7 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(Tre
     distance_index.set_cached_start_bound(chain_handle, true, true);
     distance_index.set_cached_end_bound(chain_handle, true, true);
     distance_index.set_cached_rank(chain_handle);
-    distance_index.set_cached_parent_offset(chain_handle);
+    distance_index.set_cached_parent(chain_handle);
     NodeClusters chain_clusters(chain_handle, tree_state.all_seeds->size());
 
 
