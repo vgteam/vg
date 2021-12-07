@@ -3248,7 +3248,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             cerr << "[IndexRegistry]: Constructing distance index for Giraffe." << endl;
         }
         
-        assert(inputs.size() == 2);
+        assert(inputs.size() == 1);
         auto& gbz_filenames = inputs[0]->get_filenames();
         assert(gbz_filenames.size() == 1);
         auto gbz_filename = gbz_filenames.front();
