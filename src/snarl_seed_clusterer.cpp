@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#define DEBUG_CLUSTER
+//#define DEBUG_CLUSTER
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
@@ -354,7 +354,6 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 }
 void NewSnarlSeedClusterer::add_to_snarl_tree(size_t node_index,  net_handle_t& parent_handle, size_t depth, TreeState& tree_state,
           vector<hash_map<net_handle_t,pair<size_t, vector<size_t>>>>& chain_to_children_by_level) const {
-    cerr << "Add " << distance_index.net_handle_as_string(parent_handle) << " to snarl tree" << endl;
 
     //Helper function to add an item (child of a chain) to a vector in sorted order
     auto insert_in_order = [&](vector<size_t>& input_vector, size_t item) {
@@ -378,10 +377,8 @@ void NewSnarlSeedClusterer::add_to_snarl_tree(size_t node_index,  net_handle_t& 
     //At each iteration, the parent (maybe) needs to be added
     while (!distance_index.is_root(parent_handle)) {
         if (distance_index.is_chain(parent_handle)){
-            cerr << "\t at ancestor chain " << distance_index.net_handle_as_string(parent_handle) << endl;
             if (chain_to_children_by_level[depth].count(parent_handle) != 0) {
                 insert_in_order(chain_to_children_by_level[depth][parent_handle].second, node_index);
-                cerr << "\t\talready seen " << endl;
                 //If we've seen the parent already, add the child and return
                 return;
             }
@@ -400,6 +397,7 @@ void NewSnarlSeedClusterer::add_to_snarl_tree(size_t node_index,  net_handle_t& 
             if (!distance_index.is_trivial_chain(cached_chain_handle)) {
                 distance_index.set_cached_start_bound(cached_chain_handle, true, true);
                 distance_index.set_cached_end_bound(cached_chain_handle, true, true);
+                distance_index.set_cached_last_chain_component(cached_chain_handle);
             }
             distance_index.set_cached_rank(cached_chain_handle);
             distance_index.set_cached_min_length(cached_chain_handle);
@@ -409,11 +407,9 @@ void NewSnarlSeedClusterer::add_to_snarl_tree(size_t node_index,  net_handle_t& 
             node_index = chain_index;
             depth--;
         } else{
-            cerr << "\t at ancestor snarl " << distance_index.net_handle_as_string(parent_handle) << endl;
             assert(distance_index.is_snarl(parent_handle));
             if (tree_state.snarl_to_children.count(parent_handle) != 0) {
                 tree_state.snarl_to_children[parent_handle].second.emplace_back(node_index);
-                cerr << "\t\talready seen " << endl;
                 return;
             }
             //Make a new node clusters of the parent
