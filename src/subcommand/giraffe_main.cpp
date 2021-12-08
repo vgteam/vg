@@ -1129,18 +1129,9 @@ int main_giraffe(int argc, char** argv) {
     // If we need an overlay for position lookup, we might be pointing into
     // this overlay
     bdsg::PathPositionOverlayHelper overlay_helper;
-    unique_ptr<PathHandleGraph> graph;
     if (track_correctness || hts_output) {
-        if (registry.available("XG")) {
-            // Load the XG graph
-            graph = vg::io::VPKG::load_one<PathHandleGraph>(registry.require("XG").at(0));
-            // And make sure it has path position support.
-            // Overlay is owned by the overlay_helper, if one is needed.
-            path_position_graph = overlay_helper.apply(graph.get());
-        } else {
-            // Just use the graph from the GBZ
-            path_position_graph = overlay_helper.apply(gbz->graph);
-        }
+        // Always use the graph from the GBZ, with an overlay
+        path_position_graph = overlay_helper.apply(gbz->graph);
     }
 
     // Set up the mapper
