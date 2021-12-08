@@ -1114,20 +1114,6 @@ int main_giraffe(int argc, char** argv) {
     }
 #endif
     
-    // If we are tracking correctness, we will fill this in with a graph for
-    // getting offsets along ref paths.
-    PathPositionHandleGraph* path_position_graph = nullptr;
-    // One of these will actually own it
-    bdsg::PathPositionOverlayHelper overlay_helper;
-    unique_ptr<PathHandleGraph> graph;
-    if (track_correctness || hts_output) {
-        // Load the base graph
-        graph = vg::io::VPKG::load_one<PathHandleGraph>(registry.require("XG").at(0));
-        // And make sure it has path position support.
-        // Overlay is owned by the overlay_helper, if one is needed.
-        path_position_graph = overlay_helper.apply(graph.get());
-    }
-    
     // Grab the minimizer index
     auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Minimizers").at(0));
 
@@ -1136,6 +1122,26 @@ int main_giraffe(int argc, char** argv) {
 
     // Grab the distance index
     auto distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
+    
+    // If we are tracking correctness, we will fill this in with a graph for
+    // getting offsets along ref paths.
+    PathPositionHandleGraph* path_position_graph = nullptr;
+    // If we need an overlay for position lookup, we might be pointing into
+    // this overlay
+    bdsg::PathPositionOverlayHelper overlay_helper;
+    unique_ptr<PathHandleGraph> graph;
+    if (track_correctness || hts_output) {
+        if (registry.available("XG")) {
+            // Load the XG graph
+            graph = vg::io::VPKG::load_one<PathHandleGraph>(registry.require("XG").at(0));
+            // And make sure it has path position support.
+            // Overlay is owned by the overlay_helper, if one is needed.
+            path_position_graph = overlay_helper.apply(graph.get());
+        } else {
+            // Just use the graph from the GBZ
+            path_position_graph = overlay_helper.apply(gbz->graph);
+        }
+    }
 
     // Set up the mapper
     if (show_progress) {

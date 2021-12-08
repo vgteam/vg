@@ -3709,6 +3709,19 @@ void IndexRegistry::provide(const IndexName& identifier, const vector<string>& f
     get_index(identifier)->provide(filenames);
 }
 
+bool IndexRegistry::available(const IndexName& identifier) const {
+    if (!index_registry.count(identifier)) {
+        // Index is not registered
+        return false;
+    }
+    const IndexFile* index = get_index(identifier);
+    if (!index->is_finished()) {
+        // Index is not made
+        return false;
+    }
+    return true;
+}
+
 vector<string> IndexRegistry::require(const IndexName& identifier) const {
     if (!index_registry.count(identifier)) {
         cerr << "error:[IndexRegistry] cannot require unregistered index: " << identifier << endl;

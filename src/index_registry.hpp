@@ -241,6 +241,10 @@ public:
     /// Indicate a list of serialized files that contains some identified index
     void provide(const IndexName& identifier, const vector<string>& filenames);
     
+    /// Return true if the given index is available and can be require()'d, and
+    /// false otherwise.
+    bool available(const IndexName& identifier) const;
+    
     /// Get the filename(s) associated with the given index. Aborts if the
     /// index is not a known type, or if it is not provided or made.
     vector<string> require(const IndexName& identifier) const;
