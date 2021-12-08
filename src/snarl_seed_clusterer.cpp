@@ -1416,6 +1416,7 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(Tre
     distance_index.set_cached_end_bound(chain_handle, true, true);
     distance_index.set_cached_rank(chain_handle);
     distance_index.set_cached_parent(chain_handle);
+    distance_index.set_cached_last_chain_component(chain_handle);
     NodeClusters chain_clusters(chain_handle, tree_state.all_seeds->size());
 
 
