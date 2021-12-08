@@ -86,7 +86,7 @@ ARG THREADS=8
 
 RUN echo test > /stage.txt
 
-RUN curl -sL https://deb.nodesource.com/setup_14.x | bash - && apt-get -qq -y install nodejs
+RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - && apt-get -qq -y install nodejs && npm install txm@7.4.5
 
 # Fail if any non-portable instructions were used
 RUN /bin/bash -e -c 'if objdump -d /vg/bin/vg | grep vperm2i128 ; then exit 1 ; else exit 0 ; fi'
