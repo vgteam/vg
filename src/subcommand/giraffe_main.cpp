@@ -1131,7 +1131,7 @@ int main_giraffe(int argc, char** argv) {
     bdsg::PathPositionOverlayHelper overlay_helper;
     if (track_correctness || hts_output) {
         // Always use the graph from the GBZ, with an overlay
-        path_position_graph = overlay_helper.apply(gbz->graph);
+        path_position_graph = overlay_helper.apply(&gbz->graph);
     }
 
     // Set up the mapper
