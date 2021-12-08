@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-//#define DEBUG_CLUSTER
+#define DEBUG_CLUSTER
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
@@ -103,13 +103,14 @@ cerr << "\tread distance limit: " << read_distance_limit << " and fragment dista
         throw std::runtime_error("Fragment distance limit must be greater than read distance limit");
     }
 
-    //For each level of the snarl tree, maps chains (net_handle_t of the snarl) at that level to children 
-    //(net_handle_t of the child) belonging to the chain. Starts out with nodes from get_nodes, 
-    //then adds snarls as we walk up the snarl tree
+    //For each level of the snarl tree, maps chains at that level to children belonging to the chain.
+    //Also maps to the chain's NodeClusters in all_node_clusters
+    //Children are represented as a size_t index into all_node_clusters
+    //Starts out with nodes from get_nodes, 
+    //then adds snarls as we walk up the snarl tree in 
     //This is later used to populate snarl_to_node in the tree state
-    //The outer vector has one entry for each read
-    //The outer hash_map maps a net_handle_t of a chain to a vector of pairs, where each pair is the child of the 
-    vector<hash_map<net_handle_t, vector<size_t>>> chain_to_children_by_level;
+    vector<hash_map<net_handle_t, pair<size_t, vector<size_t>>>> chain_to_children_by_level;
+
     chain_to_children_by_level.reserve(distance_index.get_max_tree_depth()+1);
 
 
@@ -126,9 +127,6 @@ cerr << "\tread distance limit: " << read_distance_limit << " and fragment dista
     //contains) and chain_to_children_by_level
     get_nodes(tree_state, chain_to_children_by_level);
 
-    //Initialize the tree state to be the bottom level
-    tree_state.chain_to_children = std::move(chain_to_children_by_level[chain_to_children_by_level.size() - 1]);
-
     for (int depth = chain_to_children_by_level.size() - 1 ; depth >= 0 ; depth --) {
         //Go through each level of the tree, bottom up, and cluster that
         // level. Each level includes the snarl at that level, the nodes
@@ -136,30 +134,24 @@ cerr << "\tread distance limit: " << read_distance_limit << " and fragment dista
         //
         // tree_state knows all children of the snarls at this level
 
-        // Bring in the direct child nodes that come in at this level in the snarl tree.
-        // They only ever occur below the root.
-        if (depth != 0) {
-            tree_state.parent_chain_to_children = std::move(chain_to_children_by_level[depth - 1]);
-        }
-
 #ifdef DEBUG_CLUSTER
 assert(tree_state.read_index_offsets[0] == 0);
 for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
     assert (tree_state.read_index_offsets[i] + tree_state.all_seeds->at(i)->size() == tree_state.read_index_offsets[i+1]);
 }
 #endif
+        tree_state.chain_to_children = std::move(chain_to_children_by_level[depth]);
+
         //Cluster all the chains at this depth
         //Also records which chains are in snarls and the parents of these
         //chains in tree_state.parent_chain_to_children
         cluster_chain_level(tree_state);
 
         //And cluster all the snarls, record the parents of these snarls
-        cluster_snarl_level(tree_state);
+        //cluster_snarl_level(tree_state);
 
 
         // Swap buffer over for the next level
-        tree_state.chain_to_children = std::move(tree_state.parent_chain_to_children);
-        tree_state.snarl_to_children.clear();
     }
     //There may be some connectivity in the root, so also try to cluster in the root
     cluster_root(tree_state);
@@ -273,7 +265,7 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
 //tree. chain_to_children_by_level will be used to populate snarl_to_nodes
 //in the tree state as each level is processed
 void NewSnarlSeedClusterer::get_nodes( TreeState& tree_state,
-          vector<hash_map<net_handle_t,vector<size_t>>>& chain_to_children_by_level) const {
+          vector<hash_map<net_handle_t,pair<size_t, vector<size_t>>>>& chain_to_children_by_level) const {
 #ifdef DEBUG_CLUSTER
 cerr << "Add all seeds to nodes: " << endl << "\t";
 #endif
@@ -323,17 +315,14 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                  SnarlDistanceIndex::CachedNetHandle cached_net_handle = distance_index.get_cached_net_handle(node_net_handle);
                  distance_index.set_cached_rank(cached_net_handle);
                  distance_index.set_cached_node_values(cached_net_handle);
+                 distance_index.set_cached_min_length(cached_net_handle);
                  net_handle_t parent = distance_index.get_parent(cached_net_handle);
                  bool is_reversed_in_parent = distance_index.get_cached_is_reverse(cached_net_handle);
-                 size_t node_length = distance_index.get_cached_min_length(cached_net_handle);
+                 distance_index.set_cached_min_length(cached_net_handle);
 
                  size_t depth = distance_index.get_depth(parent);
                  if (depth+1 > chain_to_children_by_level.size()) {
                      chain_to_children_by_level.resize(depth+1);
-                 }
-                 //Create a new NodeClusters for this node and add it to it's parent chain
-                 if (chain_to_children_by_level[depth].count(parent) == 0) {
-                     chain_to_children_by_level[depth].emplace(parent, vector<size_t>());
                  }
 
 
@@ -341,7 +330,8 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                  tree_state.all_node_clusters.emplace_back(
                                  NodeClusters(std::move(cached_net_handle), tree_state.all_seeds->size(),
                                               is_reversed_in_parent, id));
-                 insert_in_order(chain_to_children_by_level[depth][parent],tree_state.all_node_clusters.size()-1);
+                 //Add the ancestors of this node to the mini snarl tree, starting with the parent
+                 add_to_snarl_tree(tree_state.all_node_clusters.size()-1, parent, depth, tree_state, chain_to_children_by_level);
              } 
         }
         std::sort(node_to_seeds.begin(), node_to_seeds.end());
@@ -353,8 +343,105 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
     if (chain_to_children_by_level.empty()) {
         chain_to_children_by_level.resize(1);
     }
+    for (size_t level = 0 ; level < chain_to_children_by_level.size() ; level++ ) {
+        for (auto& kv : chain_to_children_by_level[level]) {
+            cerr << kv.second.first << ": " << distance_index.net_handle_as_string(kv.first) << " has children " << endl;
+            for (size_t x : kv.second.second) {
+                cerr << "\t" << x<<": " << distance_index.net_handle_as_string(tree_state.all_node_clusters[x].containing_net_handle.net) << endl;
+            }
+        }
+    }
+}
+void NewSnarlSeedClusterer::add_to_snarl_tree(size_t node_index,  net_handle_t& parent_handle, size_t depth, TreeState& tree_state,
+          vector<hash_map<net_handle_t,pair<size_t, vector<size_t>>>>& chain_to_children_by_level) const {
+    cerr << "Add " << distance_index.net_handle_as_string(parent_handle) << " to snarl tree" << endl;
+
+    //Helper function to add an item (child of a chain) to a vector in sorted order
+    auto insert_in_order = [&](vector<size_t>& input_vector, size_t item) {
+        //Get an iterator to where the thing we're inserting should go in the vector 
+        std::vector<size_t>::iterator insert_itr = std::upper_bound(input_vector.begin(), input_vector.end(),
+           0, [&](size_t val, size_t vector_item) {
+               //This should return true if the vector_item goes after the item with rank val
+               return distance_index.get_cached_rank(tree_state.all_node_clusters[item].containing_net_handle)
+                       <= distance_index.get_cached_rank(tree_state.all_node_clusters[vector_item].containing_net_handle);
+           });
+        //Add the item to the vector in sorted order
+        input_vector.insert(insert_itr, std::move(item));
+    };
+
+    //Fill in the mini snarl tree for the ancestors of the current net_handle, which is  a node
+    //that we've already made a NodeClusters for
+
+    //We've already made a cached net handle for the current net
+
+    //Now walk up to the snarl tree and add everything we haven't already seen
+    //At each iteration, the parent (maybe) needs to be added
+    while (!distance_index.is_root(parent_handle)) {
+        if (distance_index.is_chain(parent_handle)){
+            cerr << "\t at ancestor chain " << distance_index.net_handle_as_string(parent_handle) << endl;
+            if (chain_to_children_by_level[depth].count(parent_handle) != 0) {
+                insert_in_order(chain_to_children_by_level[depth][parent_handle].second, node_index);
+                cerr << "\t\talready seen " << endl;
+                //If we've seen the parent already, add the child and return
+                return;
+            }
+            //Make a new node clusters of the parent
+            size_t chain_index = tree_state.all_node_clusters.size();
+            tree_state.all_node_clusters.emplace_back(distance_index.get_cached_net_handle(parent_handle), tree_state.all_seeds->size());
+            SnarlDistanceIndex::CachedNetHandle& cached_chain_handle = tree_state.all_node_clusters.back().containing_net_handle;
+
+            //Add the parent chain to the tree
+            chain_to_children_by_level[depth].emplace(parent_handle, make_pair(chain_index, vector<size_t>()));
+
+            //Add the child to the chain
+            insert_in_order(chain_to_children_by_level[depth][parent_handle].second, node_index);
+
+            //get the distance values for the chain
+            if (!distance_index.is_trivial_chain(cached_chain_handle)) {
+                distance_index.set_cached_start_bound(cached_chain_handle, true, true);
+                distance_index.set_cached_end_bound(cached_chain_handle, true, true);
+            }
+            distance_index.set_cached_rank(cached_chain_handle);
+            distance_index.set_cached_min_length(cached_chain_handle);
+
+            //Move up the tree
+            parent_handle = distance_index.get_parent(cached_chain_handle);
+            node_index = chain_index;
+            depth--;
+        } else{
+            cerr << "\t at ancestor snarl " << distance_index.net_handle_as_string(parent_handle) << endl;
+            assert(distance_index.is_snarl(parent_handle));
+            if (tree_state.snarl_to_children.count(parent_handle) != 0) {
+                tree_state.snarl_to_children[parent_handle].second.emplace_back(node_index);
+                cerr << "\t\talready seen " << endl;
+                return;
+            }
+            //Make a new node clusters of the parent
+            size_t snarl_index = tree_state.all_node_clusters.size();
+            tree_state.all_node_clusters.emplace_back(distance_index.get_cached_net_handle(parent_handle), tree_state.all_seeds->size());
+
+            //Add the child to the snarl
+            tree_state.snarl_to_children.emplace(parent_handle, make_pair(snarl_index, vector<size_t>()));
+
+
+            SnarlDistanceIndex::CachedNetHandle& cached_snarl_handle = tree_state.all_node_clusters.back().containing_net_handle;
+
+            //Set the distance values
+            distance_index.set_cached_start_bound(cached_snarl_handle, true, true);
+            distance_index.set_cached_end_bound(cached_snarl_handle, true, true);
+            distance_index.set_cached_rank(cached_snarl_handle);
+            distance_index.set_cached_min_length(cached_snarl_handle);
+
+            parent_handle = distance_index.get_parent(cached_snarl_handle); 
+            node_index = snarl_index;
+        }
+    }
+    //Once we reach the root, add the last child and return
+    tree_state.root_children.emplace_back(node_index);
 }
 
+
+/*TODO: Not doing this anymore
 
 //Cluster all of the snarls in tree_state from the same depth (all present in snarl_to_children)
 //Assumes that all the children of the snarls have been clustered already and are present in tree_state.snarls_to_children
@@ -377,7 +464,7 @@ void NewSnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state) const {
             //tree state know which chain it belongs to (in order)
 
             //Cluster the snarl
-            NodeClusters snarl_clusters = cluster_one_snarl(tree_state, distance_index.get_cached_net_handle(snarl_handle));
+            NodeClusters snarl_clusters = cluster_one_snarl(tree_state, );
 
             //Now check the best distance of any seed to the ends of the snarl
             //Is the distance small enough that we can cluster it with something else?
@@ -385,11 +472,6 @@ void NewSnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state) const {
                 (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit);
             bool reachable_left = snarl_clusters.fragment_best_left <= 
                 (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit);
-            //If so, add it to the tree state to be clustered further
-            if (reachable_left || reachable_right) {
-                tree_state.all_node_clusters.emplace_back(std::move(snarl_clusters));
-                add_child_to_vector(tree_state, tree_state.parent_chain_to_children, std::move(snarl_parent), tree_state.all_node_clusters.size()-1);
-            }
 
 #ifdef DEBUG_CLUSTER
             cerr << "\tRecording snarl " << distance_index.net_handle_as_string(snarl_handle)  << " as a child of "
@@ -402,6 +484,7 @@ void NewSnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state) const {
         }
     }
 }
+*/
 
 void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
     for (auto& kv : tree_state.chain_to_children) {
@@ -417,27 +500,8 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
 #endif
 
         // Compute the clusters for the chain
-        NodeClusters chain_clusters = cluster_one_chain(tree_state, distance_index.get_cached_net_handle(chain_handle));
+        cluster_one_chain(tree_state, tree_state.all_node_clusters[kv.second.first]);
 
-        //Now check the best distance of any seed to the ends of the chain
-        bool reachable_right = chain_clusters.fragment_best_right <= 
-            (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit);
-        bool reachable_left = chain_clusters.fragment_best_left <= 
-            (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit);
-        //If so, add it to the tree state to be clustered further
-        if (reachable_left || reachable_right) {
-            tree_state.all_node_clusters.emplace_back(std::move(chain_clusters));
-            net_handle_t chain_parent = distance_index.get_parent(chain_clusters.containing_net_handle);
-            if (distance_index.is_root(chain_parent)) {
-                tree_state.root_children.emplace_back(tree_state.all_node_clusters.size()-1);
-            } else {
-                add_child_to_vector(tree_state, tree_state.snarl_to_children, chain_parent, tree_state.all_node_clusters.size()-1);
-#ifdef DEBUG_CLUSTER
-            cerr << "\tRecording " << distance_index.net_handle_as_string(chain_handle)
-                << " as a child of " << distance_index.net_handle_as_string(chain_parent) << endl;
-#endif
-            }
-        }
     }
 }
 
@@ -1122,24 +1186,18 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
 }
 
 
-NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_snarl(
-                TreeState& tree_state, SnarlDistanceIndex::CachedNetHandle snarl_handle) const {
+void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, NodeClusters& snarl_clusters) const {
     //Get the clusters on this snarl, assumes that all of the snarls children have been clustered already.
     
 #ifdef DEBUG_CLUSTER
-        cerr << "Finding clusters on snarl " << distance_index.net_handle_as_string(snarl_handle.net) << endl;
+        cerr << "Finding clusters on snarl " << distance_index.net_handle_as_string(snarl_clusters.containing_net_handle.net) << endl;
 #endif
 
     //Keep track of all clusters on this snarl
-
-    distance_index.set_cached_start_bound(snarl_handle, true, true);
-    distance_index.set_cached_end_bound(snarl_handle, true, true);
-    distance_index.set_cached_rank(snarl_handle);
-    distance_index.set_cached_parent(snarl_handle);
-    NodeClusters snarl_clusters(snarl_handle, tree_state.all_seeds->size());
+    SnarlDistanceIndex::CachedNetHandle& snarl_handle = snarl_clusters.containing_net_handle;
 
     //Get the children of this snarl and their clusters
-    vector<size_t> children = std::move(tree_state.snarl_to_children[snarl_handle.net]);
+    vector<size_t> children = std::move(tree_state.snarl_to_children[snarl_handle.net].second);
     //The distances within the children, since we will be updating read_cluster_head_to_distances
     //to represent distances in the parent
     vector<vector<pair<size_t, size_t>>> child_distances (tree_state.all_seeds->size());
@@ -1153,6 +1211,11 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_snarl(
 
         //Remember the distances for this child since they will get overwritten
         NodeClusters& child_clusters_i = tree_state.all_node_clusters[children[i]];
+        if (child_clusters_i.fragment_best_left > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit) &&  
+            child_clusters_i.fragment_best_right > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)) {
+            continue;
+        }
+
         for (const pair<size_t, size_t>& head : child_clusters_i.read_cluster_heads) {
             child_distances[head.first][head.second] = tree_state.read_cluster_heads_to_distances[head.first][head.second];
         }
@@ -1162,6 +1225,11 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_snarl(
 
             //Get the other node and its clusters
             NodeClusters& child_clusters_j = tree_state.all_node_clusters[children[j]];
+
+            if (child_clusters_j.fragment_best_left > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit) &&  
+                child_clusters_j.fragment_best_right > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)) {
+                continue;
+            }
 
 #ifdef DEBUG_CLUSTER
             cerr << "\tComparing two children of " << distance_index.net_handle_as_string(snarl_handle.net) << ": " 
@@ -1222,12 +1290,13 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_snarl(
     //    assert (group_id.first.second == tree_state.read_union_find[group_id.first.first].find_group(group_id.first.second));
     //}
 #endif
-    return snarl_clusters;
 };
 
 
 
-NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, SnarlDistanceIndex::CachedNetHandle chain_handle) const {
+void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeClusters& chain_clusters) const {
+    
+    SnarlDistanceIndex::CachedNetHandle& chain_handle = chain_clusters.containing_net_handle;
     //Note: This is the first time we deal with the CachedNetHandle for this chain, so it will be empty
     if (distance_index.is_trivial_chain(chain_handle)){
         //If this is just a node pretending to be a chain, cluster the node and claim it's a chain
@@ -1237,15 +1306,19 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(Tre
 
         
         //This will hold the clusters of the chain
-        assert(tree_state.chain_to_children[chain_handle.net].size() == 1); 
+        assert(tree_state.chain_to_children[chain_handle.net].second.size() == 1); 
 
 
-        cluster_one_node(tree_state, tree_state.all_node_clusters[tree_state.chain_to_children[chain_handle.net].back()]);
+        NodeClusters& node_clusters = tree_state.all_node_clusters[tree_state.chain_to_children[chain_handle.net].second.back()];
+        cluster_one_node(tree_state, node_clusters);
 
-        NodeClusters chain_clusters = std::move(tree_state.all_node_clusters[tree_state.chain_to_children[chain_handle.net].back()]);
-        chain_clusters.containing_net_handle = std::move(chain_handle);
-
-        return chain_clusters;
+        //Copy everything from the node
+        chain_clusters.read_cluster_heads = std::move(node_clusters.read_cluster_heads);
+        chain_clusters.fragment_best_left = std::move(node_clusters.fragment_best_left);
+        chain_clusters.fragment_best_right = std::move(node_clusters.fragment_best_right);
+        chain_clusters.read_best_left = std::move(node_clusters.read_best_left);
+        chain_clusters.read_best_right = std::move(node_clusters.read_best_right);
+        return;
 
     }
 
@@ -1388,7 +1461,7 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(Tre
 
 #ifdef DEBUG_CLUSTER
     cerr << "Cluster chain " << distance_index.net_handle_as_string(chain_handle.net) << endl;
-    cerr << "\t chain has " << tree_state.chain_to_children[chain_handle.net].size() << " children" << endl;
+    cerr << "\t chain has " << tree_state.chain_to_children[chain_handle.net].second.size() << " children" << endl;
 #endif
 
     /*Go through the chain child by child 
@@ -1411,18 +1484,8 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(Tre
     * 
     */
 
-    //This will hold the clusters of the chain
-    distance_index.set_cached_start_bound(chain_handle, true, true);
-    distance_index.set_cached_end_bound(chain_handle, true, true);
-    distance_index.set_cached_rank(chain_handle);
-    distance_index.set_cached_parent(chain_handle);
-    distance_index.set_cached_last_chain_component(chain_handle);
-    NodeClusters chain_clusters(chain_handle, tree_state.all_seeds->size());
-
-
-
     //Get the children of this chain from the tree state. They will be ordered by their order in the chain
-    vector<size_t> children_in_chain = std::move(tree_state.chain_to_children[chain_handle.net]);
+    vector<size_t> children_in_chain = std::move(tree_state.chain_to_children[chain_handle.net].second);
 
     /*
      * As we walk along the chain, we maintain clusters of the chain up to the last node we saw (the later
@@ -1447,9 +1510,16 @@ NewSnarlSeedClusterer::NodeClusters NewSnarlSeedClusterer::cluster_one_chain(Tre
         //The NodeClusters we're currently looking at
         NodeClusters& child_clusters = tree_state.all_node_clusters[child_clusters_i];
 
-        //If this is a node, we need to cluster it first
+        //If cluster the children here
         if (distance_index.is_node(child_clusters.containing_net_handle.net)){
             cluster_one_node(tree_state, child_clusters);
+        } else {
+            cluster_one_snarl(tree_state, child_clusters);
+        }
+        //Skip this child if its seeds are all too far away
+        if (child_clusters.fragment_best_left > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit) &&  
+            child_clusters.fragment_best_right > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)) {
+            continue;
         }
         SnarlDistanceIndex::CachedNetHandle& child_handle = child_clusters.containing_net_handle;
 #ifdef DEBUG_CLUSTER
@@ -1866,7 +1936,6 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
         //assert (group_id.first.second == tree_state.read_union_find[group_id.first.first].find_group(group_id.first.second));
     }
 #endif
-    return chain_clusters;
 }
 
 //Cluster the root
@@ -1935,31 +2004,4 @@ void NewSnarlSeedClusterer::cluster_root(TreeState& tree_state) const {
 #endif
 }
 
-void NewSnarlSeedClusterer::add_child_to_vector(TreeState& tree_state, hash_map<net_handle_t, vector<size_t>>& parent_to_child_map, const net_handle_t& parent,
-        size_t child_cluster_index) const {
-    if (parent_to_child_map.count(parent) == 0) {
-        //Make sure that parent shows up in the hash_map
-        parent_to_child_map.emplace(parent, vector<size_t>());
-    }
-    if (distance_index.is_snarl(parent)){
-        //If the parent is a snarl, then the order doesn't matter
-        parent_to_child_map.at(parent).emplace_back(child_cluster_index);
-    } else {
-        assert(distance_index.is_chain(parent));
-        //Helper function to insert a NodeClusters into a sorted vector<NodeClusters> where the vector contains only 
-        //children of the same chain. The items will be sorted by their position in the chain
-        auto insert_in_order = [&](vector<size_t>& input_vector, size_t item) {
-            //Get an iterator to where the thing we're inserting should go in the vector 
-            std::vector<size_t>::iterator insert_itr = std::upper_bound(input_vector.begin(), input_vector.end(),
-               0, [&](size_t val, size_t vector_item) {
-                   //This should return true if the vector_item goes after the item with rank val
-                   return distance_index.get_cached_rank(tree_state.all_node_clusters[item].containing_net_handle)
-                           <= distance_index.get_cached_rank(tree_state.all_node_clusters[vector_item].containing_net_handle);
-               });
-            //Add the item to the vector in sorted order
-            input_vector.insert(insert_itr, std::move(item));
-        };
-        insert_in_order(parent_to_child_map.at(parent), child_cluster_index);
-    }
-}
 }
