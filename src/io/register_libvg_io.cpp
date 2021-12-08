@@ -36,6 +36,7 @@ bool register_libvg_io() {
     register_loader_saver_r_index();
     register_loader_saver_gbwtgraph();
     register_loader_saver_gbz();
+    register_loader_saver_gbzgraph();
     register_loader_saver_gcsa();
     register_loader_saver_lcp();
     register_loader_saver_minimizer();
