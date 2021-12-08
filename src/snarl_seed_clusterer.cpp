@@ -343,14 +343,6 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
     if (chain_to_children_by_level.empty()) {
         chain_to_children_by_level.resize(1);
     }
-    for (size_t level = 0 ; level < chain_to_children_by_level.size() ; level++ ) {
-        for (auto& kv : chain_to_children_by_level[level]) {
-            cerr << kv.second.first << ": " << distance_index.net_handle_as_string(kv.first) << " has children " << endl;
-            for (size_t x : kv.second.second) {
-                cerr << "\t" << x<<": " << distance_index.net_handle_as_string(tree_state.all_node_clusters[x].containing_net_handle.net) << endl;
-            }
-        }
-    }
 }
 void NewSnarlSeedClusterer::add_to_snarl_tree(size_t node_index,  net_handle_t& parent_handle, size_t depth, TreeState& tree_state,
           vector<hash_map<net_handle_t,pair<size_t, vector<size_t>>>>& chain_to_children_by_level) const {
@@ -406,7 +398,7 @@ void NewSnarlSeedClusterer::add_to_snarl_tree(size_t node_index,  net_handle_t& 
             parent_handle = distance_index.get_parent(cached_chain_handle);
             node_index = chain_index;
             depth--;
-        } else{
+        } else {
             assert(distance_index.is_snarl(parent_handle));
             if (tree_state.snarl_to_children.count(parent_handle) != 0) {
                 tree_state.snarl_to_children[parent_handle].second.emplace_back(node_index);
@@ -418,6 +410,7 @@ void NewSnarlSeedClusterer::add_to_snarl_tree(size_t node_index,  net_handle_t& 
 
             //Add the child to the snarl
             tree_state.snarl_to_children.emplace(parent_handle, make_pair(snarl_index, vector<size_t>()));
+            tree_state.snarl_to_children[parent_handle].second.emplace_back(node_index);
 
 
             SnarlDistanceIndex::CachedNetHandle& cached_snarl_handle = tree_state.all_node_clusters.back().containing_net_handle;
