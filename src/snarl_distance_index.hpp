@@ -25,7 +25,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(const H
 template<> struct wang_hash<handlegraph::net_handle_t> {
 public:
     inline size_t operator()(const net_handle_t& net_handle) const {
-        return wang_hash_64(reinterpret_cast<const size_t>(as_integer(net_handle)));
+        return wang_hash_64(as_integer(net_handle));
     }
 };
 
