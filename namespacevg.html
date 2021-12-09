@@ -1172,7 +1172,7 @@ Functions</h2></td></tr>
 <tr class="memitem:a8bcecf9fe02b7f50dd5e72e40dcd98e1"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8bcecf9fe02b7f50dd5e72e40dcd98e1">parseGenotypes</a> (const std::string &amp;vcf_line, size_t num_samples)</td></tr>
 <tr class="separator:a8bcecf9fe02b7f50dd5e72e40dcd98e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0d1c00a44e9aeb5c4294edd60fcbaa61"><td class="memItemLeft" align="right" valign="top">gbwt::vector_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0d1c00a44e9aeb5c4294edd60fcbaa61">extract_as_gbwt_path</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph, const std::string &amp;path_name)</td></tr>
-<tr class="memdesc:a0d1c00a44e9aeb5c4294edd60fcbaa61"><td class="mdescLeft">&#160;</td><td class="mdescRight">Extract a path as a GBWT path.  <a href="namespacevg.html#a0d1c00a44e9aeb5c4294edd60fcbaa61">More...</a><br /></td></tr>
+<tr class="memdesc:a0d1c00a44e9aeb5c4294edd60fcbaa61"><td class="mdescLeft">&#160;</td><td class="mdescRight">Extract a path as a GBWT path. If the path does not exist, it is treated as empty.  <a href="namespacevg.html#a0d1c00a44e9aeb5c4294edd60fcbaa61">More...</a><br /></td></tr>
 <tr class="separator:a0d1c00a44e9aeb5c4294edd60fcbaa61"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a72aa312e964fab8a03b93ec897f355ec"><td class="memItemLeft" align="right" valign="top">gbwt::vector_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a72aa312e964fab8a03b93ec897f355ec">path_predecessors</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph, const std::string &amp;path_name)</td></tr>
 <tr class="separator:a72aa312e964fab8a03b93ec897f355ec"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -7816,7 +7816,7 @@ template&lt;class RandomIt &gt; </div>
       </table>
 </div><div class="memdoc">
 
-<p>Extract a path as a GBWT path. </p>
+<p>Extract a path as a GBWT path. If the path does not exist, it is treated as empty. </p>
 
 </div>
 </div>
@@ -16844,6 +16844,7 @@ template&lt;typename Result &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Find all predecessor nodes of the path, ignoring self-loops. If the path does not exist, it is treated as empty. </p>
 
 </div>
 </div>
