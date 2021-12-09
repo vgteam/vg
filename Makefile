@@ -1,12 +1,14 @@
 DEP_DIR:=./deps
 SRC_DIR:=src
 ALGORITHMS_SRC_DIR:=$(SRC_DIR)/algorithms
+CONFIG_SRC_DIR:=$(SRC_DIR)/config
 IO_SRC_DIR:=$(SRC_DIR)/io
 SUBCOMMAND_SRC_DIR:=$(SRC_DIR)/subcommand
 UNITTEST_SRC_DIR:=$(SRC_DIR)/unittest
 BIN_DIR:=bin
 OBJ_DIR:=obj
 ALGORITHMS_OBJ_DIR:=$(OBJ_DIR)/algorithms
+CONFIG_OBJ_DIR:=$(OBJ_DIR)/config
 IO_OBJ_DIR:=$(OBJ_DIR)/io
 SUBCOMMAND_OBJ_DIR:=$(OBJ_DIR)/subcommand
 UNITTEST_OBJ_DIR:=$(OBJ_DIR)/unittest
@@ -25,6 +27,7 @@ all: $(BIN_DIR)/$(EXE)
 # Magic dependencies (see <http://make.mad-scientist.net/papers/advanced-auto-dependency-generation/#tldr>)
 include $(wildcard $(OBJ_DIR)/*.d)
 include $(wildcard $(ALGORITHMS_OBJ_DIR)/*.d)
+include $(wildcard $(CONFIG_OBJ_DIR)/*.d)
 include $(wildcard $(IO_OBJ_DIR)/*.d)
 include $(wildcard $(SUBCOMMAND_OBJ_DIR)/*.d)
 include $(wildcard $(UNITTEST_OBJ_DIR)/*.d)
@@ -235,9 +238,16 @@ STATIC_FLAGS=-static -static-libstdc++ -static-libgcc -Wl,--allow-multiple-defin
 
 # These are put into libvg. Grab everything except main
 OBJ = $(filter-out $(OBJ_DIR)/main.o,$(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(wildcard $(SRC_DIR)/*.cpp)))
+
 # And all the algorithms
 ALGORITHMS_OBJ = $(patsubst $(ALGORITHMS_SRC_DIR)/%.cpp,$(ALGORITHMS_OBJ_DIR)/%.o,$(wildcard $(ALGORITHMS_SRC_DIR)/*.cpp))
-# And all the IO logic
+
+# These aren't put into libvg. They are linked into vg itself to communicate
+# things about the platform.
+# Config objects are built individually and conditionally; that's the point.
+CONFIG_OBJ =
+
+# But always build all the IO logic
 IO_OBJ = $(patsubst $(IO_SRC_DIR)/%.cpp,$(IO_OBJ_DIR)/%.o,$(wildcard $(IO_SRC_DIR)/*.cpp))
 
 # These aren't put into libvg, but they provide subcommand implementations for the vg bianry
@@ -245,11 +255,6 @@ SUBCOMMAND_OBJ = $(patsubst $(SUBCOMMAND_SRC_DIR)/%.cpp,$(SUBCOMMAND_OBJ_DIR)/%.
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ = $(patsubst $(UNITTEST_SRC_DIR)/%.cpp,$(UNITTEST_OBJ_DIR)/%.o,$(wildcard $(UNITTEST_SRC_DIR)/*.cpp))
-
-# These aren't put into libvg. They are linked into vg itself to communicate
-# things about the platform
-CONFIGURATION_OBJ =
-
 
 
 RAPTOR_DIR:=deps/raptor
@@ -333,6 +338,22 @@ ifneq ($(shell uname -s),Darwin)
     LIB_DEPS += $(LIB_DIR)/libelf.a
 endif
 
+# Only depend on these files for the final linking stage.	
+# These libraries provide no headers to affect the vg build.	
+LINK_DEPS =
+
+ifneq ($(shell uname -s),Darwin)
+    # Use jemalloc at link time
+	LINK_DEPS += $(LIB_DIR)/libjemalloc.a
+    # We have to use it statically or we can't get at its secret symbols.
+	LD_LIB_FLAGS += $(LIB_DIR)/libjemalloc.a
+	# Use the config object for jemalloc
+    CONFIG_OBJ += $(CONFIG_OBJ_DIR)/allocator_config_jemalloc.o
+else
+	# Use the config object for the normal allocator
+    CONFIG_OBJ += $(CONFIG_OBJ_DIR)/allocator_config_system.o
+endif
+
 # common dependencies to build before all vg src files
 DEPS = $(LIB_DEPS)
 DEPS += $(INC_DIR)/gcsa/gcsa.h
@@ -354,21 +375,11 @@ DEPS += $(INC_DIR)/BooPHF.h
 DEPS += $(INC_DIR)/mio/mmap.hpp
 DEPS += $(INC_DIR)/atomic_queue.h
 
-# Only depend on these files for the final linking stage.	
-# These libraries provide no headers to affect the vg build.	
-LINK_DEPS =
-
-ifneq ($(shell uname -s),Darwin)
-    # Use jemalloc
-	LINK_DEPS += $(LIB_DIR)/libjemalloc.a
-	LD_LIB_FLAGS += -ljemalloc
-endif
-
 .PHONY: clean get-deps deps test set-path objs static static-docker docs man .pre-build .check-environment .check-git .no-git 
 
 # Aggregate all libvg deps, and exe deps other than libvg
 LIBVG_DEPS = $(OBJ) $(ALGORITHMS_OBJ) $(IO_OBJ) $(DEP_OBJ) $(DEPS)
-EXE_DEPS = $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
+EXE_DEPS = $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(DEPS) $(LINK_DEPS)
 
 # We have a target we can build to do everything but link the library and executable
 objs: $(LIBVG_DEPS) $(EXE_DEPS)
@@ -380,11 +391,11 @@ $(LIB_DIR)/libvg.a: $(LIBVG_DEPS)
 # For a normal dynamic build we remove the static build marker
 $(BIN_DIR)/$(EXE): $(LIB_DIR)/libvg.a $(EXE_DEPS)
 	-rm -f $(LIB_DIR)/vg_is_static
-	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) 
+	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) -lvg $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(LD_STATIC_LIB_DEPS) 
 # We keep a file that we touch on the last static build.
 # If the vg linkables are newer than the last static build, we do a build
-$(LIB_DIR)/vg_is_static: $(INC_DIR)/vg_environment_version.hpp $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
-	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(STATIC_FLAGS) $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS)
+$(LIB_DIR)/vg_is_static: $(INC_DIR)/vg_environment_version.hpp $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) $(DEPS) $(LINK_DEPS)
+	$(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o $(BIN_DIR)/$(EXE) $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIG_OBJ) -lvg $(STATIC_FLAGS) $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(LD_STATIC_LIB_FLAGS) $(LD_STATIC_LIB_DEPS)
 	-touch $(LIB_DIR)/vg_is_static
 
 # We don't want to always rebuild the static vg if no files have changed.
@@ -435,7 +446,7 @@ test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/vg.hpp
 	. ./source_me.sh && $(CXX) $(LDFLAGS) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp -lvg $(LD_LIB_DIR_FLAGS) $(LD_LIB_FLAGS) $(START_STATIC) $(LD_STATIC_LIB_FLAGS) $(END_STATIC) $(FILTER)
 
 $(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
-	+. ./source_me.sh && rm -Rf $(CWD)/$(INC_DIR)/jemalloc && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
+	+. ./source_me.sh && rm -Rf $(CWD)/$(INC_DIR)/jemalloc && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
 
 # Use fake patterns to tell Make that this rule generates all these files when run once.
 # Here % should always match "lib" which is a common substring.
@@ -756,7 +767,7 @@ $(OBJ_DIR)/version.o: $(SRC_DIR)/version.cpp $(SRC_DIR)/version.hpp $(INC_DIR)/v
 # Make sure to touch the .o file after the compiler finishes so it is always newer than the .d file
 # Use static pattern rules so the dependency files will not be ignored if the output exists
 # See <https://stackoverflow.com/a/34983297>
-$(OBJ) $(CONFIGURATION_OBJ) $(OBJ_DIR)/main.o: $(OBJ_DIR)/%.o : $(SRC_DIR)/%.cpp $(OBJ_DIR)/%.d $(DEPS)
+$(OBJ) $(OBJ_DIR)/main.o: $(OBJ_DIR)/%.o : $(SRC_DIR)/%.cpp $(OBJ_DIR)/%.d $(DEPS)
 	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(DEPGEN_FLAGS) -c -o $@ $< $(FILTER)
 	@touch $@
 $(ALGORITHMS_OBJ): $(ALGORITHMS_OBJ_DIR)/%.o : $(ALGORITHMS_SRC_DIR)/%.cpp $(ALGORITHMS_OBJ_DIR)/%.d $(DEPS)
@@ -771,16 +782,25 @@ $(SUBCOMMAND_OBJ): $(SUBCOMMAND_OBJ_DIR)/%.o : $(SUBCOMMAND_SRC_DIR)/%.cpp $(SUB
 $(UNITTEST_OBJ): $(UNITTEST_OBJ_DIR)/%.o : $(UNITTEST_SRC_DIR)/%.cpp $(UNITTEST_OBJ_DIR)/%.d $(DEPS)
 	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(DEPGEN_FLAGS) -c -o $@ $< $(FILTER)
 	@touch $@
+	
+# Config objects get individual rules
+$(CONFIG_OBJ_DIR)/allocator_config_jemalloc.o: $(CONFIG_SRC_DIR)/allocator_config_jemalloc.cpp $(CONFIG_OBJ_DIR)/allocator_config_jemalloc.d $(DEPS) $(LIB_DIR)/libjemalloc.a
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(DEPGEN_FLAGS) -c -o $@ $< $(FILTER)
+	@touch $@
+$(CONFIG_OBJ_DIR)/allocator_config_system.o: $(CONFIG_SRC_DIR)/allocator_config_system.cpp $(CONFIG_OBJ_DIR)/allocator_config_system.d $(DEPS)
+	. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(DEPGEN_FLAGS) -c -o $@ $< $(FILTER)
+	@touch $@
 
 # Use a fake rule to build .d files, so we don't complain if they don't exist.
 $(OBJ_DIR)/%.d: ;
 $(ALGORITHMS_OBJ_DIR)/%.d: ;
+$(CONFIG_OBJ_DIR)/%.d: ;
 $(IO_OBJ_DIR)/%.d: ;
 $(SUBCOMMAND_OBJ_DIR)/%.d: ;
 $(UNITTEST_OBJ_DIR)/%.d: ;
 
 # Don't delete them.
-.PRECIOUS: $(OBJ_DIR)/%.d $(ALGORITHMS_OBJ_DIR)/%.d $(IO_OBJ_DIR)/%.d $(SUBCOMMAND_OBJ_DIR)/%.d $(UNITTEST_OBJ_DIR)/%.d
+.PRECIOUS: $(OBJ_DIR)/%.d $(ALGORITHMS_OBJ_DIR)/%.d $(CONFIG_OBJ_DIR)/%.d $(IO_OBJ_DIR)/%.d $(SUBCOMMAND_OBJ_DIR)/%.d $(UNITTEST_OBJ_DIR)/%.d
 
 # Use no implicit rules
 .SUFFIXES:
@@ -797,6 +817,7 @@ $(UNITTEST_OBJ_DIR)/%.d: ;
 	@if [ ! -d $(LIB_DIR) ]; then mkdir -p $(LIB_DIR); fi
 	@if [ ! -d $(OBJ_DIR) ]; then mkdir -p $(OBJ_DIR); fi
 	@if [ ! -d $(ALGORITHMS_OBJ_DIR) ]; then mkdir -p $(ALGORITHMS_OBJ_DIR); fi
+	@if [ ! -d $(CONFIG_OBJ_DIR) ]; then mkdir -p $(CONFIG_OBJ_DIR); fi
 	@if [ ! -d $(IO_OBJ_DIR) ]; then mkdir -p $(IO_OBJ_DIR); fi
 	@if [ ! -d $(SUBCOMMAND_OBJ_DIR) ]; then mkdir -p $(SUBCOMMAND_OBJ_DIR); fi
 	@if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi
@@ -845,6 +866,7 @@ clean: clean-vcflib
 	$(RM) -r $(SUBCOMMAND_OBJ_DIR)
 	$(RM) -r $(IO_OBJ_DIR)
 	$(RM) -r $(ALGORITHMS_OBJ_DIR)
+	$(RM) -r $(CONFIG_OBJ_DIR)
 	$(RM) -r $(OBJ_DIR)
 	$(RM) -r $(INC_DIR)
 	$(RM) -r share/

@@ -1690,7 +1690,19 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 
                 return paired_mappings;
             } else if (best_score_1 != 0 and best_score_2 != 0) {
-                //We are attempting rescue, but we still want to keep the best alignments as a potential (unpaired) pair 
+                //We are attempting rescue, but we still want to keep the best alignments as a potential (unpaired) pair
+                
+                size_t funnel_index1, funnel_index2;
+                if (track_provenance) {
+                    // Work out what the paired-up alignments are numbered in the funnel.
+                    // TODO: can we flatten these lookup paths or change tuples
+                    // to structs to be more understandable?
+                    funnel_index1 = alignment_indices[std::get<0>(best_index_1)].first[std::get<1>(best_index_1)];
+                    funnel_index2 = alignment_indices[std::get<0>(best_index_2)].second[std::get<1>(best_index_2)];
+                    funnels[0].processing_input(funnel_index1);
+                    funnels[1].processing_input(funnel_index2);
+                }
+                
                 pair<pair<size_t, size_t>, pair<size_t, size_t>> index_pair =  make_pair(make_pair(std::get<0>(best_index_1), std::get<1>(best_index_1)), 
                                                                                          make_pair(std::get<0>(best_index_2), std::get<1>(best_index_2)));
 
@@ -1703,6 +1715,19 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                 fragment_distances.emplace_back(std::numeric_limits<int64_t>::max());
                 better_cluster_count_by_pairs.emplace_back(0);
                 pair_types.emplace_back(unpaired);
+                
+                if (track_provenance) {
+                    funnels[0].substage("pair-clusters");
+                    funnels[1].substage("pair-clusters");
+                    funnels[0].project(funnel_index1);
+                    funnels[0].score(funnels[0].latest(), pair_score);
+                    funnels[1].project(funnel_index2);
+                    funnels[1].score(funnels[1].latest(), pair_score);
+                    funnels[0].substage_stop();
+                    funnels[1].substage_stop();
+                    funnels[0].processed_input();
+                    funnels[1].processed_input();
+                }
             }
         }
 
@@ -1857,7 +1882,7 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
         types.emplace_back(pair_types[alignment_num]);
         better_cluster_count_by_mappings.emplace_back(better_cluster_count_by_pairs[alignment_num]);
         // Remember the output alignment
-        mappings.first.emplace_back( alignments[index_pair.first.first].first[index_pair.first.second]);
+        mappings.first.emplace_back(alignments[index_pair.first.first].first[index_pair.first.second]);
         mappings.second.emplace_back(alignments[index_pair.second.first].second[index_pair.second.second]);
 
         if (mappings.first.size() == 1 && found_pair) {

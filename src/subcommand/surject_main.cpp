@@ -45,6 +45,7 @@ void help_surject(char** argv) {
          << "    -c, --cram-output       write CRAM to stdout" << endl
          << "    -b, --bam-output        write BAM to stdout" << endl
          << "    -s, --sam-output        write SAM to stdout" << endl
+         << "    -P, --prune-low-cplx    prune short and low complexity anchors during realignment" << endl
          << "    -S, --spliced           interpret long deletions against paths as spliced alignments" << endl
          << "    -A, --qual-adj          adjust scoring for base qualities, if they are available" << endl
          << "    -N, --sample NAME       set this sample name for all reads" << endl
@@ -77,6 +78,7 @@ int main_surject(int argc, char** argv) {
     int min_splice_length = 20;
     bool subpath_global = true; // force full length alignments in mpmap resolution
     bool qual_adj = false;
+    bool prune_anchors = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -97,6 +99,7 @@ int main_surject(int argc, char** argv) {
             {"bam-output", no_argument, 0, 'b'},
             {"sam-output", no_argument, 0, 's'},
             {"spliced", no_argument, 0, 'S'},
+            {"prune-low-cplx", no_argument, 0, 'P'},
             {"qual-adj", no_argument, 0, 'A'},
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
@@ -106,7 +109,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:liGmcbsN:R:f:C:t:SA",
+        c = getopt_long (argc, argv, "hx:p:F:liGmcbsN:R:f:C:t:SPA",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -163,6 +166,10 @@ int main_surject(int argc, char** argv) {
                 
         case 'S':
             spliced = true;
+            break;
+                
+        case 'P':
+            prune_anchors = true;
             break;
             
         case 'A':
@@ -247,10 +254,11 @@ int main_surject(int argc, char** argv) {
     // Make a single thread-safe Surjector.
     Surjector surjector(xgidx);
     surjector.adjust_alignments_for_base_quality = qual_adj;
+    surjector.prune_suspicious_anchors = prune_anchors;
     if (spliced) {
         surjector.min_splice_length = min_splice_length;
         // we have to bump this up to be sure to align most splice junctions
-        surjector.max_subgraph_bases = 1024 * 1024;
+        surjector.max_subgraph_bases = 16 * 1024 * 1024;
     }
     else {
         surjector.min_splice_length = numeric_limits<int64_t>::max();
@@ -276,8 +284,11 @@ int main_surject(int argc, char** argv) {
         };
         
         // Set up output to an emitter that will handle serialization.
-        // It should process output raw, without any surjection, and it should respect our parameter for whether to think with splicing.
-        unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, sequence_dictionary, thread_count, xgidx, true, spliced);
+        // It should process output raw, without any surjection, and it should
+        // respect our parameter for whether to think with splicing.
+        unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", 
+            output_format, sequence_dictionary, thread_count, xgidx,
+            ALIGNMENT_EMITTER_FLAG_HTS_RAW | (spliced * ALIGNMENT_EMITTER_FLAG_HTS_SPLICED));
 
         if (interleaved) {
             // GAM input is paired, and for HTS output reads need to know their pair partners' mapping locations.

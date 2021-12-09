@@ -148,9 +148,8 @@ int main_gbwt(int argc, char** argv) {
     GBWTConfig config = parse_gbwt_config(argc, argv);
     validate_gbwt_config(config);
 
-    // Let GBWT operate silently and use the same temporary directory as vg.
+    // Let GBWT operate silently.
     gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
-    gbwt::TempFile::setDirectory(temp_file::get_dir());
 
     // This is the data we are using.
     GBWTHandler gbwts;

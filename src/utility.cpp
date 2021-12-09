@@ -8,6 +8,13 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <cctype>
+
+
+// For setting the temporary directory in submodules.
+#include <gcsa/utils.h>
+#include <gbwt/utils.h>
+#include <xg.hpp>
 
 namespace vg {
 
@@ -278,6 +285,12 @@ string toUppercase(const string& s) {
     return n;
 }
 
+void toUppercaseInPlace(string& s) {
+    for (int i = 0; i < s.size(); ++i) {
+        s[i] = toupper(s[i]);
+    }
+}
+
 void write_fasta_sequence(const std::string& name, const std::string& sequence, ostream& os, size_t width) {
     os << ">" << name << "\n";
     for (size_t written = 0; written < sequence.length(); written += width) {
@@ -359,7 +372,7 @@ struct Handler {
         // Delete the directory itself
         std::remove(name.c_str());
     }
-    
+
     ~Handler() {
         // No need to lock in static destructor
         for (auto& filename : filenames) {
@@ -433,26 +446,28 @@ void remove(const string& filename) {
     }
 }
 
+void set_system_dir() {
+    const char* system_temp_dir = nullptr;
+    for(const char* var_name : {"TMPDIR", "TMP", "TEMP", "TEMPDIR", "USERPROFILE"}) {
+        if (system_temp_dir == nullptr) {
+            system_temp_dir = getenv(var_name);
+        }
+    }
+    set_dir(system_temp_dir == nullptr ? "/tmp" : system_temp_dir);
+}
+
 void set_dir(const string& new_temp_dir) {
     lock_guard<recursive_mutex> lock(monitor);
-    
     temp_dir = new_temp_dir;
+
+    // Several submodules use their own temporary directories.
+    gcsa::TempFile::setDirectory(temp_dir);
+    gbwt::TempFile::setDirectory(temp_dir);
+    xg::temp_file::set_dir(temp_dir);
 }
 
 string get_dir() {
     lock_guard<recursive_mutex> lock(monitor);
-
-    // Get the default temp dir from environment variables.
-    if (temp_dir.empty()) {
-        const char* system_temp_dir = nullptr;
-        for(const char* var_name : {"TMPDIR", "TMP", "TEMP", "TEMPDIR", "USERPROFILE"}) {
-            if (system_temp_dir == nullptr) {
-                system_temp_dir = getenv(var_name);
-            }
-        }
-        temp_dir = (system_temp_dir == nullptr ? "/tmp" : system_temp_dir);
-    }
-
     return temp_dir;
 }
 

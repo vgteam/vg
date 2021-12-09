@@ -757,7 +757,7 @@ namespace vg {
         translate_oriented_node_ids(*aln.mutable_path(), translator);
         
 #ifdef debug_multipath_mapper
-        cerr << "resecued direct alignment is" << endl;
+        cerr << "rescued direct alignment is" << endl;
         cerr << pb2json(aln) << endl;
 #endif
         
@@ -2257,7 +2257,7 @@ namespace vg {
             int32_t max_score;
             int32_t untrimmed_score;
             size_t motif_idx;
-            // intron stats start uninitialized until measurign length
+            // intron stats start uninitialized until measuring length
             int32_t intron_score;
             int64_t estimated_intron_length;
             // these two filled out after doing alignment
@@ -2327,8 +2327,7 @@ namespace vg {
                 int64_t dist = numeric_limits<int64_t>::max();
                 if (xindex->get_path_count() != 0) {
                     // estimate the distance using the reference path
-                    dist = algorithms::ref_path_distance(xindex, pos_1, pos_2,
-                                                         min_splice_ref_search_length,
+                    dist = algorithms::ref_path_distance(xindex, pos_1, pos_2, ref_path_handles,
                                                          max_splice_ref_search_length);
                 }
                 
@@ -2533,7 +2532,6 @@ namespace vg {
                                 // this has no chance of becoming significant, let's skip it
                                 putative_joins.pop_back();
                             }
-                            
                         }
                     }
                 }
@@ -2560,9 +2558,9 @@ namespace vg {
             
             auto& join = putative_joins.front();
             
-            size_t read_len = alignment.sequence().size();
-            size_t connect_len = join.left_clip_length + join.right_clip_length - read_len;
-            size_t connect_begin = read_len - join.left_clip_length;
+            
+            size_t connect_begin = alignment.sequence().size() - join.left_clip_length;
+            size_t connect_len = join.left_clip_length + join.right_clip_length - alignment.sequence().size();
             
             join.connecting_aln.set_sequence(alignment.sequence().substr(connect_begin, connect_len));
             if (!alignment.quality().empty()) {
@@ -2577,7 +2575,7 @@ namespace vg {
             int32_t net_score = join.post_align_net_score(splice_stats, opt);
             
 #ifdef debug_multipath_mapper
-            cerr << "next candidate spliced alignment with score bound " << join.max_score << " has net score " << net_score << ", must get " << no_splice_log_odds << " for significance"  << endl;
+            cerr << "next candidate spliced alignment with score bound " << join.max_score << " has net score " << net_score << " after realigning read interval " << connect_begin << ":" << (connect_begin + connect_len) << ", must get " << no_splice_log_odds << " for significance"  << endl;
 #endif
             
             if (net_score > no_splice_log_odds) {
@@ -2849,11 +2847,13 @@ namespace vg {
             rescued_interval.second += (begin - alignment.sequence().begin());
             
             succeeded = (rescued_interval.first >= primary_interval.second - max_softclip_overlap
-                         && rescued_interval.second - max(rescued_interval.first, primary_interval.second) >= min_splice_rescue_matches);
+                         && rescued_interval.second - max(rescued_interval.first, primary_interval.second) >= min_splice_rescue_matches
+                         && rescued_interval.second > primary_interval.first);
         }
         else {
             succeeded = (rescued_interval.second <= primary_interval.first + max_softclip_overlap
-                         && min(rescued_interval.second, primary_interval.first) >= min_splice_rescue_matches);
+                         && min(rescued_interval.second, primary_interval.first) >= min_splice_rescue_matches
+                         && rescued_interval.first < primary_interval.first);
         }
 #ifdef debug_multipath_mapper
         cerr << "rescue candidate covers read interval " << rescued_interval.first << ":" << rescued_interval.second << " compared to primary interval " << primary_interval.first << ":" << primary_interval.second << ", considered successful? " << succeeded << endl;
@@ -4444,7 +4444,7 @@ namespace vg {
             cerr << "performed up to " << max_rescues_attempted_idx << " out of " << plausible_clusters_end_idx << " plausible rescues" << endl;
 #endif
             
-            multiplicity = max(1.0, double(plausible_clusters_end_idx) / double(max_rescues_attempted_idx));
+            multiplicity = max(1.0, (double)(plausible_clusters_end_idx) / (double)(max_rescues_attempted_idx));
         }
         
         return multiplicity;
@@ -4457,7 +4457,7 @@ namespace vg {
         double max_fraction_sampled = 0.0;
         for (const pair<const MaximalExactMatch*, pos_t>& hit : cluster.first) {
             const MaximalExactMatch& mem = *hit.first;
-            max_fraction_sampled = max(max_fraction_sampled, double(mem.queried_count) / double(mem.match_count));
+            max_fraction_sampled = max(max_fraction_sampled, (double)(mem.queried_count) / (double)(mem.match_count));
         }
         return cluster.second / max_fraction_sampled;
     }

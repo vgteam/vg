@@ -13,7 +13,7 @@ GraphCaller::GraphCaller(SnarlCaller& snarl_caller,
 GraphCaller::~GraphCaller() {
 }
 
-void GraphCaller::call_top_level_snarls(const HandleGraph& graph, bool recurse_on_fail) {
+void GraphCaller::call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type) {
 
     // Used to recurse on children of parents that can't be called
     size_t thread_count = get_thread_count();
@@ -29,7 +29,7 @@ void GraphCaller::call_top_level_snarls(const HandleGraph& graph, bool recurse_o
 #endif
 
             bool was_called = call_snarl(*snarl);
-            if (!was_called && recurse_on_fail) {
+            if (recurse_type == RecurseAlways || (!was_called && recurse_type == RecurseOnFail)) {
                 const vector<const Snarl*>& children = snarl_manager.children_of(snarl);
                 vector<const Snarl*>& thread_queue = snarl_queue[omp_get_thread_num()];
                 thread_queue.insert(thread_queue.end(), children.begin(), children.end());
@@ -64,7 +64,7 @@ static void flip_snarl(Snarl& snarl) {
     *snarl.mutable_end() = reverse(v);
 }
 
-void GraphCaller::call_top_level_chains(const HandleGraph& graph, size_t max_edges, size_t max_trivial, bool recurse_on_fail) {
+void GraphCaller::call_top_level_chains(const HandleGraph& graph, size_t max_edges, size_t max_trivial, RecurseType recurse_type) {
     // Used to recurse on children of parents that can't be called
     size_t thread_count = get_thread_count();
     vector<vector<Chain>> chain_queue(thread_count);
@@ -98,7 +98,7 @@ void GraphCaller::call_top_level_chains(const HandleGraph& graph, size_t max_edg
 #endif
             
             bool was_called = call_snarl(fake_snarl);
-            if (!was_called && recurse_on_fail) {
+            if (recurse_type == RecurseAlways || (!was_called && recurse_type == RecurseOnFail)) {
                 vector<Chain>& thread_queue = chain_queue[omp_get_thread_num()];                
                 for (pair<const Snarl*, bool> chain_link : chain_piece) {
                     const deque<Chain>& child_chains = snarl_manager.chains_of(chain_link.first);
@@ -188,8 +188,6 @@ string VCFOutputCaller::vcf_header(const PathHandleGraph& graph, const vector<st
     ss << "##fileformat=VCFv4.2" << endl;
     for (int i = 0; i < contigs.size(); ++i) {
         const string& contig = contigs[i];
-        path_handle_t path_handle = graph.get_path_handle(contig);
-        string path_name = graph.get_path_name(path_handle);
         size_t length;
         if (i < contig_length_overrides.size()) {
             // length override provided
@@ -417,10 +415,18 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
         out_variant.alleles[allele_gt.second] = allele_gt.first;
     }
 
+    // resolve subpath naming
+    string basepath_name = ref_path_name;
+    size_t basepath_offset = 0;
+    auto subpath_info = Paths::parse_subpath_name(ref_path_name);
+    if (get<0>(subpath_info)) {
+        basepath_name = get<1>(subpath_info);
+        basepath_offset = get<2>(subpath_info);
+    }
     // fill out the rest of the variant
-    out_variant.sequenceName = ref_path_name;
+    out_variant.sequenceName = basepath_name;
     // +1 to convert to 1-based VCF
-    out_variant.position = get<0>(get_ref_interval(graph, snarl, ref_path_name)) + ref_offset + 1; 
+    out_variant.position = get<0>(get_ref_interval(graph, snarl, ref_path_name)) + ref_offset + 1 + basepath_offset;
     out_variant.id = print_snarl(snarl, false);
     out_variant.filter = "PASS";
     out_variant.updateAlleleIndexes();
@@ -477,7 +483,7 @@ void VCFOutputCaller::emit_variant(const PathPositionHandleGraph& graph, SnarlCa
     }
 }
 
-tuple<size_t, size_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get_ref_interval(
+tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get_ref_interval(
     const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name) const {
     path_handle_t path_handle = graph.get_path_handle(ref_path_name);
 
@@ -500,38 +506,55 @@ tuple<size_t, size_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get_r
     assert(start_steps.size() > 0 && end_steps.size() > 0);
     step_handle_t start_step = start_steps.begin()->second;
     step_handle_t end_step = end_steps.begin()->second;
-    bool scan_backward = graph.get_is_reverse(graph.get_handle_of_step(start_step)) != snarl.start().backward();
-
+    // just because we found a pair of steps on our path that correspond to the snarl ends, doesn't
+    // mean the path threads the snarl.  verify that we can actaully walk, either forwards or backwards
+    // along the path from the start node and hit then end node in the right orientation. 
+    bool start_rev = graph.get_is_reverse(graph.get_handle_of_step(start_step)) != snarl.start().backward();
+    bool end_rev = graph.get_is_reverse(graph.get_handle_of_step(end_step)) != snarl.end().backward();
+    bool found_end = start_rev == end_rev && start_rev == start_steps.begin()->first > end_steps.begin()->first;
+        
     // if we're on a cycle, we keep our start step and find the end step by scanning the path
     if (start_steps.size() > 1 || end_steps.size() > 1) {
-        bool found_end = false;
-
-        if (scan_backward) {
-            for (step_handle_t cur_step = start_step; graph.has_previous_step(end_step) && !found_end;
-                 cur_step = graph.get_previous_step(cur_step)) {
-                if (graph.get_id(graph.get_handle_of_step(cur_step)) == graph.get_id(end_handle)) {
-                    end_step = cur_step;
-                    found_end = true;
+        found_end = false;
+        // try each start step
+        for (auto i = start_steps.begin(); i != start_steps.end() && !found_end; ++i) {
+            start_step = i->second;
+            bool scan_backward = graph.get_is_reverse(graph.get_handle_of_step(start_step)) != snarl.start().backward();
+            if (scan_backward) {
+                // if we're going backward, we expect to reach the end backward
+                end_handle = graph.get_handle(snarl.end().node_id(), !snarl.end().backward());
+            }            
+            if (scan_backward) {
+                for (step_handle_t cur_step = start_step; graph.has_previous_step(cur_step) && !found_end;
+                     cur_step = graph.get_previous_step(cur_step)) {
+                    if (graph.get_handle_of_step(cur_step) == end_handle) {
+                        end_step = cur_step;
+                        found_end = true;
+                    }
+                }
+            } else {
+                for (step_handle_t cur_step = start_step; graph.has_next_step(cur_step) && !found_end;
+                     cur_step = graph.get_next_step(cur_step)) {
+                    if (graph.get_handle_of_step(cur_step) == end_handle) {
+                        end_step = cur_step;
+                        found_end = true;
+                    }
                 }
             }
-            assert(found_end);
-        } else {
-            for (step_handle_t cur_step = start_step; graph.has_next_step(end_step) && !found_end;
-                 cur_step = graph.get_next_step(cur_step)) {
-                if (graph.get_id(graph.get_handle_of_step(cur_step)) == graph.get_id(end_handle)) {
-                    end_step = cur_step;
-                    found_end = true;
-                }
-            }
-            assert(found_end);
         }
     }
-    
-    size_t start_position = start_steps.begin()->first;
-    step_handle_t out_start_step = start_steps.begin()->second;
-    size_t end_position = end_step == end_steps.begin()->second ? end_steps.begin()->first : graph.get_position_of_step(end_step);
+    int64_t start_position = start_steps.begin()->first;
+    step_handle_t out_start_step = start_step;
+    int64_t end_position = end_step == end_steps.begin()->second ? end_steps.begin()->first : graph.get_position_of_step(end_step);
     step_handle_t out_end_step = end_step == end_steps.begin()->second ? end_steps.begin()->second : end_step;
     bool backward = end_position < start_position;
+    
+
+    if (!found_end) {
+        // oops, once of the above checks failed.  we tell caller we coudlnt find by hacking in a -1 coordinate.
+        start_position = -1;
+        end_position = -1;
+    }
 
     if (backward) {
         return make_tuple(end_position, start_position, backward, out_end_step, out_start_step);
@@ -1388,7 +1411,8 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
                        bool traversals_only,
                        bool gaf_output,
                        size_t trav_padding,
-                       bool genotype_snarls) :
+                       bool genotype_snarls,
+                       const pair<int64_t, int64_t>& ref_allele_length_range) :
     GraphCaller(snarl_caller, snarl_manager),
     VCFOutputCaller(sample_name),
     GAFOutputCaller(aln_emitter, sample_name, ref_paths, trav_padding),
@@ -1397,7 +1421,8 @@ FlowCaller::FlowCaller(const PathPositionHandleGraph& graph,
     ref_paths(ref_paths),
     traversals_only(traversals_only),
     gaf_output(gaf_output),
-    genotype_snarls(genotype_snarls)
+    genotype_snarls(genotype_snarls),
+    ref_allele_length_range(ref_allele_length_range)
 {
     for (int i = 0; i < ref_paths.size(); ++i) {
         ref_offsets[ref_paths[i]] = i < ref_path_offsets.size() ? ref_path_offsets[i] : 0;
@@ -1483,7 +1508,11 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
     string& ref_path_name = common_names.front();
 
     // find the reference traversal and coordinates using the path position graph interface
-    tuple<size_t, size_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(graph, snarl, ref_path_name);
+    tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> ref_interval = get_ref_interval(graph, snarl, ref_path_name);
+    if (get<0>(ref_interval) == -1) {
+        // could not find reference path interval consisten with snarl due to orientation conflict
+        return false;
+    }
     if (get<2>(ref_interval) == true) {
         // calling code assumes snarl forward on reference
         flip_snarl(snarl);
@@ -1521,6 +1550,17 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
         // todo: we can compute flow at the same time
     }
     assert(ref_trav.visit(0) == snarl.start() && ref_trav.visit(ref_trav.visit_size() - 1) == snarl.end());
+
+    // optional reference length clamp can, ex, avoid trying to resolve a giant snarl
+    if (ref_trav.visit_size() > 1 && ref_allele_length_range.first > 0 || ref_allele_length_range.second < numeric_limits<int64_t>::max()) {
+        size_t ref_trav_len = 0;
+        for (size_t j = 1; j < ref_trav.visit_size() - 1; ++j) {
+            ref_trav_len += graph.get_length(graph.get_handle(ref_trav.visit(j).node_id()));
+        }
+        if (ref_trav_len < ref_allele_length_range.first || ref_trav_len > ref_allele_length_range.second) {
+            return false;
+        }        
+    }
 
     vector<SnarlTraversal> travs;
     FlowTraversalFinder* flow_trav_finder = dynamic_cast<FlowTraversalFinder*>(&traversal_finder);
@@ -1583,7 +1623,7 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
 
 string FlowCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides) const {
-    string header = VCFOutputCaller::vcf_header(graph, ref_paths, contig_length_overrides);
+    string header = VCFOutputCaller::vcf_header(graph, contigs, contig_length_overrides);
     header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
     snarl_caller.update_vcf_header(header);
     header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
@@ -1697,7 +1737,7 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
     string ref_path_name;
     SnarlTraversal ref_trav;
     int ref_trav_idx = -1;
-    tuple<size_t, size_t, bool, step_handle_t, step_handle_t> ref_interval;
+    tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> ref_interval;
     string gt_ref_path_name;
     pair<size_t, size_t> gt_ref_interval;
     
@@ -1706,6 +1746,10 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
 
         // find the reference traversal and coordinates using the path position graph interface
         ref_interval = get_ref_interval(graph, snarl, ref_path_name);
+        if (get<0>(ref_interval) == -1) {
+            // no reference path found due to orientation conflict
+            return false;
+        }
         if (get<2>(ref_interval) == true) {
             // calling code assumes snarl forward on reference
             flip_snarl(snarl);
@@ -2035,7 +2079,7 @@ string NestedFlowCaller::flatten_alt_allele(const string& nested_allele, int all
 
 string NestedFlowCaller::vcf_header(const PathHandleGraph& graph, const vector<string>& contigs,
                               const vector<size_t>& contig_length_overrides) const {
-    string header = VCFOutputCaller::vcf_header(graph, ref_paths, contig_length_overrides);
+    string header = VCFOutputCaller::vcf_header(graph, contigs, contig_length_overrides);
     header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
     snarl_caller.update_vcf_header(header);
     header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";

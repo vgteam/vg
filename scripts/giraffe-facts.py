@@ -267,7 +267,8 @@ def add_in_stats(destination, addend):
             destination[k] = None
         elif isinstance(v, dict):
             # Recurse into dict
-            add_in_stats(destination[k], v)
+            if k in destination:
+                add_in_stats(destination[k], v)
         else:
             # Use real += and hope it works
             destination[k] += v

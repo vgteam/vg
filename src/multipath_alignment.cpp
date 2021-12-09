@@ -107,6 +107,10 @@ namespace vg {
         }
     }
 
+    bool multipath_alignment_t::has_annotation(const string& annotation_name) const {
+        return _annotation.count(annotation_name);
+    }
+
     void multipath_alignment_t::set_annotation(const string& annotation_name) {
         clear_annotation(annotation_name);
         _annotation[annotation_name] = make_pair(Null, (void*) nullptr);
@@ -662,7 +666,8 @@ namespace vg {
                 size_t mapping_start_idx = 0;
                 // merge mappings if they occur on the same node and same strand
                 if (curr_end_mapping->position().node_id() == next_start_mapping.position().node_id()
-                    && curr_end_mapping->position().is_reverse() == next_start_mapping.position().is_reverse()) {
+                    && curr_end_mapping->position().is_reverse() == next_start_mapping.position().is_reverse()
+                    && curr_end_mapping->position().offset() + mapping_from_length(*curr_end_mapping) == next_start_mapping.position().offset()) {
                     
                     Edit* last_edit = curr_end_mapping->mutable_edit(curr_end_mapping->edit_size() - 1);
                     const edit_t& first_edit = next_start_mapping.edit(0);
@@ -3228,6 +3233,7 @@ namespace vg {
             
             if (subpath.next_size() + subpath.connection_size() > 1) {
                 cerr << "error: cannot convert a multipath alignment to a CIGAR unless is consists of a single non-branching path" << endl;
+                exit(1);
             }
             
             for (size_t j = 0; j < path.mapping_size(); ++j, ++num_mappings) {

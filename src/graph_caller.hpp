@@ -26,6 +26,9 @@ using vg::io::AlignmentEmitter;
  */
 class GraphCaller {
 public:
+
+    enum RecurseType { RecurseOnFail, RecurseAlways, RecurseNever };
+   
     GraphCaller(SnarlCaller& snarl_caller,
                 SnarlManager& snarl_manager);
 
@@ -34,8 +37,7 @@ public:
     /// Run call_snarl() on every top-level snarl in the manager.
     /// For any that return false, try the children, etc. (when recurse_on_fail true)
     /// Snarls are processed in parallel
-    virtual void call_top_level_snarls(const HandleGraph& graph,
-                                       bool recurse_on_fail = true);
+    virtual void call_top_level_snarls(const HandleGraph& graph, RecurseType recurse_type = RecurseOnFail);
 
     /// For every chain, cut it up into pieces using max_edges and max_trivial to cap the size of each piece
     /// then make a fake snarl for each chain piece and call it.  If a fake snarl fails to call,
@@ -43,7 +45,7 @@ public:
     virtual void call_top_level_chains(const HandleGraph& graph,
                                        size_t max_edges,
                                        size_t max_trivial,
-                                       bool recurse_on_fail = true);
+                                       RecurseType recurise_type = RecurseOnFail);
 
     /// Call a given snarl, and print the output to out_stream
     virtual bool call_snarl(const Snarl& snarl) = 0;
@@ -97,7 +99,8 @@ protected:
 
     /// get the interval of a snarl from our reference path using the PathPositionHandleGraph interface
     /// the bool is true if the snarl's backward on the path
-    tuple<size_t, size_t, bool, step_handle_t, step_handle_t> get_ref_interval(const PathPositionHandleGraph& graph, const Snarl& snarl,
+    /// first returned value -1 if no traversal found 
+    tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> get_ref_interval(const PathPositionHandleGraph& graph, const Snarl& snarl,
                                                                                const string& ref_path_name) const;
 
     /// clean up the alleles to not share common prefixes / suffixes
@@ -335,7 +338,8 @@ public:
                bool traversals_only,
                bool gaf_output,
                size_t trav_padding,
-               bool genotype_snarls);
+               bool genotype_snarls,
+               const pair<int64_t, int64_t>& ref_allele_length_range);
    
     virtual ~FlowCaller();
 
@@ -379,6 +383,9 @@ protected:
     /// (by default, uncalled snarls are skipped, and coordinates are flattened
     ///  out to minimize variant size -- this turns all that off)
     bool genotype_snarls;
+
+    /// clamp calling to reference alleles of a given length range
+    pair<int64_t, int64_t> ref_allele_length_range;
 };
 
 class SnarlGraph;

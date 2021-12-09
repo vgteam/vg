@@ -14,9 +14,10 @@ namespace vg {
 using namespace std;
 
 SurjectingAlignmentEmitter::SurjectingAlignmentEmitter(const PathPositionHandleGraph* graph, unordered_set<path_handle_t> paths,
-    unique_ptr<AlignmentEmitter>&& backing) : surjector(graph), paths(paths), backing(std::move(backing)) {
+    unique_ptr<AlignmentEmitter>&& backing, bool prune_suspicious_anchors) : surjector(graph), paths(paths), backing(std::move(backing)) {
     
-    // Nothing to do!
+    // Configure the surjector
+    surjector.prune_suspicious_anchors = prune_suspicious_anchors;
     
 }
 

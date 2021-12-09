@@ -586,10 +586,11 @@ int main_map(int argc, char** argv) {
             xdrop_alignment = true;
             break;
 
-        case 'h':
         case '^':
             log_time = true;
             break;
+
+        case 'h':
         case '?':
             /* getopt_long already printed an error message. */
             help_map(argv);
@@ -661,9 +662,6 @@ int main_map(int argc, char** argv) {
 
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
-    
-    // Configure its temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(temp_file::get_dir());
 
     // Load up our indexes.
     PathPositionHandleGraph* xgidx = nullptr;

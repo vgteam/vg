@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 27
+plan tests 29
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -132,6 +132,12 @@ else
     IN_RANGE="0"
 fi
 is "${IN_RANGE}" "1" "unpaired reads are evenly split between equivalent mappings"
+
+vg giraffe xy.fa xy.vcf.gz -G x.gam -o SAM --track-provenance --discard
+is $? "0" "provenance tracking succeeds for unpaired reads"
+
+vg giraffe xy.fa xy.vcf.gz -G x.gam -o SAM -i --fragment-mean 200 --fragment-stdev 10 --distance-limit 50 --track-provenance --discard
+is $? "0" "provenance tracking succeeds for paired reads"
 
 rm -f x.vg x.gam xy.sam
 rm -f xy.vg xy.gbwt xy.xg xy.snarls xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi

@@ -67,6 +67,7 @@ string nonATGCNtoN(const string& s);
 string allAmbiguousToN(const string& s);
 // Convert ASCII-encoded DNA to upper case
 string toUppercase(const string& s);
+void toUppercaseInPlace(string& s);
 
 // write a fasta sqeuence
 void write_fasta_sequence(const std::string& name, const std::string& sequence, ostream& os, size_t width=80);
@@ -134,6 +135,8 @@ typename Collection::value_type sum(const Collection& collection) {
  * be created in a directory determined from environment variables, though this
  * can be overridden with set_dir().
  * The interface is thread-safe.
+ *
+ * The temporary directory will be propagated to submodules (gbwt, gcsa2, xg).
  */
 namespace temp_file {
 
@@ -153,6 +156,10 @@ namespace temp_file {
     /// Set a directory for placing temporary files and directories in,
     /// overriding system defaults and environment variables.
     void set_dir(const string& new_temp_dir);
+
+    /// Reset the temporary directory back to the default based on environment
+    /// variables and system defaults.
+    void set_system_dir();
 
     /// Get the current location for temporary files and directories.
     string get_dir();

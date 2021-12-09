@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <string>
+#include <sstream>
 #include "../mem_accelerator.hpp"
 #include "../utility.hpp"
 #include "../build_index.hpp"
@@ -12,10 +13,28 @@
 #include "random_graph.hpp"
 
 #include <bdsg/hash_graph.hpp>
+#include <gcsa/utils.h>
+
+namespace std {
+
+// For the output operator for ranges
+using gcsa::operator<<;
+
+/// Allow ranges to be dumped by the test asserts if they don't match properly.
+static std::string to_string(const gcsa::range_type& range) {
+    std::stringstream ss;
+    ss << range;
+    return ss.str();
+}
+
+}
 
 namespace vg {
 namespace unittest {
 using namespace std;
+
+// For the output operator for ranges
+using gcsa::operator<<;
 
 
 TEST_CASE("MEMAccelerator returns same ranges as direct LF queries",
@@ -31,9 +50,7 @@ TEST_CASE("MEMAccelerator returns same ranges as direct LF queries",
         bdsg::HashGraph graph;
         random_graph(seq_size, var_length, var_count, &graph);
         
-        // Configure GCSA temp directory to the system temp directory
-        gcsa::TempFile::setDirectory(temp_file::get_dir());
-        // And make it quiet
+        // Make GCSA quiet
         gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
         
         // Make pointers to fill in

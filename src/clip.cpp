@@ -2,6 +2,7 @@
 #include "traversal_finder.hpp"
 #include <unordered_map>
 #include <IntervalTree.h>
+#include <structures/rank_pairing_heap.hpp>
 
 //#define debug
 
@@ -393,7 +394,7 @@ void clip_contained_snarls(MutablePathMutableHandleGraph* graph, PathPositionHan
 
 void clip_low_depth_nodes_generic(MutablePathMutableHandleGraph* graph,
                                   function<void(function<void(handle_t, const Region*)>)> iterate_handles,
-                                  int64_t min_depth, const string& ref_prefix,
+                                  int64_t min_depth, const vector<string>& ref_prefixes,
                                   int64_t min_fragment_len, bool verbose) {
 
     // find all nodes in the snarl that are not on the reference interval (reference path name from containing interval)
@@ -401,6 +402,15 @@ void clip_low_depth_nodes_generic(MutablePathMutableHandleGraph* graph,
 
     // just for logging
     unordered_map<string, size_t> clip_counts;
+
+    function<bool(const string&)> check_prefixes = [&ref_prefixes] (const string& path_name) {
+        for (const string& ref_prefix : ref_prefixes) {
+            if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
+                return true;
+            }
+        }
+        return false;
+    };
 
     function<void(handle_t, const Region*)> visit_handle = [&](handle_t handle, const Region* region) {
         bool on_ref = false;
@@ -410,11 +420,11 @@ void clip_low_depth_nodes_generic(MutablePathMutableHandleGraph* graph,
                 if (depth > min_depth || on_ref) {
                     return false;
                 }
-                if (!ref_prefix.empty() || region) {
+                if (!ref_prefixes.empty() || region) {
                     // if we have a region, do exact comparison to it.
                     // otherwise, do a prefix check against ref_prefix
                     string path_name = graph->get_path_name(graph->get_path_handle_of_step(step_handle));
-                    if ((region && region->seq == path_name) || (!region && path_name.compare(0, ref_prefix.length(), ref_prefix) == 0)) {
+                    if ((region && region->seq == path_name) || (!region && check_prefixes(path_name))) {
                         on_ref = true;
                         return false;
                     }
@@ -444,7 +454,7 @@ void clip_low_depth_nodes_generic(MutablePathMutableHandleGraph* graph,
 
     // use the reference path prefix (if given) to clip out components that aren't anchored to it
     // (this would take care of above filter, but we leave that one as it's not dependent on path name)
-    if (!ref_prefix.empty()) {
+    if (!ref_prefixes.empty()) {
         size_t removed_node_count = 0;
         size_t removed_component_count = 0;
         vector<unordered_set<nid_t>> components = handlealgs::weakly_connected_components(graph);
@@ -454,7 +464,7 @@ void clip_low_depth_nodes_generic(MutablePathMutableHandleGraph* graph,
                 vector<step_handle_t> steps = graph->steps_of_handle(graph->get_handle(*ni));
                 for (size_t si = 0; !ref_anchored && si < steps.size(); ++si) {
                     string step_path_name = graph->get_path_name(graph->get_path_handle_of_step(steps[si]));
-                    if (step_path_name.substr(0, ref_prefix.length()) == ref_prefix) {
+                    if (check_prefixes(step_path_name)) {
                         ref_anchored = true;
                     }
                 }
@@ -474,7 +484,7 @@ void clip_low_depth_nodes_generic(MutablePathMutableHandleGraph* graph,
     }
 }
 
-void clip_low_depth_nodes(MutablePathMutableHandleGraph* graph, int64_t min_depth, const string& ref_prefix,
+void clip_low_depth_nodes(MutablePathMutableHandleGraph* graph, int64_t min_depth, const vector<string>& ref_prefixes,
                           int64_t min_fragment_len, bool verbose) {
     
     function<void(function<void(handle_t, const Region*)>)> iterate_handles = [&] (function<void(handle_t, const Region*)> visit_handle) {
@@ -483,7 +493,7 @@ void clip_low_depth_nodes(MutablePathMutableHandleGraph* graph, int64_t min_dept
             });        
     };
     
-    clip_low_depth_nodes_generic(graph, iterate_handles, min_depth, ref_prefix, min_fragment_len, verbose);
+    clip_low_depth_nodes_generic(graph, iterate_handles, min_depth, ref_prefixes, min_fragment_len, verbose);
 }
 
 void clip_contained_low_depth_nodes(MutablePathMutableHandleGraph* graph, PathPositionHandleGraph* pp_graph, const vector<Region>& regions,
@@ -502,9 +512,318 @@ void clip_contained_low_depth_nodes(MutablePathMutableHandleGraph* graph, PathPo
                                });
     };
 
-    clip_low_depth_nodes_generic(graph, iterate_handles, min_depth, "", min_fragment_len, verbose);
+    clip_low_depth_nodes_generic(graph, iterate_handles, min_depth, {}, min_fragment_len, verbose);
     
 }
 
+// we avoid the path position interface since we only want reference coordinates
+static unordered_map<handle_t, vector<int64_t>> make_ref_index(PathHandleGraph* graph, path_handle_t ref_path,
+                                                               unordered_set<edge_t>& out_ref_edges) {
+    unordered_map<handle_t, vector<int64_t>> handle_to_position;
+    int64_t pos = 0;
+    handle_t prev_handle;
+    bool has_prev = false;
+    graph->for_each_step_in_path(ref_path, [&](step_handle_t step_handle) {
+            handle_t handle = graph->get_handle_of_step(step_handle);
+            int64_t handle_len = graph->get_length(handle);
+            handle_to_position[handle].push_back(pos);
+            handle_to_position[graph->flip(handle)].push_back(pos + handle_len - 1);
+            pos += handle_len;
+            if (has_prev) {
+                out_ref_edges.insert(graph->edge_handle(prev_handle, handle));
+            }
+            has_prev = true;
+            prev_handle = handle;
+        });
+    return handle_to_position;
+}
+
+// walk context steps out from reference path, flagging each node encountered with its
+// minimum and maximum position on the path
+static multimap<int64_t, edge_t> find_deletion_candidate_edges(PathHandleGraph* graph, path_handle_t ref_path,
+                                                          const unordered_map<handle_t, vector<int64_t>>& handle_to_position,
+                                                          int64_t max_deletion, int64_t context_steps,
+                                                          const unordered_set<edge_t>& edge_blacklist) {
+    vector<pair<int64_t, handle_t>> pos_handles;
+    int64_t cur_pos = 0;
+    graph->for_each_step_in_path(ref_path, [&](step_handle_t step_handle) {
+            handle_t handle = graph->get_handle_of_step(step_handle);
+            pos_handles.push_back(make_pair(cur_pos, handle));
+            cur_pos += graph->get_length(handle);
+        });
+
+    vector<unordered_map<nid_t, int64_t>> id_to_min_pos_threads(get_thread_count());
+    vector<unordered_map<nid_t, int64_t>> id_to_max_pos_threads(get_thread_count());
+    
+#pragma omp parallel for
+    for (size_t i = 0; i < pos_handles.size(); ++i) {
+        int64_t pos = pos_handles[i].first;
+        handle_t handle = pos_handles[i].second;
+        unordered_map<nid_t, int64_t>& id_to_min_pos = id_to_min_pos_threads[omp_get_thread_num()];
+        unordered_map<nid_t, int64_t>& id_to_max_pos = id_to_max_pos_threads[omp_get_thread_num()];
+        
+        // scan a context of our current step, trying to avoid touching back
+        // on the reference path
+        // todo: can do better job of constraining with more step_on_path lookups
+        unordered_set<nid_t> context;
+        vector<handle_t> cur_handles = {handle};
+        for (int64_t i = 0; i < context_steps; ++i) {
+            vector<handle_t> next_handles;
+            for (auto& h : cur_handles) {
+                nid_t cur_id = graph->get_id(h);
+                if (!context.count(cur_id)) {
+                    context.insert(cur_id);
+                    graph->follow_edges(h, false, [&](handle_t n) {
+                            if (!edge_blacklist.count(graph->edge_handle(h, n)) && !handle_to_position.count(n)) {
+                                next_handles.push_back(n);
+                            }
+                        });
+                    graph->follow_edges(h, true, [&](handle_t p) {
+                            if (!edge_blacklist.count(graph->edge_handle(p, h)) && !handle_to_position.count(p)) {
+                                next_handles.push_back(p);
+                            }
+                        });
+                }
+            }
+            cur_handles = std::move(next_handles);
+        }
+
+        // assig everything in the context to the current position
+        for (nid_t id : context) {
+            auto it = id_to_min_pos.find(id);
+            if (it == id_to_min_pos.end()) {
+                id_to_min_pos[id] = pos;
+                id_to_max_pos[id] = pos;
+            } else {
+                id_to_min_pos[id] = min(pos, it->second);
+                id_to_max_pos[id] = max(pos, id_to_max_pos.at(id));
+            }
+        }                
+    }
+
+    for (size_t i = 1; i < id_to_max_pos_threads.size(); ++i) {
+        for (const auto& id_max : id_to_max_pos_threads[i]) {
+            id_to_max_pos_threads[0][id_max.first] = max(id_to_max_pos_threads[0][id_max.first], id_max.second);
+        }
+        id_to_max_pos_threads[i].clear();
+        for (const auto& id_min : id_to_min_pos_threads[i]) {
+            if (id_to_min_pos_threads[0].count(id_min.first)) {
+                id_to_min_pos_threads[0][id_min.first] = min(id_to_min_pos_threads[0][id_min.first], id_min.second);
+            } else {
+                id_to_min_pos_threads[0][id_min.first] = id_min.second;
+            }
+        }
+        id_to_min_pos_threads[i].clear();            
+    }
+
+    auto& id_to_min_pos = id_to_min_pos_threads[0];
+    auto& id_to_max_pos = id_to_max_pos_threads[0];
+
+    // scan every edge to find minimum distance according to positions found above
+    multimap<int64_t, edge_t> length_to_edge;
+    unordered_set<edge_t> edges_visited;
+    vector<edge_t> neighbours;
+    for (const auto& id_pos : id_to_min_pos) {
+        handle_t handle = graph->get_handle(id_pos.first);
+        graph->follow_edges(handle, false, [&] (handle_t next) {
+                edge_t edge = graph->edge_handle(handle, next);
+                if (id_to_min_pos.count(graph->get_id(next)) && !edges_visited.count(edge)) {
+                    edges_visited.insert(edge);
+                    neighbours.push_back(edge);
+                }
+            });
+        graph->follow_edges(handle, true, [&] (handle_t next) {
+                edge_t edge = graph->edge_handle(next, handle);
+                if (id_to_min_pos.count(graph->get_id(next)) && !edges_visited.count(edge)) {
+                    edges_visited.insert(edge);
+                    neighbours.push_back(edge);
+                }
+            });
+        for (const edge_t& edge : neighbours) {
+            assert(graph->has_edge(edge));
+            nid_t id1 = graph->get_id(edge.first);
+            nid_t id2 = graph->get_id(edge.second);
+            int64_t delta = max(abs(id_to_max_pos.at(id1) - id_to_min_pos.at(id2)), abs(id_to_max_pos.at(id2) - id_to_min_pos.at(id1)));
+            
+            if (delta > max_deletion) {
+                length_to_edge.insert(make_pair(delta, edge));
+            }
+        }
+        neighbours.clear();
+    }
+
+    return length_to_edge;
+}
+
+// walk from given edge back to reference path, returning the maximum distance found
+static int64_t get_max_deletion(const PathHandleGraph* graph, 
+                                const unordered_map<handle_t, vector<int64_t>>& handle_to_position,
+                                int64_t context_steps,
+                                edge_t edge,
+                                const unordered_set<edge_t>& edge_blacklist) {
+    
+    function<unordered_set<handle_t>(handle_t)> get_ref_context = [&] (handle_t handle) {
+        unordered_set<handle_t> context;
+        unordered_set<handle_t> ref_context;
+        vector<handle_t> cur_handles = {handle};
+        for (int64_t i = 0; i < context_steps; ++i) {
+            vector<handle_t> next_handles;
+            for (auto& h : cur_handles) {
+                if (!context.count(h)) {
+                    context.insert(h);
+                    if (i == 0) {
+                        // keep search directional from origin
+                        context.insert(graph->flip(h));
+                    }
+                    // stop search once we hit reference path
+                    if (handle_to_position.count(h)) {
+                        ref_context.insert(h);
+                    } else {
+                        graph->follow_edges(h, false, [&](handle_t n) {
+                                if (!edge_blacklist.count(graph->edge_handle(h, n))) {
+                                    next_handles.push_back(n);
+                                }
+                            });
+                        if (i > 0) {
+                            // keep search directional from origin
+                            graph->follow_edges(h, true, [&](handle_t p) {
+                                    if (!edge_blacklist.count(graph->edge_handle(p, h))) {
+                                        next_handles.push_back(p);
+                                    }
+                                });
+                        }
+                    }
+                }
+            }
+            cur_handles = std::move(next_handles);
+        }
+        return ref_context;
+    };
+
+    // search away from the start of the edge, finding the leftmost and rightmost reference
+    // path positions
+    unordered_set<handle_t> left_context = get_ref_context(graph->flip(edge.first));
+    if (left_context.empty()) {
+        return -1;
+    }
+    int64_t min_pos_left = numeric_limits<int64_t>::max();
+    int64_t max_pos_left = -1;
+    for (handle_t handle : left_context) {
+        auto it = handle_to_position.find(handle);
+        assert(it != handle_to_position.end());
+        const vector<int64_t>& positions = it->second;
+        for (int64_t pos : positions) {
+            min_pos_left = min(min_pos_left, pos);
+            max_pos_left = max(max_pos_left, pos);
+        }
+    }
+
+    // search away from the end of the edge, finding the leftmost and rightmost reference
+    // path positions
+    unordered_set<handle_t> right_context = get_ref_context(edge.second);
+    if (right_context.empty()) {
+        return -1;
+    }
+    int64_t min_pos_right = numeric_limits<int64_t>::max();
+    int64_t max_pos_right = -1;
+    for (handle_t handle : right_context) {
+        auto it = handle_to_position.find(handle);
+        assert(it != handle_to_position.end());
+        const vector<int64_t>& positions = it->second;
+        for (int64_t pos : positions) {
+            min_pos_right = min(min_pos_right, pos);
+            max_pos_right = max(max_pos_right, pos);
+        }
+    }
+
+    // compute the maximum deletion
+    int64_t delta = max(abs(max_pos_left - min_pos_right), abs(max_pos_right - min_pos_left));
+    
+    return delta;
+}
+
+void clip_deletion_edges(MutablePathMutableHandleGraph* graph, int64_t max_deletion,
+                         int64_t context_steps,
+                         const vector<string>& ref_prefixes, int64_t min_fragment_len, bool verbose) {
+    
+    // load up the reference paths and their ids
+    unordered_set<path_handle_t> ref_paths;
+    graph->for_each_path_handle([&](path_handle_t path_handle) {
+            string path_name = graph->get_path_name(path_handle);
+            for (const string& ref_prefix : ref_prefixes) {
+                if (path_name.compare(0, ref_prefix.length(), ref_prefix) == 0) {
+                    ref_paths.insert(path_handle);
+                    break;
+                }
+            }
+        });
+
+    // all deletion edges for all paths
+    unordered_set<edge_t> deletion_edges;
+    // all reference edges + deletion edges
+    unordered_set<edge_t> edge_blacklist;
+    
+    for (path_handle_t ref_path : ref_paths) {
+
+        // index the path to avoid path position interface dep
+        unordered_map<handle_t, vector<int64_t>> handle_to_position = make_ref_index(graph, ref_path, edge_blacklist);
+
+        // find set of deletion candidates sorted by length by walking out from the reference path
+        if (verbose) {
+            cerr << "[vg clip]: Searching for deletion candidates on " << graph->get_path_name(ref_path)
+                 << " with " << context_steps << " context steps and " << get_thread_count() << " threads" << endl;
+        }
+        multimap<int64_t, edge_t> length_to_edge = find_deletion_candidate_edges(graph, ref_path, handle_to_position,
+                                                                                 max_deletion, context_steps, edge_blacklist);
+
+        if (verbose) {
+            cerr << "[vg clip]: Found " << length_to_edge.size() << " candidate deletion edges for " << graph->get_path_name(ref_path);
+            if (!length_to_edge.empty()) {
+                cerr << " with sizes ranging from " << length_to_edge.begin()->first << " to " << length_to_edge.rbegin()->first;
+            }
+            cerr << endl;
+        }
+
+        // for every deletion candidate, walk *back* to the reference path and add it if it forms a deletion
+        // we do this one-at-a-time to make sure that the edges are still deletions after the preceding edges were deleted
+        int64_t candidate_i = 0;
+        for (auto it = length_to_edge.rbegin(); it != length_to_edge.rend(); ++it) {
+            const edge_t& edge = it->second;
+            assert(graph->has_edge(edge));                                    
+            int64_t deletion_size = get_max_deletion(graph, handle_to_position, context_steps, edge, edge_blacklist);
+
+            if (deletion_size > max_deletion) {
+                deletion_edges.insert(edge);
+                edge_blacklist.insert(edge);
+                if (verbose) {
+                    if (verbose) {
+                        cerr << "[vg clip]: Found deletion edge for candidate " << candidate_i << " on " << graph->get_path_name(ref_path) << ": "
+                             << (graph->get_is_reverse(edge.first) ? "<" : ">") << graph->get_id(edge.first)
+                             << (graph->get_is_reverse(edge.second) ? "<" : ">") << graph->get_id(edge.second)
+                             << " with reference length " << deletion_size << endl;
+                    }
+                }
+            }
+            ++candidate_i;
+        }
+    }
+
+    // just for logging
+    unordered_map<string, size_t> clip_counts;
+
+    if (verbose) {
+        cerr << "[vg-clip]: Clipping " << deletion_edges.size() << " edges" << endl;
+    }
+
+    // delete the edges
+    delete_nodes_and_chop_paths(graph, {}, deletion_edges, min_fragment_len, verbose ? &clip_counts : nullptr);
+
+    if (verbose) {
+        for (const auto& kv : clip_counts) {
+            cerr << "[vg-clip]: Creating " << kv.second << " fragments from path " << kv.first << endl;
+        }
+        clip_counts.clear();
+    }
+}
 
 }

@@ -788,9 +788,6 @@ int main_find(int argc, char** argv) {
         // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
         gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
         
-        // Configure its temp directory to the system temp directory
-        gcsa::TempFile::setDirectory(temp_file::get_dir());
-        
         // Open it
         auto gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_in);
         // default LCP is the gcsa base name +.lcp

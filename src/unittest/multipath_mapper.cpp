@@ -130,9 +130,7 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
     VG graph;
     graph.extend(proto_graph);
     
-    // Configure GCSA temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(temp_file::get_dir());
-    // And make it quiet
+    // Make GCSA quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
     // Make pointers to fill in
@@ -285,9 +283,7 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
     VG graph;
     graph.extend(proto_graph);
     
-    // Configure GCSA temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(temp_file::get_dir());
-    // And make it quiet
+    // Make GCSA quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
     // Make pointers to fill in
@@ -437,9 +433,7 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
     VG graph;
     graph.extend(proto_graph);
     
-    // Configure GCSA temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(temp_file::get_dir());
-    // And make it quiet
+    // Make GCSA quiet
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
     // Make pointers to fill in

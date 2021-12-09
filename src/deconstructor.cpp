@@ -25,7 +25,8 @@ Deconstructor::~Deconstructor(){
  * otherwise, hasRef is set to false and all strings are alt alleles.
  */
 vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTraversal>& travs, int ref_path_idx,
-                                       char prev_char, bool use_start) {
+                                       const vector<bool>& use_trav,
+                                       char prev_char, bool use_start) const {
 
     assert(ref_path_idx >=0 && ref_path_idx < travs.size());
 
@@ -59,17 +60,21 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
     // set the other alleles (they can end up as 0 alleles too if their strings match the reference)
     for (int i = 0; i < travs.size(); ++i) {
         if (i != ref_path_idx) {
-            string allele = trav_to_string(travs[i]);
-            auto ai_it = allele_idx.find(allele);
-            if (ai_it == allele_idx.end()) {
-                // make a new allele for this string
-                allele_idx[allele] = make_pair(cur_alt, i);
-                trav_to_allele.at(i) = cur_alt;
-                ++cur_alt;
-                substitution = substitution && allele.size() == ref_allele.size();
+            if (use_trav[i]) {
+                string allele = trav_to_string(travs[i]);
+                auto ai_it = allele_idx.find(allele);
+                if (ai_it == allele_idx.end()) {
+                    // make a new allele for this string
+                    allele_idx[allele] = make_pair(cur_alt, i);
+                    trav_to_allele.at(i) = cur_alt;
+                    ++cur_alt;
+                    substitution = substitution && allele.size() == ref_allele.size();
+                } else {
+                    // allele string has been seen, map this traversal to it
+                    trav_to_allele.at(i) = ai_it->second.first;
+                }
             } else {
-                // allele string has been seen, map this traversal to it
-                trav_to_allele.at(i) = ai_it->second.first;
+                trav_to_allele.at(i) = -1; // HACK! negative allele indexes are ignored
             }
         }
     }
@@ -115,7 +120,7 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
 }
 
 void Deconstructor::add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav,
-                                            bool reversed, bool one_based) {
+                                            bool reversed, bool one_based) const {
     auto& trav_info = v.info["AT"];
     assert(allele < trav_info.size());
 
@@ -160,11 +165,11 @@ void Deconstructor::add_allele_path_to_info(vcflib::Variant& v, int allele, cons
 
 void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& names,
                                   const vector<int>& trav_to_allele,
-                                  const vector<gbwt::size_type>& trav_thread_ids) {
+                                  const vector<gbwt::size_type>& trav_thread_ids) const {
     assert(names.size() == trav_to_allele.size());
     // set up our variant fields
     v.format.push_back("GT");
-    if (path_to_sample && path_restricted) {
+    if (show_path_info && path_to_sample_phase && path_restricted) {
         v.format.push_back("PI");
     }
 
@@ -179,8 +184,10 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
             sample_name = thread_sample(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(trav_thread_ids[i]));
             gbwt_phases[i] = thread_phase(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(trav_thread_ids[i]));
         }
-        else if (path_to_sample && path_to_sample->count(names[i])) {
-            sample_name = path_to_sample->find(names[i])->second;
+        else if (path_to_sample_phase && path_to_sample_phase->count(names[i])) {
+            auto sp = path_to_sample_phase->find(names[i]);
+            sample_name = sp->second.first;
+            gbwt_phases[i] = sp->second.second;
         } else {
             sample_name = names[i];
         }
@@ -201,31 +208,40 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
             bool conflict;
             std::tie(chosen_travs, conflict) = choose_traversals(sample_name, travs, trav_to_allele, names, gbwt_phases);
             if (conflict) {
+#ifdef debug
+#pragma omp critical (cerr)
+                cerr << "Conflict for sample " << sample_name << endl;
+#endif
                 conflicts.insert(sample_name);
-            }            
+            }
             string genotype;
             for (int i = 0; i < chosen_travs.size(); ++i) {
                 if (i > 0) {
-                    genotype += gbwt_trav_finder.get() ? "|" : "/";
+                    // TODO check flag for phasing
+                    genotype += (path_to_sample_phase || gbwt_trav_finder.get())  ? "|" : "/";
                 }
-                genotype += chosen_travs[i] != -1 ? std::to_string(trav_to_allele[chosen_travs[i]]) : ".";
+                genotype += (chosen_travs[i] != -1 && (!conflict || keep_conflicted_genotypes))
+                    ? std::to_string(trav_to_allele[chosen_travs[i]]) : ".";
             }
             v.samples[sample_name]["GT"] = {genotype};
-            if (path_to_sample) {
+            if (show_path_info && path_to_sample_phase) {
                 for (auto trav : travs) {
-                    v.samples[sample_name]["PI"].push_back(names[trav] + "=" + std::to_string(trav_to_allele[trav]));
+                    auto allele = trav_to_allele[trav];
+                    if (allele != -1) {
+                        v.samples[sample_name]["PI"].push_back(names[trav] + "=" + std::to_string(allele));
+                    }
                 }
             }
         } else {
             string blank_gt = ".";
             if (gbwt_sample_to_phase_range.count(sample_name)) {
-                auto& phase_range = gbwt_sample_to_phase_range[sample_name];
+                auto& phase_range = gbwt_sample_to_phase_range.at(sample_name);
                 for (int phase = phase_range.first + 1; phase <= phase_range.second; ++phase) {
                     blank_gt += "|.";
                 }
             }
             v.samples[sample_name]["GT"] = {blank_gt};
-            if (path_to_sample && path_restricted) {
+            if (show_path_info && path_to_sample_phase && path_restricted) {
                 v.samples[sample_name]["PI"] = {blank_gt};
             }
         }
@@ -238,33 +254,39 @@ void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& name
 pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_name,
                                                          const vector<int>& travs, const vector<int>& trav_to_allele,
                                                          const vector<string>& trav_to_name,
-                                                         const vector<int>& gbwt_phases) {
+                                                         const vector<int>& gbwt_phases) const {
 
     assert(trav_to_name.size() == trav_to_allele.size());
-    assert(gbwt_phases.size() == trav_to_name.size());    
+    assert(gbwt_phases.size() == trav_to_name.size());
     assert(!travs.empty());
     // count the number of times each allele comes up in a traversal
-    vector<int> allele_frequencies(*max_element(trav_to_allele.begin(), trav_to_allele.end()) + 1, 0);
+    vector<int> allele_frequencies(std::max(0, *max_element(trav_to_allele.begin(), trav_to_allele.end()) + 1), 0);
     for (auto trav : travs) {
         // we always want to choose alt over ref when possible in sorting logic below, so
         // cap ref frequency at 1
         int allele = trav_to_allele.at(trav);
-        if (allele > 0 || allele_frequencies[allele] == 0) {
+        // avoid counting filtered alleles (== -1)
+        if (allele >= 0 && (allele > 0 || allele_frequencies[allele] == 0)) {
             ++allele_frequencies[allele];
-        }        
+        }
     }
     // sort on frquency
     function<bool(int, int)> comp = [&] (int trav1, int trav2) {
-        if (allele_frequencies[trav_to_allele[trav1]] < allele_frequencies[trav_to_allele[trav2]]) {
+        auto& trav1_allele = trav_to_allele[trav1];
+        auto& trav2_allele = trav_to_allele[trav2];
+        // avoid the filtered allele state (== -1)
+        auto trav1_af = trav1_allele >= 0 ? allele_frequencies[trav1_allele] : 0;
+        auto trav2_af = trav2_allele >= 0 ? allele_frequencies[trav2_allele] : 0;
+        if (trav1_af < trav2_af) {
             return true;
-        } else if (allele_frequencies[trav_to_allele[trav1]] == allele_frequencies[trav_to_allele[trav2]]) {
+        } else if (trav1_af == trav2_af) {
             // prefer non-ref when possible
-            if (trav_to_allele[trav1] < trav_to_allele[trav2]) {
+            if (trav1_allele < trav2_allele) {
                 return true;
-            } else if (trav_to_allele[trav1] == trav_to_allele[trav2]) {
+            } else if (trav1_allele == trav2_allele) {
                 return trav_to_name[trav1] < trav_to_name[trav2];
             }
-        } 
+        }
         return false;
     };
     vector<int> sorted_travs = travs;
@@ -275,6 +297,7 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
     // try to pull out unique phases if available
     bool has_phasing = gbwt_sample_to_phase_range.count(sample_name) &&
         std::any_of(gbwt_phases.begin(), gbwt_phases.end(), [](int i) { return i >= 0; });
+    //|| path_to_sample_phase;
     bool phasing_conflict = false;
     int sample_ploidy = ploidy;
     int min_phase = 1;
@@ -290,15 +313,34 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
         for (int i = sorted_travs.size() - 1; i >= 0 && most_frequent_travs.size() < sample_ploidy; --i) {
             int phase = gbwt_phases.at(sorted_travs[i]);
             if (!used_phases.count(phase)) {
-                most_frequent_travs.push_back(sorted_travs[i]);
-                used_phases.insert(phase);
+                if (trav_to_allele[sorted_travs[i]] >= 0) {
+                    most_frequent_travs.push_back(sorted_travs[i]);
+                    used_phases.insert(phase);
+                }
             } else {
+                phasing_conflict = true;
+            }
+        }
+    } else if (path_to_sample_phase) {
+        sample_ploidy = sample_ploidys->at(sample_name);
+        
+        set<int> used_phases;
+        for (int i = sorted_travs.size() - 1; i >= 0 && most_frequent_travs.size() < sample_ploidy; --i) {
+            int phase = gbwt_phases.at(sorted_travs[i]);
+            if (!used_phases.count(phase)) {
+                if (trav_to_allele[sorted_travs[i]] >= 0) {
+                    most_frequent_travs.push_back(sorted_travs[i]);
+                    used_phases.insert(phase);
+                }
+            } else if (strict_conflict_checking) {
                 phasing_conflict = true;
             }
         }
     } else {
         for (int i = sorted_travs.size() - 1; i >= 0 && most_frequent_travs.size() < sample_ploidy; --i) {
-            most_frequent_travs.push_back(sorted_travs[i]);
+            if (trav_to_allele[sorted_travs[i]] >= 0) {
+                most_frequent_travs.push_back(sorted_travs[i]);
+            }
         }
     }
 
@@ -320,6 +362,16 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
             }
             swap(padded_travs, most_frequent_travs);
         }
+    } else if (path_to_sample_phase) {
+        std::sort(most_frequent_travs.begin(), most_frequent_travs.end(),
+                  [&](int t1, int t2) {return gbwt_phases.at(t1) < gbwt_phases.at(t2);});
+        vector<int> padded_travs(sample_ploidy, -1);
+        for (auto ft : most_frequent_travs) {
+            int phase = gbwt_phases.at(ft);
+            //std::cerr << "on phase " << phase << std::endl;
+            padded_travs.at(phase) = ft;
+        }
+        swap(padded_travs, most_frequent_travs);
     }
     // check if there's a conflict
     size_t zero_count = std::count(allele_frequencies.begin(), allele_frequencies.end(), 0);
@@ -327,7 +379,7 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
     return make_pair(most_frequent_travs, conflict);
 }
     
-bool Deconstructor::deconstruct_site(const Snarl* snarl) {
+bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 
     auto contents = snarl_manager->shallow_contents(snarl, *graph, false);
     if (contents.first.empty()) {
@@ -374,6 +426,10 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
     
     // remember all the reference traversals (there can be more than one only in the case of a
     // cycle in the reference path
+
+    // in case of cycles, we need our allele traversals to be associated to the correct reference position
+    // this is done with the path jaccard metric over all overlapping reference paths the given path_jaccard_window size
+    
     vector<int> ref_travs;
     // hacky subpath support -- gets added to variant on output
     vector<int64_t> ref_offsets;
@@ -396,6 +452,8 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
     // add in the gbwt traversals if we can
     size_t first_gbwt_trav_idx = path_travs.first.size();
     vector<gbwt::size_type> trav_thread_ids(first_gbwt_trav_idx, numeric_limits<gbwt::size_type>::max());
+    // optionally get these from the path names
+    
     vector<int64_t> gbwt_trav_offsets;
     if (gbwt_trav_finder.get() != nullptr) {
         pair<vector<SnarlTraversal>, vector<gbwt::size_type>> thread_travs = gbwt_trav_finder->find_path_traversals(*snarl);
@@ -437,13 +495,13 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
             ref_trav_name = name;
         }
     }
-                                                          
+
     // there's no reference path through the snarl, so we can't make a variant
     // (todo: should we try to detect this before computing traversals?)
     if (ref_travs.empty()) {
 #ifdef debug
 #pragma omp critical (cerr)
-        cerr << "Skipping site becuase no reference traversal was found " << pb2json(*snarl) << endl;
+        cerr << "Skipping site because no reference traversal was found " << pb2json(*snarl) << endl;
 #endif
         return false;
     }
@@ -486,13 +544,115 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         return false;
     }
 
+    // XXX CHECKME this assumes there is only one reference path here, and that multiple traversals are due to cycles
+    
+    // we collect windows around the reference traversals
+    // to compare with equivalent windows from the alternate allele paths
+    // we will associate these 1:1 with reference traversals
+
+    // remember that path_travs := pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > path_travs;
+
+    // map from each path_trav index to the ref_trav index it best maps to
+    vector<int> path_trav_to_ref_trav;
+    if (ref_travs.size() > 1 && this->path_jaccard_window) {
+        path_trav_to_ref_trav.resize(path_travs.first.size());
+#ifdef debug
+#pragma omp critical (cerr)
+        cerr << "Multiple ref traversals!" << endl;
+#endif
+        // todo refactor if we need to reuse elsewhere in vg
+        // implemented inline for development
+        // assumes sorted input
+        auto context_jaccard = [](const vector<nid_t>& target,
+                                  const vector<nid_t>& query) {
+            // XXX horribly inefficient
+            // these can be computed without storing the node ids
+            vector<nid_t> node_isec;
+            std::set_intersection(target.begin(), target.end(),
+                                  query.begin(), query.end(),
+                                  std::back_inserter(node_isec));
+            vector<nid_t> node_union;
+            std::set_union(target.begin(), target.end(),
+                           query.begin(), query.end(),
+                           std::back_inserter(node_union));
+            return (double)node_isec.size() / (double)node_union.size();
+        };
+
+        auto get_context = [&path_travs,this](const int& trav_idx) {
+            step_handle_t start_step = path_travs.second[trav_idx].first;
+            step_handle_t end_step = path_travs.second[trav_idx].second;
+            if (graph->get_position_of_step(start_step)
+                > graph->get_position_of_step(end_step)) {
+                std::swap(start_step, end_step);
+            }
+            // by definition, our start and end are shared among all traversals
+            // we establish a graph context sketch including the nodes traversed in the bubble
+            // and flanks upstream and downstream of path_jaccard_window bp
+            vector<nid_t> context;
+            step_handle_t curr = start_step;
+            const int check_distance = this->path_jaccard_window; // how far we look in each direction
+            int distance_checked = 0;
+            while (distance_checked < check_distance && graph->has_previous_step(curr)) {
+                curr = graph->get_previous_step(curr);
+                auto h = graph->get_handle_of_step(curr);
+                context.push_back(graph->get_id(h));
+                distance_checked += graph->get_length(h);
+            }
+            // add the nodes in the bubble
+            curr = start_step;
+            context.push_back(graph->get_id(graph->get_handle_of_step(curr)));
+            while (graph->has_next_step(curr) &&
+                   curr != end_step) {
+                curr = graph->get_next_step(curr);
+                context.push_back(graph->get_id(graph->get_handle_of_step(curr)));
+            }
+            distance_checked = 0;
+            curr = end_step;
+            while (distance_checked < check_distance && graph->has_next_step(curr)) {
+                curr = graph->get_next_step(curr);
+                auto h = graph->get_handle_of_step(curr);
+                context.push_back(graph->get_id(h));
+                distance_checked += graph->get_length(h);
+            }
+            std::sort(context.begin(), context.end());
+            return context;
+        };
+
+        vector<vector<nid_t>> ref_contexts(ref_travs.size());
+#pragma omp parallel for
+        for (size_t i = 0; i < ref_travs.size(); ++i) {
+            auto& trav_id = ref_travs[i];
+            ref_contexts[i] = get_context(trav_id);
+        }
+        // now for each traversal, we compute and equivalent context and match it to a ref context
+        // using a jaccard metric over node ids
+#pragma omp parallel for
+        for (size_t i = 0; i < path_travs.first.size(); ++i) {
+            vector<nid_t> context = get_context(i);
+            // map jaccard metric to the index of the ref_trav
+            vector<pair<double, int>> ref_mappings;
+            for (uint64_t j = 0; j < ref_travs.size(); ++j) {
+                ref_mappings.push_back(make_pair(
+                                           context_jaccard(
+                                               ref_contexts[j],
+                                               context),
+                                           ref_travs[j]));
+            }
+            std::sort(ref_mappings.begin(), ref_mappings.end());
+            // the best is the last, which has the highest jaccard
+            path_trav_to_ref_trav[i] = ref_mappings.back().second;
+        }
+    }
+
     // we write a variant for every reference traversal
+    // (optionally) selecting the subset of path traversals that are 1:1
+#pragma omp parallel for
     for (size_t i = 0; i < ref_travs.size(); ++i) {
         auto& ref_trav_idx = ref_travs[i];
         auto& ref_trav_offset = ref_offsets[i];
 
         const SnarlTraversal& ref_trav = path_travs.first[ref_trav_idx];
-        
+
         vcflib::Variant v;
         v.quality = 60;
 
@@ -514,6 +674,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
             first_path_handle = use_start ? start_handle : end_handle;
             first_path_pos = use_start ? start_pos : end_pos;
         } else {
+            //assert(false);
             std::tie(use_start, first_path_handle, first_path_pos) = get_gbwt_path_position(ref_trav, trav_thread_ids[ref_trav_idx]);
 #ifdef debug
             cerr << "got " << use_start << " " << graph->get_id(first_path_handle) << ":" << graph->get_is_reverse(first_path_handle)
@@ -542,34 +703,33 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
         v.id = snarl_name(snarl);
         
         // Convert the snarl traversals to strings and add them to the variant
-        vector<int> trav_to_allele = get_alleles(v, path_travs.first, ref_trav_idx, prev_char, use_start);
+        vector<bool> use_trav(path_travs.first.size());
+        if (path_trav_to_ref_trav.size()) {
+            for (uint64_t i = 0; i < use_trav.size(); ++i) {
+                use_trav[i] = (ref_trav_idx == path_trav_to_ref_trav[i]);
+            }
+        } else {
+            for (uint64_t i = 0; i < use_trav.size(); ++i) {
+                use_trav[i] = true;
+            }
+        }
+
+        vector<int> trav_to_allele = get_alleles(v, path_travs.first, ref_trav_idx,
+                                                 use_trav,
+                                                 prev_char, use_start);
 
         // Fill in the genotypes
         if (path_restricted || gbwt_trav_finder.get()) {
             get_genotypes(v, path_trav_names, trav_to_allele, trav_thread_ids);
         }
 
-        // Fill in some snarl hierarchy information
-        if (include_nested) {
-            // would be nicer to do this constant time!
-            size_t level = 0;
-            for (const Snarl* cur = snarl; !snarl_manager->is_root(cur); cur = snarl_manager->parent_of(cur)) {
-                ++level;
-            }
-            v.info["LV"].push_back(std::to_string(level));
-            if (level > 0) {
-                const Snarl* parent = snarl_manager->parent_of(snarl);
-                string parent_id = snarl_name(parent);
-                v.info["PS"].push_back(parent_id);
-            } 
-        }
-
         // we only bother printing out sites with at least 1 non-reference allele
-        if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return i == 0; })) {
+        if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return (i == 0 || i == -1); })) {
             if (path_restricted || gbwt_trav_finder.get()) {
                 // run vcffixup to add some basic INFO like AC
                 vcf_fixup(v);
             }
+#pragma omp critical (add_variant)
             add_variant(v);
         }
     }    
@@ -580,20 +740,30 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) {
  * Convenience wrapper function for deconstruction of multiple paths.
  */
 void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHandleGraph* graph, SnarlManager* snarl_manager,
-                                bool path_restricted_traversals, int ploidy, bool include_nested,
-                                const unordered_map<string, string>* path_to_sample,
+                                bool path_restricted_traversals,
+                                int ploidy,
+                                bool include_nested,
+                                int context_jaccard_window,
+                                bool keep_conflicted,
+                                bool strict_conflicts,
+                                const unordered_map<string, pair<string, int>>* path_to_sample_phase,
+                                const unordered_map<string, int>* sample_ploidys,
                                 gbwt::GBWT* gbwt,
                                 const unordered_map<nid_t, pair<nid_t, size_t>>* translation) {
 
     this->graph = graph;
     this->snarl_manager = snarl_manager;
     this->path_restricted = path_restricted_traversals;
-    this->ploidy =ploidy;
-    this->path_to_sample = path_to_sample;
+    this->ploidy = ploidy;
+    this->sample_ploidys = sample_ploidys;
+    this->path_to_sample_phase = path_to_sample_phase;
     this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
     this->include_nested = include_nested;
+    this->path_jaccard_window = context_jaccard_window;
     this->translation = translation;
-    assert(path_to_sample == nullptr || path_restricted || gbwt);
+    this->keep_conflicted_genotypes = keep_conflicted;
+    this->strict_conflict_checking = strict_conflicts;
+    assert(path_to_sample_phase == nullptr || path_restricted || gbwt);
     if (gbwt) {
         this->gbwt_pos_caches.resize(get_thread_count(), nullptr);
         for (size_t i = 0; i < this->gbwt_pos_caches.size(); ++i) {
@@ -601,8 +771,14 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                 this->gbwt_pos_caches[i] = new LRUCache<gbwt::size_type, shared_ptr<unordered_map<handle_t, size_t>>>(lru_size);
             }
         }
+    } else {
+        // this allows us to run in parallel inside of each site deconstruction
+        // there is now a path jaccard check that can be expensive in deep graphs
+        // however, it breaks the LRUCache thread id assumptions
+        // so it is not suitable for GBWT based deconstruction
+        omp_set_max_active_levels(2);
     }
-    
+
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
     sample_names.clear();
     // prefer the GBWT sample names
@@ -611,7 +787,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         for (size_t i = 0; i < gbwt->metadata.paths(); i++) {
             string sample_name = thread_sample(*gbwt, i);
             if (sample_name != gbwtgraph::REFERENCE_PATH_SAMPLE_NAME &&
-                (path_to_sample == nullptr || path_to_sample->count(sample_name))) {
+                (path_to_sample_phase == nullptr || path_to_sample_phase->count(sample_name))) {
                 sample_names.insert(thread_sample(*gbwt, i));
                 int phase = thread_phase(*gbwt, i);
                 if (!gbwt_sample_to_phase_range.count(sample_name)) {
@@ -628,9 +804,9 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
             string path_name = graph->get_path_name(path_handle);
             if (!this->ref_paths.count(path_name)) {
                 // rely on the given map.  if a path isn't in it, it'll be ignored
-                if (path_to_sample) {
-                    if (path_to_sample->count(path_name)) {
-                        sample_names.insert(path_to_sample->find(path_name)->second);
+                if (path_to_sample_phase) {
+                    if (path_to_sample_phase->count(path_name)) {
+                        sample_names.insert(path_to_sample_phase->find(path_name)->second.first);
                     }
                     // if we have the map, we only consider paths there-in
                 }
@@ -648,12 +824,12 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     if (path_restricted || gbwt) {
         stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
     }
-    if (path_to_sample && path_restricted) {
+    if (show_path_info && path_to_sample_phase && path_restricted) {
         stream << "##FORMAT=<ID=PI,Number=.,Type=String,Description=\"Path information. Original vg path name for sample as well as its allele (can be many paths per sample)\">" << endl;
     }
-    if (path_to_sample || gbwt) {
+    if (path_to_sample_phase || gbwt) {
         stream << "##INFO=<ID=CONFLICT,Number=.,Type=String,Description=\"Sample names for which there are multiple paths in the graph with conflicting alleles";
-        if (!gbwt) {
+        if (!gbwt && show_path_info) {
             stream << " (details in PI field)";
         }
         stream << "\">" << endl;
@@ -726,17 +902,21 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     if (gbwt != nullptr) {
         gbwt_trav_finder = unique_ptr<GBWTTraversalFinder>(new GBWTTraversalFinder(*graph, *gbwt));
     }
-    
+
+    vector<const Snarl*> snarls_todo;
     // Do the top-level snarls in parallel
-    snarl_manager->for_each_top_level_snarl_parallel([&](const Snarl* snarl) {
+    snarl_manager->for_each_top_level_snarl([&](const Snarl* snarl) {
             vector<const Snarl*> todo(1, snarl);
             vector<const Snarl*> next;
             while (!todo.empty()) {
                 for (auto next_snarl : todo) {
                     // if we can't make a variant from the snarl due to not finding
                     // paths through it, we try again on the children
-                    // note: we may want to push the parallelism down a bit 
-                    if (!deconstruct_site(next_snarl) || include_nested) {
+                    // note: we may want to push the parallelism down a bit
+#pragma omp critical (snarls_todo)
+                    snarls_todo.push_back(next_snarl);
+                    if (include_nested) {
+                        // n.b. we no longer attempt to deconstruct the site to determine if we nest
                         const vector<const Snarl*>& children = snarl_manager->children_of(next_snarl);
                         next.insert(next.end(), children.begin(), children.end());
                     }
@@ -745,12 +925,25 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                 next.clear();
             }
         });
+
+#pragma omp parallel for schedule(dynamic,1)
+    for (size_t i = 0; i < snarls_todo.size(); i++) {
+        auto& snarl = snarls_todo[i];
+        deconstruct_site(snarl);
+    }
+
+    if (include_nested) {
+        // if parent snarls aren't done before their children anymore, and we want the
+        // nesting tags to be aware of which snarls were done and which weren't, then they
+        // need to be added in a second pass:
+        update_nesting_info_tags();
+    }
     
     // write variants in sorted order
     write_variants(cout);
 }
 
-bool Deconstructor::check_max_nodes(const Snarl* snarl)  {
+bool Deconstructor::check_max_nodes(const Snarl* snarl) const  {
     unordered_set<id_t> nodeset = snarl_manager->deep_contents(snarl, *graph, false).first;
     int node_count = 0;
     for (auto node_id : nodeset) {
@@ -765,7 +958,7 @@ bool Deconstructor::check_max_nodes(const Snarl* snarl)  {
     return true;
 };
 
-vector<SnarlTraversal> Deconstructor::explicit_exhaustive_traversals(const Snarl* snarl){
+vector<SnarlTraversal> Deconstructor::explicit_exhaustive_traversals(const Snarl* snarl) const {
     vector<SnarlTraversal> out_travs;
     bool ultra_all_the_way_down = true;
     function<void(const SnarlTraversal&, const Snarl&)> extend_trav =
@@ -802,7 +995,7 @@ vector<SnarlTraversal> Deconstructor::explicit_exhaustive_traversals(const Snarl
     return out_travs;
 }
 
-string Deconstructor::snarl_name(const Snarl* snarl) {
+string Deconstructor::snarl_name(const Snarl* snarl) const {
     nid_t start_node = snarl->start().node_id();
     nid_t end_node = snarl->end().node_id();
     if (translation) {
@@ -821,7 +1014,7 @@ string Deconstructor::snarl_name(const Snarl* snarl) {
         (snarl->end().backward() ? "<" : ">") + std::to_string(end_node);
 }
 
-tuple<bool, handle_t, size_t> Deconstructor::get_gbwt_path_position(const SnarlTraversal& trav, const gbwt::size_type& thread) {
+tuple<bool, handle_t, size_t> Deconstructor::get_gbwt_path_position(const SnarlTraversal& trav, const gbwt::size_type& thread) const {
 
     // scan the whole thread in order to get the path positions -- there's no other way unless we build an index a priori
     const gbwt::GBWT& gbwt = gbwt_trav_finder->get_gbwt();
@@ -873,5 +1066,73 @@ tuple<bool, handle_t, size_t> Deconstructor::get_gbwt_path_position(const SnarlT
     return rval;
 }
 
+void Deconstructor::update_nesting_info_tags() {
+
+    // index the snarl tree by name
+    unordered_map<string, const Snarl*> name_to_snarl;
+    snarl_manager->for_each_snarl_preorder([&](const Snarl* snarl) {
+            name_to_snarl[snarl_name(snarl)] = snarl;
+        });
+
+    // pass 1) index sites in vcf
+    // (todo: this could be done more quickly upstream)
+    unordered_set<string> names_in_vcf;
+    for (auto& thread_buf : output_variants) {
+        for (auto& output_variant_record : thread_buf) {
+            string& output_variant_string = output_variant_record.second;
+            vector<string> toks = split_delims(output_variant_string, "\t", 4);
+            names_in_vcf.insert(toks[2]);
+        }
+    }
+
+    // determine the tags from the index
+    function<pair<size_t, string>(const string&)> get_lv_ps_tags = [&](const string& name) {
+        string parent_name;
+        size_t ancestor_count = 0;
+        const Snarl* snarl = name_to_snarl.at(name);
+        assert(snarl != nullptr);
+        // walk up the snarl tree
+        while (snarl = snarl_manager->parent_of(snarl)) {
+            string cur_name = snarl_name(snarl);
+            if (names_in_vcf.count(cur_name)) {
+                // only count snarls that are in the vcf
+                ++ancestor_count;
+                if (parent_name.empty()) {
+                    // remembert the first parent
+                    parent_name = cur_name;
+                }
+            }
+        }
+        return make_pair(ancestor_count, parent_name);
+    };
+    
+    // pass 2) add the LV and PS tags
+    for (auto& thread_buf : output_variants) {
+        for (auto& output_variant_record : thread_buf) {
+            string& output_variant_string = output_variant_record.second;
+            vector<string> toks = split_delims(output_variant_string, "\t", 9);
+            const string& name = toks[2];
+            
+            pair<size_t, string> lv_ps = get_lv_ps_tags(name);
+            string nesting_tags = ";LV=" + std::to_string(lv_ps.first);
+            if (lv_ps.first != 0) {
+                assert(!lv_ps.second.empty());
+                nesting_tags += ";PS=" + lv_ps.second;
+            }
+
+            // rewrite the output string using the updated info toks
+            output_variant_string.clear();
+            for (size_t i = 0; i < toks.size(); ++i) {
+                output_variant_string += toks[i];
+                if (i == 7) {
+                    output_variant_string += nesting_tags;
+                }
+                if (i != toks.size() - 1) {
+                    output_variant_string += "\t";
+                }
+            }
+        }
+    }
+}
 }
 

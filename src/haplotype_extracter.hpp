@@ -34,12 +34,15 @@ void trace_haplotypes_and_paths(const PathHandleGraph& source,
 // Turns a (GBWT-based) thread_t into a (vg-based) Path
 Path path_from_thread_t(thread_t& t, const HandleGraph& source);
 
-// Lists all the sub-haplotypes of length extend_distance nodes starting at
+// Lists all the sub-haplotypes of nodes starting at
 // node start_node from the set of haplotypes embedded in the geven GBWT
-// haplotype database.  Records, for each thread_t t the number of haplotypes
-// of which t is a subhaplotype
-vector<pair<thread_t,int> > list_haplotypes(const HandleGraph& source, const gbwt::GBWT& haplotype_database,
-            gbwt::node_type start_node, int extend_distance);
+// haplotype database.  At each step stop_fn() is called on the thread being created, and if it returns true
+// then the search stops and the thread is added two the list to be returned.
+vector<pair<vector<gbwt::node_type>, gbwt::SearchState> > list_haplotypes(const HandleGraph& graph,
+                                                                          const gbwt::GBWT& gbwt,
+                                                                          handle_t start,
+                                                                          function<bool(const vector<gbwt::node_type>&)> stop_fn);
+
 
 // writes to subgraph_ostream the subgraph covered by
 // the haplotypes in haplotype_list, as well as these haplotypes embedded as

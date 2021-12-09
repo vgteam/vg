@@ -92,7 +92,7 @@ void help_sim(char** argv) {
          << "    -l, --read-length N         simulate reads of length N" << endl
          << "    -r, --progress              show progress information" << endl
          << "output options:" << endl
-         << "    -a, --align-out             generate true alignments on stdout rather than reads" << endl
+         << "    -a, --align-out             write alignments in GAM-format" << endl
          << "    -J, --json-out              write alignments in json" << endl
          << "simulation parameters:" << endl
          << "    -F, --fastq FILE            match the error profile of NGS reads in FILE, repeat for paired reads (ignores -l,-f)" << endl

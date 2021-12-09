@@ -6,6 +6,10 @@
 #include <unistd.h>
 #include <ctime>
 #include <getopt.h>
+#include <thread>
+#include <atomic>
+#include <mutex>
+#include <list>
 
 #include "subcommand.hpp"
 
@@ -1509,53 +1513,61 @@ int main_mpmap(int argc, char** argv) {
         }
     }
     
+    // Count our threads
+    int thread_count = vg::get_thread_count();
+    
     // a convenience function to preface a stderr log with an indicator of the command
     // and the time elapse
     bool clock_init = false;
     time_t time_start;
-    auto progress_boilerplate = [&]() {
-        stringstream strm;
-        strm << fixed;
-        strm.precision(0);
-        if (!clock_init) {
-            time(&time_start);
-            strm << 0.0 << " s";
-            clock_init = true;
-        }
-        else {
-            time_t time_now;
-            time(&time_now);
-            double secs = (double) difftime(time_now, time_start);
-            if (secs <= 60.0) {
-                strm << secs << " s";
+    mutex progress_mutex;
+    auto log_progress = [&](const string progress) {
+        if (!suppress_progress) {
+            progress_mutex.lock();
+            stringstream strm;
+            strm << fixed;
+            strm.precision(0);
+            if (!clock_init) {
+                time(&time_start);
+                strm << 0.0 << " s";
+                clock_init = true;
             }
             else {
-                strm.precision(1);
-                double mins = secs / 60.0;
-                if (mins <= 60.0) {
-                    strm << mins << " m";
+                time_t time_now;
+                time(&time_now);
+                double secs = (double) difftime(time_now, time_start);
+                if (secs <= 60.0) {
+                    strm << secs << " s";
                 }
                 else {
-                    double hrs = mins / 60.0;
-                    if (hrs <= 24.0) {
-                        strm << hrs << " h";
+                    strm.precision(1);
+                    double mins = secs / 60.0;
+                    if (mins <= 60.0) {
+                        strm << mins << " m";
                     }
                     else {
-                        strm << (hrs / 24.0) << " d";
+                        double hrs = mins / 60.0;
+                        if (hrs <= 24.0) {
+                            strm << hrs << " h";
+                        }
+                        else {
+                            strm << (hrs / 24.0) << " d";
+                        }
                     }
                 }
             }
+            cerr << "[vg mpmap] elapsed time " << strm.str() << ": " << progress << endl;
+            progress_mutex.unlock();
         }
-        string boilerplate = "[vg mpmap] elapsed time " + strm.str() + ": ";
-        return boilerplate;
     };
     
-    if (!suppress_progress) {
-        cerr << progress_boilerplate() << "Executing command:";
+    {
+        stringstream strm;
+        strm << "Executing command:";
         for (size_t i = 0; i < argc; ++i) {
-            cerr << " " << argv[i];
+            strm << " " << argv[i];
         }
-        cerr << endl;
+        log_progress(strm.str());
     }
     
     vector<double> intron_mixture_weights;
@@ -1567,14 +1579,10 @@ int main_mpmap(int argc, char** argv) {
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
-    // Configure its temp directory to the system temp directory
-    gcsa::TempFile::setDirectory(temp_file::get_dir());
-    
     // Load required indexes
-    if (!suppress_progress) {
-        cerr << progress_boilerplate() << "Loading graph from " << graph_name << endl;
-    }
+    log_progress("Loading graph from " + graph_name);
     unique_ptr<PathHandleGraph> path_handle_graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_name);
+    log_progress("Completed loading graph");
     
     if (!suppress_progress) {
         // let's be a friendly guide to selecting a graph
@@ -1603,37 +1611,38 @@ int main_mpmap(int argc, char** argv) {
             type = "ODGI";
         }
         
-        cerr << progress_boilerplate();
+        stringstream strm;
         if (!type.empty()) {
             // we found the type, give an appropriate message about it
-            cerr << "Graph is in " + type + " format. ";
+            strm << "Graph is in " + type + " format. ";
             
             if (type == "XG") {
-                cerr << "XG is a good graph format for most mapping use cases. PackedGraph may be selected if memory usage is too high. ";
+                strm << "XG is a good graph format for most mapping use cases. PackedGraph may be selected if memory usage is too high. ";
             }
             else if (type == "HashGraph") {
-                cerr << "HashGraph can have high memory usage. ";
+                strm << "HashGraph can have high memory usage. ";
             }
             else if (type == "PackedGraph") {
-                cerr << "PackedGraph is memory efficient, but has some slow queries. ";
+                strm << "PackedGraph is memory efficient, but has some slow queries. ";
             }
             else if (type == "ODGI") {
-                cerr << "ODGI is fairly memory efficient, but can be slow on certain queries. ";
+                strm << "ODGI is fairly memory efficient, but can be slow on certain queries. ";
             }
         }
         else {
             // probably a VG graph
-            cerr << "Graph is not in XG format. ";
+            strm << "Graph is not in XG format. ";
         }
         
         // are they using a graph combo that I don't recommend?
         if (type != "XG" && (!use_min_dist_clusterer || type == "HashGraph" || type.empty())) {
             // min dist clustering alleviates the issues with slow path queries because we don't need to do
             // so many, but I want to dissuade people from using HashGraph and VG for mapping regardless
-            cerr << "XG format is recommended for most mapping tasks. ";
+            strm << "XG format is recommended for most mapping tasks. ";
         }
         
-        cerr << "See `vg convert` if you want to change graph formats." << endl;
+        strm << "See `vg convert` if you want to change graph formats.";
+        log_progress(strm.str());
     }
     
     if (path_handle_graph->get_path_count() == 0 && distance_index_name.empty()) {
@@ -1648,28 +1657,117 @@ int main_mpmap(int argc, char** argv) {
     bdsg::PathPositionOverlayHelper overlay_helper;
     PathPositionHandleGraph* path_position_handle_graph = overlay_helper.apply(path_handle_graph.get());
     
+    // identify these before loading later data structures to reduce peak memory use
+    // (the bit vector used to detect which nodes have been visited is not exactly small)
+    unordered_set<path_handle_t> ref_path_handles;
+    if (do_spliced_alignment) {
+        // TODO: could let IO continue while doing this, but it risks increasing peak memory for some graphs...
+        log_progress("Identifying reference paths");
+        vector<unordered_set<path_handle_t>> component_path_sets = vg::algorithms::component_paths_parallel(*path_position_handle_graph);
+        for (const auto& path_set : component_path_sets) {
+            // remove dependency on system hash ordering
+            vector<path_handle_t> ordered_path_set(path_set.begin(), path_set.end());
+            std::sort(ordered_path_set.begin(), ordered_path_set.end());
+            
+            int64_t max_length = 0;
+            path_handle_t max_handle;
+            for (path_handle_t path_handle : ordered_path_set) {
+                int64_t length = path_position_handle_graph->get_path_length(path_handle);
+                if (length >= max_length) {
+                    max_length = length;
+                    max_handle = path_handle;
+                }
+            }
+            ref_path_handles.insert(max_handle);
+        }
+    }
+    
+    // start at 1 for the main thread
+    atomic<int> threads_active(1);
+    list<thread> background_processes;
+    
+    // for the indexes whose loading involves non-trivial computation, do them in the
+    // background to maximize IO
+    
+    unique_ptr<SnarlManager> snarl_manager;
+    if (!snarls_name.empty() && (distance_index_name.empty() || no_clustering)) {
+        // try to add an active thread
+        int curr_thread_active = threads_active++;
+        if (curr_thread_active >= thread_count) {
+            // take back the increment and don't let it go multithreaded
+            --threads_active;
+            log_progress("Loading snarls from " + snarls_name);
+            snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
+            log_progress("Completed loading snarls");
+        }
+        else {
+            // do the process in a background thread
+            background_processes.emplace_back([&]() {
+                log_progress("Loading snarls from " + snarls_name + " (in background)");
+                snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
+                --threads_active;
+                log_progress("Completed loading snarls");
+            });
+        }
+    }
+    
+    unique_ptr<MinimumDistanceIndex> distance_index;
+    if (!distance_index_name.empty() && !(no_clustering && !snarls_name.empty())) {
+        // try to add an active thread
+        int curr_thread_active = threads_active++;
+        if (curr_thread_active >= thread_count) {
+            // take back the increment and don't let it go multithreaded
+            --threads_active;
+            log_progress("Loading distance index from " + distance_index_name);
+            distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_index_stream);
+            log_progress("Completed loading distance index");
+        }
+        else {
+            // do the process in a background thread
+            background_processes.emplace_back([&]() {
+                log_progress("Loading distance index from " + distance_index_name + " (in background)");
+                distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_index_stream);
+                --threads_active;
+                log_progress("Completed loading distance index");
+            });
+        }
+    }
+    
     // compute this once in case the backing graph doesn't have an efficient implementation
     size_t total_seq_length = path_position_handle_graph->get_total_length();
     
-    if (!suppress_progress) {
-        cerr << progress_boilerplate() << "Loading GCSA2 from " << gcsa_name << endl;
-    }
+    log_progress("Loading GCSA2 from " + gcsa_name);
     unique_ptr<gcsa::GCSA> gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
+    log_progress("Completed loading GCSA2");
     
     unique_ptr<MEMAccelerator> mem_accelerator;
     unique_ptr<gcsa::LCPArray> lcp_array;
     if (!use_stripped_match_alg) {
         // don't make a huge table for a small graph
         mem_accelerator_length = min<int>(mem_accelerator_length, round(log(total_seq_length) / log(4.0)));
-        if (!suppress_progress) {
-            cerr << progress_boilerplate() << "Memoizing GCSA2 queries" << endl;
+        // try to add an active thread
+        int curr_thread_active = threads_active++;
+        if (curr_thread_active >= thread_count) {
+            // take back the increment and don't let it go multithreaded
+            --threads_active;
+            log_progress("Memoizing GCSA2 queries");
+            mem_accelerator = unique_ptr<MEMAccelerator>(new MEMAccelerator(*gcsa_index, mem_accelerator_length));
+            log_progress("Completed memoizing GCSA2 queries");
         }
-        mem_accelerator = unique_ptr<MEMAccelerator>(new MEMAccelerator(*gcsa_index, mem_accelerator_length));
+        else {
+            // do the process in a background thread
+            background_processes.emplace_back([&]() {
+                log_progress("Memoizing GCSA2 queries (in background)");
+                mem_accelerator = unique_ptr<MEMAccelerator>(new MEMAccelerator(*gcsa_index, mem_accelerator_length));
+                --threads_active;
+                log_progress("Completed memoizing GCSA2 queries");
+            });
+        }
+        
         // The stripped algorithm doesn't use the LCP, but we aren't doing it
-        if (!suppress_progress) {
-            cerr << progress_boilerplate() << "Loading LCP from " << lcp_name << endl;
-        }
+        log_progress("Loading LCP from " + lcp_name);
         lcp_array = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
+        log_progress("Completed loading LCP");
     }
     
     // Load optional indexes
@@ -1678,11 +1776,10 @@ int main_mpmap(int argc, char** argv) {
     haplo::linear_haplo_structure* sublinearLS = nullptr;
     haplo::ScoreProvider* haplo_score_provider = nullptr;
     if (!gbwt_name.empty()) {
-        if (!suppress_progress) {
-            cerr << progress_boilerplate() << "Loading GBWT from " << gbwt_name << endl;
-        }
+        log_progress("Loading GBWT from " + gbwt_name);
         // Load the GBWT from its container
         gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
+        log_progress("Completed loading GBWT");
 
         if (gbwt.get() == nullptr) {
           // Complain if we couldn't.
@@ -1694,9 +1791,7 @@ int main_mpmap(int argc, char** argv) {
         haplo_score_provider = new haplo::GBWTScoreProvider<gbwt::GBWT>(*gbwt);
     }
     else if (!sublinearLS_name.empty()) {
-        if (!suppress_progress) {
-            cerr << progress_boilerplate() << "Loading LS index from " << sublinearLS_name << endl;
-        }
+        log_progress("Loading LS index from " + sublinearLS_name);
         
         // TODO: we only support a single ref contig, and we use these
         // hardcoded mutation and recombination likelihoods
@@ -1704,25 +1799,7 @@ int main_mpmap(int argc, char** argv) {
         sublinearLS = new linear_haplo_structure(ls_stream, -9 * 2.3, -6 * 2.3, *path_position_handle_graph,
                                                  path_position_handle_graph->get_path_handle(sublinearLS_ref_path));
         haplo_score_provider = new haplo::LinearScoreProvider(*sublinearLS);
-    }
-    
-    unique_ptr<SnarlManager> snarl_manager;
-    if (!snarls_name.empty() && (distance_index_name.empty() || no_clustering)) {
-        if (!suppress_progress) {
-            cerr << progress_boilerplate() << "Loading snarls from " << snarls_name << endl;
-        }
-        snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
-    }
-    
-    unique_ptr<MinimumDistanceIndex> distance_index;
-    if (!distance_index_name.empty() && !(no_clustering && !snarls_name.empty())) {
-        if (!suppress_progress) {
-            cerr << progress_boilerplate() << "Loading distance index from " << distance_index_name << endl;
-        }
-        
-        // Load the index
-        distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_index_stream);
-        
+        log_progress("Completed loading LS index");
     }
     
     // Load structures that we need for HTS lib outputs
@@ -1735,12 +1812,10 @@ int main_mpmap(int argc, char** argv) {
         surjector->min_splice_length = transcriptomic ? min_splice_length : numeric_limits<int64_t>::max();
         surjector->adjust_alignments_for_base_quality = qual_adjusted;
         
-        if (!suppress_progress) {
-            if (!ref_paths_name.empty()) {
-                cerr << progress_boilerplate() << "Choosing reference paths from " << ref_paths_name << endl;
-            } else {
-                cerr << progress_boilerplate() << "No reference path file given. Interpreting all non-alt-allele paths in graph as reference sequences." << endl;
-            }
+        if (!ref_paths_name.empty()) {
+            log_progress("Choosing reference paths from " + ref_paths_name);
+        } else {
+            log_progress("No reference path file given. Interpreting all non-alt-allele paths in graph as reference sequences.");
         }
         
         // Load all the paths in the right order
@@ -1753,16 +1828,24 @@ int main_mpmap(int argc, char** argv) {
         path_names_and_length = extract_path_metadata(paths, *path_position_handle_graph).first;
     }
     
+    // barrier sync the background threads
+    for (auto& process : background_processes) {
+        process.join();
+    }
+    background_processes.clear();
+    
     // this also takes a while inside the MultipathMapper constructor, but it will only activate if we don't
     // have a distance index available for oriented distance calculations
-    if (!suppress_progress && distance_index_name.empty() && path_handle_graph->get_path_count() > 0) {
-        cerr << progress_boilerplate() << "Labeling embedded paths by their connected component" << endl;
+    if (distance_index_name.empty() && path_handle_graph->get_path_count() > 0) {
+        log_progress("Labeling embedded paths by their connected component");
     }
     
     MultipathMapper multipath_mapper(path_position_handle_graph, gcsa_index.get(), lcp_array.get(), haplo_score_provider,
         snarl_manager.get(), distance_index.get());
     // give it the MEMAccelerator
-    multipath_mapper.accelerator = mem_accelerator.get();
+    if (mem_accelerator.get() != nullptr) {
+        multipath_mapper.accelerator = mem_accelerator.get();
+    }
     
     // set alignment parameters
     if (matrix_stream.is_open()) {
@@ -1886,6 +1969,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.max_softclip_overlap = max_softclip_overlap;
     multipath_mapper.max_splice_overhang = max_splice_overhang;
     multipath_mapper.splice_rescue_graph_std_devs = splice_rescue_graph_std_devs;
+    multipath_mapper.ref_path_handles = move(ref_path_handles);
     if (!intron_distr_name.empty()) {
         multipath_mapper.set_intron_length_distribution(intron_mixture_weights, intron_component_params);
     }
@@ -1899,18 +1983,12 @@ int main_mpmap(int argc, char** argv) {
     
     // if directed to, auto calibrate the mismapping detection to the graph
     if (auto_calibrate_mismapping_detection && !suppress_mismapping_detection) {
-        if (!suppress_progress) {
-            cerr << progress_boilerplate() << "Building null model to calibrate mismapping detection (can take some time)." << endl;
-        }
+        log_progress("Building null model to calibrate mismapping detection");
         multipath_mapper.calibrate_mismapping_detection(num_calibration_simulations, calibration_read_lengths);
     }
     
     // now we can start doing spliced alignment
     multipath_mapper.do_spliced_alignment = do_spliced_alignment;
-    
-    
-    // Count our threads 
-    int thread_count = vg::get_thread_count();
     
     // Establish a watchdog to find reads that take too long to map.
     // If we see any, we will issue a warning.
@@ -1951,10 +2029,7 @@ int main_mpmap(int argc, char** argv) {
 #pragma omp atomic capture
                 n = num_reads_mapped += num_mapped;
                 if (n % progress_frequency == 0) {
-#pragma omp critical
-                    {
-                        cerr << progress_boilerplate() << "Mapped " << n << (!interleaved_input && fastq_name_2.empty() ? " reads" : " read pairs") << endl;
-                    }
+                    log_progress("Mapped " + to_string(n) + (!interleaved_input && fastq_name_2.empty() ? " reads" : " read pairs"));
                 }
                 thread_num_reads_mapped[thread_num] = 0;
             }
@@ -1988,6 +2063,8 @@ int main_mpmap(int argc, char** argv) {
         if (watchdog) {
             watchdog->check_in(thread_num, alignment.name());
         }
+        
+        toUppercaseInPlace(*alignment.mutable_sequence());
         
         bool is_rna = uses_Us(alignment);
         if (is_rna) {
@@ -2051,6 +2128,9 @@ int main_mpmap(int argc, char** argv) {
         if (watchdog) {
             watchdog->check_in(thread_num, alignment_1.name());
         }
+        
+        toUppercaseInPlace(*alignment_1.mutable_sequence());
+        toUppercaseInPlace(*alignment_2.mutable_sequence());
         
         bool is_rna = (uses_Us(alignment_1) || uses_Us(alignment_2));
         if (is_rna) {
@@ -2229,10 +2309,7 @@ int main_mpmap(int argc, char** argv) {
     
     // FASTQ input
     if (!fastq_name_1.empty()) {
-        if (!suppress_progress) {
-            
-            cerr << progress_boilerplate() << "Mapping reads from " << (fastq_name_1 == "-" ? "STDIN" : fastq_name_1) << (fastq_name_2.empty() ? "" : " and " + (fastq_name_2 == "-" ? "STDIN" : fastq_name_2)) << " using " << thread_count << " thread" << (thread_count > 1 ? "s" : "") << endl;
-        }
+        log_progress("Mapping reads from " + (fastq_name_1 == "-" ? string("STDIN") : fastq_name_1) + (fastq_name_2.empty() ? "" : " and " + (fastq_name_2 == "-" ? "STDIN" : fastq_name_2)) + " using " + to_string(thread_count) + " thread" + (thread_count > 1 ? "s" : ""));
         
         if (interleaved_input) {
             fastq_paired_interleaved_for_each_parallel_after_wait(fastq_name_1, do_paired_alignments,
@@ -2249,9 +2326,7 @@ int main_mpmap(int argc, char** argv) {
     
     // GAM input
     if (!gam_file_name.empty()) {
-        if (!suppress_progress) {
-            cerr << progress_boilerplate() << "Mapping reads from " << (gam_file_name == "-" ? "STDIN" : gam_file_name) << " using " << thread_count << " thread" << (thread_count > 1 ? "s" : "")  << endl;
-        }
+        log_progress("Mapping reads from " + (gam_file_name == "-" ? string("STDIN") : gam_file_name) + " using " + to_string(thread_count) + " thread" + (thread_count > 1 ? "s" : ""));
         
         function<void(istream&)> execute = [&](istream& gam_in) {
             if (!gam_in) {
@@ -2317,7 +2392,7 @@ int main_mpmap(int argc, char** argv) {
         for (auto uncounted_mappings : thread_num_reads_mapped) {
             num_reads_mapped += uncounted_mappings;
         }
-        cerr << progress_boilerplate() << "Mapping finished. Mapped " << num_reads_mapped << " " << (fastq_name_2.empty() && !interleaved_input ? "reads" : "read pairs") << "." << endl;
+        log_progress("Mapping finished. Mapped " + to_string(num_reads_mapped) + " " + (fastq_name_2.empty() && !interleaved_input ? "reads" : "read pairs") + ".");
     }
     
 #ifdef record_read_run_times

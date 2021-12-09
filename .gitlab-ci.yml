@@ -14,10 +14,15 @@ before_script:
   - sudo apt-get -q -y install --no-upgrade docker.io python3-pip python3-virtualenv libcurl4-gnutls-dev python-dev npm nodejs node-gyp uuid-runtime libgnutls28-dev doxygen
   - which junit-merge || sudo npm install -g junit-merge
   # Configure Docker to use a mirror for Docker Hub and restart the daemon
-  # Set the registry as insecure because it is probably cluster-internal over plain HTTP.
   - |
     if [[ ! -z "${DOCKER_HUB_MIRROR}" ]] ; then
+      if [[ "${DOCKER_HUB_MIRROR}" == https* ]] ; then
+        # Set up a secure mirror
+        echo "{\"registry-mirrors\": [\"${DOCKER_HUB_MIRROR}\"]}" | sudo tee /etc/docker/daemon.json
+      else
+        # Set up an insecure mirror
         echo "{\"registry-mirrors\": [\"${DOCKER_HUB_MIRROR}\"], \"insecure-registries\": [\"${DOCKER_HUB_MIRROR##*://}\"]}" | sudo tee /etc/docker/daemon.json
+      fi
     fi
   - startdocker || true
   - docker info
