@@ -79,7 +79,7 @@ void help_index(char** argv) {
          << "vg in-place indexing options:" << endl
          << "    --index-sorted-vg      input is ID-sorted .vg format graph chunks, store a VGI index of the sorted vg in INPUT.vg.vgi" << endl
          << "snarl distance index options" << endl
-         << "    -s  --snarl-name FILE  load snarls from FILE (snarls must include trivial snarls)" << endl
+         << "    -s  --distance-limit N don't store snarl distances for snarls with more than N nodes" << endl
          << "    -j  --dist-name FILE   use this file to store a snarl-based distance index" << endl
          << "    -w  --max_dist N       cap beyond which the maximum distance is no longer accurate. If this is not included or is 0, don't build maximum distance index" << endl;
 }
@@ -109,7 +109,7 @@ int main_index(int argc, char** argv) {
     vector<string> dbg_names;
 
     // Files we should write.
-    string xg_name, gbwt_name, gcsa_name, dist_name, snarl_name;
+    string xg_name, gbwt_name, gcsa_name, dist_name;
 
     // General
     bool show_progress = false;
@@ -137,6 +137,8 @@ int main_index(int argc, char** argv) {
 
     // Include alt paths in xg
     bool xg_alts = false;
+
+    size_t snarl_limit = 500;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -189,7 +191,7 @@ int main_index(int argc, char** argv) {
             {"index-sorted-vg", no_argument, 0, OPT_BUILD_VGI_INDEX},
 
             //Snarl distance index
-            {"snarl-name", required_argument, 0, 's'},
+            {"snarl-limit", required_argument, 0, 's'},
             {"dist-name", required_argument, 0, 'j'},
             {"max-dist", required_argument, 0, 'w'},
             {0, 0, 0, 0}
@@ -373,7 +375,7 @@ int main_index(int argc, char** argv) {
 
         //Snarl distance index
         case 's':
-            snarl_name = optarg;
+            snarl_limit = parse<int>(optarg);
             break;
         case 'j':
             build_dist = true;
@@ -718,7 +720,7 @@ int main_index(int argc, char** argv) {
                 //Load it
                 distance_index.deserialize(dist_name);
                 //And then fill it in
-                fill_in_distance_index(&distance_index, xg.get(), &snarl_finder);
+                fill_in_distance_index(&distance_index, xg.get(), &snarl_finder, snarl_limit);
             } else {
                 // May be GBZ or a HandleGraph.
                 auto options = vg::io::VPKG::try_load_first<gbwtgraph::GBZ, handlegraph::HandleGraph>(file_names.at(0));
@@ -730,7 +732,7 @@ int main_index(int argc, char** argv) {
                     // Create the MinimumDistanceIndex
                     IntegratedSnarlFinder snarl_finder(gbz->graph);
                     SnarlDistanceIndex distance_index;
-                    fill_in_distance_index(&distance_index, &(gbz->graph), &snarl_finder);
+                    fill_in_distance_index(&distance_index, &(gbz->graph), &snarl_finder, snarl_limit);
                     distance_index.serialize(dist_name);
                 } else if (get<1>(options)) {
                     // We were given a graph generically
@@ -739,7 +741,7 @@ int main_index(int argc, char** argv) {
                     // Create the MinimumDistanceIndex
                     IntegratedSnarlFinder snarl_finder(*graph.get());
                     SnarlDistanceIndex distance_index;
-                    fill_in_distance_index(&distance_index, graph.get(), &snarl_finder);
+                    fill_in_distance_index(&distance_index, graph.get(), &snarl_finder, snarl_limit);
                     distance_index.serialize(dist_name);
                 } else {
                     cerr << "error: [vg index] input is not a graph or GBZ" << endl;
