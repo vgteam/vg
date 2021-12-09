@@ -2320,8 +2320,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         int64_t target_memory_usage = plan->target_memory_usage();
         vector<pair<int64_t, int64_t>> approx_job_requirements;
         
-        // How many GBWTs will we build?
-        size_t gbwt_count;
+        vector<string> gbwt_names(vcf_filenames.size());
         unique_ptr<PathHandleGraph> broadcast_graph;
         if (graph_filenames.size() == 1) {
             // we only have one graph, so we can save time by loading it only one time
@@ -2341,9 +2340,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             // load the graph
             broadcast_graph = vg::io::VPKG::load_one<PathHandleGraph>(infile);
             
-            // The last job will make both a phasing GBWT and a named paths
-            // GBWT, and we will merge everything at the end.
-            gbwt_count = vcf_filenames.size() + 1;
         }
         else {
             // estimate the time and memory requirements
@@ -2352,17 +2348,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                      approx_gbwt_memory(vcf_filenames[i]) + approx_graph_load_memory(graph_filenames[i]));
             }
             
-            // Each graph will make a phasing GBWT and a named paths GBWT and
-            // we will merge them all at the end.
-            gbwt_count = vcf_filenames.size() * 2;
         }
-        
-        vector<string> gbwt_names(gbwt_count);
         
         // construct a GBWT from the i-th VCF
         auto gbwt_job = [&](size_t i) {
             string gbwt_name;
-            if (gbwt_count != 1) {
+            if (vcf_filenames.size() != 1) {
                 // multiple components, so make a temp file that we will merge later
                 gbwt_name = temp_file::create();
             }
@@ -2373,14 +2364,13 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             // load the contig graph if necessary
             unique_ptr<PathHandleGraph> contig_graph;
-            if (!broadcast_graph) {
+            if (graph_filenames.size() != 1) {
                 ifstream infile;
                 init_in(infile, graph_filenames[i]);
                 contig_graph = vg::io::VPKG::load_one<PathHandleGraph>(infile);
             }
             
-            // Pick the graph to actually used based on what's set.
-            auto graph = broadcast_graph ? broadcast_graph.get() : contig_graph.get();
+            auto graph = graph_filenames.size() == 1 ? broadcast_graph.get() : contig_graph.get();
             
             // make this critical so we don't end up with a race on the verbosity
             unique_ptr<HaplotypeIndexer> haplotype_indexer;
@@ -2404,31 +2394,16 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             vector<string> parse_files = haplotype_indexer->parse_vcf(vcf_filenames[i],
                                                                       *graph);
             
-            unique_ptr<gbwt::DynamicGBWT> gbwt_index = haplotype_indexer->build_gbwt(parse_files);
+            // Build the GBWT from the parse files. If we're using per-job
+            // graphs, or we're the first job, also include paths from the
+            // graph as named paths.
+            unique_ptr<gbwt::DynamicGBWT> gbwt_index = haplotype_indexer->build_gbwt(parse_files, 
+                                                                                     "GBWT" + std::to_string(i),
+                                                                                     (!broadcast_graph || i == 0) ? graph : nullptr);
             
             save_gbwt(*gbwt_index, gbwt_name, IndexingParameters::verbosity == IndexingParameters::Debug);
             
-            size_t gbwt_slot;
-            if (broadcast_graph) {
-                // We're using just one graph, so each job writes its VCF-based
-                // GBWT to the slot corresponding to its number.
-                gbwt_slot = i;
-            } else {
-                // We have one graph per job, so each job needs to make a
-                // VCF-based graph and a path-based graph, and they go in
-                // adjacent slots starting here.
-                gbwt_slot = i * 2;
-            }
-            
-            gbwt_names[gbwt_slot] = gbwt_name;
-            
-            gbwt_index.clear();
-            
-            if (!broadcast_graph || (i + 1 == vcf_filenames.size() && gbwt_count > vcf_filenames.size())) {
-                // This job also has to make a second GBWT of named paths.
-                gbwt_name = temp_file::create();
-                gbwt_index = haplotype_indexer->build_gbwt(parse_files);
-            }
+            gbwt_names[i] = gbwt_name;
         };
         
         

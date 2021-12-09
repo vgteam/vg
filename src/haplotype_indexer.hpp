@@ -113,8 +113,14 @@ public:
      *
      * We expect that all parse files contain sample/contig names and
      * that the sample names are the same in all files.
+     *
+     * There may be no parse files.
+     *
+     * If graph is provided and is not null, also includes embedded non-alt
+     * paths from the graph. Use paths_as_samples to choose whether we treat
+     * the paths as contigs or samples.
      */
-    std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(const std::vector<std::string>& vcf_parse_files, const std::string& job_name = "GBWT") const;
+    std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(const std::vector<std::string>& vcf_parse_files, const std::string& job_name = "GBWT", const PathHandleGraph* graph = nullptr) const;
 
     /**
      * Build a GBWT from the embedded non-alt paths in the graph. Use
