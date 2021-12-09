@@ -95,7 +95,7 @@ rm -f c.vg
 # Note the math (and subsetting) only works out on a flat alleles graph
 vg construct -r small/x.fa -a -f -v small/x.vcf.gz >x.vg
 vg mod -v small/x.vcf.gz x.vg >x.sample.vg
-is $(vg stats x.sample.vg -l | cut -f 2) 1041 "subsetting a flat-alleles graph to a sample graph works"
+is "$(vg stats x.sample.vg -l | cut -f 2)" "1041" "subsetting a flat-alleles graph to a sample graph works"
 rm -f x.vg x.sample.vg 
 
 is $(vg mod -M 5 jumble/j.vg|  vg stats -s - | wc -l) 7 "removal of high-degree nodes results in the expected number of subgraphs"
