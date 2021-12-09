@@ -5603,6 +5603,7 @@ namespace vg {
 
 
         }
+        */
         
         TEST_CASE( "Distance index can traverse all the snarls in random graphs",
                   "[snarl_distance_random]" ) {
@@ -5611,7 +5612,7 @@ namespace vg {
             
             default_random_engine generator(std::chrono::system_clock::now().time_since_epoch().count());
             
-            for (size_t repeat = 0; repeat < 1000; repeat++) {
+            for (size_t repeat = 0; repeat < 0; repeat++) {
             
                 uniform_int_distribution<size_t> bases_dist(100, 2000);
                 size_t bases = bases_dist(generator);
@@ -5722,8 +5723,7 @@ namespace vg {
 
                 }
 
-                /
-                 * TODO: I don't think I can do this anymore
+                /* TODO: I don't think I can do this anymore
                 auto manager = finder.find_snarls_parallel();
                 
                 size_t snarls_seen = 0;
@@ -5776,13 +5776,12 @@ namespace vg {
                         REQUIRE(edges.count(make_pair(net_graph.flip(edge.second), net_graph.flip(edge.first))));
                     }
                 });
-                /
+                */
                     
             }
         
             
         }
-*/
        
    }
 }
