@@ -358,10 +358,13 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const PathHandle
     std::vector<std::string> sample_names, contig_names;
     size_t haplotype_count = 0;
     if (this->paths_as_samples) {
-        contig_names.push_back("0"); // An artificial contig.
+        // Paths in the graph all become many samples on one special contig.
+        contig_names.push_back("0");
     }
     else {
-        sample_names.push_back("ref"); // An artificial sample.
+        // Paths in the graph all become path-named contigs visited by the
+        // magic reference sample defined by libgbwtgraph.
+        sample_names.push_back(gbwtgraph::REFERENCE_PATH_SAMPLE_NAME);
         haplotype_count = 1;
     }
 
