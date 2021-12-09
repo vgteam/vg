@@ -783,10 +783,14 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
 
 
     //Get the distances between the two sides of the children in the parent
-    size_t distance_left_left = distance_index.distance_in_parent(parent_handle, child_handle1, true, child_handle2, true, graph);
-    size_t distance_left_right = distance_index.distance_in_parent(parent_handle, child_handle1, true, child_handle2, false, graph);
-    size_t distance_right_right = distance_index.distance_in_parent(parent_handle, child_handle1, false, child_handle2, false, graph);
-    size_t distance_right_left = distance_index.distance_in_parent(parent_handle, child_handle1, false, child_handle2, true, graph);
+    size_t distance_left_left = distance_index.distance_in_parent(parent_handle, child_handle1, true, child_handle2, true, graph,
+            (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit));
+    size_t distance_left_right = distance_index.distance_in_parent(parent_handle, child_handle1, true, child_handle2, false, graph,
+            (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit));
+    size_t distance_right_right = distance_index.distance_in_parent(parent_handle, child_handle1, false, child_handle2, false, graph,
+            (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit));
+    size_t distance_right_left = distance_index.distance_in_parent(parent_handle, child_handle1, false, child_handle2, true, graph,
+            (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit));
 
     /* Find the distances from the start/end of the parent to the left/right of the first child
      * If this is the root, then the distances are infinite since it has no start/end
