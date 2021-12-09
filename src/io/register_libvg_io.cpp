@@ -10,6 +10,7 @@
 #include "register_loader_saver_r_index.hpp"
 #include "register_loader_saver_gbwtgraph.hpp"
 #include "register_loader_saver_gbz.hpp"
+#include "register_loader_saver_gbzgraph.hpp"
 #include "register_loader_saver_gcsa.hpp"
 #include "register_loader_saver_lcp.hpp"
 #include "register_loader_saver_minimizer.hpp"
