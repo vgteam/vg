@@ -185,7 +185,7 @@ int main_gbwt(int argc, char** argv) {
     }
 
     // Serialize the segment translation if necessary.
-    if (graphs.in_use == GraphHandler::graph_source || !config.segment_translation.empty()) {
+    if (!config.segment_translation.empty()) {
         graphs.serialize_segment_translation(config);
     }
 
@@ -261,6 +261,7 @@ void help_gbwt(char** argv) {
     std::cerr << "        --path-fields X     map regex submatches to these fields (default " << gbwtgraph::GFAParsingParameters::DEFAULT_FIELDS << ")" << std::endl;
     std::cerr << "        --translation FILE  write the segment to node translation table to FILE" << std::endl;
     std::cerr << "    -Z, --gbz-input         extract GBWT and GBWTGraph from GBZ input (one input arg)" << std::endl;
+    std::cerr << "        --translation FILE  write the segment to node translation table to FILE" << std::endl;
     std::cerr << "    -E, --index-paths       index the embedded non-alt paths in the graph (requires -x, no input args)" << std::endl;
     std::cerr << "        --paths-as-samples  each path becomes a sample instead of a contig in the metadata" << std::endl;
     std::cerr << "    -A, --alignment-input   index the alignments in the GAF files specified in input args (requires -x)" << std::endl;
@@ -878,6 +879,13 @@ void validate_gbwt_config(GBWTConfig& config) {
         }
     }
 
+    if (!config.segment_translation.empty()) {
+        if (config.build != GBWTConfig::build_gfa && config.build != GBWTConfig::build_gbz) {
+            std::cerr << "error: [vg gbwt] segment to node translation requires GFA or GBZ input" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+    }
+
     if (!config.graph_output.empty()) {
         if (!has_graph_input || !one_input_gbwt) {
             std::cerr << "error: [vg gbwt] GBWTGraph construction requires an input graph and and one input GBWT" << std::endl;
@@ -1480,20 +1488,31 @@ void GraphHandler::serialize_segment_translation(const GBWTConfig& config) const
     if (config.show_progress) {
         std::cerr << "Serializing segment to node translation to " << config.segment_translation << std::endl;
     }
-
     std::ofstream out(config.segment_translation, std::ios_base::binary);
-    if (this->sequence_source->uses_translation()) {
-        auto& translation = this->sequence_source->segment_translation;
-        for (auto iter = translation.begin(); iter != translation.end(); ++iter) {
-            out << "T\t" << iter->first << "\t" << iter->second.first;
-            for(nid_t i = iter->second.first + 1; i < iter->second.second; i++) {
-            out << "," << i;
+
+    if (this->in_use == graph_source) {
+        if (this->sequence_source->uses_translation()) {
+            auto& translation = this->sequence_source->segment_translation;
+            for (auto iter = translation.begin(); iter != translation.end(); ++iter) {
+                out << "T\t" << iter->first << "\t" << iter->second.first;
+                for (nid_t i = iter->second.first + 1; i < iter->second.second; i++) {
+                    out << "," << i;
+                }
+                out << "\n";
+            }
+        }
+    } else if (this->in_use == graph_gbz) {
+        this->gbwt_graph->for_each_segment([&](const std::string& name, std::pair<nid_t, nid_t> nodes) -> bool {
+            out << "T\t" << name << "\t" << nodes.first;
+            for (nid_t i = nodes.first + 1; i < nodes.second; i++) {
+                out << "," << i;
             }
             out << "\n";
-        }
+            return true;
+        });
     }
-    out.close();
 
+    out.close();
     report_time_memory("Translation serialized", start, config);
 }
 
