@@ -196,7 +196,6 @@ std::vector<std::string> HaplotypeIndexer::parse_vcf(const std::string& filename
                             size_t pred_pos = variants.firstOccurrence(node);
                             if (pred_pos != variants.invalid_position()) {
                                 candidate_pos = std::max(candidate_pos, pred_pos + 1);
-Date:   Fri Oct 29 16:18:29 2021 -0700
                                 candidate_found = true;
                                 found = true;
                             }

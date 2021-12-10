@@ -2377,14 +2377,14 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // need a job to do them.
         unordered_set<path_handle_t> broadcast_graph_paths_to_do;
         if (broadcast_graph) {
-            broadcast_graph->for_each_path_handle([&](const path_handle_t& p) {
+            broadcast_graph->for_each_path_handle([&](const path_handle_t& path_handle) {
                 // Look at all the paths in advance
-                if (graph->is_empty(path_handle) || Paths::is_alt(broadcast_graph->get_path_name(path_handle)) {
+                if (broadcast_graph->is_empty(path_handle) || Paths::is_alt(broadcast_graph->get_path_name(path_handle))) {
                     // Skip empty paths and alt allele paths
                     return;
                 }
                 // Keep the rest.
-                broadcast_graph_paths_to_do.insert(p);
+                broadcast_graph_paths_to_do.insert(path_handle);
             });
         }
         
