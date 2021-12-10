@@ -13,6 +13,10 @@ using namespace std;
 
     DagifiedGraph::DagifiedGraph(const HandleGraph* graph, size_t min_preserved_path_length) : graph(graph) {
         
+#ifdef debug_dagify
+        cerr << "constructing dagified graph" << endl;
+#endif
+        
         // find the numeric range of handles in the underlying graph (needed for later bookkeeping)
         uint64_t max_handle = std::numeric_limits<uint64_t>::min();
         graph->for_each_handle([&](const handle_t& handle) {
@@ -23,6 +27,11 @@ using namespace std;
             }
         });
         handle_val_range = max_handle - min_handle + 1;
+        
+#ifdef debug_dagify
+        cerr << "graph has handle range " << handle_val_range << ", min handle " << min_handle << ", min ID " << graph->min_node_id() << ", and ID range " << (graph->max_node_id() - graph->min_node_id() + 1) << endl;
+        cerr << "preserving walks up to length " << min_preserved_path_length << endl;
+#endif
         
         // now we begin the dagify algorithm
         
@@ -67,12 +76,16 @@ using namespace std;
             
             // let the layout fall out of scope
         }
-        
+#ifdef debug_dagify
+        cerr << "identified " << strong_components.size() << " strongly connected components out of " << graph->get_node_count() << " nodes" << endl;
+#endif
         
         // identify how many times each SCC needs to be duplicated
         scc_copy_count.resize(strong_components.size());
         for (size_t scc_idx = 0; scc_idx < strong_components.size(); ++scc_idx) {
-            
+#ifdef debug_dagify
+            cerr << "BEGIN NEW SCC " << scc_idx << endl;
+#endif
             const vector<handle_t>& component = strong_components[scc_idx];
             
             // record the ordering of the layout so we can build adjacency lists
@@ -100,6 +113,20 @@ using namespace std;
                     }
                 });
             }
+#ifdef debug_dagify
+            cerr << "feedforward graph:" << endl;
+            for (size_t i = 0; i < component.size(); ++i) {
+                cerr << graph->get_id(component[i]) << ":";
+                for (auto j : forward_edges[i]) {
+                    cerr << " " << graph->get_id(component[j]);
+                }
+                cerr << endl;
+            }
+            cerr << "feedback edges:" << endl;
+            for (auto edge : backward_edges) {
+                cerr << graph->get_id(component[edge.first]) << " -> " << graph->get_id(component[edge.second]) << endl;
+            }
+#endif
             
             // check for each node whether we've duplicated the component enough times
             // to preserve its cycles
@@ -111,8 +138,7 @@ using namespace std;
             // init the distances so that we are measuring from the end of the heads of
             // backward edges (which cross to the next copy of the SCC)
             for (const pair<size_t, size_t>& bwd_edge : backward_edges) {
-                handle_t handle = component[bwd_edge.first];
-                distances[ordering[handle]] = -graph->get_length(handle);
+                distances[bwd_edge.first] = -graph->get_length(component[bwd_edge.first]);
             }
             
             // init the tracker that we use for the bail-out condition
@@ -121,6 +147,10 @@ using namespace std;
             // keep track of how many times we've implicitly copied
             uint64_t copy_num = 0;
             for (; min_relaxed_dist < int64_t(min_preserved_path_length); copy_num++) {
+                
+#ifdef debug_dagify
+                cerr << "making " << copy_num << "-th copy of SCC with incoming min relaxed distance " << min_relaxed_dist << endl;
+#endif
                 
                 // the distances in the next copy unit
                 vector<int64_t> next_distances(component.size(), numeric_limits<int64_t>::max());
@@ -157,11 +187,25 @@ using namespace std;
 #ifdef debug_dagify
                 cerr << "distances within component" << endl;
                 for (size_t i = 0; i < distances.size(); i++) {
-                    cerr << "\t" << graph->get_id(component[i]) << (graph->get_is_reverse(component[i]) ? "-" : "+") << " " << distances[i] << endl;
+                    cerr << "\t" << graph->get_id(component[i]) << (graph->get_is_reverse(component[i]) ? "-" : "+") << " ";
+                    if (distances[i] != numeric_limits<int64_t>::max()) {
+                        cerr << distances[i];
+                    }
+                    else {
+                        cerr << ".";
+                    }
+                    cerr << endl;
                 }
                 cerr << "distances to next component" << endl;
                 for (size_t i = 0; i < next_distances.size(); i++) {
-                    cerr << "\t" << graph->get_id(component[i]) << (graph->get_is_reverse(component[i]) ? "-" : "+") << " " << next_distances[i] << endl;
+                    cerr << "\t" << graph->get_id(component[i]) << (graph->get_is_reverse(component[i]) ? "-" : "+") << " ";
+                    if (distances[i] != numeric_limits<int64_t>::max()) {
+                        cerr << distances[i];
+                    }
+                    else {
+                        cerr << ".";
+                    }
+                    cerr << endl;
                 }
 #endif
                 
@@ -226,7 +270,6 @@ using namespace std;
                                           const function<bool(const handle_t&)>& iteratee) const {
         
         // this is the complicated part where we have to induce an edge structure that is a DAG
-        
         handle_t underlying = get_underlying_handle(handle);
         uint64_t scc_copy = scc_copy_of_handle(handle);
         
@@ -251,7 +294,7 @@ using namespace std;
                 if (canonical_fwd) {
                     // we are traveling in the canonically forward direction
                     if (scc_copy + 1 == scc_copy_count.at(scc_id)) {
-                        // only the last copy of a handle is allowd to extend to the next strongly
+                        // only the last copy of a handle is allowed to extend to the next strongly
                         // connected component, and it connects to all copies in the next one
                         for (size_t i = 0; i < next_scc_count && keep_going; ++i) {
                             keep_going = iteratee(nth_copy_of_handle(next_underlying, i));

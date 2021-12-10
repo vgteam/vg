@@ -1102,7 +1102,8 @@ namespace vg {
         vector<tuple<path_handle_t, size_t, size_t, pos_t, pos_t>> positions;
         vector<vector<double>> distances;
         
-        int num_measurements = 10000;
+        int num_measurements = 100 * 1000;
+        int radius = 50 * 1000;
         for (int i = 0; i < num_measurements; ++i) {
             
             path_handle_t ref = refs[ref_distr(gen)];
@@ -1111,10 +1112,12 @@ namespace vg {
             }
             
             // don't include the past-the-last, which makes things tricky
-            uniform_int_distribution<size_t> off_distr(1, xindex->get_path_length(ref) - 1);
+            uniform_int_distribution<size_t> off_distr_1(1, xindex->get_path_length(ref) - 1);
+            size_t path_off_1 = off_distr_1(gen);
             
-            size_t path_off_1 = off_distr(gen);
-            size_t path_off_2 = off_distr(gen);
+            uniform_int_distribution<size_t> off_distr_2(max<int64_t>(path_off_1 - radius, 1),
+                                                         min<int64_t>(path_off_1 + radius, xindex->get_path_length(ref) - 1));
+            size_t path_off_2 = off_distr_2(gen);
             
             auto step_1 = xindex->get_step_at_position(ref, path_off_1);
             auto step_2 = xindex->get_step_at_position(ref, path_off_2);
