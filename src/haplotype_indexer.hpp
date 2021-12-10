@@ -127,7 +127,7 @@ public:
     std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(const std::vector<std::string>& vcf_parse_files,
                                                   const std::string& job_name = "GBWT",
                                                   const PathHandleGraph* graph = nullptr,
-                                                  const std::vector<path_handle_t>* paths = nullptr,
+                                                  const std::unordered_set<path_handle_t>* paths = nullptr,
                                                   bool skip_unvisited_paths = false) const;
 
     /**
