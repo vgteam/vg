@@ -809,16 +809,16 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
         child_clusters1.distance_end_right = std::numeric_limits<size_t>::max();
 
     } else {
-        child_clusters1.distance_start_left = child_handle1.net == distance_index.get_cached_start_bound(parent_handle) ? 0 : distance_index.distance_to_parent_bound(parent_handle, true, child_handle1, true, graph);
+        child_clusters1.distance_start_left = child_handle1.net == distance_index.get_cached_start_bound(parent_handle) ? 0 : distance_index.distance_to_parent_bound(parent_handle, true, child_handle1, true);
 
         child_clusters1.distance_start_right = distance_index.flip(child_handle1.net) == distance_index.get_cached_start_bound(parent_handle) ? 0 :
-             distance_index.distance_to_parent_bound(parent_handle, true, child_handle1, false, graph);
+             distance_index.distance_to_parent_bound(parent_handle, true, child_handle1, false);
 
         child_clusters1.distance_end_left = child_handle1.net == distance_index.get_cached_end_bound(parent_handle) ? 0 :
-             distance_index.distance_to_parent_bound(parent_handle, false, child_handle1, true, graph);
+             distance_index.distance_to_parent_bound(parent_handle, false, child_handle1, true);
 
         child_clusters1.distance_end_right = distance_index.flip(child_handle1.net) == distance_index.get_cached_end_bound(parent_handle) ? 0  :
-            distance_index.distance_to_parent_bound(parent_handle, false, child_handle1,false, graph);
+            distance_index.distance_to_parent_bound(parent_handle, false, child_handle1,false);
 
     }
 #ifdef DEBUG_CLUSTER
@@ -1540,7 +1540,7 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
         size_t distance_from_chain_start_to_current_node = 
         SnarlDistanceIndex::get_record_offset(child_handle.net) == SnarlDistanceIndex::get_record_offset(distance_index.get_cached_start_bound(chain_handle)) ? 0 :
                 distance_index.distance_to_parent_bound(chain_handle, true, child_handle, 
-                        !distance_index.get_cached_is_reverse(child_handle), graph);
+                        !distance_index.get_cached_is_reverse(child_handle));
 
         //The distance from the right side of the last child to the right side of this child, which is
         //the distance we need to update the chain clusters to the end of this child
@@ -1553,7 +1553,7 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
                      (i != children_in_chain.size() - 1 || 
                      SnarlDistanceIndex::get_record_offset(child_handle.net) == SnarlDistanceIndex::get_record_offset(distance_index.get_cached_end_bound(chain_handle))) 
                      ? 0
-                     : distance_index.distance_to_parent_bound(chain_handle, false, child_handle, distance_index.get_cached_is_reverse(child_handle), graph);
+                     : distance_index.distance_to_parent_bound(chain_handle, false, child_handle, distance_index.get_cached_is_reverse(child_handle));
 
 #ifdef DEBUG_CLUSTER
 cerr << "\tDistance from last child to this one: " << distance_from_last_child_to_current_child << endl;
@@ -1594,7 +1594,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
             size_t distance_to_end_of_chain = 
                  (SnarlDistanceIndex::get_record_offset(child_handle.net) == SnarlDistanceIndex::get_record_offset(distance_index.get_cached_end_bound(chain_handle))) 
                  ? 0
-                 : distance_index.distance_to_parent_bound(chain_handle, false, child_handle, distance_index.get_cached_is_reverse(child_handle), graph);
+                 : distance_index.distance_to_parent_bound(chain_handle, false, child_handle, distance_index.get_cached_is_reverse(child_handle));
             for (auto& cluster_head : chain_clusters.read_cluster_heads) {
                 //For each of the chain clusters, remember the ones that are still reachable from the left side of the chain
                 pair<size_t, size_t> dists = tree_state.read_cluster_heads_to_distances[cluster_head.first][cluster_head.second];

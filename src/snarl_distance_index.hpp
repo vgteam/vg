@@ -60,13 +60,13 @@ uint64_t  get_minimizer_distances (const SnarlDistanceIndex& distance_index, pos
 //in the node is within the given distance range
 //If look_forward is true, then start from the start of the path forward,
 //otherwise start from the end going backward
-void subgraph_in_distance_range(const Path& path, const HandleGraph* super_graph, int64_t min_distance,
-                                int64_t max_distance, std::unordered_set<nid_t>& subgraph, bool look_forward);
+void subgraph_in_distance_range(const SnarlDistanceIndex& distance_index, const Path& path, const HandleGraph* super_graph, size_t min_distance,
+                                size_t max_distance, std::unordered_set<nid_t>& subgraph, bool look_forward);
 ///Helper for subgraph_in_distance_range
 ///Given starting handles in the super graph and the distances to each handle (including the start position and
 //the first position in the handle), add all nodes within the distance range, excluding nodes in seen_nodes
-void add_nodes_in_distance_range(const HandleGraph* super_graph, int64_t min_distance, int64_t max_distance,
-                        std::unordered_set<nid_t>& subgraph, vector<tuple<handle_t, int64_t>>& start_nodes,
+void add_nodes_in_distance_range(const HandleGraph* super_graph, size_t min_distance, size_t max_distance,
+                        std::unordered_set<nid_t>& subgraph, vector<pair<handle_t, size_t>>& start_nodes,
                         hash_set<pair<nid_t, bool>>& seen_nodes);
 
 

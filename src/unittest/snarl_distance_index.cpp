@@ -25,6 +25,22 @@
 
 namespace vg {
     namespace unittest {
+    static pair<unordered_set<Node*>, unordered_set<Edge*> > pb_contents(
+        VG& graph, const pair<unordered_set<id_t>, unordered_set<edge_t> >& contents) {
+        pair<unordered_set<Node*>, unordered_set<Edge*> > ret;
+        for (id_t node_id : contents.first) {
+            ret.first.insert(graph.get_node(node_id));
+        }
+        for (const edge_t& edge_handle : contents.second) {
+            Edge* edge = graph.get_edge(NodeTraversal(graph.get_node(graph.get_id(edge_handle.first)),
+                                                      graph.get_is_reverse(edge_handle.first)),
+                                        NodeTraversal(graph.get_node(graph.get_id(edge_handle.second)),
+                                                      graph.get_is_reverse(edge_handle.second)));
+            ret.second.insert(edge);
+        }
+        return ret;
+    }
+
     
         //TEST_CASE( "Load",
         //          "[load]" ) {
@@ -404,16 +420,16 @@ namespace vg {
                          n9->id(), false, 0, n12->id(), false, 0) == 5);
             }
         
-            //SECTION("Snarl based subgraph gets correct nodes") {
-            //    std::unordered_set<nid_t> subgraph;
-            //    subgraph_containing_path_snarls(distance_index, &graph, path_from_path_handle(graph, path_handle), subgraph); 
-            //    REQUIRE(subgraph.count(n2->id()));
-            //    REQUIRE(subgraph.count(n3->id()));
-            //    REQUIRE(subgraph.count(n4->id()));
-            //    REQUIRE(subgraph.count(n5->id()));
-            //    REQUIRE(subgraph.count(n6->id()));
-            //    REQUIRE(subgraph.size() == 5);
-            //}
+            SECTION("Snarl based subgraph gets correct nodes") {
+                std::unordered_set<nid_t> subgraph;
+                subgraph_containing_path_snarls(distance_index, &graph, path_from_path_handle(graph, path_handle), subgraph); 
+                REQUIRE(subgraph.count(n2->id()));
+                REQUIRE(subgraph.count(n3->id()));
+                REQUIRE(subgraph.count(n4->id()));
+                REQUIRE(subgraph.count(n5->id()));
+                REQUIRE(subgraph.count(n6->id()));
+                REQUIRE(subgraph.size() == 5);
+            }
         }
         TEST_CASE( "Snarl decomposition can allow traversal of a simple net graph",
                   "[snarl_distance]" ) {
@@ -1844,7 +1860,7 @@ namespace vg {
         TEST_CASE( "Distance index's snarl functions return expected answers",
                   "[snarl_distance]" ) {
             
-            SECTION( "SnarlManager can be constructed with cactus ultrabubbles") {
+            SECTION( "Distance index can be constructed with cactus ultrabubbles") {
                 
                 VG graph;
                 
@@ -1864,7 +1880,7 @@ namespace vg {
                 
             }
             
-            SECTION( "SnarlManager can correctly navigate tree relationships") {
+            SECTION( "Snarls can correctly navigate tree relationships") {
                 
                 VG graph;
                 
@@ -2043,7 +2059,7 @@ namespace vg {
                 
             }
             
-            SECTION( "SnarlManager can correctly extract the contents of a snarl") {
+            SECTION( "Distance index can correctly extract the contents of a snarl") {
                 
                 VG graph;
                 
@@ -2198,7 +2214,7 @@ namespace vg {
                 
             }
            
-            SECTION( "SnarlManager can correctly extract the contents of a snarl containing cycles and tips") {
+            SECTION( "Distance index can correctly extract the contents of a snarl containing cycles and tips") {
                 //TODO: Add tests for identifying tips
                 //
                 //Chain: 1 - (snarl 2-7) - 8
@@ -2436,7 +2452,7 @@ namespace vg {
             
             
             
-            //SECTION( "SnarlManager can correctly extract the full contents of a reversing-edge snarl") {
+            //SECTION( "Distance index can correctly extract the full contents of a reversing-edge snarl") {
             //    
             //    string graph_json = R"(
             //    {
@@ -2509,7 +2525,6 @@ namespace vg {
             //    list<Snarl> snarls;
             //    snarls.push_back(snarl1);
             //    
-            //    SnarlManager snarl_manager(snarls.begin(), snarls.end());
             //    
             //    // Find the snarl again
             //    const Snarl* snarl = snarl_manager.top_level_snarls()[0];
@@ -2529,7 +2544,7 @@ namespace vg {
             //    
             //}
             //
-            //SECTION( "SnarlManager does not include child snarls' edges in parent snarls") {
+            //SECTION( "Distance index does not include child snarls' edges in parent snarls") {
             //    
             //    // This graph is 3 nodes in a row, with two anchoring nodes on
             //    // the end, and an edge deleting the three in the middle and
@@ -4326,14 +4341,14 @@ namespace vg {
                 REQUIRE(distance_index.minimum_distance(
                          11, true, 0, 4, false, 0) == std::numeric_limits<size_t>::max());
             }
-            //SECTION("Snarl based subgraph gets correct nodes") {
-            //    std::unordered_set<nid_t> subgraph;
-            //    subgraph_containing_path_snarls(distance_index, &graph, path_from_path_handle(graph, path_handle), subgraph); 
-            //    REQUIRE(subgraph.count(n4->id()));
-            //    REQUIRE(subgraph.count(n5->id()));
-            //    REQUIRE(subgraph.count(n6->id()));
-            //    REQUIRE(subgraph.size() == 3);
-            //}
+            SECTION("Snarl based subgraph gets correct nodes") {
+                std::unordered_set<nid_t> subgraph;
+                subgraph_containing_path_snarls(distance_index, &graph, path_from_path_handle(graph, path_handle), subgraph); 
+                REQUIRE(subgraph.count(n4->id()));
+                REQUIRE(subgraph.count(n5->id()));
+                REQUIRE(subgraph.count(n6->id()));
+                REQUIRE(subgraph.size() == 3);
+            }
         }
         TEST_CASE( "Snarl distance index can deal with loops in a snarl", "[snarl_distance]" ) {
             //THis actually makes a chain 4fd->2fd, 2fd->4fd that is disconnected
@@ -5550,6 +5565,412 @@ namespace vg {
                 REQUIRE(distance_index.minimum_distance(n2->id(), false, 0, n5->id(), false,  0, false, &graph) == 1);
             }
         }
+        TEST_CASE( "simple snarl subgraph",
+                       "[snarl_distance][snarl_distance_subgraph]" ) {
+            VG graph;
+
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("T");
+            Node* n7 = graph.create_node("G");
+            Node* n8 = graph.create_node("CTGA");
+
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n8);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n2, n6);
+            Edge* e5 = graph.create_edge(n3, n4);
+            Edge* e6 = graph.create_edge(n3, n5);
+            Edge* e7 = graph.create_edge(n4, n5);
+            Edge* e8 = graph.create_edge(n5, n7);
+            Edge* e9 = graph.create_edge(n6, n7);
+            Edge* e10 = graph.create_edge(n7, n8);
+
+            IntegratedSnarlFinder snarl_finder(graph);
+            SECTION("Subgraph extraction") {
+
+                std::unordered_set<id_t> sub_graph;
+                handle_t handle = graph.get_handle(2, false);
+                path_handle_t path_handle = graph.create_path_handle("path");
+                graph.append_step(path_handle, handle);
+                Path path = path_from_path_handle(graph, path_handle);
+
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                subgraph_in_distance_range(distance_index, path, &graph, 5, 7, sub_graph, true);
+
+                REQUIRE(!sub_graph.count(3));
+                REQUIRE(sub_graph.count(4));
+                REQUIRE(sub_graph.count(5));
+                REQUIRE(!sub_graph.count(6));
+                REQUIRE(!sub_graph.count(7));
+                REQUIRE(sub_graph.count(8));
+            }
+            SECTION("Subgraph extraction same node") {
+
+                std::unordered_set<id_t> sub_graph;
+                handle_t handle = graph.get_handle(3, false);
+                path_handle_t path_handle = graph.create_path_handle("path");
+                graph.append_step(path_handle, handle);
+                Path path = path_from_path_handle(graph, path_handle);
+
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                subgraph_in_distance_range(distance_index, path, &graph, 4, 7, sub_graph, true);
+
+                REQUIRE(!sub_graph.count(3));
+                REQUIRE(sub_graph.count(4));
+                REQUIRE(sub_graph.count(5));
+                REQUIRE(!sub_graph.count(6));
+                REQUIRE(sub_graph.count(7));
+                REQUIRE(sub_graph.count(8));
+            }
+        } //end test case
+
+
+        TEST_CASE("chain subgraph", "[snarl_distance][snarl_distance_subgraph]") {
+            VG graph;
+        
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("T");
+            Node* n7 = graph.create_node("G");
+            Node* n8 = graph.create_node("CTGA");
+        
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n8);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n5, n6);
+            Edge* e5 = graph.create_edge(n2, n4);
+            Edge* e6 = graph.create_edge(n3, n5);
+            Edge* e7 = graph.create_edge(n4, n5);
+            Edge* e8 = graph.create_edge(n5, n7);
+            Edge* e9 = graph.create_edge(n6, n7);
+            Edge* e10 = graph.create_edge(n7, n8);
+        
+            IntegratedSnarlFinder snarl_finder(graph);
+            SECTION("Subgraph extraction") {
+        
+                std::unordered_set<id_t> sub_graph;
+                handle_t handle = graph.get_handle(2, false);
+                path_handle_t path_handle = graph.create_path_handle("path");
+                graph.append_step(path_handle, handle);
+                Path path = path_from_path_handle(graph, path_handle);
+        
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                subgraph_in_distance_range(distance_index, path, &graph, 4, 7, sub_graph, true);
+        
+                REQUIRE(!sub_graph.count(3));
+                REQUIRE(sub_graph.count(4));
+                REQUIRE(sub_graph.count(5));
+                REQUIRE(sub_graph.count(6));
+                REQUIRE(sub_graph.count(7));
+                REQUIRE(sub_graph.count(8));
+            }
+            SECTION ("Another subgraph") {
+                std::unordered_set<id_t> sub_graph;
+                handle_t handle = graph.get_handle(2, false);
+                path_handle_t path_handle = graph.create_path_handle("path");
+                graph.append_step(path_handle, handle);
+                Path path = path_from_path_handle(graph, path_handle);
+        
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                subgraph_in_distance_range(distance_index, path, &graph, 10, 10, sub_graph, true);
+        
+                REQUIRE(!sub_graph.count(3));
+                REQUIRE(!sub_graph.count(4));
+                REQUIRE(!sub_graph.count(5));
+                REQUIRE(!sub_graph.count(6));
+                REQUIRE(!sub_graph.count(7));
+                REQUIRE(sub_graph.count(8));
+                REQUIRE(!sub_graph.count(3));
+            }
+            SECTION ("Skip snarl") {
+                std::unordered_set<id_t> sub_graph;
+                handle_t handle = graph.get_handle(2, false);
+                path_handle_t path_handle = graph.create_path_handle("path");
+                graph.append_step(path_handle, handle);
+                Path path = path_from_path_handle(graph, path_handle);
+        
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                subgraph_in_distance_range(distance_index, path, &graph, 6, 6, sub_graph, true);
+        
+                REQUIRE(!sub_graph.count(3));
+                REQUIRE(!sub_graph.count(4));
+                REQUIRE(!sub_graph.count(5));
+                REQUIRE(sub_graph.count(6));
+                REQUIRE(sub_graph.count(7));
+                REQUIRE(!sub_graph.count(8));
+                REQUIRE(!sub_graph.count(3));
+            }
+        
+        }//end test case
+        TEST_CASE("top level chain subgraph", "[snarl_distance][snarl_distance_subgraph]") {
+            VG graph;
+        
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("T");
+            Node* n7 = graph.create_node("G");
+            Node* n8 = graph.create_node("CTGA");
+            Node* n9 = graph.create_node("T");
+            Node* n10 = graph.create_node("G");
+            Node* n11 = graph.create_node("G");
+            Node* n12 = graph.create_node("G");
+        
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n8);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e5 = graph.create_edge(n2, n4);
+            Edge* e6 = graph.create_edge(n3, n5);
+            Edge* e7 = graph.create_edge(n4, n5);
+            Edge* e4 = graph.create_edge(n5, n6);
+            Edge* e8 = graph.create_edge(n5, n7);
+            Edge* e9 = graph.create_edge(n6, n7);
+            Edge* e10 = graph.create_edge(n7, n8);
+            Edge* e11 = graph.create_edge(n8, n9);
+            Edge* e12 = graph.create_edge(n9, n10);
+            Edge* e13 = graph.create_edge(n8, n10);
+            Edge* e14 = graph.create_edge(n5, n5, true, false);
+            Edge* e15 = graph.create_edge(n10, n11);
+            Edge* e16 = graph.create_edge(n10, n12);
+            Edge* e17 = graph.create_edge(n11, n12);
+        
+            IntegratedSnarlFinder snarl_finder(graph);
+            SECTION("Skip right in chain") {
+        
+                std::unordered_set<id_t> sub_graph;
+                handle_t handle = graph.get_handle(1, false);
+                path_handle_t path_handle = graph.create_path_handle("path");
+                graph.append_step(path_handle, handle);
+                Path path = path_from_path_handle(graph, path_handle);
+        
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                subgraph_in_distance_range(distance_index, path, &graph, 9, 9, sub_graph, true);
+        
+                REQUIRE(!sub_graph.count(3));
+                REQUIRE(!sub_graph.count(8));
+                REQUIRE(!sub_graph.count(9));
+                REQUIRE(!sub_graph.count(10));
+                REQUIRE(sub_graph.count(11));
+                REQUIRE(sub_graph.count(12));
+        
+            }
+        
+            SECTION("Skip right in root chain") {
+        
+                std::unordered_set<id_t> sub_graph;
+                handle_t handle = graph.get_handle(2, false);
+                path_handle_t path_handle = graph.create_path_handle("path");
+                graph.append_step(path_handle, handle);
+                Path path = path_from_path_handle(graph, path_handle);
+        
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                subgraph_in_distance_range(distance_index, path, &graph, 12, 14, sub_graph, true);
+        
+                REQUIRE(!sub_graph.count(3));
+                REQUIRE(!sub_graph.count(8));
+                REQUIRE(!sub_graph.count(9));
+                REQUIRE(!sub_graph.count(10));
+                REQUIRE(sub_graph.count(11));
+                REQUIRE(sub_graph.count(12));
+        
+            }
+            SECTION("Skip left in root chain") {
+        
+                std::unordered_set<id_t> sub_graph;
+                handle_t handle = graph.get_handle(11, true);
+                path_handle_t path_handle = graph.create_path_handle("path");
+                graph.append_step(path_handle, handle);
+                Path path = path_from_path_handle(graph, path_handle);
+        
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                subgraph_in_distance_range(distance_index, path, &graph, 8, 11, sub_graph, true);
+        
+                REQUIRE(sub_graph.count(1));
+                REQUIRE(!sub_graph.count(2));
+                REQUIRE(sub_graph.count(3));
+                REQUIRE(sub_graph.count(4));
+                REQUIRE(sub_graph.count(5));
+                REQUIRE(sub_graph.count(6));
+                REQUIRE(!sub_graph.count(7));
+        
+            }
+            SECTION("Take loop") {
+        
+                std::unordered_set<id_t> sub_graph;
+                handle_t handle = graph.get_handle(8, true);
+                path_handle_t path_handle = graph.create_path_handle("path");
+                graph.append_step(path_handle, handle);
+                Path path = path_from_path_handle(graph, path_handle);
+        
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                subgraph_in_distance_range(distance_index, path, &graph, 12, 13, sub_graph, true);
+        
+                REQUIRE(!sub_graph.count(1));
+                REQUIRE(!sub_graph.count(2));
+                REQUIRE(!sub_graph.count(3));
+                REQUIRE(sub_graph.count(4));
+                REQUIRE(!sub_graph.count(5));
+                REQUIRE(sub_graph.count(6));
+                REQUIRE(sub_graph.count(7));
+                REQUIRE(sub_graph.count(8));
+                REQUIRE(!sub_graph.count(9));
+        
+            }
+            SECTION("Take loop again") {
+        
+                std::unordered_set<id_t> sub_graph;
+                handle_t handle = graph.get_handle(8, true);
+                path_handle_t path_handle = graph.create_path_handle("path");
+                graph.append_step(path_handle, handle);
+                Path path = path_from_path_handle(graph, path_handle);
+        
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                subgraph_in_distance_range(distance_index, path, &graph, 16, 17, sub_graph, true);
+        
+                REQUIRE(!sub_graph.count(1));
+                REQUIRE(!sub_graph.count(2));
+                REQUIRE(!sub_graph.count(3));
+                REQUIRE(!sub_graph.count(4));
+                REQUIRE(!sub_graph.count(5));
+                REQUIRE(!sub_graph.count(6));
+                REQUIRE(!sub_graph.count(7));
+                REQUIRE(sub_graph.count(8));
+                REQUIRE(sub_graph.count(9));
+                REQUIRE(sub_graph.count(10));
+                REQUIRE(!sub_graph.count(11));
+                REQUIRE(!sub_graph.count(12));
+        
+            }
+        }//end test case
+
+        TEST_CASE("random test subgraph", "[snarl_distance][snarl_distance_subgraph]") {
+
+            int64_t min = 20; int64_t max = 50;
+
+//            ifstream vg_stream("testGraph");
+//            VG vg(vg_stream);
+//            vg_stream.close();
+//            CactusSnarlFinder bubble_finder(vg);
+//            SnarlManager snarl_manager = bubble_finder.find_snarls();
+//
+//            MinimumDistanceIndex di (&vg, &snarl_manager);
+//            di.print_self();
+//
+//            handle_t handle = vg.get_handle(30, false);
+//            path_handle_t path_handle = vg.create_path_handle("test_path");
+//            vg.append_step(path_handle, handle);
+//            Path path = path_from_path_handle(vg, path_handle);
+//
+//            std::unordered_set<id_t> sub_graph;
+//            di.subgraph_in_range(path, &vg, min, max, sub_graph, false);
+//
+//            REQUIRE(sub_graph.count(27));
+
+            for (int i = 0; i < 0; i++) {
+                //1000 different graphs
+                VG graph;
+                random_graph(1000, 10, 15, &graph);
+
+                IntegratedSnarlFinder snarl_finder(graph);
+                SnarlManager snarl_manager = snarl_finder.find_snarls();
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+
+                vector<const Snarl*> allSnarls;
+                auto addSnarl = [&] (const Snarl* s) {
+                    allSnarls.push_back(s);
+                };
+                snarl_manager.for_each_snarl_preorder(addSnarl);
+
+                uniform_int_distribution<int> randSnarlIndex(0, allSnarls.size()-1);
+                default_random_engine generator(time(NULL));
+                for (int j = 0; j < 100; j++) {
+                    //Check distances for random pairs of positions
+                    const Snarl* snarl1 = allSnarls[randSnarlIndex(generator)];
+
+                    pair<unordered_set<Node*>, unordered_set<Edge*>> contents1 =
+                        pb_contents(graph, snarl_manager.shallow_contents(snarl1, graph, true));
+
+                    vector<Node*> nodes1 (contents1.first.begin(), contents1.first.end());
+
+                    uniform_int_distribution<int> randNodeIndex1(0,nodes1.size()-1);
+
+                    Node* node1 = nodes1[randNodeIndex1(generator)];
+                    id_t nodeID1 = node1->id();
+                    handle_t handle = graph.get_handle(nodeID1, false);
+                    path_handle_t path_handle = graph.create_path_handle("test_path");
+                    graph.prepend_step(path_handle, handle);
+                    Path path = path_from_path_handle(graph, path_handle);
+                    pos_t pos1 = make_pos_t(nodeID1, false, 0 );
+
+                    std::unordered_set<id_t> sub_graph;
+                    size_t node_len = graph.get_length(handle);
+                    subgraph_in_distance_range(distance_index, path, &graph, min+1, max+1, sub_graph, true);
+
+                    graph.for_each_handle([&] (const handle_t h ) {
+                        id_t node_id = graph.get_id(h);
+                        int64_t len = graph.get_length(h);
+                        int64_t dist_start_fd = distance_index.minimum_distance(nodeID1, false, 0, node_id, false, 0);
+                        int64_t dist_end_fd = dist_start_fd == -1 ? -1 : dist_start_fd + len - 1;
+
+                        bool start_forward = dist_start_fd != -1 && (dist_start_fd >= min && dist_start_fd <= max);
+                        bool end_forward = dist_end_fd != -1 && (dist_end_fd >= min && dist_end_fd <= max);
+                        bool in_forward = dist_start_fd != -1 && dist_end_fd == -1 || (dist_start_fd <= min && dist_end_fd >= max);
+
+                        int64_t dist_start_bk = distance_index.minimum_distance(nodeID1, false, 0, node_id, true, 0);
+                        int64_t dist_end_bk = dist_start_bk == -1 ? -1 : dist_start_bk + len - 1;
+
+                        bool start_backward = dist_start_bk != -1 && (dist_start_bk >= min && dist_start_bk <= max);
+                        bool end_backward = dist_end_bk != -1 && (dist_end_bk >= min && dist_end_bk <= max);
+                        bool in_backward = dist_start_bk != -1 && dist_end_bk == -1 || (dist_start_bk <= min && dist_end_bk >= max);
+                        if (sub_graph.count(node_id)) {
+                            //If this node is in the subgraph, then the node must be within the range
+
+                            if (!(start_forward || end_forward || in_forward || start_backward || end_backward || in_backward)) {
+                                cerr << "Node " << node_id << " from pos " << pos1 << " with distances "
+                                     << distance_index.minimum_distance(nodeID1, false, 0, node_id, false, 0) << " and "
+                                     << distance_index.minimum_distance(nodeID1, false, 0, node_id, true, 0)
+                                     << " (" << dist_start_fd << " " << dist_end_fd << " " << dist_start_bk << " " << dist_end_bk << ") "
+                                     << " is in the subgraph but shouldn't be " << endl;
+                                graph.serialize_to_file("testGraph");
+                            }
+                            REQUIRE((start_forward || end_forward || in_forward || start_backward || end_backward || in_backward));
+                        } else {
+                            if ((start_forward || end_forward || in_forward || start_backward || end_backward || in_backward) &&
+                                 node_id != get_id(pos1)) {
+                                cerr << "Node " << node_id << " from pos " << pos1 <<" with distances "
+                                     << distance_index.minimum_distance(nodeID1, false, 0,node_id, false, 0) << " and "
+                                     << distance_index.minimum_distance(nodeID1, false, 0,node_id, true, 0)
+                                     << " (" << dist_start_fd << " " << dist_end_fd << " " << dist_start_bk << " " << dist_end_bk << ") "
+                                     << " is not in the subgraph but should be " << endl;
+                                graph.serialize_to_file("testGraph");
+                                REQUIRE(!(start_forward || end_forward || in_forward || start_backward || end_backward || in_backward));
+                            }
+                        }
+                    });
+                }
+            }
+        }//End test case
+
 
 
 
