@@ -492,12 +492,16 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
                     }
                     temp_chain_record.prefix_sum.emplace_back(0);
                     temp_chain_record.backward_loops.emplace_back(temp_snarl_record.loop_end);
+                    //If the chain is disconnected, the max length is infinite
+                    temp_chain_record.max_length =  std::numeric_limits<size_t>::max();
                 } else {
                     temp_chain_record.prefix_sum.emplace_back(SnarlDistanceIndex::sum({temp_chain_record.prefix_sum.back(),
                         temp_snarl_record.min_length, temp_snarl_record.start_node_length}));
                     temp_chain_record.backward_loops.emplace_back(std::min(temp_snarl_record.loop_end,
                         SnarlDistanceIndex::sum({temp_chain_record.backward_loops.back()
                         , 2 * (temp_snarl_record.start_node_length + temp_snarl_record.min_length)})));
+                    temp_chain_record.max_length = SnarlDistanceIndex::sum({temp_chain_record.max_length,
+                                                                           temp_snarl_record.max_length});
                 }
                 temp_chain_record.chain_components.emplace_back(curr_component);
                 if (chain_child_i == temp_chain_record.children.size() - 2 && temp_snarl_record.min_length == std::numeric_limits<size_t>::max()) {
@@ -533,6 +537,9 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
                     temp_chain_record.chain_components.emplace_back(curr_component);
                 }
                 last_node_length = temp_index.temp_node_records.at(chain_child_index.second - temp_index.min_node_id).node_length;
+                //And update the chains max length
+                temp_chain_record.max_length = SnarlDistanceIndex::sum({temp_chain_record.max_length,
+                                                                       last_node_length});
             }
         } //Finished walking through chain
         if (temp_chain_record.start_node_id == temp_chain_record.end_node_id && temp_chain_record.chain_components.back() != 0) {
@@ -977,6 +984,27 @@ void populate_snarl_index(
             if (is_internal_node && reachable_node_count != 1) {
                 //If this is an internal node, then it must have only one edge for it to be a simple snarl
                 temp_snarl_record.is_simple = false;
+            }
+        }
+        if (start_rank != 0 && start_rank != 1) {
+
+            size_t child_max_length = start_index.first == SnarlDistanceIndex::TEMP_NODE 
+                ? temp_index.temp_node_records.at(start_index.second-temp_index.min_node_id).node_length
+                : temp_index.temp_chain_records.at(start_index.second).max_length;
+            //The distance through the whole snarl traversing this node forwards
+            //(This might actually be traversing it backwards but it doesn't really matter)
+            size_t snarl_length_fd = SnarlDistanceIndex::sum({
+                    temp_snarl_record.distances[make_pair(make_pair(0, false), make_pair(start_rank, false))],   
+                    temp_snarl_record.distances[make_pair(make_pair(1, false), make_pair(start_rank, true))],
+                    child_max_length});
+            //The same thing traversing this node backwards
+            size_t snarl_length_rev = SnarlDistanceIndex::sum({
+                    temp_snarl_record.distances[make_pair(make_pair(0, false), make_pair(start_rank, true))],   
+                    temp_snarl_record.distances[make_pair(make_pair(1, false), make_pair(start_rank, false))],
+                    child_max_length});
+            size_t max_length = std::max(snarl_length_rev, snarl_length_fd);
+            if (max_length != std::numeric_limits<size_t>::max()) {
+                temp_snarl_record.max_length = std::max(temp_snarl_record.max_length, max_length);
             }
         }
     }

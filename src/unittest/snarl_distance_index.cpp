@@ -86,6 +86,7 @@ namespace vg {
                     root_child_count++;
                     REQUIRE(distance_index.get_depth(child) == 1);
                     REQUIRE(distance_index.minimum_length(child) == 11);
+                    REQUIRE(distance_index.maximum_length(child) == 11);
                 });
                 REQUIRE(root_child_count == 1);
                 REQUIRE(distance_index.get_depth(root_handle) == 0);
@@ -93,6 +94,7 @@ namespace vg {
             }
             SECTION("Minimum distances") {
                 REQUIRE(distance_index.minimum_length(distance_index.get_node_net_handle(1)) == 11);
+                REQUIRE(distance_index.maximum_length(distance_index.get_node_net_handle(1)) == 11);
                 REQUIRE(distance_index.minimum_distance(1, false, 0, 1, false, 5) == 5);
                 REQUIRE(distance_index.minimum_distance(1, true, 0, 1, true, 5) == 5);
             }
@@ -173,8 +175,8 @@ namespace vg {
                 REQUIRE(distance_index.node_id(node4) == n4->id());
                 net_handle_t chain4 = distance_index.get_parent(node4);
                 REQUIRE(distance_index.is_chain(chain4));
+                REQUIRE(distance_index.maximum_length(chain4) == 4);
                 net_handle_t snarl4 = distance_index.get_parent(chain4);
-                cerr << distance_index.net_handle_as_string(node4) << " is a child of " << distance_index.net_handle_as_string(chain4) << " is a child of " << distance_index.net_handle_as_string(snarl4) << endl;
                 REQUIRE(distance_index.is_simple_snarl(snarl4));
             }
 
@@ -185,10 +187,12 @@ namespace vg {
             //Make sure that we really got the right handle
             REQUIRE(distance_index.get_handle(n1_fd, &graph) == graph.get_handle(1, false));
 
-            //Handle for top level chain of just one node
+            //Handle for top level chain 
             net_handle_t chain1 = distance_index.get_parent(n1_fd);
             REQUIRE(distance_index.is_chain(chain1));
             REQUIRE(distance_index.get_depth(chain1) == 1);
+            REQUIRE(distance_index.minimum_length(chain1) == 7);
+            REQUIRE(distance_index.maximum_length(chain1) == 17);
             size_t child_i = 0;
             net_handle_t top_snarl;
             net_handle_t start_node;
