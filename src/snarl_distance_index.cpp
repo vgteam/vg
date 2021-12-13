@@ -993,14 +993,25 @@ void populate_snarl_index(
                 : temp_index.temp_chain_records.at(start_index.second).max_length;
             //The distance through the whole snarl traversing this node forwards
             //(This might actually be traversing it backwards but it doesn't really matter)
+            size_t dist_start_left = temp_snarl_record.distances.count(make_pair(make_pair(0, false), make_pair(start_rank, false))) 
+                    ? temp_snarl_record.distances[make_pair(make_pair(0, false), make_pair(start_rank, false))] 
+                    : std::numeric_limits<size_t>::max();
+            size_t dist_end_right = temp_snarl_record.distances.count(make_pair(make_pair(1, false), make_pair(start_rank, true))) 
+                    ? temp_snarl_record.distances.at(make_pair(make_pair(1, false), make_pair(start_rank, true)))
+                    : std::numeric_limits<size_t>::max();
+            size_t dist_start_right = temp_snarl_record.distances.count(make_pair(make_pair(0, false), make_pair(start_rank, true))) 
+                    ? temp_snarl_record.distances.at(make_pair(make_pair(0, false), make_pair(start_rank, true)))
+                    : std::numeric_limits<size_t>::max();
+            size_t dist_end_left = temp_snarl_record.distances.count(make_pair(make_pair(1, false), make_pair(start_rank, false)))
+                    ? temp_snarl_record.distances.at(make_pair(make_pair(1, false), make_pair(start_rank, false)))
+                    : std::numeric_limits<size_t>::max();
+
             size_t snarl_length_fd = SnarlDistanceIndex::sum({
-                    temp_snarl_record.distances[make_pair(make_pair(0, false), make_pair(start_rank, false))],   
-                    temp_snarl_record.distances[make_pair(make_pair(1, false), make_pair(start_rank, true))],
-                    child_max_length});
+                    dist_start_left, dist_end_right,child_max_length});
             //The same thing traversing this node backwards
             size_t snarl_length_rev = SnarlDistanceIndex::sum({
-                    temp_snarl_record.distances[make_pair(make_pair(0, false), make_pair(start_rank, true))],   
-                    temp_snarl_record.distances[make_pair(make_pair(1, false), make_pair(start_rank, false))],
+                    dist_start_right,   
+                    dist_end_left,
                     child_max_length});
             size_t max_length = std::max(snarl_length_rev, snarl_length_fd);
             if (max_length != std::numeric_limits<size_t>::max()) {
