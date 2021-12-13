@@ -993,27 +993,34 @@ void populate_snarl_index(
                 : temp_index.temp_chain_records.at(start_index.second).max_length;
             //The distance through the whole snarl traversing this node forwards
             //(This might actually be traversing it backwards but it doesn't really matter)
-            size_t dist_start_left = temp_snarl_record.distances.count(make_pair(make_pair(0, false), make_pair(start_rank, false))) 
-                    ? temp_snarl_record.distances[make_pair(make_pair(0, false), make_pair(start_rank, false))] 
+            pair<size_t, bool> start_in = make_pair(0, false);
+            pair<size_t, bool> end_in = make_pair(1, false); 
+
+            size_t dist_start_left = temp_snarl_record.distances.count(make_pair(make_pair(start_rank, false), start_in)) 
+                    ? temp_snarl_record.distances.at(make_pair(make_pair(start_rank, false), start_in)) 
+                    :std::numeric_limits<size_t>::max();
+            size_t dist_end_right = temp_snarl_record.distances.count(make_pair(make_pair(start_rank, true), end_in)) 
+                    ? temp_snarl_record.distances.at(make_pair(make_pair(start_rank, true), end_in))
                     : std::numeric_limits<size_t>::max();
-            size_t dist_end_right = temp_snarl_record.distances.count(make_pair(make_pair(1, false), make_pair(start_rank, true))) 
-                    ? temp_snarl_record.distances.at(make_pair(make_pair(1, false), make_pair(start_rank, true)))
+            size_t dist_start_right = temp_snarl_record.distances.count(make_pair(make_pair(start_rank, true), start_in)) 
+                    ? temp_snarl_record.distances.at(make_pair(make_pair(start_rank, true), start_in))
                     : std::numeric_limits<size_t>::max();
-            size_t dist_start_right = temp_snarl_record.distances.count(make_pair(make_pair(0, false), make_pair(start_rank, true))) 
-                    ? temp_snarl_record.distances.at(make_pair(make_pair(0, false), make_pair(start_rank, true)))
-                    : std::numeric_limits<size_t>::max();
-            size_t dist_end_left = temp_snarl_record.distances.count(make_pair(make_pair(1, false), make_pair(start_rank, false)))
-                    ? temp_snarl_record.distances.at(make_pair(make_pair(1, false), make_pair(start_rank, false)))
+            size_t dist_end_left = temp_snarl_record.distances.count(make_pair(make_pair(start_rank, false), end_in))
+                    ? temp_snarl_record.distances.at(make_pair(make_pair(start_rank, false), end_in))
                     : std::numeric_limits<size_t>::max();
 
             size_t snarl_length_fd = SnarlDistanceIndex::sum({
                     dist_start_left, dist_end_right,child_max_length});
             //The same thing traversing this node backwards
             size_t snarl_length_rev = SnarlDistanceIndex::sum({
-                    dist_start_right,   
-                    dist_end_left,
-                    child_max_length});
-            size_t max_length = std::max(snarl_length_rev, snarl_length_fd);
+                    dist_start_right, dist_end_left, child_max_length});
+            //The max that isn't infinite
+            size_t max_length = 
+                snarl_length_rev == std::numeric_limits<size_t>::max() 
+                ? snarl_length_fd 
+                : (snarl_length_fd == std::numeric_limits<size_t>::max() 
+                        ? snarl_length_rev 
+                        : std::max(snarl_length_rev, snarl_length_fd));
             if (max_length != std::numeric_limits<size_t>::max()) {
                 temp_snarl_record.max_length = std::max(temp_snarl_record.max_length, max_length);
             }
