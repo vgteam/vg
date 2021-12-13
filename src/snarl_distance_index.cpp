@@ -1294,13 +1294,22 @@ void subgraph_containing_path_snarls(const SnarlDistanceIndex& distance_index, c
             end_node = ancestor2;
             ancestor2 = distance_index.get_parent(end_node);
         }
+        assert(ancestor1 == ancestor2);
 
 
         //Walk from one ancestor to the other and add everything in the chain
         net_handle_t current_child = distance_index.canonical(distance_index.is_ordered_in_chain(start_node, end_node) ? start_node : end_node);
         net_handle_t end_child = distance_index.canonical(distance_index.is_ordered_in_chain(start_node, end_node) ? end_node : start_node);
+        if (distance_index.is_reversed_in_parent(current_child)) {
+            current_child = distance_index.flip(current_child);
+        }
+        if (distance_index.is_reversed_in_parent(end_child)) {
+            end_child = distance_index.flip(end_child);
+        }
 
+        add_descendants_to_subgraph(distance_index, current_child, subgraph);
         while (current_child != end_child) {
+            cerr << "From " << distance_index.net_handle_as_string(current_child) << " reach " << distance_index.net_handle_as_string(end_child) << endl;
             distance_index.follow_net_edges(current_child, graph, false, [&](const net_handle_t& next) {
                 add_descendants_to_subgraph(distance_index, next, subgraph);
                 current_child = next;
