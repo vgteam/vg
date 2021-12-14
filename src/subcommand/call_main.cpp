@@ -35,7 +35,7 @@ void help_call(char** argv) {
        << "    -b, --het-bias M,N       Homozygous alt/ref allele must have >= M/N times more support than the next best allele [default = 6,6]" << endl
        << "GAF options:" << endl
        << "    -G, --gaf               Output GAF genotypes instead of VCF" << endl
-       << "    -V, --traversals        Output all candidate traversals in GAF without doing any genotyping" << endl
+       << "    -T, --traversals        Output all candidate traversals in GAF without doing any genotyping" << endl
        << "    -M, --trav-padding N    Extend each flank of traversals (from -T) with reference path by N bases if possible" << endl
        << "general options:" << endl
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
@@ -48,7 +48,7 @@ void help_call(char** argv) {
        << "    -s, --sample NAME       Sample name [default=SAMPLE]" << endl
        << "    -r, --snarls FILE       Snarls (from vg snarls) to avoid recomputing." << endl
        << "    -g, --gbwt FILE         Only call genotypes that are present in given GBWT index." << endl
-       << "    -T, --translation FILE   Node ID translation (as created by vg gbwt --translation) to apply to snarl names in output" << endl     
+       << "    -N, --translation FILE  Node ID translation (as created by vg gbwt --translation) to apply to snarl names in output" << endl     
        << "    -p, --ref-path NAME     Reference path to call on (multipile allowed.  defaults to all paths)" << endl
        << "    -o, --ref-offset N      Offset in reference path (multiple allowed, 1 per path)" << endl
        << "    -l, --ref-length N      Override length of reference in the contig field of output VCF" << endl
@@ -128,14 +128,14 @@ int main_call(int argc, char** argv) {
             {"sample", required_argument, 0, 's'},            
             {"snarls", required_argument, 0, 'r'},
             {"gbwt", required_argument, 0, 'g'},
-            {"translation", required_argument, 0, 'T'},            
+            {"translation", required_argument, 0, 'N'},            
             {"ref-path", required_argument, 0, 'p'},
             {"ref-offset", required_argument, 0, 'o'},
             {"ref-length", required_argument, 0, 'l'},
             {"ploidy", required_argument, 0, 'd'},
             {"ploidy-regex", required_argument, 0, 'R'},
             {"gaf", no_argument, 0, 'G'},
-            {"traversals", no_argument, 0, 'V'},
+            {"traversals", no_argument, 0, 'T'},
             {"min-trav-len", required_argument, 0, 'M'},
             {"legacy", no_argument, 0, 'L'},
             {"nested", no_argument, 0, 'n'},
@@ -147,7 +147,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:T:p:o:l:d:R:GVLM:nIt:h",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:N:p:o:l:d:R:GTLM:nt:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -201,7 +201,7 @@ int main_call(int argc, char** argv) {
         case 'g':
             gbwt_filename = optarg;
             break;
-        case 'T':
+        case 'N':
             translation_file_name = optarg;
             break;            
         case 'p':
@@ -240,7 +240,7 @@ int main_call(int argc, char** argv) {
         case 'G':
             gaf_output = true;
             break;
-        case 'V':
+        case 'T':
             traversals_only = true;
             gaf_output = true;
             break;
