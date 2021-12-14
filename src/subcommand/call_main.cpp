@@ -57,6 +57,7 @@ void help_call(char** argv) {
        << "                                ploidies to contigs not visited by the selected samples, or to all contigs simulated" << endl
        << "                                from if no samples are used. Unmatched contigs get ploidy 2 (or that from -d)." << endl
        << "    -n, --nested            Activate nested calling mode (experimental)" << endl
+       << "    -I, --chains            Call chains instead of snarls (experimental)" << endl
        << "    -t, --threads N         number of threads to use" << endl;
 }    
 
@@ -91,6 +92,7 @@ int main_call(int argc, char** argv) {
     size_t trav_padding = 0;
     bool genotype_snarls = false;
     bool nested = false;
+    bool call_chains = false;
     bool all_snarls = false;
     int64_t min_ref_allele_len = 0;
     int64_t max_ref_allele_len = numeric_limits<int64_t>::max();    
@@ -137,6 +139,7 @@ int main_call(int argc, char** argv) {
             {"min-trav-len", required_argument, 0, 'M'},
             {"legacy", no_argument, 0, 'L'},
             {"nested", no_argument, 0, 'n'},
+            {"chains", no_argument, 0, 'I'},            
             {"threads", required_argument, 0, 't'},
             {"help", no_argument, 0, 'h'},
             {0, 0, 0, 0}
@@ -144,7 +147,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:T:p:o:l:d:R:GVLM:nt:h",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:T:p:o:l:d:R:GVLM:nIt:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -250,6 +253,9 @@ int main_call(int argc, char** argv) {
         case 'n':
             nested =true;
             break;
+        case 'I':
+            call_chains =true;
+            break;            
         case 't':
         {
             int num_threads = parse<int>(optarg);
@@ -698,7 +704,7 @@ int main_call(int argc, char** argv) {
     }
 
     // Call the graph
-    if (!traversals_only) {
+    if (!call_chains) {
 
         // Call each snarl
         // (todo: try chains in normal mode)

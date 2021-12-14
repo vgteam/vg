@@ -1,5 +1,6 @@
 #include "graph_caller.hpp"
 #include "algorithms/expand_context.hpp"
+#include "annotation.hpp"
 
 //#define debug
 
@@ -758,7 +759,8 @@ GAFOutputCaller::GAFOutputCaller(AlignmentEmitter* emitter, const string& sample
 GAFOutputCaller::~GAFOutputCaller() {
 }
 
-void GAFOutputCaller::emit_gaf_traversals(const PathHandleGraph& graph, const vector<SnarlTraversal>& travs) {
+void GAFOutputCaller::emit_gaf_traversals(const PathHandleGraph& graph, const vector<SnarlTraversal>& travs,
+                                          const TraversalSupportFinder* support_finder) {
     assert(emitter != nullptr);
     vector<Alignment> aln_batch;
     aln_batch.reserve(travs.size());
@@ -768,7 +770,7 @@ void GAFOutputCaller::emit_gaf_traversals(const PathHandleGraph& graph, const ve
         variant_id += + "_" + std::to_string(travs[0].visit(0).node_id()) + "_" +
             std::to_string(travs[0].visit(travs[0].visit_size() - 1).node_id());
     }
-    
+        
     for (int i = 0; i < travs.size(); ++i) {
         Alignment trav_aln;
         if (trav_padding > 0) {
@@ -777,6 +779,10 @@ void GAFOutputCaller::emit_gaf_traversals(const PathHandleGraph& graph, const ve
             trav_aln = to_alignment(travs[i], graph);
         }
         trav_aln.set_name(variant_id + "_" + std::to_string(i));
+        if (support_finder) {
+            int64_t support = support_finder->support_val(support_finder->get_traversal_support(travs[i]));
+            set_annotation(trav_aln, "support", std::to_string(support));
+        }        
         aln_batch.push_back(trav_aln);
     }
     emitter->emit_singles(std::move(aln_batch)); 
@@ -1597,14 +1603,14 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
     // toggle average flow / flow width based on snarl length.  this is a bit inconsistent with
     // downstream which uses the longest traversal length, but it's a bit chicken and egg
     // todo: maybe use snarl length for everything?
+    const auto& support_finder = dynamic_cast<SupportBasedSnarlCaller&>(snarl_caller).get_support_finder();    
     bool greedy_avg_flow = false;
     {
         auto snarl_contents = snarl_manager.deep_contents(&snarl, graph, false);
         if (snarl_contents.second.size() > max_snarl_edges) {
             // size cap needed as FlowCaller doesn't have nesting support yet
             return false;
-        }
-        const auto& support_finder = dynamic_cast<SupportBasedSnarlCaller&>(snarl_caller).get_support_finder();
+        }        
         size_t len_threshold = support_finder.get_average_traversal_support_switch_threshold();
         size_t length = 0;
         for (auto i = snarl_contents.first.begin(); i != snarl_contents.first.end() && length < len_threshold; ++i) {
@@ -1742,7 +1748,7 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
 
     if (traversals_only) {
         assert(gaf_output);
-        emit_gaf_traversals(graph, travs);
+        emit_gaf_traversals(graph, travs, &support_finder);
     } else {
         // use our support caller to choose our genotype
         vector<int> trav_genotype;

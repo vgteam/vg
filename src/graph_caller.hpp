@@ -162,7 +162,8 @@ public:
     virtual ~GAFOutputCaller();
 
     /// print the GAF traversals
-    void emit_gaf_traversals(const PathHandleGraph& graph, const vector<SnarlTraversal>& travs);
+    void emit_gaf_traversals(const PathHandleGraph& graph, const vector<SnarlTraversal>& travs,
+                             const TraversalSupportFinder* trav_support_finder = nullptr);
 
     /// print the GAF genotype
     void emit_gaf_variant(const HandleGraph& graph,
