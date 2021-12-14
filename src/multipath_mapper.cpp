@@ -6628,10 +6628,30 @@ namespace vg {
             Alignment aln1, aln2;
             optimal_alignment(multipath_aln_pairs[i].first, aln1);
             optimal_alignment(multipath_aln_pairs[i].second, aln2);
-            int64_t id1 = aln1.path().mapping_size() ? aln1.path().mapping(0).position().node_id() : multipath_aln_pairs[i].first.subpath(0).path().mapping(0).position().node_id();
-            int64_t id2 = aln2.path().mapping_size() ? aln2.path().mapping(0).position().node_id() : multipath_aln_pairs[i].second.subpath(0).path().mapping(0).position().node_id();
+            int64_t id1 = 0, id2 = 0;
+            bool rev1 = false, rev2 = false;
+            if (aln1.path().mapping_size()) {
+                const auto& pos = aln1.path().mapping(0).position();
+                id1 = pos.node_id();
+                rev1 = pos.is_reverse();
+            }
+            else {
+                const auto& pos = multipath_aln_pairs[i].first.subpath(0).path().mapping(0).position();
+                id1 = pos.node_id();
+                rev1 = pos.is_reverse();
+            }
+            if (aln2.path().mapping_size()) {
+                const auto& pos = aln2.path().mapping(0).position();
+                id2 = pos.node_id();
+                rev2 = pos.is_reverse();
+            }
+            else {
+                const auto& pos = multipath_aln_pairs[i].second.subpath(0).path().mapping(0).position();
+                id2 = pos.node_id();
+                rev2 = pos.is_reverse();
+            }
         
-            cerr << "\tpos:" << id1 << "(" << aln1.score() << ")-" << id2 << "(" << aln2.score() << ")"
+            cerr << "\tpos:" << id1 << (rev1 ? "-" : "+") << "(" << aln1.score() << ") - " << id2 << (rev2 ? "-" : "+") << "(" << aln2.score() << ")"
                 << " align:" << optimal_alignment_score(multipath_aln_pairs[i].first) + optimal_alignment_score(multipath_aln_pairs[i].second)
                 << ", length: " << cluster_pairs[i].second;
             cerr << ", combined: " << scores[i];
