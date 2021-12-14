@@ -95,6 +95,9 @@ namespace vg {
         /// when mappings are likely to have occurred by chance
         void calibrate_mismapping_detection(size_t num_simulations, const vector<size_t>& simulated_read_lengths);
         
+        /// Experimental: skeleton code for predicting path distance from minimum distance
+        void determine_distance_correlation();
+        
         /// Should be called once after construction, or any time the band padding multiplier is changed
         void init_band_padding_memo();
         
