@@ -2285,6 +2285,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     // meta-recipe to make GBWTs
     auto make_gbwt = [merge_gbwts](const vector<const IndexFile*>& inputs,
+                        bool include_named_paths,
                         const IndexingPlan* plan,
                         const IndexGroup& constructing) {
         
@@ -2376,7 +2377,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         // clear them out when they're done, and if any are left we know we
         // need a job to do them.
         unordered_set<path_handle_t> broadcast_graph_paths_to_do;
-        if (broadcast_graph) {
+        if (include_named_paths && broadcast_graph) {
             broadcast_graph->for_each_path_handle([&](const path_handle_t& path_handle) {
                 // Look at all the paths in advance
                 if (broadcast_graph->is_empty(path_handle) || Paths::is_alt(broadcast_graph->get_path_name(path_handle))) {
@@ -2421,15 +2422,15 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             // Otherwise, if we have one graph per job, all threads from the graph can go in.
             unique_ptr<gbwt::DynamicGBWT> gbwt_index = haplotype_indexer->build_gbwt(parse_files, 
                                                                                      "GBWT" + std::to_string(i),
-                                                                                     graph,
+                                                                                     include_named_paths ? graph : nullptr,
                                                                                      nullptr,
-                                                                                     (bool)broadcast_graph);
+                                                                                     include_named_paths && (bool)broadcast_graph);
             
             save_gbwt(*gbwt_index, gbwt_name, IndexingParameters::verbosity == IndexingParameters::Debug);
             
             gbwt_names[i] = gbwt_name;
             
-            if (broadcast_graph) {
+            if (include_named_paths && broadcast_graph) {
                 // We have to check off the paths we embeded in this job.
                 for (size_t contig_number = 0; contig_number < gbwt_index->metadata.contigs(); contig_number++) {
                     // Go through all contig names in the metadata
@@ -2455,7 +2456,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             schedule.execute(target_memory_usage);
         }
         
-        if (broadcast_graph && !broadcast_graph_paths_to_do.empty()) {
+        if (include_named_paths && broadcast_graph && !broadcast_graph_paths_to_do.empty()) {
             // We're Back for One Last Job.
             // We need to embed these remaining paths that weren't VCF contigs.
             
@@ -2504,7 +2505,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         else {
             gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
         }
-        return make_gbwt(inputs, plan, constructing);
+        return make_gbwt(inputs, true, plan, constructing);
     });
     
     registry.register_recipe({"Spliced GBWT"}, {"Chunked VCF w/ Phasing", "Spliced VG w/ Variant Paths"},
@@ -2519,7 +2520,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         else {
             gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
         }
-        return make_gbwt(inputs, plan, constructing);
+        // TODO: If we include named paths here, we then generate
+        // haplotype-specific transcripts following them when making the
+        // "Haplotype-Transcript GBWT". It's not clear that that's correct, and
+        // the "Spliced GBWT" never feeds into a GBZ, so we leave them out for
+        // now. 
+        return make_gbwt(inputs, false, plan, constructing);
     });
     
     // Giraffe will prefer to use a downsampled haplotype GBWT if possible
