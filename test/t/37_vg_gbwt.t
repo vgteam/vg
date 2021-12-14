@@ -207,8 +207,8 @@ vg gbwt -E -o xy.ref.gbwt -x xy.xg
 vg gbwt -m -o xy.both.gbwt xy.gbwt xy.ref.gbwt
 is $(vg gbwt -c xy.both.gbwt) 6 "haplotypes and paths: 6 threads"
 
-# Remove the reference
-vg gbwt -R ref -o xy.removed.gbwt xy.both.gbwt
+# Remove the reference sample that GBWTs use for paths
+vg gbwt -R _gbwt_ref -o xy.removed.gbwt xy.both.gbwt
 is $? 0 "samples can be removed from a GBWT index"
 is $(vg gbwt -c xy.removed.gbwt) 4 "haplotypes only: 4 threads"
 
