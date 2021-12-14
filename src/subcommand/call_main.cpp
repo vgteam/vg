@@ -40,6 +40,9 @@ void help_call(char** argv) {
        << "general options:" << endl
        << "    -v, --vcf FILE          VCF file to genotype (must have been used to construct input graph with -a)" << endl
        << "    -a, --genotype-snarls   Genotype every snarl, including reference calls (use to compare multiple samples)" << endl
+       << "    -A, --all-snarls        Genotype all snarls, including nested child snarls (like deconstruct -a)" << endl
+       << "    -c, --min-length N      Genotype only snarls with reference traversal length >= N" << endl
+       << "    -C, --max-length N      Genotype only snarls with reference traversal length <= N" << endl
        << "    -f, --ref-fasta FILE    Reference fasta (required if VCF contains symbolic deletions or inversions)" << endl
        << "    -i, --ins-fasta FILE    Insertions fasta (required if VCF contains symbolic insertions)" << endl
        << "    -s, --sample NAME       Sample name [default=SAMPLE]" << endl
@@ -86,6 +89,9 @@ int main_call(int argc, char** argv) {
     size_t trav_padding = 0;
     bool genotype_snarls = false;
     bool nested = false;
+    bool all_snarls = false;
+    int64_t min_ref_allele_len = 0;
+    int64_t max_ref_allele_len = numeric_limits<int64_t>::max();    
 
     // constants
     const size_t avg_trav_threshold = 50;
@@ -110,6 +116,9 @@ int main_call(int argc, char** argv) {
             {"min-support", required_argument, 0, 'm'},
             {"vcf", required_argument, 0, 'v'},
             {"genotype-snarls", no_argument, 0, 'a'},
+            {"all-snarls", no_argument, 0, 'A'},
+            {"min-length", required_argument, 0, 'c'},
+            {"max-length", required_argument, 0, 'C'},
             {"ref-fasta", required_argument, 0, 'f'},
             {"ins-fasta", required_argument, 0, 'i'},
             {"sample", required_argument, 0, 's'},            
@@ -132,7 +141,7 @@ int main_call(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "k:Be:b:m:v:af:i:s:r:g:p:o:l:d:R:GTLM:nt:h",
+        c = getopt_long (argc, argv, "k:Be:b:m:v:aAc:C:f:i:s:r:g:p:o:l:d:R:GTLM:nt:h",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -161,6 +170,15 @@ int main_call(int argc, char** argv) {
             break;
         case 'a':
             genotype_snarls = true;
+            break;
+        case 'A':
+            all_snarls = true;
+            break;
+        case 'c':
+            min_ref_allele_len = parse<int64_t>(optarg);
+            break;
+        case 'C':
+            max_ref_allele_len = parse<int64_t>(optarg);
             break;
         case 'f':
             ref_fasta_filename = optarg;
@@ -303,6 +321,11 @@ int main_call(int argc, char** argv) {
     if (!vcf_filename.empty() && genotype_snarls) {
         cerr << "error [vg call]: -v and -a options cannot be used together" << endl;
         return 1;
+    }
+
+    if ((min_ref_allele_len > 0 || max_ref_allele_len < numeric_limits<int64_t>::max()) && (legacy || !vcf_filename.empty() || nested)) {
+        cerr << "error [vg call]: -c/-C no supported with -v, -l or -n" << endl;
+        return 1;        
     }
     
     // Read the graph
@@ -629,7 +652,8 @@ int main_call(int argc, char** argv) {
                                               traversals_only,
                                               gaf_output,
                                               trav_padding,
-                                              genotype_snarls));            
+                                              genotype_snarls,
+                                              make_pair(min_ref_allele_len, max_ref_allele_len)));
         }
     }
 
@@ -657,11 +681,12 @@ int main_call(int argc, char** argv) {
 
         // Call each snarl
         // (todo: try chains in normal mode)
-        graph_caller->call_top_level_snarls(*graph, ploidy);
+        graph_caller->call_top_level_snarls(*graph, all_snarls ? GraphCaller::RecurseAlways : GraphCaller::RecurseOnFail);
     } else {
         // Attempt to call chains instead of snarls so that the output traversals are longer
         // Todo: this could probably help in some cases when making VCFs too
-        graph_caller->call_top_level_chains(*graph, ploidy, max_chain_edges,  max_chain_trivial_travs);
+        graph_caller->call_top_level_chains(*graph,  max_chain_edges,  max_chain_trivial_travs,
+                                            all_snarls ? GraphCaller::RecurseAlways : GraphCaller::RecurseOnFail);
     }
 
     if (!gaf_output) {

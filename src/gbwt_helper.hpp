@@ -53,10 +53,11 @@ inline gbwt::vector_type path_to_gbwt(const Path& path) {
     return result;
 }
 
-/// Extract a path as a GBWT path.
+/// Extract a path as a GBWT path. If the path does not exist, it is treated as empty.
 gbwt::vector_type extract_as_gbwt_path(const PathHandleGraph& graph, const std::string& path_name);
 
-// Find all predecessor nodes of the path, ignoring self-loops.
+/// Find all predecessor nodes of the path, ignoring self-loops. If the path
+/// does not exist, it is treated as empty.
 gbwt::vector_type path_predecessors(const PathHandleGraph& graph, const std::string& path_name);
 
 //------------------------------------------------------------------------------
