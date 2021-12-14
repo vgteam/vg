@@ -239,6 +239,7 @@ void help_gbwt(char** argv) {
     std::cerr << "Step 1: GBWT construction (requires -o and one of { -v, -G, -Z, -E, A }):" << std::endl;
     std::cerr << "    -v, --vcf-input         index the haplotypes in the VCF files specified in input args in parallel" << std::endl;
     std::cerr << "                            (inputs must be over different contigs; requires -x, implies -f)" << std::endl;
+    std::cerr << "                            (does not store graph contigs in the GBWT)" << std::endl;
     std::cerr << "        --preset X          use preset X (available: 1000gp)" << std::endl;
     std::cerr << "        --num-jobs N        use at most N parallel build jobs (default " << GBWTConfig::default_build_jobs() << ")" << std::endl;
     std::cerr << "        --inputs-as-jobs    create one build job for each input instead of using first-fit heuristic" << std::endl;

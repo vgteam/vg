@@ -148,7 +148,7 @@ rm -f xy.vg xy.gbwt xy.xg xy.snarls xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.
 
 vg giraffe -Z xy.giraffe.gbz -G x.gam -o BAM >xy.bam
 is $? "0" "vg giraffe can map to BAM using a GBZ alone"
-is "$(samtools view xy.bam | wc -l)" "1000" "GBZ-based BAM contains the expected number of reads"
+is "$(samtools view xy.bam | wc -l)" "2000" "GBZ-based BAM contains the expected number of reads"
 
 rm -f x.gam xy.bam
 rm -f xy.giraffe.gbz

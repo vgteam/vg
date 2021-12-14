@@ -1085,11 +1085,7 @@ int main_giraffe(int argc, char** argv) {
     registry.set_target_memory_usage(IndexRegistry::get_system_memory() / 2);
     
     auto index_targets = VGIndexes::get_default_giraffe_indexes();
-    if (track_correctness || hts_output) {
-        // We also need an XG
-        index_targets.push_back("XG");
-    }
-    
+
 #ifdef debug
     for (auto& needed : index_targets) {
         cerr << "Want index: " << needed << endl;
