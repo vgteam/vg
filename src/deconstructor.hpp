@@ -45,8 +45,7 @@ public:
                      bool strict_conflicts,
                      const unordered_map<string, pair<string, int>>* path_to_sample_phase = nullptr,
                      const unordered_map<string, int>* sample_ploidy = nullptr,
-                     gbwt::GBWT* gbwt = nullptr,
-                     const unordered_map<nid_t, pair<nid_t, size_t>>* translation = nullptr); 
+                     gbwt::GBWT* gbwt = nullptr);
     
 private:
 
@@ -58,9 +57,6 @@ private:
     vector<int> get_alleles(vcflib::Variant& v, const vector<SnarlTraversal>& travs, int ref_path_idx,
                             const vector<bool>& use_trav,
                             char prev_char, bool use_start) const;
-
-    // add a traversal to the VCF info field in the format of a GFA W-line or GAF path
-    void add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav, bool reversed, bool one_based) const;
     
     // write traversal path names as genotypes
     void get_genotypes(vcflib::Variant& v, const vector<string>& names, const vector<int>& trav_to_allele,
@@ -85,12 +81,6 @@ private:
     // this will be much slower than doing the same using the PathPositionGraph interface as there's no
     // underlying index. 
     tuple<bool, handle_t, size_t> get_gbwt_path_position(const SnarlTraversal& trav, const gbwt::size_type& thread) const;
-
-    // get a snarl name, using trnaslation if availabe
-    string snarl_name(const Snarl* snarl) const;
-
-    // update the PS and LV tags in the output buffer (call just before write_variants)
-    void update_nesting_info_tags();
     
     // toggle between exhaustive and path restricted traversal finder
     bool path_restricted = false;
@@ -140,17 +130,11 @@ private:
     // should we be strict about flagging and removing conflicted phases?
     bool strict_conflict_checking = false;
 
-    // recurse on child snarls
-    bool include_nested = false;
-
     // show path info mapping paths to genotypes (very verbose)
     bool show_path_info = false;
 
     // should we keep conflicted genotypes or not
     bool keep_conflicted_genotypes = false;
-
-    // optional node translation to apply to snarl names in variant IDs
-    const unordered_map<nid_t, pair<nid_t, size_t>>* translation;
 };
 
 }

@@ -354,6 +354,8 @@ int main_deconstruct(int argc, char** argv){
     if (show_progress) {
         cerr << "Deconstructing top-level snarls" << endl;
     }
+    dd.set_translation(translation.get());
+    dd.set_nested(all_snarls);
     dd.deconstruct(refpaths, graph, snarl_manager.get(), path_restricted_traversals, ploidy,
                    all_snarls,
                    context_jaccard_window,
@@ -361,7 +363,7 @@ int main_deconstruct(int argc, char** argv){
                    strict_conflicts,
                    !alt_path_to_sample_phase.empty() ? &alt_path_to_sample_phase : nullptr,
                    &sample_ploidy,
-                   gbwt_index.get(), translation.get());
+                   gbwt_index.get());
     return 0;
 }
 
