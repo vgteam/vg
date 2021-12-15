@@ -71,7 +71,7 @@ int32_t SpliceStats::motif_score(size_t motif_num) const {
 }
 
 int32_t SpliceStats::intron_length_score(int64_t length) const {
-    return round(intron_length_log_likelihood(length) - mode_log_likelihood) / log_base;
+    return round((intron_length_log_likelihood(length) - mode_log_likelihood) / log_base);
 }
 
 void SpliceStats::update_motifs(const vector<tuple<string, string, double>>& motifs,

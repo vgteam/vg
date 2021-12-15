@@ -1782,9 +1782,9 @@ int main_mpmap(int argc, char** argv) {
         log_progress("Completed loading GBWT");
 
         if (gbwt.get() == nullptr) {
-          // Complain if we couldn't.
-          cerr << "error:[vg mpmap] unable to load gbwt index file" << endl;
-          exit(1);
+            // Complain if we couldn't.
+            cerr << "error:[vg mpmap] unable to load gbwt index file" << endl;
+            exit(1);
         }
     
         // We have the GBWT available for scoring haplotypes

@@ -3327,6 +3327,7 @@ namespace vg {
                     auto h = graph.get_handle_of_step(run.first);
                     cerr << "\trun " << run.second.first << ", node " << graph.get_id(h) << " " << graph.get_is_reverse(h) << ", rem " << run.second.second << ", pos " << graph.get_position_of_step(run.first) << endl;
                 }
+                cerr << "crossing a connection? " << across_connection << endl;
 #endif
                 graph.for_each_step_on_handle(handle, [&](const step_handle_t& step) {
                     if (graph.get_path_handle_of_step(step) != path_handle ||

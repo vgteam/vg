@@ -11,6 +11,8 @@
 //#define debug_pretty_print_alignments
 //#define debug_time_phases
 //#define debug_log_splice_align_stats
+//#define debug_output_distance_correlation
+
 
 #ifdef debug_time_phases
 #include <ctime>
@@ -1072,6 +1074,102 @@ namespace vg {
         min_mem_length = reset_min_mem_length;
         max_alt_mappings = reset_max_alt_mappings;
         suppress_p_value_memoization = false;
+    }
+
+    void MultipathMapper::determine_distance_correlation() {
+        
+        // FIXME: very experimental, not sure if i actually want to do this
+        
+        if (!distance_index || ref_path_handles.empty()) {
+            return;
+        }
+        
+        vector<path_handle_t> refs(ref_path_handles.begin(), ref_path_handles.end());
+        sort(refs.begin(), refs.end(), [&](path_handle_t a, path_handle_t b) {
+            return xindex->get_path_name(a) < xindex->get_path_name(b);
+        });
+        vector<size_t> ref_weights(refs.size());
+        for (size_t i = 0; i < refs.size(); ++i) {
+            ref_weights[i] = xindex->get_path_length(refs[i]);
+        }
+        
+        SnarlOrientedDistanceMeasurer measurer(distance_index);
+        
+        discrete_distribution<size_t> ref_distr(ref_weights.begin(), ref_weights.end());
+        mt19937 gen;
+        gen.seed(749753582ul);
+        
+        vector<tuple<path_handle_t, size_t, size_t, pos_t, pos_t>> positions;
+        vector<vector<double>> distances;
+        
+        int num_measurements = 100 * 1000;
+        int radius = 50 * 1000;
+        for (int i = 0; i < num_measurements; ++i) {
+            
+            path_handle_t ref = refs[ref_distr(gen)];
+            if (xindex->get_path_length(ref) < 2) {
+                continue;
+            }
+            
+            // don't include the past-the-last, which makes things tricky
+            uniform_int_distribution<size_t> off_distr_1(1, xindex->get_path_length(ref) - 1);
+            size_t path_off_1 = off_distr_1(gen);
+            
+            uniform_int_distribution<size_t> off_distr_2(max<int64_t>(path_off_1 - radius, 1),
+                                                         min<int64_t>(path_off_1 + radius, xindex->get_path_length(ref) - 1));
+            size_t path_off_2 = off_distr_2(gen);
+            
+            auto step_1 = xindex->get_step_at_position(ref, path_off_1);
+            auto step_2 = xindex->get_step_at_position(ref, path_off_2);
+            
+            pos_t pos_1(xindex->get_id(xindex->get_handle_of_step(step_1)),
+                       xindex->get_is_reverse(xindex->get_handle_of_step(step_1)),
+                       path_off_1 - xindex->get_position_of_step(step_1));
+            pos_t pos_2(xindex->get_id(xindex->get_handle_of_step(step_2)),
+                       xindex->get_is_reverse(xindex->get_handle_of_step(step_2)),
+                       path_off_2 - xindex->get_position_of_step(step_2));
+            
+            positions.emplace_back();
+            get<0>(positions.back()) = ref;
+            get<1>(positions.back()) = path_off_1;
+            get<2>(positions.back()) = path_off_2;
+            get<3>(positions.back()) = pos_1;
+            get<4>(positions.back()) = pos_2;
+            
+            pos_t rev_pos_1(id(pos_1), !is_rev(pos_1),
+                            xindex->get_length(xindex->get_handle_of_step(step_1)) - offset(pos_1));
+            
+            vector<int64_t> row;
+            row.push_back(algorithms::ref_path_distance(xindex, pos_1, pos_2, ref_path_handles,
+                                                        max_splice_ref_search_length));
+            row.push_back(measurer.oriented_distance(pos_1, pos_2));
+            row.push_back(algorithms::ref_path_distance(xindex, rev_pos_1, pos_2, ref_path_handles,
+                                                        max_splice_ref_search_length));
+            row.push_back(measurer.oriented_distance(rev_pos_1, pos_2));
+            
+            distances.emplace_back();
+            for (auto d : row) {
+                distances.back().push_back(d == numeric_limits<int64_t>::max() ? numeric_limits<double>::quiet_NaN() : d);
+            }
+            
+            
+        }
+#ifdef debug_output_distance_correlation
+        for (size_t j = 0; j < distances.size(); ++j) {
+            auto& pos_row = positions[j];
+            cerr << xindex->get_path_name(get<0>(pos_row));
+            cerr << "\t" << get<1>(pos_row);
+            cerr << "\t" << get<2>(pos_row);
+            cerr << "\t" << get<3>(pos_row);
+            cerr << "\t" << get<4>(pos_row);
+            auto& row = distances[j];
+            for (size_t i = 0; i < row.size(); ++i) {
+                cerr << "\t";
+                cerr << row[i];
+            }
+            cerr << endl;
+        }
+#endif
     }
 
     unique_ptr<OrientedDistanceMeasurer> MultipathMapper::get_distance_measurer(MemoizingGraph& memoizing_graph) const {
@@ -2329,9 +2427,14 @@ namespace vg {
                     // estimate the distance using the reference path
                     dist = algorithms::ref_path_distance(xindex, pos_1, pos_2, ref_path_handles,
                                                          max_splice_ref_search_length);
+                    
                 }
                 
-                if (distance_index && (dist < 0 || dist == numeric_limits<int64_t>::max())) {
+                if (distance_index && dist == numeric_limits<int64_t>::max()) {
+                    // FIXME: this will still sometimes produce finite distances for reads that
+                    // can't reach each other along a surjection path in cyclic graphs
+                    // FIXME: it can also find finite distances to different strands of a path,
+                    // but this might be okay sometimes?
                     // they're probably still reachable if they got this far, get a worse estimate of the
                     // distance from the distance index
                     int64_t min_dist = distance_index->min_distance(pos_1, pos_2);
@@ -2344,7 +2447,6 @@ namespace vg {
                     // not memoizing unreachable distances, since distance index should
                     // filter out most of those anyway, and they actually might change on
                     // different positions on the node
-                    
                     ref_length_memo[key] = dist + offset(pos_1) - offset(pos_2);
                 }
                 return dist;
@@ -2465,7 +2567,7 @@ namespace vg {
 #ifdef debug_multipath_mapper
                     cerr << "got distance index test distance " << test_dist << " between seed positions " << left_seed_pos << " and " << right_seed_pos << endl;
 #endif
-                    if (test_dist < 0 || test_dist == numeric_limits<int64_t>::max()) {
+                    if (test_dist < 0 || test_dist == numeric_limits<int64_t>::max() || test_dist > max_intron_length) {
 #ifdef debug_multipath_mapper
                         cerr << "test distance shows that this pair of candidates cannot reach each other" << endl;
 #endif
@@ -2595,7 +2697,7 @@ namespace vg {
                 if (net_score > best_net_score ||
                     (net_score == best_net_score && join.estimated_intron_length < best_intron_length)) {
 #ifdef debug_multipath_mapper
-                    cerr << "this score is the best so far, beating previous best " << best_net_score << endl;
+                    cerr << "this score from motif " << join.motif_idx << " and splice site " << path->mapping(join.splice_idx - 1).position().node_id() << (path->mapping(join.splice_idx - 1).position().is_reverse() ? "-" : "+") << " -> " << path->mapping(join.splice_idx).position().node_id() << (path->mapping(join.splice_idx).position().is_reverse() ? "-" : "+") <<  " is the best so far, beating previous best " << best_net_score << endl;
 #endif
                     best_intron_length = join.estimated_intron_length;
                     best_net_score = net_score;
@@ -6526,10 +6628,30 @@ namespace vg {
             Alignment aln1, aln2;
             optimal_alignment(multipath_aln_pairs[i].first, aln1);
             optimal_alignment(multipath_aln_pairs[i].second, aln2);
-            int64_t id1 = aln1.path().mapping_size() ? aln1.path().mapping(0).position().node_id() : multipath_aln_pairs[i].first.subpath(0).path().mapping(0).position().node_id();
-            int64_t id2 = aln2.path().mapping_size() ? aln2.path().mapping(0).position().node_id() : multipath_aln_pairs[i].second.subpath(0).path().mapping(0).position().node_id();
+            int64_t id1 = 0, id2 = 0;
+            bool rev1 = false, rev2 = false;
+            if (aln1.path().mapping_size()) {
+                const auto& pos = aln1.path().mapping(0).position();
+                id1 = pos.node_id();
+                rev1 = pos.is_reverse();
+            }
+            else {
+                const auto& pos = multipath_aln_pairs[i].first.subpath(0).path().mapping(0).position();
+                id1 = pos.node_id();
+                rev1 = pos.is_reverse();
+            }
+            if (aln2.path().mapping_size()) {
+                const auto& pos = aln2.path().mapping(0).position();
+                id2 = pos.node_id();
+                rev2 = pos.is_reverse();
+            }
+            else {
+                const auto& pos = multipath_aln_pairs[i].second.subpath(0).path().mapping(0).position();
+                id2 = pos.node_id();
+                rev2 = pos.is_reverse();
+            }
         
-            cerr << "\tpos:" << id1 << "(" << aln1.score() << ")-" << id2 << "(" << aln2.score() << ")"
+            cerr << "\tpos:" << id1 << (rev1 ? "-" : "+") << "(" << aln1.score() << ") - " << id2 << (rev2 ? "-" : "+") << "(" << aln2.score() << ")"
                 << " align:" << optimal_alignment_score(multipath_aln_pairs[i].first) + optimal_alignment_score(multipath_aln_pairs[i].second)
                 << ", length: " << cluster_pairs[i].second;
             cerr << ", combined: " << scores[i];
