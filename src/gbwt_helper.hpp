@@ -204,6 +204,8 @@ struct RebuildParameters {
 /// from the largest to the smallest.
 ///
 /// `node_to_job` maps each node identifier to the corresponding job identifier.
+/// Empty paths go to the first job, but this can be overridden by including
+/// `gbwt::ENDMARKER` in `node_to_job`.
 ///
 /// NOTE: Threads may be reordered if there are multiple jobs. Old thread ids are
 /// no longer valid after rebuilding the GBWT.
