@@ -119,50 +119,6 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
     return trav_to_allele;
 }
 
-void Deconstructor::add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav,
-                                            bool reversed, bool one_based) const {
-    auto& trav_info = v.info["AT"];
-    assert(allele < trav_info.size());
-
-    vector<int> nodes;
-    nodes.reserve(trav.visit_size());
-    const Visit* prev_visit = nullptr;
-    unordered_map<nid_t, pair<nid_t, size_t>>::const_iterator prev_trans;
-    
-    for (size_t i = 0; i < trav.visit_size(); ++i) {
-        size_t j = !reversed ? i : trav.visit_size() - 1 - i;
-        const Visit& visit = trav.visit(j);
-        nid_t node_id = visit.node_id();
-        bool skip = false;
-        // todo: check one_based? (we kind of ignore that when writing the snarl name, so maybe not pertienent)
-        if (translation) {
-            auto i = translation->find(node_id);
-            if (i == translation->end()) {
-                throw runtime_error("Error [vg deconstruct]: Unable to find node " + std::to_string(node_id) + " in translation file");
-            }
-            if (prev_visit) {
-                nid_t prev_node_id = prev_visit->node_id();
-                if (prev_trans->second.first == i->second.first && node_id != prev_node_id) {
-                    // here is a case where we have two consecutive nodes that map back to
-                    // the same source node.
-                    // todo: sanity check! (could verify if translation node properly covered)
-                    skip = true;
-                }
-            }
-            node_id = i->second.first;
-            prev_trans = i;
-        }
-
-        if (!skip) {
-            bool vrev = visit.backward() != reversed;
-            trav_info[allele] += (vrev ? "<" : ">");
-            trav_info[allele] += std::to_string(node_id);
-        }
-        prev_visit = &visit;
-    }
-    
-}
-
 void Deconstructor::get_genotypes(vcflib::Variant& v, const vector<string>& names,
                                   const vector<int>& trav_to_allele,
                                   const vector<gbwt::size_type>& trav_thread_ids) const {
@@ -700,7 +656,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 
         v.position = first_path_pos + ref_trav_offset;
 
-        v.id = snarl_name(snarl);
+        v.id = print_snarl(*snarl);
         
         // Convert the snarl traversals to strings and add them to the variant
         vector<bool> use_trav(path_travs.first.size());
@@ -748,8 +704,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                                 bool strict_conflicts,
                                 const unordered_map<string, pair<string, int>>* path_to_sample_phase,
                                 const unordered_map<string, int>* sample_ploidys,
-                                gbwt::GBWT* gbwt,
-                                const unordered_map<nid_t, pair<nid_t, size_t>>* translation) {
+                                gbwt::GBWT* gbwt) {
 
     this->graph = graph;
     this->snarl_manager = snarl_manager;
@@ -760,7 +715,6 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
     this->include_nested = include_nested;
     this->path_jaccard_window = context_jaccard_window;
-    this->translation = translation;
     this->keep_conflicted_genotypes = keep_conflicted;
     this->strict_conflict_checking = strict_conflicts;
     assert(path_to_sample_phase == nullptr || path_restricted || gbwt);
@@ -932,15 +886,8 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         deconstruct_site(snarl);
     }
 
-    if (include_nested) {
-        // if parent snarls aren't done before their children anymore, and we want the
-        // nesting tags to be aware of which snarls were done and which weren't, then they
-        // need to be added in a second pass:
-        update_nesting_info_tags();
-    }
-    
     // write variants in sorted order
-    write_variants(cout);
+    write_variants(cout, snarl_manager);
 }
 
 bool Deconstructor::check_max_nodes(const Snarl* snarl) const  {
@@ -995,25 +942,6 @@ vector<SnarlTraversal> Deconstructor::explicit_exhaustive_traversals(const Snarl
     return out_travs;
 }
 
-string Deconstructor::snarl_name(const Snarl* snarl) const {
-    nid_t start_node = snarl->start().node_id();
-    nid_t end_node = snarl->end().node_id();
-    if (translation) {
-        auto i = translation->find(start_node);
-        if (i == translation->end()) {
-            throw runtime_error("Error [vg deconstruct]: Unable to find node " + std::to_string(start_node) + " in translation file");
-        }
-        start_node = i->second.first;
-        i = translation->find(end_node);
-        if (i == translation->end()) {
-            throw runtime_error("Error [vg deconstruct]: Unable to find node " + std::to_string(end_node) + " in translation file");
-        }
-        end_node = i->second.first;
-    }
-    return (snarl->start().backward() ? "<" : ">") + std::to_string(start_node) +
-        (snarl->end().backward() ? "<" : ">") + std::to_string(end_node);
-}
-
 tuple<bool, handle_t, size_t> Deconstructor::get_gbwt_path_position(const SnarlTraversal& trav, const gbwt::size_type& thread) const {
 
     // scan the whole thread in order to get the path positions -- there's no other way unless we build an index a priori
@@ -1064,75 +992,6 @@ tuple<bool, handle_t, size_t> Deconstructor::get_gbwt_path_position(const SnarlT
     auto rval = make_tuple<bool, handle_t, size_t>((bool)!thread_reversed, (handle_t)start_handle, (size_t)start_offset);
 
     return rval;
-}
-
-void Deconstructor::update_nesting_info_tags() {
-
-    // index the snarl tree by name
-    unordered_map<string, const Snarl*> name_to_snarl;
-    snarl_manager->for_each_snarl_preorder([&](const Snarl* snarl) {
-            name_to_snarl[snarl_name(snarl)] = snarl;
-        });
-
-    // pass 1) index sites in vcf
-    // (todo: this could be done more quickly upstream)
-    unordered_set<string> names_in_vcf;
-    for (auto& thread_buf : output_variants) {
-        for (auto& output_variant_record : thread_buf) {
-            string& output_variant_string = output_variant_record.second;
-            vector<string> toks = split_delims(output_variant_string, "\t", 4);
-            names_in_vcf.insert(toks[2]);
-        }
-    }
-
-    // determine the tags from the index
-    function<pair<size_t, string>(const string&)> get_lv_ps_tags = [&](const string& name) {
-        string parent_name;
-        size_t ancestor_count = 0;
-        const Snarl* snarl = name_to_snarl.at(name);
-        assert(snarl != nullptr);
-        // walk up the snarl tree
-        while (snarl = snarl_manager->parent_of(snarl)) {
-            string cur_name = snarl_name(snarl);
-            if (names_in_vcf.count(cur_name)) {
-                // only count snarls that are in the vcf
-                ++ancestor_count;
-                if (parent_name.empty()) {
-                    // remembert the first parent
-                    parent_name = cur_name;
-                }
-            }
-        }
-        return make_pair(ancestor_count, parent_name);
-    };
-    
-    // pass 2) add the LV and PS tags
-    for (auto& thread_buf : output_variants) {
-        for (auto& output_variant_record : thread_buf) {
-            string& output_variant_string = output_variant_record.second;
-            vector<string> toks = split_delims(output_variant_string, "\t", 9);
-            const string& name = toks[2];
-            
-            pair<size_t, string> lv_ps = get_lv_ps_tags(name);
-            string nesting_tags = ";LV=" + std::to_string(lv_ps.first);
-            if (lv_ps.first != 0) {
-                assert(!lv_ps.second.empty());
-                nesting_tags += ";PS=" + lv_ps.second;
-            }
-
-            // rewrite the output string using the updated info toks
-            output_variant_string.clear();
-            for (size_t i = 0; i < toks.size(); ++i) {
-                output_variant_string += toks[i];
-                if (i == 7) {
-                    output_variant_string += nesting_tags;
-                }
-                if (i != toks.size() - 1) {
-                    output_variant_string += "\t";
-                }
-            }
-        }
-    }
 }
 }
 
