@@ -12,7 +12,7 @@ var searchData=
   ['adaptive_5freseed_5fdiff_45',['adaptive_reseed_diff',['../classvg_1_1BaseMapper.html#acf7556c347ea7596624700482dc58c8c',1,'vg::BaseMapper']]],
   ['adaptive_5freseed_5flength_5fmemo_46',['adaptive_reseed_length_memo',['../classvg_1_1BaseMapper.html#a279b5883907a56ada69b41796230b209',1,'vg::BaseMapper']]],
   ['add_47',['add',['../classvg_1_1Packer.html#a8a8cb2dd528dc7cc178e32e69e42212b',1,'vg::Packer']]],
-  ['add_5fallele_5fpath_5fto_5finfo_48',['add_allele_path_to_info',['../classvg_1_1Deconstructor.html#a98a2a2990d816ea2947111faabcaa49a',1,'vg::Deconstructor']]],
+  ['add_5fallele_5fpath_5fto_5finfo_48',['add_allele_path_to_info',['../classvg_1_1VCFOutputCaller.html#a59a286bc432e93001bc3af35b6ec2f6a',1,'vg::VCFOutputCaller']]],
   ['add_5fallelic_5fmapq_49',['add_allelic_mapq',['../classvg_1_1MultipathAlignmentEmitter.html#a16f1487892be3126deaabf2ee7d22c7f',1,'vg::MultipathAlignmentEmitter']]],
   ['add_5falt_5fallele_50',['add_alt_allele',['../namespacevg.html#a6391a10ec421fbb6c487f491bd978ef6',1,'vg']]],
   ['add_5fbv_51',['add_bv',['../classVectorizer.html#a88203fab4049c471c963135c4c52ce03',1,'Vectorizer']]],

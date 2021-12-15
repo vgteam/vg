@@ -297,7 +297,7 @@ var searchData=
   ['get_5fref_5ffollowing_1854',['get_ref_following',['../structhaplo_1_1linear__haplo__structure.html#a2e9ec5540a31571c3daba83abf03d18d',1,'haplo::linear_haplo_structure']]],
   ['get_5fref_5finterval_1855',['get_ref_interval',['../classvg_1_1VCFOutputCaller.html#ab382edfcd67f4f3e73fe032cf8f96b04',1,'vg::VCFOutputCaller']]],
   ['get_5fref_5foffsets_1856',['get_ref_offsets',['../classvg_1_1RatioSupportSnarlCaller.html#a7f838a459153e23e7963a2bd779711de',1,'vg::RatioSupportSnarlCaller::get_ref_offsets()'],['../classvg_1_1TraversalSupportFinder.html#a437e9478fc7551f23246d954af4b0d90',1,'vg::TraversalSupportFinder::get_ref_offsets()']]],
-  ['get_5fref_5fposition_1857',['get_ref_position',['../classvg_1_1MCMCCaller.html#a368d2f5dbd85941acceec2a1d7d44d41',1,'vg::MCMCCaller']]],
+  ['get_5fref_5fposition_1857',['get_ref_position',['../classvg_1_1VCFOutputCaller.html#a9398350530fc4df45918dc1a14eed549',1,'vg::VCFOutputCaller::get_ref_position()'],['../classvg_1_1MCMCCaller.html#a368d2f5dbd85941acceec2a1d7d44d41',1,'vg::MCMCCaller::get_ref_position()']]],
   ['get_5fref_5fpositions_1858',['get_ref_positions',['../classvg_1_1VCFGenotyper.html#a60af53e97463c30ff180d3c1b8356df7',1,'vg::VCFGenotyper']]],
   ['get_5freference_5ftraversal_1859',['get_reference_traversal',['../classvg_1_1LegacyCaller.html#a6d00fa81c7923b88b886f87f28984184',1,'vg::LegacyCaller']]],
   ['get_5fregistry_1860',['get_registry',['../classvg_1_1subcommand_1_1Subcommand.html#a0e3707f1f4e9ce445faea71fddd61a00',1,'vg::subcommand::Subcommand']]],

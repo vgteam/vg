@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['z_9409',['Z',['../classvg_1_1truncated__normal__distribution.html#aeef658109dfa3a3d4904aea92a93b93d',1,'vg::truncated_normal_distribution']]],
-  ['zip_5falignments_9410',['zip_alignments',['../classvg_1_1MultipathAlignmentGraph.html#a96a24f6cbdc09cf0098251f8b61baf4a',1,'vg::MultipathAlignmentGraph']]]
+  ['z_9411',['Z',['../classvg_1_1truncated__normal__distribution.html#aeef658109dfa3a3d4904aea92a93b93d',1,'vg::truncated_normal_distribution']]],
+  ['zip_5falignments_9412',['zip_alignments',['../classvg_1_1MultipathAlignmentGraph.html#a96a24f6cbdc09cf0098251f8b61baf4a',1,'vg::MultipathAlignmentGraph']]]
 ];

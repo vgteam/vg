@@ -104,15 +104,23 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a7200c6586a6e4f2ceb8271c9e9635fa6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a7200c6586a6e4f2ceb8271c9e9635fa6">add_variant</a> (vcflib::Variant &amp;<a class="el" href="namespacevg.html#afe7fae89b379b5411189ac0ac74b2dd4">var</a>) const</td></tr>
 <tr class="memdesc:a7200c6586a6e4f2ceb8271c9e9635fa6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add a variant to our buffer.  <a href="classvg_1_1VCFOutputCaller.html#a7200c6586a6e4f2ceb8271c9e9635fa6">More...</a><br /></td></tr>
 <tr class="separator:a7200c6586a6e4f2ceb8271c9e9635fa6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1f1dca8be7cb9d0c6211aa08b9a1f0c9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a1f1dca8be7cb9d0c6211aa08b9a1f0c9">write_variants</a> (ostream &amp;out_stream) const</td></tr>
-<tr class="memdesc:a1f1dca8be7cb9d0c6211aa08b9a1f0c9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sort then write variants in the buffer.  <a href="classvg_1_1VCFOutputCaller.html#a1f1dca8be7cb9d0c6211aa08b9a1f0c9">More...</a><br /></td></tr>
-<tr class="separator:a1f1dca8be7cb9d0c6211aa08b9a1f0c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afff7887f0111aae8ae3103b990ff54dd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#afff7887f0111aae8ae3103b990ff54dd">write_variants</a> (ostream &amp;out_stream, const <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *snarl_manager=nullptr)</td></tr>
+<tr class="separator:afff7887f0111aae8ae3103b990ff54dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab063824a02c65e499cac3d2ca96ca504"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#ab063824a02c65e499cac3d2ca96ca504">vcf_fixup</a> (vcflib::Variant &amp;<a class="el" href="namespacevg.html#afe7fae89b379b5411189ac0ac74b2dd4">var</a>) const</td></tr>
 <tr class="memdesc:ab063824a02c65e499cac3d2ca96ca504"><td class="mdescLeft">&#160;</td><td class="mdescRight">Run vcffixup from vcflib.  <a href="classvg_1_1VCFOutputCaller.html#ab063824a02c65e499cac3d2ca96ca504">More...</a><br /></td></tr>
 <tr class="separator:ab063824a02c65e499cac3d2ca96ca504"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a87bbd2732f19f3f0e5c3cd76b31f4c84"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a87bbd2732f19f3f0e5c3cd76b31f4c84">set_translation</a> (const unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t &gt;&gt; *<a class="el" href="classvg_1_1VCFOutputCaller.html#a1f47dcd3e2a41a4d97aac00fb3694224">translation</a>)</td></tr>
+<tr class="memdesc:a87bbd2732f19f3f0e5c3cd76b31f4c84"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add a translation map.  <a href="classvg_1_1VCFOutputCaller.html#a87bbd2732f19f3f0e5c3cd76b31f4c84">More...</a><br /></td></tr>
+<tr class="separator:a87bbd2732f19f3f0e5c3cd76b31f4c84"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a35f5b2f9d93ea764e0d8f5f957ba4c3a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a35f5b2f9d93ea764e0d8f5f957ba4c3a">set_nested</a> (bool nested)</td></tr>
+<tr class="memdesc:a35f5b2f9d93ea764e0d8f5f957ba4c3a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Assume writing nested snarls is enabled.  <a href="classvg_1_1VCFOutputCaller.html#a35f5b2f9d93ea764e0d8f5f957ba4c3a">More...</a><br /></td></tr>
+<tr class="separator:a35f5b2f9d93ea764e0d8f5f957ba4c3a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
+<tr class="memitem:a59a286bc432e93001bc3af35b6ec2f6a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a59a286bc432e93001bc3af35b6ec2f6a">add_allele_path_to_info</a> (vcflib::Variant &amp;v, int allele, const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;trav, bool reversed, bool one_based) const</td></tr>
+<tr class="memdesc:a59a286bc432e93001bc3af35b6ec2f6a"><td class="mdescLeft">&#160;</td><td class="mdescRight">add a traversal to the VCF info field in the format of a GFA W-line or GAF path  <a href="classvg_1_1VCFOutputCaller.html#a59a286bc432e93001bc3af35b6ec2f6a">More...</a><br /></td></tr>
+<tr class="separator:a59a286bc432e93001bc3af35b6ec2f6a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae4b896a68da613eb2e8e509279e4e1b9"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#ae4b896a68da613eb2e8e509279e4e1b9">trav_string</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;trav) const</td></tr>
 <tr class="memdesc:ae4b896a68da613eb2e8e509279e4e1b9"><td class="mdescLeft">&#160;</td><td class="mdescRight">convert a traversal into an allele string  <a href="classvg_1_1VCFOutputCaller.html#ae4b896a68da613eb2e8e509279e4e1b9">More...</a><br /></td></tr>
 <tr class="separator:ae4b896a68da613eb2e8e509279e4e1b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -121,13 +129,17 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a7b50b8796e2599d6027cd4734e7107b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab382edfcd67f4f3e73fe032cf8f96b04"><td class="memItemLeft" align="right" valign="top">tuple&lt; int64_t, int64_t, bool, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#ab382edfcd67f4f3e73fe032cf8f96b04">get_ref_interval</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const string &amp;ref_path_name) const</td></tr>
 <tr class="separator:ab382edfcd67f4f3e73fe032cf8f96b04"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9398350530fc4df45918dc1a14eed549"><td class="memItemLeft" align="right" valign="top">pair&lt; string, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a9398350530fc4df45918dc1a14eed549">get_ref_position</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, const string &amp;ref_path_name, int64_t ref_path_offset) const</td></tr>
+<tr class="memdesc:a9398350530fc4df45918dc1a14eed549"><td class="mdescLeft">&#160;</td><td class="mdescRight">used for making gaf traversal names  <a href="classvg_1_1VCFOutputCaller.html#a9398350530fc4df45918dc1a14eed549">More...</a><br /></td></tr>
+<tr class="separator:a9398350530fc4df45918dc1a14eed549"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa2d19e56299e843d868e8e5fa5b45d49"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#aa2d19e56299e843d868e8e5fa5b45d49">flatten_common_allele_ends</a> (vcflib::Variant &amp;variant, bool backward, size_t len_override) const</td></tr>
 <tr class="separator:aa2d19e56299e843d868e8e5fa5b45d49"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4caf27532f13b728ac5f115f5a76752f"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a4caf27532f13b728ac5f115f5a76752f">print_snarl</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, bool in_brackets=true) const</td></tr>
-<tr class="memdesc:a4caf27532f13b728ac5f115f5a76752f"><td class="mdescLeft">&#160;</td><td class="mdescRight">print a snarl in a consistent form &lt;SNARL(Start,END)&gt;  <a href="classvg_1_1VCFOutputCaller.html#a4caf27532f13b728ac5f115f5a76752f">More...</a><br /></td></tr>
-<tr class="separator:a4caf27532f13b728ac5f115f5a76752f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3b9cfe228287ac605825ed4b0c8ea990"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a3b9cfe228287ac605825ed4b0c8ea990">print_snarl</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl, bool in_brackets=false) const</td></tr>
+<tr class="separator:a3b9cfe228287ac605825ed4b0c8ea990"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad6cbf084906bc4676fae7715495888b3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#ad6cbf084906bc4676fae7715495888b3">scan_snarl</a> (const string &amp;allele_string, function&lt; void(const string &amp;, <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;)&gt; callback) const</td></tr>
 <tr class="separator:ad6cbf084906bc4676fae7715495888b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a131c6d35d0722a64bd18b4a646efac5a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a131c6d35d0722a64bd18b4a646efac5a">update_nesting_info_tags</a> (const <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *snarl_manager)</td></tr>
+<tr class="separator:a131c6d35d0722a64bd18b4a646efac5a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
@@ -142,6 +154,10 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:acf04132e0a3cf52b5ba58a88f0b2d3d4"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#acf04132e0a3cf52b5ba58a88f0b2d3d4">max_uncalled_alleles</a> = 5</td></tr>
 <tr class="memdesc:acf04132e0a3cf52b5ba58a88f0b2d3d4"><td class="mdescLeft">&#160;</td><td class="mdescRight">print up to this many uncalled alleles when doing ref-genotpes in -a mode  <a href="classvg_1_1VCFOutputCaller.html#acf04132e0a3cf52b5ba58a88f0b2d3d4">More...</a><br /></td></tr>
 <tr class="separator:acf04132e0a3cf52b5ba58a88f0b2d3d4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1f47dcd3e2a41a4d97aac00fb3694224"><td class="memItemLeft" align="right" valign="top">const unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t &gt; &gt; *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#a1f47dcd3e2a41a4d97aac00fb3694224">translation</a></td></tr>
+<tr class="separator:a1f47dcd3e2a41a4d97aac00fb3694224"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afb5fc9a52eb170a49d6f77aad30e13f7"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFOutputCaller.html#afb5fc9a52eb170a49d6f77aad30e13f7">include_nested</a></td></tr>
+<tr class="separator:afb5fc9a52eb170a49d6f77aad30e13f7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Helper class that vcf writers can inherit from to for some common code to output sorted VCF </p>
@@ -190,6 +206,62 @@ Protected Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a59a286bc432e93001bc3af35b6ec2f6a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a59a286bc432e93001bc3af35b6ec2f6a">&#9670;&nbsp;</a></span>add_allele_path_to_info()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::VCFOutputCaller::add_allele_path_to_info </td>
+          <td>(</td>
+          <td class="paramtype">vcflib::Variant &amp;&#160;</td>
+          <td class="paramname"><em>v</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>allele</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;&#160;</td>
+          <td class="paramname"><em>trav</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>reversed</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>one_based</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>add a traversal to the VCF info field in the format of a GFA W-line or GAF path </p>
+
+</div>
+</div>
 <a id="a7200c6586a6e4f2ceb8271c9e9635fa6"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a7200c6586a6e4f2ceb8271c9e9635fa6">&#9670;&nbsp;</a></span>add_variant()</h2>
 
@@ -395,8 +467,58 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a4caf27532f13b728ac5f115f5a76752f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4caf27532f13b728ac5f115f5a76752f">&#9670;&nbsp;</a></span>print_snarl()</h2>
+<a id="a9398350530fc4df45918dc1a14eed549"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9398350530fc4df45918dc1a14eed549">&#9670;&nbsp;</a></span>get_ref_position()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">pair&lt; string, int64_t &gt; vg::VCFOutputCaller::get_ref_position </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;&#160;</td>
+          <td class="paramname"><em>snarl</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>ref_path_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>ref_path_offset</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>used for making gaf traversal names </p>
+
+</div>
+</div>
+<a id="a3b9cfe228287ac605825ed4b0c8ea990"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3b9cfe228287ac605825ed4b0c8ea990">&#9670;&nbsp;</a></span>print_snarl()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -414,7 +536,7 @@ Protected Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>in_brackets</em> = <code>true</code>&#160;</td>
+          <td class="paramname"><em>in_brackets</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -428,8 +550,7 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>print a snarl in a consistent form &lt;SNARL(Start,END)&gt; </p>
+<p>print a snarl in a consistent form like &gt;3435&lt;12222 if in_brackets set to true, do (&gt;3435&lt;12222) instead (this is only used for nested caller) </p>
 
 </div>
 </div>
@@ -466,7 +587,47 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>do the opposite of above So a string that looks like AACT&lt;12_-17&gt;TTT would invoke the callback three times with ("AACT", <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes.">Snarl</a>), ("", <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes.">Snarl</a>(12,-17)), ("TTT", <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes.">Snarl</a>(12,-17)) The parameters are to be treated as unions: A sequence fragment if non-empty, otherwise a snarl </p>
+<p>do the opposite of above So a string that looks like AACT(&gt;12&lt;17)TTT would invoke the callback three times with ("AACT", <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes.">Snarl</a>), ("", <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes.">Snarl</a>(12,-17)), ("TTT", <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes.">Snarl</a>(12,-17)) The parameters are to be treated as unions: A sequence fragment if non-empty, otherwise a snarl </p>
+
+</div>
+</div>
+<a id="a35f5b2f9d93ea764e0d8f5f957ba4c3a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a35f5b2f9d93ea764e0d8f5f957ba4c3a">&#9670;&nbsp;</a></span>set_nested()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::VCFOutputCaller::set_nested </td>
+          <td>(</td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>nested</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Assume writing nested snarls is enabled. </p>
+
+</div>
+</div>
+<a id="a87bbd2732f19f3f0e5c3cd76b31f4c84"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a87bbd2732f19f3f0e5c3cd76b31f4c84">&#9670;&nbsp;</a></span>set_translation()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::VCFOutputCaller::set_translation </td>
+          <td>(</td>
+          <td class="paramtype">const unordered_map&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, pair&lt; <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t &gt;&gt; *&#160;</td>
+          <td class="paramname"><em>translation</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Add a translation map. </p>
 
 </div>
 </div>
@@ -505,6 +666,32 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>convert a traversal into an allele string </p>
+
+</div>
+</div>
+<a id="a131c6d35d0722a64bd18b4a646efac5a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a131c6d35d0722a64bd18b4a646efac5a">&#9670;&nbsp;</a></span>update_nesting_info_tags()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::VCFOutputCaller::update_nesting_info_tags </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *&#160;</td>
+          <td class="paramname"><em>snarl_manager</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -574,8 +761,8 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a1f1dca8be7cb9d0c6211aa08b9a1f0c9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1f1dca8be7cb9d0c6211aa08b9a1f0c9">&#9670;&nbsp;</a></span>write_variants()</h2>
+<a id="afff7887f0111aae8ae3103b990ff54dd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afff7887f0111aae8ae3103b990ff54dd">&#9670;&nbsp;</a></span>write_variants()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -584,17 +771,48 @@ Protected Attributes</h2></td></tr>
           <td class="memname">void vg::VCFOutputCaller::write_variants </td>
           <td>(</td>
           <td class="paramtype">ostream &amp;&#160;</td>
-          <td class="paramname"><em>out_stream</em></td><td>)</td>
-          <td> const</td>
+          <td class="paramname"><em>out_stream</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *&#160;</td>
+          <td class="paramname"><em>snarl_manager</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Sort then write variants in the buffer. </p>
+<p>Sort then write variants in the buffer snarl_manager needed if include_nested is true </p>
 
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a id="afb5fc9a52eb170a49d6f77aad30e13f7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afb5fc9a52eb170a49d6f77aad30e13f7">&#9670;&nbsp;</a></span>include_nested</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::VCFOutputCaller::include_nested</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="acf04132e0a3cf52b5ba58a88f0b2d3d4"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#acf04132e0a3cf52b5ba58a88f0b2d3d4">&#9670;&nbsp;</a></span>max_uncalled_alleles</h2>
 
@@ -687,6 +905,28 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Sample name. </p>
+
+</div>
+</div>
+<a id="a1f47dcd3e2a41a4d97aac00fb3694224"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1f47dcd3e2a41a4d97aac00fb3694224">&#9670;&nbsp;</a></span>translation</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const unordered_map&lt;<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, pair&lt;<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, size_t&gt; &gt;* vg::VCFOutputCaller::translation</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
 
 </div>
 </div>

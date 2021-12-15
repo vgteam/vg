@@ -50,7 +50,7 @@ var searchData=
   ['include_5fendpoints_2259',['include_endpoints',['../classvg_1_1VCFTraversalFinder.html#a27189437955d4b5f8b8ca92433c8fac2',1,'vg::VCFTraversalFinder']]],
   ['include_5ffull_5flength_5fbonuses_2260',['include_full_length_bonuses',['../classvg_1_1Mapper.html#a9472c75cceb3382b70bbd27bfbc4a894',1,'vg::Mapper']]],
   ['include_5fmaximum_2261',['include_maximum',['../classvg_1_1MinimumDistanceIndex.html#ade8f33c194b0a747340be2fd95f72800',1,'vg::MinimumDistanceIndex']]],
-  ['include_5fnested_2262',['include_nested',['../classvg_1_1Deconstructor.html#aa4e0ab3b04cef5fe6079be0f524f8bd2',1,'vg::Deconstructor']]],
+  ['include_5fnested_2262',['include_nested',['../classvg_1_1VCFOutputCaller.html#afb5fc9a52eb170a49d6f77aad30e13f7',1,'vg::VCFOutputCaller']]],
   ['include_5freversing_5ftraversals_2263',['include_reversing_traversals',['../classvg_1_1ExhaustiveTraversalFinder.html#a1904edecc299fc004b02ce44ea9301f8',1,'vg::ExhaustiveTraversalFinder']]],
   ['inclusive_5finterval_2264',['inclusive_interval',['../classhaplo_1_1hDP__gbwt__graph__accessor.html#af66a44ac51fe4a01ce0b24e0490b657b',1,'haplo::hDP_gbwt_graph_accessor']]],
   ['increment_5fcoverage_2265',['increment_coverage',['../classvg_1_1Packer.html#ab97f6f0bb52c3641aceb5ffe4359492d',1,'vg::Packer::increment_coverage(size_t i)'],['../classvg_1_1Packer.html#a4da9199584ad1279a1e0a54aea12c6c1',1,'vg::Packer::increment_coverage(size_t i, size_t v)']]],

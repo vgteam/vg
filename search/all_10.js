@@ -333,7 +333,7 @@ var searchData=
   ['print_5frectangularized_5fbands_3817',['print_rectangularized_bands',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a6c94c4cb68bf76d3b8531f004c17b26d',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['print_5freport_3818',['print_report',['../classvg_1_1IndexedVG.html#a08b7d5f9e8ad7c9b42d58ce8d2629000',1,'vg::IndexedVG']]],
   ['print_5fself_3819',['print_self',['../classvg_1_1MinimumDistanceIndex.html#a5e6346d997862bc15289b39788e2f68a',1,'vg::MinimumDistanceIndex::print_self()'],['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a2359bb9756820a16b6486f54998c52c2',1,'vg::MinimumDistanceIndex::SnarlIndex::print_self()'],['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#aa72c9749d3b2b1743cbaa21033eb649e',1,'vg::MinimumDistanceIndex::ChainIndex::print_self()']]],
-  ['print_5fsnarl_3820',['print_snarl',['../classvg_1_1VCFOutputCaller.html#a4caf27532f13b728ac5f115f5a76752f',1,'vg::VCFOutputCaller']]],
+  ['print_5fsnarl_3820',['print_snarl',['../classvg_1_1VCFOutputCaller.html#a3b9cfe228287ac605825ed4b0c8ea990',1,'vg::VCFOutputCaller']]],
   ['print_5fsnarl_5fstats_3821',['print_snarl_stats',['../classvg_1_1MinimumDistanceIndex.html#aadfc399e1bb100f8895594e3e95bf89d',1,'vg::MinimumDistanceIndex']]],
   ['print_5fstatistics_3822',['print_statistics',['../classvg_1_1Genotyper.html#aadb967b3ab9daa067f8451c29fda0a5e',1,'vg::Genotyper']]],
   ['print_5fupdates_3823',['print_updates',['../classvg_1_1VariantAdder.html#af52ce72b2446132042df93857eb12b63',1,'vg::VariantAdder']]],
