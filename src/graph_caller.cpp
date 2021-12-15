@@ -632,6 +632,20 @@ tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> VCFOutputCaller::get
     }
 }
 
+pair<string, int64_t> VCFOutputCaller::get_ref_position(const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name,
+                                                        int64_t ref_path_offset) const {
+    string basepath_name = ref_path_name;
+    size_t basepath_offset = 0;
+    auto subpath_info = Paths::parse_subpath_name(ref_path_name);
+    if (get<0>(subpath_info)) {
+        basepath_name = get<1>(subpath_info);
+        basepath_offset = get<2>(subpath_info);
+    }
+    // +1 to convert to 1-based VCF
+    int64_t position = get<0>(get_ref_interval(graph, snarl, ref_path_name)) + ref_path_offset + 1 + basepath_offset;
+    return make_pair(basepath_name, position);
+}
+
 void VCFOutputCaller::flatten_common_allele_ends(vcflib::Variant& variant, bool backward, size_t len_override) const {
     if (variant.alt.size() == 0) {
         return;
@@ -759,28 +773,44 @@ GAFOutputCaller::GAFOutputCaller(AlignmentEmitter* emitter, const string& sample
 GAFOutputCaller::~GAFOutputCaller() {
 }
 
-void GAFOutputCaller::emit_gaf_traversals(const PathHandleGraph& graph, const vector<SnarlTraversal>& travs,
+void GAFOutputCaller::emit_gaf_traversals(const PathHandleGraph& graph, const string& snarl_name,
+                                          const vector<SnarlTraversal>& travs,
+                                          int64_t ref_trav_idx,
+                                          const string& ref_path_name, int64_t ref_path_position,
                                           const TraversalSupportFinder* support_finder) {
     assert(emitter != nullptr);
     vector<Alignment> aln_batch;
     aln_batch.reserve(travs.size());
 
-    string variant_id = gaf_sample_name;
-    if (!travs.empty() && travs[0].visit_size() > 0) {
-        variant_id += + "_" + std::to_string(travs[0].visit(0).node_id()) + "_" +
-            std::to_string(travs[0].visit(travs[0].visit_size() - 1).node_id());
+    stringstream ss;
+    if (!ref_path_name.empty()) {
+        ss << ref_path_name << "#" << ref_path_position << "#";
     }
-        
+    ss << snarl_name << "#" << gaf_sample_name;
+    string variant_id = ss.str();
+
+    // create allele ordering where reference is 0
+    vector<int> alleles;
+    if (ref_trav_idx >= 0) {
+        alleles.push_back(ref_trav_idx);
+    }
     for (int i = 0; i < travs.size(); ++i) {
+        if (i != ref_trav_idx) {
+            alleles.push_back(i);
+        }
+    }
+    // make an alignment for each traversal
+    for (int i = 0; i < alleles.size(); ++i) {
+        const SnarlTraversal& trav = travs[alleles[i]];
         Alignment trav_aln;
         if (trav_padding > 0) {
-            trav_aln = to_alignment(pad_traversal(graph, travs[i]), graph);
+            trav_aln = to_alignment(pad_traversal(graph, trav), graph);
         } else {
-            trav_aln = to_alignment(travs[i], graph);
+            trav_aln = to_alignment(trav, graph);
         }
-        trav_aln.set_name(variant_id + "_" + std::to_string(i));
+        trav_aln.set_name(variant_id + "#" + std::to_string(i));
         if (support_finder) {
-            int64_t support = support_finder->support_val(support_finder->get_traversal_support(travs[i]));
+            int64_t support = support_finder->support_val(support_finder->get_traversal_support(trav));
             set_annotation(trav_aln, "support", std::to_string(support));
         }        
         aln_batch.push_back(trav_aln);
@@ -788,23 +818,21 @@ void GAFOutputCaller::emit_gaf_traversals(const PathHandleGraph& graph, const ve
     emitter->emit_singles(std::move(aln_batch)); 
 }
 
-void GAFOutputCaller::emit_gaf_variant(const HandleGraph& graph, 
-                                       const Snarl& snarl,
-                                       const vector<SnarlTraversal>& traversals,
-                                       const vector<int>& genotype) {
+void GAFOutputCaller::emit_gaf_variant(const PathHandleGraph& graph, const string& snarl_name,
+                                       const vector<SnarlTraversal>& travs,
+                                       const vector<int>& genotype,
+                                       int64_t ref_trav_idx,
+                                       const string& ref_path_name, int64_t ref_path_position,
+                                       const TraversalSupportFinder* support_finder) {
     assert(emitter != nullptr);
 
     // pretty bare bones for now, just output the genotype as a pair of traversals
     // todo: we could embed some basic information (likelihood, ploidy, sample etc) in the gaf
-    string variant_id = gaf_sample_name + "_" + std::to_string(snarl.start().node_id()) + "_" + std::to_string(snarl.end().node_id());
-
-    vector<Alignment> aln_gt;
-    aln_gt.reserve(genotype.size());
-    for (int i = 0; i < genotype.size(); ++i) {
-        aln_gt.push_back(to_alignment(traversals[genotype[i]], graph));
-        aln_gt.back().set_name(variant_id + "_" + std::to_string(i));
+    vector<SnarlTraversal> gt_travs;
+    for (int allele : genotype) {
+        gt_travs.push_back(travs[allele]);
     }
-    emitter->emit_singles(std::move(aln_gt));
+    emit_gaf_traversals(graph, snarl_name, gt_travs, ref_trav_idx, ref_path_name, ref_path_position, support_finder);
 }
 
 SnarlTraversal GAFOutputCaller::pad_traversal(const PathHandleGraph& graph, const SnarlTraversal& trav) const {
@@ -1038,16 +1066,17 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
             }
         }
 
-        // just print the traversals if requested
-        if (traversals_only) {
-            assert(gaf_output);
-            emit_gaf_traversals(graph, travs);
-            return true;
-        }
-
         // find a path range corresponding to our snarl by way of the VCF variants.
         tuple<string, size_t, size_t> ref_positions = get_ref_positions(variants);
 
+        // just print the traversals if requested
+        if (traversals_only) {
+            assert(gaf_output);
+            // todo: can't get ref position here without pathposition graph
+            emit_gaf_traversals(graph, print_snarl(snarl), travs, ref_trav_idx, "", -1);
+            return true;
+        }
+        
         // use our support caller to choose our genotype (int traversal coordinates)
         vector<int> trav_genotype;
         unique_ptr<SnarlCaller::CallInfo> trav_call_info;
@@ -1057,7 +1086,8 @@ bool VCFGenotyper::call_snarl(const Snarl& snarl) {
         assert(trav_genotype.size() <= 2);
 
         if (gaf_output) {
-            emit_gaf_variant(graph, snarl, travs, trav_genotype);
+            // todo: can't get ref position here without pathposition graph
+            emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, "", -1);
             return true;
         }
 
@@ -1748,7 +1778,8 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
 
     if (traversals_only) {
         assert(gaf_output);
-        emit_gaf_traversals(graph, travs, &support_finder);
+        pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offsets[ref_path_name]);
+        emit_gaf_traversals(graph, print_snarl(snarl), travs, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
     } else {
         // use our support caller to choose our genotype
         vector<int> trav_genotype;
@@ -1763,7 +1794,8 @@ bool FlowCaller::call_snarl(const Snarl& managed_snarl) {
             emit_variant(graph, snarl_caller, snarl, travs, trav_genotype, ref_trav_idx, trav_call_info, ref_path_name,
                          ref_offsets[ref_path_name], genotype_snarls, ploidy);
         } else {
-            emit_gaf_variant(graph, snarl, travs, trav_genotype);
+            pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, ref_offsets[ref_path_name]);
+            emit_gaf_variant(graph, print_snarl(snarl), travs, trav_genotype, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
         }
 
         ret_val = trav_genotype.size() == ploidy;
@@ -1984,13 +2016,14 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
     // toggle average flow / flow width based on snarl length.  this is a bit inconsistent with
     // downstream which uses the longest traversal length, but it's a bit chicken and egg
     // todo: maybe use snarl length for everything?
+    const auto& support_finder = dynamic_cast<SupportBasedSnarlCaller&>(snarl_caller).get_support_finder();
+    
     bool greedy_avg_flow = false;
     {
         auto snarl_contents = snarl_manager.shallow_contents(&snarl, graph, false);
         if (max(snarl_contents.first.size(), snarl_contents.second.size()) > max_snarl_shallow_size) {
             return false;
         }
-        const auto& support_finder = dynamic_cast<SupportBasedSnarlCaller&>(snarl_caller).get_support_finder();
         size_t len_threshold = support_finder.get_average_traversal_support_switch_threshold();
         size_t length = 0;
         for (auto i = snarl_contents.first.begin(); i != snarl_contents.first.end() && length < len_threshold; ++i) {
@@ -2061,7 +2094,8 @@ bool NestedFlowCaller::call_snarl_recursive(const Snarl& managed_snarl, int max_
         for (SnarlTraversal& traversal : travs) {
             snarl_graph.embed_snarls(traversal);
         }
-        emit_gaf_traversals(graph, travs);
+        pair<string, int64_t> pos_info = get_ref_position(graph, snarl, ref_path_name, 0);
+        emit_gaf_traversals(graph, print_snarl(snarl), travs, ref_trav_idx, pos_info.first, pos_info.second, &support_finder);
     } else {
         // use our support caller to choose our genotype
         for (int ploidy = 1; ploidy <= max_ploidy; ++ploidy) {

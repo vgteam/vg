@@ -112,7 +112,11 @@ protected:
     /// the bool is true if the snarl's backward on the path
     /// first returned value -1 if no traversal found 
     tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> get_ref_interval(const PathPositionHandleGraph& graph, const Snarl& snarl,
-                                                                               const string& ref_path_name) const;
+                                                                                 const string& ref_path_name) const;
+
+    /// used for making gaf traversal names
+    pair<string, int64_t> get_ref_position(const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name,
+                                           int64_t ref_path_offset) const;
 
     /// clean up the alleles to not share common prefixes / suffixes
     /// if len_override given, just do that many bases without thinking
@@ -162,15 +166,20 @@ public:
     virtual ~GAFOutputCaller();
 
     /// print the GAF traversals
-    void emit_gaf_traversals(const PathHandleGraph& graph, const vector<SnarlTraversal>& travs,
-                             const TraversalSupportFinder* trav_support_finder = nullptr);
+    void emit_gaf_traversals(const PathHandleGraph& graph, const string& snarl_name,
+                             const vector<SnarlTraversal>& travs,
+                             int64_t ref_trav_idx,
+                             const string& ref_path_name, int64_t ref_path_position,
+                             const TraversalSupportFinder* support_finder = nullptr);
 
     /// print the GAF genotype
-    void emit_gaf_variant(const HandleGraph& graph,
-                          const Snarl& snarl,
-                          const vector<SnarlTraversal>& traversals,
-                          const vector<int>& genotype);
-
+    void emit_gaf_variant(const PathHandleGraph& graph, const string& snarl_name,
+                          const vector<SnarlTraversal>& travs,
+                          const vector<int>& genotype,
+                          int64_t ref_trav_idx,
+                          const string& ref_path_name, int64_t ref_path_position,
+                          const TraversalSupportFinder* support_finder = nullptr);
+    
     /// pad a traversal with (first found) reference path, adding up to trav_padding to each side
     SnarlTraversal pad_traversal(const PathHandleGraph& graph, const SnarlTraversal& trav) const;
     
