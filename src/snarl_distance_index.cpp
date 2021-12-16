@@ -1053,9 +1053,12 @@ void subgraph_in_distance_range(const SnarlDistanceIndex& distance_index, const 
         start_pos = reverse_base_pos(start_pos, node_len);
     }
 
+#ifdef debug_subgraph
+cerr << "Start positon: "<< start_pos << endl;
+#endif
     //The distance from the position to the ends of the current node(/snarl/chain)
-    size_t current_distance_left = is_rev(start_pos) ? node_len - get_offset(start_pos) + 1 : std::numeric_limits<size_t>::max() ;
-    size_t current_distance_right = is_rev(start_pos) ? std::numeric_limits<size_t>::max() : node_len - get_offset(start_pos) + 1;
+    size_t current_distance_left = is_rev(start_pos) ? node_len - get_offset(start_pos) : std::numeric_limits<size_t>::max() ;
+    size_t current_distance_right = is_rev(start_pos) ? std::numeric_limits<size_t>::max() : node_len - get_offset(start_pos) ;
 
     //Graph node of the start and end of the current node(/snarl/chain) pointing out
     net_handle_t current_net = distance_index.get_node_net_handle(get_id(start_pos));
@@ -1063,49 +1066,78 @@ void subgraph_in_distance_range(const SnarlDistanceIndex& distance_index, const 
 
     //The id and orientation of nodes that are too close and should be avoided
     hash_set<pair<id_t, bool>> seen_nodes;
-    //Nodes that we want to start a search from - the distance is smaller than min_distance but
+    //Nodes that we want to start a search from - the distance is smaller or equal to than min_distance but
     //we can't walk out any further along the snarl tree without exceeding it
+    //The distance is the distance from the start position to the beginning (or end if its backwards) of the node,
+    //including the position
     vector<pair<handle_t, size_t>> search_start_nodes;
 
 
     //helper function to walk along a chain from the current node until the distance traversed
     //exceeds the minimum limit. Add the node just before this happens to search_start_nodes
     auto add_start_node_from_chain = [&] (net_handle_t current_node, size_t& current_distance){
+#ifdef debug_subgraph
+        cerr << "Walk along chain from " << distance_index.net_handle_as_string(current_node) << " with " << current_distance << endl;
+#endif
         bool finished_chain = false;
-        while (current_distance < min_distance && !finished_chain) {
+        while (current_distance <= min_distance && !finished_chain) {
             finished_chain = distance_index.follow_net_edges(current_node, super_graph, false, 
                 [&](const net_handle_t& next) {
                     size_t next_length = distance_index.minimum_length(next);
                     size_t next_max_length = distance_index.maximum_length(next);
-                    if (SnarlDistanceIndex::sum({next_max_length, current_distance}) > min_distance) {
+#ifdef debug_subgraph
+                    cerr << "\tnext node: " << distance_index.net_handle_as_string(next) << " with distance " << current_distance << " and min and max lengths " << next_length << " " << next_max_length << endl;
+#endif
+                    if ( SnarlDistanceIndex::sum({next_max_length, current_distance}) != std::numeric_limits<size_t>::max()  &&
+                         SnarlDistanceIndex::sum({next_max_length, current_distance}) >= min_distance) {
                         if (distance_index.is_node(next)) {
-                            //If the thing that puts us over the limit is a node, then start 
-                            //the search from that node
+                            size_t curr_distance_end = SnarlDistanceIndex::sum({next_max_length, current_distance});
+                            //If its a node that puts us over, add the node to the subgraph, then start the search from that node
+                            if ((current_distance >= min_distance && current_distance < max_distance) ||
+                                 (curr_distance_end >= min_distance && curr_distance_end <= max_distance) ||
+                                 (current_distance < min_distance && curr_distance_end >= max_distance)) {
+                                subgraph.emplace(distance_index.node_id(next));
+                            }
+                            super_graph->follow_edges(distance_index.get_handle(next, super_graph), false, [&](const handle_t& next_handle) {
+                                search_start_nodes.emplace_back(next_handle, 
+                                    SnarlDistanceIndex::sum({current_distance, next_length}));
+                            });
+                        } else {
                             //If it's a snarl, then we'll start from the last node
 #ifdef debug_subgraph
-                            cerr << "Adding node from the end of a snarl in a chain " << distance_index.net_handle_as_string(next) << " with distance " << current_distance << " and next node length " << next_length << endl;
+                            cerr << "\t\tAdding node from a chain " << distance_index.net_handle_as_string(next) << " with distance " << current_distance << endl;
 #endif
-                            search_start_nodes.emplace_back(distance_index.get_handle(next, super_graph), 
-                                    SnarlDistanceIndex::sum({next_length, current_distance}));
-                        } else {
-#ifdef debug_subgraph
-                            cerr << "Adding node from a chain " << distance_index.net_handle_as_string(next) << " with distance " << current_distance << endl;
-#endif
-                            search_start_nodes.emplace_back(distance_index.get_handle(current_node, super_graph), current_distance);
+                            super_graph->follow_edges(distance_index.get_handle(current_node, super_graph), false, [&](const handle_t& next_handle) {
+                                search_start_nodes.emplace_back(next_handle,current_distance);
+                            });
                         }
+                        //If we added something, stop traversing the chain
+                        return true;
+                    } else if (distance_index.is_node(next)) {
+                        seen_nodes.emplace(distance_index.node_id(next), distance_index.ends_at(next) == SnarlDistanceIndex::END);
                     }
                     current_node = next;
                     current_distance = SnarlDistanceIndex::sum({next_length, current_distance});
+                    if (current_distance > max_distance) {
+                        return true;
+                    } else {
+                        return false;
+                    }
             }); 
         }
     };
 
     while (!distance_index.is_root(parent)) {
-        cerr << "At parent " << distance_index.net_handle_as_string(parent) << endl;
+        cerr << "\tAt " << distance_index.net_handle_as_string(current_net) << " with distances " << current_distance_left << " " << current_distance_right << endl;
 
         //Distance from the start of the parent to the left of the current node
         size_t max_parent_length = distance_index.maximum_length(parent);
-        cerr << "Parent has max length " << max_parent_length << endl;
+        cerr << "Max length of parent: " << max_parent_length << endl;
+        cerr << "Distances to parent: " << distance_index.distance_to_parent_bound(parent, true, current_net, true)
+            << distance_index.distance_to_parent_bound(parent, true, current_net, false) << " "
+            << distance_index.distance_to_parent_bound(parent, false, current_net, true) << " "
+            << distance_index.distance_to_parent_bound(parent, false, current_net, false)<< " " 
+            << endl;
         size_t distance_start_left = SnarlDistanceIndex::sum({current_distance_left,
                     distance_index.distance_to_parent_bound(parent, true, current_net, true)});
         size_t distance_start_right = SnarlDistanceIndex::sum({current_distance_right,
@@ -1116,35 +1148,37 @@ void subgraph_in_distance_range(const SnarlDistanceIndex& distance_index, const 
                      distance_index.distance_to_parent_bound(parent, false, current_net, false)});
 
         if (SnarlDistanceIndex::sum({max_parent_length, current_distance_left}) != std::numeric_limits<size_t>::max() &&
-            SnarlDistanceIndex::sum({max_parent_length, current_distance_left}) > min_distance) {
+            SnarlDistanceIndex::sum({max_parent_length, current_distance_left}) >= min_distance) {
             //if the distance walking out from the start of the current node will exceed the minimum 
             //distance within the parent
             //If the parent is a snarl then add the start of the current node to the list of things to search 
             //from, if it's a chain then walk along the chain until the distance exceeds it
             if (distance_index.is_snarl(parent)){
 #ifdef debug_subgraph
-                cerr << "Adding the child of a snarl " << distance_index.net_handle_as_string(distance_index.get_bound(current_net, false, false)) << " with distance " << current_distance_left << endl;
+                cerr << "Adding the child " << distance_index.net_handle_as_string(parent) << ": " << distance_index.net_handle_as_string(distance_index.get_bound(current_net, false, false)) << " with distance left " << current_distance_left << endl;
 #endif
-                search_start_nodes.emplace_back(distance_index.get_handle(
-                        distance_index.get_bound(current_net, false, false), super_graph),
-                     current_distance_left);
+                super_graph->follow_edges(distance_index.get_handle(distance_index.get_bound(current_net, false, false), super_graph), 
+                        false, [&](const handle_t& next_handle) {
+                    search_start_nodes.emplace_back(next_handle,current_distance_left);
+                });
             } else {
                 //current_distance_left is the distance including current_node
                 //When adding the length of the next node exceeds the min_distance,
                 //add the current node
-                add_start_node_from_chain(current_net, current_distance_left);
+                add_start_node_from_chain(distance_index.flip(current_net), current_distance_left);
             }
         }
         if (SnarlDistanceIndex::sum({max_parent_length, current_distance_right}) != std::numeric_limits<size_t>::max() &&
-SnarlDistanceIndex::sum({max_parent_length, current_distance_right}) > min_distance) {
+            SnarlDistanceIndex::sum({max_parent_length, current_distance_right}) >= min_distance) {
             //The same thing for the end of the current node
             if (distance_index.is_snarl(parent)){
 #ifdef debug_subgraph
-                cerr << "Adding the child of a snarl " << distance_index.net_handle_as_string(distance_index.get_bound(current_net, false, false)) << " with distance " << current_distance_right << endl;
+                cerr << "Adding the child of " << distance_index.net_handle_as_string(parent) << ": "<< distance_index.net_handle_as_string(distance_index.get_bound(current_net, false, false)) << " with distance " << current_distance_right << endl;
 #endif
-                search_start_nodes.emplace_back(distance_index.get_handle(
-                        distance_index.get_bound(current_net, true, false), super_graph),
-                    current_distance_right);
+                super_graph->follow_edges(distance_index.get_handle(distance_index.get_bound(current_net, true, false), super_graph), 
+                        false, [&](const handle_t& next_handle) {
+                    search_start_nodes.emplace_back(next_handle,current_distance_right);
+                });
             } else {
                 //current_distance_right is the distance including current_node
                 //When adding the length of the next node exceeds the min_distance,
@@ -1158,7 +1192,7 @@ SnarlDistanceIndex::sum({max_parent_length, current_distance_right}) > min_dista
         current_net = std::move(parent);
         parent = distance_index.get_parent(current_net);
     }
-    if (current_distance_left < min_distance) {
+    if (current_distance_left <= min_distance) {
 #ifdef debug_subgraph
         cerr << "Adding the end of a child of the root " << distance_index.net_handle_as_string(distance_index.get_bound(current_net, false, false)) << " with distance " << current_distance_left << endl;
 #endif
@@ -1167,7 +1201,7 @@ SnarlDistanceIndex::sum({max_parent_length, current_distance_right}) > min_dista
                 distance_index.get_bound(current_net, false, false), super_graph),
             current_distance_left);
     }
-    if (current_distance_right < min_distance) {
+    if (current_distance_right <= min_distance) {
 #ifdef debug_subgraph
         cerr << "Adding the end of a child of the root " << distance_index.net_handle_as_string(distance_index.get_bound(current_net, false, false)) << " with distance " << current_distance_right << endl;
 #endif
@@ -1217,10 +1251,10 @@ void add_nodes_in_distance_range(const HandleGraph* super_graph, size_t min_dist
             seen_nodes.emplace(super_graph->get_id(curr_handle), super_graph->get_is_reverse(curr_handle));
 
             size_t node_len = super_graph->get_length(curr_handle);
-            size_t curr_distance_end = SnarlDistanceIndex::sum({curr_distance, node_len - 1});
-            if ((curr_distance >= min_distance && curr_distance <= max_distance) ||
+            size_t curr_distance_end = SnarlDistanceIndex::sum({curr_distance, node_len});
+            if ((curr_distance >= min_distance && curr_distance < max_distance) ||
                  (curr_distance_end >= min_distance && curr_distance_end <= max_distance) ||
-                 (curr_distance <= min_distance && curr_distance_end >= max_distance)) {
+                 (curr_distance < min_distance && curr_distance_end >= max_distance)) {
 #ifdef debug_subgraph
                 cerr << "\tadding node " << super_graph->get_id(curr_handle) << " " << super_graph->get_is_reverse(curr_handle) << " with distance "
                      << curr_distance << " and node length " << node_len << endl;
