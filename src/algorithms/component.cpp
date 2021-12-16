@@ -1,5 +1,5 @@
 /** \file
- * Implements the connected component paths function
+ * Implements per-component algorithms
  */
 
 #include <queue>
@@ -9,7 +9,7 @@
 #include <structures/union_find.hpp>
 
 #include "../cluster.hpp"
-#include "component_paths.hpp"
+#include "component.hpp"
 #include "utility.hpp"
 #include "sdsl/bit_vectors.hpp"
 #include "sdsl/int_vector.hpp"
@@ -22,10 +22,10 @@ namespace algorithms {
 
 using namespace std;
 
-vector<unordered_set<path_handle_t>> component_paths(const PathHandleGraph& graph) {
-    
-    vector<unordered_set<path_handle_t>> component_path_sets;
-    
+// internal generic BFS implementation
+void traverse_components(const HandleGraph& graph,
+                         function<void(void)>& on_new_comp,
+                         function<void(handle_t)>& on_node) {
     // we will use this as a bit-flag for when a node id has already been
     // traverseed
     id_t min_id = graph.min_node_id();
@@ -43,14 +43,13 @@ vector<unordered_set<path_handle_t>> component_paths(const PathHandleGraph& grap
 #endif
         
         // a node that hasn't been traversed means a new component
-        component_path_sets.emplace_back();
-        unordered_set<path_handle_t>& component_path_set = component_path_sets.back();
+        on_new_comp();
         
         // init a BFS queue
         deque<handle_t> queue;
         
         // function to call on each subsequent handle we navigate to
-        function<bool(const handle_t&)> record_paths_and_enqueue = [&](const handle_t& here) {
+        function<bool(const handle_t&)> on_node_and_enqueue = [&](const handle_t& here) {
             
 #ifdef debug_component_paths
             cerr << "traverse to handle on node " << graph.get_id(here) << endl;
@@ -60,12 +59,7 @@ vector<unordered_set<path_handle_t>> component_paths(const PathHandleGraph& grap
             if (!enqueued[graph.get_id(here) - min_id]) {
                 
                 // add the paths of the new node
-                graph.for_each_step_on_handle(here, [&](const step_handle_t& step) {
-                    component_path_set.insert(graph.get_path_handle_of_step(step));
-#ifdef debug_component_paths
-                    cerr << "found path " << graph.get_path_name(graph.get_path_handle_of_step(step)) << endl;
-#endif
-                });
+                on_node(here);
                 
                 // and add it to the queue
                 queue.push_back(here);
@@ -75,7 +69,7 @@ vector<unordered_set<path_handle_t>> component_paths(const PathHandleGraph& grap
         };
         
         // queue up the first node
-        record_paths_and_enqueue(handle);
+        on_node_and_enqueue(handle);
         
         // do the BFS traversal
         while (!queue.empty()) {
@@ -83,10 +77,51 @@ vector<unordered_set<path_handle_t>> component_paths(const PathHandleGraph& grap
             queue.pop_front();
             
             // traverse in both directions
-            graph.follow_edges(handle, false, record_paths_and_enqueue);
-            graph.follow_edges(handle, true, record_paths_and_enqueue);
+            graph.follow_edges(handle, false, on_node_and_enqueue);
+            graph.follow_edges(handle, true, on_node_and_enqueue);
         }
     });
+}
+
+vector<size_t> component_sizes(const HandleGraph& graph) {
+    
+    vector<size_t> comp_sizes;
+    
+    // add a new size for a new component
+    function<void(void)> on_new_comp = [&]() {
+        comp_sizes.push_back(0);
+    };
+    
+    // add the paths of the new node
+    function<void(handle_t)> on_node = [&](const handle_t here) {
+        comp_sizes.back()++;
+    };
+    
+    return comp_sizes;
+}
+
+
+vector<unordered_set<path_handle_t>> component_paths(const PathHandleGraph& graph) {
+    
+    vector<unordered_set<path_handle_t>> component_path_sets;
+    
+    // add a new set for a new component
+    function<void(void)> on_new_comp = [&]() {
+        component_path_sets.emplace_back();
+    };
+    
+    // add the paths of the new node
+    function<void(handle_t)> on_node = [&](const handle_t here) {
+        graph.for_each_step_on_handle(here, [&](const step_handle_t& step) {
+            component_path_sets.back().insert(graph.get_path_handle_of_step(step));
+            
+#ifdef debug_component_paths
+            cerr << "found path " << graph.get_path_name(graph.get_path_handle_of_step(step)) << endl;
+#endif
+        });
+    };
+    
+    traverse_components(graph, on_new_comp, on_node);
     
     return component_path_sets;
 }

@@ -56,6 +56,7 @@
 
 #include "algorithms/gfa_to_handle.hpp"
 #include "algorithms/prune.hpp"
+#include "algorithms/component.hpp"
 
 //#define debug_index_registry
 //#define debug_index_registry_setup
@@ -2626,11 +2627,14 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         auto xg_index = vg::io::VPKG::load_one<xg::XG>(infile_xg);
         
+        auto comp_sizes = algorithms::component_sizes(*xg_index);
+        size_t max_comp_size = *max_element(comp_sizes.begin(), comp_sizes.end());
+        
         // make a GBWT from a greedy path cover
         gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*xg_index,
                                                       IndexingParameters::path_cover_depth,
                                                       IndexingParameters::downsample_context_length,
-                                                      200 * gbwt::MILLION, // buffer size
+                                                      20 * max_comp_size, // buffer size recommendation from Jouni
                                                       IndexingParameters::gbwt_sampling_interval,
                                                       IndexingParameters::verbosity >= IndexingParameters::Debug);
         

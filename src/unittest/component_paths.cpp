@@ -1,6 +1,6 @@
 #include "catch.hpp"
 #include "../utility.hpp"
-#include "../algorithms/component_paths.hpp"
+#include "../algorithms/component.hpp"
 
 #include <bdsg/hash_graph.hpp>
 
