@@ -17947,7 +17947,7 @@ template&lt;class Decoder &gt; </div>
 <p>The first and the last node can be used as context. For example (aXb, aYb) can be interpreted as "replace X with Y in context a b". If both subpaths end with the same node, the cursor will point at that node after the mapping. Otherwise the cursor will be set past the original subpath.</p>
 <p>NOTE: To avoid infinite loops, the cursor will proceed after a mapping of the type (a, Xa).</p>
 <p>The process can be partitioned into multiple non-overlapping jobs, each of them corresponding to one or more weakly connected components in the graph. Multiple jobs can be run in parallel using 2 threads each, and the jobs will be started from the largest to the smallest.</p>
-<p><code>node_to_job</code> maps each node identifier to the corresponding job identifier.</p>
+<p><code>node_to_job</code> maps each node identifier to the corresponding job identifier. Empty paths go to the first job, but this can be overridden by including <code>gbwt::ENDMARKER</code> in <code>node_to_job</code>.</p>
 <p>NOTE: Threads may be reordered if there are multiple jobs. Old thread ids are no longer valid after rebuilding the GBWT. </p>
 
 </div>
