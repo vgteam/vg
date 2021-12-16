@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.17"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/algorithms/component_paths.cpp File Reference</title>
+<title>vg: src/algorithms/component.hpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -70,19 +70,11 @@ $(function() {
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
-<div class="title">component_paths.cpp File Reference</div>  </div>
+<div class="title">component.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &lt;queue&gt;</code><br />
-<code>#include &lt;thread&gt;</code><br />
-<code>#include &lt;atomic&gt;</code><br />
-<code>#include &lt;mutex&gt;</code><br />
-<code>#include &lt;structures/union_find.hpp&gt;</code><br />
-<code>#include &quot;<a class="el" href="cluster_8hpp.html">../cluster.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="component__paths_8hpp.html">component_paths.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="utility_8hpp.html">utility.hpp</a>&quot;</code><br />
-<code>#include &quot;sdsl/bit_vectors.hpp&quot;</code><br />
-<code>#include &quot;sdsl/int_vector.hpp&quot;</code><br />
+<div class="textblock"><code>#include &lt;structures/rank_pairing_heap.hpp&gt;</code><br />
+<code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
@@ -93,16 +85,15 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
+<tr class="memitem:a8e5fdb03a21f88395e1d69f53821ae59"><td class="memItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a8e5fdb03a21f88395e1d69f53821ae59">vg::algorithms::component_sizes</a> (const HandleGraph &amp;graph)</td></tr>
+<tr class="separator:a8e5fdb03a21f88395e1d69f53821ae59"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a51f810108840ab4014eb58b2bfe19ac1"><td class="memItemLeft" align="right" valign="top">vector&lt; unordered_set&lt; path_handle_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a51f810108840ab4014eb58b2bfe19ac1">vg::algorithms::component_paths</a> (const PathHandleGraph &amp;graph)</td></tr>
 <tr class="separator:a51f810108840ab4014eb58b2bfe19ac1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acd891e00c4846e53f760d504434ead12"><td class="memTemplParams" colspan="2">template&lt;typename Int1 , typename Int2 &gt; </td></tr>
-<tr class="memitem:acd891e00c4846e53f760d504434ead12"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#acd891e00c4846e53f760d504434ead12">vg::algorithms::reallocate_atomic_int_vector</a> (vector&lt; atomic&lt; Int1 &gt;&gt; *&amp;vec1, vector&lt; atomic&lt; Int2 &gt;&gt; *&amp;vec2)</td></tr>
-<tr class="separator:acd891e00c4846e53f760d504434ead12"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a10b07f6f41f8dd36c5d3b1ff9a03ce93"><td class="memItemLeft" align="right" valign="top">vector&lt; unordered_set&lt; path_handle_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a10b07f6f41f8dd36c5d3b1ff9a03ce93">vg::algorithms::component_paths_parallel</a> (const PathHandleGraph &amp;graph)</td></tr>
 <tr class="separator:a10b07f6f41f8dd36c5d3b1ff9a03ce93"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Implements the connected component paths function </p>
+<div class="textblock"><p>Contains algorithms that report per-component info </p>
 </div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->

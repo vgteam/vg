@@ -121,6 +121,10 @@ Functions</h2></td></tr>
 <tr class="memitem:ae18b50d29d9accb763b44d6e065dac58"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ae18b50d29d9accb763b44d6e065dac58">min_approx_path_distance</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos1, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos2, uint64_t max_search)</td></tr>
 <tr class="memdesc:ae18b50d29d9accb763b44d6e065dac58"><td class="mdescLeft">&#160;</td><td class="mdescRight">use the embedded paths to get an estimated minimum distance between the positions  <a href="namespacevg_1_1algorithms.html#ae18b50d29d9accb763b44d6e065dac58">More...</a><br /></td></tr>
 <tr class="separator:ae18b50d29d9accb763b44d6e065dac58"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6341683f1b89495d2ac1558ed2875343"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a6341683f1b89495d2ac1558ed2875343">traverse_components</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, function&lt; void(void)&gt; &amp;on_new_comp, function&lt; void(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>)&gt; &amp;on_node)</td></tr>
+<tr class="separator:a6341683f1b89495d2ac1558ed2875343"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8e5fdb03a21f88395e1d69f53821ae59"><td class="memItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a8e5fdb03a21f88395e1d69f53821ae59">component_sizes</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph)</td></tr>
+<tr class="separator:a8e5fdb03a21f88395e1d69f53821ae59"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a51f810108840ab4014eb58b2bfe19ac1"><td class="memItemLeft" align="right" valign="top">vector&lt; unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a51f810108840ab4014eb58b2bfe19ac1">component_paths</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph)</td></tr>
 <tr class="separator:a51f810108840ab4014eb58b2bfe19ac1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acd891e00c4846e53f760d504434ead12"><td class="memTemplParams" colspan="2">template&lt;typename Int1 , typename Int2 &gt; </td></tr>
@@ -930,6 +934,24 @@ template&lt;class DistHeuristic &gt; </div>
           <td class="memname">vector&lt; unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &gt; vg::algorithms::component_paths_parallel </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a8e5fdb03a21f88395e1d69f53821ae59"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8e5fdb03a21f88395e1d69f53821ae59">&#9670;&nbsp;</a></span>component_sizes()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; size_t &gt; vg::algorithms::component_sizes </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>graph</em></td><td>)</td>
           <td></td>
         </tr>
@@ -3987,6 +4009,40 @@ template&lt;typename TECCNode &gt; </div>
 <p>Wraps the known good the 3 edge connected components algorithm from the pinchesAndCacti library.</p>
 <p>Takes a total node count, and a function that, given a node, loops an iteratee over all nodes connected to it.</p>
 <p>For each component identified, calls the given callback with a function that iterates over all nodes in the component. </p>
+
+</div>
+</div>
+<a id="a6341683f1b89495d2ac1558ed2875343"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6341683f1b89495d2ac1558ed2875343">&#9670;&nbsp;</a></span>traverse_components()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::traverse_components </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">function&lt; void(void)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>on_new_comp</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">function&lt; void(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>on_node</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
