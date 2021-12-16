@@ -17,6 +17,29 @@ set<set<path_handle_t>> normalize(vector<unordered_set<path_handle_t>> result) {
     return return_val;
 }
 
+TEST_CASE("Component sizes are computed correctly", "[compsize]") {
+    
+    bdsg::HashGraph graph;
+    
+    auto h1 = graph.create_handle("A");
+    auto h2 = graph.create_handle("A");
+    auto h3 = graph.create_handle("A");
+    auto h4 = graph.create_handle("A");
+    auto h5 = graph.create_handle("A");
+    auto h6 = graph.create_handle("A");
+    
+    graph.create_edge(h1, h2);
+    graph.create_edge(h1, h3);
+    graph.create_edge(h4, h5);
+    
+    auto comp_sizes = algorithms::component_sizes(graph);
+    sort(comp_sizes.begin(), comp_sizes.end());
+    
+    vector<size_t> correct{1, 2, 3};
+    REQUIRE(comp_sizes == correct);
+    
+}
+
 TEST_CASE("Parallel component paths produces correct results", "[comppathset]") {
     
     

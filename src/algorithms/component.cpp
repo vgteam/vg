@@ -97,6 +97,8 @@ vector<size_t> component_sizes(const HandleGraph& graph) {
         comp_sizes.back()++;
     };
     
+    traverse_components(graph, on_new_comp, on_node);
+    
     return comp_sizes;
 }
 
