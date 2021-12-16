@@ -97,10 +97,16 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a05a7303ef2f259c6384b0b9b1f9d3f56"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0873a6eb776bb2557a5b8453dbf13824"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a0873a6eb776bb2557a5b8453dbf13824">create_path_handle</a> (const std::string &amp;name, bool is_circular=false)=0</td></tr>
 <tr class="separator:a0873a6eb776bb2557a5b8453dbf13824"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a95370bd388b2c113cf0556f266993418"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a95370bd388b2c113cf0556f266993418">rename_path</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle, const std::string &amp;new_name)</td></tr>
+<tr class="separator:a95370bd388b2c113cf0556f266993418"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a83a4a14a629cde03d33e4eb3f6bb192d"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a83a4a14a629cde03d33e4eb3f6bb192d">append_step</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;to_append)=0</td></tr>
 <tr class="separator:a83a4a14a629cde03d33e4eb3f6bb192d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aed17038a0104017d37ff74e15f7f436a"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#aed17038a0104017d37ff74e15f7f436a">prepend_step</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;to_prepend)=0</td></tr>
 <tr class="separator:aed17038a0104017d37ff74e15f7f436a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a67c8bfd58c5ed8136c9324f427037a7a"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a67c8bfd58c5ed8136c9324f427037a7a">pop_front_step</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle)</td></tr>
+<tr class="separator:a67c8bfd58c5ed8136c9324f427037a7a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2db5e7a66ccee26fa257c50e0d084c59"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a2db5e7a66ccee26fa257c50e0d084c59">pop_back_step</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle)</td></tr>
+<tr class="separator:a2db5e7a66ccee26fa257c50e0d084c59"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af28f1372aa6dad2654a22eb8463e2a07"><td class="memItemLeft" align="right" valign="top">virtual std::pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#af28f1372aa6dad2654a22eb8463e2a07">rewrite_segment</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;segment_begin, const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;segment_end, const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;new_segment)=0</td></tr>
 <tr class="separator:af28f1372aa6dad2654a22eb8463e2a07"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9172694447503e35d50093d55e845eb8"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a9172694447503e35d50093d55e845eb8">set_circularity</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, bool circular)=0</td></tr>
@@ -377,6 +383,60 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a2db5e7a66ccee26fa257c50e0d084c59"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2db5e7a66ccee26fa257c50e0d084c59">&#9670;&nbsp;</a></span>pop_back_step()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void handlegraph::MutablePathHandleGraph::pop_back_step </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path_handle</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Remove the last step in a path. Undefined behavior if path is empty. </p>
+
+</div>
+</div>
+<a id="a67c8bfd58c5ed8136c9324f427037a7a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a67c8bfd58c5ed8136c9324f427037a7a">&#9670;&nbsp;</a></span>pop_front_step()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void handlegraph::MutablePathHandleGraph::pop_front_step </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path_handle</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Remove the first step in a path. Undefined behavior if path is empty. </p>
+
+</div>
+</div>
 <a id="aed17038a0104017d37ff74e15f7f436a"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aed17038a0104017d37ff74e15f7f436a">&#9670;&nbsp;</a></span>prepend_step()</h2>
 
@@ -413,6 +473,43 @@ Additional Inherited Members</h2></td></tr>
 <p>Prepend a visit to a node to the given path. Returns a handle to the new first step on the path which is appended. If the path is cirular, the new step is placed between the steps considered "last" and "first" by the method path_begin. Handles to later steps on the path, and to other paths, must remain valid. </p>
 
 <p>Implemented in <a class="el" href="classvg_1_1VG.html#a43c2858dc8e80ba160359ccf5e1508d2">vg::VG</a>.</p>
+
+</div>
+</div>
+<a id="a95370bd388b2c113cf0556f266993418"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a95370bd388b2c113cf0556f266993418">&#9670;&nbsp;</a></span>rename_path()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> handlegraph::MutablePathHandleGraph::rename_path </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path_handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>new_name</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Renames a path. Existing <a class="el" href="structhandlegraph_1_1path__handle__t.html" title="Represents the internal id of a path entity.">path_handle_t</a>'s may become invalidated.. </p>
 
 </div>
 </div>
@@ -498,8 +595,9 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<hr/>The documentation for this class was generated from the following file:<ul>
+<hr/>The documentation for this class was generated from the following files:<ul>
 <li>deps/libhandlegraph/src/include/handlegraph/<a class="el" href="mutable__path__handle__graph_8hpp.html">mutable_path_handle_graph.hpp</a></li>
+<li>deps/libhandlegraph/src/<a class="el" href="mutable__path__handle__graph_8cpp.html">mutable_path_handle_graph.cpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

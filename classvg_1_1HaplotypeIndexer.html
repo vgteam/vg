@@ -95,8 +95,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ad3eda4acd04b8bae303b4604410ece41"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad81dbd24bba40aaa14536d79754d387b"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#ad81dbd24bba40aaa14536d79754d387b">parse_vcf</a> (const std::string &amp;filename, const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph, const std::vector&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;paths, const std::string &amp;job_name=&quot;GBWT&quot;) const</td></tr>
 <tr class="separator:ad81dbd24bba40aaa14536d79754d387b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aad47accd8547da2df1fca5a22d5f70d7"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; gbwt::DynamicGBWT &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#aad47accd8547da2df1fca5a22d5f70d7">build_gbwt</a> (const std::vector&lt; std::string &gt; &amp;vcf_parse_files, const std::string &amp;job_name=&quot;GBWT&quot;) const</td></tr>
-<tr class="separator:aad47accd8547da2df1fca5a22d5f70d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0389ee96c5ce8a6d9c158fda39aca9d9"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; gbwt::DynamicGBWT &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#a0389ee96c5ce8a6d9c158fda39aca9d9">build_gbwt</a> (const std::vector&lt; std::string &gt; &amp;vcf_parse_files, const std::string &amp;job_name=&quot;GBWT&quot;, const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *graph=nullptr, const std::unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; *paths=nullptr, bool skip_unvisited_paths=false) const</td></tr>
+<tr class="separator:a0389ee96c5ce8a6d9c158fda39aca9d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae92d109c2e7baf0b7ddded8df80a6f70"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; gbwt::DynamicGBWT &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#ae92d109c2e7baf0b7ddded8df80a6f70">build_gbwt</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph) const</td></tr>
 <tr class="separator:ae92d109c2e7baf0b7ddded8df80a6f70"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1ea59157f7b2a4b8f720841e0ec35db8"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; gbwt::DynamicGBWT &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#a1ea59157f7b2a4b8f720841e0ec35db8">build_gbwt</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph, const std::vector&lt; std::string &gt; &amp;aln_filenames, const std::string &amp;aln_format) const</td></tr>
@@ -238,8 +238,8 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="aad47accd8547da2df1fca5a22d5f70d7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aad47accd8547da2df1fca5a22d5f70d7">&#9670;&nbsp;</a></span>build_gbwt() <span class="overload">[3/3]</span></h2>
+<a id="a0389ee96c5ce8a6d9c158fda39aca9d9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0389ee96c5ce8a6d9c158fda39aca9d9">&#9670;&nbsp;</a></span>build_gbwt() <span class="overload">[3/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -254,7 +254,25 @@ Public Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>job_name</em> = <code>&quot;GBWT&quot;</code>&#160;</td>
+          <td class="paramname"><em>job_name</em> = <code>&quot;GBWT&quot;</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em> = <code>nullptr</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; *&#160;</td>
+          <td class="paramname"><em>paths</em> = <code>nullptr</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>skip_unvisited_paths</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -265,7 +283,10 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 <p>Build a GBWT from the haplotypes in the given VCF parse files.</p>
 <p>Respects excluded_samples and does not produce threads for them.</p>
-<p>We expect that all parse files contain sample/contig names and that the sample names are the same in all files. </p>
+<p>We expect that all parse files contain sample/contig names and that the sample names are the same in all files.</p>
+<p>There may be no parse files.</p>
+<p>If graph is provided and is not null, also includes embedded non-alt paths from the graph. Use paths_as_samples to choose whether we treat the paths as contigs or samples.</p>
+<p>If paths is provided and is not null, include only those specified paths from the graph. If skip_unvisited_paths is set, paths not visited as contigs by VCF parse files will be skipped. </p>
 
 </div>
 </div>
@@ -301,7 +322,7 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Parse the VCF file into the types needed for GBWT indexing.</p>
-<p>Returns the file names for the VCF parses of the specified paths. If batch_file_prefix is set, these are permanent files. Otherwise they are temporary files that persist until the program exits. </p>
+<p>Returns the file names for the VCF parses of non-alt paths. If batch_file_prefix is set, these are permanent files. Otherwise they are temporary files that persist until the program exits. </p>
 
 </div>
 </div>
@@ -343,7 +364,7 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Parse the VCF file into the types needed for GBWT indexing.</p>
-<p>Returns the file names for the VCF parses of non-alt paths. If batch_file_prefix is set, these are permanent files. Otherwise they are temporary files that persist until the program exits. </p>
+<p>Returns the file names for the VCF parses of the specified paths. If batch_file_prefix is set, these are permanent files. Otherwise they are temporary files that persist until the program exits. </p>
 
 </div>
 </div>

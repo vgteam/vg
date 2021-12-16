@@ -94,12 +94,14 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ae6c6c81c7b722686ed51bfbff3a2e442"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acb05cd688a0b14471e3995aa60d9103c"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1TriviallySerializable.html#acb05cd688a0b14471e3995aa60d9103c">dissociate</a> ()=0</td></tr>
 <tr class="separator:acb05cd688a0b14471e3995aa60d9103c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7cb29448961c2a28faff3a112cffa03c"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1TriviallySerializable.html#a7cb29448961c2a28faff3a112cffa03c">serialize</a> (int fd) const =0</td></tr>
-<tr class="separator:a7cb29448961c2a28faff3a112cffa03c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acaec0b472d85de2ff98b8635b5fbf33c"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1TriviallySerializable.html#acaec0b472d85de2ff98b8635b5fbf33c">serialize</a> (const std::function&lt; void(const void *, size_t)&gt; &amp;iteratee) const =0</td></tr>
+<tr class="separator:acaec0b472d85de2ff98b8635b5fbf33c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2881d2d598bd35cc68008ad3dc4b82d5"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1TriviallySerializable.html#a2881d2d598bd35cc68008ad3dc4b82d5">serialize</a> (int fd)=0</td></tr>
 <tr class="separator:a2881d2d598bd35cc68008ad3dc4b82d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab675ab02cad114960ea7cbdf8b751ada"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1TriviallySerializable.html#ab675ab02cad114960ea7cbdf8b751ada">deserialize</a> (int fd)=0</td></tr>
 <tr class="separator:ab675ab02cad114960ea7cbdf8b751ada"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab04c99b94217a13ce598e8fd484b09c1"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1TriviallySerializable.html#ab04c99b94217a13ce598e8fd484b09c1">serialize</a> (int fd) const</td></tr>
+<tr class="separator:ab04c99b94217a13ce598e8fd484b09c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaeb37dbdd6e221e2c5ddfba9cb226c56"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1TriviallySerializable.html#aaeb37dbdd6e221e2c5ddfba9cb226c56">serialize</a> (const std::string &amp;filename) const</td></tr>
 <tr class="separator:aaeb37dbdd6e221e2c5ddfba9cb226c56"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6c306e7cce2dfe6079b093aa2fae77a0"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1TriviallySerializable.html#a6c306e7cce2dfe6079b093aa2fae77a0">serialize</a> (const std::string &amp;filename)</td></tr>
@@ -301,7 +303,7 @@ Protected Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Sets the contents of this object to the contents of a serialized object from an istream. The serialized object must be from the same implementation of the interface as is calling <a class="el" href="classhandlegraph_1_1TriviallySerializable.html#ab675ab02cad114960ea7cbdf8b751ada">deserialize()</a>. Can only be called on an empty object. </p>
+<p>Sets the contents of this object to the contents of a serialized object from an istream. The serialized object must be from the same implementation of the interface as is calling <a class="el" href="classhandlegraph_1_1TriviallySerializable.html#ab675ab02cad114960ea7cbdf8b751ada">deserialize()</a>. Can only be called on an empty object. May result in a write-back link to a file opened as standard input if that stream is passed. </p>
 
 <p>Reimplemented from <a class="el" href="classhandlegraph_1_1Serializable.html#a2e101879c6d02c4d189248c9bc340319">handlegraph::Serializable</a>.</p>
 
@@ -361,8 +363,35 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="acaec0b472d85de2ff98b8635b5fbf33c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acaec0b472d85de2ff98b8635b5fbf33c">&#9670;&nbsp;</a></span>serialize() <span class="overload">[1/7]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual void handlegraph::TriviallySerializable::serialize </td>
+          <td>(</td>
+          <td class="paramtype">const std::function&lt; void(const void *, size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>iteratee</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Serialize as blocks of data shown to the given function. The pointer must not be null. The blocks must include the magic number. </p>
+
+</div>
+</div>
 <a id="a6c306e7cce2dfe6079b093aa2fae77a0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6c306e7cce2dfe6079b093aa2fae77a0">&#9670;&nbsp;</a></span>serialize() <span class="overload">[1/6]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a6c306e7cce2dfe6079b093aa2fae77a0">&#9670;&nbsp;</a></span>serialize() <span class="overload">[2/7]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -391,7 +420,7 @@ Protected Member Functions</h2></td></tr>
 </div>
 </div>
 <a id="aaeb37dbdd6e221e2c5ddfba9cb226c56"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aaeb37dbdd6e221e2c5ddfba9cb226c56">&#9670;&nbsp;</a></span>serialize() <span class="overload">[2/6]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#aaeb37dbdd6e221e2c5ddfba9cb226c56">&#9670;&nbsp;</a></span>serialize() <span class="overload">[3/7]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -419,8 +448,8 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a7cb29448961c2a28faff3a112cffa03c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7cb29448961c2a28faff3a112cffa03c">&#9670;&nbsp;</a></span>serialize() <span class="overload">[3/6]</span></h2>
+<a id="ab04c99b94217a13ce598e8fd484b09c1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab04c99b94217a13ce598e8fd484b09c1">&#9670;&nbsp;</a></span>serialize() <span class="overload">[4/7]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -429,7 +458,7 @@ Protected Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual void handlegraph::TriviallySerializable::serialize </td>
+          <td class="memname">void handlegraph::TriviallySerializable::serialize </td>
           <td>(</td>
           <td class="paramtype">int&#160;</td>
           <td class="paramname"><em>fd</em></td><td>)</td>
@@ -438,7 +467,7 @@ Protected Member Functions</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -448,7 +477,7 @@ Protected Member Functions</h2></td></tr>
 </div>
 </div>
 <a id="a2881d2d598bd35cc68008ad3dc4b82d5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2881d2d598bd35cc68008ad3dc4b82d5">&#9670;&nbsp;</a></span>serialize() <span class="overload">[4/6]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a2881d2d598bd35cc68008ad3dc4b82d5">&#9670;&nbsp;</a></span>serialize() <span class="overload">[5/7]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -476,7 +505,7 @@ Protected Member Functions</h2></td></tr>
 </div>
 </div>
 <a id="a89624195e0d24768774e98c61d17c779"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a89624195e0d24768774e98c61d17c779">&#9670;&nbsp;</a></span>serialize() <span class="overload">[5/6]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a89624195e0d24768774e98c61d17c779">&#9670;&nbsp;</a></span>serialize() <span class="overload">[6/7]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -498,14 +527,14 @@ Protected Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Dump the magic number and user data to the given stream. Does not affect any backing file link. </p>
+<p>Dump the magic number and user data to the given stream. May result in a write-back link to a file opened as standard output or standard error if those streams are passed. </p>
 
 <p>Reimplemented from <a class="el" href="classhandlegraph_1_1Serializable.html#a050e6c2b6e2fccd85362e908da60d20b">handlegraph::Serializable</a>.</p>
 
 </div>
 </div>
 <a id="a674a89ff2072c5e57c7f5f07d915d049"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a674a89ff2072c5e57c7f5f07d915d049">&#9670;&nbsp;</a></span>serialize() <span class="overload">[6/6]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a674a89ff2072c5e57c7f5f07d915d049">&#9670;&nbsp;</a></span>serialize() <span class="overload">[7/7]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
