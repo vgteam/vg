@@ -183,47 +183,21 @@ int main_snarl(int argc, char** argv) {
         }
     }
 
-    // Read the graph into one of these two typed pointers.
-    unique_ptr<PathHandleGraph> path_handle_graph;
-    unique_ptr<gbwtgraph::GBZ> gbz;
-    // And set this to point to the actual handle graph to use.
-    // TODO: Should GBZ be a handle graph proxy?
-    HandleGraph* handle_graph = nullptr;
-    
+    // Read the graph into a PathHandleGraph.
     string graph_filename = get_input_file_name(optind, argc, argv);
-    auto input = vg::io::VPKG::try_load_first<gbwtgraph::GBZ, PathHandleGraph>(graph_filename);
-    if (get<0>(input)) {
-        // We encountered a GBZ
-        gbz = std::move(get<0>(input));
-        handle_graph = &(gbz->graph);
-        
-        // Make sure we can still do what we wanted to do.
-        // GBZ input does not work with all options.
-        if (algorithm == "cactus") {
-            cerr << "error: [vg snarls] the cactus algorithm does not work with GBZ graphs" << endl;
-            return 1;
-        }
-        if (fill_path_names || path_traversals || !vcf_filename.empty()) {
-            cerr << "error: [vg snarls] GBZ graphs do not have embedded paths required by -p, -r, and -v" << endl;
-            return 1;
-        }
-    } else if (get<1>(input)) {
-        // We encountered a PathHandleGraph
-        path_handle_graph = std::move(get<1>(input));
-        handle_graph = path_handle_graph.get();
-    } else {
-        // We didn't get anything.
-        cerr << "error: [vg snarls] input graph is not in GBZ or PathHandleGraph format" << endl;
-        return 1;
-    }
+    unique_ptr<PathHandleGraph> graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_filename);
     
+    // TODO: Everything but Cactus and the path-related options can work with a
+    // non-path HandleGraph, but we don't really have any of those implemented
+    // anymore, so we don't bother supporting them.
+        
     // Pick a SnalrFinder
     unique_ptr<SnarlFinder> snarl_finder;
     
     if (algorithm == "cactus") {
-        snarl_finder.reset(new CactusSnarlFinder(*path_handle_graph));
+        snarl_finder.reset(new CactusSnarlFinder(*graph));
     } else if (algorithm == "integrated") {
-        snarl_finder.reset(new IntegratedSnarlFinder(*handle_graph));
+        snarl_finder.reset(new IntegratedSnarlFinder(*graph));
     } else {
         cerr << "error:[vg snarls]: Algorithm must be 'cactus' or 'integrated', not '" << algorithm << "'" << endl;
         return 1;
@@ -282,10 +256,10 @@ int main_snarl(int argc, char** argv) {
     
     if (fill_path_names){
         // This finder needs a vg::VG
-        trav_finder.reset(new PathBasedTraversalFinder(*path_handle_graph, snarl_manager));
+        trav_finder.reset(new PathBasedTraversalFinder(*graph, snarl_manager));
         for (const Snarl* snarl : snarl_roots ){
             if (filter_trivial_snarls) {
-                auto contents = snarl_manager.shallow_contents(snarl, *handle_graph, false);
+                auto contents = snarl_manager.shallow_contents(snarl, *graph, false);
                 if (contents.first.empty()) {
                     // Nothing but the boundary nodes in this snarl
                     continue;
@@ -300,23 +274,23 @@ int main_snarl(int argc, char** argv) {
 
     if (path_traversals) {
         // Limit traversals to embedded paths
-        trav_finder.reset(new PathTraversalFinder(*path_handle_graph, snarl_manager));
+        trav_finder.reset(new PathTraversalFinder(*graph, snarl_manager));
     } else if (vcf_filename.empty()) {
         // This finder works with any backing graph
-        trav_finder.reset(new ExhaustiveTraversalFinder(*handle_graph, snarl_manager));
+        trav_finder.reset(new ExhaustiveTraversalFinder(*graph, snarl_manager));
     } else {
         // This should effectively be the same as above, and is included in this tool
         // for testing purposes.  The VCFTraversalFinder differs from Exhaustive in that
         // it's easier to limit traversals using read support, and it takes care of
         // mapping back to the VCF via the alt paths.
         vector<string> ref_paths;
-        path_handle_graph->for_each_path_handle([&](path_handle_t path_handle) {
-            const string& name = path_handle_graph->get_path_name(path_handle);
+        graph->for_each_path_handle([&](path_handle_t path_handle) {
+            const string& name = graph->get_path_name(path_handle);
             if (!Paths::is_alt(name)) {
               ref_paths.push_back(name);
             }
         });
-        trav_finder.reset(new VCFTraversalFinder(*path_handle_graph, snarl_manager, variant_file, ref_paths,
+        trav_finder.reset(new VCFTraversalFinder(*graph, snarl_manager, variant_file, ref_paths,
                                                  ref_fasta.get(), ins_fasta.get()));
     }
     
@@ -363,7 +337,7 @@ int main_snarl(int argc, char** argv) {
             stack.pop_back();
             
             if (filter_trivial_snarls) {
-                auto contents = snarl_manager.shallow_contents(snarl, *handle_graph, false);
+                auto contents = snarl_manager.shallow_contents(snarl, *graph, false);
                 if (contents.first.empty()) {
                     // Nothing but the boundary nodes in this snarl
                     continue;
@@ -374,11 +348,11 @@ int main_snarl(int argc, char** argv) {
             snarl_buffer.push_back(*snarl);
             vg::io::write_buffered(cout, snarl_buffer, buffer_size);
 
-            auto check_max_nodes = [&handle_graph, &max_nodes](const unordered_set<vg::id_t>& nodeset)  {
+            auto check_max_nodes = [&graph, &max_nodes](const unordered_set<vg::id_t>& nodeset)  {
                 int node_count = 0;
                 for (auto node_id : nodeset) {
-                    handle_t node = handle_graph->get_handle(node_id);
-                    if (handle_graph->get_degree(node, false) > 1 || handle_graph->get_degree(node, true) > 1) {
+                    handle_t node = graph->get_handle(node_id);
+                    if (graph->get_degree(node, false) > 1 || graph->get_degree(node, true) > 1) {
                         ++node_count;
                         if (node_count > max_nodes) {
                             return false;
@@ -393,7 +367,7 @@ int main_snarl(int argc, char** argv) {
                 (!ultrabubble_only || snarl->type() == ULTRABUBBLE) &&
                 (!leaf_only || snarl_manager.is_leaf(snarl)) &&
                 (!top_level_only || snarl_manager.is_root(snarl)) &&
-                (path_traversals || check_max_nodes(snarl_manager.deep_contents(snarl, *handle_graph, true).first))) { 
+                (path_traversals || check_max_nodes(snarl_manager.deep_contents(snarl, *graph, true).first))) { 
                 
 #ifdef debug
                 cerr << "Look for traversals of " << pb2json(*snarl) << endl;
