@@ -1125,9 +1125,19 @@ int main_giraffe(int argc, char** argv) {
     // If we need an overlay for position lookup, we might be pointing into
     // this overlay
     bdsg::PathPositionOverlayHelper overlay_helper;
+    // And we might load an XG
+    unique_ptr<PathHandleGraph> xg_graph;
     if (track_correctness || hts_output) {
-        // Always use the graph from the GBZ, with an overlay
-        path_position_graph = overlay_helper.apply(&gbz->graph);
+        // Usually we will get our paths from the GBZ
+        PathHandleGraph* base_graph = &gbz->graph;
+        // But if an XG is around, we should use that instead. Otherwise, it's not possible to provide paths when using an old GBWT/GBZ that doesn't have them.
+        if (registry.available("XG")) {
+            xg_graph = vg::io::VPKG::load_one<PathHandleGraph>(registry.require("XG").at(0));
+            base_graph = xg_graph.get();
+        }
+    
+        // Apply the overlay if needed.
+        path_position_graph = overlay_helper.apply(base_graph);
     }
 
     // Set up the mapper
