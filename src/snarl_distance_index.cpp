@@ -1,7 +1,7 @@
 //#define debug_distance_indexing
 //#define debug_snarl_traversal
 //#define debug_distances
-#define debug_subgraph
+//#define debug_subgraph
 
 #include "snarl_distance_index.hpp"
 
@@ -1136,7 +1136,6 @@ cerr << "Start positon: "<< start_pos << endl;
     };
 
     while (!distance_index.is_root(parent)) {
-        cerr << "\tAt " << distance_index.net_handle_as_string(current_net) << " with distances " << current_distance_left << " " << current_distance_right << endl;
 
         //Distance from the start of the parent to the left of the current node
         size_t max_parent_length = distance_index.maximum_length(parent);
