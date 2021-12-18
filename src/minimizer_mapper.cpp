@@ -2551,7 +2551,7 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
     int64_t min_distance = max(0.0, fragment_length_distr.mean() - rescued_alignment.sequence().size() - rescue_subgraph_stdevs * fragment_length_distr.std_dev());
     int64_t max_distance = fragment_length_distr.mean() + rescue_subgraph_stdevs * fragment_length_distr.std_dev();
     //TODO: Put this back once it's implemented
-    distance_index.subgraph_in_distance_range(aligned_read.path(), &cached_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
+    subgraph_in_distance_range(distance_index, aligned_read.path(), &cached_graph, min_distance, max_distance, rescue_nodes, rescue_forward);
 
     if (rescue_nodes.size() == 0) {
         //If the rescue subgraph is empty
