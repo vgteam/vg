@@ -106,6 +106,10 @@ private:
     // which makes the lru cache fairly effective
     size_t lru_size = 10; 
     vector<LRUCache<gbwt::size_type, shared_ptr<unordered_map<handle_t, size_t>>>*> gbwt_pos_caches;
+    /// We need to keep track of what OMP parallelism level we made the cache
+    /// list for, so we can make sure to bail out if we end up trying to use
+    /// the wrong level's thread numbers.
+    size_t gbwt_pos_caches_level = std::numeric_limits<size_t>::max();
     // infer ploidys from gbwt when possible
     unordered_map<string, pair<int, int>> gbwt_sample_to_phase_range;
 
