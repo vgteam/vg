@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 19
+plan tests 20
 
 is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg view -d - | wc -l) 505 "view produces the expected number of lines of dot output"
 is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg view -g - | wc -l) 503 "view produces the expected number of lines of GFA output"
@@ -15,6 +15,9 @@ is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg view - | head | vg view -
 is $(samtools view -u minigiab/NA12878.chr22.tiny.bam | vg view -bG - | vg view -a - | wc -l) $(samtools view -u minigiab/NA12878.chr22.tiny.bam | samtools view - | wc -l) "view can convert BAM to GAM"
 
 is "$(samtools view -u minigiab/NA12878.chr22.tiny.bam | vg view -bG - | vg view -aj - | jq -c --sort-keys . | sort | md5sum)" "$(samtools view -u minigiab/NA12878.chr22.tiny.bam | vg view -bG - | vg view -aj - | vg view -JGa - | vg view -aj - | jq -c --sort-keys . | sort | md5sum)" "view can round-trip JSON and GAM"
+
+# Look at only forward strand reads here to avoid having to reverse qualities.
+is "$(samtools view -F 16 minigiab/NA12878.chr22.tiny.bam | head -n1 | cut -f11)" "$(samtools view -F 16 -u minigiab/NA12878.chr22.tiny.bam | vg view -bG - | vg view -aj - | vg view -JGa - | vg view -aj - | head -n1 | jq -r '.quality' | base64 -d | tr '\000-\077' '\041-\150')" "view can round-trip qualities and encodes tham as PHRED+0 base-64-encoded strings in JSON"
 
 # We need to run through GFA because vg construct doesn't necessarily chunk the
 # graph the way vg view wants to. We also need to treat as vg::VG to preserve ordering.
