@@ -632,7 +632,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 #endif
         for (size_t i = 0; i < ref_travs.size(); ++i) {
 #ifdef TASK_MODE
-#pragma omp task firstprivate(i)
+#pragma omp task firstprivate(i) shared(ref_contexts)
 #endif
             {
                 auto& trav_id = ref_travs[i];
@@ -653,7 +653,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 #endif
         for (size_t i = 0; i < path_travs.first.size(); ++i) {
 #ifdef TASK_MODE
-#pragma omp task firstprivate(i)
+#pragma omp task firstprivate(i) shared(path_trav_to_ref_trav)
 #endif
             {
                 vector<nid_t> context = get_context(i);
