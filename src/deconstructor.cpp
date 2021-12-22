@@ -2,29 +2,12 @@
 #include "traversal_finder.hpp"
 #include <gbwtgraph/gbwtgraph.h>
 
-#define TASK_MODE
-//#define FOR_MODE
-#define debug_parallel
-#define debug
+//#define debug
 
 using namespace std;
 
+
 namespace vg {
-
-/// Get a name for the current OMP thread, accounting for multi-level parallelism;
-static string log_name() {
-    std::stringstream ss;
-    ss << "T";
-    for (int l = omp_get_level(); l > -1 ; l--) {
-        ss << omp_get_ancestor_thread_num(l);
-        if (l != 0) {
-            ss << "<";
-        }
-    }
-    ss << ":\t";
-    return ss.str();
-}
-
 Deconstructor::Deconstructor() : VCFOutputCaller("") {
 }
 Deconstructor::~Deconstructor(){
@@ -34,24 +17,18 @@ Deconstructor::~Deconstructor(){
 }
 
 /**
- * Takes in a vector of snarltraversals, an index of the ref path among them, a vector of flags for traversals to actually use, the character before all the traversals, and a flag for whether the start should be used (???).
- *
- * Returns a vector where entires are which allele number a traversal in travs ought to become in the VCF. If a traversal is flagged off, it gets a -1.
+ * Takes in a vector of snarltraversals
+ * returns their sequences as a vector<string>
+ * returns a boolean hasRef
+ * if a reference path is present, hasRef is set to true and the first
+ * string in the vector is the reference allele
+ * otherwise, hasRef is set to false and all strings are alt alleles.
  */
 vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTraversal>& travs, int ref_path_idx,
                                        const vector<bool>& use_trav,
                                        char prev_char, bool use_start) const {
 
     assert(ref_path_idx >=0 && ref_path_idx < travs.size());
-
-#ifdef debug_parallel
-#pragma omp critical (cerr)
-            cerr << log_name() << "Running get_alleles(" << v.id << ",{" << travs.size() << " items}," << ref_path_idx << "," << "{";
-            for (bool b : use_trav) {
-                cerr << b;
-            }
-            cerr << "}," << prev_char << "," << use_start << ")" << endl;
-#endif
 
     // map strings to allele numbers (and their traversal)
     // (we are using the traversal finder in such a way that duplicate alleles can get returned
@@ -360,11 +337,6 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
     
 bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 
-#ifdef debug_parallel
-#pragma omp critical (cerr)
-    cerr << log_name() << "Deconstructing snarl " << snarl->start().node_id() << "-" << snarl->end().node_id() << endl;
-#endif
-
     auto contents = snarl_manager->shallow_contents(snarl, *graph, false);
     if (contents.first.empty()) {
         // Nothing but the boundary nodes in this snarl
@@ -559,29 +531,10 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
             std::set_union(target.begin(), target.end(),
                            query.begin(), query.end(),
                            std::back_inserter(node_union));
-            double result = (double)node_isec.size() / (double)node_union.size();
-#ifdef debug_parallel
-#pragma omp critical (cerr)
-            cerr << log_name() << "Scored";
-            for (auto& id : target) {
-                cerr << " " << id;
-            }
-            cerr << " and";
-            for (auto& id : query) {
-                cerr << " " << id;
-            }
-            cerr << " as " << result << endl;
-#endif
-            return result;
+            return (double)node_isec.size() / (double)node_union.size();
         };
 
         auto get_context = [&path_travs,this](const int& trav_idx) {
-        
-#ifdef debug_parallel
-#pragma omp critical (cerr)
-            cerr << log_name() << "Getting context for traversal " << trav_idx << endl;
-#endif
-        
             step_handle_t start_step = path_travs.second[trav_idx].first;
             step_handle_t end_step = path_travs.second[trav_idx].second;
             if (graph->get_position_of_step(start_step)
@@ -621,40 +574,19 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
             return context;
         };
 
-#ifdef debug_parallel
-#pragma omp critical (cerr)
-        cerr << log_name() << "Getting " << ref_travs.size() << " contexts" << endl;
-#endif
-
         vector<vector<nid_t>> ref_contexts(ref_travs.size());
-#ifdef FOR_MODE
-#pragma omp parallel for
-#endif
         for (size_t i = 0; i < ref_travs.size(); ++i) {
-#ifdef TASK_MODE
 #pragma omp task firstprivate(i) shared(ref_contexts)
-#endif
             {
                 auto& trav_id = ref_travs[i];
                 ref_contexts[i] = get_context(trav_id);
             }
         }
 #pragma omp taskwait
-        
-#ifdef debug_parallel
-#pragma omp critical (cerr)
-    cerr << log_name() << "Getting " << path_travs.first.size() << " matching contexts" << endl;
-#endif
-        
         // now for each traversal, we compute and equivalent context and match it to a ref context
         // using a jaccard metric over node ids
-#ifdef FOR_MODE
-#pragma omp parallel for
-#endif
         for (size_t i = 0; i < path_travs.first.size(); ++i) {
-#ifdef TASK_MODE
 #pragma omp task firstprivate(i) shared(path_trav_to_ref_trav)
-#endif
             {
                 vector<nid_t> context = get_context(i);
                 // map jaccard metric to the index of the ref_trav
@@ -669,49 +601,18 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
                 std::sort(ref_mappings.begin(), ref_mappings.end());
                 // the best is the last, which has the highest jaccard
                 path_trav_to_ref_trav[i] = ref_mappings.back().second;
-#ifdef debug_parallel
-#pragma omp critical (cerr)
-                cerr << log_name() << "Assign path traversal " << i << " as alt of ref traversal " << ref_mappings.back().second << endl;
-                cerr << log_name() << "path_trav_to_ref_trav:";
-                for (auto& t : path_trav_to_ref_trav) {
-                    cerr << " " << t;
-                }
-                cerr << endl;
-#endif
             }
         }
-#ifdef TASK_MODE
 #pragma omp taskwait
-#endif
     }
-    
-#ifdef debug_parallel
-#pragma omp critical (cerr)
-    cerr << log_name() << "Making variants for " << ref_travs.size() << " reference traversals" << endl;
-    cerr << log_name() << "path_trav_to_ref_trav:";
-    for (auto& t : path_trav_to_ref_trav) {
-        cerr << " " << t;
-    }
-    cerr << endl;
-#endif
 
     // we write a variant for every reference traversal
     // (optionally) selecting the subset of path traversals that are 1:1
-#ifdef FOR_MODE
-#pragma omp parallel for
-#endif
     for (size_t i = 0; i < ref_travs.size(); ++i) {
-#ifdef TASK_MODE
 #pragma omp task firstprivate(i)
-#endif
         {
             auto& ref_trav_idx = ref_travs[i];
             auto& ref_trav_offset = ref_offsets[i];
-            
-#ifdef debug_parallel
-#pragma omp critical (cerr)
-            cerr << log_name() << "i: " << i << " ref trav: " << ref_trav_idx << endl;
-#endif
 
             const SnarlTraversal& ref_trav = path_travs.first[ref_trav_idx];
 
@@ -764,32 +665,11 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 
             v.id = print_snarl(*snarl);
             
-#ifdef debug_parallel
-#pragma omp critical (cerr)
-            cerr << log_name() << "Making variant " << v.id << " at " << v.position << endl;
-            cerr << log_name() << "path_trav_to_ref_trav:";
-            for (auto& t : path_trav_to_ref_trav) {
-                cerr << " " << t;
-            }
-            cerr << endl;
-#endif
-
-            
             // Convert the snarl traversals to strings and add them to the variant
             vector<bool> use_trav(path_travs.first.size());
             if (path_trav_to_ref_trav.size()) {
                 for (uint64_t i = 0; i < use_trav.size(); ++i) {
                     use_trav[i] = (ref_trav_idx == path_trav_to_ref_trav[i]);
-            
-#ifdef debug_parallel
-#pragma omp critical (cerr)
-                    cerr << log_name() << "Ref trav " << ref_trav_idx << " vs. path trav " << i << " ref trav of " << path_trav_to_ref_trav[i] << ": " << use_trav[i] << endl;
-                    cerr << log_name() << "path_trav_to_ref_trav:";
-                    for (auto& t : path_trav_to_ref_trav) {
-                        cerr << " " << t;
-                    }
-                    cerr << endl;
-#endif
                 }
             } else {
                 for (uint64_t i = 0; i < use_trav.size(); ++i) {
@@ -800,15 +680,6 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
             vector<int> trav_to_allele = get_alleles(v, path_travs.first, ref_trav_idx,
                                                      use_trav,
                                                      prev_char, use_start);
-
-#ifdef debug_parallel
-#pragma omp critical (cerr)
-            cerr << log_name() << "Traversals are alleles:";
-            for (auto& n : trav_to_allele) {
-                cerr << " " << n;
-            }
-            cerr << endl;
-#endif
 
             // Fill in the genotypes
             if (path_restricted || gbwt_trav_finder.get()) {
@@ -827,12 +698,6 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
         }
     }
 #pragma omp taskwait
-
-#ifdef debug_parallel
-#pragma omp critical (cerr)
-        cerr << log_name() << "Deconstructed snarl" << endl;
-#endif
-
     return true;
 }
 
@@ -1019,23 +884,11 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
             }
         });
 
-#ifdef debug_parallel
-#pragma omp critical (cerr)
-        cerr << log_name() << "About to deconstruct snarls" << endl;
-#endif
-
-#ifdef TASK_MODE
 #pragma omp parallel
 #pragma omp single
-#endif
     {
-#ifdef FOR_MODE
-#pragma omp parallel for schedule(dynamic,1)
-#endif
         for (size_t i = 0; i < snarls_todo.size(); i++) {
-#ifdef TASK_MODE
 #pragma omp task firstprivate(i)
-#endif
             {
                 auto& snarl = snarls_todo[i];
                 deconstruct_site(snarl);
@@ -1043,12 +896,6 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         }
     }
 #pragma omp taskwait
-
-    
-#ifdef debug_parallel
-#pragma omp critical (cerr)
-    cerr << log_name() << "About to write variants" << endl;
-#endif
 
     // write variants in sorted order
     write_variants(cout, snarl_manager);
