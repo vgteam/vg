@@ -17,12 +17,12 @@ Deconstructor::~Deconstructor(){
 }
 
 /**
- * Takes in a vector of snarltraversals
- * returns their sequences as a vector<string>
- * returns a boolean hasRef
- * if a reference path is present, hasRef is set to true and the first
- * string in the vector is the reference allele
- * otherwise, hasRef is set to false and all strings are alt alleles.
+ * Takes in a vector of snarltraversals, an index of the ref path among them, a
+ * vector of flags for traversals to actually use, the character before all the
+ * traversals, and a flag for whether the start should be used (???).
+ *
+ * Returns a vector where entires are which allele number a traversal in travs
+ * ought to become in the VCF. If a traversal is flagged off, it gets a -1.
  */
 vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTraversal>& travs, int ref_path_idx,
                                        const vector<bool>& use_trav,
