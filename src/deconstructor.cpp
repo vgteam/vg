@@ -576,7 +576,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 
         vector<vector<nid_t>> ref_contexts(ref_travs.size());
         for (size_t i = 0; i < ref_travs.size(); ++i) {
-#pragma omp task
+#pragma omp task firstprivate(i)
             {
                 auto& trav_id = ref_travs[i];
                 ref_contexts[i] = get_context(trav_id);
@@ -586,7 +586,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
         // now for each traversal, we compute and equivalent context and match it to a ref context
         // using a jaccard metric over node ids
         for (size_t i = 0; i < path_travs.first.size(); ++i) {
-#pragma omp task
+#pragma omp task firstprivate(i)
             {
                 vector<nid_t> context = get_context(i);
                 // map jaccard metric to the index of the ref_trav
@@ -609,7 +609,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
     // we write a variant for every reference traversal
     // (optionally) selecting the subset of path traversals that are 1:1
     for (size_t i = 0; i < ref_travs.size(); ++i) {
-#pragma omp task
+#pragma omp task firstprivate(i)
         {
             auto& ref_trav_idx = ref_travs[i];
             auto& ref_trav_offset = ref_offsets[i];
@@ -888,7 +888,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
 #pragma omp single
     {
         for (size_t i = 0; i < snarls_todo.size(); i++) {
-#pragma omp task
+#pragma omp task firstprivate(i)
             {
                 auto& snarl = snarls_todo[i];
                 deconstruct_site(snarl);
