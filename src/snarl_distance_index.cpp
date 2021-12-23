@@ -1072,6 +1072,28 @@ cerr << "Start positon: "<< start_pos << endl;
     //including the position
     vector<pair<handle_t, size_t>> search_start_nodes;
 
+    if ((current_distance_left != std::numeric_limits<size_t>::max() && current_distance_left >= min_distance) ||
+           (current_distance_right != std::numeric_limits<size_t>::max() && current_distance_right >= min_distance)) {
+        //If the distance to either end of the node is within the range
+
+        //Add this node to the subgraph
+        subgraph.emplace(get_id(start_pos));
+
+        handle_t start = is_rev(start_pos) ? distance_index.get_handle(distance_index.flip(current_net), super_graph)
+                                           : distance_index.get_handle(current_net, super_graph); 
+
+        //Add any node one step out from this one to search_start_nodes
+        super_graph->follow_edges(start, 
+                false, [&](const handle_t& next_handle) {
+            search_start_nodes.emplace_back(next_handle,current_distance_right);
+        });
+
+        //Search for reachable nodes
+        add_nodes_in_distance_range(super_graph, min_distance, max_distance, subgraph, search_start_nodes, seen_nodes); 
+
+        return;
+    }
+
 
     //helper function to walk along a chain from the current node until the distance traversed
     //exceeds the minimum limit. Add the node just before this happens to search_start_nodes

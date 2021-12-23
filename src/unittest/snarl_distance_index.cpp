@@ -4348,10 +4348,11 @@ namespace vg {
             SECTION("Snarl based subgraph gets correct nodes") {
                 std::unordered_set<nid_t> subgraph;
                 subgraph_containing_path_snarls(distance_index, &graph, path_from_path_handle(graph, path_handle), subgraph); 
+                REQUIRE(subgraph.count(n3->id()));
                 REQUIRE(subgraph.count(n4->id()));
                 REQUIRE(subgraph.count(n5->id()));
                 REQUIRE(subgraph.count(n6->id()));
-                REQUIRE(subgraph.size() == 3);
+                REQUIRE(subgraph.size() == 4);
             }
         }
         TEST_CASE( "Snarl distance index can deal with loops in a snarl", "[snarl_distance]" ) {
@@ -5659,6 +5660,42 @@ namespace vg {
             Edge* e10 = graph.create_edge(n7, n8);
         
             IntegratedSnarlFinder snarl_finder(graph);
+            SECTION("Chain traversal with follow_net_edges") {
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                net_handle_t current_net = distance_index.get_node_net_handle(2);
+                distance_index.follow_net_edges(current_net, &graph,false, [&] (const net_handle_t& next) {
+                    //snarl 2-5
+                    REQUIRE(distance_index.is_snarl(next));
+                    current_net = next;
+                    return false;
+                });
+                distance_index.follow_net_edges(current_net, &graph, false, [&](const net_handle_t& next) {
+                    //node 5
+                    REQUIRE(distance_index.is_node(next));
+                    REQUIRE(distance_index.node_id(next) == 5);
+                    current_net = next;
+                    return false;
+                });
+                distance_index.follow_net_edges(current_net, &graph, false, [&] (const net_handle_t& next) {
+                    //snarl 5-7
+                    REQUIRE(distance_index.is_snarl(next));
+                    current_net = next;
+                    return false;
+                });
+                distance_index.follow_net_edges(current_net, &graph, false, [&] (const net_handle_t& next) {
+                    //node 7
+                    REQUIRE(distance_index.is_node(next));
+                    REQUIRE(distance_index.node_id(next) == 7);
+                    current_net = next;
+                    return false;
+                });
+                distance_index.follow_net_edges(current_net, &graph, false, [&] (const net_handle_t& next) {
+                    //end
+                    REQUIRE(false);
+                    return false;
+                });
+            }
             SECTION("Subgraph extraction") {
         
                 std::unordered_set<id_t> sub_graph;
@@ -5889,7 +5926,7 @@ namespace vg {
 //
 //            REQUIRE(sub_graph.count(27));
 
-            for (int i = 0; i < 0; i++) {
+            for (int i = 0; i < 100; i++) {
                 //1000 different graphs
                 VG graph;
                 random_graph(1000, 10, 15, &graph);
