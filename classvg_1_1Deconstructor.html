@@ -155,6 +155,8 @@ Private Attributes</h2></td></tr>
 <tr class="separator:a3873a7bfd282d56e54fc80e13df1a48a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac0693cc79017e94a9668eae71df6cae0"><td class="memItemLeft" align="right" valign="top">vector&lt; LRUCache&lt; gbwt::size_type, shared_ptr&lt; unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt; &gt; &gt; * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#ac0693cc79017e94a9668eae71df6cae0">gbwt_pos_caches</a></td></tr>
 <tr class="separator:ac0693cc79017e94a9668eae71df6cae0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acb9d92a7310015d844ebbae0972d5610"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#acb9d92a7310015d844ebbae0972d5610">gbwt_pos_caches_level</a> = std::numeric_limits&lt;size_t&gt;::max()</td></tr>
+<tr class="separator:acb9d92a7310015d844ebbae0972d5610"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5f58aa9a4d3f29e330a9c9e1c9541884"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; string, pair&lt; int, int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a5f58aa9a4d3f29e330a9c9e1c9541884">gbwt_sample_to_phase_range</a></td></tr>
 <tr class="separator:a5f58aa9a4d3f29e330a9c9e1c9541884"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8da74d6fff7d5af6caed96723d0bccd9"><td class="memItemLeft" align="right" valign="top">set&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Deconstructor.html#a8da74d6fff7d5af6caed96723d0bccd9">ref_paths</a></td></tr>
@@ -532,7 +534,8 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Takes in a vector of snarltraversals returns their sequences as a vector&lt;string&gt; returns a boolean hasRef if a reference path is present, hasRef is set to true and the first string in the vector is the reference allele otherwise, hasRef is set to false and all strings are alt alleles. </p>
+<p>Takes in a vector of snarltraversals, an index of the ref path among them, a vector of flags for traversals to actually use, the character before all the traversals, and a flag for whether the start should be used (???).</p>
+<p>Returns a vector where entires are which allele number a traversal in travs ought to become in the VCF. If a traversal is flagged off, it gets a -1. </p>
 
 </div>
 </div>
@@ -640,6 +643,29 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="acb9d92a7310015d844ebbae0972d5610"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acb9d92a7310015d844ebbae0972d5610">&#9670;&nbsp;</a></span>gbwt_pos_caches_level</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::Deconstructor::gbwt_pos_caches_level = std::numeric_limits&lt;size_t&gt;::max()</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>We need to keep track of what OMP parallelism level we made the cache list for, so we can make sure to bail out if we end up trying to use the wrong level's thread numbers. </p>
 
 </div>
 </div>
