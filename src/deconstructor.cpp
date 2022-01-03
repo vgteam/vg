@@ -17,12 +17,12 @@ Deconstructor::~Deconstructor(){
 }
 
 /**
- * Takes in a vector of snarltraversals
- * returns their sequences as a vector<string>
- * returns a boolean hasRef
- * if a reference path is present, hasRef is set to true and the first
- * string in the vector is the reference allele
- * otherwise, hasRef is set to false and all strings are alt alleles.
+ * Takes in a vector of snarltraversals, an index of the ref path among them, a
+ * vector of flags for traversals to actually use, the character before all the
+ * traversals, and a flag for whether the start should be used (???).
+ *
+ * Returns a vector where entires are which allele number a traversal in travs
+ * ought to become in the VCF. If a traversal is flagged off, it gets a -1.
  */
 vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTraversal>& travs, int ref_path_idx,
                                        const vector<bool>& use_trav,
@@ -575,120 +575,129 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
         };
 
         vector<vector<nid_t>> ref_contexts(ref_travs.size());
-#pragma omp parallel for
         for (size_t i = 0; i < ref_travs.size(); ++i) {
-            auto& trav_id = ref_travs[i];
-            ref_contexts[i] = get_context(trav_id);
+#pragma omp task firstprivate(i) shared(ref_contexts)
+            {
+                auto& trav_id = ref_travs[i];
+                ref_contexts[i] = get_context(trav_id);
+            }
         }
+#pragma omp taskwait
         // now for each traversal, we compute and equivalent context and match it to a ref context
         // using a jaccard metric over node ids
-#pragma omp parallel for
         for (size_t i = 0; i < path_travs.first.size(); ++i) {
-            vector<nid_t> context = get_context(i);
-            // map jaccard metric to the index of the ref_trav
-            vector<pair<double, int>> ref_mappings;
-            for (uint64_t j = 0; j < ref_travs.size(); ++j) {
-                ref_mappings.push_back(make_pair(
-                                           context_jaccard(
-                                               ref_contexts[j],
-                                               context),
-                                           ref_travs[j]));
+#pragma omp task firstprivate(i) shared(path_trav_to_ref_trav)
+            {
+                vector<nid_t> context = get_context(i);
+                // map jaccard metric to the index of the ref_trav
+                vector<pair<double, int>> ref_mappings;
+                for (uint64_t j = 0; j < ref_travs.size(); ++j) {
+                    ref_mappings.push_back(make_pair(
+                                               context_jaccard(
+                                                   ref_contexts[j],
+                                                   context),
+                                               ref_travs[j]));
+                }
+                std::sort(ref_mappings.begin(), ref_mappings.end());
+                // the best is the last, which has the highest jaccard
+                path_trav_to_ref_trav[i] = ref_mappings.back().second;
             }
-            std::sort(ref_mappings.begin(), ref_mappings.end());
-            // the best is the last, which has the highest jaccard
-            path_trav_to_ref_trav[i] = ref_mappings.back().second;
         }
+#pragma omp taskwait
     }
 
     // we write a variant for every reference traversal
     // (optionally) selecting the subset of path traversals that are 1:1
-#pragma omp parallel for
     for (size_t i = 0; i < ref_travs.size(); ++i) {
-        auto& ref_trav_idx = ref_travs[i];
-        auto& ref_trav_offset = ref_offsets[i];
+#pragma omp task firstprivate(i)
+        {
+            auto& ref_trav_idx = ref_travs[i];
+            auto& ref_trav_offset = ref_offsets[i];
 
-        const SnarlTraversal& ref_trav = path_travs.first[ref_trav_idx];
+            const SnarlTraversal& ref_trav = path_travs.first[ref_trav_idx];
 
-        vcflib::Variant v;
-        v.quality = 60;
+            vcflib::Variant v;
+            v.quality = 60;
 
-        // write variant's sequenceName (VCF contig)
-        v.sequenceName = ref_trav_name;
+            // write variant's sequenceName (VCF contig)
+            v.sequenceName = ref_trav_name;
 
-        // Map our snarl endpoints to oriented positions in the embedded path in the graph
-        handle_t first_path_handle;
-        size_t first_path_pos;
-        bool use_start;
-        if (ref_trav_idx < first_gbwt_trav_idx) {
-            step_handle_t start_step = path_travs.second[ref_trav_idx].first;
-            step_handle_t end_step = path_travs.second[ref_trav_idx].second;
-            handle_t start_handle = graph->get_handle_of_step(start_step);
-            handle_t end_handle = graph->get_handle_of_step(end_step);
-            size_t start_pos = graph->get_position_of_step(start_step);
-            size_t end_pos = graph->get_position_of_step(end_step);
-            use_start = start_pos < end_pos;
-            first_path_handle = use_start ? start_handle : end_handle;
-            first_path_pos = use_start ? start_pos : end_pos;
-        } else {
-            //assert(false);
-            std::tie(use_start, first_path_handle, first_path_pos) = get_gbwt_path_position(ref_trav, trav_thread_ids[ref_trav_idx]);
+            // Map our snarl endpoints to oriented positions in the embedded path in the graph
+            handle_t first_path_handle;
+            size_t first_path_pos;
+            bool use_start;
+            if (ref_trav_idx < first_gbwt_trav_idx) {
+                step_handle_t start_step = path_travs.second[ref_trav_idx].first;
+                step_handle_t end_step = path_travs.second[ref_trav_idx].second;
+                handle_t start_handle = graph->get_handle_of_step(start_step);
+                handle_t end_handle = graph->get_handle_of_step(end_step);
+                size_t start_pos = graph->get_position_of_step(start_step);
+                size_t end_pos = graph->get_position_of_step(end_step);
+                use_start = start_pos < end_pos;
+                first_path_handle = use_start ? start_handle : end_handle;
+                first_path_pos = use_start ? start_pos : end_pos;
+            } else {
+                //assert(false);
+                std::tie(use_start, first_path_handle, first_path_pos) = get_gbwt_path_position(ref_trav, trav_thread_ids[ref_trav_idx]);
 #ifdef debug
-            cerr << "got " << use_start << " " << graph->get_id(first_path_handle) << ":" << graph->get_is_reverse(first_path_handle)
-                 << " " << first_path_pos << " from gbwt for " << ref_trav_name << endl;
+                cerr << "got " << use_start << " " << graph->get_id(first_path_handle) << ":" << graph->get_is_reverse(first_path_handle)
+                     << " " << first_path_pos << " from gbwt for " << ref_trav_name << endl;
 #endif
-        }
-        // Get the first visit of our snarl traversal
-        const Visit& first_trav_visit = use_start ? ref_trav.visit(0) : ref_trav.visit(ref_trav.visit_size() - 1);
-
-        char prev_char;
-        if ((use_start && first_trav_visit.backward() == graph->get_is_reverse(first_path_handle)) ||
-            (!use_start && first_trav_visit.backward() != graph->get_is_reverse(first_path_handle))) {
-            // Our path and traversal have consistent orientation.  leave off the end of the start node going forward
-            first_path_pos += graph->get_length(first_path_handle);
-            prev_char = ::toupper(graph->get_sequence(first_path_handle)[graph->get_length(first_path_handle) - 1]);
-        } else {
-            // They are flipped: leave off the beginning of the start node going backward
-            prev_char = reverse_complement(::toupper(graph->get_sequence(first_path_handle)[0]));
-        }
-        
-        // shift from 0-based to 1-based for VCF
-        first_path_pos += 1;
-
-        v.position = first_path_pos + ref_trav_offset;
-
-        v.id = print_snarl(*snarl);
-        
-        // Convert the snarl traversals to strings and add them to the variant
-        vector<bool> use_trav(path_travs.first.size());
-        if (path_trav_to_ref_trav.size()) {
-            for (uint64_t i = 0; i < use_trav.size(); ++i) {
-                use_trav[i] = (ref_trav_idx == path_trav_to_ref_trav[i]);
             }
-        } else {
-            for (uint64_t i = 0; i < use_trav.size(); ++i) {
-                use_trav[i] = true;
+            // Get the first visit of our snarl traversal
+            const Visit& first_trav_visit = use_start ? ref_trav.visit(0) : ref_trav.visit(ref_trav.visit_size() - 1);
+
+            char prev_char;
+            if ((use_start && first_trav_visit.backward() == graph->get_is_reverse(first_path_handle)) ||
+                (!use_start && first_trav_visit.backward() != graph->get_is_reverse(first_path_handle))) {
+                // Our path and traversal have consistent orientation.  leave off the end of the start node going forward
+                first_path_pos += graph->get_length(first_path_handle);
+                prev_char = ::toupper(graph->get_sequence(first_path_handle)[graph->get_length(first_path_handle) - 1]);
+            } else {
+                // They are flipped: leave off the beginning of the start node going backward
+                prev_char = reverse_complement(::toupper(graph->get_sequence(first_path_handle)[0]));
             }
-        }
+            
+            // shift from 0-based to 1-based for VCF
+            first_path_pos += 1;
 
-        vector<int> trav_to_allele = get_alleles(v, path_travs.first, ref_trav_idx,
-                                                 use_trav,
-                                                 prev_char, use_start);
+            v.position = first_path_pos + ref_trav_offset;
 
-        // Fill in the genotypes
-        if (path_restricted || gbwt_trav_finder.get()) {
-            get_genotypes(v, path_trav_names, trav_to_allele, trav_thread_ids);
-        }
+            v.id = print_snarl(*snarl);
+            
+            // Convert the snarl traversals to strings and add them to the variant
+            vector<bool> use_trav(path_travs.first.size());
+            if (path_trav_to_ref_trav.size()) {
+                for (uint64_t i = 0; i < use_trav.size(); ++i) {
+                    use_trav[i] = (ref_trav_idx == path_trav_to_ref_trav[i]);
+                }
+            } else {
+                for (uint64_t i = 0; i < use_trav.size(); ++i) {
+                    use_trav[i] = true;
+                }
+            }
 
-        // we only bother printing out sites with at least 1 non-reference allele
-        if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return (i == 0 || i == -1); })) {
+            vector<int> trav_to_allele = get_alleles(v, path_travs.first, ref_trav_idx,
+                                                     use_trav,
+                                                     prev_char, use_start);
+
+            // Fill in the genotypes
             if (path_restricted || gbwt_trav_finder.get()) {
-                // run vcffixup to add some basic INFO like AC
-                vcf_fixup(v);
+                get_genotypes(v, path_trav_names, trav_to_allele, trav_thread_ids);
             }
+
+            // we only bother printing out sites with at least 1 non-reference allele
+            if (!std::all_of(trav_to_allele.begin(), trav_to_allele.end(), [](int i) { return (i == 0 || i == -1); })) {
+                if (path_restricted || gbwt_trav_finder.get()) {
+                    // run vcffixup to add some basic INFO like AC
+                    vcf_fixup(v);
+                }
 #pragma omp critical (add_variant)
-            add_variant(v);
+                add_variant(v);
+            }
         }
-    }    
+    }
+#pragma omp taskwait
     return true;
 }
 
@@ -720,18 +729,13 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     assert(path_to_sample_phase == nullptr || path_restricted || gbwt);
     if (gbwt) {
         this->gbwt_pos_caches.resize(get_thread_count(), nullptr);
+        this->gbwt_pos_caches_level = omp_get_level() + 1;
         for (size_t i = 0; i < this->gbwt_pos_caches.size(); ++i) {
             if (this->gbwt_pos_caches[i] == nullptr) {
                 this->gbwt_pos_caches[i] = new LRUCache<gbwt::size_type, shared_ptr<unordered_map<handle_t, size_t>>>(lru_size);
             }
         }
-    } else {
-        // this allows us to run in parallel inside of each site deconstruction
-        // there is now a path jaccard check that can be expensive in deep graphs
-        // however, it breaks the LRUCache thread id assumptions
-        // so it is not suitable for GBWT based deconstruction
-        omp_set_max_active_levels(2);
-    }
+    } 
 
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
     sample_names.clear();
@@ -880,11 +884,18 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
             }
         });
 
-#pragma omp parallel for schedule(dynamic,1)
-    for (size_t i = 0; i < snarls_todo.size(); i++) {
-        auto& snarl = snarls_todo[i];
-        deconstruct_site(snarl);
+#pragma omp parallel
+#pragma omp single
+    {
+        for (size_t i = 0; i < snarls_todo.size(); i++) {
+#pragma omp task firstprivate(i)
+            {
+                auto& snarl = snarls_todo[i];
+                deconstruct_site(snarl);
+            }
+        }
     }
+#pragma omp taskwait
 
     // write variants in sorted order
     write_variants(cout, snarl_manager);
@@ -965,6 +976,9 @@ tuple<bool, handle_t, size_t> Deconstructor::get_gbwt_path_position(const SnarlT
     int64_t end_offset = -1;
     int64_t offset = 0;
 
+    // Find the cache to use. Make sure we made it the right width for the OMP
+    // team we are actually on.
+    assert(this->gbwt_pos_caches_level == omp_get_level());
     LRUCache<gbwt::size_type, shared_ptr<unordered_map<handle_t, size_t>>>* gbwt_pos_cache =
         gbwt_pos_caches[omp_get_thread_num()];
     
