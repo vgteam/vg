@@ -43,7 +43,7 @@
 #include "algorithms/locally_expand_graph.hpp"
 #include "algorithms/jump_along_path.hpp"
 #include "algorithms/ref_path_distance.hpp"
-#include "algorithms/component_paths.hpp"
+#include "algorithms/component.hpp"
 
 
 // note: only activated for single end mapping

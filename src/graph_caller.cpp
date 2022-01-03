@@ -936,8 +936,15 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
 
     // index the snarl tree by name
     unordered_map<string, const Snarl*> name_to_snarl;
+    Snarl flipped_snarl;
     snarl_manager->for_each_snarl_preorder([&](const Snarl* snarl) {
             name_to_snarl[print_snarl(*snarl)] = snarl;
+            // also add a map from the flipped snarl (as call sometimes messes with orientation)
+            flipped_snarl.mutable_start()->set_node_id(snarl->end().node_id());
+            flipped_snarl.mutable_start()->set_backward(!snarl->end().backward());
+            flipped_snarl.mutable_end()->set_node_id(snarl->start().node_id());
+            flipped_snarl.mutable_end()->set_backward(!snarl->start().backward());
+            name_to_snarl[print_snarl(flipped_snarl)] = snarl;
         });
 
     // pass 1) index sites in vcf

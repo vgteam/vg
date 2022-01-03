@@ -2,7 +2,7 @@
 
 #include <queue>
 #include "sdsl/bit_vectors.hpp"
-#include "algorithms/component_paths.hpp"
+#include "algorithms/component.hpp"
 
 //#define debug_component_index
 
