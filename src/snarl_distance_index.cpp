@@ -1,7 +1,7 @@
 //#define debug_distance_indexing
 //#define debug_snarl_traversal
-//#define debug_distances
-//#define debug_subgraph
+#define debug_distances
+#define debug_subgraph
 
 #include "snarl_distance_index.hpp"
 
@@ -449,34 +449,10 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
                 //Fill in this snarl's distances
                 populate_snarl_index(temp_index, chain_child_index, size_limit, graph);
 
-                size_t length;
-                bool new_component = false;
-                //TODO: Double check these orientations
-                if (temp_snarl_record.distances.count(make_pair(make_pair(0, false), make_pair(1, false)))){
-                    length = temp_snarl_record.distances.at(make_pair(make_pair(0, false), make_pair(1, false)));
-                } else if (temp_snarl_record.distances.count(make_pair(make_pair(1, false), make_pair(0, false)))){
-                    length = temp_snarl_record.distances.at(make_pair(make_pair(1, false), make_pair(0, false)));
-                } else {
-                    //The snarl is not start-end connected
-                    length = std::numeric_limits<size_t>::max();
-                    //Start a new component
-                    curr_component ++;
-                    new_component=true;
-#ifdef debug_distance_indexing
-            cerr << "      This snarl is not start-end connected, starting new chain component " << endl;
-#endif
+                bool new_component = temp_snarl_record.min_length == std::numeric_limits<size_t>::max();
+                if (new_component){
+                    curr_component++;
                 }
-                temp_snarl_record.min_length = length;
-
-                //Get the loop distances for the snarl
-                temp_snarl_record.loop_start =
-                    temp_snarl_record.distances.count(make_pair(make_pair(0, false), make_pair(0, false)))
-                  ? temp_snarl_record.distances.at(make_pair(make_pair(0, false), make_pair(0, false)))
-                  : std::numeric_limits<size_t>::max();
-                temp_snarl_record.loop_end =
-                    temp_snarl_record.distances.count(make_pair(make_pair(1, false), make_pair(1, false)))
-                  ? temp_snarl_record.distances.at(make_pair(make_pair(1, false), make_pair(1, false)))
-                  : std::numeric_limits<size_t>::max();
 
                 //And get the distance values for the end node of the snarl in the chain
                 if (new_component) {
@@ -729,6 +705,7 @@ void populate_snarl_index(
     cerr << "Getting the distances for snarl " << temp_index.structure_start_end_as_string(snarl_index) << endl;
     assert(snarl_index.first == SnarlDistanceIndex::TEMP_SNARL);
 #endif
+    unordered_map<pair<pair<size_t, bool>, pair<size_t, bool>>, size_t> temp_snarl_distances;
     SnarlDistanceIndex::TemporaryDistanceIndex::TemporarySnarlRecord& temp_snarl_record = temp_index.temp_snarl_records.at(snarl_index.second);
     temp_snarl_record.is_simple=true;
 
@@ -941,9 +918,9 @@ void populate_snarl_index(
                             ? make_pair(start_rank, false) : make_pair(start_rank, !start_rev);
                         pair<size_t, bool> next = !temp_snarl_record.is_root_snarl && (next_rank == 0 || next_rank == 1) 
                             ? make_pair(next_rank, false) : make_pair(next_rank, next_rev);
-                        if (!temp_snarl_record.distances.count(make_pair(start, next)) ) {
+                        if (!temp_snarl_distances.count(make_pair(start, next)) ) {
 
-                            temp_snarl_record.distances[make_pair(start, next)] = current_distance;
+                            temp_snarl_distances[make_pair(start, next)] = current_distance;
                             temp_snarl_record.max_distance = std::max(temp_snarl_record.max_distance, current_distance);
 #ifdef debug_distance_indexing
                             cerr << "           Adding distance between ranks " << start.first << " " << start.second << " and " << next.first << " " << next.second << ": " << current_distance << endl;
@@ -996,17 +973,17 @@ void populate_snarl_index(
             pair<size_t, bool> start_in = make_pair(0, false);
             pair<size_t, bool> end_in = make_pair(1, false); 
 
-            size_t dist_start_left = temp_snarl_record.distances.count(make_pair(make_pair(start_rank, false), start_in)) 
-                    ? temp_snarl_record.distances.at(make_pair(make_pair(start_rank, false), start_in)) 
+            size_t dist_start_left = temp_snarl_distances.count(make_pair(make_pair(start_rank, false), start_in)) 
+                    ? temp_snarl_distances.at(make_pair(make_pair(start_rank, false), start_in)) 
                     :std::numeric_limits<size_t>::max();
-            size_t dist_end_right = temp_snarl_record.distances.count(make_pair(make_pair(start_rank, true), end_in)) 
-                    ? temp_snarl_record.distances.at(make_pair(make_pair(start_rank, true), end_in))
+            size_t dist_end_right = temp_snarl_distances.count(make_pair(make_pair(start_rank, true), end_in)) 
+                    ? temp_snarl_distances.at(make_pair(make_pair(start_rank, true), end_in))
                     : std::numeric_limits<size_t>::max();
-            size_t dist_start_right = temp_snarl_record.distances.count(make_pair(make_pair(start_rank, true), start_in)) 
-                    ? temp_snarl_record.distances.at(make_pair(make_pair(start_rank, true), start_in))
+            size_t dist_start_right = temp_snarl_distances.count(make_pair(make_pair(start_rank, true), start_in)) 
+                    ? temp_snarl_distances.at(make_pair(make_pair(start_rank, true), start_in))
                     : std::numeric_limits<size_t>::max();
-            size_t dist_end_left = temp_snarl_record.distances.count(make_pair(make_pair(start_rank, false), end_in))
-                    ? temp_snarl_record.distances.at(make_pair(make_pair(start_rank, false), end_in))
+            size_t dist_end_left = temp_snarl_distances.count(make_pair(make_pair(start_rank, false), end_in))
+                    ? temp_snarl_distances.at(make_pair(make_pair(start_rank, false), end_in))
                     : std::numeric_limits<size_t>::max();
 
             size_t snarl_length_fd = SnarlDistanceIndex::sum({
@@ -1026,9 +1003,65 @@ void populate_snarl_index(
             }
         }
     }
+
+    //If this is a simple snarl (one with only single nodes that connect to the start and end nodes), then
+    // we want to remember if the child nodes are reversed 
+    if (temp_snarl_record.is_simple) {
+        for (size_t i = 0 ; i < temp_snarl_record.node_count ; i++) {
+            //Get the index of the child
+            const pair<SnarlDistanceIndex::temp_record_t, size_t>& child_index = temp_snarl_record.children[i];
+            //Which is a node
+            assert(child_index.first == SnarlDistanceIndex::TEMP_NODE);
+
+            //And get the record
+            SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryNodeRecord& temp_node_record =
+                 temp_index.temp_node_records[child_index.second-temp_index.min_node_id];
+            size_t rank =temp_node_record.rank_in_parent;
+
+            //See if it is reversed in the parent by checking if it reaches the boundaries forwards or backwards
+            bool reaches_node_end_to_start = temp_snarl_distances.count(
+                std::make_pair(std::make_pair(rank, true),
+                               std::make_pair(0, false))) != 0;
+            bool reaches_start_to_node_end = temp_snarl_distances.count(
+                std::make_pair(std::make_pair(0, false),
+                               std::make_pair(rank, true))) != 0;
+            
+            //Set the orientation of this node in the simple snarl
+            temp_node_record.reversed_in_parent = reaches_node_end_to_start || reaches_start_to_node_end;
+
+        }
+    }
+
+    //Now that the distances are filled in, predict the size of the snarl in the index
     temp_index.max_index_size += temp_snarl_record.get_max_record_length();
     if (temp_snarl_record.is_simple) {
         temp_index.max_index_size -= (temp_snarl_record.children.size() * SnarlDistanceIndex::TemporaryDistanceIndex::TemporaryNodeRecord::get_max_record_length());
+    }
+
+    //Get the minimum length of the snarl
+    if (temp_snarl_distances.count(make_pair(make_pair(0, false), make_pair(1, false)))){
+        temp_snarl_record.min_length = temp_snarl_distances.at(make_pair(make_pair(0, false), make_pair(1, false)));
+    } else if (temp_snarl_distances.count(make_pair(make_pair(1, false), make_pair(0, false)))){
+        temp_snarl_record.min_length = temp_snarl_distances.at(make_pair(make_pair(1, false), make_pair(0, false)));
+    } else {
+        //The snarl is not start-end connected
+        temp_snarl_record.min_length = std::numeric_limits<size_t>::max();
+    }
+
+    //Get the loop distances for the snarl
+    temp_snarl_record.loop_start =
+        temp_snarl_distances.count(make_pair(make_pair(0, false), make_pair(0, false)))
+      ? temp_snarl_distances.at(make_pair(make_pair(0, false), make_pair(0, false)))
+      : std::numeric_limits<size_t>::max();
+    temp_snarl_record.loop_end =
+        temp_snarl_distances.count(make_pair(make_pair(1, false), make_pair(1, false)))
+      ? temp_snarl_distances.at(make_pair(make_pair(1, false), make_pair(1, false)))
+      : std::numeric_limits<size_t>::max();
+
+
+    //Record the distances in the snarl
+    for (auto& distances : temp_snarl_distances) {
+        temp_snarl_record.distances.emplace_back(distances.first.first, distances.first.second, distances.second);
     }
 }
 
@@ -1101,6 +1134,10 @@ cerr << "Start positon: "<< start_pos << endl;
 #ifdef debug_subgraph
         cerr << "Walk along parent chain " << distance_index.net_handle_as_string(distance_index.get_parent(current_node)) << " from " << distance_index.net_handle_as_string(current_node) << " with " << current_distance << endl;
 #endif
+        if (distance_index.is_trivial_chain(distance_index.get_parent(current_node))){
+            cerr << "Trivial cahin" << endl;
+            return;
+        }
         bool finished_chain = false;
         while (current_distance <= min_distance && !finished_chain) {
             finished_chain = distance_index.follow_net_edges(current_node, super_graph, false, 
@@ -1158,6 +1195,9 @@ cerr << "Start positon: "<< start_pos << endl;
     };
 
     while (!distance_index.is_root(parent)) {
+#ifdef debug_subgraph
+        cerr << "At child " << distance_index.net_handle_as_string(current_net) << " with distances " << current_distance_left << " " << current_distance_right << endl;
+#endif
 
         //Distance from the start of the parent to the left of the current node
         size_t max_parent_length = distance_index.maximum_length(parent);
