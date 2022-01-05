@@ -19,6 +19,8 @@
 #include "../integrated_snarl_finder.hpp"
 #include "../min_distance.hpp"
 
+#include <bdsg/internal/mapped_structs.hpp>
+
 
 
 using namespace std;
@@ -91,54 +93,138 @@ int main_benchmark(int argc, char** argv) {
     
     vector<BenchmarkResult> results;
     
-    // Generate a test graph
-    VG vg_mut;
-    for (size_t i = 1; i < 101; i++) {
-        // It will have 100 nodes in ID order
-        vg_mut.create_node("ACGTACGT", i);
-    }
-    size_t bits = 1;
-    for (size_t i = 1; i < 101; i++) {
-        for (size_t j = 1; j < 101; j++) {
-            if ((bits ^ (i + (j << 3))) % 50 == 0) {
-                // Make some arbitrary edges
-                vg_mut.create_edge(i, j, false, false);
-            }
-            // Shifts and xors make good PRNGs right?
-            bits = bits ^ (bits << 13) ^ j;            
-        }
-    }
+    char filename[] = "tmpXXXXXX";
+    int tmpfd = mkstemp(filename);
+    assert(tmpfd != -1);
     
-    // Save a constant copy to reset it with
-    const VG vg(vg_mut);
-    
-    // Get an XG for it
-    xg::XG xg_index;
-    xg_index.from_path_handle_graph(vg);
-    
-    // Get a snarl manager
-    SnarlManager snarls = IntegratedSnarlFinder(xg_index).find_snarls_parallel();
-    
-    results.push_back(run_benchmark("DI1 construction", 1000, [&]() {
-         MinimumDistanceIndex distance_index(&xg_index, &snarls);
-    }));
-    
-    MinimumDistanceIndex distance_index(&xg_index, &snarls);
-    
-    bits = 1;
-    results.push_back(run_benchmark("DI1 query", 1000, [&]() {
-        for (size_t i = 1; i < 1000; i++) {
-            pos_t start = make_pos_t(bits % 100 + 1, 1, false);
-            bits = bits ^ (bits << 13) ^ i;
-            pos_t end = make_pos_t(bits % 100 + 1, 1, false);
-            bits = bits ^ (bits << 13) ^ (i + 3);
-            distance_index.min_distance(start, end);
-        }
-    }));
+    {
+        // Make all the vectors to benchmark
+        sdsl::int_vector<> sdsl_vec_holder;
+        auto sdsl_vec = &sdsl_vec_holder;
+        CompatIntVector<> compat_vec_holder;
+        auto compat_vec = &compat_vec_holder;
+        bdsg::yomo::UniqueMappedPointer<MappedIntVector> mapped_vec;
+        mapped_vec.construct("");
+        mapped_vec.save(tmpfd);
         
+        size_t vector_size = 1024 * 100;
+        size_t access_iters = 1000;
+        
+        sdsl_vec->width(24);
+        sdsl_vec->resize(vector_size);
+        for (size_t i = 0; i < sdsl_vec->size(); i++) {
+            (*sdsl_vec)[i] = i % 1<<20;
+        }
+        compat_vec->width(24);
+        compat_vec->resize(vector_size);
+        for (size_t i = 0; i < compat_vec->size(); i++) {
+            (*compat_vec)[i] = i % 1<<20;
+        }
+        mapped_vec->width(24);
+        mapped_vec->resize(vector_size);
+        for (size_t i = 0; i < sdsl_vec->size(); i++) {
+            (*mapped_vec)[i] = i % 1<<20;
+        }
+        
+        size_t bits = 1;
+        
+        results.push_back(run_benchmark("SDSL random access", 1000, [&]() {
+            for (size_t i = 1; i < access_iters; i++) {
+                size_t pos = bits % vector_size;
+                size_t read = (*sdsl_vec)[pos];
+                if (read != pos % 1<<20) {
+                    throw std::runtime_error("Incorrect read!");
+                }
+                bits = bits ^ (bits << 13) ^ i;
+            }
+        }));
+        
+        results.push_back(run_benchmark("SDSL sequential access", 1000, [&]() {
+            for (size_t i = 0; i < std::min(vector_size, access_iters); i++) {
+                size_t read = (*sdsl_vec)[i];
+                if (read != i % 1<<20) {
+                    throw std::runtime_error("Incorrect read!");
+                }
+                bits = bits ^ (bits << 13) ^ i;
+            }
+        }));
+        
+        results.push_back(run_benchmark("Compat random access", 1000, [&]() {
+            for (size_t i = 1; i < access_iters; i++) {
+                size_t pos = bits % vector_size;
+                size_t read = (*compat_vec)[pos];
+                if (read != pos % 1<<20) {
+                    throw std::runtime_error("Incorrect read!");
+                }
+                bits = bits ^ (bits << 13) ^ i;
+            }
+        }));
+        
+        results.push_back(run_benchmark("Compat sequential access", 1000, [&]() {
+            for (size_t i = 0; i < std::min(vector_size, access_iters); i++) {
+                size_t read = (*compat_vec)[i];
+                if (read != i % 1<<20) {
+                    throw std::runtime_error("Incorrect read!");
+                }
+                bits = bits ^ (bits << 13) ^ i;
+            }
+        }));
+        
+        results.push_back(run_benchmark("Mapped random access", 1000, [&]() {
+            for (size_t i = 1; i < access_iters; i++) {
+                size_t pos = bits % vector_size;
+                size_t read = (*mapped_vec)[pos];
+                if (read != pos % 1<<20) {
+                    throw std::runtime_error("Incorrect read!");
+                }
+                bits = bits ^ (bits << 13) ^ i;
+            }
+        }));
+        
+        results.push_back(run_benchmark("Mapped sequential access", 1000, [&]() {
+            for (size_t i = 0; i < std::min(vector_size, access_iters); i++) {
+                size_t read = (*mapped_vec)[i];
+                if (read != i % 1<<20) {
+                    throw std::runtime_error("Incorrect read!");
+                }
+                bits = bits ^ (bits << 13) ^ i;
+            }
+        }));
+        
+        // Reloading the mapped vector will get it all into the same chain link
+        // and make sure we don't need to consult global tables on pointer
+        // access.
+        mapped_vec.reset();
+        mapped_vec.load(tmpfd, "");
+        
+        results.push_back(run_benchmark("Mapped reloaded random access", 1000, [&]() {
+            for (size_t i = 1; i < access_iters; i++) {
+                size_t pos = bits % vector_size;
+                size_t read = (*mapped_vec)[pos];
+                if (read != pos % 1<<20) {
+                    throw std::runtime_error("Incorrect read!");
+                }
+                bits = bits ^ (bits << 13) ^ i;
+            }
+        }));
+        
+        results.push_back(run_benchmark("Mapped reloaded sequential access", 1000, [&]() {
+            for (size_t i = 0; i < std::min(vector_size, access_iters); i++) {
+                size_t read = (*mapped_vec)[i];
+                if (read != i % 1<<20) {
+                    throw std::runtime_error("Incorrect read!");
+                }
+            }
+        }));
+    }
+    
+    close(tmpfd);
+    unlink(filename);
+    
     
     // Do the control against itself
     results.push_back(run_benchmark("control", 1000, benchmark_control));
+    
 
     cout << "# Benchmark results for vg " << Version::get_short() << endl;
     cout << "# runs\ttest(us)\tstddev(us)\tcontrol(us)\tstddev(us)\tscore\terr\tname" << endl;
