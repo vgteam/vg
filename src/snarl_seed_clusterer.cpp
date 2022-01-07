@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#define DEBUG_CLUSTER
+//#define DEBUG_CLUSTER
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
@@ -152,7 +152,6 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
         //chains in tree_state.parent_chain_to_children
         cluster_chain_level(tree_state);
 
-cerr << "Cluster snarls at depth " << depth << endl;
         //And cluster all the snarls, record the parents of these snarls
         cluster_snarl_level(tree_state);
 
@@ -1414,7 +1413,6 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
      */
 
     //The last node we saw is initialized to the first node in the chain
-    cerr << "Get bound of " << distance_index.net_handle_as_string(chain_handle) << endl;
     net_handle_t last_child = distance_index.get_bound(chain_handle, false, true);
     //These are clusters that we don't want to consider as we walk through the chain but that 
     //we want to remember after we're done with the chain because the left distance is small
@@ -1454,7 +1452,6 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
 
         //The distance from the right side of the last child to the left side of this child 
         //(relative to the orientation of the chain
-        cerr << "FIND THE DISTANCE BETWEEN " << distance_index.net_handle_as_string(last_child) << " and " << distance_index.net_handle_as_string(child_handle) << endl;
         size_t distance_from_last_child_to_current_child = i==0 ? std::numeric_limits<size_t>::max() :
             distance_index.distance_in_parent(chain_handle, 
                 distance_index.is_reversed_in_parent(last_child) ? distance_index.flip(last_child) : last_child,
@@ -1922,7 +1919,6 @@ void NewSnarlSeedClusterer::cluster_root(TreeState& tree_state) const {
 }
 
 void NewSnarlSeedClusterer::add_child_to_vector(TreeState& tree_state, hash_map<net_handle_t, pair<size_t, vector<size_t>>>& parent_to_child_map, const net_handle_t& parent,size_t child_index) const {
-     cerr << "Add child " << distance_index.net_handle_as_string(tree_state.all_node_clusters[child_index].containing_net_handle) << " to parent " << distance_index.net_handle_as_string(parent) << endl;
     if (parent_to_child_map.count(parent) == 0) {
         //If we haven't seen the parent before
 
