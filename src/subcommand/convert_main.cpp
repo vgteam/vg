@@ -269,7 +269,6 @@ int main_convert(int argc, char** argv) {
                     MutablePathMutableHandleGraph* mutable_output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(output_path_graph);
                     assert(mutable_output_graph != nullptr);
                     algorithms::gfa_to_path_handle_graph(input_stream_name, mutable_output_graph,
-                                                         input_stream_name != "-",
                                                          input_rgfa_rank, gfa_trans_path);
                 }
                 else {

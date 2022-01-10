@@ -73,7 +73,6 @@ void gfa_to_handle_graph(const string& filename,
 /// Same as gfa_to_handle_graph but also adds path elements from the GFA to the graph
 void gfa_to_path_handle_graph(const string& filename,
                               MutablePathMutableHandleGraph* graph,
-                              bool try_from_disk = true,
                               int64_t max_rgfa_rank = numeric_limits<int64_t>::max(),
                               const string& translation_filename = "");
                               
