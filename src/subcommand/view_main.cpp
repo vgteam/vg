@@ -515,6 +515,7 @@ int main_view(int argc, char** argv) {
             // Use the disk-backed GFA loader that `vg convert` also uses.
             algorithms::gfa_to_path_handle_graph(file_name,
                                                  dynamic_cast<MutablePathMutableHandleGraph*>(graph.get()),
+                                                 nullptr,
                                                  0); // set rgfa path rank to 0 to be consistent with vg convert's default logic
         } catch (algorithms::GFAFormatError& e) {
             cerr << "error:[vg view] Input GFA is not acceptable." << endl;

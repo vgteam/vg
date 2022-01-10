@@ -68,13 +68,24 @@ struct GFAIDMapInfo : public NamedNodeBackTranslation {
 /// otherwise misused.
 void gfa_to_handle_graph(const string& filename,
                          MutableHandleGraph* graph,
-                         const string& translation_filename = "");
+                         GFAIDMapInfo* translation = nullptr);
+
+/// Overload which serializes its translation to a file internally.
+void gfa_to_handle_graph(const string& filename,
+                         MutableHandleGraph* graph,
+                         const string& translation_filename);
 
 /// Same as gfa_to_handle_graph but also adds path elements from the GFA to the graph
 void gfa_to_path_handle_graph(const string& filename,
                               MutablePathMutableHandleGraph* graph,
-                              int64_t max_rgfa_rank = numeric_limits<int64_t>::max(),
-                              const string& translation_filename = "");
+                              GFAIDMapInfo* translation = nullptr,
+                              int64_t max_rgfa_rank = numeric_limits<int64_t>::max());
+
+/// Overload which serializes its translation to a file internally.
+void gfa_to_path_handle_graph(const string& filename,
+                              MutablePathMutableHandleGraph* graph,
+                              int64_t max_rgfa_rank,
+                              const string& translation_filename);
                               
 /// Same as above but operating on a stream. Assumed to be non-seekable; all conversion happens in memory.
 /// Always streaming. Doesn't support ID increment hints.
@@ -86,6 +97,7 @@ void gfa_to_path_handle_graph_in_memory(istream& in,
 /// sorted, dump it to a temp file, and fall back on gfa_to_path_handle_graph()
 void gfa_to_path_handle_graph_stream(istream& in,
                                      MutablePathMutableHandleGraph* graph,
+                                     GFAIDMapInfo* translation = nullptr,
                                      int64_t max_rgfa_rank = numeric_limits<int64_t>::max());
 
 

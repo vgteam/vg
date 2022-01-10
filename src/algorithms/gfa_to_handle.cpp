@@ -524,9 +524,8 @@ static vector<gfak::sequence_elem> gfa_to_path_handle_graph_stream(istream& in, 
 }
 
 void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
-                         bool try_from_disk,
-                         const string& translation_filename) {
-
+                         GFAIDMapInfo* translation) {
+                         
     // What stream should we read from (instead of opening the file), if any?
     istream* unseekable = nullptr;
     if (filename == "-") {
@@ -535,15 +534,29 @@ void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
     } 
     
     gfak::GFAKluge gg;
-    GFAIDMapInfo id_map_info;
-    gfa_to_handle_graph_load_graph(filename, unseekable, graph, gg, id_map_info);
+    
+    // We may not have an external translation to write to so we may nee dto make our own.
+    unique_ptr<GFAIDMapInfo> translation_holder;
+    if (!translation) {
+        translation_holder.reset(new GFAIDMapInfo());
+        translation = translation_holder.get();
+    }
+    
+    gfa_to_handle_graph_load_graph(filename, unseekable, graph, gg, *translation);
+}
 
+void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
+                         const string& translation_filename) {
+
+    
+    GFAIDMapInfo id_map_info;
+    gfa_to_handle_graph(filename, graph, &id_map_info);
     write_gfa_translation(id_map_info, translation_filename);
 }
 
 
 void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGraph* graph,
-                              int64_t max_rgfa_rank, const string& translation_filename) {
+                              GFAIDMapInfo* translation, int64_t max_rgfa_rank) {
     
     
     // What stream should we read from (instead of opening the file), if any?
@@ -554,17 +567,31 @@ void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGr
     }
     
     gfak::GFAKluge gg;
-    GFAIDMapInfo id_map_info;
-    bool has_rgfa_tags = gfa_to_handle_graph_load_graph(filename, unseekable, graph, gg, id_map_info);
+    
+    // We may not have an external translation to write to so we may nee dto make our own.
+    unique_ptr<GFAIDMapInfo> translation_holder;
+    if (!translation) {
+        translation_holder.reset(new GFAIDMapInfo());
+        translation = translation_holder.get();
+    }
+    
+    bool has_rgfa_tags = gfa_to_handle_graph_load_graph(filename, unseekable, graph, gg, *translation);
     
     // TODO: Deduplicate everything other than this line somehow.
-    gfa_to_handle_graph_add_paths(filename, unseekable, graph, gg, id_map_info);
+    gfa_to_handle_graph_add_paths(filename, unseekable, graph, gg, *translation);
 
     if (has_rgfa_tags) {
-        gfa_to_handle_graph_add_rgfa_paths(filename, unseekable, nullptr, graph, gg, id_map_info, max_rgfa_rank);
+        gfa_to_handle_graph_add_rgfa_paths(filename, unseekable, nullptr, graph, gg, *translation, max_rgfa_rank);
     }
+}
 
+void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGraph* graph,
+                              int64_t max_rgfa_rank, const string& translation_filename) {
+
+    GFAIDMapInfo id_map_info;
+    gfa_to_path_handle_graph(filename, graph, &id_map_info, max_rgfa_rank);
     write_gfa_translation(id_map_info, translation_filename);
+
 }
 
 void gfa_to_path_handle_graph_in_memory(istream& in,
@@ -582,13 +609,21 @@ void gfa_to_path_handle_graph_in_memory(istream& in,
 
 void gfa_to_path_handle_graph_stream(istream& in,
                                      MutablePathMutableHandleGraph* graph,
+                                     GFAIDMapInfo* translation,
                                      int64_t max_rgfa_rank) {
     gfak::GFAKluge gg;
-    GFAIDMapInfo id_map_info;
-    vector<gfak::sequence_elem> rgfa_seq_elems = gfa_to_path_handle_graph_stream(in, graph, id_map_info, max_rgfa_rank);
+    
+    // We may not have an external translation to write to so we may nee dto make our own.
+    unique_ptr<GFAIDMapInfo> translation_holder;
+    if (!translation) {
+        translation_holder.reset(new GFAIDMapInfo());
+        translation = translation_holder.get();
+    }
+    
+    vector<gfak::sequence_elem> rgfa_seq_elems = gfa_to_path_handle_graph_stream(in, graph, *translation, max_rgfa_rank);
     if (!rgfa_seq_elems.empty()) {
         gfak::GFAKluge gg; // not used
-        gfa_to_handle_graph_add_rgfa_paths("", nullptr, &rgfa_seq_elems, graph, gg, id_map_info, max_rgfa_rank);
+        gfa_to_handle_graph_add_rgfa_paths("", nullptr, &rgfa_seq_elems, graph, gg, *translation, max_rgfa_rank);
     }        
 }
 
