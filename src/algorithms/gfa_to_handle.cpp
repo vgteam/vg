@@ -1,6 +1,8 @@
 #include "gfa_to_handle.hpp"
 #include "../path.hpp"
 
+#include <bdsg/odgi.hpp>
+
 namespace vg {
 namespace algorithms {
 
@@ -179,12 +181,13 @@ static bool gfa_to_handle_graph_in_memory(istream& in, MutableHandleGraph* graph
 }
 
 static bool gfa_to_handle_graph_on_disk(const string& filename, MutableHandleGraph* graph,
-                                        bool try_id_increment_hint, gfak::GFAKluge& gg, GFAIDMapInfo& id_map_info) {
+                                        gfak::GFAKluge& gg, GFAIDMapInfo& id_map_info) {
     
     // adapted from
     // https://github.com/vgteam/odgi/blob/master/src/gfa_to_handle.cpp
     
-    if (try_id_increment_hint) {
+    if (dynamic_cast<*bdsg::ODGI>(graph)) {
+        // This kind of graph needs a hint about IDs to be efficient. 
         
         // find the minimum ID
         nid_t min_id = numeric_limits<nid_t>::max();
@@ -229,7 +232,7 @@ static bool gfa_to_handle_graph_on_disk(const string& filename, MutableHandleGra
 /// If the input is not a seekable file, filename may be filled in, and unseekable will be set to a stream to read from.
 /// Returns true if any "SN" rGFA tags are found in the graph nodes
 static bool gfa_to_handle_graph_load_graph(const string& filename, istream* unseekable, MutableHandleGraph* graph,
-                                           bool try_id_increment_hint, gfak::GFAKluge& gg, GFAIDMapInfo& id_map_info) {
+                                           gfak::GFAKluge& gg, GFAIDMapInfo& id_map_info) {
     
     if (graph->get_node_count() > 0) {
         throw invalid_argument("error:[gfa_to_handle_graph] Must parse GFA into an empty graph");
@@ -237,12 +240,13 @@ static bool gfa_to_handle_graph_load_graph(const string& filename, istream* unse
     bool has_rgfa_tags = false;
     if (!unseekable) {
         // Do the from-disk path
-        has_rgfa_tags = gfa_to_handle_graph_on_disk(filename, graph, try_id_increment_hint, gg, id_map_info);
+        has_rgfa_tags = gfa_to_handle_graph_on_disk(filename, graph, gg, id_map_info);
     } else {
         // Do the path for streams
         
-        if (try_id_increment_hint) {
-            // The ID increment hint can't be done.
+        if (dynamic_cast<*bdsg::ODGI>(graph)) {
+            // This kind of graph needs a hint about IDs to be efficient. 
+            // But, the ID increment hint can't be done.
             cerr << "warning:[gfa_to_handle_graph] Skipping node ID increment hint because input stream for GFA does not support seeking. "
                  << "If performance suffers, consider using an alternate graph implementation or reading GFA from hard disk." << endl;
         }
@@ -520,7 +524,7 @@ static vector<gfak::sequence_elem> gfa_to_path_handle_graph_stream(istream& in, 
 }
 
 void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
-                         bool try_from_disk, bool try_id_increment_hint,
+                         bool try_from_disk,
                          const string& translation_filename) {
 
     // What stream should we read from (isntead of opening the file), if any?
@@ -544,14 +548,14 @@ void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
     
     gfak::GFAKluge gg;
     GFAIDMapInfo id_map_info;
-    gfa_to_handle_graph_load_graph(filename, unseekable, graph, try_id_increment_hint, gg, id_map_info);
+    gfa_to_handle_graph_load_graph(filename, unseekable, graph, gg, id_map_info);
 
     write_gfa_translation(id_map_info, translation_filename);
 }
 
 
 void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGraph* graph,
-                              bool try_from_disk, bool try_id_increment_hint,
+                              bool try_from_disk,
                               int64_t max_rgfa_rank, const string& translation_filename) {
     
     
@@ -576,7 +580,7 @@ void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGr
     
     gfak::GFAKluge gg;
     GFAIDMapInfo id_map_info;
-    bool has_rgfa_tags = gfa_to_handle_graph_load_graph(filename, unseekable, graph, try_id_increment_hint, gg, id_map_info);
+    bool has_rgfa_tags = gfa_to_handle_graph_load_graph(filename, unseekable, graph, gg, id_map_info);
     
     // TODO: Deduplicate everything other than this line somehow.
     gfa_to_handle_graph_add_paths(filename, unseekable, graph, gg, id_map_info);

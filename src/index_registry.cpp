@@ -1669,8 +1669,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         // make the graph from GFA
         try {
-            algorithms::gfa_to_path_handle_graph(input_filename, graph.get(), true,
-                                                 IndexingParameters::mut_graph_impl == IndexingParameters::ODGI);
+            algorithms::gfa_to_path_handle_graph(input_filename, graph.get());
         }
         catch (algorithms::GFAFormatError& e) {
             cerr << "error:[IndexRegistry] Input GFA is not usable in VG." << endl;
