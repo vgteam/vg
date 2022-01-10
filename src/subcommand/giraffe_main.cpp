@@ -1394,7 +1394,7 @@ int main_giraffe(int argc, char** argv) {
             // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
             unique_ptr<AlignmentEmitter> alignment_emitter = discard_alignments ?
                 make_unique<NullAlignmentEmitter>() :
-                get_alignment_emitter("-", output_format, paths, thread_count,
+                get_alignment_emitter(output_filename, output_format, paths, thread_count,
                     path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)&(gbz->graph),
                     ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS * prune_anchors);
             
