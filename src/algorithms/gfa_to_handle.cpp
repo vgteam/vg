@@ -529,22 +529,10 @@ void gfa_to_handle_graph(const string& filename, MutableHandleGraph* graph,
 
     // What stream should we read from (isntead of opening the file), if any?
     istream* unseekable = nullptr;
-    
-    // If we open a file, it will live here.
-    unique_ptr<ifstream> opened;
-    
     if (filename == "-") {
         // Read from standard input
         unseekable = &cin;
-    } else if (!try_from_disk) {
-        // The file may be seekable actually, but we don't want to use the
-        // seekable-file codepath for some reason.
-        opened = make_unique<ifstream>(filename);
-        if (!opened) {
-            throw std::ios_base::failure("error:[gfa_to_handle_graph] Couldn't open file " + filename);
-        }
-        unseekable = opened.get();
-    }
+    } 
     
     gfak::GFAKluge gg;
     GFAIDMapInfo id_map_info;
