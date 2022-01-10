@@ -15,6 +15,7 @@
 #include <handlegraph/mutable_path_mutable_handle_graph.hpp>
 #include <handlegraph/deletable_handle_graph.hpp>
 #include <handlegraph/mutable_path_deletable_handle_graph.hpp>
+#include <handlegraph/named_node_back_translation.hpp>
 
 #include <handlegraph/expanding_overlay_graph.hpp>
 #include <handlegraph/serializable_handle_graph.hpp>
@@ -55,6 +56,7 @@ using nid_t = handlegraph::nid_t;
 using path_handle_t = handlegraph::path_handle_t;
 using step_handle_t = handlegraph::step_handle_t;
 using edge_t = handlegraph::edge_t;
+using oriented_node_range_t = handlegraph::oriented_node_range_t;
 
 using HandleGraph = handlegraph::HandleGraph;
 using RankedHandleGraph = handlegraph::RankedHandleGraph;
@@ -67,6 +69,7 @@ using DeletableHandleGraph = handlegraph::DeletableHandleGraph;
 using MutablePathDeletableHandleGraph = handlegraph::MutablePathDeletableHandleGraph;
 using SerializableHandleGraph = handlegraph::SerializableHandleGraph;
 using VectorizableHandleGraph = handlegraph::VectorizableHandleGraph;
+using NamedNodeBackTranslation = handlegraph::NamedNodeBackTranslation;
 
 /**
  * Define wang hashes for handles.

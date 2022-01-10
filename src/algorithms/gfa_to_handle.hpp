@@ -10,6 +10,7 @@
 #include <iostream>
 #include <gfakluge.hpp>
 #include <cctype>
+#include <vector>
 
 #include "../handle.hpp"
 
@@ -21,6 +22,43 @@ using namespace std;
 struct GFAFormatError : std::runtime_error {
     // Keep the constructor from a message
     using std::runtime_error::runtime_error;
+};
+
+/**
+ * Stores ID information for a graph imported from a GFA.
+ * Either all IDs are numerically equivalent to their GFA string IDs, or they
+ * are stored in the name_to_id map.
+ */
+struct GFAIDMapInfo : public NamedNodeBackTranslation {
+    /// If true, GFA string IDs are just graph numerical IDs.
+    bool numeric_mode = true;
+    /// This holds the max node ID yet used.
+    nid_t max_id = 0;
+    /// This maps from GFA string ID to graph numerical ID.
+    /// This is behind a unique_ptr so it can be safely pointed into.
+    unique_ptr<unordered_map<string, nid_t>> name_to_id = std::make_unique<unordered_map<string, nid_t>>();
+    
+    /// This inverts the name to ID map, and is populated when
+    /// invert_translation is called, so it can be accessed thread-safely.
+    unique_ptr<unordered_map<nid_t, std::string*>> id_to_name;
+    
+    /**
+     * Prepare thr backing data structures for get_back_graph_node_name(). Call after name_to_id is complete.
+     */
+    void invert_translation();
+    
+    /**
+     * Back-translation of node ranges. Is a no-op for imported GFA graphs that
+     * haven't been modified, since the GFA graph is itself the backing graph.
+     */
+    std::vector<oriented_node_range_t> translate_back(const oriented_node_range_t& range) const;
+    
+    /**
+     * Get the GFA sequence name of a node, given its ID.
+     * Assumes this will never be called until after name_to_id is fully populated.
+     */
+    std::string get_back_graph_node_name(const nid_t& back_node_id) const;
+
 };
 
 /// Read a GFA file for a blunt-ended graph into a HandleGraph. Give "-" as a filename for stdin.
