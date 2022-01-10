@@ -276,7 +276,7 @@ int main_convert(int argc, char** argv) {
                     MutableHandleGraph* mutable_output_graph = dynamic_cast<MutableHandleGraph*>(output_graph.get());
                     assert(mutable_output_graph != nullptr);
                     algorithms::gfa_to_handle_graph(input_stream_name, mutable_output_graph,
-                                                    input_stream_name != "-", false,
+                                                    input_stream_name != "-",
                                                     gfa_trans_path);
                 }
             } catch (algorithms::GFAFormatError& e) {

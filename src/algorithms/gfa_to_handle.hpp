@@ -40,7 +40,7 @@ struct GFAIDMapInfo : public NamedNodeBackTranslation {
     
     /// This inverts the name to ID map, and is populated when
     /// invert_translation is called, so it can be accessed thread-safely.
-    unique_ptr<unordered_map<nid_t, std::string*>> id_to_name;
+    unique_ptr<unordered_map<nid_t, const std::string*>> id_to_name;
     
     /**
      * Prepare thr backing data structures for get_back_graph_node_name(). Call after name_to_id is complete.

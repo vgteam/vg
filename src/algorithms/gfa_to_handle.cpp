@@ -9,10 +9,10 @@ namespace algorithms {
 void GFAIDMapInfo::invert_translation() {
     if (!numeric_mode) {
         // Make the mapping
-        id_to_name = std::make_unique<delctype(*id_to_name)>();
+        id_to_name.reset(new unordered_map<nid_t, const std::string*>());
         // And then populate it
-        for (auto& name_to_id_mapping : *name_to_id) {
-            id_to_name.emplace(name_to_id_mapping->second, &name_to_id_mapping->first); 
+        for (auto mapping = name_to_id->begin(); mapping != name_to_id->end(); ++mapping) {
+            id_to_name->emplace(mapping->second, &mapping->first); 
         }
     }
 }
@@ -186,7 +186,7 @@ static bool gfa_to_handle_graph_on_disk(const string& filename, MutableHandleGra
     // adapted from
     // https://github.com/vgteam/odgi/blob/master/src/gfa_to_handle.cpp
     
-    if (dynamic_cast<*bdsg::ODGI>(graph)) {
+    if (dynamic_cast<bdsg::ODGI*>(graph)) {
         // This kind of graph needs a hint about IDs to be efficient. 
         
         // find the minimum ID
@@ -244,7 +244,7 @@ static bool gfa_to_handle_graph_load_graph(const string& filename, istream* unse
     } else {
         // Do the path for streams
         
-        if (dynamic_cast<*bdsg::ODGI>(graph)) {
+        if (dynamic_cast<bdsg::ODGI*>(graph)) {
             // This kind of graph needs a hint about IDs to be efficient. 
             // But, the ID increment hint can't be done.
             cerr << "warning:[gfa_to_handle_graph] Skipping node ID increment hint because input stream for GFA does not support seeking. "
@@ -437,7 +437,7 @@ static vector<gfak::sequence_elem> gfa_to_path_handle_graph_stream(istream& in, 
         fb_file.close();
         // read the file from disk
         gfak::GFAKluge gg;
-        bool ret = gfa_to_handle_graph_on_disk(fb_name, graph, false, gg, id_map_info);
+        bool ret = gfa_to_handle_graph_on_disk(fb_name, graph, gg, id_map_info);
         gfa_to_handle_graph_add_paths(fb_name, nullptr, graph, gg, id_map_info);
         has_rgfa_tags = has_rgfa_tags || ret;
     };
@@ -597,7 +597,7 @@ void gfa_to_path_handle_graph_in_memory(istream& in,
                                         int64_t max_rgfa_rank) {
     gfak::GFAKluge gg;
     GFAIDMapInfo id_map_info;
-    bool has_rgfa_tags = gfa_to_handle_graph_load_graph("", &in, graph, false, gg, id_map_info);
+    bool has_rgfa_tags = gfa_to_handle_graph_load_graph("", &in, graph, gg, id_map_info);
     gfa_to_handle_graph_add_paths("", &in, graph, gg, id_map_info);
     if (has_rgfa_tags) {
         gfa_to_handle_graph_add_rgfa_paths("", &in, nullptr, graph, gg, id_map_info, max_rgfa_rank);
