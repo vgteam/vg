@@ -87,6 +87,11 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v, const vector<SnarlTra
     // init the traversal info
     v.info["AT"].resize(allele_idx.size());
 
+    // we're going to go through the allele traversals
+    // for each, we should find the set of supporting paths
+    // we will use them to untangle the reference positions
+    // using the same context mapping typically used for record positions
+
     for (auto ai_pair : allele_idx) {
         string allele_string = ai_pair.first;
         int allele_no = ai_pair.second.first;
@@ -334,6 +339,70 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
     bool conflict = phasing_conflict || allele_frequencies.size() - zero_count > sample_ploidy;
     return make_pair(most_frequent_travs, conflict);
 }
+
+
+// todo refactor if we need to reuse elsewhere in vg
+// implemented inline for development
+// assumes sorted input
+double Deconstructor::context_jaccard(
+    const vector<nid_t>& target,
+    const vector<nid_t>& query) const {
+    // XXX horribly inefficient
+    // these can be computed without storing the node ids
+    vector<nid_t> node_isec;
+    std::set_intersection(target.begin(), target.end(),
+                          query.begin(), query.end(),
+                          std::back_inserter(node_isec));
+    vector<nid_t> node_union;
+    std::set_union(target.begin(), target.end(),
+                   query.begin(), query.end(),
+                   std::back_inserter(node_union));
+    return (double)node_isec.size() / (double)node_union.size();
+}
+
+vector<nid_t> Deconstructor::get_context(
+    const pair<vector<SnarlTraversal>,
+               vector<pair<step_handle_t, step_handle_t>>>& path_travs,
+    const int& trav_idx) const {
+    step_handle_t start_step = path_travs.second[trav_idx].first;
+    step_handle_t end_step = path_travs.second[trav_idx].second;
+    if (graph->get_position_of_step(start_step)
+        > graph->get_position_of_step(end_step)) {
+        std::swap(start_step, end_step);
+    }
+    // by definition, our start and end are shared among all traversals
+    // we establish a graph context sketch including the nodes traversed in the bubble
+    // and flanks upstream and downstream of path_jaccard_window bp
+    vector<nid_t> context;
+    step_handle_t curr = start_step;
+    const int check_distance = this->path_jaccard_window; // how far we look in each direction
+    int distance_checked = 0;
+    while (distance_checked < check_distance && graph->has_previous_step(curr)) {
+        curr = graph->get_previous_step(curr);
+        auto h = graph->get_handle_of_step(curr);
+        context.push_back(graph->get_id(h));
+        distance_checked += graph->get_length(h);
+    }
+    // add the nodes in the bubble
+    curr = start_step;
+    context.push_back(graph->get_id(graph->get_handle_of_step(curr)));
+    while (graph->has_next_step(curr) &&
+           curr != end_step) {
+        curr = graph->get_next_step(curr);
+        context.push_back(graph->get_id(graph->get_handle_of_step(curr)));
+    }
+    distance_checked = 0;
+    curr = end_step;
+    while (distance_checked < check_distance && graph->has_next_step(curr)) {
+        curr = graph->get_next_step(curr);
+        auto h = graph->get_handle_of_step(curr);
+        context.push_back(graph->get_id(h));
+        distance_checked += graph->get_length(h);
+    }
+    std::sort(context.begin(), context.end());
+    return context;
+}
+
     
 bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 
@@ -516,70 +585,12 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 #pragma omp critical (cerr)
         cerr << "Multiple ref traversals!" << endl;
 #endif
-        // todo refactor if we need to reuse elsewhere in vg
-        // implemented inline for development
-        // assumes sorted input
-        auto context_jaccard = [](const vector<nid_t>& target,
-                                  const vector<nid_t>& query) {
-            // XXX horribly inefficient
-            // these can be computed without storing the node ids
-            vector<nid_t> node_isec;
-            std::set_intersection(target.begin(), target.end(),
-                                  query.begin(), query.end(),
-                                  std::back_inserter(node_isec));
-            vector<nid_t> node_union;
-            std::set_union(target.begin(), target.end(),
-                           query.begin(), query.end(),
-                           std::back_inserter(node_union));
-            return (double)node_isec.size() / (double)node_union.size();
-        };
-
-        auto get_context = [&path_travs,this](const int& trav_idx) {
-            step_handle_t start_step = path_travs.second[trav_idx].first;
-            step_handle_t end_step = path_travs.second[trav_idx].second;
-            if (graph->get_position_of_step(start_step)
-                > graph->get_position_of_step(end_step)) {
-                std::swap(start_step, end_step);
-            }
-            // by definition, our start and end are shared among all traversals
-            // we establish a graph context sketch including the nodes traversed in the bubble
-            // and flanks upstream and downstream of path_jaccard_window bp
-            vector<nid_t> context;
-            step_handle_t curr = start_step;
-            const int check_distance = this->path_jaccard_window; // how far we look in each direction
-            int distance_checked = 0;
-            while (distance_checked < check_distance && graph->has_previous_step(curr)) {
-                curr = graph->get_previous_step(curr);
-                auto h = graph->get_handle_of_step(curr);
-                context.push_back(graph->get_id(h));
-                distance_checked += graph->get_length(h);
-            }
-            // add the nodes in the bubble
-            curr = start_step;
-            context.push_back(graph->get_id(graph->get_handle_of_step(curr)));
-            while (graph->has_next_step(curr) &&
-                   curr != end_step) {
-                curr = graph->get_next_step(curr);
-                context.push_back(graph->get_id(graph->get_handle_of_step(curr)));
-            }
-            distance_checked = 0;
-            curr = end_step;
-            while (distance_checked < check_distance && graph->has_next_step(curr)) {
-                curr = graph->get_next_step(curr);
-                auto h = graph->get_handle_of_step(curr);
-                context.push_back(graph->get_id(h));
-                distance_checked += graph->get_length(h);
-            }
-            std::sort(context.begin(), context.end());
-            return context;
-        };
-
         vector<vector<nid_t>> ref_contexts(ref_travs.size());
         for (size_t i = 0; i < ref_travs.size(); ++i) {
 #pragma omp task firstprivate(i) shared(ref_contexts)
             {
                 auto& trav_id = ref_travs[i];
-                ref_contexts[i] = get_context(trav_id);
+                ref_contexts[i] = get_context(path_travs, trav_id);
             }
         }
 #pragma omp taskwait
@@ -588,7 +599,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
         for (size_t i = 0; i < path_travs.first.size(); ++i) {
 #pragma omp task firstprivate(i) shared(path_trav_to_ref_trav)
             {
-                vector<nid_t> context = get_context(i);
+                vector<nid_t> context = get_context(path_travs, i);
                 // map jaccard metric to the index of the ref_trav
                 vector<pair<double, int>> ref_mappings;
                 for (uint64_t j = 0; j < ref_travs.size(); ++j) {

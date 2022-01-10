@@ -81,6 +81,16 @@ private:
     // this will be much slower than doing the same using the PathPositionGraph interface as there's no
     // underlying index. 
     tuple<bool, handle_t, size_t> get_gbwt_path_position(const SnarlTraversal& trav, const gbwt::size_type& thread) const;
+
+    // gets a sorted node id context for a given path
+    vector<nid_t> get_context(
+        const pair<vector<SnarlTraversal>,
+                   vector<pair<step_handle_t, step_handle_t>>>& path_travs,
+        const int& trav_idx) const;
+
+    // compares node contexts
+    double context_jaccard(const vector<nid_t>& target,
+                           const vector<nid_t>& query) const;
     
     // toggle between exhaustive and path restricted traversal finder
     bool path_restricted = false;
