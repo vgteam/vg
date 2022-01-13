@@ -41,6 +41,7 @@ public:
                      int ploidy,
                      bool include_nested,
                      int context_jaccard_window,
+                     bool untangle_traversals,
                      bool keep_conflicted,
                      bool strict_conflicts,
                      const unordered_map<string, pair<string, int>>* path_to_sample_phase = nullptr,
@@ -148,6 +149,9 @@ private:
 
     // target window size for determining the correct reference position for allele traversals with path jaccard
     int path_jaccard_window = 10000;
+
+    // should we add positional untangling of traversals in the AP field
+    bool untangle_allele_traversals = false;
 
     // should we be strict about flagging and removing conflicted phases?
     bool strict_conflict_checking = false;

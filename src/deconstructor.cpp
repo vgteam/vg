@@ -863,6 +863,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
                                 int ploidy,
                                 bool include_nested,
                                 int context_jaccard_window,
+                                bool untangle_traversals,
                                 bool keep_conflicted,
                                 bool strict_conflicts,
                                 const unordered_map<string, pair<string, int>>* path_to_sample_phase,
@@ -878,6 +879,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
     this->ref_paths = set<string>(ref_paths.begin(), ref_paths.end());
     this->include_nested = include_nested;
     this->path_jaccard_window = context_jaccard_window;
+    this->untangle_allele_traversals = untangle_traversals;
     this->keep_conflicted_genotypes = keep_conflicted;
     this->strict_conflict_checking = strict_conflicts;
     assert(path_to_sample_phase == nullptr || path_restricted || gbwt);
