@@ -519,12 +519,14 @@ vector<nid_t> Deconstructor::get_context(
         distance_checked += graph->get_length(h);
     }
     // add the nodes in the bubble
-    curr = start_step;
-    context.push_back(graph->get_id(graph->get_handle_of_step(curr)));
-    while (graph->has_next_step(curr) &&
-           curr != end_step) {
-        curr = graph->get_next_step(curr);
+    if (start_step != end_step) {
+        curr = start_step;
         context.push_back(graph->get_id(graph->get_handle_of_step(curr)));
+        while (graph->has_next_step(curr) &&
+               curr != end_step) {
+            curr = graph->get_next_step(curr);
+            context.push_back(graph->get_id(graph->get_handle_of_step(curr)));
+        }
     }
     distance_checked = 0;
     curr = end_step;
