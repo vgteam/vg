@@ -54,7 +54,10 @@ private:
     bool deconstruct_site(const Snarl* site) const;
 
     // convert traversals to strings.  returns mapping of traversal (offset in travs) to allele
-    vector<int> get_alleles(vcflib::Variant& v, const vector<SnarlTraversal>& travs, int ref_path_idx,
+    vector<int> get_alleles(vcflib::Variant& v,
+                            const pair<vector<SnarlTraversal>,
+                                       vector<pair<step_handle_t, step_handle_t>>>& path_travs,
+                            int ref_path_idx,
                             const vector<bool>& use_trav,
                             char prev_char, bool use_start) const;
     
@@ -87,6 +90,11 @@ private:
         const pair<vector<SnarlTraversal>,
                    vector<pair<step_handle_t, step_handle_t>>>& path_travs,
         const int& trav_idx) const;
+
+    // the underlying context-getter
+    vector<nid_t> get_context(
+        step_handle_t start_step,
+        step_handle_t end_step) const;
 
     // compares node contexts
     double context_jaccard(const vector<nid_t>& target,

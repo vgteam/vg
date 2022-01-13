@@ -374,7 +374,7 @@ void VCFOutputCaller::add_allele_path_to_info(vcflib::Variant& v, int allele, co
             trav_info[allele] += std::to_string(node_id);
         }
         prev_visit = &visit;
-    }    
+    }
 }
 
 string VCFOutputCaller::trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const {
