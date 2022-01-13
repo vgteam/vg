@@ -117,46 +117,6 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
         add_allele_path_to_info(v, allele_no, travs[allele_trav_no], reversed, !substitution);
     }
 
-    // establish contexts for multi-mapping steps in the reference traversal
-    unordered_map<nid_t, vector<pair<pair<uint64_t, uint64_t>, vector<nid_t>>>> ref_contexts;
-    path_handle_t ref_path = graph->get_path_handle_of_step(path_travs.second.at(ref_path_idx).first);
-    unordered_set<nid_t> ref_nodes;
-    {
-        auto& trav = travs.at(ref_path_idx);
-        for (size_t i = 0; i < trav.visit_size(); ++i) {
-            size_t j = !reversed ? i : trav.visit_size() - 1 - i;
-            const Visit& visit = trav.visit(j);
-            nid_t node_id = visit.node_id();
-            if (ref_nodes.count(node_id)) continue; // get contexts once
-            handle_t h = graph->get_handle(node_id);
-            // count reference occurrences on node
-            vector<step_handle_t> ref_steps;
-            graph->for_each_step_on_handle(
-                h, [&](const step_handle_t& step) {
-                    auto p = graph->get_path_handle_of_step(step);
-                    if (p == ref_path) {
-                        ref_steps.push_back(step);
-                    }
-                });
-            if (ref_steps.size() > 1) {
-                auto& c = ref_contexts[node_id];
-                for (auto& step : ref_steps) {
-                    auto pos = graph->get_position_of_step(step) + 1;
-                    auto len = graph->get_length(graph->get_handle_of_step(step));
-                    c.push_back(make_pair(make_pair(pos, pos+len), get_context(step, step)));
-                }
-            } else if (ref_steps.size() == 1) {
-                auto& c = ref_contexts[node_id];
-                auto& step = ref_steps.front();
-                auto pos = graph->get_position_of_step(step) + 1;
-                auto len = graph->get_length(graph->get_handle_of_step(step));
-                vector<nid_t> empty;
-                c.push_back(make_pair(make_pair(pos, pos+len), empty)); // don't compute unnecessary contexts
-            }
-            ref_nodes.insert(node_id);
-        }
-    }
-
     // we're going to go through the allele traversals
     // for each, we should find the set of supporting paths
     // we will use them to untangle the reference positions
@@ -170,82 +130,121 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
     // then we compare each reference matching step inside
     // (todo: this should be done only for top level bubbles)
 
-    if (untangle_allele_traversals) {
-        v.info["UT"].resize(allele_idx.size());
+    vector<int> allele_idx_unfolded(allele_idx.size());
+    for (auto& ai_pair : allele_idx) {
+        int allele_no = ai_pair.second.first;
+        int allele_trav_no = ai_pair.second.second;
+        allele_idx_unfolded[allele_no] = allele_trav_no;
+    }
 
-        for (auto ai_pair : allele_idx) {
-            string allele_string = ai_pair.first;
-            int allele_no = ai_pair.second.first;
-            int allele_trav_no = ai_pair.second.second;
-            auto start_step = path_travs.second.at(allele_trav_no).first;
-            auto end_step = path_travs.second.at(allele_trav_no).second;
-            bool flip_path = graph->get_is_reverse(graph->get_handle_of_step(start_step)) != reversed;
-            if (flip_path) {
-                std::swap(start_step, end_step);
-            }
-            //if (reversed) std::swap(start_step, end_step);
-            //cerr << "start_step = " << graph->get_id(graph->get_handle_of_step(start_step))
-            //     << " end_step = " << graph->get_id(graph->get_handle_of_step(end_step))
-            //     << endl;
-            path_handle_t path = graph->get_path_handle_of_step(start_step);
-            //path_travs.second.at(allele_trav_no).first);
-            //std::cerr << "path is " << graph->get_path_name(path) << std::endl;
-            std::vector<step_handle_t> steps;
-            for (auto s = start_step; graph->has_next_step(s);
-                 s = graph->get_next_step(s)) {
-                steps.push_back(s);
-                if (s == end_step) break;
-            }
-            if (flip_path) {
-                std::reverse(steps.begin(), steps.end());
-            }
-            // update the traversal info
-            //add_allele_path_to_info(v, allele_no, travs[allele_trav_no], !use_start, !substitution);
-            //auto& trav = travs[allele_trav_no];
-            //auto& step =
-            string& trav_pos_info = v.info["UT"][allele_no];
-            for (auto& step : steps) {
-                handle_t h = graph->get_handle_of_step(step);
-                nid_t node_id = graph->get_id(h);
-                bool step_rev = graph->get_is_reverse(h) != reversed;
-                // here we need to get a context mapping of the given _step_ !
-                // XXXXX
-                // look up the node in the context mapping
-                trav_pos_info += (reversed ? "<" : ">");
-                trav_pos_info += std::to_string(node_id);
-                trav_pos_info += "_";
-                if (allele_no == 0) { // special case the reference
+    if (untangle_allele_traversals) {
+
+        // set up for reference position mapping across allele traversals
+        path_handle_t ref_path = graph->get_path_handle_of_step(path_travs.second.at(ref_path_idx).first);
+        unordered_set<nid_t> ref_dup_nodes;
+        unordered_map<nid_t, nid_t> ref_simple_pos;
+        {
+            auto& trav = travs.at(ref_path_idx);
+            for (size_t i = 0; i < trav.visit_size(); ++i) {
+                size_t j = !reversed ? i : trav.visit_size() - 1 - i;
+                const Visit& visit = trav.visit(j);
+                nid_t node_id = visit.node_id();
+                if (ref_simple_pos.find(node_id) != ref_simple_pos.end()
+                    || ref_dup_nodes.count(node_id)) continue;
+                handle_t h = graph->get_handle(node_id);
+                // count reference occurrences on node
+                vector<step_handle_t> ref_steps;
+                graph->for_each_step_on_handle(
+                    h, [&](const step_handle_t& step) {
+                        auto p = graph->get_path_handle_of_step(step);
+                        if (p == ref_path) {
+                            ref_steps.push_back(step);
+                        }
+                    });
+                if (ref_steps.size() > 1) {
+                    ref_dup_nodes.insert(node_id);
+                } else if (ref_steps.size() == 1) {
+                    auto& step = ref_steps.front();
                     auto pos = graph->get_position_of_step(step) + 1;
                     auto len = graph->get_length(graph->get_handle_of_step(step));
-                    trav_pos_info += std::to_string(pos) + "_" + std::to_string(pos+len);
-                } else {
-                    auto f = ref_contexts.find(node_id);
-                    if (f == ref_contexts.end()) {
-                        trav_pos_info += "._.";
-                    } else {
-                        // do we have one ref position?
-                        auto& contexts = f->second;
-                        if (contexts.size() == 1) {
-                            auto& c = contexts.front().first;
-                            // n.b. these are 1-based to match the VCF position scheme
-                            // start and 1-past end of the node
-                            trav_pos_info += std::to_string(c.first) + "_" + std::to_string(c.second);
+                    ref_simple_pos[node_id] = pos;
+                }
+            }
+        }
+
+        // set up the UT field for our reference-relative traversal position untangling
+        auto& ut_field = v.info["UT"];
+        ut_field.resize(allele_idx.size());
+
+        for (size_t i = 0; i < allele_idx_unfolded.size(); i++) {
+#pragma omp task firstprivate(i) shared(ut_field)
+            {
+                int allele_no = i;
+                int allele_trav_no = allele_idx_unfolded[i];
+                auto start_step = path_travs.second.at(allele_trav_no).first;
+                auto end_step = path_travs.second.at(allele_trav_no).second;
+                bool flip_path = graph->get_is_reverse(graph->get_handle_of_step(start_step)) != reversed;
+                if (flip_path) {
+                    std::swap(start_step, end_step);
+                }
+                path_handle_t path = graph->get_path_handle_of_step(start_step);
+                std::vector<step_handle_t> steps;
+                for (auto s = start_step; graph->has_next_step(s);
+                     s = graph->get_next_step(s)) {
+                    steps.push_back(s);
+                    if (s == end_step) break;
+                }
+                if (flip_path) {
+                    std::reverse(steps.begin(), steps.end());
+                }
+                // update the traversal info
+                string& trav_pos_info = ut_field[allele_no];
+                for (auto& step : steps) {
+                    handle_t h = graph->get_handle_of_step(step);
+                    nid_t node_id = graph->get_id(h);
+                    bool step_rev = graph->get_is_reverse(h) != reversed;
+                    trav_pos_info += (reversed ? "<" : ">");
+                    trav_pos_info += std::to_string(node_id);
+                    trav_pos_info += "_";
+                    if (allele_no == 0) { // special case the reference allele
+                        auto pos = graph->get_position_of_step(step) + 1;
+                        auto len = graph->get_length(graph->get_handle_of_step(step));
+                        trav_pos_info += std::to_string(pos) + "_" + std::to_string(pos+len);
+                    } else { // for non-reference alleles
+                        auto f = ref_simple_pos.find(node_id);
+                        if (f != ref_simple_pos.end()) {
+                            // we have a single reference position at this node
+                            auto pstart = f->second + 1;
+                            auto pend = pstart + graph->get_length(h);
+                            trav_pos_info += std::to_string(pstart) + "_" + std::to_string(pend);;
                         } else {
-                            // get this step context
-                            auto path_context = get_context(step, step);
-                            // check vs. the contexts
-                            double best_jaccard = -1;
-                            int64_t best_idx = -1;
-                            for (uint64_t i = 0; i < contexts.size(); ++i) {
-                                auto& ref_context = contexts[i].second;
-                                double j = context_jaccard(ref_context, path_context);
-                                if (j > best_jaccard) {
-                                    best_idx = i;
-                                }
-                            }
-                            if (best_idx >= 0) {
-                                auto& c = contexts[best_idx].first;
-                                trav_pos_info += std::to_string(c.first) + "_" + std::to_string(c.second);
+                            auto d = ref_dup_nodes.find(node_id);
+                            if (d == ref_dup_nodes.end()) {
+                                // no reference position at this node
+                                trav_pos_info += "._.";
+                            } else {
+                                // multiple reference positions at this node
+                                // compare the reference contexts of each step to our
+                                // path context to determine reference position assignment
+                                // ... first we get our path's context
+                                auto path_context = get_context(step, step);
+                                // check vs. the contexts
+                                double best_jaccard = -1;
+                                uint64_t best_pos = 0;
+                                graph->for_each_step_on_handle(
+                                    h, [&](const step_handle_t& ref_step) {
+                                        auto p = graph->get_path_handle_of_step(ref_step);
+                                        if (p == ref_path) {
+                                            auto ref_context = get_context(ref_step, ref_step);
+                                            double j = context_jaccard(ref_context, path_context);
+                                            if (j > best_jaccard) {
+                                                best_jaccard = j;
+                                                best_pos = graph->get_position_of_step(ref_step);
+                                            }
+                                        }
+                                    });
+                                trav_pos_info += std::to_string(best_pos+1) + "_"
+                                    + std::to_string(best_pos+1+graph->get_length(h));
                             }
                         }
                     }
@@ -253,6 +252,7 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
             }
         }
     }
+#pragma omp taskwait
 
     // shift our variant back if it's an indel
     if (!substitution) {
