@@ -416,6 +416,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("MaxNodeID", "maxid.txt");
     registry.register_index("Spliced MaxNodeID", "spliced.maxid.txt");
     registry.register_index("Unfolded NodeMapping", "mapping");
+    registry.register_index("NamedNodeBackTranslation", "segments.txt");
     registry.register_index("Haplotype-Pruned VG", "haplopruned.vg");
     registry.register_index("Unfolded Spliced NodeMapping", "spliced.mapping");
     registry.register_index("Haplotype-Pruned Spliced VG", "spliced.haplopruned.vg");
@@ -1638,7 +1639,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         return strip_variant_paths(inputs, plan, constructing);
     });
         
-    // meta-recipe for creating a VG from a GFA
+    // meta-recipe for creating a VG and its segment space from a GFA
     auto construct_from_gfa = [&](const vector<const IndexFile*>& inputs,
                                   const IndexingPlan* plan,
                                   const IndexGroup& constructing) {
@@ -1647,12 +1648,13 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             cerr << "[IndexRegistry]: Constructing VG graph from GFA input." << endl;
         }
         
-        assert(constructing.size() == 2);
+        assert(constructing.size() == 3);
         vector<vector<string>> all_outputs(constructing.size());
         
         assert(inputs.size() == 1);
-        auto output_max_id = *constructing.begin();
-        auto output_index = *constructing.rbegin();
+        auto output_max_id = constructing.at(0);
+        auto output_translation = constructing.at(1);
+        auto output_index = constructing.at(2);
         auto input_filenames = inputs.at(0)->get_filenames();
         if (input_filenames.size() > 1) {
             cerr << "error:[IndexRegistry] Graph construction does not support multiple GFAs at this time." << endl;
@@ -1661,15 +1663,17 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto input_filename = input_filenames.front();
         
         string output_name = plan->output_filepath(output_index);
+        string translation_name = plan->output_filepath(output_translation);
         string max_id_name = plan->output_filepath(output_max_id);
+        // The graph and max ID are streams we start here.
         ofstream outfile, max_id_outfile;
         init_out(outfile, output_name);
         init_out(max_id_outfile, max_id_name);
         auto graph = init_mutable_graph();
         
-        // make the graph from GFA
+        // make the graph from GFA, and save segment info to the translation file if there is nontrivial segment info.
         try {
-            algorithms::gfa_to_path_handle_graph(input_filename, graph.get());
+            algorithms::gfa_to_path_handle_graph(input_filename, graph.get(), numeric_limits<int64_t>::max(), translation_name);
         }
         catch (algorithms::GFAFormatError& e) {
             cerr << "error:[IndexRegistry] Input GFA is not usable in VG." << endl;
@@ -1677,7 +1681,21 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             exit(1);
         }
         
-        handlealgs::chop(*graph, IndexingParameters::max_node_size);
+        // Now we need to append some splits to the output file.
+        ofstream translation_outfile;
+        translation_outfile.open(translation_name, std::ios_base::app);
+        if (!translation_outfile) {
+            cerr << "error:[IndexRegistry] could not append output to " << translation_name << endl;
+            exit(1);
+        }
+        
+        handlealgs::chop(*graph, IndexingParameters::max_node_size, [&](nid_t old_id, size_t offset, nid_t new_id) {
+#pragma omp critical (translation_outfile)
+            {
+                // Write each cut to a line in the translation file, after the segment names are defined.
+                translation_outfile << "K\t" << old_id << "\t" << offset << "\t" << new_id << std::endl;
+            }
+        });
         
         // save the graph
         vg::io::save_handle_graph(graph.get(), outfile);
@@ -1686,7 +1704,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         // return the filenames
         all_outputs[0].push_back(max_id_name);
-        all_outputs[1].push_back(output_name);
+        all_outputs[1].push_back(translation_name);
+        all_outputs[2].push_back(output_name);
         return all_outputs;
     };
     
@@ -1984,7 +2003,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  const IndexGroup& constructing) {
         return construct_with_constructor(inputs, plan, constructing, true, false);
     });
-    registry.register_recipe({"MaxNodeID", "VG"}, {"Reference GFA"},
+    registry.register_recipe({"MaxNodeID", "NamedNodeBackTranslation", "VG"}, {"Reference GFA"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
