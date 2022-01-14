@@ -852,7 +852,6 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
                     // run vcffixup to add some basic INFO like AC
                     vcf_fixup(v);
                 }
-#pragma omp critical (add_variant)
                 add_variant(v);
             }
         }
