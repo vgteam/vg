@@ -1049,7 +1049,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
 //#pragma omp parallel
 //#pragma omp single
     {
-#pragma omp parallel for schedule(dynamic,1)
+//#pragma omp parallel for schedule(dynamic,1)
         for (size_t i = 0; i < snarls_todo.size(); i++) {
 //#pragma omp task firstprivate(i)
             {
