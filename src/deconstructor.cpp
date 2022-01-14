@@ -758,8 +758,9 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 
     // we write a variant for every reference traversal
     // (optionally) selecting the subset of path traversals that are 1:1
+//#pragma omp parallel for
     for (size_t i = 0; i < ref_travs.size(); ++i) {
-#pragma omp task firstprivate(i)
+//#pragma omp task firstprivate(i)
         {
             auto& ref_trav_idx = ref_travs[i];
             auto& ref_trav_offset = ref_offsets[i];
@@ -848,7 +849,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
             }
         }
     }
-#pragma omp taskwait
+//#pragma omp taskwait
     return true;
 }
 
@@ -890,9 +891,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         }
     }
 
-    // reference context mapping uses regular for-loop iteration, nested
-    // but the loop over variants is driven by tasks
-    // this choice is due to a problem with omp tasks and shared state
+    // the need to use nesting is due to a problem with omp tasks and shared state
     // which results in extremely high memory costs (ex. ~10x RAM for 2 threads vs. 1)
     omp_set_nested(1);
     omp_set_max_active_levels(2);
@@ -1047,18 +1046,19 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
             }
         });
 
-#pragma omp parallel
-#pragma omp single
+//#pragma omp parallel
+//#pragma omp single
     {
+#pragma omp parallel for schedule(dynamic,1)
         for (size_t i = 0; i < snarls_todo.size(); i++) {
-#pragma omp task firstprivate(i)
+//#pragma omp task firstprivate(i)
             {
                 auto& snarl = snarls_todo[i];
                 deconstruct_site(snarl);
             }
         }
     }
-#pragma omp taskwait
+//#pragma omp taskwait
 
     // write variants in sorted order
     write_variants(cout, snarl_manager);
