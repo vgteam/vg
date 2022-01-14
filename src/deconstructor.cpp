@@ -172,7 +172,7 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
         auto& ut_field = v.info["UT"];
         ut_field.resize(allele_idx.size());
 
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic,1)
         for (size_t i = 0; i < allele_idx_unfolded.size(); i++) {
             int allele_no = i;
             int allele_trav_no = allele_idx_unfolded[i];
@@ -736,29 +736,31 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 #pragma omp critical (cerr)
         cerr << "Multiple ref traversals!" << endl;
 #endif
-        vector<vector<nid_t>> ref_contexts(ref_travs.size());
-#pragma omp parallel for
-        for (size_t i = 0; i < ref_travs.size(); ++i) {
-            auto& trav_id = ref_travs[i];
-            ref_contexts[i] = get_context(path_travs, trav_id);
-        }
-        // now for each traversal, we compute and equivalent context and match it to a ref context
-        // using a jaccard metric over node ids
-#pragma omp parallel for
-        for (size_t i = 0; i < path_travs.first.size(); ++i) {
-            vector<nid_t> context = get_context(path_travs, i);
-            // map jaccard metric to the index of the ref_trav
-            vector<pair<double, int>> ref_mappings;
-            for (uint64_t j = 0; j < ref_travs.size(); ++j) {
-                ref_mappings.push_back(make_pair(
-                                           context_jaccard(
-                                               ref_contexts[j],
-                                               context),
-                                           ref_travs[j]));
+        {
+            vector<vector<nid_t>> ref_contexts(ref_travs.size());
+#pragma omp parallel for schedule(dynamic,1)
+            for (size_t i = 0; i < ref_travs.size(); ++i) {
+                auto& trav_id = ref_travs[i];
+                ref_contexts[i] = get_context(path_travs, trav_id);
             }
-            std::sort(ref_mappings.begin(), ref_mappings.end());
-            // the best is the last, which has the highest jaccard
-            path_trav_to_ref_trav[i] = ref_mappings.back().second;
+            // now for each traversal, we compute and equivalent context and match it to a ref context
+            // using a jaccard metric over node ids
+#pragma omp parallel for schedule(dynamic,1)
+            for (size_t i = 0; i < path_travs.first.size(); ++i) {
+                vector<nid_t> context = get_context(path_travs, i);
+                // map jaccard metric to the index of the ref_trav
+                vector<pair<double, int>> ref_mappings;
+                for (uint64_t j = 0; j < ref_travs.size(); ++j) {
+                    ref_mappings.push_back(make_pair(
+                                               context_jaccard(
+                                                   ref_contexts[j],
+                                                   context),
+                                               ref_travs[j]));
+                }
+                std::sort(ref_mappings.begin(), ref_mappings.end());
+                // the best is the last, which has the highest jaccard
+                path_trav_to_ref_trav[i] = ref_mappings.back().second;
+            }
         }
     }
 
@@ -899,8 +901,8 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
 
     // the need to use nesting is due to a problem with omp tasks and shared state
     // which results in extremely high memory costs (ex. ~10x RAM for 2 threads vs. 1)
-    //omp_set_nested(1);
-    //omp_set_max_active_levels(2);
+    omp_set_nested(1);
+    omp_set_max_active_levels(3);
 
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
     sample_names.clear();
@@ -1056,7 +1058,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
 //#pragma omp parallel
 //#pragma omp single
     {
-//#pragma omp parallel for schedule(dynamic,1)
+#pragma omp parallel for schedule(dynamic,1)
         for (size_t i = 0; i < snarls_todo.size(); i++) {
 //#pragma omp task firstprivate(i)
             {
