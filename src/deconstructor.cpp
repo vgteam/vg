@@ -93,30 +93,6 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
     //    cerr << "it's reversed!!!" << endl;
     //}
 
-    // init the traversal info
-    v.info["AT"].resize(allele_idx.size());
-
-    for (auto ai_pair : allele_idx) {
-        string allele_string = ai_pair.first;
-        int allele_no = ai_pair.second.first;
-        int allele_trav_no = ai_pair.second.second;
-        if (reversed) {
-            reverse_complement_in_place(allele_string);
-        }
-        if (!substitution) {
-            allele_string = string(1, prev_char) + allele_string;
-        }
-        v.alleles[allele_no] = allele_string;
-        if (allele_no > 0) {
-            v.alt[allele_no - 1] = allele_string;
-        } else {
-            v.ref = allele_string;
-        }
-
-        // update the traversal info
-        add_allele_path_to_info(v, allele_no, travs[allele_trav_no], reversed, !substitution);
-    }
-
     // we're going to go through the allele traversals
     // for each, we should find the set of supporting paths
     // we will use them to untangle the reference positions
@@ -137,6 +113,25 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
         allele_idx_unfolded[allele_no] = allele_trav_no;
     }
 
+    // record the alleles in the VCF record
+    for (auto ai_pair : allele_idx) {
+        string allele_string = ai_pair.first;
+        int allele_no = ai_pair.second.first;
+        int allele_trav_no = ai_pair.second.second;
+        if (reversed) {
+            reverse_complement_in_place(allele_string);
+        }
+        if (!substitution) {
+            allele_string = string(1, prev_char) + allele_string;
+        }
+        v.alleles[allele_no] = allele_string;
+        if (allele_no > 0) {
+            v.alt[allele_no - 1] = allele_string;
+        } else {
+            v.ref = allele_string;
+        }
+    }
+
     if (untangle_allele_traversals) {
 
         // set up for reference position mapping across allele traversals
@@ -153,20 +148,21 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
                     || ref_dup_nodes.count(node_id)) continue;
                 handle_t h = graph->get_handle(node_id);
                 // count reference occurrences on node
-                vector<step_handle_t> ref_steps;
+                step_handle_t ref_step;
+                uint64_t ref_step_count = 0;
                 graph->for_each_step_on_handle(
                     h, [&](const step_handle_t& step) {
                         auto p = graph->get_path_handle_of_step(step);
                         if (p == ref_path) {
-                            ref_steps.push_back(step);
+                            ++ref_step_count;
+                            ref_step = step;
                         }
                     });
-                if (ref_steps.size() > 1) {
+                if (ref_step_count > 1) {
                     ref_dup_nodes.insert(node_id);
-                } else if (ref_steps.size() == 1) {
-                    auto& step = ref_steps.front();
-                    auto pos = graph->get_position_of_step(step) + 1;
-                    auto len = graph->get_length(graph->get_handle_of_step(step));
+                } else if (ref_step_count == 1) {
+                    auto pos = graph->get_position_of_step(ref_step) + 1;
+                    auto len = graph->get_length(graph->get_handle_of_step(ref_step));
                     ref_simple_pos[node_id] = pos;
                 }
             }
@@ -197,30 +193,29 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
                 std::reverse(steps.begin(), steps.end());
             }
             // update the traversal info
-            string& trav_pos_info = ut_field[allele_no];
+            stringstream trav_pos_info;
+            //string& trav_pos_info = ut_field[allele_no];
             for (auto& step : steps) {
                 handle_t h = graph->get_handle_of_step(step);
                 nid_t node_id = graph->get_id(h);
                 bool step_rev = graph->get_is_reverse(h) != reversed;
-                trav_pos_info += (reversed ? "<" : ">");
-                trav_pos_info += std::to_string(node_id);
-                trav_pos_info += "_";
+                trav_pos_info << (reversed ? "<" : ">") << node_id << "_";
                 if (allele_no == 0) { // special case the reference allele
                     auto pos = graph->get_position_of_step(step) + 1;
                     auto len = graph->get_length(graph->get_handle_of_step(step));
-                    trav_pos_info += std::to_string(pos) + "_" + std::to_string(pos+len);
+                    trav_pos_info << pos << "_" << pos+len;
                 } else { // for non-reference alleles
                     auto f = ref_simple_pos.find(node_id);
                     if (f != ref_simple_pos.end()) {
                         // we have a single reference position at this node
                         auto pstart = f->second + 1;
                         auto pend = pstart + graph->get_length(h);
-                        trav_pos_info += std::to_string(pstart) + "_" + std::to_string(pend);;
+                        trav_pos_info << pstart << "_" << pend;
                     } else {
                         auto d = ref_dup_nodes.find(node_id);
                         if (d == ref_dup_nodes.end()) {
                             // no reference position at this node
-                            trav_pos_info += "._.";
+                            trav_pos_info << "._.";
                         } else {
                             // multiple reference positions at this node
                             // compare the reference contexts of each step to our
@@ -244,12 +239,23 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
                                         }
                                     }
                                 });
-                            trav_pos_info += std::to_string(best_pos+1) + "_"
-                                + std::to_string(best_pos+1+graph->get_length(h));
+                            trav_pos_info << best_pos+1 << "_" << best_pos+1+graph->get_length(h);
                         }
                     }
                 }
             }
+            // save the untangled traversal field
+            ut_field[allele_no] = trav_pos_info.str();
+        }
+    } else {
+        // init the traversal info
+        v.info["AT"].resize(allele_idx.size());
+        for (auto ai_pair : allele_idx) {
+            string allele_string = ai_pair.first;
+            int allele_no = ai_pair.second.first;
+            int allele_trav_no = ai_pair.second.second;
+            // update the traversal info
+            add_allele_path_to_info(v, allele_no, travs[allele_trav_no], reversed, !substitution);
         }
     }
 
@@ -961,9 +967,10 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         stream << "##INFO=<ID=LV,Number=1,Type=Integer,Description=\"Level in the snarl tree (0=top level)\">" << endl;
         stream << "##INFO=<ID=PS,Number=1,Type=String,Description=\"ID of variant corresponding to parent snarl\">" << endl;
     }
-    stream << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
     if (untangle_allele_traversals) {
         stream << "##INFO=<ID=UT,Number=R,Type=String,Description=\"Untangled allele Traversal with reference node start and end positions, format: [>|<][id]_[start|.]_[end|.], with '.' indicating non-reference nodes.\">" << endl;
+    } else {
+        stream << "##INFO=<ID=AT,Number=R,Type=String,Description=\"Allele Traversal as path in graph\">" << endl;
     }
     set<string> gbwt_ref_paths;
     for(auto& refpath : ref_paths) {
