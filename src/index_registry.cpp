@@ -1652,9 +1652,13 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         vector<vector<string>> all_outputs(constructing.size());
         
         assert(inputs.size() == 1);
-        auto output_max_id = constructing.at(0);
-        auto output_translation = constructing.at(1);
-        auto output_index = constructing.at(2);
+        assert(constructing.size() == 3);
+        IndexName output_max_id = "MaxNodeID";
+        assert(constructing.count(output_max_id));
+        IndexName output_translation = "NamedNodeBackTranslation";
+        assert(constructing.count(output_translation));
+        IndexName output_index = "VG";
+        assert(constructing.count(output_index));
         auto input_filenames = inputs.at(0)->get_filenames();
         if (input_filenames.size() > 1) {
             cerr << "error:[IndexRegistry] Graph construction does not support multiple GFAs at this time." << endl;
