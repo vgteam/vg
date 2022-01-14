@@ -893,8 +893,8 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
 
     // the need to use nesting is due to a problem with omp tasks and shared state
     // which results in extremely high memory costs (ex. ~10x RAM for 2 threads vs. 1)
-    omp_set_nested(1);
-    omp_set_max_active_levels(2);
+    //omp_set_nested(1);
+    //omp_set_max_active_levels(2);
 
     // Keep track of the non-reference paths in the graph.  They'll be our sample names
     sample_names.clear();
