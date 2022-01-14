@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
     preflight_check();
     
     // Make sure we configure the memory allocator appropriately for our environment
-    //configure_memory_allocator();
+    configure_memory_allocator();
     
     // Set up stack trace support from crash.hpp
     enable_crash_handling();
