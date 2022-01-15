@@ -134,9 +134,9 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
 
     if (untangle_allele_traversals) {
 
-        // set up for reference position mapping across allele traversals
+        // set up for reference position context mapping across allele traversals
         path_handle_t ref_path = graph->get_path_handle_of_step(path_travs.second.at(ref_path_idx).first);
-        unordered_set<nid_t> ref_dup_nodes;
+        unordered_map<nid_t, vector<pair<uint64_t, vector<nid_t>>>> ref_dup_nodes;
         unordered_map<nid_t, nid_t> ref_simple_pos;
         {
             auto& trav = travs.at(ref_path_idx);
@@ -144,8 +144,8 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
                 size_t j = !reversed ? i : trav.visit_size() - 1 - i;
                 const Visit& visit = trav.visit(j);
                 nid_t node_id = visit.node_id();
-                if (ref_simple_pos.find(node_id) != ref_simple_pos.end()
-                    || ref_dup_nodes.count(node_id)) continue;
+                if (ref_simple_pos.find(node_id) != ref_simple_pos.end()) continue;
+                if (ref_dup_nodes.find(node_id) != ref_dup_nodes.end()) continue;
                 handle_t h = graph->get_handle(node_id);
                 // count reference occurrences on node
                 step_handle_t ref_step;
@@ -159,7 +159,21 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
                         }
                     });
                 if (ref_step_count > 1) {
-                    ref_dup_nodes.insert(node_id);
+                    //ref_dup_nodes[node_id] = make_pair(ref_context);
+                    ref_dup_nodes[node_id] = {};
+                    auto& contexts = ref_dup_nodes[node_id];
+                    //vector<pair<uint64_t, vector<nid_t>>> contexts;
+                    graph->for_each_step_on_handle(
+                        h, [&](const step_handle_t& step) {
+                            auto p = graph->get_path_handle_of_step(step);
+                            if (p == ref_path) {
+                                contexts.emplace_back();
+                                auto& c = contexts.back();
+                                c.first = graph->get_position_of_step(step);
+                                c.second = get_context(step, step);
+                            }
+                        });
+                    //
                 } else if (ref_step_count == 1) {
                     auto pos = graph->get_position_of_step(ref_step) + 1;
                     auto len = graph->get_length(graph->get_handle_of_step(ref_step));
@@ -184,11 +198,14 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
             }
             path_handle_t path = graph->get_path_handle_of_step(start_step);
             std::vector<step_handle_t> steps;
-            for (auto s = start_step; graph->has_next_step(s);
+            for (auto s = start_step; ;
                  s = graph->get_next_step(s)) {
                 steps.push_back(s);
                 if (s == end_step) break;
+                assert(graph->has_next_step(s));
             }
+            assert(steps.front() == start_step);
+            assert(steps.back() == end_step);
             if (flip_path) {
                 std::reverse(steps.begin(), steps.end());
             }
@@ -222,23 +239,20 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
                             // path context to determine reference position assignment
                             // ... first we get our path's context
                             auto path_context = get_context(step, step);
+                            auto& ref_contexts = d->second;
                             //cerr << "path context size " << path_context.size() << endl;
                             // check vs. the contexts
                             double best_jaccard = -1;
                             uint64_t best_pos = 0;
-                            graph->for_each_step_on_handle(
-                                h, [&](const step_handle_t& ref_step) {
-                                    auto p = graph->get_path_handle_of_step(ref_step);
-                                    if (p == ref_path) {
-                                        auto ref_context = get_context(ref_step, ref_step);
-                                        double j = context_jaccard(ref_context, path_context);
-                                        //cerr << "jaccard is " << j << endl;
-                                        if (j > best_jaccard) {
-                                            best_jaccard = j;
-                                            best_pos = graph->get_position_of_step(ref_step);
-                                        }
-                                    }
-                                });
+                            for (auto& c : ref_contexts) {
+                                auto& ref_context = c.second;
+                                auto& ref_pos = c.first;
+                                double j = context_jaccard(ref_context, path_context);
+                                if (j > best_jaccard) {
+                                    best_jaccard = j;
+                                    best_pos = ref_pos;
+                                }
+                            }
                             trav_pos_info << best_pos+1 << "_" << best_pos+1+graph->get_length(h);
                         }
                     }
