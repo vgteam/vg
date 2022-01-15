@@ -192,7 +192,9 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
             int allele_trav_no = allele_idx_unfolded[i];
             auto start_step = path_travs.second.at(allele_trav_no).first;
             auto end_step = path_travs.second.at(allele_trav_no).second;
-            bool flip_path = graph->get_is_reverse(graph->get_handle_of_step(start_step)) != reversed;
+            auto start_pos = graph->get_position_of_step(start_step);
+            auto end_pos = graph->get_position_of_step(end_step);
+            bool flip_path = start_pos > end_pos;
             if (flip_path) {
                 std::swap(start_step, end_step);
             }
@@ -202,10 +204,14 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
                  s = graph->get_next_step(s)) {
                 steps.push_back(s);
                 if (s == end_step) break;
-                assert(graph->has_next_step(s));
+                if (!graph->has_next_step(s)) break;
             }
-            assert(steps.front() == start_step);
-            assert(steps.back() == end_step);
+            if (steps.front() != start_step || steps.back() != end_step) {
+                //cerr << "warning!" << endl;
+                // something went wrong
+                ut_field[allele_no] = ".";
+                continue;
+            }
             if (flip_path) {
                 std::reverse(steps.begin(), steps.end());
             }
