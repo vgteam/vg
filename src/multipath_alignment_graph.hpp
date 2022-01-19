@@ -318,6 +318,19 @@ namespace vg {
                                                     const Alignment& alignment, const HandleGraph& align_graph,
                                                     string::const_iterator begin, const GSSWAligner* aligner);
         
+        /// Identifies regions that are shared across all of the alternative alignments, and then
+        /// splits those regions out into separate alignments, dividing the set of alternative
+        /// alignments accordingly. Return value consists of a vector of the shared segments and
+        /// a vector of vectors of the segments between. The length of the vector of shared segments
+        /// is +1 of the vector of between segments, so that they are interleaved. The first and/or
+        /// last of the alignments of shared segments may be empty if there is no shared prefix
+        /// or suffix across all the alignments.
+        /// If there are no shared segments at all, will return empty vectors.
+        static pair<vector<pair<path_t, int32_t>>, vector<vector<pair<path_t, int32_t>>>>
+        decompose_alignments(const vector<pair<path_t, int32_t>>& alt_alns, bool from_left,
+                             const Alignment& alignment, const HandleGraph& align_graph,
+                             string::const_iterator begin, const GSSWAligner* aligner);
+        
         /// Memo for the transcendental pessimistic tail gap function (thread local to maintain thread-safety)
         static thread_local unordered_map<double, vector<int64_t>> pessimistic_tail_gap_memo;
         

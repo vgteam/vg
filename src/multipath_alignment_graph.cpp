@@ -5,7 +5,7 @@
 #include "multipath_alignment_graph.hpp"
 #include "sequence_complexity.hpp"
 
-//#define debug_multipath_alignment
+#define debug_multipath_alignment
 
 using namespace std;
 namespace vg {
@@ -4557,6 +4557,354 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         
         return return_val;
     }
+
+    pair<vector<pair<path_t, int32_t>>, vector<vector<pair<path_t, int32_t>>>>
+    MultipathAlignmentGraph::decompose_alignments(const vector<pair<path_t, int32_t>>& alt_alns, bool from_left,
+                                                  const Alignment& alignment, const HandleGraph& align_graph,
+                                                  string::const_iterator begin, const GSSWAligner* aligner) {
+        
+        // records (seq_begin, seq_end, repeated(node_id, rev, node_begin, node_end))
+        // note: because we only keep the optimal non-redundant alignment, we are guaranteed that
+        // any alignment of the same read/ref interval will be equivalent-scoring and can thus
+        // be swapped
+        typedef tuple<size_t, size_t, vector<tuple<nid_t, bool, size_t, size_t>>> key_t;
+        
+        // hash function that can handle the vector
+        struct key_hash_t {
+            inline size_t operator()(const key_t& key) const {
+                size_t hsh = 0;
+                hash_combine(hsh, get<0>(key));
+                hash_combine(hsh, get<1>(key));
+                for (const auto& rec : get<2>(key)) {
+                    hash_combine(hsh, rec);
+                }
+                return hsh;
+            }
+        };
+        
+        // first we will count the number of occurrence of each edit to find those that occur on every
+        // alignment
+        unordered_map<key_t, size_t, key_hash_t> chunk_count;
+        
+        // note: this is unsatisfactorily complicated, but it's necessary to keep the deletions as atomic
+        // units so that the score is decomposable between whatever chunks we choose
+        auto flush_deletion = [&](const int64_t& del_start_j, const int64_t& del_start_k,
+                                  const int64_t& del_start_offset, const int64_t& j,
+                                  const int64_t& k, const int64_t& seq_idx, const path_t& path) {
+            key_t del_key;
+            get<0>(del_key) = seq_idx;
+            get<1>(del_key) = seq_idx;
+            for (int64_t jj = del_start_j; jj <= j; ++jj) {
+                
+                const auto& del_mapping = path.mapping(jj);
+                
+                // choose start and end indexes for edits on this mapping
+                int64_t kk = (jj == del_start_j ? del_start_k : 0);
+                int64_t kk_end = (jj == j ? k : (int64_t) del_mapping.edit_size());
+                
+                // compute the range of the node that is aligned
+                int64_t off_start = (jj == del_start_j ? del_start_offset : del_mapping.position().offset());
+                int64_t off_end = off_start;
+                for (; kk < kk_end; ++kk) {
+                    off_end += del_mapping.edit(kk).from_length();
+                }
+                
+                if (off_end != off_start) {
+                    // the deletion covered part of this node, add a record to the deletion key
+                    get<2>(del_key).emplace_back(del_mapping.position().node_id(),
+                                                 del_mapping.position().is_reverse(),
+                                                 off_start, off_end);
+                }
+            }
+            
+            // record a count of this key
+            chunk_count[del_key] += 1;
+        };
+        
+        for (int64_t i = 0; i < alt_alns.size(); ++i) {
+            
+            int64_t seq_idx = 0;
+            bool in_deletion = false;
+            
+            int64_t del_start_j = -1;
+            int64_t del_start_k = -1;
+            int64_t del_start_offset = 0;
+            for (int64_t j = 0; j < alt_alns[i].first.mapping_size(); ++j) {
+                const auto& mapping = alt_alns[i].first.mapping(j);
+                
+                int64_t offset = mapping.position().offset();
+                for (int64_t k = 0; k < mapping.edit_size(); ++k) {
+                    
+                    const auto& edit = mapping.edit(k);
+                    
+                    if (edit.from_length() != 0 && edit.to_length() == 0) {
+                        // this edit is a deletion
+                        if (!in_deletion) {
+                            // start a new deletion
+                            del_start_j = j;
+                            del_start_k = k;
+                            del_start_offset = offset;
+                            in_deletion = true;
+                        }
+                    }
+                    else {
+                        if (in_deletion) {
+                            // flush the deletion that's being finished
+                            flush_deletion(del_start_j, del_start_k, del_start_offset,
+                                           j, k, seq_idx, alt_alns[i].first);
+                            
+                            in_deletion = false;
+                        }
+                        
+                        key_t edit_key;
+                        get<0>(edit_key) = seq_idx;
+                        get<1>(edit_key) = seq_idx + edit.to_length();
+                        get<2>(edit_key).emplace_back(mapping.position().node_id(),
+                                                      mapping.position().is_reverse(),
+                                                      offset, offset + edit.from_length());
+                        
+                        chunk_count[edit_key] += 1;
+                    }
+                    
+                    offset += edit.from_length();
+                    seq_idx += edit.to_length();
+                }
+            }
+            
+            if (in_deletion) {
+                // flush the last deletion
+                flush_deletion(del_start_j, del_start_k, del_start_offset,
+                               alt_alns[i].first.mapping_size() - 1,  // this index is used inclusive
+                               alt_alns[i].first.mapping().back().edit_size(), // and this one exclusive
+                               seq_idx, alt_alns[i].first);
+            }
+        }
+        
+        // gather all of the edits/chunks that are shared across all of the alignments
+        vector<key_t> shared_edits;
+        for (const auto& chunk_rec : chunk_count) {
+            if (chunk_rec.second == alt_alns.size()) {
+                shared_edits.push_back(chunk_rec.first);
+            }
+        }
+        
+        
+        pair<vector<pair<path_t, int32_t>>, vector<vector<pair<path_t, int32_t>>>> return_val;
+        
+        if (!shared_edits.empty()) {
+            // put them in order along the read
+            sort(shared_edits.begin(), shared_edits.end());
+            
+            // the index of the next edit we will add in shared_edits
+            size_t curr_shared_idx = 0;
+            // indexes of where we are in each of the alt alignments in
+            // records of (mapping idx, edit idx, seq idx, node idx)
+            // note: node idx is relative to the offset of the mapping
+            vector<tuple<size_t, size_t, size_t, size_t>> curr_index(alt_alns.size(),
+                                                                     tuple<size_t, size_t, size_t, size_t>(0, 0, 0, 0));
+            
+            // adds a block of shared edits to the return value and advances the current index
+            // along every path past this value
+            auto add_shared_segments = [&]() {
+                
+                // always add a shared segment, even if for a sentinel
+                return_val.first.emplace_back();
+                auto& shared_path = return_val.first.back().first;
+                
+                // go through as many shared edits as we can in this shared path (i.e. until hitting
+                // a mismatch with at least one path
+                bool all_match = true;
+                while (curr_shared_idx < shared_edits.size() && all_match) {
+                    auto& shared = shared_edits[curr_shared_idx];
+                    
+                    // check for match against the paths
+                    for (size_t i = 0; i < alt_alns.size() && all_match; ++i) {
+                        size_t j, k, seq_idx, node_idx;
+                        tie(j, k, seq_idx, node_idx) = curr_index[i];
+                        const auto& mapping = alt_alns[i].first.mapping(j);
+                        
+                        all_match = (seq_idx == get<0>(shared) &&
+                                     mapping.position().node_id() == get<0>(get<2>(shared).front())  &&
+                                     mapping.position().is_reverse() == get<1>(get<2>(shared).front()) &&
+                                     mapping.position().offset() + node_idx == get<2>(get<2>(shared).front()));
+                    }
+                    
+                    if (all_match) {
+                        // add an edit/edits to the shared path
+                        
+                        path_mapping_t* mapping = nullptr;
+                        if (shared_path.mapping_size() != 0 &&
+                            shared_path.mapping().back().position().node_id() == get<0>(get<2>(shared).front()) &&
+                            shared_path.mapping().back().position().is_reverse() == get<1>(get<2>(shared).front()) &&
+                            shared_path.mapping().back().position().offset() + mapping_from_length(shared_path.mapping().back())
+                                == get<3>(get<2>(shared).front())) {
+                            
+                            // we can extend the existing mapping by these edit(s)
+                            mapping = shared_path.mutable_mapping(shared_path.mapping_size() - 1);
+                            
+                        }
+                        else {
+                            
+                            // we need to make a new mapping
+                            mapping = shared_path.add_mapping();
+                            mapping->mutable_position()->set_node_id(get<0>(get<2>(shared).front()));
+                            mapping->mutable_position()->set_is_reverse(get<1>(get<2>(shared).front()));
+                            mapping->mutable_position()->set_offset(get<2>(get<2>(shared).front()));
+                        }
+                        
+                        // we can copy over from any particular path since this segment is shared
+                        size_t j, k, seq_idx, node_idx;
+                        tie(j, k, seq_idx, node_idx) =  curr_index.front();
+                        for (size_t num_edits = 0; num_edits < get<2>(shared).size(); ++num_edits) {
+                            
+                            *mapping->add_edit() = alt_alns.front().first.mapping(j).edit(k);
+                            ++k;
+                            if (k == alt_alns.front().first.mapping(j).edit_size() &&
+                                num_edits + 1 != get<2>(shared).size()) {
+                                ++j;
+                                k = 0;
+                                // new position has to match the next mapping (since shared)
+                                mapping = shared_path.add_mapping();
+                                *mapping->mutable_position() = alt_alns.front().first.mapping(j).position();
+                            }
+                        }
+                        
+                        // move on to the next shared edit
+                        ++curr_shared_idx;
+                        
+                        // advance the current indexes along the alternative alignments through this edit
+                        for (size_t i = 0; i < curr_index.size(); ++i) {
+                            for (size_t num_edits = 0; num_edits < get<2>(shared).size(); ++num_edits) {
+                                auto& idxs = curr_index[i];
+                                const auto& edit = alt_alns[i].first.mapping(get<0>(idxs)).edit(get<1>(idxs));
+                                get<2>(idxs) += edit.to_length();
+                                get<3>(idxs) += edit.from_length();
+                                ++get<1>(idxs);
+                                if (get<1>(idxs) == alt_alns[i].first.mapping(get<0>(idxs)).edit_size()) {
+                                    ++get<0>(idxs);
+                                    get<1>(idxs) = 0;
+                                    get<3>(idxs) = 0;
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+            
+            // adds the unshared portion of alignments in between the last shared portion
+            // and the next one
+            auto add_unshared_segments = [&]() {
+                
+                // dummy values in case there is no next shared segment
+                size_t end_seq_idx = numeric_limits<size_t>::max();
+                nid_t end_node_id = 0;
+                bool end_is_rev = false;
+                size_t end_offset = numeric_limits<size_t>::max();
+                if (curr_shared_idx < shared_edits.size()) {
+                    // but there is a next shared segment, so we set these t meaningful
+                    // values
+                    end_seq_idx = get<0>(shared_edits[curr_shared_idx]);
+                    end_node_id = get<0>(get<2>(shared_edits[curr_shared_idx]).front());
+                    end_is_rev = get<1>(get<2>(shared_edits[curr_shared_idx]).front());
+                    end_offset = get<2>(get<2>(shared_edits[curr_shared_idx]).front());
+                }
+                // note: all of the unshared segments end at the same place
+                
+                // init all of the unshared semgents
+                return_val.second.emplace_back(alt_alns.size());
+                // and then do the copying for each of them
+                for (size_t i = 0; i < alt_alns.size(); ++i) {
+                    
+                    auto& alt_path = alt_alns[i].first;
+                    
+                    auto& unshared_path = return_val.second.back()[i].first;
+                    auto& idxs = curr_index[i];
+                    
+                    // copy the alt path into the unshared path until reaching either the end of the alt
+                    // path or the next shared segment
+                    while (get<0>(idxs) != alt_path.mapping_size()
+                           && get<2>(idxs) != end_seq_idx
+                           && alt_path.mapping(get<0>(idxs)).position().node_id() != end_node_id
+                           && alt_path.mapping(get<0>(idxs)).position().is_reverse() != end_is_rev
+                           && alt_path.mapping(get<0>(idxs)).position().offset() + get<3>(idxs) != end_offset) {
+                        
+                        // we haven't reached the end or the next shared segment
+                        const auto& alt_path_mapping = alt_path.mapping(get<0>(idxs));
+                        const auto& alt_path_position = alt_path_mapping.position();
+                        const auto& alt_path_edit = alt_path_mapping.edit(get<1>(idxs));
+                        
+                        path_mapping_t* mapping = nullptr;
+                        if (unshared_path.mapping_size() != 0 &&
+                            unshared_path.mapping().back().position().node_id() == alt_path_position.node_id() &&
+                            unshared_path.mapping().back().position().is_reverse() == alt_path_position.is_reverse() &&
+                            unshared_path.mapping().back().position().offset() + mapping_from_length(unshared_path.mapping().back())
+                                == alt_path_position.offset() + get<3>(idxs)) {
+                            
+                            // we can extend the existing mapping by these edit(s)
+                            mapping = unshared_path.mutable_mapping(unshared_path.mapping_size() - 1);
+                            
+                        }
+                        else {
+                            // we need to make a new mapping
+                            mapping = unshared_path.add_mapping();
+                            mapping->mutable_position()->set_node_id(alt_path_position.node_id());
+                            mapping->mutable_position()->set_is_reverse(alt_path_position.is_reverse());
+                            mapping->mutable_position()->set_offset(alt_path_position.offset() + get<3>(idxs));
+                        }
+                        
+                        // add the next edit
+                        *mapping->add_edit() = alt_path_edit;
+                        
+                        // advance to the next edit index
+                        get<2>(idxs) += alt_path_edit.to_length();
+                        get<3>(idxs) += alt_path_edit.from_length();
+                        ++get<1>(idxs);
+                        if (get<1>(idxs) == alt_path_mapping.edit_size()) {
+                            ++get<0>(idxs);
+                            get<1>(idxs) = 0;
+                            get<3>(idxs) = 0;
+                        }
+                        
+                    }
+                }
+            };
+            
+            // alternate between the two segment additions
+            add_shared_segments();
+            // cover an annoying edge case where all of the alignments are identical
+            bool all_shared = (curr_shared_idx == shared_edits.size());
+            for (size_t i = 0; i < alt_alns.size() && all_shared; ++i) {
+                all_shared = get<0>(curr_index[i]) == alt_alns[i].first.mapping_size();
+            }
+            if (!all_shared) {
+                // alternate between adding the next unshared batch and shared segments
+                while (curr_shared_idx < shared_edits.size()) {
+                    add_unshared_segments();
+                    add_shared_segments();
+                }
+            }
+            
+            auto seq_pos = begin;
+            for (size_t i = 0; i < return_val.first.size(); ++i) {
+                if (i != 0) {
+                    // score a block of unshared segments
+                    auto& unshared_alt_alns = return_val.second[i];
+                    for (size_t j = 0; j < unshared_alt_alns.size(); ++j) {
+                        unshared_alt_alns[j].second = aligner->score_partial_alignment(alignment, align_graph,
+                                                                                       unshared_alt_alns[j].first, seq_pos);
+                    }
+                    // they all cover the same read interval, so we can choose an arbitrary alt here
+                    seq_pos += path_to_length(unshared_alt_alns.front().first);
+                }
+                // score a shared segment
+                return_val.first[i].second = aligner->score_partial_alignment(alignment, align_graph,
+                                                                              return_val.first[i].first, seq_pos);
+                seq_pos += path_to_length(return_val.first[i].first);
+            }
+        }
+        
+        return return_val;
+    }
     
     void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
                                         bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap,
@@ -4985,6 +5333,10 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             
             // remove alignments with the same path
             auto deduplicated = deduplicate_alt_alns(kv.second, false, true);
+            
+#ifdef debug_multipath_alignment
+            cerr << "deduplicate " << kv.second.size() << " right tail alignments on " << j << " down to " << deduplicated.size() << " nonredundant alignments" << endl;
+#endif
         
             PathNode& path_node = path_nodes.at(j);
             pos_t end_pos = final_position(path_node.path);
@@ -5168,6 +5520,10 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 // There should be some alignments
                 // remove alignments with the same path
                 auto deduplicated = deduplicate_alt_alns(tail_alignments[false][j], true, false);
+                
+#ifdef debug_multipath_alignment
+                cerr << "deduplicate " << tail_alignments[false][j].size() << " left tail alignments on " << j << " down to " << deduplicated.size() << " nonredundant alignments" << endl;
+#endif
                 
                 // collapse identical prefixes/suffixes of the alignments
                 pair<path_t, int32_t> left_zip_aln, right_zip_aln;
