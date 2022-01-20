@@ -136,7 +136,7 @@ vector<int> Deconstructor::get_alleles(vcflib::Variant& v,
 
         // set up for reference position context mapping across allele traversals
         path_handle_t ref_path = graph->get_path_handle_of_step(path_travs.second.at(ref_path_idx).first);
-        unordered_map<nid_t, vector<pair<uint64_t, vector<nid_t>>>> ref_dup_nodes;
+        unordered_map<nid_t, vector<pair<uint64_t, dac_vector<>>>> ref_dup_nodes;
         unordered_map<nid_t, nid_t> ref_simple_pos;
         {
             auto& trav = travs.at(ref_path_idx);
@@ -512,6 +512,20 @@ pair<vector<int>, bool> Deconstructor::choose_traversals(const string& sample_na
 // assumes sorted input
 double Deconstructor::context_jaccard(
     const vector<nid_t>& target,
+    const vector<nid_t>& query) const {
+    size_t node_isec = 0;
+    std::set_intersection(target.begin(), target.end(),
+                          query.begin(), query.end(),
+                          count_back_inserter<nid_t>(node_isec));
+    size_t node_union = 0;
+    std::set_union(target.begin(), target.end(),
+                   query.begin(), query.end(),
+                   count_back_inserter<nid_t>(node_union));
+    return (double)node_isec / (double)node_union;
+}
+
+double Deconstructor::context_jaccard(
+    const dac_vector<>& target,
     const vector<nid_t>& query) const {
     size_t node_isec = 0;
     std::set_intersection(target.begin(), target.end(),

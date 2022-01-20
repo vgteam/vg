@@ -100,6 +100,11 @@ private:
     // compares node contexts
     double context_jaccard(const vector<nid_t>& target,
                            const vector<nid_t>& query) const;
+
+    // specialization for enc_vectors
+    double context_jaccard(
+        const dac_vector<>& target,
+        const vector<nid_t>& query) const;
     
     // toggle between exhaustive and path restricted traversal finder
     bool path_restricted = false;
