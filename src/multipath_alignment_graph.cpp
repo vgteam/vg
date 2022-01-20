@@ -5,7 +5,8 @@
 #include "multipath_alignment_graph.hpp"
 #include "sequence_complexity.hpp"
 
-#define debug_multipath_alignment
+//#define debug_multipath_alignment
+//#define debug_decompose_algorithm
 
 using namespace std;
 namespace vg {
@@ -4173,6 +4174,76 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
               allow_negative_scores);
     }
 
+    void MultipathAlignmentGraph::deduplicate_alt_alns(vector<pair<path_t, int32_t>>& alt_alns,
+                                                       bool leftward, bool rightward) {
+        
+        // we use stable sort to keep the original score-ordering among alignments
+        // that take the same path, which is descending by score
+        stable_sort(alt_alns.begin(), alt_alns.end(),
+                    [&](const pair<path_t, int32_t>& aln_1, const pair<path_t, int32_t>& aln_2) {
+            const auto& path_1 = aln_1.first, path_2 = aln_2.first;
+            int64_t i, j, incr;
+            if (leftward) {
+                i = path_1.mapping_size() - 1;
+                j = path_2.mapping_size() - 1;
+                incr = -1;
+            }
+            else {
+                i = 0;
+                j = 0;
+                incr = 1;
+            }
+            bool is_less = false;
+            for (; i >= 0 && j >= 0 && i < path_1.mapping_size() && j < path_2.mapping_size(); i += incr, j += incr) {
+                const auto& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(j).position();
+                if (pos_1.node_id() < pos_2.node_id() ||
+                    (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() < pos_2.is_reverse())) {
+                    is_less = true;
+                    break;
+                }
+                else if (pos_1.node_id() > pos_2.node_id() ||
+                         (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() > pos_2.is_reverse())) {
+                    break;
+                }
+            }
+            // supersequences earlier in the case of paths of different lengths
+            return (is_less || ((i < path_1.mapping_size() && i >= 0) && (j == path_2.mapping_size() || j < 0)));
+        });
+        
+        // move alignments that have the same path to the end of the vector, keeping the
+        // first one (which has the highest score)
+        auto new_end = unique(alt_alns.begin(), alt_alns.end(),
+                              [&](const pair<path_t, int32_t>& aln_1, const pair<path_t, int32_t>& aln_2) {
+            const auto& path_1 = aln_1.first, path_2 = aln_2.first;
+            int64_t i, j, incr;
+            if (leftward) {
+                i = path_1.mapping_size() - 1;
+                j = path_2.mapping_size() - 1;
+                incr = -1;
+            }
+            else {
+                i = 0;
+                j = 0;
+                incr = 1;
+            }
+            // if this is a tail alignment, we allow paths of different lengths to be "equal"
+            // if one is a prefix of the other and lower-scoring
+            bool is_equal = (path_1.mapping_size() == path_2.mapping_size() || leftward || rightward);
+            for (; i >= 0 && j >= 0 && i < path_1.mapping_size() && j < path_2.mapping_size() && is_equal; i += incr, j += incr) {
+                const auto& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(j).position();
+                is_equal = (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() == pos_2.is_reverse());
+            }
+            // TODO: there has to be a more succinct way to check this condition
+            return (is_equal &&
+                    (path_1.mapping_size() == path_2.mapping_size() ||
+                     (path_1.mapping_size() > path_2.mapping_size() && aln_1.second > aln_2.second) ||
+                     (path_1.mapping_size() < path_2.mapping_size() && aln_1.second < aln_2.second)));
+        });
+        
+        // remove the duplicates at the end
+        alt_alns.resize(new_end - alt_alns.begin());
+    }
+
     pair<path_t, int32_t> MultipathAlignmentGraph::zip_alignments(vector<pair<path_t, int32_t>>& alt_alns, bool from_left,
                                                                   const Alignment& alignment, const HandleGraph& align_graph,
                                                                   string::const_iterator begin, const GSSWAligner* aligner) {
@@ -4559,7 +4630,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
     }
 
     pair<vector<pair<path_t, int32_t>>, vector<vector<pair<path_t, int32_t>>>>
-    MultipathAlignmentGraph::decompose_alignments(const vector<pair<path_t, int32_t>>& alt_alns, bool from_left,
+    MultipathAlignmentGraph::decompose_alignments(const vector<pair<path_t, int32_t>>& alt_alns,
                                                   const Alignment& alignment, const HandleGraph& align_graph,
                                                   string::const_iterator begin, const GSSWAligner* aligner) {
         
@@ -4581,6 +4652,22 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 return hsh;
             }
         };
+        
+#ifdef debug_decompose_algorithm
+        auto key_string = [](const key_t& key) {
+            stringstream sstrm;
+            sstrm << get<0>(key) << "-" << get<1>(key) << ",(";
+            for (size_t i = 0; i < get<2>(key).size(); ++i) {
+                if (i > 0) {
+                    sstrm << ",";
+                }
+                auto rec = get<2>(key)[i];
+                sstrm << get<0>(rec) << (get<1>(rec) ? "-" : "+") << ":" << get<2>(rec) << "-" << get<3>(rec);
+            }
+            sstrm << ")";
+            return sstrm.str();
+        };
+#endif
         
         // first we will count the number of occurrence of each edit to find those that occur on every
         // alignment
@@ -4617,9 +4704,17 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 }
             }
             
+#ifdef debug_decompose_algorithm
+            cerr << "recording deletion key " << key_string(del_key) << endl;
+#endif
+            
             // record a count of this key
             chunk_count[del_key] += 1;
         };
+        
+#ifdef debug_decompose_algorithm
+        cerr << "counting edits" << endl;
+#endif
         
         for (int64_t i = 0; i < alt_alns.size(); ++i) {
             
@@ -4663,6 +4758,10 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                                       mapping.position().is_reverse(),
                                                       offset, offset + edit.from_length());
                         
+#ifdef debug_decompose_algorithm
+                        cerr << "recording normal key " << key_string(edit_key) << endl;
+#endif
+                        
                         chunk_count[edit_key] += 1;
                     }
                     
@@ -4680,6 +4779,10 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             }
         }
         
+#ifdef debug_decompose_algorithm
+        cerr << "identifying shared edits" << endl;
+#endif
+        
         // gather all of the edits/chunks that are shared across all of the alignments
         vector<key_t> shared_edits;
         for (const auto& chunk_rec : chunk_count) {
@@ -4692,8 +4795,20 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         pair<vector<pair<path_t, int32_t>>, vector<vector<pair<path_t, int32_t>>>> return_val;
         
         if (!shared_edits.empty()) {
+            
+#ifdef debug_decompose_algorithm
+            cerr << "there are " << shared_edits.size() << " universally shared edits, beginning decompose routine" << endl;
+
+#endif
+            
             // put them in order along the read
             sort(shared_edits.begin(), shared_edits.end());
+            
+#ifdef debug_decompose_algorithm
+            for (auto edit : shared_edits) {
+                cerr << key_string(edit) << endl;
+            }
+#endif
             
             // the index of the next edit we will add in shared_edits
             size_t curr_shared_idx = 0;
@@ -4707,6 +4822,10 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             // along every path past this value
             auto add_shared_segments = [&]() {
                 
+#ifdef debug_decompose_algorithm
+                cerr << "looking for next shared segment" << endl;
+#endif
+                
                 // always add a shared segment, even if for a sentinel
                 return_val.first.emplace_back();
                 auto& shared_path = return_val.first.back().first;
@@ -4717,11 +4836,19 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 while (curr_shared_idx < shared_edits.size() && all_match) {
                     auto& shared = shared_edits[curr_shared_idx];
                     
+#ifdef debug_decompose_algorithm
+                    cerr << "looking for matches to shared edit " << key_string(shared) << endl;
+#endif
+                    
                     // check for match against the paths
                     for (size_t i = 0; i < alt_alns.size() && all_match; ++i) {
                         size_t j, k, seq_idx, node_idx;
                         tie(j, k, seq_idx, node_idx) = curr_index[i];
                         const auto& mapping = alt_alns[i].first.mapping(j);
+                        
+#ifdef debug_decompose_algorithm
+                        cerr << "comparing to alt alignment " << i << ", mapping " << j << ", edit " << k << ", which starts at sequence index " << seq_idx << ", relative node index " << node_idx << endl;
+#endif
                         
                         all_match = (seq_idx == get<0>(shared) &&
                                      mapping.position().node_id() == get<0>(get<2>(shared).front())  &&
@@ -4731,13 +4858,16 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     
                     if (all_match) {
                         // add an edit/edits to the shared path
+#ifdef debug_decompose_algorithm
+                        cerr << "all alt alignments match the next edit" << endl;
+#endif
                         
                         path_mapping_t* mapping = nullptr;
                         if (shared_path.mapping_size() != 0 &&
                             shared_path.mapping().back().position().node_id() == get<0>(get<2>(shared).front()) &&
                             shared_path.mapping().back().position().is_reverse() == get<1>(get<2>(shared).front()) &&
                             shared_path.mapping().back().position().offset() + mapping_from_length(shared_path.mapping().back())
-                                == get<3>(get<2>(shared).front())) {
+                                == get<2>(get<2>(shared).front())) {
                             
                             // we can extend the existing mapping by these edit(s)
                             mapping = shared_path.mutable_mapping(shared_path.mapping_size() - 1);
@@ -4788,12 +4918,25 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                             }
                         }
                     }
+#ifdef debug_decompose_algorithm
+                    else {
+                        cerr << "not all paths match the next shared edit (if any), terminating shared segment" << endl;
+                    }
+#endif
                 }
+#ifdef debug_decompose_algorithm
+                cerr << "completed shared segment:" << endl;
+                cerr << "\t" << debug_string(shared_path) << endl;
+#endif
             };
             
             // adds the unshared portion of alignments in between the last shared portion
             // and the next one
             auto add_unshared_segments = [&]() {
+                
+#ifdef debug_decompose_algorithm
+                cerr << "looking for next block of unshared segments" << endl;
+#endif
                 
                 // dummy values in case there is no next shared segment
                 size_t end_seq_idx = numeric_limits<size_t>::max();
@@ -4810,6 +4953,10 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 }
                 // note: all of the unshared segments end at the same place
                 
+#ifdef debug_decompose_algorithm
+                cerr << "copying until hitting seq index " << end_seq_idx << " at position " << make_pos_t(end_node_id, end_is_rev, end_offset) << endl;
+#endif
+                
                 // init all of the unshared semgents
                 return_val.second.emplace_back(alt_alns.size());
                 // and then do the copying for each of them
@@ -4820,18 +4967,26 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     auto& unshared_path = return_val.second.back()[i].first;
                     auto& idxs = curr_index[i];
                     
+#ifdef debug_decompose_algorithm
+                    cerr << "copying from alt aln " << i << ", mapping index " << get<0>(idxs) << ", edit index " << get<1>(idxs) << ", seq index " << get<2>(idxs) << ", node relative index " << get<3>(idxs) << endl;
+#endif
+                    
                     // copy the alt path into the unshared path until reaching either the end of the alt
                     // path or the next shared segment
                     while (get<0>(idxs) != alt_path.mapping_size()
-                           && get<2>(idxs) != end_seq_idx
-                           && alt_path.mapping(get<0>(idxs)).position().node_id() != end_node_id
-                           && alt_path.mapping(get<0>(idxs)).position().is_reverse() != end_is_rev
-                           && alt_path.mapping(get<0>(idxs)).position().offset() + get<3>(idxs) != end_offset) {
+                           && !(get<2>(idxs) == end_seq_idx
+                                && alt_path.mapping(get<0>(idxs)).position().node_id() == end_node_id
+                                && alt_path.mapping(get<0>(idxs)).position().is_reverse() == end_is_rev
+                                && alt_path.mapping(get<0>(idxs)).position().offset() + get<3>(idxs) == end_offset)) {
                         
                         // we haven't reached the end or the next shared segment
                         const auto& alt_path_mapping = alt_path.mapping(get<0>(idxs));
                         const auto& alt_path_position = alt_path_mapping.position();
                         const auto& alt_path_edit = alt_path_mapping.edit(get<1>(idxs));
+                        
+#ifdef debug_decompose_algorithm
+                        cerr << "have not hit end of unshared segment, adding edit " << debug_string(alt_path_edit) << endl;
+#endif
                         
                         path_mapping_t* mapping = nullptr;
                         if (unshared_path.mapping_size() != 0 &&
@@ -4867,39 +5022,72 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                         
                     }
                 }
+#ifdef debug_decompose_algorithm
+                cerr << "completed unshared segments:" << endl;
+                for (auto& unshared : return_val.second.back()) {
+                    cerr << "\t" << debug_string(unshared.first) << endl;
+                }
+#endif
+            };
+            
+#ifdef debug_decompose_algorithm
+            cerr << "constructing shared and unshared segments" << endl;
+#endif
+            
+            // when we want to stop iterating
+            auto finished = [&]() {
+                bool done = (curr_shared_idx == shared_edits.size());
+                for (size_t i = 0; i < alt_alns.size() && done; ++i) {
+                    done = (get<0>(curr_index[i]) == alt_alns[i].first.mapping_size());
+                }
+                return done;
             };
             
             // alternate between the two segment additions
             add_shared_segments();
-            // cover an annoying edge case where all of the alignments are identical
-            bool all_shared = (curr_shared_idx == shared_edits.size());
-            for (size_t i = 0; i < alt_alns.size() && all_shared; ++i) {
-                all_shared = get<0>(curr_index[i]) == alt_alns[i].first.mapping_size();
-            }
-            if (!all_shared) {
-                // alternate between adding the next unshared batch and shared segments
-                while (curr_shared_idx < shared_edits.size()) {
-                    add_unshared_segments();
-                    add_shared_segments();
-                }
+            while (!finished()) {
+                add_unshared_segments();
+                add_shared_segments();
             }
             
+#ifdef debug_decompose_algorithm
+            cerr << "rescoring alignment segments" << endl;
+#endif
+            
+            // rescore all of the broken up segments
             auto seq_pos = begin;
             for (size_t i = 0; i < return_val.first.size(); ++i) {
                 if (i != 0) {
                     // score a block of unshared segments
-                    auto& unshared_alt_alns = return_val.second[i];
+                    auto& unshared_alt_alns = return_val.second[i - 1];
                     for (size_t j = 0; j < unshared_alt_alns.size(); ++j) {
+#ifdef debug_decompose_algorithm
+                        cerr << "rescore unshared alt " << j << " in block " << i - 1 << endl;
+                        cerr << debug_string(unshared_alt_alns[j].first) << endl;
+#endif
                         unshared_alt_alns[j].second = aligner->score_partial_alignment(alignment, align_graph,
                                                                                        unshared_alt_alns[j].first, seq_pos);
                     }
                     // they all cover the same read interval, so we can choose an arbitrary alt here
                     seq_pos += path_to_length(unshared_alt_alns.front().first);
                 }
+#ifdef debug_decompose_algorithm
+                cerr << "rescore shared segment " << i << endl;
+                cerr << debug_string(return_val.first[i].first) << endl;
+#endif
                 // score a shared segment
                 return_val.first[i].second = aligner->score_partial_alignment(alignment, align_graph,
                                                                               return_val.first[i].first, seq_pos);
                 seq_pos += path_to_length(return_val.first[i].first);
+            }
+            
+            // and sort the blocks of unshared segments
+            for (size_t i = 0; i < return_val.second.size(); ++i) {
+                auto& unshared_alt_alns = return_val.second[i];
+                stable_sort(unshared_alt_alns.begin(), unshared_alt_alns.end(),
+                     [](const pair<path_t, int32_t>& a, const pair<path_t, int32_t>& b) {
+                    return a.second > b.second;
+                });
             }
         }
         
@@ -4951,82 +5139,18 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         // the indexes of subpaths that we will not allow to merge at non-branching paths
         unordered_set<size_t> prohibited_merges;
         
-        // we use this function to remove alignments that follow the same path, keeping only the highest scoring one
-        auto deduplicate_alt_alns = [](vector<Alignment>& alt_alns, bool leftward, bool rightward) -> vector<pair<path_t, int32_t>> {
+        auto convert_and_deduplicate = [](const vector<Alignment>& alt_alns,
+                                          bool leftward, bool rightward) -> vector<pair<path_t, int32_t>> {
+            
             // init the deduplicated vector in STL types with move operators
-            vector<pair<path_t, int32_t>> deduplicated(alt_alns.size());
+            vector<pair<path_t, int32_t>> converted(alt_alns.size());
             for (size_t i = 0; i < alt_alns.size(); ++i) {
                 const auto& aln = alt_alns[i];
-                deduplicated[i].second = aln.score();
-                from_proto_path(aln.path(), deduplicated[i].first);
+                converted[i].second = aln.score();
+                from_proto_path(aln.path(), converted[i].first);
             }
-            
-            // we use stable sort to keep the original score-ordering among alignments
-            // that take the same path, which is descending by score
-            stable_sort(deduplicated.begin(), deduplicated.end(),
-                        [&](const pair<path_t, int32_t>& aln_1, const pair<path_t, int32_t>& aln_2) {
-                const auto& path_1 = aln_1.first, path_2 = aln_2.first;
-                int64_t i, j, incr;
-                if (leftward) {
-                    i = path_1.mapping_size() - 1;
-                    j = path_2.mapping_size() - 1;
-                    incr = -1;
-                }
-                else {
-                    i = 0;
-                    j = 0;
-                    incr = 1;
-                }
-                bool is_less = false;
-                for (; i >= 0 && j >= 0 && i < path_1.mapping_size() && j < path_2.mapping_size(); i += incr, j += incr) {
-                    const auto& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(j).position();
-                    if (pos_1.node_id() < pos_2.node_id() ||
-                        (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() < pos_2.is_reverse())) {
-                        is_less = true;
-                        break;
-                    }
-                    else if (pos_1.node_id() > pos_2.node_id() ||
-                             (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() > pos_2.is_reverse())) {
-                        break;
-                    }
-                }
-                // supersequences earlier in the case of paths of different lengths
-                return (is_less || ((i < path_1.mapping_size() && i >= 0) && (j == path_2.mapping_size() || j < 0)));
-            });
-            
-            // move alignments that have the same path to the end of the vector, keeping the
-            // first one (which has the highest score)
-            auto new_end = unique(deduplicated.begin(), deduplicated.end(),
-                                  [&](const pair<path_t, int32_t>& aln_1, const pair<path_t, int32_t>& aln_2) {
-                const auto& path_1 = aln_1.first, path_2 = aln_2.first;
-                int64_t i, j, incr;
-                if (leftward) {
-                    i = path_1.mapping_size() - 1;
-                    j = path_2.mapping_size() - 1;
-                    incr = -1;
-                }
-                else {
-                    i = 0;
-                    j = 0;
-                    incr = 1;
-                }
-                // if this is a tail alignment, we allow paths of different lengths to be "equal"
-                // if one is a prefix of the other and lower-scoring
-                bool is_equal = (path_1.mapping_size() == path_2.mapping_size() || leftward || rightward);
-                for (; i >= 0 && j >= 0 && i < path_1.mapping_size() && j < path_2.mapping_size() && is_equal; i += incr, j += incr) {
-                    const auto& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(j).position();
-                    is_equal = (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() == pos_2.is_reverse());
-                }
-                // TODO: there has to be a more succinct way to check this condition
-                return (is_equal &&
-                        (path_1.mapping_size() == path_2.mapping_size() ||
-                         (path_1.mapping_size() > path_2.mapping_size() && aln_1.second > aln_2.second) ||
-                         (path_1.mapping_size() < path_2.mapping_size() && aln_1.second < aln_2.second)));
-            });
-            
-            // remove the duplicates at the end
-            deduplicated.erase(new_end, deduplicated.end());
-            return deduplicated;
+            deduplicate_alt_alns(converted, leftward, rightward);
+            return converted;
         };
         
         // TODO: i wonder if it would be cleaner/more general to use branches rather than snarls
@@ -5231,7 +5355,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                                                            band_padding_function(intervening_sequence, connecting_graph), true);
                         
                         // remove alignments with the same path
-                        deduplicated = deduplicate_alt_alns(alt_alignments, false, false);
+                        deduplicated = convert_and_deduplicate(alt_alignments, false, false);
                         
                         if (num_alns_iter >= max_alt_alns || !dynamic_alt_alns) {
                             // we don't want to try again even if we didn't find every path yet
@@ -5332,7 +5456,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             size_t j = kv.first;
             
             // remove alignments with the same path
-            auto deduplicated = deduplicate_alt_alns(kv.second, false, true);
+            auto deduplicated = convert_and_deduplicate(kv.second, false, true);
             
 #ifdef debug_multipath_alignment
             cerr << "deduplicate " << kv.second.size() << " right tail alignments on " << j << " down to " << deduplicated.size() << " nonredundant alignments" << endl;
@@ -5519,7 +5643,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 
                 // There should be some alignments
                 // remove alignments with the same path
-                auto deduplicated = deduplicate_alt_alns(tail_alignments[false][j], true, false);
+                auto deduplicated = convert_and_deduplicate(tail_alignments[false][j], true, false);
                 
 #ifdef debug_multipath_alignment
                 cerr << "deduplicate " << tail_alignments[false][j].size() << " left tail alignments on " << j << " down to " << deduplicated.size() << " nonredundant alignments" << endl;

@@ -229,7 +229,7 @@ namespace vg {
         
         size_t size() const;
         
-    private:
+    protected:
         
         /// Nodes representing walked MEMs in the graph
         vector<PathNode> path_nodes;
@@ -311,6 +311,12 @@ namespace vg {
                     size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier,
                     size_t min_paths, unordered_set<size_t>* sources = nullptr);
         
+        /// Removes alignments that follow the same path through the graph, retaining only the
+        /// highest scoring ones. If deduplicating leftward, then also removes paths that take a
+        /// longer path for no greater score in the leftward direction. Vice versa for rightward.
+        /// Assumes alignments are descending order by score.
+        static void deduplicate_alt_alns(vector<pair<path_t, int32_t>>& alt_alns, bool leftward, bool rightward);
+        
         /// If a list of aligned subsequences are identifical in a prefix/suffix, remove that
         /// prefix/suffix from all of the alignments and return it as a separate alignment.
         /// If there is no shared prefix/suffix, returns an empty path with 0 score.
@@ -325,9 +331,10 @@ namespace vg {
         /// is +1 of the vector of between segments, so that they are interleaved. The first and/or
         /// last of the alignments of shared segments may be empty if there is no shared prefix
         /// or suffix across all the alignments.
-        /// If there are no shared segments at all, will return empty vectors.
+        /// If there are no shared segments at all, will return pair of empty vectors.
+        /// Blocks of unshared paths will be sorted into descending order by score.
         static pair<vector<pair<path_t, int32_t>>, vector<vector<pair<path_t, int32_t>>>>
-        decompose_alignments(const vector<pair<path_t, int32_t>>& alt_alns, bool from_left,
+        decompose_alignments(const vector<pair<path_t, int32_t>>& alt_alns,
                              const Alignment& alignment, const HandleGraph& align_graph,
                              string::const_iterator begin, const GSSWAligner* aligner);
         

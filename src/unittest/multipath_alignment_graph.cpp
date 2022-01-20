@@ -9,9 +9,17 @@
 #include "../multipath_alignment_graph.hpp"
 #include "../min_distance.hpp"
 #include "catch.hpp"
+#include "test_aligner.hpp"
+
+
 
 namespace vg {
 namespace unittest {
+
+class TestMultipathAlignmentGraph : public MultipathAlignmentGraph {
+public:
+    using MultipathAlignmentGraph::decompose_alignments;
+};
 
 TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath][mapping][multipathalignmentgraph]" ) {
 
@@ -409,6 +417,362 @@ TEST_CASE("Corresponding path lengths can be computed", "[multipathalignmentgrap
     REQUIRE(corresponding_to_length(path, 15, true) == 15);
     REQUIRE(corresponding_from_length(path, 15, true) == 15);
     
+}
+
+TEST_CASE("Tail alignments can be decomposed", "[multipathalignmentgraph]") {
+    
+    TestAligner test_aligner;
+    auto aligner = test_aligner.get_regular_aligner();
+    
+    Alignment aln;
+    aln.set_sequence("AAAAAA");
+    
+    bdsg::HashGraph graph;
+    auto h1 = graph.create_handle("CCCAA");
+    auto h2 = graph.create_handle("A");
+    auto h3 = graph.create_handle("C");
+    auto h4 = graph.create_handle("ACC");
+    auto h5 = graph.create_handle("C");
+    auto h6 = graph.create_handle("C");
+    auto h7 = graph.create_handle("A");
+    auto h8 = graph.create_handle("C");
+    auto h9 = graph.create_handle("A");
+    auto h10 = graph.create_handle("C");
+    
+    graph.create_edge(h1, h2);
+    graph.create_edge(h1, h3);
+    graph.create_edge(h2, h4);
+    graph.create_edge(h3, h4);
+    graph.create_edge(h4, h5);
+    graph.create_edge(h5, h6);
+    graph.create_edge(h6, h7);
+    graph.create_edge(h6, h8);
+    graph.create_edge(h7, h9);
+    graph.create_edge(h8, h10);
+    
+    path_t p1, p2, p3, p4;
+    
+    auto m = p1.add_mapping();
+    m->mutable_position()->set_node_id(1);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(3);
+    auto e = m->add_edit();
+    e->set_from_length(2);
+    e->set_to_length(2);
+    
+    m = p1.add_mapping();
+    m->mutable_position()->set_node_id(2);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(1);
+    
+    m = p1.add_mapping();
+    m->mutable_position()->set_node_id(4);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(1);
+    
+    e = m->add_edit();
+    e->set_from_length(2);
+    e->set_to_length(0);
+    
+    m = p1.add_mapping();
+    m->mutable_position()->set_node_id(5);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(0);
+    
+    m = p1.add_mapping();
+    m->mutable_position()->set_node_id(6);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(0);
+    
+    m = p1.add_mapping();
+    m->mutable_position()->set_node_id(7);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(1);
+    
+    m = p1.add_mapping();
+    m->mutable_position()->set_node_id(9);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(1);
+    
+    
+    
+    m = p2.add_mapping();
+    m->mutable_position()->set_node_id(1);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(3);
+    e = m->add_edit();
+    e->set_from_length(2);
+    e->set_to_length(2);
+    
+    m = p2.add_mapping();
+    m->mutable_position()->set_node_id(2);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(1);
+    
+    m = p2.add_mapping();
+    m->mutable_position()->set_node_id(4);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(1);
+    
+    e = m->add_edit();
+    e->set_from_length(2);
+    e->set_to_length(0);
+    
+    m = p2.add_mapping();
+    m->mutable_position()->set_node_id(5);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(0);
+    
+    m = p2.add_mapping();
+    m->mutable_position()->set_node_id(6);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(0);
+    
+    m = p2.add_mapping();
+    m->mutable_position()->set_node_id(8);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(1);
+    e->set_sequence("A");
+    
+    m = p2.add_mapping();
+    m->mutable_position()->set_node_id(10);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(1);
+    e->set_sequence("A");
+    
+    
+    
+    m = p3.add_mapping();
+    m->mutable_position()->set_node_id(1);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(3);
+    e = m->add_edit();
+    e->set_from_length(2);
+    e->set_to_length(2);
+    
+    m = p3.add_mapping();
+    m->mutable_position()->set_node_id(3);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(1);
+    e->set_sequence("A");
+    
+    m = p3.add_mapping();
+    m->mutable_position()->set_node_id(4);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(1);
+    
+    e = m->add_edit();
+    e->set_from_length(2);
+    e->set_to_length(0);
+    
+    m = p3.add_mapping();
+    m->mutable_position()->set_node_id(5);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(0);
+    
+    m = p3.add_mapping();
+    m->mutable_position()->set_node_id(6);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(0);
+    
+    m = p3.add_mapping();
+    m->mutable_position()->set_node_id(7);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(1);
+    
+    m = p3.add_mapping();
+    m->mutable_position()->set_node_id(9);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(1);
+    
+    
+    
+    m = p4.add_mapping();
+    m->mutable_position()->set_node_id(1);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(3);
+    e = m->add_edit();
+    e->set_from_length(2);
+    e->set_to_length(2);
+    
+    m = p4.add_mapping();
+    m->mutable_position()->set_node_id(3);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(1);
+    e->set_sequence("A");
+    
+    m = p4.add_mapping();
+    m->mutable_position()->set_node_id(4);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(1);
+    
+    e = m->add_edit();
+    e->set_from_length(2);
+    e->set_to_length(0);
+    
+    m = p4.add_mapping();
+    m->mutable_position()->set_node_id(5);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(0);
+    
+    m = p4.add_mapping();
+    m->mutable_position()->set_node_id(6);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(0);
+    
+    m = p4.add_mapping();
+    m->mutable_position()->set_node_id(8);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(1);
+    e->set_sequence("A");
+    
+    m = p4.add_mapping();
+    m->mutable_position()->set_node_id(10);
+    m->mutable_position()->set_is_reverse(false);
+    m->mutable_position()->set_offset(0);
+    e = m->add_edit();
+    e->set_from_length(1);
+    e->set_to_length(1);
+    e->set_sequence("A");
+    
+//    for (auto p : {p1, p2, p3, p4}) {
+//        cerr << debug_string(p) << endl;
+//    }
+    
+    vector<pair<path_t, int32_t>> alt_alns;
+    alt_alns.emplace_back(p1, 16);
+    alt_alns.emplace_back(p2, 11);
+    alt_alns.emplace_back(p3, 11);
+    alt_alns.emplace_back(p4, 6);
+    
+    auto decomposed = TestMultipathAlignmentGraph::decompose_alignments(alt_alns, aln, graph,
+                                                                        aln.sequence().begin(),
+                                                                        aligner);
+    
+    auto& shared = decomposed.first;
+    auto& unshared = decomposed.second;
+    
+//    cerr << "shared" << endl;
+//    for (auto& s : shared) {
+//        cerr << s.second << " " << debug_string(s.first) << endl;
+//    }
+//    for (auto& usb : unshared) {
+//        cerr << "unshared block" << endl;
+//        for (auto& u : usb) {
+//            cerr << u.second << " " << debug_string(u.first) << endl;
+//        }
+//    }
+    
+    REQUIRE(shared.size() == unshared.size() + 1);
+    REQUIRE(unshared.size() == 2);
+    
+    REQUIRE(shared[0].first.mapping_size() == 1);
+    REQUIRE(shared[0].first.mapping(0).position().node_id() == 1);
+    REQUIRE(shared[0].first.mapping(0).position().is_reverse() == false);
+    REQUIRE(shared[0].first.mapping(0).position().offset() == 3);
+    REQUIRE(shared[0].first.mapping(0).edit_size() == 1);
+    REQUIRE(shared[0].first.mapping(0).edit(0).from_length() == 2);
+    REQUIRE(shared[0].first.mapping(0).edit(0).to_length() == 2);
+    REQUIRE(shared[0].first.mapping(0).edit(0).sequence() == "");
+    
+    REQUIRE(shared[1].first.mapping_size() == 3);
+    REQUIRE(shared[1].first.mapping(0).position().node_id() == 4);
+    REQUIRE(shared[1].first.mapping(0).position().is_reverse() == false);
+    REQUIRE(shared[1].first.mapping(0).position().offset() == 0);
+    REQUIRE(shared[1].first.mapping(0).edit_size() == 2);
+    REQUIRE(shared[1].first.mapping(0).edit(0).from_length() == 1);
+    REQUIRE(shared[1].first.mapping(0).edit(0).to_length() == 1);
+    REQUIRE(shared[1].first.mapping(0).edit(0).sequence() == "");
+    REQUIRE(shared[1].first.mapping(0).edit(1).from_length() == 2);
+    REQUIRE(shared[1].first.mapping(0).edit(1).to_length() == 0);
+    REQUIRE(shared[1].first.mapping(0).edit(1).sequence() == "");
+    REQUIRE(shared[1].first.mapping(1).position().node_id() == 5);
+    REQUIRE(shared[1].first.mapping(1).position().is_reverse() == false);
+    REQUIRE(shared[1].first.mapping(1).position().offset() == 0);
+    REQUIRE(shared[1].first.mapping(1).edit_size() == 1);
+    REQUIRE(shared[1].first.mapping(1).edit(0).from_length() == 1);
+    REQUIRE(shared[1].first.mapping(1).edit(0).to_length() == 0);
+    REQUIRE(shared[1].first.mapping(1).edit(0).sequence() == "");
+    REQUIRE(shared[1].first.mapping(2).position().node_id() == 6);
+    REQUIRE(shared[1].first.mapping(2).position().is_reverse() == false);
+    REQUIRE(shared[1].first.mapping(2).position().offset() == 0);
+    REQUIRE(shared[1].first.mapping(2).edit_size() == 1);
+    REQUIRE(shared[1].first.mapping(2).edit(0).from_length() == 1);
+    REQUIRE(shared[1].first.mapping(2).edit(0).to_length() == 0);
+    REQUIRE(shared[1].first.mapping(2).edit(0).sequence() == "");
+    
+    REQUIRE(shared[2].first.mapping_size() == 0);
+    
+    // TODO: should check the unshared blocks, but i'm too lazy
 }
 
 }
