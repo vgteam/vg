@@ -338,6 +338,17 @@ namespace vg {
                              const Alignment& alignment, const HandleGraph& align_graph,
                              string::const_iterator begin, const GSSWAligner* aligner);
         
+        void add_decomposed_tail_alignments(const Alignment& alignment, const HandleGraph& align_graph,
+                                            multipath_alignment_t& multipath_aln_out,
+                                            unordered_set<size_t>& prohibited_merges,
+                                            vector<pair<path_t, int32_t>>& shared_tail_alns,
+                                            vector<vector<pair<path_t, int32_t>>>& unshared_tail_alns,
+                                            size_t attachment_idx, bool to_left, size_t unmergeable_len,
+                                            const GSSWAligner* aligner,
+                                            SnarlManager* cutting_snarls = nullptr,
+                                            MinimumDistanceIndex* dist_index = nullptr,
+                                            const function<pair<id_t, bool>(id_t)>* project = nullptr);
+        
         /// Memo for the transcendental pessimistic tail gap function (thread local to maintain thread-safety)
         static thread_local unordered_map<double, vector<int64_t>> pessimistic_tail_gap_memo;
         
