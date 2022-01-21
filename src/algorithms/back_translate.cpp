@@ -24,11 +24,11 @@ void back_translate_in_place(const NamedNodeBackTranslation* translation, Path& 
     
     for (size_t i = 0; i < path.mapping_size(); i++) {
         // For each Mapping
-        Mapping* mapping = path->mutable_mapping(i);
+        Mapping* mapping = path.mutable_mapping(i);
         
         // Determine its range
-        oriented_node_range_t source_range {mapping->position().node_id(), mapping->position().is_reverse(),
-                                            mapping->position().offset(), from_length(mapping)}; 
+        oriented_node_range_t source_range(mapping->position().node_id(), mapping->position().is_reverse(),
+                                           mapping->position().offset(), from_length(*mapping)); 
         
         // Translate it
         vector<oriented_node_range_t> translated = translation->translate_back(source_range);
@@ -48,9 +48,9 @@ void back_translate_in_place(const NamedNodeBackTranslation* translation, Path& 
         }
         
         // Change over to the named sequence and the offset there.
-        mapping->clear_node_id();
-        mapping->set_name(translation->get_back_graph_node_name(get<0>(translated_range)));
-        mapping->set_offset(get<2>(translated_range));
+        mapping->mutable_position()->clear_node_id();
+        mapping->mutable_position()->set_name(translation->get_back_graph_node_name(get<0>(translated_range)));
+        mapping->mutable_position()->set_offset(get<2>(translated_range));
         
         if (i == 0 || get<0>(translated_range) != prev_segment_number || get<1>(translated_range) != prev_segment_is_reverse || get<2>(translated_range) != prev_segment_offset) {
             // We have done a transition that isn't just abutting in a
@@ -72,12 +72,12 @@ void back_translate_in_place(const NamedNodeBackTranslation* translation, Path& 
             for (size_t j = 0; j < mapping->edit_size(); j++) {
                 // Glom each edit into the previous mapping
                 
-                if (j == 0 && prev_mapping->edit_size() > 0 && edits_are_compatible(prev_mapping->edits().back(), mapping->edit(j))) {
+                if (j == 0 && prev_mapping->edit_size() > 0 && edits_are_compatible(prev_mapping->edit(prev_mapping->edit_size() - 1), mapping->edit(j))) {
                     // We assume our edits are all merged up if they can be. So
                     // we only have to consider merging the first of our edits
                     // into the last edit of the previous mapping. Turns out
                     // they can merge.
-                    merge_edits_in_place(*prev_mapping->mutable_edits(prev_mapping->edit_size() - 1), mapping->edit(j));
+                    merge_edits_in_place(*prev_mapping->mutable_edit(prev_mapping->edit_size() - 1), mapping->edit(j));
                 } else {
                     // This edit has to become a new edit in the previous mapping.
                     *prev_mapping->add_edit() = std::move(*mapping->mutable_edit(j));
@@ -115,7 +115,7 @@ void back_translate_in_place(const NamedNodeBackTranslation* translation, Path& 
         path.mutable_mapping()->SwapElements(i, i + slots_ahead);
     }
     // Now we've bumped all the unused Mappings to the end so delete them.
-    path.mutable_mapping()->Truncate(path.mapping_size() - mapping_indices_to_remove.size());
+    path.mutable_mapping()->DeleteSubrange(path.mapping_size() - mapping_indices_to_remove.size(), path.mapping_size());
 }
 
 }

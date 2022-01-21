@@ -6,9 +6,10 @@
 
 #include "hts_alignment_emitter.hpp"
 #include "surjecting_alignment_emitter.hpp"
+#include "back_translating_alignment_emitter.hpp"
 #include "alignment.hpp"
 #include "vg/io/json2pb.h"
-#include "vg/algorithms/find_translation.hpp"
+#include "algorithms/find_translation.hpp"
 #include <vg/io/hfile_cppstream.hpp>
 #include <vg/io/stream.hpp>
 

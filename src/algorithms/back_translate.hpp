@@ -8,7 +8,7 @@
  */
 
 #include "../handle.hpp"
-#include <vg/io/vg.pb.h>
+#include <vg/vg.pb.h>
 
 namespace vg {
 namespace algorithms {

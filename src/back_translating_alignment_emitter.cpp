@@ -18,7 +18,7 @@ BackTranslatingAlignmentEmitter::BackTranslatingAlignmentEmitter(const NamedNode
 
 void BackTranslatingAlignmentEmitter::back_translate_alignments_in_place(vector<Alignment>& alns) const {
     for (auto& aln : alns) {
-        algorithms::back_translate_in_place(*aln.mutable_path()); 
+        algorithms::back_translate_in_place(translation, *aln.mutable_path()); 
     }
 }
 

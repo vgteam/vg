@@ -1403,7 +1403,7 @@ int main_giraffe(int argc, char** argv) {
             // Unless we want to discard all the alignments in which case do that.
             unique_ptr<AlignmentEmitter> alignment_emitter;
             if (discard_alignments) {
-                alignment_emitter = make_unique<NullAlignmentEmitter>()
+                alignment_emitter = make_unique<NullAlignmentEmitter>();
             } else {
                 // We actually want to emit alignments.
                 // Encode flags describing what we want to happen.

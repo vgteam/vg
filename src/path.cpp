@@ -1522,16 +1522,8 @@ Mapping simplify(const Mapping& m, bool trim_internal_deletions) {
             // if the edit types are the same, merge them
             if (edit_is_empty(f)) {
                 continue;
-            } else if ((edit_is_match(e) && edit_is_match(f))
-                || (edit_is_sub(e) && edit_is_sub(f))
-                || (edit_is_deletion(e) && edit_is_deletion(f))
-                || (edit_is_insertion(e) && edit_is_insertion(f))) {
-                // will be 0 for insertions, and + for the rest
-                e.set_from_length(e.from_length()+f.from_length());
-                // will be 0 for deletions, and + for the rest
-                e.set_to_length(e.to_length()+f.to_length());
-                // will be empty for both or have sequence for both
-                e.set_sequence(e.sequence() + f.sequence());
+            } else if (edits_are_compatible(e, f)) {
+                merge_edits_in_place(e, f);
             } else {
                 // mismatched types are just put on
                 *n.add_edit() = e;
@@ -1545,6 +1537,22 @@ Mapping simplify(const Mapping& m, bool trim_internal_deletions) {
         }
     }
     return n;
+}
+
+bool edits_are_compatible(const Edit& e, const Edit& f) {
+    return (edit_is_match(e) && edit_is_match(f))
+            || (edit_is_sub(e) && edit_is_sub(f))
+            || (edit_is_deletion(e) && edit_is_deletion(f))
+            || (edit_is_insertion(e) && edit_is_insertion(f));
+}
+
+void merge_edits_in_place(Edit& e, const Edit& f) {
+    // will be 0 for insertions, and + for the rest
+    e.set_from_length(e.from_length() + f.from_length());
+    // will be 0 for deletions, and + for the rest
+    e.set_to_length(e.to_length() + f.to_length());
+    // will be empty for both or have sequence for both
+    e.set_sequence(e.sequence() + f.sequence());
 }
 
 Mapping merge_adjacent_edits(const Mapping& m) {
