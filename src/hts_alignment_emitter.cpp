@@ -8,6 +8,7 @@
 #include "surjecting_alignment_emitter.hpp"
 #include "alignment.hpp"
 #include "vg/io/json2pb.h"
+#include "vg/algorithms/find_translation.hpp"
 #include <vg/io/hfile_cppstream.hpp>
 #include <vg/io/stream.hpp>
 
@@ -66,7 +67,23 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
     } else {
         // The non-HTSlib formats don't actually use the path name and length info.
         // See https://github.com/vgteam/libvgio/issues/34
+        
+        // TODO: Push some logic here into libvgio? Or move this top function out of hts_alignment_emitter.cpp?
+        
         emitter = get_non_hts_alignment_emitter(filename, format, {}, max_threads, graph);
+        
+        if (flags & ALIGNMENT_EMITTER_FLAG_VG_USE_SEGMENT_NAMES) {
+            // Need to translate from node IDs to segment names
+            
+            const NamedNodeBackTranslation* translation = vg::algorithms::find_translation(graph);
+            if (translation == nullptr) {
+                cerr << "error[vg::get_alignment_emitter]: No graph available supporting translation to named-segment space" << endl;
+                exit(1);
+            }
+            
+            // Interpose a translating AlignmentEmitter
+            emitter = make_unique<BackTranslatingAlignmentEmitter>(translation, std::move(emitter));
+        }
     }
     
     return emitter;

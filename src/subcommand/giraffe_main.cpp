@@ -332,6 +332,7 @@ void help_giraffe(char** argv) {
     << "  -R, --read-group NAME         add this read group" << endl
     << "  -o, --output-format NAME      output the alignments in NAME format (gam / gaf / json / tsv / SAM / BAM / CRAM) [gam]" << endl
     << "  --ref-paths FILE              ordered list of paths in the graph, one per line or HTSlib .dict, for HTSLib @SQ headers" << endl
+    << "  --named-coordinates           produce GAM outputs in named-segment (GFA) space" << endl
     << "  -P, --prune-low-cplx          prune short and low complexity anchors during linear format realignment" << endl
     << "  -n, --discard                 discard all output alignments (for profiling)" << endl
     << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
@@ -385,6 +386,7 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_RESCUE_SEED_LIMIT 1009
     #define OPT_REF_PATHS 1010
     #define OPT_SHOW_WORK 1011
+    #define OPT_NAMED_COORDINATES 1012
     
 
     // initialize parameters with their default options
@@ -484,8 +486,11 @@ int main_giraffe(int argc, char** argv) {
 
     // For HTSlib formats, where do we get sequence header info?
     std::string ref_paths_name;
-    // And shoudl we drop low complexity anchors when surjectng?
+    // And should we drop low complexity anchors when surjectng?
     bool prune_anchors = false;
+    
+    // For GAM format, should we report in named-segment space instead of node ID space?
+    bool named_coordinates = false;
 
     // Map algorithm names to rescue algorithms
     std::map<std::string, MinimizerMapper::RescueAlgorithm> rescue_algorithms = {
@@ -523,6 +528,7 @@ int main_giraffe(int argc, char** argv) {
             {"output-format", required_argument, 0, 'o'},
             {"ref-paths", required_argument, 0, OPT_REF_PATHS},
             {"prune-low-cplx", no_argument, 0, 'P'},
+            {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
             {"discard", no_argument, 0, 'n'},
             {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
             {"report-name", required_argument, 0, OPT_REPORT_NAME},
@@ -721,6 +727,10 @@ int main_giraffe(int argc, char** argv) {
                 
             case 'P':
                 prune_anchors = true;
+                break;
+                
+            case OPT_NAMED_COORDINATES:
+                named_coordinates = true;
                 break;
 
             case 'n':
@@ -1391,12 +1401,30 @@ int main_giraffe(int argc, char** argv) {
             
             // Set up output to an emitter that will handle serialization and surjection.
             // Unless we want to discard all the alignments in which case do that.
-            // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
-            unique_ptr<AlignmentEmitter> alignment_emitter = discard_alignments ?
-                make_unique<NullAlignmentEmitter>() :
-                get_alignment_emitter(output_filename, output_format, paths, thread_count,
-                    path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)&(gbz->graph),
-                    ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS * prune_anchors);
+            unique_ptr<AlignmentEmitter> alignment_emitter;
+            if (discard_alignments) {
+                alignment_emitter = make_unique<NullAlignmentEmitter>()
+            } else {
+                // We actually want to emit alignments.
+                // Encode flags describing what we want to happen.
+                int flags = ALIGNMENT_EMITTER_FLAG_NONE;
+                if (prune_anchors) {
+                    // When surjecting, do anchor pruning.
+                    flags |= ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS;
+                }
+                if (named_coordinates) {
+                    // When not surjecting, use named segments instead of node IDs.
+                    flags |= ALIGNMENT_EMITTER_FLAG_VG_USE_SEGMENT_NAMES;
+                }
+                
+                // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
+                // TODO: What if we need both a positional graph and a NamedNodeBackTranslation???
+                const HandleGraph* emitter_graph = path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)&(gbz->graph);
+                
+                alignment_emitter = get_alignment_emitter(output_filename, output_format,
+                                                          paths, thread_count,
+                                                          emitter_graph, flags);
+            }
             
 #ifdef USE_CALLGRIND
             // We want to profile the alignment, not the loading.
