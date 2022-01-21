@@ -5,9 +5,7 @@
 
 
 #include "back_translating_alignment_emitter.hpp"
-#include "hts_alignment_emitter.hpp"
-
-#include <map>
+#include "algorithms/back_translate.hpp"
 
 namespace vg {
 
@@ -20,12 +18,7 @@ BackTranslatingAlignmentEmitter::BackTranslatingAlignmentEmitter(const NamedNode
 
 void BackTranslatingAlignmentEmitter::back_translate_alignments_in_place(vector<Alignment>& alns) const {
     for (auto& aln : alns) {
-        // TODO: Implement!
-        // Adjust each mapping's position to use a named node from the translation.
-        // TODO: handle orientation changes?
-        // TODO: handle splitting mappings???
-        // TODO: Definitely handle combining mappings that end up adjacent on the same segment.
-        
+        algorithms::back_translate_in_place(*aln.mutable_path()); 
     }
 }
 
