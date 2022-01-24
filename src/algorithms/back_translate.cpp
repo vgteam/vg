@@ -104,12 +104,12 @@ void back_translate_in_place(const NamedNodeBackTranslation* translation, Path& 
     // This is how many slots ahead we are reading to write the current slot.
     // It's also (1+) the cursor in mapping_indices_to_remove
     size_t slots_ahead = 1;
-    for (size_t i = mapping_indices_to_remove[slots_ahead - 1]; i < path.mapping_size(); i++) {
+    for (size_t i = mapping_indices_to_remove[slots_ahead - 1]; i + mapping_indices_to_remove.size() < path.mapping_size(); i++) {
+        // We're at a slot that will need to be filled in the output.
         while (slots_ahead < mapping_indices_to_remove.size() && i + slots_ahead == mapping_indices_to_remove[slots_ahead]) {
             // Slide copy source ahead until it stops being the next thing to skip.
             slots_ahead++;
         }
-        
         // Overwrite the item here with the item that is supposed to be here.
         // We use a swap so we don't have to actually copy any mapping data, just pointers.
         path.mutable_mapping()->SwapElements(i, i + slots_ahead);

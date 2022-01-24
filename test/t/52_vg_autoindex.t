@@ -7,6 +7,8 @@ PATH=../bin:$PATH # for vg
 
 plan tests 28
 
+rm auto.*
+
 vg autoindex -p auto -w map -r tiny/tiny.fa -v tiny/tiny.vcf.gz --force-unphased
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg map with basic input"
 is $(ls auto.* | wc -l) 3 "autoindexing makes 3 outputs for vg map" 
