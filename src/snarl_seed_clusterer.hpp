@@ -95,7 +95,7 @@ class NewSnarlSeedClusterer {
             // or a snarl in a chain
 
             //The snarl tree node that the clusters are on
-            net_handle_t containing_net_handle; 
+            SnarlDistanceIndex::CachedNetHandle containing_net_handle; 
 
             //Only set these for nodes
             nid_t node_id = 0;
@@ -125,12 +125,12 @@ class NewSnarlSeedClusterer {
 
             //Constructor
             //read_count is the number of reads in a fragment (2 for paired end)
-            NodeClusters( net_handle_t net, size_t read_count) :
+            NodeClusters( SnarlDistanceIndex::CachedNetHandle net, size_t read_count) :
                 containing_net_handle(std::move(net)),
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
                 read_best_left(read_count, std::numeric_limits<size_t>::max()), 
                 read_best_right(read_count, std::numeric_limits<size_t>::max()){}
-            NodeClusters( net_handle_t net, size_t read_count, bool is_reversed_in_parent, nid_t node_id) :
+            NodeClusters( SnarlDistanceIndex::CachedNetHandle net, size_t read_count, bool is_reversed_in_parent, nid_t node_id) :
                 containing_net_handle(net),
                 is_reversed_in_parent(is_reversed_in_parent),
                 node_id(node_id),
@@ -205,7 +205,7 @@ class NewSnarlSeedClusterer {
             //tree above the current one
             //This gets updated as the current level is processed
             //size_t is the index into all_node_clusters
-            hash_map<net_handle_t, pair<size_t, vector<size_t>>> parent_chain_to_children;
+            //hash_map<net_handle_t,vector<size_t>> parent_chain_to_children;
 
             //This holds all the child clusters of the root
             //size_t is the index into all_node_clusters
@@ -253,6 +253,11 @@ class NewSnarlSeedClusterer {
         void get_nodes( TreeState& tree_state,
                         vector<hash_map<net_handle_t, pair<size_t, vector<size_t>>>>& chain_to_children_by_level) const;
 
+        //Add the ancestors of the node to the snarl tree. The node already has a d
+        //NodeClusters in all_node_clusters, at index node_index
+        //Get all relevant distances
+        void add_to_snarl_tree(size_t node_index, net_handle_t& parent_handle, size_t depth, TreeState& tree_state, 
+                        vector<hash_map<net_handle_t, pair<size_t, vector<size_t>>>>& chain_to_children_by_level) const;
 
         //Cluster all the snarls at the current level and update the tree_state
         //to add each of the snarls to the parent level
@@ -286,11 +291,6 @@ class NewSnarlSeedClusterer {
                 vector<vector<pair<size_t, size_t>>>& child_distances, 
                 bool is_root=false) const;
 
-
-        //Helper function to add to one of the cluster/snarl_to_children hash_maps.
-        //Adds parent -> child_cluster to the parent_to_child_map
-        void add_child_to_vector(TreeState& tree_state, hash_map<net_handle_t, pair<size_t, vector<size_t>>>& parent_to_child_map, const net_handle_t& parent,
-            size_t child_index) const;
 };
 }
 
