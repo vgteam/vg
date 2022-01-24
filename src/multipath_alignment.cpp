@@ -3643,7 +3643,7 @@ namespace vg {
     }
     
     bool validate_multipath_alignment(const multipath_alignment_t& multipath_aln, const HandleGraph& handle_graph) {
-        
+                
         // are the subpaths in topological order?
         
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
@@ -3679,7 +3679,7 @@ namespace vg {
             
             if (num_starts != multipath_aln.start_size()) {
 #ifdef debug_verbose_validation
-                cerr << "validation failure on correct number of starts" << endl;
+                cerr << "validation failure on correct number of starts, says " << multipath_aln.start_size() << " but actually " << num_starts << endl;
                 for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
                     if (is_source[i]) {
                         cerr << i << " ";

@@ -704,10 +704,6 @@ TEST_CASE("Tail alignments can be decomposed", "[multipathalignmentgraph]") {
     e->set_to_length(1);
     e->set_sequence("A");
     
-//    for (auto p : {p1, p2, p3, p4}) {
-//        cerr << debug_string(p) << endl;
-//    }
-    
     vector<pair<path_t, int32_t>> alt_alns;
     alt_alns.emplace_back(p1, 16);
     alt_alns.emplace_back(p2, 11);
@@ -720,17 +716,6 @@ TEST_CASE("Tail alignments can be decomposed", "[multipathalignmentgraph]") {
     
     auto& shared = decomposed.first;
     auto& unshared = decomposed.second;
-    
-//    cerr << "shared" << endl;
-//    for (auto& s : shared) {
-//        cerr << s.second << " " << debug_string(s.first) << endl;
-//    }
-//    for (auto& usb : unshared) {
-//        cerr << "unshared block" << endl;
-//        for (auto& u : usb) {
-//            cerr << u.second << " " << debug_string(u.first) << endl;
-//        }
-//    }
     
     REQUIRE(shared.size() == unshared.size() + 1);
     REQUIRE(unshared.size() == 2);

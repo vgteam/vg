@@ -4031,9 +4031,7 @@ namespace vg {
         unordered_map<pair<size_t, size_t>, int32_t> edge_weights;
         
         vector<int32_t> node_weights(path_nodes.size());
-        
-        // TODO: is the lower bound too strict?
-        
+                
         // compute the weight of edges and node matches
         for (size_t i = 0; i < path_nodes.size(); i++) {
             PathNode& from_node = path_nodes.at(i);
@@ -4633,6 +4631,13 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
     MultipathAlignmentGraph::decompose_alignments(const vector<pair<path_t, int32_t>>& alt_alns,
                                                   const Alignment& alignment, const HandleGraph& align_graph,
                                                   string::const_iterator begin, const GSSWAligner* aligner) {
+        
+#ifdef debug_decompose_algorithm
+        cerr << "attempting to decompose " << alt_alns.size() << " alignments" << endl;
+        for (size_t i = 0; i < alt_alns.size(); ++i) {
+            cerr << i << ": " << debug_string(alt_alns[i].first) << endl;
+        }
+#endif
         
         // records (seq_begin, seq_end, repeated(node_id, rev, node_begin, node_end))
         // note: because we only keep the optimal non-redundant alignment, we are guaranteed that
@@ -5382,16 +5387,17 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             vector<pair<path_t, int32_t>> shared_tail_alns;
             vector<vector<pair<path_t, int32_t>>> unshared_tail_alns;
             
-            // zip together identical prefixes and suffixes of the tail alignment
             if (deduplicated.size() <= 1) {
                 shared_tail_alns = move(deduplicated);
             }
             else if (deduplicated.size() < tail_decompose_threshold) {
                 // do the simpler zip algorithm
-                shared_tail_alns.emplace_back(zip_alignments(deduplicated, true, alignment, align_graph,
-                                                             path_node.end, aligner));
-                shared_tail_alns.emplace_back(zip_alignments(deduplicated, false, alignment, align_graph,
-                                                             path_node.end, aligner));
+                auto right_zip_aln = zip_alignments(deduplicated, false, alignment, align_graph,
+                                                    path_node.end, aligner);
+                auto left_zip_aln = zip_alignments(deduplicated, true, alignment, align_graph,
+                                                   path_node.end, aligner);
+                shared_tail_alns.emplace_back(move(left_zip_aln));
+                shared_tail_alns.emplace_back(move(right_zip_aln));
                 unshared_tail_alns.emplace_back(move(deduplicated));
             }
             else {
@@ -5399,12 +5405,25 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 tie(shared_tail_alns, unshared_tail_alns) = decompose_alignments(deduplicated, alignment, align_graph,
                                                                                  path_node.end, aligner);
                 
-                // the unshared blocks may now contain duplications
-                for (size_t i = 0; i < unshared_tail_alns.size(); ++i) {
-                    // deduplicate as right tails in the final iteration if there's no final
-                    // shared segment
-                    deduplicate_alt_alns(unshared_tail_alns[i], false,
-                                         shared_tail_alns[i + 1].first.mapping_size() == 0);
+                if (shared_tail_alns.empty()) {
+                    // nothing decomposed, no universally shared elements, just add placeholders
+                    shared_tail_alns.resize(2);
+                    unshared_tail_alns.emplace_back(move(deduplicated));
+                }
+                else {
+                    // the unshared blocks may now contain duplications
+                    for (size_t i = 0; i < unshared_tail_alns.size(); ++i) {
+                        // deduplicate as right tails in the final iteration if there's no final
+                        // shared segment
+                        deduplicate_alt_alns(unshared_tail_alns[i], false,
+                                             shared_tail_alns[i + 1].first.mapping_size() == 0);
+                    }
+#ifdef debug_multipath_alignment
+                    cerr << "decompose into " << shared_tail_alns.size() << " shared segments with unshared blocks of sizes:" << endl;
+                    for (size_t i = 0; i < unshared_tail_alns.size(); ++i) {
+                        cerr << "\t" << unshared_tail_alns[i].size() << endl;
+                    }
+#endif
                 }
             }
             
@@ -5437,22 +5456,37 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 }
                 else if (deduplicated.size() < tail_decompose_threshold) {
                     // do the simpler zip algorithm
-                    shared_tail_alns.emplace_back(zip_alignments(deduplicated, true, alignment, align_graph,
-                                                                 alignment.sequence().begin(), aligner));
-                    shared_tail_alns.emplace_back(zip_alignments(deduplicated, false, alignment, align_graph,
-                                                                 alignment.sequence().begin(), aligner));
+                    auto right_zip_aln = zip_alignments(deduplicated, false, alignment, align_graph,
+                                                        alignment.sequence().begin(), aligner);
+                    auto left_zip_aln = zip_alignments(deduplicated, true, alignment, align_graph,
+                                                       alignment.sequence().begin(), aligner);
+                    shared_tail_alns.emplace_back(move(left_zip_aln));
+                    shared_tail_alns.emplace_back(move(right_zip_aln));
                     unshared_tail_alns.emplace_back(move(deduplicated));
                 }
                 else {
                     // do the more complicated decompose algorithm
                     tie(shared_tail_alns, unshared_tail_alns) = decompose_alignments(deduplicated, alignment, align_graph,
                                                                                      alignment.sequence().begin(), aligner);
-
-                    for (size_t i = 0; i < unshared_tail_alns.size(); ++i) {
-                        // deduplicate as left tails in the final iteration if there's no final
-                        // shared segment
-                        deduplicate_alt_alns(unshared_tail_alns[i],
-                                             shared_tail_alns[i].first.mapping_size() == 0, false);
+                    if (shared_tail_alns.empty()) {
+                        // nothing decomposed, no universally shared elements, just add placeholders
+                        shared_tail_alns.resize(2);
+                        unshared_tail_alns.emplace_back(move(deduplicated));
+                    }
+                    else {
+                        
+                        for (size_t i = 0; i < unshared_tail_alns.size(); ++i) {
+                            // deduplicate as left tails in the final iteration if there's no final
+                            // shared segment
+                            deduplicate_alt_alns(unshared_tail_alns[i],
+                                                 shared_tail_alns[i].first.mapping_size() == 0, false);
+                        }
+#ifdef debug_multipath_alignment
+                        cerr << "decompose into " << shared_tail_alns.size() << " shared segments with unshared blocks of sizes:" << endl;
+                        for (size_t i = 0; i < unshared_tail_alns.size(); ++i) {
+                            cerr << "\t" << unshared_tail_alns[i].size() << endl;
+                        }
+#endif
                     }
                 }
                 
@@ -5585,6 +5619,10 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
             }
         };
         
+#ifdef debug_multipath_alignment
+        cerr << "adding decomposed tail alignments in " << shared_tail_alns.size() << " groups on " << (to_left ? "left" : "right") << " tail" << endl;
+#endif
+        
         
         // the index of the previous shared segment
         size_t shared_idx = attachment_idx;
@@ -5611,16 +5649,26 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         
         bool make_direct_connection = false;
         string::const_iterator tail_begin = to_left ? path_node.begin : path_node.end;
-        for (; k < end; k += incr) {
+        for (; k != end; k += incr) {
+#ifdef debug_multipath_alignment
+            cerr << "beginning iter " << k << " on decomposed tails (" << shared_tail_alns.size() << " total)" << endl;
+#endif
             
             auto& shared = shared_tail_alns[k];
             auto shared_seq_end = tail_begin + incr * path_to_length(shared.first);
+            if (to_left) {
+                tail_begin = shared_seq_end;
+            }
             
             if (shared.first.mapping_size() != 0) {
                 if (k + incr == end
                     && shared.first.mapping_size() == 1
                     && shared.first.mapping(0).edit_size() == 1
                     && shared.first.mapping(0).edit(0).from_length() == 0) {
+                    
+#ifdef debug_multipath_alignment
+                    cerr << "final shared segment is a softclip" << endl;
+#endif
                     
                     // this subpath is a pure softclip, we need to move it onto the previous subpaths
                     // to match the expectations of the rest of the code
@@ -5633,10 +5681,14 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                             edits->emplace(edits->begin(), softclip);
                             // the adjacent unshared segment is now a start
                             multipath_aln_out.add_start(l);
+                            
                         }
                         else {
                             *multipath_aln_out.mutable_subpath(l)->mutable_path()->mutable_mapping()->back().add_edit() = softclip;
                         }
+#ifdef debug_multipath_alignment
+                        cerr << "added as an edit into subpath at index " << l << endl;
+#endif
                     }
                     if (make_direct_connection) {
                         // we actually still need to make a separate subpath to preserve the connectivity structure
@@ -5651,26 +5703,42 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                         else {
                             multipath_aln_out.mutable_subpath(shared_idx)->add_next(multipath_aln_out.subpath_size() - 1);
                         }
+#ifdef debug_multipath_alignment
+                        cerr << "made subpath " << multipath_aln_out.subpath_size() - 1 << " for softclip with score " << subpath->score() << ":" << endl;
+                        cerr << debug_string(subpath->path()) << endl;
+#endif
                     }
                 }
                 else {
-                    if (make_direct_connection) {
-                        // there's an empty alignment in the previous block, so we make a connection
-                        // directly from the previous shared segment
-                        multipath_aln_out.mutable_subpath(shared_idx)->add_next(multipath_aln_out.subpath_size());
-                        make_direct_connection = false;
-                    }
                     
                     // make a subpath for this shared segment
                     size_t first_shared_idx = multipath_aln_out.subpath_size();
-                    if (k + 1 == shared_tail_alns.size()) {
+                    if (k + incr == end) {
                         add_and_permanently_cut(shared, tail_begin);
                     }
                     else {
                         auto subpath = multipath_aln_out.add_subpath();
                         *subpath->mutable_path() = move(shared.first);
                         subpath->set_score(shared.second);
+#ifdef debug_multipath_alignment
+                        cerr << "made subpath " << multipath_aln_out.subpath_size() - 1 << " for shared segment with score " << subpath->score() << ":" << endl;
+                        cerr << debug_string(subpath->path()) << endl;
+#endif
                     }
+                    
+                    if (make_direct_connection) {
+                        // there's an empty alignment in the previous block, so we make a connection
+                        // directly from the previous shared segment
+                        if (to_left) {
+                            multipath_aln_out.mutable_subpath(multipath_aln_out.subpath_size() - 1)->add_next(shared_idx);
+                        }
+                        else {
+                            multipath_aln_out.mutable_subpath(shared_idx)->add_next(first_shared_idx);
+                        }
+                        make_direct_connection = false;
+                    }
+                    
+                    // now we can update the shared segment index and forget about the old one
                     shared_idx = multipath_aln_out.subpath_size() - 1;
                     
                     // add edges on the subpath
@@ -5699,8 +5767,14 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                     }
                 }
             }
-            
-            tail_begin = shared_seq_end;
+#ifdef debug_multipath_alignment
+            else {
+                cerr << "shared segment at " << (k == 0 ? "left" : "right") << " side of the tail alignment is empty, skipping" << endl;
+            }
+#endif
+            if (!to_left) {
+                tail_begin = shared_seq_end;
+            }
             
             int64_t block_k = to_left ? k - 1 : k;
             if (block_k >= 0 && block_k < unshared_tail_alns.size()) {
@@ -5708,18 +5782,25 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 
                 auto& block = unshared_tail_alns[block_k];
                 auto unshared_seq_end = tail_begin + incr * path_to_length(block.front().first);
+                if (to_left) {
+                    tail_begin = unshared_seq_end;
+                }
                 
                 size_t curr_block_begin = multipath_aln_out.subpath_size();
                 
                 // are the alignments we're adding going to be the frayed tails?
                 bool are_tails = false;
-                if (to_left && k == 0 && shared_tail_alns[0].first.mapping_size() == 0) {
+                if (to_left && block_k == 0 && shared_tail_alns[0].first.mapping_size() == 0) {
                     are_tails = true;
                 }
-                else if (!to_left && k + 1 == unshared_tail_alns.size()
-                         && shared_tail_alns[k + 1].first.mapping_size() == 0) {
+                else if (!to_left && block_k + 1 == unshared_tail_alns.size()
+                         && shared_tail_alns[block_k + 1].first.mapping_size() == 0) {
                     are_tails = true;
                 }
+                
+#ifdef debug_multipath_alignment
+                cerr << "processing block " << block_k << " of unshared segments, which contains " << block.size() << " alts that are " << (are_tails ? "" : "not") << " tails" << endl;
+#endif
                 
                 for (size_t l = 0; l < block.size(); ++l) {
                     auto& unshared = block[l];
@@ -5737,6 +5818,10 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                             auto subpath = multipath_aln_out.add_subpath();
                             *subpath->mutable_path() = move(unshared.first);
                             subpath->set_score(unshared.second);
+#ifdef debug_multipath_alignment
+                            cerr << "made subpath " << multipath_aln_out.subpath_size() - 1 << " for unshared segment with score " << subpath->score() << ":" << endl;
+                            cerr << debug_string(subpath->path()) << endl;
+#endif
                         }
                         size_t last_idx = multipath_aln_out.subpath_size() - 1;
                         
@@ -5761,7 +5846,8 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                             
                             // this is a pure softclip, the other parts of the code expect it to be located
                             // on the same node as the predecessor
-                            const auto& prev_end_mapping = multipath_aln_out.subpath(shared_idx).path().mapping().back();
+                            const auto& prev_end_mapping = to_left ? multipath_aln_out.subpath(shared_idx).path().mapping().front()
+                                                                   : multipath_aln_out.subpath(shared_idx).path().mapping().back();
                             const auto& prev_end_pos = prev_end_mapping.position();
                             auto unshared_subpath = multipath_aln_out.mutable_subpath(first_idx);
                             auto softclip_pos = unshared_subpath->mutable_path()->mutable_mapping(0)->mutable_position();
@@ -5778,7 +5864,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                         else if (!to_left && shared_idx == attachment_idx) {
                             // this only happens if there is no shared prefix, so we potentially have to adjust
                             // initial offsets for the subgraph extraction
-                            auto first_mapping = multipath_aln_out.mutable_subpath(l)->mutable_path()->mutable_mapping(0);
+                            auto first_mapping = multipath_aln_out.mutable_subpath(first_idx)->mutable_path()->mutable_mapping(0);
                             if (first_mapping->position().node_id() == id(end_pos)) {
                                 first_mapping->mutable_position()->set_offset(offset(end_pos));
                             }
@@ -5791,7 +5877,9 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
                 }
                 
                 // set up the tracking variables for the next iteration
-                tail_begin = unshared_seq_end;
+                if (!to_left) {
+                    tail_begin = unshared_seq_end;
+                }
                 unmerged_block_begin = curr_block_begin;
                 unmerged_block_end = multipath_aln_out.subpath_size();
             }
