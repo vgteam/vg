@@ -115,7 +115,7 @@ void back_translate_in_place(const NamedNodeBackTranslation* translation, Path& 
         path.mutable_mapping()->SwapElements(i, i + slots_ahead);
     }
     // Now we've bumped all the unused Mappings to the end so delete them.
-    path.mutable_mapping()->DeleteSubrange(path.mapping_size() - mapping_indices_to_remove.size(), path.mapping_size());
+    path.mutable_mapping()->DeleteSubrange(path.mapping_size() - mapping_indices_to_remove.size(), mapping_indices_to_remove.size());
 }
 
 }
