@@ -92,10 +92,10 @@ rm auto.*
 rm read.fq read.gam
 
 vg autoindex -p auto -w giraffe -g graphs/named.gfa 
-is $(echo $?) 0 "autoindexing successfully completes on a GFA with named segments"
+is $(echo $?) 0 "autoindexing successfully completes on a GFA with named segments and no W-lines"
 printf '@read\nGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGATTACACATTAGGGGGGGGGGGGGGGGGGGGGGGGGGGG\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n' > read.fq
 vg giraffe -Z auto.giraffe.gbz -m auto.min -d auto.dist -f read.fq --named-coordinates > read.gam
-is "$(vg view -aj read.gam | jq -r '.path.mapping[].position.name')" "Ishmael" "GFA segment names are available in output GAM"
+is "$(vg view -aj read.gam | jq -r '.path.mapping[].position.name')" "Ishmael" "GFA segment names are available in output GAM when no walks exist"
 
 rm auto.*
 rm read.fq read.gam
