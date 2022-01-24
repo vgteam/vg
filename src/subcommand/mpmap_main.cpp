@@ -347,6 +347,7 @@ int main_mpmap(int argc, char** argv) {
     double no_splice_log_odds = 2.0;
     double splice_rescue_graph_std_devs = 3.0;
     bool override_spliced_alignment = false;
+    int max_motif_pairs = 1024;
     int match_score_arg = std::numeric_limits<int>::min();
     int mismatch_score_arg = std::numeric_limits<int>::min();
     int gap_open_score_arg = std::numeric_limits<int>::min();
@@ -1970,6 +1971,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.max_splice_overhang = max_splice_overhang;
     multipath_mapper.splice_rescue_graph_std_devs = splice_rescue_graph_std_devs;
     multipath_mapper.ref_path_handles = move(ref_path_handles);
+    multipath_mapper.max_motif_pairs = max_motif_pairs;
     if (!intron_distr_name.empty()) {
         multipath_mapper.set_intron_length_distribution(intron_mixture_weights, intron_component_params);
     }

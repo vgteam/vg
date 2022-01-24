@@ -217,6 +217,8 @@ namespace vg {
         // about 250k
         int64_t max_intron_length = 1 << 18;
         int64_t max_splice_ref_search_length = 32;
+        // the maximum number of pairs of each motif that we will consider during spliced alignment
+        size_t max_motif_pairs = 1024;
         unordered_set<path_handle_t> ref_path_handles;
         
         //static size_t PRUNE_COUNTER;

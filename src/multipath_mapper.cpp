@@ -2304,6 +2304,8 @@ namespace vg {
                                                  const function<double(int64_t)>& get_multiplicity,
                                                  const function<multipath_alignment_t&&(int64_t)>& consume_candidate) const {
         
+        
+        
         /*
          * The region around a candidate's end, which could contain a splice junction
          */
@@ -2312,6 +2314,7 @@ namespace vg {
             SpliceRegion* splice_region;
             pos_t search_pos;
             int64_t clip_length;
+            int64_t pre_trim_length;
             int32_t untrimmed_score;
         };
         
@@ -2402,6 +2405,164 @@ namespace vg {
             }
         };
         
+        /*
+         * Socket for iteration that either enumerates motifs exhaustively or by selecting the
+         * the most promising pairs if there are too many
+         */
+        class MotifPairIterable {
+        public:
+            MotifPairIterable(size_t max_num_pairs,
+                              const PrejoinSide& left_side,
+                              const PrejoinSide& right_side,
+                              size_t motif_num, size_t seq_len) :
+                motif_num(motif_num),
+                left_side(left_side),
+                right_side(right_side),
+                seq_len(seq_len)
+            {
+                const auto& left_sites = left_side.splice_region->candidate_splice_sites(motif_num);
+                const auto& right_sites = right_side.splice_region->candidate_splice_sites(motif_num);
+                
+                if (left_sites.size() * right_sites.size() > max_num_pairs) {
+#ifdef debug_multipath_mapper
+                    cerr << "number of pairs " << left_sites.size() * right_sites.size() << " for motif " << motif_num << " is above maximum " << max_num_pairs << "sampling downward" << endl;
+#endif
+                    
+                    // there are too many pairs to just iterate over all of them, we have to select
+                    // the most promising subset
+                    
+                    vector<size_t> left_idxs = range_vector(left_sites.size());
+                    vector<size_t> right_idxs = range_vector(right_sites.size());
+                    
+                    // sort the indexes by min distance in opposite ordering
+                    stable_sort(left_idxs.begin(), left_idxs.end(), [&](size_t i, size_t j) {
+                        return get<2>(left_sites[i]) < get<2>(left_sites[j]);
+                    });
+                    stable_sort(right_idxs.begin(), right_idxs.end(), [&](size_t i, size_t j) {
+                        return get<2>(right_sites[i]) > get<2>(right_sites[j]);
+                    });
+                    
+                    // the difference from the ideal distance to the approximate graph distance, takes indexes
+                    // in the left_idxs and right_idxs vectors
+                    int64_t target_len = 2 * seq_len - left_side.clip_length - right_side.clip_length;
+                    auto distance_diff = [&](size_t l, size_t r) {
+                        return abs<int64_t>(get<2>(left_sites[left_idxs[l]]) + get<2>(right_sites[right_idxs[r]]) - target_len);
+                    };
+                    
+                    // sweep to identify pairs that most nearly align
+                    // records of (left idx, right idx, searching left?)
+                    vector<tuple<size_t, size_t, bool>> nearest_idx;
+                    for (size_t l = 0, r = 0; l < left_sites.size(); ++l) {
+                        while (r + 1 < right_idxs.size() && distance_diff(l, r + 1) < distance_diff(l, r)) {
+                            ++r;
+                        }
+                        nearest_idx.emplace_back(l, r, true);
+                        if (r + 1 < right_idxs.size()) {
+                            nearest_idx.emplace_back(l, r + 1, false);
+                        }
+                    }
+                    
+                    // opposite order to get smallest differences first
+                    auto cmp = [&](const tuple<size_t, size_t, bool>& a, const tuple<size_t, size_t, bool>& b) {
+                        return distance_diff(get<0>(a), get<1>(a)) > distance_diff(get<0>(b), get<1>(b));
+                    };
+                    
+                    // preprocess to find the minimum diff quickly
+                    make_heap(nearest_idx.begin(), nearest_idx.end(), cmp);
+                    
+                    while (idx_pairs.size() < max_num_pairs && !nearest_idx.empty()) {
+                        auto front = nearest_idx.front();
+                        idx_pairs.emplace_back(left_idxs[get<0>(front)], right_idxs[get<1>(front)]);
+                        pop_heap(nearest_idx.begin(), nearest_idx.end(), cmp);
+                        if (get<2>(front) && get<1>(front) > 0) {
+                            // continue to the left
+                            --get<1>(nearest_idx.back());
+                            push_heap(nearest_idx.begin(), nearest_idx.end(), cmp);
+                        }
+                        else if (!get<2>(front) && get<1>(front) + 1 < right_idxs.size()) {
+                            // continue to the right
+                            ++get<1>(nearest_idx.back());
+                            push_heap(nearest_idx.begin(), nearest_idx.end(), cmp);
+                        }
+                        else {
+                            // we can't keep looking in this direction
+                            nearest_idx.pop_back();
+                        }
+                    }
+                }
+            }
+            
+            /*
+             * simple iterator interface
+             */
+            class iterator {
+            public:
+                iterator(const MotifPairIterable& iteratee, bool begin) : iteratee(iteratee) {
+                    if (!begin) {
+                        if (iteratee.idx_pairs.empty()) {
+                            i = (iteratee.left_side.splice_region->candidate_splice_sites(iteratee.motif_num).size()
+                                 * iteratee.right_side.splice_region->candidate_splice_sites(iteratee.motif_num).size());
+                        }
+                        else {
+                            i = iteratee.idx_pairs.size();
+                        }
+                    }
+                }
+                
+                iterator& operator++() {
+                    ++i;
+                    return *this;
+                }
+                
+                bool operator==(const iterator& other) const {
+                    return (&iteratee == &other.iteratee && i == other.i);
+                }
+                
+                bool operator!=(const iterator& other) const {
+                    return !(*this == other);
+                }
+                
+                pair<tuple<handle_t, size_t, int64_t>, tuple<handle_t, size_t, int64_t>> operator*() const {
+                    if (iteratee.idx_pairs.empty()) {
+                        size_t size = iteratee.left_side.splice_region->candidate_splice_sites(iteratee.motif_num).size();
+                        size_t j = i % size;
+                        size_t k = i / size;
+                        return make_pair(iteratee.left_side.splice_region->candidate_splice_sites(iteratee.motif_num)[j],
+                                         iteratee.right_side.splice_region->candidate_splice_sites(iteratee.motif_num)[k]);
+                    }
+                    else {
+                        return make_pair(iteratee.left_side.splice_region->candidate_splice_sites(iteratee.motif_num)[iteratee.idx_pairs[i].first],
+                                         iteratee.right_side.splice_region->candidate_splice_sites(iteratee.motif_num)[iteratee.idx_pairs[i].second]);
+                    }
+                }
+                
+            private:
+                // we interpret i as the index of the left side or the complete group of pairs,
+                // depending on how the iteratee was constructed
+                size_t i = 0;
+                const MotifPairIterable& iteratee;
+            };
+            
+            
+            // iteratable methods
+            iterator begin() const {
+                return iterator(*this, true);
+            }
+            iterator end() const {
+                return iterator(*this, false);
+            }
+            
+        private:
+            
+            friend class iterator;
+            
+            size_t motif_num;
+            size_t seq_len;
+            const PrejoinSide& left_side;
+            const PrejoinSide& right_side;
+            vector<pair<size_t, size_t>> idx_pairs;
+        };
+        
         if (num_candidates == 0) {
 #ifdef debug_multipath_mapper
             cerr << "no splice candidate to attempt join with" << endl;
@@ -2435,6 +2596,7 @@ namespace vg {
                     // can't reach each other along a surjection path in cyclic graphs
                     // FIXME: it can also find finite distances to different strands of a path,
                     // but this might be okay sometimes?
+                    
                     // they're probably still reachable if they got this far, get a worse estimate of the
                     // distance from the distance index
                     int64_t min_dist = distance_index->min_distance(pos_1, pos_2);
@@ -2482,6 +2644,7 @@ namespace vg {
         anchor_prejoin_sides.front().splice_region = splice_regions.front().get();
         anchor_prejoin_sides.front().search_pos = get<0>(anchor_pos);
         anchor_prejoin_sides.front().clip_length = get<1>(anchor_pos);
+        anchor_prejoin_sides.front().pre_trim_length = path_to_length(opt.path());
         anchor_prejoin_sides.front().untrimmed_score = opt.score() - get<2>(anchor_pos);
         
 #ifdef debug_multipath_mapper
@@ -2531,6 +2694,7 @@ namespace vg {
             candidate_side.splice_region = splice_regions.back().get();
             candidate_side.search_pos = get<0>(candidate_pos);
             candidate_side.clip_length = get<1>(candidate_pos);
+            candidate_side.pre_trim_length = path_to_length(candidate_opt.path());
             candidate_side.untrimmed_score = candidate_opt.score() - get<2>(candidate_pos);
             
 #ifdef debug_multipath_mapper
@@ -2575,65 +2739,84 @@ namespace vg {
                     }
                 }
                 
+#ifdef debug_multipath_mapper
+                cerr << "looking for shared motifs, number of candidate motif pairs will be" << endl;
+                for (size_t j = 0; j < splice_stats.motif_size(); ++j) {
+                    if (strand != Undetermined && splice_stats.motif_is_reverse(j) != (strand == Reverse)) {
+                        // we can only find splicing at junctions that have a consistent strand
+                        continue;
+                    }
+                    size_t left = left_region.candidate_splice_sites(j).size();
+                    size_t right = right_region.candidate_splice_sites(j).size();
+                    cerr << "\tmotif " << j << ": " << left << " * " << right << " = " << (left * right) << endl;
+                }
+#endif
+                
                 
                 for (size_t j = 0; j < splice_stats.motif_size(); ++j) {
                     if (strand != Undetermined && splice_stats.motif_is_reverse(j) != (strand == Reverse)) {
                         // we can only find splicing at junctions that have a consistent strand
                         continue;
                     }
-                    for (const auto& left_location : left_region.candidate_splice_sites(j)) {
-                        for (const auto& right_location : right_region.candidate_splice_sites(j)) {
-                            
-                            auto l_under = left_region.get_subgraph().get_underlying_handle(get<0>(left_location));
-                            auto r_under = right_region.get_subgraph().get_underlying_handle(get<0>(right_location));
-                            
-                            pos_t l_pos(xindex->get_id(l_under), xindex->get_is_reverse(l_under), get<1>(left_location));
-                            pos_t r_pos(xindex->get_id(r_under), xindex->get_is_reverse(r_under), get<1>(right_location));
-                             
+                    
+                    // let the iterable decide which motif pairs we should look at
+                    MotifPairIterable motif_pairs(max_motif_pairs, left_prejoin_side,
+                                                  right_prejoin_side, j, alignment.sequence().size());
+                    
+                    for (auto it = motif_pairs.begin(), end = motif_pairs.end(); it != end; ++it) {
+                        
+                        tuple<handle_t, size_t, int64_t> left_location, right_location;
+                        tie(left_location, right_location) = *it;
+                        
+                        auto l_under = left_region.get_subgraph().get_underlying_handle(get<0>(left_location));
+                        auto r_under = right_region.get_subgraph().get_underlying_handle(get<0>(right_location));
+                        
+                        pos_t l_pos(xindex->get_id(l_under), xindex->get_is_reverse(l_under), get<1>(left_location));
+                        pos_t r_pos(xindex->get_id(r_under), xindex->get_is_reverse(r_under), get<1>(right_location));
+                        
 #ifdef debug_multipath_mapper
-                            cerr << "\tchecking shared motif " << j << " with has positions " << l_pos << ", and " << r_pos << endl;
+                        cerr << "\tchecking shared motif " << j << " with has positions " << l_pos << ", and " << r_pos << endl;
+#endif
+                        
+                        putative_joins.emplace_back(*xindex, splice_stats, opt,
+                                                    *get_aligner(!alignment.quality().empty()),
+                                                    left_prejoin_side, right_prejoin_side,
+                                                    left_location, right_location, j);
+                        
+                        if (putative_joins.back().max_score < no_splice_log_odds) {
+#ifdef debug_multipath_mapper
+                            cerr << "\tscore bound of " << putative_joins.back().max_score << " ensures insigificant spliced alignment against prior log odds " << no_splice_log_odds << " before measuring intron length" << endl;
 #endif
                             
-                            putative_joins.emplace_back(*xindex, splice_stats, opt,
-                                                        *get_aligner(!alignment.quality().empty()),
-                                                        left_prejoin_side, right_prejoin_side,
-                                                        left_location, right_location, j);
-                            
-                            if (putative_joins.back().max_score < no_splice_log_odds) {
+                            // this has no chance of becoming significant, let's skip it
+                            putative_joins.pop_back();
+                            continue;
+                        }
+                        
+                        // measure the intron length
+                        int64_t dist = get_reference_dist(l_pos, r_pos);
+                        if (dist <= 0 || dist > max_intron_length || dist == numeric_limits<int64_t>::max()) {
 #ifdef debug_multipath_mapper
-                                cerr << "\tscore bound of " << putative_joins.back().max_score << " ensures insigificant spliced alignment against prior log odds " << no_splice_log_odds << " before measuring intron length" << endl;
+                            cerr << "\tinconsistent intron length " << dist << ", skipping putative join" << endl;
 #endif
-                                
-                                // this has no chance of becoming significant, let's skip it
-                                putative_joins.pop_back();
-                                continue;
-                            }
-                            
-                            // measure the intron length
-                            int64_t dist = get_reference_dist(l_pos, r_pos);
-                            if (dist <= 0 || dist > max_intron_length || dist == numeric_limits<int64_t>::max()) {
+                            putative_joins.pop_back();
+                            continue;
+                        }
+                        
+                        putative_joins.back().set_intron_length(dist, splice_stats);
+                        
+                        // TODO: enforce pairing constraints?
+                        
 #ifdef debug_multipath_mapper
-                                cerr << "\tinconsistent intron length " << dist << ", skipping putative join" << endl;
+                        cerr << "\tshared motif has a spliceable path of length " << dist << " (intron score: " << putative_joins.back().intron_score << "), adding as a putative join with score bound " << putative_joins.back().max_score << endl;
 #endif
-                                putative_joins.pop_back();
-                                continue;
-                            }
-                            
-                            putative_joins.back().set_intron_length(dist, splice_stats);
-                            
-                            // TODO: enforce pairing constraints?
-                            
+                        if (putative_joins.back().max_score < no_splice_log_odds) {
 #ifdef debug_multipath_mapper
-                            cerr << "\tshared motif has a spliceable path of length " << dist << " (intron score: " << putative_joins.back().intron_score << "), adding as a putative join with score bound " << putative_joins.back().max_score << endl;
+                            cerr << "\tscore bound of " << putative_joins.back().max_score << " ensures insigificant spliced alignment against prior log odds " << no_splice_log_odds << " before doing alignment" << endl;
 #endif
-                            if (putative_joins.back().max_score < no_splice_log_odds) {
-#ifdef debug_multipath_mapper
-                                cerr << "\tscore bound of " << putative_joins.back().max_score << " ensures insigificant spliced alignment against prior log odds " << no_splice_log_odds << " before doing alignment" << endl;
-#endif
-                                
-                                // this has no chance of becoming significant, let's skip it
-                                putative_joins.pop_back();
-                            }
+                            
+                            // this has no chance of becoming significant, let's skip it
+                            putative_joins.pop_back();
                         }
                     }
                 }
