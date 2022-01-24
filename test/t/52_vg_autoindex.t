@@ -80,5 +80,14 @@ is $(echo $?) 0 "GFA autoindexing results can be used by vg giraffe"
 rm auto.*
 rm g.xg
 
+vg autoindex -p auto -w giraffe -g graphs/named.gfa 
+is $(echo $?) 0 "autoindexing successfully completes on a GFA with named segments"
+printf '@read\nGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGATTACACATTAGGGGGGGGGGGGGGGGGGGGGGGGGGGG\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n' > read.fq
+vg giraffe -Z auto.giraffe.gbz -m auto.min -d auto.dist -f read.fq --named-coordinates > read.gam
+is "$(vg view -aj read.gam | jq '.position.name')" "Ishmael" "GFA segment names are available in output GAM"
+
+rm auto.*
+rm read.fq
+
 
 

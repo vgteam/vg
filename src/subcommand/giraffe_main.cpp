@@ -42,7 +42,7 @@
 #include <linux/perf_event.h>
 #include <asm/unistd.h>
 /// Bind perf_event_open for counting instructions.
-/// See <https://stackoverflow.com/a/64863392/402891>
+/// See <https://stackoverflow.com/a/64863392>
 static long perf_event_open(struct perf_event_attr* hw_event, pid_t pid, int cpu, int group_fd, unsigned long flags) {
     return syscall(__NR_perf_event_open, hw_event, pid, cpu, group_fd, flags);
 }
