@@ -1184,7 +1184,12 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    if (max_mapq <= 0 && mapq_method != None) {
+    if (mapq_method == None) {
+        cerr << "error:[vg mpmap] The mapping quality method 'None' is no longer supported." << endl;
+        exit(1);
+    }
+    
+    if (max_mapq <= 0) {
         cerr << "error:[vg mpmap] Maximum mapping quality (-Q) set to " << max_mapq << ", must set to a positive integer." << endl;
         exit(1);
     }

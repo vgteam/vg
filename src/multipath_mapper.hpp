@@ -141,7 +141,7 @@ namespace vg {
         size_t max_expected_dist_approx_error = 8;
         int32_t num_alt_alns = 4;
         double mem_coverage_min_ratio = 0.5;
-        double unused_cluster_multiplicity_mq_limit = 7.0;
+        double truncation_multiplicity_mq_limit = 7.0;
         double max_suboptimal_path_score_ratio = 2.0;
         size_t num_mapping_attempts = 48;
         double log_likelihood_approx_factor = 1.0;
@@ -250,12 +250,6 @@ namespace vg {
         /// Enum for the strand of a splice alignment's splice motifs
         enum SpliceStrand {Undetermined, Forward, Reverse};
         
-        /// Wrapped internal function that allows some code paths to circumvent the current
-        /// mapping quality method option.
-        void multipath_map_internal(const Alignment& alignment,
-                                    MappingQualityMethod mapq_method,
-                                    vector<multipath_alignment_t>& multipath_alns_out);
-        
         /// Before the fragment length distribution has been estimated, look for an unambiguous mapping of
         /// the reads using the single ended routine. If we find one record the fragment length and report
         /// the pair, if we don't find one, add the read pair to a buffer instead of the output vector.
@@ -287,7 +281,6 @@ namespace vg {
         /// multipath alignment.
         /// Produces topologically sorted multipath_alignment_ts.
         void align_to_cluster_graphs(const Alignment& alignment,
-                                     MappingQualityMethod mapq_method,
                                      vector<clustergraph_t>& cluster_graphs,
                                      vector<multipath_alignment_t>& multipath_alns_out,
                                      vector<double>& multiplicities_out,
@@ -571,7 +564,7 @@ namespace vg {
         
         /// Compute a mapping quality from a list of scores, using the selected method.
         /// Optionally considers non-present duplicates of the scores encoded as multiplicities
-        int32_t compute_raw_mapping_quality_from_scores(const vector<double>& scores, MappingQualityMethod mapq_method,
+        int32_t compute_raw_mapping_quality_from_scores(const vector<double>& scores,
                                                         bool have_qualities, const vector<double>* multiplicities = nullptr) const;
         
         
@@ -579,7 +572,7 @@ namespace vg {
         /// Optionally also sorts a vector of indexes to keep track of the cluster-of-origin
         /// Allows multipath alignments where the best single path alignment is leaving the read unmapped.
         /// multipath_alignment_ts MUST be topologically sorted.
-        void sort_and_compute_mapping_quality(vector<multipath_alignment_t>& multipath_alns, MappingQualityMethod mapq_method,
+        void sort_and_compute_mapping_quality(vector<multipath_alignment_t>& multipath_alns,
                                               vector<size_t>* cluster_idxs = nullptr, vector<double>* multiplicities = nullptr) const;
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the multipath_alignment_t object

@@ -5110,7 +5110,7 @@ void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGrap
         // TODO: magic number
         // how many tails we need to have before we try the more complicated but
         // expensive tail decomposition algorithm
-        size_t tail_decompose_threshold = 8;
+        size_t tail_decompose_threshold = 4;
         
         // Can only align if edges are present.
         assert(has_reachability_edges);
