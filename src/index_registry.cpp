@@ -44,6 +44,7 @@
 #include "gbwt_helper.hpp"
 #include "gbwtgraph_helper.hpp"
 #include "gcsa_helper.hpp"
+#include "flat_file_back_translation.hpp"
 #include "kmer.hpp"
 #include "transcriptome.hpp"
 #include "integrated_snarl_finder.hpp"
@@ -57,6 +58,7 @@
 #include "algorithms/gfa_to_handle.hpp"
 #include "algorithms/prune.hpp"
 #include "algorithms/component.hpp"
+#include "algorithms/find_translation.hpp"
 
 //#define debug_index_registry
 //#define debug_index_registry_setup
@@ -416,7 +418,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("MaxNodeID", "maxid.txt");
     registry.register_index("Spliced MaxNodeID", "spliced.maxid.txt");
     registry.register_index("Unfolded NodeMapping", "mapping");
-    registry.register_index("NamedNodeBackTranslation", "segments.txt");
+    registry.register_index("NamedNodeBackTranslation", "segments.tsv");
     registry.register_index("Haplotype-Pruned VG", "haplopruned.vg");
     registry.register_index("Unfolded Spliced NodeMapping", "spliced.mapping");
     registry.register_index("Haplotype-Pruned Spliced VG", "spliced.haplopruned.vg");
@@ -1693,11 +1695,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             exit(1);
         }
         
-        handlealgs::chop(*graph, IndexingParameters::max_node_size, [&](nid_t old_id, size_t offset, nid_t new_id) {
+        handlealgs::chop(*graph, IndexingParameters::max_node_size, [&](nid_t old_id, size_t offset, size_t rev_offset, handle_t new_node) {
 #pragma omp critical (translation_outfile)
             {
                 // Write each cut to a line in the translation file, after the segment names are defined.
-                translation_outfile << "K\t" << old_id << "\t" << offset << "\t" << new_id << std::endl;
+                translation_outfile << "K\t" << old_id << "\t" << offset << "\t" << rev_offset << "\t" << graph->get_id(new_node) << std::endl;
             }
         });
         
@@ -3483,8 +3485,56 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         output_names.push_back(output_name);
         return all_outputs;
     });
+    
+    // Thses used to be a GBWTGraph recipe, but we don't want to produce GBWTGraphs anymore.
+    
+    registry.register_recipe({"Giraffe GBZ"}, {"Giraffe GBWT", "NamedNodeBackTranslation", "XG"},
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            cerr << "[IndexRegistry]: Constructing GBZ using NamedNodeBackTranslation." << endl;
+        }
+        
+        assert(inputs.size() == 3);
+        auto gbwt_filenames = inputs[0]->get_filenames();
+        auto translation_filenames = inputs[1]->get_filenames();
+        auto xg_filenames = inputs[2]->get_filenames();
+        assert(gbwt_filenames.size() == 1);
+        assert(translation_filenames.size() == 1);
+        assert(xg_filenames.size() == 1);
+        auto gbwt_filename = gbwt_filenames.front();
+        auto translation_filename = translation_filenames.front(); 
+        auto xg_filename = xg_filenames.front();
+        
+        assert(constructing.size() == 1);
+        vector<vector<string>> all_outputs(constructing.size());
+        auto gbz_output = *constructing.begin();
+        auto& output_names = all_outputs[0];
+        
+        ifstream infile_xg;
+        init_in(infile_xg, xg_filename);
+        auto xg_index = vg::io::VPKG::load_one<xg::XG>(infile_xg);
+        
+        ifstream infile_translation;
+        init_in(infile_translation, translation_filename);
+        // There's only one implementation we can use here at the moment, so
+        // don't bother with the normal loader/saver system.
+        FlatFileBackTranslation translation(infile_translation);
 
-    // This used to be a GBWTGraph recipe, but we don't want to produce GBWTGraphs anymore.
+        gbwtgraph::GBZ gbz;
+        load_gbwt(gbz.index, gbwt_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
+        // TODO: could add simplification to replace XG index with a gbwt::SequenceSource here
+        gbz.graph = gbwtgraph::GBWTGraph(gbz.index, *xg_index, &translation);
+
+        string output_name = plan->output_filepath(gbz_output);
+        save_gbz(gbz, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
+
+        output_names.push_back(output_name);
+        return all_outputs;
+    });
+
     registry.register_recipe({"Giraffe GBZ"}, {"Giraffe GBWT", "XG"},
                              [](const vector<const IndexFile*>& inputs,
                                 const IndexingPlan* plan,
@@ -3514,7 +3564,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         gbwtgraph::GBZ gbz;
         load_gbwt(gbz.index, gbwt_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
         // TODO: could add simplification to replace XG index with a gbwt::SequenceSource here
-        gbz.graph = gbwtgraph::GBWTGraph(gbz.index, *xg_index);
+        gbz.graph = gbwtgraph::GBWTGraph(gbz.index, *xg_index, algorithms::find_translation(xg_index.get()));
 
         string output_name = plan->output_filepath(gbz_output);
         save_gbz(gbz, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
