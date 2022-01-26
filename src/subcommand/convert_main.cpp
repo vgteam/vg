@@ -49,6 +49,7 @@ int main_convert(int argc, char** argv) {
     vector<string> rgfa_prefixes;
     bool rgfa_pline = false;
     string wline_sep;
+    int num_threads = omp_get_max_threads(); // For GBWTGraph to GFA.
 
     if (argc == 2) {
         help_convert(argv);
@@ -164,7 +165,7 @@ int main_convert(int argc, char** argv) {
             break;
         case 't':
             {
-                int num_threads = parse<int>(optarg);
+                num_threads = parse<int>(optarg);
                 if (num_threads <= 0) {
                     cerr << "error:[vg mpmap] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
                     exit(1);
@@ -364,7 +365,9 @@ int main_convert(int argc, char** argv) {
     // GFA output.
     if (output_format == "gfa") {
         if (input == input_gbwtgraph || input == input_gbz) {
-            gbwtgraph::gbwt_to_gfa(*dynamic_cast<const gbwtgraph::GBWTGraph*>(input_graph.get()), std::cout, false);
+            gbwtgraph::GFAExtractionParameters parameters;
+            parameters.num_threads = num_threads;
+            gbwtgraph::gbwt_to_gfa(*dynamic_cast<const gbwtgraph::GBWTGraph*>(input_graph.get()), std::cout, parameters);
         }
         else {
             const PathHandleGraph* graph_to_write;
@@ -407,7 +410,7 @@ void help_convert(char** argv) {
          << "    -g, --gfa-in           input in GFA format" << endl
          << "    -r, --in-rgfa-rank N   import rgfa tags with rank <= N as paths [default=0]" << endl
          << "    -b, --gbwt-in FILE     input graph is a GBWTGraph using the GBWT in FILE" << endl
-         << "    -Z, --gbz-in           input in GBZ format (GBWT + GBWTGraph)" << endl
+         << "    -Z, --gbz-in           input graph is in GBZ format (use GBWTGraph-specific algorithms)" << endl
          << "        --ref-sample STR   convert the threads for GBWT sample STR into paths (default " << gbwtgraph::REFERENCE_PATH_SAMPLE_NAME << ")" << endl
          << "output options:" << endl
          << "    -v, --vg-out           output in VG format" << endl
