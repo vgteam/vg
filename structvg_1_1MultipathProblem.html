@@ -77,8 +77,8 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a4685427684a0a6c631fcfd0f695cc5ee"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MultipathProblem.html#a4685427684a0a6c631fcfd0f695cc5ee">MultipathProblem</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, bool subpath_global)</td></tr>
-<tr class="separator:a4685427684a0a6c631fcfd0f695cc5ee"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac97d55858c86d218c380fd43e115d18a"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MultipathProblem.html#ac97d55858c86d218c380fd43e115d18a">MultipathProblem</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, bool subpath_global, bool forward)</td></tr>
+<tr class="separator:ac97d55858c86d218c380fd43e115d18a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -92,8 +92,8 @@ Public Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>We define this struct for holding the dynamic programming problem for a multipath alignment, which we use for finding the optimal alignment, scoring the optimal alignment, and enumerating the top alignments. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a4685427684a0a6c631fcfd0f695cc5ee"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4685427684a0a6c631fcfd0f695cc5ee">&#9670;&nbsp;</a></span>MultipathProblem()</h2>
+<a id="ac97d55858c86d218c380fd43e115d18a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac97d55858c86d218c380fd43e115d18a">&#9670;&nbsp;</a></span>MultipathProblem()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -111,7 +111,13 @@ Public Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>subpath_global</em>&#160;</td>
+          <td class="paramname"><em>subpath_global</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>forward</em>&#160;</td>
         </tr>
         <tr>
           <td></td>

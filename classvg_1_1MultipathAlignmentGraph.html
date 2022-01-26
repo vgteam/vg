@@ -69,10 +69,10 @@ $(function() {
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-static-methods">Static Public Member Functions</a> &#124;
-<a href="#pri-methods">Private Member Functions</a> &#124;
-<a href="#pri-static-methods">Static Private Member Functions</a> &#124;
-<a href="#pri-attribs">Private Attributes</a> &#124;
-<a href="#pri-static-attribs">Static Private Attributes</a> &#124;
+<a href="#pro-methods">Protected Member Functions</a> &#124;
+<a href="#pro-static-methods">Static Protected Member Functions</a> &#124;
+<a href="#pro-attribs">Protected Attributes</a> &#124;
+<a href="#pro-static-attribs">Static Protected Attributes</a> &#124;
 <a href="classvg_1_1MultipathAlignmentGraph-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::MultipathAlignmentGraph Class Reference</div>  </div>
@@ -152,8 +152,8 @@ Static Public Member Functions</h2></td></tr>
 <tr class="memdesc:a4f4f566eaf695fac8c08dc6e5c2083a7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a lambda function that projects using a map that projects.  <a href="classvg_1_1MultipathAlignmentGraph.html#a4f4f566eaf695fac8c08dc6e5c2083a7">More...</a><br /></td></tr>
 <tr class="separator:a4f4f566eaf695fac8c08dc6e5c2083a7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
-Private Member Functions</h2></td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
+Protected Member Functions</h2></td></tr>
 <tr class="memitem:a76bb6f4da1dc7d1e00a8a40aebc59ecf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a76bb6f4da1dc7d1e00a8a40aebc59ecf">create_path_chunk_nodes</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, const vector&lt; pair&lt; pair&lt; string::const_iterator, string::const_iterator &gt;, <a class="el" href="structvg_1_1Path.html">Path</a> &gt;&gt; &amp;path_chunks, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; &amp;project, const unordered_multimap&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;&gt; &amp;injection_trans)</td></tr>
 <tr class="memdesc:a76bb6f4da1dc7d1e00a8a40aebc59ecf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add the path chunks as nodes to the connectivity graph.  <a href="classvg_1_1MultipathAlignmentGraph.html#a76bb6f4da1dc7d1e00a8a40aebc59ecf">More...</a><br /></td></tr>
 <tr class="separator:a76bb6f4da1dc7d1e00a8a40aebc59ecf"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -179,24 +179,30 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:a981e3895795dd7956e24f57c2e3fb429"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aba2fbcf9b7fb1368cdb033d3ecc69bf0"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; bool, unordered_map&lt; size_t, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aba2fbcf9b7fb1368cdb033d3ecc69bf0">align_tails</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, size_t min_paths, unordered_set&lt; size_t &gt; *sources=nullptr)</td></tr>
 <tr class="separator:aba2fbcf9b7fb1368cdb033d3ecc69bf0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aefb0fbb8718ed9531cd0c24f10367878"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aefb0fbb8718ed9531cd0c24f10367878">add_decomposed_tail_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln_out, unordered_set&lt; size_t &gt; &amp;prohibited_merges, vector&lt; pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt;&gt; &amp;shared_tail_alns, vector&lt; vector&lt; pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt;&gt;&gt; &amp;unshared_tail_alns, size_t attachment_idx, bool to_left, size_t unmergeable_len, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *cutting_snarls=nullptr, <a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *dist_index=nullptr, const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; *project=nullptr)</td></tr>
+<tr class="separator:aefb0fbb8718ed9531cd0c24f10367878"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-static-methods"></a>
-Static Private Member Functions</h2></td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-static-methods"></a>
+Static Protected Member Functions</h2></td></tr>
 <tr class="memitem:a114d073d4422c085a2c5768b6f165001"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a114d073d4422c085a2c5768b6f165001">trim_and_check_for_empty</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, bool trim_Ns, <a class="el" href="classvg_1_1PathNode.html">PathNode</a> &amp;<a class="el" href="namespacevg.html#a3bd8aa63fec8b9f6c3ed5808689975e6">path_node</a>, bool preserve_tail_anchors, int64_t *removed_start_from_length=nullptr, int64_t *removed_end_from_length=nullptr)</td></tr>
 <tr class="separator:a114d073d4422c085a2c5768b6f165001"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acf97e6e2b5f03198f3087d7746e19b85"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#acf97e6e2b5f03198f3087d7746e19b85">deduplicate_alt_alns</a> (vector&lt; pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt;&gt; &amp;alt_alns, bool leftward, bool rightward)</td></tr>
+<tr class="separator:acf97e6e2b5f03198f3087d7746e19b85"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a96a24f6cbdc09cf0098251f8b61baf4a"><td class="memItemLeft" align="right" valign="top">static pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a96a24f6cbdc09cf0098251f8b61baf4a">zip_alignments</a> (vector&lt; pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt;&gt; &amp;alt_alns, bool from_left, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, string::const_iterator begin, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner)</td></tr>
 <tr class="separator:a96a24f6cbdc09cf0098251f8b61baf4a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8e7fa26541aea68ea2c456d79c950377"><td class="memItemLeft" align="right" valign="top">static pair&lt; vector&lt; pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt; &gt;, vector&lt; vector&lt; pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt; &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a8e7fa26541aea68ea2c456d79c950377">decompose_alignments</a> (const vector&lt; pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt;&gt; &amp;alt_alns, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, string::const_iterator begin, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner)</td></tr>
+<tr class="separator:a8e7fa26541aea68ea2c456d79c950377"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
-Private Attributes</h2></td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
+Protected Attributes</h2></td></tr>
 <tr class="memitem:a76f9356cd0afea7dea3003caea2526eb"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1PathNode.html">PathNode</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a76f9356cd0afea7dea3003caea2526eb">path_nodes</a></td></tr>
 <tr class="memdesc:a76f9356cd0afea7dea3003caea2526eb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Nodes representing walked MEMs in the graph.  <a href="classvg_1_1MultipathAlignmentGraph.html#a76f9356cd0afea7dea3003caea2526eb">More...</a><br /></td></tr>
 <tr class="separator:a76f9356cd0afea7dea3003caea2526eb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a77a113d4c5b6b5ca1d7748c1b812e8d3"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a77a113d4c5b6b5ca1d7748c1b812e8d3">has_reachability_edges</a> = false</td></tr>
 <tr class="separator:a77a113d4c5b6b5ca1d7748c1b812e8d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-static-attribs"></a>
-Static Private Attributes</h2></td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-static-attribs"></a>
+Static Protected Attributes</h2></td></tr>
 <tr class="memitem:af46ba9972db437bf66f787a9bbe6c3cd"><td class="memItemLeft" align="right" valign="top">static thread_local unordered_map&lt; double, vector&lt; int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#af46ba9972db437bf66f787a9bbe6c3cd">pessimistic_tail_gap_memo</a></td></tr>
 <tr class="memdesc:af46ba9972db437bf66f787a9bbe6c3cd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Memo for the transcendental pessimistic tail gap function (thread local to maintain thread-safety)  <a href="classvg_1_1MultipathAlignmentGraph.html#af46ba9972db437bf66f787a9bbe6c3cd">More...</a><br /></td></tr>
 <tr class="separator:af46ba9972db437bf66f787a9bbe6c3cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -739,6 +745,108 @@ Static Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="aefb0fbb8718ed9531cd0c24f10367878"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aefb0fbb8718ed9531cd0c24f10367878">&#9670;&nbsp;</a></span>add_decomposed_tail_alignments()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MultipathAlignmentGraph::add_decomposed_tail_alignments </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>align_graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>multipath_aln_out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">unordered_set&lt; size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>prohibited_merges</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>shared_tail_alns</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; vector&lt; pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt;&gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>unshared_tail_alns</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>attachment_idx</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>to_left</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>unmergeable_len</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *&#160;</td>
+          <td class="paramname"><em>aligner</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *&#160;</td>
+          <td class="paramname"><em>cutting_snarls</em> = <code>nullptr</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1MinimumDistanceIndex.html">MinimumDistanceIndex</a> *&#160;</td>
+          <td class="paramname"><em>dist_index</em> = <code>nullptr</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;(<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>)&gt; *&#160;</td>
+          <td class="paramname"><em>project</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a2bf6b811ae4c3f0c993d3ac4a11359f0"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a2bf6b811ae4c3f0c993d3ac4a11359f0">&#9670;&nbsp;</a></span>add_reachability_edges()</h2>
 
@@ -1086,7 +1194,7 @@ Static Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -1147,7 +1255,7 @@ Static Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -1305,7 +1413,7 @@ Static Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -1361,7 +1469,7 @@ Static Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -1395,6 +1503,104 @@ Static Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Create a lambda function that projects using a map that projects. </p>
+
+</div>
+</div>
+<a id="a8e7fa26541aea68ea2c456d79c950377"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8e7fa26541aea68ea2c456d79c950377">&#9670;&nbsp;</a></span>decompose_alignments()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">pair&lt; vector&lt; pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt; &gt;, vector&lt; vector&lt; pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt; &gt; &gt; &gt; vg::MultipathAlignmentGraph::decompose_alignments </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>alt_alns</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>align_graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">string::const_iterator&#160;</td>
+          <td class="paramname"><em>begin</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *&#160;</td>
+          <td class="paramname"><em>aligner</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Identifies regions that are shared across all of the alternative alignments, and then splits those regions out into separate alignments, dividing the set of alternative alignments accordingly. Return value consists of a vector of the shared segments and a vector of vectors of the segments between. The length of the vector of shared segments is +1 of the vector of between segments, so that they are interleaved. The first and/or last of the alignments of shared segments may be empty if there is no shared prefix or suffix across all the alignments. If there are no shared segments at all, will return pair of empty vectors. Blocks of unshared paths will be sorted into descending order by score. </p>
+
+</div>
+</div>
+<a id="acf97e6e2b5f03198f3087d7746e19b85"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acf97e6e2b5f03198f3087d7746e19b85">&#9670;&nbsp;</a></span>deduplicate_alt_alns()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MultipathAlignmentGraph::deduplicate_alt_alns </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="classvg_1_1path__t.html">path_t</a>, int32_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>alt_alns</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>leftward</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>rightward</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Removes alignments that follow the same path through the graph, retaining only the highest scoring ones. If deduplicating leftward, then also removes paths that take a longer path for no greater score in the leftward direction. Vice versa for rightward. Assumes alignments are descending order by score. </p>
 
 </div>
 </div>
@@ -1483,7 +1689,7 @@ Static Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -1533,7 +1739,7 @@ Static Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -1583,7 +1789,7 @@ Static Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -1619,7 +1825,7 @@ Static Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -1657,7 +1863,7 @@ Static Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -1750,7 +1956,7 @@ Static Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -1982,7 +2188,7 @@ Static Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -2107,7 +2313,7 @@ Static Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -2131,7 +2337,7 @@ Static Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -2154,7 +2360,7 @@ Static Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -2178,7 +2384,7 @@ Static Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -2202,7 +2408,7 @@ Static Private Attributes</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">

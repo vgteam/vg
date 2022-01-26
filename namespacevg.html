@@ -1521,8 +1521,8 @@ Functions</h2></td></tr>
 <tr class="separator:af3fb034fcd6d50c2b84f40026b40f284"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0844cc3c2da56dfed0e9436d7f0dd7de"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0844cc3c2da56dfed0e9436d7f0dd7de">identify_start_subpaths</a> (<a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln)</td></tr>
 <tr class="separator:a0844cc3c2da56dfed0e9436d7f0dd7de"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab6b884009be7f9219b6c9d3068c8bb73"><td class="memItemLeft" align="right" valign="top">tuple&lt; <a class="el" href="structvg_1_1MultipathProblem.html">MultipathProblem</a>, int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab6b884009be7f9219b6c9d3068c8bb73">run_multipath_dp</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, bool subpath_global=false)</td></tr>
-<tr class="separator:ab6b884009be7f9219b6c9d3068c8bb73"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae57a78071537c87e2f0f57bfea18ba71"><td class="memItemLeft" align="right" valign="top">tuple&lt; <a class="el" href="structvg_1_1MultipathProblem.html">MultipathProblem</a>, int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae57a78071537c87e2f0f57bfea18ba71">run_multipath_dp</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, bool subpath_global=false, bool forward=true)</td></tr>
+<tr class="separator:ae57a78071537c87e2f0f57bfea18ba71"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a191bf7b238ea717afbf8118df0afa999"><td class="memTemplParams" colspan="2">template&lt;typename TracebackIterator &gt; </td></tr>
 <tr class="memitem:a191bf7b238ea717afbf8118df0afa999"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a191bf7b238ea717afbf8118df0afa999">populate_path_from_traceback</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const <a class="el" href="structvg_1_1MultipathProblem.html">MultipathProblem</a> &amp;problem, TracebackIterator traceback_start, TracebackIterator traceback_end, <a class="el" href="structvg_1_1Path.html">Path</a> *output)</td></tr>
 <tr class="separator:a191bf7b238ea717afbf8118df0afa999"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1534,6 +1534,8 @@ Functions</h2></td></tr>
 <tr class="separator:ad3548ef9766130a155ba65420c0e7c0e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8e2c6fbf0d030acabb7dd6b8d428e143"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8e2c6fbf0d030acabb7dd6b8d428e143">worst_alignment_score</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln)</td></tr>
 <tr class="separator:a8e2c6fbf0d030acabb7dd6b8d428e143"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0ea49989e31a688e22265eb41291c0ae"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0ea49989e31a688e22265eb41291c0ae">remove_low_scoring_sections</a> (<a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, int32_t max_score_diff)</td></tr>
+<tr class="separator:a0ea49989e31a688e22265eb41291c0ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ada4d6b6771c5d7e5b2367b18ca8f76f3"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ada4d6b6771c5d7e5b2367b18ca8f76f3">optimal_alignments</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, size_t count)</td></tr>
 <tr class="separator:ada4d6b6771c5d7e5b2367b18ca8f76f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af711577f7d293ffc1c8002c868081bb1"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af711577f7d293ffc1c8002c868081bb1">optimal_alignments_with_disjoint_subpaths</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, size_t count)</td></tr>
@@ -18151,6 +18153,35 @@ template&lt;class Decoder &gt; </div>
 
 </div>
 </div>
+<a id="a0ea49989e31a688e22265eb41291c0ae"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0ea49989e31a688e22265eb41291c0ae">&#9670;&nbsp;</a></span>remove_low_scoring_sections()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::remove_low_scoring_sections </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>multipath_aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int32_t&#160;</td>
+          <td class="paramname"><em>max_score_diff</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Removes all subpaths and edges whose optimal full length alignment is less than the given difference from the highest-scoring full length alignment </p>
+
+</div>
+</div>
 <a id="a0b38f4f0d7e63b1f7f20d2dc985f88c4"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a0b38f4f0d7e63b1f7f20d2dc985f88c4">&#9670;&nbsp;</a></span>remove_orphan_edges()</h2>
 
@@ -18920,8 +18951,8 @@ template&lt;class Decoder &gt; </div>
 
 </div>
 </div>
-<a id="ab6b884009be7f9219b6c9d3068c8bb73"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab6b884009be7f9219b6c9d3068c8bb73">&#9670;&nbsp;</a></span>run_multipath_dp()</h2>
+<a id="ae57a78071537c87e2f0f57bfea18ba71"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae57a78071537c87e2f0f57bfea18ba71">&#9670;&nbsp;</a></span>run_multipath_dp()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -18936,7 +18967,13 @@ template&lt;class Decoder &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>subpath_global</em> = <code>false</code>&#160;</td>
+          <td class="paramname"><em>subpath_global</em> = <code>false</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>forward</em> = <code>true</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
