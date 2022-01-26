@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.17"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: handlegraph::BoolReturningWrapper&lt; Iteratee, Iterated, void &gt; Struct Template Reference</title>
+<title>vg: handlegraph::BoolReturningWrapper&lt; Iteratee, true &gt; Struct Template Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -62,47 +62,44 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="namespacehandlegraph.html">handlegraph</a></li><li class="navelem"><a class="el" href="structhandlegraph_1_1BoolReturningWrapper_3_01Iteratee_00_01Iterated_00_01void_01_4.html">BoolReturningWrapper&lt; Iteratee, Iterated, void &gt;</a></li>  </ul>
+<li class="navelem"><a class="el" href="namespacehandlegraph.html">handlegraph</a></li><li class="navelem"><a class="el" href="structhandlegraph_1_1BoolReturningWrapper_3_01Iteratee_00_01true_01_4.html">BoolReturningWrapper&lt; Iteratee, true &gt;</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
   <div class="summary">
 <a href="#pub-static-methods">Static Public Member Functions</a> &#124;
-<a href="structhandlegraph_1_1BoolReturningWrapper_3_01Iteratee_00_01Iterated_00_01void_01_4-members.html">List of all members</a>  </div>
+<a href="structhandlegraph_1_1BoolReturningWrapper_3_01Iteratee_00_01true_01_4-members.html">List of all members</a>  </div>
   <div class="headertitle">
-<div class="title">handlegraph::BoolReturningWrapper&lt; Iteratee, Iterated, void &gt; Struct Template Reference</div>  </div>
+<div class="title">handlegraph::BoolReturningWrapper&lt; Iteratee, true &gt; Struct Template Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-
-<p>This specialization handles wrapping void-returning callables.  
- <a href="structhandlegraph_1_1BoolReturningWrapper_3_01Iteratee_00_01Iterated_00_01void_01_4.html#details">More...</a></p>
 
 <p><code>#include &lt;iteratee.hpp&gt;</code></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
-<tr class="memitem:a4a59c38ff1ca7e6a2d7d76a4283c10e3"><td class="memItemLeft" align="right" valign="top">static std::function&lt; bool(const Iterated &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structhandlegraph_1_1BoolReturningWrapper_3_01Iteratee_00_01Iterated_00_01void_01_4.html#a4a59c38ff1ca7e6a2d7d76a4283c10e3">wrap</a> (const Iteratee &amp;iteratee)</td></tr>
-<tr class="separator:a4a59c38ff1ca7e6a2d7d76a4283c10e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afdb8a7b86ca03dafaa44a27b573c0c7d"><td class="memItemLeft" align="right" valign="top">static auto&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structhandlegraph_1_1BoolReturningWrapper_3_01Iteratee_00_01true_01_4.html#afdb8a7b86ca03dafaa44a27b573c0c7d">wrap</a> (const Iteratee &amp;iteratee)</td></tr>
+<tr class="separator:afdb8a7b86ca03dafaa44a27b573c0c7d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><h3>template&lt;typename Iteratee, typename Iterated&gt;<br />
-struct handlegraph::BoolReturningWrapper&lt; Iteratee, Iterated, void &gt;</h3>
+<div class="textblock"><h3>template&lt;typename Iteratee&gt;<br />
+struct handlegraph::BoolReturningWrapper&lt; Iteratee, true &gt;</h3>
 
-<p>This specialization handles wrapping void-returning callables. </p>
+<p>Wrap a function that returns bool to return bool: a no-op. </p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
-<a id="a4a59c38ff1ca7e6a2d7d76a4283c10e3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4a59c38ff1ca7e6a2d7d76a4283c10e3">&#9670;&nbsp;</a></span>wrap()</h2>
+<a id="afdb8a7b86ca03dafaa44a27b573c0c7d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afdb8a7b86ca03dafaa44a27b573c0c7d">&#9670;&nbsp;</a></span>wrap()</h2>
 
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;typename Iteratee , typename Iterated &gt; </div>
+template&lt;typename Iteratee &gt; </div>
 <table class="mlabels">
   <tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">static std::function&lt;bool(const Iterated&amp;)&gt; <a class="el" href="structhandlegraph_1_1BoolReturningWrapper.html">handlegraph::BoolReturningWrapper</a>&lt; Iteratee, Iterated, void &gt;::wrap </td>
+          <td class="memname">static auto <a class="el" href="structhandlegraph_1_1BoolReturningWrapper.html">handlegraph::BoolReturningWrapper</a>&lt; Iteratee, true &gt;::wrap </td>
           <td>(</td>
           <td class="paramtype">const Iteratee &amp;&#160;</td>
           <td class="paramname"><em>iteratee</em></td><td>)</td>

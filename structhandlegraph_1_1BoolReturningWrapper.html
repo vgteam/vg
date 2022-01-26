@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.17"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: handlegraph::BoolReturningWrapper&lt; Iteratee, Iterated, IterateeReturnType &gt; Struct Template Reference</title>
+<title>vg: handlegraph::BoolReturningWrapper&lt; Iteratee, ReturnsBool &gt; Struct Template Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -66,56 +66,18 @@ $(function() {
 </div>
 </div><!-- top -->
 <div class="header">
-  <div class="summary">
-<a href="#pub-static-methods">Static Public Member Functions</a> &#124;
-<a href="structhandlegraph_1_1BoolReturningWrapper-members.html">List of all members</a>  </div>
   <div class="headertitle">
-<div class="title">handlegraph::BoolReturningWrapper&lt; Iteratee, Iterated, IterateeReturnType &gt; Struct Template Reference</div>  </div>
+<div class="title">handlegraph::BoolReturningWrapper&lt; Iteratee, ReturnsBool &gt; Struct Template Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 
 <p><code>#include &lt;iteratee.hpp&gt;</code></p>
-<table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
-Static Public Member Functions</h2></td></tr>
-<tr class="memitem:a4cc6ffe26ec5a8eced2c93977b60c684"><td class="memItemLeft" align="right" valign="top">static std::function&lt; bool(const Iterated &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structhandlegraph_1_1BoolReturningWrapper.html#a4cc6ffe26ec5a8eced2c93977b60c684">wrap</a> (const Iteratee &amp;iteratee)</td></tr>
-<tr class="separator:a4cc6ffe26ec5a8eced2c93977b60c684"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><h3>template&lt;typename Iteratee, typename Iterated, typename IterateeReturnType = decltype(std::declval&lt;Iteratee&gt;().operator()(std::declval&lt;Iterated&gt;()))&gt;<br />
-struct handlegraph::BoolReturningWrapper&lt; Iteratee, Iterated, IterateeReturnType &gt;</h3>
+<div class="textblock"><h3>template&lt;typename Iteratee, bool ReturnsBool = std::is_same&lt;typename return_type_of&lt;Iteratee&gt;::type, bool&gt;::value&gt;<br />
+struct handlegraph::BoolReturningWrapper&lt; Iteratee, ReturnsBool &gt;</h3>
 
-<p>This template has a static method that takes a callable on items and returns a wrapped version that returns the calable's returned bool, or true for void-returning callables. </p>
-</div><h2 class="groupheader">Member Function Documentation</h2>
-<a id="a4cc6ffe26ec5a8eced2c93977b60c684"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4cc6ffe26ec5a8eced2c93977b60c684">&#9670;&nbsp;</a></span>wrap()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename Iteratee , typename Iterated , typename IterateeReturnType  = decltype(std::declval&lt;Iteratee&gt;().operator()(std::declval&lt;Iterated&gt;()))&gt; </div>
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">static std::function&lt;bool(const Iterated&amp;)&gt; <a class="el" href="structhandlegraph_1_1BoolReturningWrapper.html">handlegraph::BoolReturningWrapper</a>&lt; Iteratee, Iterated, IterateeReturnType &gt;::wrap </td>
-          <td>(</td>
-          <td class="paramtype">const Iteratee &amp;&#160;</td>
-          <td class="paramname"><em>iteratee</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<hr/>The documentation for this struct was generated from the following file:<ul>
+<p>Specializations of this class have a wrap() static method that takes a function and returns a version of that function that returns a bool. </p>
+</div><hr/>The documentation for this struct was generated from the following file:<ul>
 <li>deps/libhandlegraph/src/include/handlegraph/<a class="el" href="iteratee_8hpp.html">iteratee.hpp</a></li>
 </ul>
 </div><!-- contents -->
