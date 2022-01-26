@@ -199,6 +199,7 @@ namespace vg {
         size_t alt_anchor_max_length_diff = 5;
         bool dynamic_max_alt_alns = false;
         bool simplify_topologies = false;
+        double prune_subpaths_multiplier = 2.0;
         bool use_tvs_clusterer = false;
         bool use_min_dist_clusterer = false;
         bool greedy_min_dist = false;
@@ -404,6 +405,9 @@ namespace vg {
                                              vector<clustergraph_t>& cluster_graphs2,
                                              vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                              vector<double>& multiplicities) const;
+        
+        /// If the alignment seems very complicated, try to simplify low-scoring parts out of it
+        void simplify_complicated_multipath_alignment(multipath_alignment_t& multipath_aln) const;
         
         /// Helper function to be called by split_multicomponent_alignments to reassign hits to the
         /// split clusters

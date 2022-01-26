@@ -506,11 +506,10 @@ namespace vg {
             split_multicomponent_alignments(multipath_alns_out, &alignment, &cluster_graphs, cluster_idxs, &multiplicities_out);
         }
         
-#ifdef debug_multipath_mapper
-        cerr << "topologically ordering " << multipath_alns_out.size() << " multipath alignments" << endl;
-#endif
-        for (multipath_alignment_t& multipath_aln : multipath_alns_out) {
+        // remove low-scoring bits of complicated multipath alignments
+        for (auto& multipath_aln : multipath_alns_out) {
             topologically_order_subpaths(multipath_aln);
+            simplify_complicated_multipath_alignment(multipath_aln);
         }
         
 #ifdef debug_multipath_mapper
@@ -1719,6 +1718,7 @@ namespace vg {
                         if (anchor_is_read_1) {
                             int64_t dist = distance_between(cluster_multipath_alns.front(), rescue_multipath_aln, true);
                             if (dist >= 0 && dist != numeric_limits<int64_t>::max()) {
+                                simplify_complicated_multipath_alignment(cluster_multipath_alns.front());
                                 rescued_secondaries.emplace_back(move(cluster_multipath_alns.front()), move(rescue_multipath_aln));
                                 rescued_distances.emplace_back(make_pair(i, RESCUED), dist);
                                 
@@ -1727,21 +1727,24 @@ namespace vg {
                         else {
                             int64_t dist = distance_between(rescue_multipath_aln, cluster_multipath_alns.front(), true);
                             if (dist >= 0 && dist != numeric_limits<int64_t>::max()) {
+                                simplify_complicated_multipath_alignment(cluster_multipath_alns.front());
                                 rescued_secondaries.emplace_back(move(rescue_multipath_aln), move(cluster_multipath_alns.front()));
                                 rescued_distances.emplace_back(make_pair(RESCUED, i), dist);
                                 
                             }
                         }
-                    } else {
-#ifdef debug_multipath_mapper
-                        cerr << "rescue failed" << endl;
-#endif
                     }
-                } else {
 #ifdef debug_multipath_mapper
-                    cerr << "alignment we're rescuing from is likely a mismapping" << endl;
+                    else {
+                        cerr << "rescue failed" << endl;
+                    }
 #endif
                 }
+#ifdef debug_multipath_mapper
+                else {
+                    cerr << "alignment we're rescuing from is likely a mismapping" << endl;
+                }
+#endif
             }
             
             // estimate how many of these alignments there probably are in total
@@ -4328,6 +4331,29 @@ namespace vg {
             multipath_aln_pairs_out.resize(multipath_aln_pairs_out.size() - i + 1);
         }
     }
+
+    void MultipathMapper::simplify_complicated_multipath_alignment(multipath_alignment_t& multipath_aln) const {
+        
+        if (multipath_aln.subpath_size() > prune_subpaths_multiplier * multipath_aln.sequence().size()) {
+            // this is a very complicated multipath alignment relative to the length of the sequence,
+            // so we'll see if we can maybe get rid of parts of it for having low score
+            
+            auto aligner = get_aligner(!multipath_aln.quality().empty());
+            int32_t max_diff = ceil(aligner->mapping_quality_score_diff(max_mapping_quality) / mapq_scaling_factor);
+            
+#ifdef debug_multipath_mapper
+            cerr << "multipath alignment has " << multipath_aln.subpath_size() << " subpaths, which is large relative to sequence length of " << multipath_aln.sequence().size() << ", attempting to simplify by pruning low-scoring sections, diff = " << max_diff << endl;
+#endif
+            
+            remove_low_scoring_sections(multipath_aln, max_diff);
+            
+            // TODO: it would be nice to merge non branching subpaths here, but we don't know what
+            // the prohibited merges were...
+#ifdef debug_multipath_mapper
+            cerr << "after pruning, alignment has " << multipath_aln.subpath_size() << " subpaths" << endl;
+#endif
+        }
+    }
     
     void MultipathMapper::split_multicomponent_alignments(vector<multipath_alignment_t>& multipath_alns_out,
                                                           const Alignment* alignment,
@@ -5083,6 +5109,10 @@ namespace vg {
             // we add a bit of restraint
             size_t max_split_pairs = num_mappings_to_compute * num_mappings_to_compute;
             if (multipath_aln_pairs_out.size() > max_split_pairs) {
+#ifdef debug_multipath_mapper
+                cerr << "too many pairs after splitting multicomponent alignments, truncating from " << multipath_aln_pairs_out.size() << " to " << max_split_pairs << " pairs" << endl;
+#endif
+                
                 // TODO: repetitive with the previous truncation routine
                 // TODO: these likelihood were just computed in the sort routine, it would be nice to do
                 // be able to re-use the results
@@ -5115,9 +5145,11 @@ namespace vg {
         
         // downstream algorithms assume multipath alignments are topologically sorted (including the scoring
         // algorithm in the next step)
-        for (pair<multipath_alignment_t, multipath_alignment_t>& multipath_aln_pair : multipath_aln_pairs_out) {
+        for (auto& multipath_aln_pair : multipath_aln_pairs_out) {
             topologically_order_subpaths(multipath_aln_pair.first);
             topologically_order_subpaths(multipath_aln_pair.second);
+            simplify_complicated_multipath_alignment(multipath_aln_pair.first);
+            simplify_complicated_multipath_alignment(multipath_aln_pair.second);
         }
         
         // put pairs in score sorted order and compute mapping quality of best pair using the score
@@ -5722,6 +5754,8 @@ namespace vg {
                                           multipath_alignment_t& multipath_aln_out,
                                           const match_fanouts_t* fanouts) const {
 
+        // we put this in a loop so that we can check to make sure we didn't miss part of the
+        // alignment because there wasn't enough graph extracted
         bool new_graph_material = true;
         while (new_graph_material) {
             // there are parts of this graph we haven't tried to align to yet
