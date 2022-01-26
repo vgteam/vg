@@ -331,6 +331,10 @@ namespace vg {
     /// Removes all edit, mappings, and subpaths that have no aligned bases, and introduces transitive edges
     /// to preserve connectivity through any completely removed subpaths
     void remove_empty_alignment_sections(multipath_alignment_t& multipath_aln);
+
+    /// Removes all subpaths and edges whose optimal full length alignment is less than the given difference
+    /// from the highest-scoring full length alignment
+    void remove_low_scoring_sections(multipath_alignment_t& multipath_aln, int32_t max_score_diff);
     
     /// Returns a vector whose elements are vectors with the indexes of the Subpaths in
     /// each connected component. An unmapped multipath_alignment_t with no subpaths produces an empty vector.
