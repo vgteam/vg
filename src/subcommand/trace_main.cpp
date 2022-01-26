@@ -14,8 +14,6 @@ using namespace vg;
 using namespace std;
 using namespace vg::subcommand;
 
-using thread_t = vector<gbwt::node_type>;
-
 void help_trace(char** argv) {
     cerr << "usage: " << argv[0] << " trace [options]" << endl
          << "Trace and extract haplotypes from an index" << endl
