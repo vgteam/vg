@@ -2297,7 +2297,6 @@ namespace vg {
             SpliceRegion* splice_region;
             pos_t search_pos;
             int64_t clip_length;
-            int64_t pre_trim_length;
             int32_t untrimmed_score;
         };
         
@@ -2625,7 +2624,6 @@ namespace vg {
         anchor_prejoin_sides.front().splice_region = splice_regions.front().get();
         anchor_prejoin_sides.front().search_pos = get<0>(anchor_pos);
         anchor_prejoin_sides.front().clip_length = get<1>(anchor_pos);
-        anchor_prejoin_sides.front().pre_trim_length = path_to_length(opt.path());
         anchor_prejoin_sides.front().untrimmed_score = opt.score() - get<2>(anchor_pos);
         
 #ifdef debug_multipath_mapper
@@ -2675,7 +2673,6 @@ namespace vg {
             candidate_side.splice_region = splice_regions.back().get();
             candidate_side.search_pos = get<0>(candidate_pos);
             candidate_side.clip_length = get<1>(candidate_pos);
-            candidate_side.pre_trim_length = path_to_length(candidate_opt.path());
             candidate_side.untrimmed_score = candidate_opt.score() - get<2>(candidate_pos);
             
 #ifdef debug_multipath_mapper

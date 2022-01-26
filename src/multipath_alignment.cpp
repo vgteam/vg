@@ -550,7 +550,7 @@ namespace vg {
                 }
                 else {
                     for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
-                        if (multipath_aln.subpath(i).next_size() == 0) {
+                        if (multipath_aln.subpath(i).next_size() == 0 && multipath_aln.subpath(i).connection_size() == 0) {
                             prefix_score[i] = 0;
                         }
                     }
