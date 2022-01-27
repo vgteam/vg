@@ -889,7 +889,7 @@ clean: clean-vcflib
 	cd $(DEP_DIR) && cd structures && $(MAKE) clean
 	cd $(DEP_DIR) && cd jemalloc && $(MAKE) clean || true
 	cd $(DEP_DIR) && cd sublinear-Li-Stephens && $(MAKE) clean
-	cd $(DEP_DIR) && cd libhandlegraph && $(MAKE) clean
+	cd $(DEP_DIR) && cd libhandlegraph && rm -Rf build CMakeCache.txt CMakeFiles
 	cd $(DEP_DIR) && cd libvgio && $(MAKE) clean 
 	cd $(DEP_DIR) && cd raptor && cd build && find . -not \( -name '.gitignore' -or -name 'pkg.m4' \) -delete
 	# lru_cache is never built because it is header-only
