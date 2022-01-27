@@ -51,7 +51,7 @@ public:
 //Given a position, return the distances that can be stored by a minimizer
 //This is just the net handle for the node as an integer
 // 
-uint64_t  get_minimizer_distances (const SnarlDistanceIndex& distance_index, pos_t pos);
+tuple<size_t, size_t, bool> get_minimizer_distances (const SnarlDistanceIndex& distance_index, pos_t pos);
 
 
 
@@ -82,53 +82,49 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
 
 
 
-///**
-//TODO: I'm not doing this anymore
-// * The encoding of distances for positions in top-level chains or top-level simple bubbles.
-// * Either stores (chain id, chain offset) for a position on a top-level chain, or
-// * (snarl rank, node length, start length, end length) for a position on a simple bubble
-// * We store this information in the minimizer index.
-// */
-///*
-//Simple bubble: 
-//    
-// 8 bit  |     1    |        24           |    10     |     10   |    10     |    1
-//  ---   |  is rev  | snarl rank in chain | start len | end len  | node len  |  is_node
-//   
-//Top level chain 
+///
+// The encoding of distances for positions in top-level chains
+// We store this information in the minimizer index.
+// 
 //     
-//    31 bit   |    32    |     1
-//component id |  offset  |  is_node
+//     31 bit    |    32        |            1
+// record offset |  prefix sum  |  is_reversed_in_parent
 //
 //
-//is_node is true if it is a top-level chain node, false if it is a simple bubble
-//*/
-
-/**
- * The encoding of distances for positions
- * Stores 
- *     31 bit   |          32          |           1
- *  node length |  node record offset  |  is_reversed_in_parent
- *
- * We store this information in the minimizer index.
- */
 struct MIPayload {
     typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::payload_type.
 
     constexpr static code_type NO_CODE = std::numeric_limits<code_type>::max();
-    constexpr static std::uint64_t NO_VALUE = std::numeric_limits<uint64_t>::max(); // From offset_in_root_chain().
+    constexpr static std::uint64_t NO_VALUE = std::numeric_limits<size_t>::max(); // From offset_in_root_chain().
 
-    static code_type encode(uint64_t info) {
+    const static size_t RECORD_OFFSET = 33;
+    const static size_t RECORD_WIDTH = 32;
+    const static code_type RECORD_MASK = (static_cast<code_type>(1) << RECORD_WIDTH) - 1;
 
-        return info;
+    const static size_t PREFIX_SUM_OFFSET = 1;
+    const static size_t PREFIX_SUM_WIDTH = 31;
+    const static code_type PREFIX_SUM_MASK = (static_cast<code_type>(1) << PREFIX_SUM_WIDTH) - 1;
+
+
+    static code_type encode(tuple<size_t, size_t, bool> info) {
+        size_t record_offset = std::get<0>(info);
+        size_t prefix_sum = std::get<1>(info);
+        bool is_reversed = std::get<2>(info); 
+
+        return (static_cast<code_type>(record_offset) << RECORD_OFFSET) 
+             | (static_cast<code_type>(prefix_sum) << PREFIX_SUM_OFFSET)
+             | is_reversed;
 
     }
 
-    static uint64_t decode(code_type code) {
+    static tuple<size_t, size_t, bool> decode(code_type code) {
         if (code == NO_CODE) {
-            return NO_VALUE;
+            return make_tuple(NO_VALUE, NO_VALUE, false);
         } else {
-            return code;
+            return std::tuple<size_t, size_t, bool> (
+                code >> RECORD_OFFSET & RECORD_MASK, 
+                code >> PREFIX_SUM_OFFSET & PREFIX_SUM_MASK,
+                code & 1);
         }
     }
 };
