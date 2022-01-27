@@ -60,13 +60,13 @@ On other distros, you will need to perform the equivalent of:
 
     sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
                          protobuf-compiler libprotoc-dev libprotobuf-dev libjansson-dev \
-                         automake libtool jq bsdmainutils bc rs parallel npm curl unzip \
-                         redland-utils librdf-dev bison flex gawk lzma-dev liblzma-dev \
-                         liblz4-dev libffi-dev libcairo-dev libboost-all-dev
+                         automake gettext libtool jq bsdmainutils bc rs parallel npm curl \
+                         unzip redland-utils librdf-dev bison flex gawk lzma-dev \
+                         liblzma-dev liblz4-dev libffi-dev libcairo-dev libboost-all-dev
                          
 Note that **Ubuntu 16.04** does not ship a sufficiently new Protobuf; vg requires **Protobuf 3** which will have to be manually installed.
 
-At present, you will need GCC version 4.9 or greater, with support for C++14, to compile vg. (Check your version with `gcc --version`.)
+At present, you will need GCC version 4.9 or greater, with support for C++14, to compile vg. (Check your version with `gcc --version`.) GCC up to 11.2.0 is supported.
 
 Other libraries may be required. Please report any build difficulties.
 
