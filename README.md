@@ -60,8 +60,8 @@ On other distros, you will need to perform the equivalent of:
 
     sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
                          protobuf-compiler libprotoc-dev libprotobuf-dev libjansson-dev \
-                         automake gettext libtool jq bsdmainutils bc rs parallel npm curl \
-                         unzip redland-utils librdf-dev bison flex gawk lzma-dev \
+                         automake gettext autopoint libtool jq bsdmainutils bc rs parallel \
+                         npm curl unzip redland-utils librdf-dev bison flex gawk lzma-dev \
                          liblzma-dev liblz4-dev libffi-dev libcairo-dev libboost-all-dev
                          
 Note that **Ubuntu 16.04** does not ship a sufficiently new Protobuf; vg requires **Protobuf 3** which will have to be manually installed.
