@@ -1412,7 +1412,7 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
      */
 
     //The last node we saw is initialized to the first node in the chain
-    net_handle_t last_child = distance_index.get_bound(chain_handle, false, true);
+    NodeClusters& last_child = tree_state.all_node_clusters[children_in_chain.front()];
     //These are clusters that we don't want to consider as we walk through the chain but that 
     //we want to remember after we're done with the chain because the left distance is small
     vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> cluster_heads_to_add_again;
@@ -1425,9 +1425,10 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
 
         //The NodeClusters we're currently looking at
         NodeClusters& child_clusters = tree_state.all_node_clusters[child_clusters_i];
+        net_handle_t& child_handle = child_clusters.containing_net_handle;
 
         //If cluster the children here
-        if (distance_index.is_node(child_clusters.containing_net_handle)){
+        if (distance_index.is_node(child_handle)){
             cluster_one_node(tree_state, child_clusters);
         }
 
@@ -1436,7 +1437,6 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
             child_clusters.fragment_best_right > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)) {
             continue;
         }
-        net_handle_t& child_handle = child_clusters.containing_net_handle;
 #ifdef DEBUG_CLUSTER
         cerr << "At child " << distance_index.net_handle_as_string(child_handle) << endl;
 #endif
@@ -1448,14 +1448,6 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
             update_distances_on_same_child(child_clusters);
         }
 
-
-        //The distance from the right side of the last child to the left side of this child 
-        //(relative to the orientation of the chain
-        size_t distance_from_last_child_to_current_child = i==0 ? std::numeric_limits<size_t>::max() :
-            distance_index.distance_in_parent(chain_handle, 
-                distance_index.is_reversed_in_parent(last_child) ? distance_index.flip(last_child) : last_child,
-                distance_index.is_reversed_in_parent(child_handle) ? child_handle : distance_index.flip(child_handle));
-
         //The distance from the start of the chain to the left side of the current node, which is the
         //distance needed to update the clusters in the child to the start of the chain
         //Note: cluster_one_snarl() sets the start and end bounds of the net_handle_t so the prefix sum values, 
@@ -1463,20 +1455,62 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
         size_t distance_from_chain_start_to_current_node = distance_index.distance_to_parent_bound(chain_handle, true, child_handle, 
                         !distance_index.is_reversed_in_parent(child_handle));
 
+        size_t distance_from_chain_start_to_last_node = SnarlDistanceIndex::sum({
+            distance_index.distance_to_parent_bound(chain_handle, true, last_child.containing_net_handle, 
+                        !distance_index.is_reversed_in_parent(last_child.containing_net_handle)),
+            distance_index.minimum_length(last_child.containing_net_handle)});
+
+        //The distance from the right side of the last child to the left side of this child 
+        //(relative to the orientation of the chain
+        //If this is a looping chain, then find the distance normally. Otherwise use the prefix sums
+
+        //TODO: OLd method
+        size_t distance_from_last_child_to_current_child = i==0 ? std::numeric_limits<size_t>::max() :
+                 distance_index.distance_in_parent(chain_handle, 
+                        distance_index.is_reversed_in_parent(last_child.containing_net_handle) ? distance_index.flip(last_child.containing_net_handle) : last_child.containing_net_handle,
+                        distance_index.is_reversed_in_parent(child_handle) ? child_handle : distance_index.flip(child_handle));
+        /*
+        size_t distance_from_last_child_to_current_child = i==0 ? std::numeric_limits<size_t>::max() :
+            ( chain_clusters.is_looping_chain 
+                ? distance_index.distance_in_parent(chain_handle, 
+                        distance_index.is_reversed_in_parent(last_child.containing_net_handle) ? distance_index.flip(last_child.containing_net_handle) : last_child.containing_net_handle,
+                        distance_index.is_reversed_in_parent(child_handle) ? child_handle : distance_index.flip(child_handle))
+                : SnarlDistanceIndex::minus(distance_from_chain_start_to_current_node, distance_from_chain_start_to_last_node));
+         */
+
+
         //The distance from the right side of the last child to the right side of this child, which is
         //the distance we need to update the chain clusters to the end of this child
         //This isn't quite right for the first thing in the chain but it doesn't matter because it only
         //gets added to chain clusters
         size_t distance_from_last_child_to_current_end = SnarlDistanceIndex::sum({distance_from_last_child_to_current_child ,
                  distance_index.minimum_length(child_handle)});
+
         //The distance to add to get to the end of the chain. Only matters if this is the last thing in the chain
         //The distances will include the distance to the end of a trivial chain,
         //so we can't rely on distance_to_parent_bound to know when the distance should be 0
+
+        //TODO: Old method
         size_t distance_from_current_end_to_end_of_chain = 
                      (i != children_in_chain.size() - 1 || 
                      SnarlDistanceIndex::get_record_offset(child_handle) == SnarlDistanceIndex::get_record_offset(distance_index.get_bound(chain_handle, true, false))) 
                      ? 0
                      : distance_index.distance_to_parent_bound(chain_handle, false, child_handle, distance_index.is_reversed_in_parent(child_handle));
+        /*
+        size_t distance_from_current_end_to_end_of_chain;
+        if (i != children_in_chain.size() - 1 || 
+                     SnarlDistanceIndex::get_record_offset(child_handle) == SnarlDistanceIndex::get_record_offset(distance_index.get_bound(chain_handle, true, false))) {
+            distance_from_current_end_to_end_of_chain = 0;
+        } else if (chain_clusters.is_looping_chain) {
+            distance_from_current_end_to_end_of_chain = distance_index.distance_to_parent_bound(chain_handle, false, child_handle, distance_index.is_reversed_in_parent(child_handle));
+        } else if (chain_clusters.chain_last_component != distance_index.get_chain_component((distance_index.is_snarl(child_handle) ? distance_index.get_node_from_sentinel(distance_index.get_bound(child_handle, !distance_index.is_reversed_in_parent(child_handle), false)) : child_handle))) { 
+            //If they aren't in the same component
+            distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
+        } else {
+            distance_from_current_end_to_end_of_chain = SnarlDistanceIndex::minus(chain_clusters.chain_length, 
+                            SnarlDistanceIndex::sum({distance_from_chain_start_to_current_node, distance_index.minimum_length(child_handle)}));
+        }
+        */
 
 #ifdef DEBUG_CLUSTER
 cerr << "\tDistance from last child to this one: " << distance_from_last_child_to_current_child << endl;
@@ -1714,7 +1748,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
         
 
         //Update the last node we saw to this one
-        last_child = child_handle;
+        last_child = child_clusters;
 
 #ifdef DEBUG_CLUSTER
     cerr << "\tintermediate clusters on " << distance_index.net_handle_as_string(chain_handle) << " after child " << distance_index.net_handle_as_string(child_handle) << endl;
@@ -1860,7 +1894,7 @@ void NewSnarlSeedClusterer::cluster_root(TreeState& tree_state) const {
 #endif
 
     //Keep track of all clusters on the root
-    NodeClusters root_clusters(distance_index.get_root(), tree_state.all_seeds->size());
+    NodeClusters root_clusters(distance_index.get_root(), tree_state.all_seeds->size(), distance_index);
 
     vector<vector<pair<size_t, size_t>>> child_distances (tree_state.all_seeds->size());
     for (size_t i = 0 ; i < tree_state.all_seeds->size() ; i++) {
@@ -1888,8 +1922,8 @@ void NewSnarlSeedClusterer::cluster_root(TreeState& tree_state) const {
                  << distance_index.net_handle_as_string(child_clusters_i.containing_net_handle) << " and " 
                  << distance_index.net_handle_as_string(child_clusters_j.containing_net_handle) << endl;
 #endif
-            if (distance_index.get_record_offset(child_clusters_i.containing_net_handle) 
-                    == distance_index.get_record_offset(child_clusters_j.containing_net_handle)) {
+            if (distance_index.get_record_offset(distance_index.get_parent(child_clusters_i.containing_net_handle)) 
+                    == distance_index.get_record_offset(distance_index.get_parent(child_clusters_j.containing_net_handle))) {
 
 
                 compare_and_combine_cluster_on_child_structures(tree_state, child_clusters_i,
@@ -1926,7 +1960,7 @@ void NewSnarlSeedClusterer::add_child_to_vector(TreeState& tree_state, hash_map<
         //If we haven't seen the parent before
 
         //Make a new NodeClusters for the parent
-        tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size());
+        tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(), distance_index);
 
         //Add the parent to the map
         parent_to_child_map.emplace(parent, 

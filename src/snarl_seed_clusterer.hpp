@@ -97,10 +97,16 @@ class NewSnarlSeedClusterer {
             //The snarl tree node that the clusters are on
             net_handle_t containing_net_handle; 
 
-            //Only set these for nodes
+            //Only set these for nodes or snarls in chains
             nid_t node_id = 0;
-            bool is_reversed_in_parent = false;;
+            bool is_reversed_in_parent = false;
+            size_t node_length = 0;
+            size_t prefix_sum_value = std::numeric_limits<size_t>::max();
 
+            //Only set this one for a chain
+            bool is_looping_chain = false;
+            size_t chain_length = std::numeric_limits<size_t>::max();
+            size_t chain_last_component = std::numeric_limits<size_t>::max();
             
 
             //set of the indices of heads of clusters (group ids in the 
@@ -125,11 +131,17 @@ class NewSnarlSeedClusterer {
 
             //Constructor
             //read_count is the number of reads in a fragment (2 for paired end)
-            NodeClusters( net_handle_t net, size_t read_count) :
+            NodeClusters( net_handle_t net, size_t read_count, const SnarlDistanceIndex& distance_index) :
                 containing_net_handle(std::move(net)),
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
                 read_best_left(read_count, std::numeric_limits<size_t>::max()), 
-                read_best_right(read_count, std::numeric_limits<size_t>::max()){}
+                read_best_right(read_count, std::numeric_limits<size_t>::max()){
+                if (distance_index.is_chain(containing_net_handle) && !distance_index.is_trivial_chain(containing_net_handle)) {
+                    is_looping_chain = distance_index.is_looping_chain(containing_net_handle);
+                    chain_length = distance_index.minimum_length(containing_net_handle);
+                    chain_last_component = distance_index.get_chain_component(distance_index.get_bound(containing_net_handle, true, false));
+                }
+            }
             NodeClusters( net_handle_t net, size_t read_count, bool is_reversed_in_parent, nid_t node_id) :
                 containing_net_handle(net),
                 is_reversed_in_parent(is_reversed_in_parent),
