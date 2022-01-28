@@ -16,6 +16,7 @@
 #include "../haplotype_indexer.hpp"
 #include "../path.hpp"
 #include "../region.hpp"
+#include "../algorithms/find_translation.hpp"
 
 #include <vg/io/vpkg.hpp>
 
@@ -1318,7 +1319,7 @@ void step_5_gbwtgraph(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& conf
         if (config.show_progress) {
             std::cerr << "Starting the construction" << std::endl;
         }
-        graph = gbwtgraph::GBWTGraph(gbwts.compressed, *(graphs.path_graph));
+        graph = gbwtgraph::GBWTGraph(gbwts.compressed, *(graphs.path_graph), vg::algorithms::find_translation(graphs.path_graph.get()));
     }
     if (config.gbz_format) {
         save_gbz(gbwts.compressed, graph, config.graph_output, config.show_progress);

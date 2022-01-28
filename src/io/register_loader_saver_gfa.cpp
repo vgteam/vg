@@ -101,10 +101,10 @@ void register_loader_saver_gfa() {
         
             if (!filename.empty() && filename != "-") {
                 // Load it from a file
-                algorithms::gfa_to_path_handle_graph(filename, gfa_graph);
+                algorithms::gfa_to_path_handle_graph(filename, gfa_graph, &gfa_graph->gfa_id_space);
             } else {
                 // Load it from the stream, falling back to temp file if necessary
-                algorithms::gfa_to_path_handle_graph_stream(input, gfa_graph);
+                algorithms::gfa_to_path_handle_graph_stream(input, gfa_graph, &gfa_graph->gfa_id_space);
             }
         
         } catch (algorithms::GFAFormatError& e) {

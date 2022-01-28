@@ -1,13 +1,12 @@
-#ifndef VG_SURJECTING_ALIGNMENT_EMITTER_HPP_INCLUDED
-#define VG_SURJECTING_ALIGNMENT_EMITTER_HPP_INCLUDED
+#ifndef VG_BACK_TRANSLATING_ALIGNMENT_EMITTER_HPP_INCLUDED
+#define VG_BACK_TRANSLATING_ALIGNMENT_EMITTER_HPP_INCLUDED
 
 /** \file
  *
- * Holds a surjecting wrapper AlignmentEmitter.
+ * Holds a back-translating wrapper AlignmentEmitter.
  */
 
 
-#include "surjector.hpp"
 #include "vg/io/alignment_emitter.hpp"
 #include "handle.hpp"
 
@@ -20,27 +19,21 @@ namespace vg {
 using namespace std;
                                                                            
 /**
- * An AlignmentEmitter implementation that surjects alignments before emitting them via a backing AlignmentEmitter, which it owns.
+ * An AlignmentEmitter implementation that translates alignments into
+ * named-segment space coordinates before emitting them via a backing
+ * AlignmentEmitter, which it owns.
  */
-class SurjectingAlignmentEmitter : public vg::io::AlignmentEmitter {
+class BackTranslatingAlignmentEmitter : public vg::io::AlignmentEmitter {
 public:
     
     /**
-     * Surject alignments using the given graph, into the given paths, and send them to the given AlignmentEmitter.
+     * Make an alignment emitter that translates alignments using the given
+     * translation and emits them to the given backing AlignmentEmitter.
      * Takes ownership of the AlignmentEmitter.
-     * Copies the set of paths.
-     *
-     * If prune_suspicious_anchors is set, prunes out repetitive-looking
-     * anchors when surjecting and lets those parts of reads be realigned.
      */
-    SurjectingAlignmentEmitter(const PathPositionHandleGraph* graph,
-        unordered_set<path_handle_t> paths, unique_ptr<AlignmentEmitter>&& backing,
-        bool prune_suspicious_anchors = false);
+    BackTranslatingAlignmentEmitter(const NamedNodeBackTranslation* translation,
+        unique_ptr<AlignmentEmitter>&& backing);
    
-    ///  Force full length alignment in surjection resolution 
-    bool surject_subpath_global = true;
-    
-    
     /// Emit a batch of Alignments
     virtual void emit_singles(vector<Alignment>&& aln_batch);
     /// Emit batch of Alignments with secondaries. All secondaries must have is_secondary set already.
@@ -62,21 +55,14 @@ public:
         vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch);
     
 protected:
-    /// Surjector used to do the surjection
-    Surjector surjector;
+    /// Translation to use to translate node IDs to pieces of named segments.
+    const NamedNodeBackTranslation* translation;
 
-    /// Paths to surject into
-    unordered_set<path_handle_t> paths;
-    
     /// AlignmentEmitter to emit to once done
     unique_ptr<AlignmentEmitter> backing;
     
-    /// Surject alignments in place.
-    void surject_alignments_in_place(vector<Alignment>& alns) const;
-    
-    
-    
-    
+    /// Back-translate alignments in place.
+    void back_translate_alignments_in_place(vector<Alignment>& alns) const;
 };
 
 }

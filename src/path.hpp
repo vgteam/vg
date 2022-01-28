@@ -304,6 +304,11 @@ Path simplify(const Path& p, bool trim_internal_deletions = true);
 /// actually set.
 Mapping simplify(const Mapping& m, bool trim_internal_deletions = true);
 
+/// Return true if two edits could be combined into one (assuming adjacency).
+bool edits_are_compatible(const Edit& e, const Edit& f);
+/// Glom the second edit into the first, assuming adjacency.
+void merge_edits_in_place(Edit& e, const Edit& f);
+
 /// Merge adjacent edits of the same type
 Path merge_adjacent_edits(const Path& m);
 /// Merge adjacent edits of the same type

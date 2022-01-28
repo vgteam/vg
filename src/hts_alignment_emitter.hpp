@@ -28,7 +28,7 @@ using namespace std;
 using namespace vg::io;
 
 /**
- * Flag enum for controlling the behavior of alignment emiotters behind get_alignment_emitter().
+ * Flag enum for controlling the behavior of alignment emitters behind get_alignment_emitter().
  */
 enum alignment_emitter_flags_t {
     /// Value for no flags set.
@@ -41,7 +41,10 @@ enum alignment_emitter_flags_t {
     ALIGNMENT_EMITTER_FLAG_HTS_SPLICED = 2,
     /// When surjecting, discard low-complexity anchors and realign more freely
     /// against the target path.
-    ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS = 4
+    ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS = 4,
+    /// Emit graph alignments in named segment (i.e. GFA space) instead of
+    /// numerical node ID space.
+    ALIGNMENT_EMITTER_FLAG_VG_USE_SEGMENT_NAMES = 8
 };
 
 /// Get an AlignmentEmitter that can emit to the given file (or "-") in the
