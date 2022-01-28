@@ -19,6 +19,21 @@ using namespace std;
  */
 void back_translate_in_place(const NamedNodeBackTranslation* translation, Path& path);
 
+/**
+ * Translate the given Snarl in place from node ID space to named segment space.
+ */
+void back_translate_in_place(const NamedNodeBackTranslation* translation, Snarl& snarl);
+
+/**
+ * Translate the given SnarlTraversal in place from node ID space to named segment space.
+ */
+void back_translate_in_place(const NamedNodeBackTranslation* translation, SnarlTraversal& traversal);
+
+/**
+ * Translate the given Visit in place from node ID space to named segment space.
+ */
+void back_translate_in_place(const NamedNodeBackTranslation* translation, Visit& visit);
+
 }
 }
 
