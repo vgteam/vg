@@ -81,13 +81,14 @@ Inheritance diagram for vg::io::AlignmentEmitter:</div>
  <div class="center">
   <img src="classvg_1_1io_1_1AlignmentEmitter.png" usemap="#vg::io::AlignmentEmitter_map" alt=""/>
   <map id="vg::io::AlignmentEmitter_map" name="vg::io::AlignmentEmitter_map">
-<area href="classvg_1_1HTSAlignmentEmitter.html" alt="vg::HTSAlignmentEmitter" shape="rect" coords="0,56,191,80"/>
-<area href="classvg_1_1io_1_1GafAlignmentEmitter.html" alt="vg::io::GafAlignmentEmitter" shape="rect" coords="201,56,392,80"/>
-<area href="classvg_1_1io_1_1NullAlignmentEmitter.html" alt="vg::io::NullAlignmentEmitter" shape="rect" coords="402,56,593,80"/>
-<area href="classvg_1_1io_1_1TSVAlignmentEmitter.html" alt="vg::io::TSVAlignmentEmitter" shape="rect" coords="603,56,794,80"/>
-<area href="classvg_1_1io_1_1VGAlignmentEmitter.html" alt="vg::io::VGAlignmentEmitter" shape="rect" coords="804,56,995,80"/>
-<area href="classvg_1_1SurjectingAlignmentEmitter.html" alt="vg::SurjectingAlignmentEmitter" shape="rect" coords="1005,56,1196,80"/>
-<area href="classvg_1_1SplicedHTSAlignmentEmitter.html" alt="vg::SplicedHTSAlignmentEmitter" shape="rect" coords="0,112,191,136"/>
+<area href="classvg_1_1BackTranslatingAlignmentEmitter.html" alt="vg::BackTranslatingAlignmentEmitter" shape="rect" coords="0,56,215,80"/>
+<area href="classvg_1_1HTSAlignmentEmitter.html" alt="vg::HTSAlignmentEmitter" shape="rect" coords="225,56,440,80"/>
+<area href="classvg_1_1io_1_1GafAlignmentEmitter.html" alt="vg::io::GafAlignmentEmitter" shape="rect" coords="450,56,665,80"/>
+<area href="classvg_1_1io_1_1NullAlignmentEmitter.html" alt="vg::io::NullAlignmentEmitter" shape="rect" coords="675,56,890,80"/>
+<area href="classvg_1_1io_1_1TSVAlignmentEmitter.html" alt="vg::io::TSVAlignmentEmitter" shape="rect" coords="900,56,1115,80"/>
+<area href="classvg_1_1io_1_1VGAlignmentEmitter.html" alt="vg::io::VGAlignmentEmitter" shape="rect" coords="1125,56,1340,80"/>
+<area href="classvg_1_1SurjectingAlignmentEmitter.html" alt="vg::SurjectingAlignmentEmitter" shape="rect" coords="1350,56,1565,80"/>
+<area href="classvg_1_1SplicedHTSAlignmentEmitter.html" alt="vg::SplicedHTSAlignmentEmitter" shape="rect" coords="225,112,440,136"/>
   </map>
 </div></div>
 <table class="memberdecls">
@@ -236,7 +237,7 @@ Public Member Functions</h2></td></tr>
 <p>Emit the mappings of a batch of pairs of Alignments. All secondaries must have is_secondary set already. The tlen_limit_batch, if specified, is the maximum pairing distance for each pair to flag properly paired, if the output format cares about such things. TODO: Move to a properly paired annotation that runs with the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>.</p>
 <p>Both ends of each pair must have the same number of mappings. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html#a7f9275cb4115e8ea629a8c58f468ac66">vg::io::GafAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a144167b8b9b973a113beb3950d8f64e7">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1VGAlignmentEmitter.html#a16ef4e377610cdf7678faa0564aa83fa">vg::io::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1TSVAlignmentEmitter.html#ab2ead89927010b48bcc8788f6dc71445">vg::io::TSVAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1NullAlignmentEmitter.html#a9cf86d953fb199dc1be11a4a18020299">vg::io::NullAlignmentEmitter</a>, and <a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a5f3a358a96878a701407a648dd925b28">vg::SurjectingAlignmentEmitter</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a144167b8b9b973a113beb3950d8f64e7">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html#a7f9275cb4115e8ea629a8c58f468ac66">vg::io::GafAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1VGAlignmentEmitter.html#a16ef4e377610cdf7678faa0564aa83fa">vg::io::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1TSVAlignmentEmitter.html#ab2ead89927010b48bcc8788f6dc71445">vg::io::TSVAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1NullAlignmentEmitter.html#a9cf86d953fb199dc1be11a4a18020299">vg::io::NullAlignmentEmitter</a>, <a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a5f3a358a96878a701407a648dd925b28">vg::SurjectingAlignmentEmitter</a>, and <a class="el" href="classvg_1_1BackTranslatingAlignmentEmitter.html#a2e0b48b26e6563de0728055ee80947f4">vg::BackTranslatingAlignmentEmitter</a>.</p>
 
 </div>
 </div>
@@ -294,7 +295,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Emit batch of Alignments with secondaries. All secondaries must have is_secondary set already. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html#a4762f418851fc7aac06333590e51ade2">vg::io::GafAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a3137223a14396af5a6284830c716b943">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1VGAlignmentEmitter.html#a6e54f94f8e7e772b3d98aa51deb8723e">vg::io::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1TSVAlignmentEmitter.html#adcda781ada60a6d3116f5a7bc57ae513">vg::io::TSVAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1NullAlignmentEmitter.html#ab4da7694c104089d8f25b715aedb76bc">vg::io::NullAlignmentEmitter</a>, and <a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a96d4bea40f617e8083c732ce3ce6d9f8">vg::SurjectingAlignmentEmitter</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a3137223a14396af5a6284830c716b943">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html#a4762f418851fc7aac06333590e51ade2">vg::io::GafAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1VGAlignmentEmitter.html#a6e54f94f8e7e772b3d98aa51deb8723e">vg::io::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1TSVAlignmentEmitter.html#adcda781ada60a6d3116f5a7bc57ae513">vg::io::TSVAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1NullAlignmentEmitter.html#ab4da7694c104089d8f25b715aedb76bc">vg::io::NullAlignmentEmitter</a>, <a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a96d4bea40f617e8083c732ce3ce6d9f8">vg::SurjectingAlignmentEmitter</a>, and <a class="el" href="classvg_1_1BackTranslatingAlignmentEmitter.html#abe1c7762c88dd018e0e949afdfce33b1">vg::BackTranslatingAlignmentEmitter</a>.</p>
 
 </div>
 </div>
@@ -382,7 +383,7 @@ Public Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Emit a batch of pairs of Alignments. The tlen_limit_batch, if specified, is the maximum pairing distance for ewch pair to flag properly paired, if the output format cares about such things. TODO: Move to a properly paired annotation that runs with the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html#affa85e71afb3d28d219a0cce2703e45e">vg::io::GafAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a6c2dbcf61c25fe6646b6753d51b73771">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1VGAlignmentEmitter.html#a72a72eef5e85e422acdfacb788bee8d0">vg::io::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1TSVAlignmentEmitter.html#a57c0cd7c8a5bd41a358de2430ca40e5f">vg::io::TSVAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1NullAlignmentEmitter.html#a2313d024a104c2771531a6e2a725b0e1">vg::io::NullAlignmentEmitter</a>, and <a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#ac053805811c71dfffc31eb3decab4279">vg::SurjectingAlignmentEmitter</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a6c2dbcf61c25fe6646b6753d51b73771">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html#affa85e71afb3d28d219a0cce2703e45e">vg::io::GafAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1VGAlignmentEmitter.html#a72a72eef5e85e422acdfacb788bee8d0">vg::io::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1TSVAlignmentEmitter.html#a57c0cd7c8a5bd41a358de2430ca40e5f">vg::io::TSVAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1NullAlignmentEmitter.html#a2313d024a104c2771531a6e2a725b0e1">vg::io::NullAlignmentEmitter</a>, <a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#ac053805811c71dfffc31eb3decab4279">vg::SurjectingAlignmentEmitter</a>, and <a class="el" href="classvg_1_1BackTranslatingAlignmentEmitter.html#a37bb7f41cd3d94ee37b837e5254d2122">vg::BackTranslatingAlignmentEmitter</a>.</p>
 
 </div>
 </div>
@@ -440,7 +441,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Emit a batch of Alignments. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html#a2b4af0175e6a6b928d77bc2ab9085e17">vg::io::GafAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a90e671da1b62eebf423f95c01a865fdd">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1VGAlignmentEmitter.html#ac8b4fed94e74172899ba065cc3f8ce5d">vg::io::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1TSVAlignmentEmitter.html#aef4194a290204811292491db459d49d1">vg::io::TSVAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1NullAlignmentEmitter.html#a83b9c08b6d394dccbd7321f0b75294fe">vg::io::NullAlignmentEmitter</a>, and <a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a60e0c7fa81a98961a04bfaa42dc8e3af">vg::SurjectingAlignmentEmitter</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a90e671da1b62eebf423f95c01a865fdd">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html#a2b4af0175e6a6b928d77bc2ab9085e17">vg::io::GafAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1VGAlignmentEmitter.html#ac8b4fed94e74172899ba065cc3f8ce5d">vg::io::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1TSVAlignmentEmitter.html#aef4194a290204811292491db459d49d1">vg::io::TSVAlignmentEmitter</a>, <a class="el" href="classvg_1_1io_1_1NullAlignmentEmitter.html#a83b9c08b6d394dccbd7321f0b75294fe">vg::io::NullAlignmentEmitter</a>, <a class="el" href="classvg_1_1SurjectingAlignmentEmitter.html#a60e0c7fa81a98961a04bfaa42dc8e3af">vg::SurjectingAlignmentEmitter</a>, and <a class="el" href="classvg_1_1BackTranslatingAlignmentEmitter.html#a7a9bacd81bff0b873c4449e2fe698305">vg::BackTranslatingAlignmentEmitter</a>.</p>
 
 </div>
 </div>

@@ -224,8 +224,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a7a5dbc95fa80e7fe3dc04d62ac6d7b3c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0b4fa1970f08f3e4d0cf2f8c33a967a5"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a0b4fa1970f08f3e4d0cf2f8c33a967a5">optimize</a> (bool allow_id_reassignment=true)</td></tr>
 <tr class="separator:a0b4fa1970f08f3e4d0cf2f8c33a967a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7c07df5ff863bab2c096cd58a8350f37"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a7c07df5ff863bab2c096cd58a8350f37">apply_ordering</a> (const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;order, bool <a class="el" href="classvg_1_1VG.html#a161ef56bd0eeee937602f60b8617f24d">compact_ids</a>=false)</td></tr>
-<tr class="separator:a7c07df5ff863bab2c096cd58a8350f37"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af87ad4202f541fd560d67badcde09610"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#af87ad4202f541fd560d67badcde09610">apply_ordering</a> (const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;order, bool <a class="el" href="classvg_1_1VG.html#a161ef56bd0eeee937602f60b8617f24d">compact_ids</a>=false)</td></tr>
+<tr class="separator:af87ad4202f541fd560d67badcde09610"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aebe71b82645b85e73342366cea0a4549"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#aebe71b82645b85e73342366cea0a4549">set_id_increment</a> (const <a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a> &amp;min_id)</td></tr>
 <tr class="memdesc:aebe71b82645b85e73342366cea0a4549"><td class="mdescLeft">&#160;</td><td class="mdescRight">No-op function (required by MutableHandleGraph interface)  <a href="classvg_1_1VG.html#aebe71b82645b85e73342366cea0a4549">More...</a><br /></td></tr>
 <tr class="separator:aebe71b82645b85e73342366cea0a4549"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2433,8 +2433,8 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a id="a7c07df5ff863bab2c096cd58a8350f37"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7c07df5ff863bab2c096cd58a8350f37">&#9670;&nbsp;</a></span>apply_ordering()</h2>
+<a id="af87ad4202f541fd560d67badcde09610"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af87ad4202f541fd560d67badcde09610">&#9670;&nbsp;</a></span>apply_ordering()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2443,7 +2443,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::VG::apply_ordering </td>
+          <td class="memname">bool vg::VG::apply_ordering </td>
           <td>(</td>
           <td class="paramtype">const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>order</em>, </td>
@@ -2466,9 +2466,9 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Reorder the graph's internal structure to match that given. This sets the order that is used for iteration in functions like for_each_handle. Optionally compact the id space of the graph to match the ordering, from 1-&gt;|ordering|. This may be a no-op in the case of graph implementations that do not have any mechanism to maintain an ordering. </p>
+<p>Reorder the graph's internal structure to match that given. This sets the order that is used for iteration in functions like for_each_handle. If compact_ids is true, may (but will not necessarily) compact the id space of the graph to match the ordering, from 1-&gt;|ordering|. In other cases, node IDs will be preserved. This may be a no-op in the case of graph implementations that do not have any mechanism to maintain an ordering. This may invalidate outstanding handles. Returns true if node IDs actually were adjusted to match the given order, and false if they remain unchanged. </p>
 
-<p>Implements <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a7e14ea0ae201ba87934559ecbd3a2981">handlegraph::MutableHandleGraph</a>.</p>
+<p>Implements <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a588935d58708b33bc66014b254393940">handlegraph::MutableHandleGraph</a>.</p>
 
 </div>
 </div>

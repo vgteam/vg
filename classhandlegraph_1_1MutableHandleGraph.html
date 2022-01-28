@@ -113,8 +113,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a05c38787f0ff4a2695e61d98cb402175"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a195c81fa446b62d94fda8841eaa3bb85"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a195c81fa446b62d94fda8841eaa3bb85">optimize</a> (bool allow_id_reassignment=true)=0</td></tr>
 <tr class="separator:a195c81fa446b62d94fda8841eaa3bb85"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7e14ea0ae201ba87934559ecbd3a2981"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a7e14ea0ae201ba87934559ecbd3a2981">apply_ordering</a> (const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;order, bool compact_ids=false)=0</td></tr>
-<tr class="separator:a7e14ea0ae201ba87934559ecbd3a2981"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a588935d58708b33bc66014b254393940"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a588935d58708b33bc66014b254393940">apply_ordering</a> (const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;order, bool compact_ids=false)=0</td></tr>
+<tr class="separator:a588935d58708b33bc66014b254393940"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab844ab426cd9f289414aca4d8b892ca9"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#ab844ab426cd9f289414aca4d8b892ca9">set_id_increment</a> (const <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> &amp;min_id)=0</td></tr>
 <tr class="separator:ab844ab426cd9f289414aca4d8b892ca9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a902b211a1f86645818b3da1cb64af0be"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a902b211a1f86645818b3da1cb64af0be">increment_node_ids</a> (<a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a> increment)</td></tr>
@@ -223,8 +223,8 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a7e14ea0ae201ba87934559ecbd3a2981"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7e14ea0ae201ba87934559ecbd3a2981">&#9670;&nbsp;</a></span>apply_ordering()</h2>
+<a id="a588935d58708b33bc66014b254393940"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a588935d58708b33bc66014b254393940">&#9670;&nbsp;</a></span>apply_ordering()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -233,7 +233,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual void handlegraph::MutableHandleGraph::apply_ordering </td>
+          <td class="memname">virtual bool handlegraph::MutableHandleGraph::apply_ordering </td>
           <td>(</td>
           <td class="paramtype">const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>order</em>, </td>
@@ -256,9 +256,9 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Reorder the graph's internal structure to match that given. This sets the order that is used for iteration in functions like for_each_handle. Optionally may compact the id space of the graph to match the ordering, from 1-&gt;|ordering|. This may be a no-op in the case of graph implementations that do not have any mechanism to maintain an ordering. </p>
+<p>Reorder the graph's internal structure to match that given. This sets the order that is used for iteration in functions like for_each_handle. If compact_ids is true, may (but will not necessarily) compact the id space of the graph to match the ordering, from 1-&gt;|ordering|. In other cases, node IDs will be preserved. This may be a no-op in the case of graph implementations that do not have any mechanism to maintain an ordering. This may invalidate outstanding handles. Returns true if node IDs actually were adjusted to match the given order, and false if they remain unchanged. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#a7c07df5ff863bab2c096cd58a8350f37">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1VG.html#af87ad4202f541fd560d67badcde09610">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -455,7 +455,7 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Split a handle's underlying node at the given offsets in the handle's orientation. Returns all of the handles to the parts. Other handles to the node being split may be invalidated. The split pieces stay in the same local forward orientation as the original node, but the returned handles come in the order and orientation appropriate for the handle passed in. Updates stored paths. </p>
+<p>Split a handle's underlying node at the given offsets in the handle's orientation. Returns all of the handles to the parts. Other handles to the node being split may be invalidated. The split pieces stay in the same local forward orientation as the original node, but the returned handles come in the order and orientation appropriate for the handle passed in. Updates stored paths. This invalidates the passed handles, but not other handles. </p>
 
 </div>
 </div>
@@ -577,7 +577,7 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Adjust the representation of the graph in memory to improve performance. Optionally, allow the node IDs to be reassigned to further improve performance. Note: Ideally, this method is called one time once there is expected to be few graph modifications in the future. </p>
+<p>Adjust the representation of the graph in memory to improve performance. Optionally, allow the node IDs to be reassigned to further improve performance. Note: Ideally, this method is called one time once there is expected to be few graph modifications in the future. This may invalidate outstanding handles. </p>
 
 <p>Implemented in <a class="el" href="classvg_1_1VG.html#a0b4fa1970f08f3e4d0cf2f8c33a967a5">vg::VG</a>.</p>
 

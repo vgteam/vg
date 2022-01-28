@@ -77,12 +77,15 @@ $(function() {
 <div class="textblock"><code>#include &lt;iostream&gt;</code><br />
 <code>#include &lt;gfakluge.hpp&gt;</code><br />
 <code>#include &lt;cctype&gt;</code><br />
+<code>#include &lt;vector&gt;</code><br />
 <code>#include &quot;<a class="el" href="handle_8hpp.html">../handle.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html">vg::algorithms::GFAFormatError</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">This exception will be thrown if the GFA data is not acceptable.  <a href="structvg_1_1algorithms_1_1GFAFormatError.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">vg::algorithms::GFAIDMapInfo</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
@@ -94,15 +97,21 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a8194e04205a92cfa790677c5b5a573c7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a8194e04205a92cfa790677c5b5a573c7">vg::algorithms::gfa_to_handle_graph</a> (const string &amp;filename, MutableHandleGraph *graph, bool try_from_disk, bool try_id_increment_hint, const string &amp;translation_filename)</td></tr>
-<tr class="separator:a8194e04205a92cfa790677c5b5a573c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad60bda72f70d8544f916e3ebedf96de7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad60bda72f70d8544f916e3ebedf96de7">vg::algorithms::gfa_to_path_handle_graph</a> (const string &amp;filename, MutablePathMutableHandleGraph *graph, bool try_from_disk=true, bool try_id_increment_hint=false, int64_t max_rgfa_rank=numeric_limits&lt; int64_t &gt;::max(), const string &amp;translation_filename=&quot;&quot;)</td></tr>
-<tr class="memdesc:ad60bda72f70d8544f916e3ebedf96de7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Same as gfa_to_handle_graph but also adds path elements from the GFA to the graph.  <a href="namespacevg_1_1algorithms.html#ad60bda72f70d8544f916e3ebedf96de7">More...</a><br /></td></tr>
-<tr class="separator:ad60bda72f70d8544f916e3ebedf96de7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aedfca626dc003dc3fee77c6bbfcde297"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aedfca626dc003dc3fee77c6bbfcde297">vg::algorithms::gfa_to_handle_graph</a> (const string &amp;filename, MutableHandleGraph *graph, GFAIDMapInfo *translation)</td></tr>
+<tr class="separator:aedfca626dc003dc3fee77c6bbfcde297"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adca14b7dcba0bb21f3fdb0c98d867c72"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#adca14b7dcba0bb21f3fdb0c98d867c72">vg::algorithms::gfa_to_handle_graph</a> (const string &amp;filename, MutableHandleGraph *graph, const string &amp;translation_filename)</td></tr>
+<tr class="memdesc:adca14b7dcba0bb21f3fdb0c98d867c72"><td class="mdescLeft">&#160;</td><td class="mdescRight">Overload which serializes its translation to a file internally.  <a href="namespacevg_1_1algorithms.html#adca14b7dcba0bb21f3fdb0c98d867c72">More...</a><br /></td></tr>
+<tr class="separator:adca14b7dcba0bb21f3fdb0c98d867c72"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a34b0719425313a01aa6449398cc9b59e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a34b0719425313a01aa6449398cc9b59e">vg::algorithms::gfa_to_path_handle_graph</a> (const string &amp;filename, MutablePathMutableHandleGraph *graph, GFAIDMapInfo *translation=nullptr, int64_t max_rgfa_rank=numeric_limits&lt; int64_t &gt;::max())</td></tr>
+<tr class="memdesc:a34b0719425313a01aa6449398cc9b59e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Same as gfa_to_handle_graph but also adds path elements from the GFA to the graph.  <a href="namespacevg_1_1algorithms.html#a34b0719425313a01aa6449398cc9b59e">More...</a><br /></td></tr>
+<tr class="separator:a34b0719425313a01aa6449398cc9b59e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad0a8e69161f6693218d98c50c4af6f6b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad0a8e69161f6693218d98c50c4af6f6b">vg::algorithms::gfa_to_path_handle_graph</a> (const string &amp;filename, MutablePathMutableHandleGraph *graph, int64_t max_rgfa_rank, const string &amp;translation_filename)</td></tr>
+<tr class="memdesc:ad0a8e69161f6693218d98c50c4af6f6b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Overload which serializes its translation to a file internally.  <a href="namespacevg_1_1algorithms.html#ad0a8e69161f6693218d98c50c4af6f6b">More...</a><br /></td></tr>
+<tr class="separator:ad0a8e69161f6693218d98c50c4af6f6b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad53437397e1ccba4504154840e34e6d3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad53437397e1ccba4504154840e34e6d3">vg::algorithms::gfa_to_path_handle_graph_in_memory</a> (istream &amp;in, MutablePathMutableHandleGraph *graph, int64_t max_rgfa_rank)</td></tr>
 <tr class="separator:ad53437397e1ccba4504154840e34e6d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4036f0114f73e3c20e42778467f2aec1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a4036f0114f73e3c20e42778467f2aec1">vg::algorithms::gfa_to_path_handle_graph_stream</a> (istream &amp;in, MutablePathMutableHandleGraph *graph, int64_t max_rgfa_rank)</td></tr>
-<tr class="separator:a4036f0114f73e3c20e42778467f2aec1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae1b1ade4fd2e6e30342de0f1749fb7e6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ae1b1ade4fd2e6e30342de0f1749fb7e6">vg::algorithms::gfa_to_path_handle_graph_stream</a> (istream &amp;in, MutablePathMutableHandleGraph *graph, GFAIDMapInfo *translation, int64_t max_rgfa_rank)</td></tr>
+<tr class="separator:ae1b1ade4fd2e6e30342de0f1749fb7e6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3cecfd58955c9e344188230416c931d0"><td class="memItemLeft" align="right" valign="top">tuple&lt; string, string, vector&lt; string &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a3cecfd58955c9e344188230416c931d0">vg::algorithms::parse_gfa_s_line</a> (const string &amp;s_line)</td></tr>
 <tr class="separator:a3cecfd58955c9e344188230416c931d0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab2b4e19a60812ec060d1efed0e8bd687"><td class="memItemLeft" align="right" valign="top">tuple&lt; string, bool, string, bool, vector&lt; string &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ab2b4e19a60812ec060d1efed0e8bd687">vg::algorithms::parse_gfa_l_line</a> (const string &amp;l_line)</td></tr>

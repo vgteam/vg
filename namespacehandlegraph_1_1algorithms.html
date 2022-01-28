@@ -101,6 +101,8 @@ Functions</h2></td></tr>
 <tr class="separator:acc16afc14f0a9dd0a34a4c173b229a4b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a407196811333767aa7f89b7ecc231564"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a407196811333767aa7f89b7ecc231564">unchop</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">MutablePathDeletableHandleGraph</a> &amp;graph)</td></tr>
 <tr class="separator:a407196811333767aa7f89b7ecc231564"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1ff065056c27de74f802ab3e902efc63"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a1ff065056c27de74f802ab3e902efc63">chop</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">MutablePathDeletableHandleGraph</a> &amp;graph, size_t max_node_length, const std::function&lt; void(<a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>, size_t, size_t, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>)&gt; &amp;record_change)</td></tr>
+<tr class="separator:a1ff065056c27de74f802ab3e902efc63"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a56d58f1abfff84945de95e7fc6c72a12"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a56d58f1abfff84945de95e7fc6c72a12">chop</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">MutablePathDeletableHandleGraph</a> &amp;graph, size_t max_node_length)</td></tr>
 <tr class="separator:a56d58f1abfff84945de95e7fc6c72a12"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3031a57a4bd2e9e4f65a1130fe4eb148"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a3031a57a4bd2e9e4f65a1130fe4eb148">copy_handle_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *from, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *into)</td></tr>
@@ -328,7 +330,7 @@ Functions</h2></td></tr>
 </div>
 </div>
 <a id="a56d58f1abfff84945de95e7fc6c72a12"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a56d58f1abfff84945de95e7fc6c72a12">&#9670;&nbsp;</a></span>chop()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a56d58f1abfff84945de95e7fc6c72a12">&#9670;&nbsp;</a></span>chop() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -344,6 +346,40 @@ Functions</h2></td></tr>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
           <td class="paramname"><em>max_node_length</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a1ff065056c27de74f802ab3e902efc63"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1ff065056c27de74f802ab3e902efc63">&#9670;&nbsp;</a></span>chop() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void handlegraph::algorithms::chop </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">MutablePathDeletableHandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_node_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; void(<a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>, size_t, size_t, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>record_change</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
