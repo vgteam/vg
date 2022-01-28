@@ -84,7 +84,7 @@ int main_snarl(int argc, char** argv) {
                 {"top-level", no_argument, 0, 'o'},
                 {"any-snarl-type", no_argument, 0, 'a'},
                 {"max-nodes", required_argument, 0, 'm'},
-                {"named-coordinates", required_argument, 0, 'n'},
+                {"named-coordinates", no_argument, 0, 'n'},
                 {"include-trivial", no_argument, 0, 'T'},
                 {"sort-snarls", no_argument, 0, 's'},
                 {"vcf", required_argument, 0, 'v'},
@@ -201,7 +201,7 @@ int main_snarl(int argc, char** argv) {
     if (named_coordinates) {
         translation = vg::algorithms::find_translation(graph.get());
         if (!translation) {
-            cerr << "error:[vg snarls] Named coordinate otuput (-n) was requested, but the graph does not come with a named coordinate space." << endl;
+            cerr << "error:[vg snarls] Named coordinate output (-n) was requested, but the graph does not come with a named coordinate space." << endl;
             return 1;
         }
     }

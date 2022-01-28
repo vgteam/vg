@@ -106,6 +106,8 @@ void register_loader_saver_gfa() {
                 // Load it from the stream, falling back to temp file if necessary
                 algorithms::gfa_to_path_handle_graph_stream(input, gfa_graph, &gfa_graph->gfa_id_space);
             }
+            // Make sure the node ID to sequence space translation is ready if anybody wants it.
+            gfa_graph->gfa_id_space.invert_translation();
         
         } catch (algorithms::GFAFormatError& e) {
             // There is something wrong with the input GFA file.

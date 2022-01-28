@@ -4,6 +4,7 @@
 
 #include "back_translate.hpp"
 #include "../path.hpp"
+#include "../snarls.hpp"
 
 namespace vg {
 namespace algorithms {
@@ -135,17 +136,39 @@ void back_translate_in_place(const NamedNodeBackTranslation* translation, Snarl&
 
 void back_translate_in_place(const NamedNodeBackTranslation* translation, SnarlTraversal& traversal) {
     vector<size_t> visit_indices_to_remove;
+    // We need to keep track of the last visit actually kept, for coalescing
+    // over dropped snarls that are the artifacts of segment splitting.
+    size_t last_kept_visit = numeric_limits<size_t>::max();
     for (size_t i = 0; i < traversal.visit_size(); i++) {
         // Translate every visit
         Visit& here = *(traversal.mutable_visit(i));
         back_translate_in_place(translation, here);
-        if (i > 0) {
-            const Visit& prev = traversal.visit(i - 1);
-            if (!here.has_snarl() && !prev.has_snarl() && here.name() == prev.name() && here.backward() == prev.backward()) {
-                // These visits can coalesce because they are to the same segment.
+        if (here.has_snarl()) {
+            // We're a visit to a snarl, so we should be elided if we're a
+            // trivial snarl made by breaking a segment.
+            // TODO: We don't account for edits to the graph to insert in the
+            // middle of segments.
+            if (here.snarl().start() == here.snarl().end()) {
+                // This visit must be to a trivial snarl created by breaking the segment, so elide it.
                 visit_indices_to_remove.push_back(i);
+                continue;
+            }
+        } else {
+            // We're a visit to a segment, so we should be elided if we're just
+            // the same visit to a segment as the last thing that isn't getting
+            // dropped.
+            if (last_kept_visit != numeric_limits<size_t>::max()) {
+                const Visit& prev = traversal.visit(last_kept_visit);
+                if (here == prev) {
+                    // These visits can coalesce because they are to the same
+                    // segment and orientation.
+                    visit_indices_to_remove.push_back(i);
+                    continue;
+                }
             }
         }
+        // If we aren't elided, we are a kept visit.
+        last_kept_visit = i;
     }
     
     // Get rid of visits that coalesced away
