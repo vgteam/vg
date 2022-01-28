@@ -757,6 +757,53 @@ namespace unittest {
             REQUIRE( clusters.size() == 1);
         }
     }
+    TEST_CASE( "Loop on first node in a top-level chain","[cluster][bug]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GGGGGGGGGGGG");//12 Gs
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("G");
+        Node* n8 = graph.create_node("CTGA");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n1);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n2, n2);
+        Edge* e5 = graph.create_edge(n3, n4);
+        Edge* e6 = graph.create_edge(n3, n5);
+        Edge* e7 = graph.create_edge(n4, n5);
+        Edge* e8 = graph.create_edge(n5, n6);
+        Edge* e9 = graph.create_edge(n5, n7);
+        Edge* e10 = graph.create_edge(n6, n7);
+        Edge* e11 = graph.create_edge(n7, n8);
+
+        
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex dist_index;
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
+
+        SECTION( "One cluster across top-level snarl" ) {
+            vector<NewSnarlSeedClusterer::Seed> seeds;
+            vector<pos_t> pos_ts;
+            pos_ts.emplace_back(1, false, 0);
+            pos_ts.emplace_back(4, true, 0);
+
+            for (pos_t pos : pos_ts){
+
+                auto chain_info = get_minimizer_distances(dist_index, pos);
+                seeds.push_back({ pos, 0, chain_info});
+            }
+            vector<NewSnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
+
+            REQUIRE( clusters.size() == 1);
+        }
+    }
     TEST_CASE( "Clusters in snarl","[cluster]" ) {
         VG graph;
 
@@ -1905,7 +1952,7 @@ namespace unittest {
     TEST_CASE("Random graphs", "[cluster_random]"){
 
 
-        for (int i = 0; i < 0; i++) {
+        for (int i = 0; i < 1000; i++) {
             // For each random graph
             
             default_random_engine generator(time(NULL));
