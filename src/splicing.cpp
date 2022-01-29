@@ -21,11 +21,13 @@ namespace vg {
 
 SpliceStats::SpliceStats(const GSSWAligner& scorer) {
     
+    // human frequencies from Burset, Seledstov, and Solovyev (2000)
     vector<tuple<string, string, double>> default_motifs{
         {string("GT"), string("AG"), 0.9924},
         {string("GC"), string("AG"), 0.0069},
         {string("AT"), string("AC"), 0.0005}
     };
+    // mixture model trained on gencode v. 29
     vector<double> default_mixture_weights{
         0.056053626960353785,
         0.08887092416144658,
@@ -68,6 +70,10 @@ string SpliceStats::unoriented_motif(size_t motif_num, bool left_side) const {
 
 int32_t SpliceStats::motif_score(size_t motif_num) const {
     return get<2>(motif_data[motif_num]);
+}
+
+double SpliceStats::motif_frequency(size_t motif_num) const {
+    return get<2>(unaltered_motif_data[motif_num / 2]);
 }
 
 int32_t SpliceStats::intron_length_score(int64_t length) const {
