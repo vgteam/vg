@@ -19,6 +19,28 @@ using namespace std;
  */
 void back_translate_in_place(const NamedNodeBackTranslation* translation, Path& path);
 
+/**
+ * Translate the given Snarl in place from node ID space to named segment space.
+ */
+void back_translate_in_place(const NamedNodeBackTranslation* translation, Snarl& snarl);
+
+/**
+ * Translate the given SnarlTraversal in place from node ID space to named
+ * segment space. Visits that end up being to snarls where both boundaries are
+ * from the same orientation of the same segment will be removed. Multiple
+ * visits in a row to the same orientation of the same segment will be elided.
+ *
+ * TODO: Work out a way to preserve traversals around cycles while not
+ * repeating ourselves for visits to diffrent pieces of the same chopped
+ * segment.
+ */
+void back_translate_in_place(const NamedNodeBackTranslation* translation, SnarlTraversal& traversal);
+
+/**
+ * Translate the given Visit in place from node ID space to named segment space.
+ */
+void back_translate_in_place(const NamedNodeBackTranslation* translation, Visit& visit);
+
 }
 }
 

@@ -43,7 +43,7 @@ struct GFAIDMapInfo : public NamedNodeBackTranslation {
     unique_ptr<unordered_map<nid_t, const std::string*>> id_to_name;
     
     /**
-     * Prepare thr backing data structures for get_back_graph_node_name(). Call after name_to_id is complete.
+     * Prepare the backing data structures for get_back_graph_node_name(). Call after name_to_id is complete.
      */
     void invert_translation();
     

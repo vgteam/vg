@@ -4,11 +4,39 @@
 
 #include "back_translate.hpp"
 #include "../path.hpp"
+#include "../snarls.hpp"
 
 namespace vg {
 namespace algorithms {
 
 using namespace std;
+
+/**
+ * Erase the items at the given indices in the given Protobuf repeated pointer field.
+ */
+template<typename RepeatedPtrField>
+static void erase_at(RepeatedPtrField* field, const vector<size_t>& sorted_indices_to_remove) {
+    if (sorted_indices_to_remove.empty()) {
+        // We don't need to do anything.
+        return;
+    }
+    
+    // This is how many slots ahead we are reading to write the current slot.
+    // It's also (1+) the cursor in sorted_indices_to_remove
+    size_t slots_ahead = 1;
+    for (size_t i = sorted_indices_to_remove[slots_ahead - 1]; i + sorted_indices_to_remove.size() < field->size(); i++) {
+        // We're at a slot that will need to be filled in the output.
+        while (slots_ahead < sorted_indices_to_remove.size() && i + slots_ahead == sorted_indices_to_remove[slots_ahead]) {
+            // Slide copy source ahead until it stops being the next thing to skip.
+            slots_ahead++;
+        }
+        // Overwrite the item here with the item that is supposed to be here.
+        // We use a swap so we don't have to actually copy any item data, just pointers.
+        field->SwapElements(i, i + slots_ahead);
+    }
+    // Now we've bumped all the unused items to the end so delete them.
+    field->DeleteSubrange(field->size() - sorted_indices_to_remove.size(), sorted_indices_to_remove.size());
+}
 
 void back_translate_in_place(const NamedNodeBackTranslation* translation, Path& path) {
     // For combining mappings that can combine, we need to track where the previous mapping ended.
@@ -35,7 +63,7 @@ void back_translate_in_place(const NamedNodeBackTranslation* translation, Path& 
         
         if (translated.size() != 1) {
             // TODO: Implement translations that split graph nodes into multiple segments.
-            throw std::runtime_error("Translated range on node " + to_string(mapping->position().node_id()) +
+            throw std::runtime_error("Translated range on node " + to_string(get<0>(source_range)) +
                                      " to " + to_string(translated.size()) + 
                                      " named segment ranges, but complex translations like this are not yet implemented");
         }
@@ -43,7 +71,7 @@ void back_translate_in_place(const NamedNodeBackTranslation* translation, Path& 
         auto& translated_range = translated[0];
         if (get<1>(translated_range) != get<1>(source_range)) {
             // TODO: Implement translations that flip orientations.
-            throw std::runtime_error("Translated range on node " + to_string(mapping->position().node_id()) +
+            throw std::runtime_error("Translated range on node " + to_string(get<0>(source_range)) +
                                      " ended up on the opposite strand; complex translations like this are not yet implemented");
         }
         
@@ -94,28 +122,90 @@ void back_translate_in_place(const NamedNodeBackTranslation* translation, Path& 
         }
     }
     
-    if (mapping_indices_to_remove.empty()) {
-        // We don't need to fix up the mapping list
-        return;
-    }
-    
-    // Otherwise, we need to batch-erase all these indices.
-    
-    // This is how many slots ahead we are reading to write the current slot.
-    // It's also (1+) the cursor in mapping_indices_to_remove
-    size_t slots_ahead = 1;
-    for (size_t i = mapping_indices_to_remove[slots_ahead - 1]; i + mapping_indices_to_remove.size() < path.mapping_size(); i++) {
-        // We're at a slot that will need to be filled in the output.
-        while (slots_ahead < mapping_indices_to_remove.size() && i + slots_ahead == mapping_indices_to_remove[slots_ahead]) {
-            // Slide copy source ahead until it stops being the next thing to skip.
-            slots_ahead++;
+    // We need to batch-erase all these indices.
+    erase_at(path.mutable_mapping(), mapping_indices_to_remove);
+}
+
+
+
+void back_translate_in_place(const NamedNodeBackTranslation* translation, Snarl& snarl) {
+    // To translate a snarl, you translate its bounding visits
+    back_translate_in_place(translation, *snarl.mutable_start());
+    back_translate_in_place(translation, *snarl.mutable_end());
+}
+
+void back_translate_in_place(const NamedNodeBackTranslation* translation, SnarlTraversal& traversal) {
+    vector<size_t> visit_indices_to_remove;
+    // We need to keep track of the last visit actually kept, for coalescing
+    // over dropped snarls that are the artifacts of segment splitting.
+    size_t last_kept_visit = numeric_limits<size_t>::max();
+    for (size_t i = 0; i < traversal.visit_size(); i++) {
+        // Translate every visit
+        Visit& here = *(traversal.mutable_visit(i));
+        back_translate_in_place(translation, here);
+        if (here.has_snarl()) {
+            // We're a visit to a snarl, so we should be elided if we're a
+            // trivial snarl made by breaking a segment.
+            // TODO: We don't account for edits to the graph to insert in the
+            // middle of segments.
+            if (here.snarl().start() == here.snarl().end()) {
+                // This visit must be to a trivial snarl created by breaking the segment, so elide it.
+                visit_indices_to_remove.push_back(i);
+                continue;
+            }
+        } else {
+            // We're a visit to a segment, so we should be elided if we're just
+            // the same visit to a segment as the last thing that isn't getting
+            // dropped.
+            if (last_kept_visit != numeric_limits<size_t>::max()) {
+                const Visit& prev = traversal.visit(last_kept_visit);
+                if (here == prev) {
+                    // These visits can coalesce because they are to the same
+                    // segment and orientation.
+                    visit_indices_to_remove.push_back(i);
+                    continue;
+                }
+            }
         }
-        // Overwrite the item here with the item that is supposed to be here.
-        // We use a swap so we don't have to actually copy any mapping data, just pointers.
-        path.mutable_mapping()->SwapElements(i, i + slots_ahead);
+        // If we aren't elided, we are a kept visit.
+        last_kept_visit = i;
     }
-    // Now we've bumped all the unused Mappings to the end so delete them.
-    path.mutable_mapping()->DeleteSubrange(path.mapping_size() - mapping_indices_to_remove.size(), mapping_indices_to_remove.size());
+    
+    // Get rid of visits that coalesced away
+    erase_at(traversal.mutable_visit(), visit_indices_to_remove);
+}
+
+void back_translate_in_place(const NamedNodeBackTranslation* translation, Visit& visit) {
+    if (visit.has_snarl()) {
+        // A visit with a snarl is translated by translating its snarl
+        back_translate_in_place(translation, *visit.mutable_snarl());
+    } else {
+        // Otherwise, translate its node ID to a segment name. Use made-up boundaries on the node.
+        // TODO: Can we have an easy way to say "whole node"?
+        oriented_node_range_t source_range(visit.node_id(), visit.backward(), 0, 1);
+        
+        // Translate it
+        vector<oriented_node_range_t> translated = translation->translate_back(source_range);
+        
+        if (translated.size() != 1) {
+            // TODO: Implement translations that split graph nodes into multiple segments.
+            throw std::runtime_error("Translated range on node " + to_string(get<0>(source_range)) +
+                                     " to " + to_string(translated.size()) + 
+                                     " named segment ranges, but complex translations like this are not yet implemented");
+        }
+        
+        auto& translated_range = translated[0];
+        if (get<1>(translated_range) != get<1>(source_range)) {
+            // TODO: Implement translations that flip orientations.
+            throw std::runtime_error("Translated range on node " + to_string(get<0>(source_range)) +
+                                     " ended up on the opposite strand; complex translations like this are not yet implemented");
+        }
+        
+        // Save the change to the visit.
+        visit.clear_node_id();
+        visit.set_name(translation->get_back_graph_node_name(get<0>(translated_range)));
+        // Ignore the offset and length info.
+    }
 }
 
 }
