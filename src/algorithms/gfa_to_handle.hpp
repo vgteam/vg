@@ -10,6 +10,7 @@
 #include <iostream>
 #include <gfakluge.hpp>
 #include <cctype>
+#include <vector>
 
 #include "../handle.hpp"
 
@@ -23,30 +24,68 @@ struct GFAFormatError : std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
+/**
+ * Stores ID information for a graph imported from a GFA.
+ * Either all IDs are numerically equivalent to their GFA string IDs, or they
+ * are stored in the name_to_id map.
+ */
+struct GFAIDMapInfo : public NamedNodeBackTranslation {
+    /// If true, GFA string IDs are just graph numerical IDs.
+    bool numeric_mode = true;
+    /// This holds the max node ID yet used.
+    nid_t max_id = 0;
+    /// This maps from GFA string ID to graph numerical ID.
+    /// This is behind a unique_ptr so it can be safely pointed into.
+    unique_ptr<unordered_map<string, nid_t>> name_to_id = std::make_unique<unordered_map<string, nid_t>>();
+    
+    /// This inverts the name to ID map, and is populated when
+    /// invert_translation is called, so it can be accessed thread-safely.
+    unique_ptr<unordered_map<nid_t, const std::string*>> id_to_name;
+    
+    /**
+     * Prepare the backing data structures for get_back_graph_node_name(). Call after name_to_id is complete.
+     */
+    void invert_translation();
+    
+    /**
+     * Back-translation of node ranges. Is a no-op for imported GFA graphs that
+     * haven't been modified, since the GFA graph is itself the backing graph.
+     */
+    std::vector<oriented_node_range_t> translate_back(const oriented_node_range_t& range) const;
+    
+    /**
+     * Get the GFA sequence name of a node, given its ID.
+     * Assumes this will never be called until after name_to_id is fully populated.
+     */
+    std::string get_back_graph_node_name(const nid_t& back_node_id) const;
+
+};
+
 /// Read a GFA file for a blunt-ended graph into a HandleGraph. Give "-" as a filename for stdin.
-///
-/// Optionally tries read the GFA from disk without creating an in-memory representation (defaults to
-/// in-memory algorithm if reading from stdin).
-///
-/// Also optionally provides a hint about the node ID range to the handle graph implementation before
-/// constructing it (defaults to no hint if reading from stdin).
 ///
 /// Throws GFAFormatError if the GFA file is not acceptable, and
 /// std::ios_base::failure if an IO operation fails. Throws invalid_argument if
 /// otherwise misused.
 void gfa_to_handle_graph(const string& filename,
                          MutableHandleGraph* graph,
-                         bool try_from_disk = true,
-                         bool try_id_increment_hint = false,
-                         const string& translation_filename = "");
+                         GFAIDMapInfo* translation = nullptr);
+
+/// Overload which serializes its translation to a file internally.
+void gfa_to_handle_graph(const string& filename,
+                         MutableHandleGraph* graph,
+                         const string& translation_filename);
 
 /// Same as gfa_to_handle_graph but also adds path elements from the GFA to the graph
 void gfa_to_path_handle_graph(const string& filename,
                               MutablePathMutableHandleGraph* graph,
-                              bool try_from_disk = true,
-                              bool try_id_increment_hint = false,
-                              int64_t max_rgfa_rank = numeric_limits<int64_t>::max(),
-                              const string& translation_filename = "");
+                              GFAIDMapInfo* translation = nullptr,
+                              int64_t max_rgfa_rank = numeric_limits<int64_t>::max());
+
+/// Overload which serializes its translation to a file internally.
+void gfa_to_path_handle_graph(const string& filename,
+                              MutablePathMutableHandleGraph* graph,
+                              int64_t max_rgfa_rank,
+                              const string& translation_filename);
                               
 /// Same as above but operating on a stream. Assumed to be non-seekable; all conversion happens in memory.
 /// Always streaming. Doesn't support ID increment hints.
@@ -58,6 +97,7 @@ void gfa_to_path_handle_graph_in_memory(istream& in,
 /// sorted, dump it to a temp file, and fall back on gfa_to_path_handle_graph()
 void gfa_to_path_handle_graph_stream(istream& in,
                                      MutablePathMutableHandleGraph* graph,
+                                     GFAIDMapInfo* translation = nullptr,
                                      int64_t max_rgfa_rank = numeric_limits<int64_t>::max());
 
 

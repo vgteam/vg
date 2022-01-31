@@ -215,7 +215,7 @@ public:
     void register_index(const IndexName& identifier, const string& suffix);
     
     /// Register a recipe to produce an index using other indexes
-    /// or input files. Also takes a for output as input
+    /// or input files. Recipes registered earlier will have higher priority.
     RecipeName register_recipe(const vector<IndexName>& identifiers,
                                const vector<IndexName>& input_identifiers,
                                const RecipeFunc& exec);
