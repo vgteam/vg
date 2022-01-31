@@ -5404,7 +5404,7 @@ namespace vg {
             }
         }
 
-        TEST_CASE( "Oversized snarl","[snarl_distance][bug]" ) {
+        TEST_CASE( "Oversized snarl","[snarl_distance]" ) {
             VG graph;
          
             Node* n1 = graph.create_node("GCA");
@@ -5495,7 +5495,7 @@ namespace vg {
                 REQUIRE(distance_index.minimum_distance(n8->id(), false, 0, n2->id(), true,  0, false, &graph) == 1);
             }
         }
-        TEST_CASE( "Nested oversized snarl","[snarl_distance][bug]" ) {
+        TEST_CASE( "Nested oversized snarl","[snarl_distance]" ) {
             VG graph;
          
             Node* n1 = graph.create_node("GCA");

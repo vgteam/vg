@@ -1454,7 +1454,7 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
  */
 
 
-tuple<size_t, size_t, bool> get_minimizer_distances (const SnarlDistanceIndex& distance_index,pos_t pos) {
+tuple<size_t, size_t, size_t, size_t, bool> get_minimizer_distances (const SnarlDistanceIndex& distance_index,pos_t pos) {
 
     net_handle_t node_handle = distance_index.get_node_net_handle(get_id(pos));
     net_handle_t parent_handle = distance_index.get_parent(node_handle);
@@ -1463,8 +1463,10 @@ tuple<size_t, size_t, bool> get_minimizer_distances (const SnarlDistanceIndex& d
         !distance_index.is_trivial_chain(parent_handle) && 
         distance_index.is_root(distance_index.get_parent(parent_handle))) {
         //If this is a top-level non-trivial chain
-        return make_tuple(distance_index.get_record_offset(parent_handle),
-                          distance_index.get_prefix_sum_value(node_handle),
+        return make_tuple(distance_index.get_prefix_sum_value(node_handle),
+                          distance_index.get_record_offset(parent_handle),
+                          distance_index.minimum_length(node_handle),
+                          distance_index.get_chain_component(node_handle),
                           distance_index.is_reversed_in_parent(node_handle)); 
     } else {
         return MIPayload::decode(MIPayload::NO_CODE);

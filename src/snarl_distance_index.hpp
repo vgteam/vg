@@ -51,7 +51,7 @@ public:
 //Given a position, return the distances that can be stored by a minimizer
 //This is just the net handle for the node as an integer
 // 
-tuple<size_t, size_t, bool> get_minimizer_distances (const SnarlDistanceIndex& distance_index, pos_t pos);
+tuple<size_t, size_t, size_t, size_t, bool> get_minimizer_distances (const SnarlDistanceIndex& distance_index, pos_t pos);
 
 
 
@@ -87,43 +87,58 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
 // We store this information in the minimizer index.
 // 
 //     
-//     31 bit    |    32        |            1
-// record offset |  prefix sum  |  is_reversed_in_parent
+//     30 bit    |       23       |      6      |    4      |            1
+//   prefix sum  |  record offset | node length | component |  is_reversed_in_parent
 //
 //
 struct MIPayload {
     typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::payload_type.
 
     constexpr static code_type NO_CODE = std::numeric_limits<code_type>::max();
-    constexpr static std::uint64_t NO_VALUE = std::numeric_limits<size_t>::max(); // From offset_in_root_chain().
+    constexpr static std::uint64_t NO_VALUE = std::numeric_limits<size_t>::max(); 
 
-    const static size_t RECORD_OFFSET = 33;
-    const static size_t RECORD_WIDTH = 32;
-    const static code_type RECORD_MASK = (static_cast<code_type>(1) << RECORD_WIDTH) - 1;
-
-    const static size_t PREFIX_SUM_OFFSET = 1;
-    const static size_t PREFIX_SUM_WIDTH = 31;
+    const static size_t PREFIX_SUM_OFFSET = 34;
+    const static size_t PREFIX_SUM_WIDTH = 30;
     const static code_type PREFIX_SUM_MASK = (static_cast<code_type>(1) << PREFIX_SUM_WIDTH) - 1;
 
+    const static size_t RECORD_OFFSET = 11;
+    const static size_t RECORD_WIDTH = 23;
+    const static code_type RECORD_MASK = (static_cast<code_type>(1) << RECORD_WIDTH) - 1;
 
-    static code_type encode(tuple<size_t, size_t, bool> info) {
-        size_t record_offset = std::get<0>(info);
-        size_t prefix_sum = std::get<1>(info);
-        bool is_reversed = std::get<2>(info); 
+    const static size_t NODE_LENGTH_OFFSET = 5;
+    const static size_t NODE_LENGTH_WIDTH = 6;
+    const static code_type NODE_LENGTH_MASK = (static_cast<code_type>(1) << NODE_LENGTH_WIDTH) - 1;
 
-        return (static_cast<code_type>(record_offset) << RECORD_OFFSET) 
-             | (static_cast<code_type>(prefix_sum) << PREFIX_SUM_OFFSET)
+    const static size_t COMPONENT_OFFSET = 1;
+    const static size_t COMPONENT_WIDTH = 4;
+    const static code_type COMPONENT_MASK = (static_cast<code_type>(1) << COMPONENT_WIDTH) - 1;
+
+
+
+    static code_type encode(tuple<size_t, size_t, size_t, size_t, bool> info) {
+        size_t prefix_sum = std::get<0>(info);
+        size_t record_offset = std::get<1>(info);
+        size_t node_length = std::get<2>(info); 
+        size_t component = std::get<3>(info);
+        bool is_reversed = std::get<4>(info); 
+
+        return (static_cast<code_type>(prefix_sum) << PREFIX_SUM_OFFSET) 
+             | (static_cast<code_type>(record_offset) << RECORD_OFFSET)
+             | (static_cast<code_type>(node_length) << NODE_LENGTH_OFFSET)
+             | (static_cast<code_type>(component) << COMPONENT_OFFSET)
              | is_reversed;
 
     }
 
-    static tuple<size_t, size_t, bool> decode(code_type code) {
+    static tuple<size_t, size_t, size_t, size_t, bool> decode(code_type code) {
         if (code == NO_CODE) {
-            return make_tuple(NO_VALUE, NO_VALUE, false);
+            return make_tuple(NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE, false);
         } else {
-            return std::tuple<size_t, size_t, bool> (
-                code >> RECORD_OFFSET & RECORD_MASK, 
+            return std::tuple<size_t, size_t, size_t, size_t, bool> (
                 code >> PREFIX_SUM_OFFSET & PREFIX_SUM_MASK,
+                code >> RECORD_OFFSET & RECORD_MASK, 
+                code >> NODE_LENGTH_OFFSET & NODE_LENGTH_MASK, 
+                code >> COMPONENT_OFFSET & COMPONENT_MASK, 
                 code & 1);
         }
     }

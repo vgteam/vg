@@ -22,7 +22,8 @@ class NewSnarlSeedClusterer {
             size_t source; // Source minimizer.
 
             //Cached values from the minimizer
-            tuple<size_t, size_t, bool> parent_chain_info  = make_tuple(MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
+            tuple<size_t, size_t, size_t, size_t, bool> parent_chain_info  = 
+                make_tuple(MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
 
         };
 
