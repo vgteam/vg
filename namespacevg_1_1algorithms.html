@@ -123,6 +123,12 @@ Functions</h2></td></tr>
 <tr class="separator:ae18b50d29d9accb763b44d6e065dac58"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0d0e29a34fb2e1f712751a8a8fda6f03"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a0d0e29a34fb2e1f712751a8a8fda6f03">back_translate_in_place</a> (const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">NamedNodeBackTranslation</a> *translation, <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path)</td></tr>
 <tr class="separator:a0d0e29a34fb2e1f712751a8a8fda6f03"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0fb0b1f6ca5892b532032ecddd8fde19"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a0fb0b1f6ca5892b532032ecddd8fde19">back_translate_in_place</a> (const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">NamedNodeBackTranslation</a> *translation, <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;snarl)</td></tr>
+<tr class="separator:a0fb0b1f6ca5892b532032ecddd8fde19"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0efe72c9db6dd4c1828dae311795e9b0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a0efe72c9db6dd4c1828dae311795e9b0">back_translate_in_place</a> (const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">NamedNodeBackTranslation</a> *translation, <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;traversal)</td></tr>
+<tr class="separator:a0efe72c9db6dd4c1828dae311795e9b0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0e04f69397f1d7e1f33b99f0ff145af5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a0e04f69397f1d7e1f33b99f0ff145af5">back_translate_in_place</a> (const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">NamedNodeBackTranslation</a> *translation, <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;visit)</td></tr>
+<tr class="separator:a0e04f69397f1d7e1f33b99f0ff145af5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6341683f1b89495d2ac1558ed2875343"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a6341683f1b89495d2ac1558ed2875343">traverse_components</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, function&lt; void(void)&gt; &amp;on_new_comp, function&lt; void(<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>)&gt; &amp;on_node)</td></tr>
 <tr class="separator:a6341683f1b89495d2ac1558ed2875343"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8e5fdb03a21f88395e1d69f53821ae59"><td class="memItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a8e5fdb03a21f88395e1d69f53821ae59">component_sizes</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph)</td></tr>
@@ -718,7 +724,7 @@ template&lt;class DistHeuristic &gt; </div>
 </div>
 </div>
 <a id="a0d0e29a34fb2e1f712751a8a8fda6f03"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0d0e29a34fb2e1f712751a8a8fda6f03">&#9670;&nbsp;</a></span>back_translate_in_place()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a0d0e29a34fb2e1f712751a8a8fda6f03">&#9670;&nbsp;</a></span>back_translate_in_place() <span class="overload">[1/4]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -743,6 +749,94 @@ template&lt;class DistHeuristic &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Translate the given <a class="el" href="structvg_1_1Path.html">Path</a> in place from node ID space to named segment space. </p>
+
+</div>
+</div>
+<a id="a0fb0b1f6ca5892b532032ecddd8fde19"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0fb0b1f6ca5892b532032ecddd8fde19">&#9670;&nbsp;</a></span>back_translate_in_place() <span class="overload">[2/4]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::back_translate_in_place </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">NamedNodeBackTranslation</a> *&#160;</td>
+          <td class="paramname"><em>translation</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;&#160;</td>
+          <td class="paramname"><em>snarl</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Translate the given <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes.">Snarl</a> in place from node ID space to named segment space. </p>
+
+</div>
+</div>
+<a id="a0efe72c9db6dd4c1828dae311795e9b0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0efe72c9db6dd4c1828dae311795e9b0">&#9670;&nbsp;</a></span>back_translate_in_place() <span class="overload">[3/4]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::back_translate_in_place </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">NamedNodeBackTranslation</a> *&#160;</td>
+          <td class="paramname"><em>translation</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;&#160;</td>
+          <td class="paramname"><em>traversal</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Translate the given <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> in place from node ID space to named segment space. Visits that end up being to snarls where both boundaries are from the same orientation of the same segment will be removed. Multiple visits in a row to the same orientation of the same segment will be elided.</p>
+<p>TODO: Work out a way to preserve traversals around cycles while not repeating ourselves for visits to diffrent pieces of the same chopped segment. </p>
+
+</div>
+</div>
+<a id="a0e04f69397f1d7e1f33b99f0ff145af5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0e04f69397f1d7e1f33b99f0ff145af5">&#9670;&nbsp;</a></span>back_translate_in_place() <span class="overload">[4/4]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::back_translate_in_place </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">NamedNodeBackTranslation</a> *&#160;</td>
+          <td class="paramname"><em>translation</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;&#160;</td>
+          <td class="paramname"><em>visit</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Translate the given <a class="el" href="structvg_1_1Visit.html" title="Describes a step of a walk through a Snarl either on a node or through a child Snarl.">Visit</a> in place from node ID space to named segment space. </p>
 
 </div>
 </div>

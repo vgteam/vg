@@ -81,6 +81,7 @@ $(function() {
 <code>#include &lt;getopt.h&gt;</code><br />
 <code>#include &lt;htslib/hts.h&gt;</code><br />
 <code>#include &lt;htslib/vcf.h&gt;</code><br />
+<code>#include &lt;gbwt/utils.h&gt;</code><br />
 <code>#include &lt;omp.h&gt;</code><br />
 <code>#include &quot;<a class="el" href="subcommand_8hpp.html">subcommand.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="index__registry_8hpp.html">index_registry.hpp</a>&quot;</code><br />
@@ -94,6 +95,8 @@ Macros</h2></td></tr>
 <tr class="separator:a5d658d26d8f3dd160cc0ccff5badfed7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a97d7f5886eeeb66d54d3280476fe46d4"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="autoindex__main_8cpp.html#a97d7f5886eeeb66d54d3280476fe46d4">OPT_FORCE_PHASED</a>&#160;&#160;&#160;1002</td></tr>
 <tr class="separator:a97d7f5886eeeb66d54d3280476fe46d4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a74dae0f3f3b952725b2b6cfc699e9341"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="autoindex__main_8cpp.html#a74dae0f3f3b952725b2b6cfc699e9341">OPT_GBWT_BUFFER_SIZE</a>&#160;&#160;&#160;1003</td></tr>
+<tr class="separator:a74dae0f3f3b952725b2b6cfc699e9341"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
@@ -133,6 +136,20 @@ Functions</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">#define OPT_FORCE_UNPHASED&#160;&#160;&#160;1001</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a74dae0f3f3b952725b2b6cfc699e9341"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a74dae0f3f3b952725b2b6cfc699e9341">&#9670;&nbsp;</a></span>OPT_GBWT_BUFFER_SIZE</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define OPT_GBWT_BUFFER_SIZE&#160;&#160;&#160;1003</td>
         </tr>
       </table>
 </div><div class="memdoc">
