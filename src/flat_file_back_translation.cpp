@@ -59,7 +59,7 @@ std::vector<oriented_node_range_t> FlatFileBackTranslation::translate_back(const
              // In the requested orientation
              std::get<1>(range),
              // Starting at the correct offset along that orientation of the segment
-             std::get<2>(range) + std::get<1>(range) ? std::get<2>(it->second) : std::get<1>(it->second),
+             std::get<2>(range) + (std::get<1>(range) ? std::get<2>(it->second) : std::get<1>(it->second)),
              // And running for the specified length
              std::get<3>(range)
            }};
