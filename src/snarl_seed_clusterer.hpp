@@ -22,6 +22,7 @@ class NewSnarlSeedClusterer {
             size_t source; // Source minimizer.
 
             //Cached values from the minimizer
+            //prefix sum, record offset of parent, node length, component, is reversed in parent
             tuple<size_t, size_t, size_t, size_t, bool> parent_chain_info  = 
                 make_tuple(MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
 
@@ -143,9 +144,11 @@ class NewSnarlSeedClusterer {
                     chain_last_component = distance_index.get_chain_component(distance_index.get_bound(containing_net_handle, true, false));
                 }
             }
-            NodeClusters( net_handle_t net, size_t read_count, bool is_reversed_in_parent, nid_t node_id) :
+            NodeClusters( net_handle_t net, size_t read_count, bool is_reversed_in_parent, nid_t node_id, size_t node_length, size_t prefix_sum) :
                 containing_net_handle(net),
                 is_reversed_in_parent(is_reversed_in_parent),
+                node_length(node_length),
+                prefix_sum_value(prefix_sum),
                 node_id(node_id),
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
                 read_best_left(read_count, std::numeric_limits<size_t>::max()), 

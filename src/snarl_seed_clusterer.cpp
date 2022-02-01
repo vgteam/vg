@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-//#define DEBUG_CLUSTER
+#define DEBUG_CLUSTER
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
@@ -297,19 +297,39 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
             if (seen_nodes.count(id) < 1) {
                  seen_nodes.insert(id);
                  net_handle_t node_net_handle = distance_index.get_node_net_handle(id) ; 
-                 net_handle_t parent = distance_index.get_parent(node_net_handle);
+                 net_handle_t parent;
 
-                 size_t depth = distance_index.get_depth(parent);
+                 size_t depth;
+                 bool is_reversed_in_parent;
+                 size_t node_length;
+                 size_t prefix_sum;
+
+                 if (std::get<0>(seed.parent_chain_info) == MIPayload::NO_VALUE) {
+                     //If we didn't store information in the seed, then get it from the distance index
+                     parent = distance_index.get_parent(node_net_handle);
+
+                    depth = distance_index.get_depth(parent);
+                    is_reversed_in_parent = distance_index.is_reversed_in_parent(node_net_handle);
+                    node_length = distance_index.minimum_length(node_net_handle);
+                    prefix_sum = distance_index.get_prefix_sum_value(node_net_handle);
+                 } else {
+                     //Otherwise, get the values from the seed
+                     //The values only get stored for nodes in top-level chains, so the depth is 1
+                     depth = 1; 
+                    prefix_sum = std::get<0>(seed.parent_chain_info);
+                    node_length = std::get<2>(seed.parent_chain_info);
+                    is_reversed_in_parent = std::get<4>(seed.parent_chain_info);
+                    parent = distance_index.get_net_handle(std::get<1>(seed.parent_chain_info), SnarlDistanceIndex::START_END, SnarlDistanceIndex::CHAIN_HANDLE);
+                 }
                  if (depth+1 > chain_to_children_by_level.size()) {
                      chain_to_children_by_level.resize(depth+1);
                  }
-                 bool is_reversed_in_parent = distance_index.is_reversed_in_parent(node_net_handle);
 
 
 
                  tree_state.all_node_clusters.emplace_back(
                                  NodeClusters(std::move(node_net_handle), tree_state.all_seeds->size(),
-                                              is_reversed_in_parent, id));
+                                              is_reversed_in_parent, id, node_length, prefix_sum));
                  //Add this node to its parent
                  if (distance_index.is_root(parent)) {
                     tree_state.root_children.emplace_back(tree_state.all_node_clusters.size());

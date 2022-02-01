@@ -89,6 +89,7 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
 //     
 //     30 bit    |       23       |      6      |    4      |            1
 //   prefix sum  |  record offset | node length | component |  is_reversed_in_parent
+//               |  of parent     |             |           |
 //
 //
 struct MIPayload {
