@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 31
+plan tests 34
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -152,4 +152,13 @@ is "$(samtools view xy.bam | wc -l)" "2000" "GBZ-based BAM contains the expected
 
 rm -f x.gam xy.bam
 rm -f xy.giraffe.gbz
+
+vg autoindex -p brca -w giraffe -g graphs/cactus-BRCA2.gfa 
+vg sim -s 100 -x brca.giraffe.gbz -n 200 -a > reads.gam
+vg giraffe -Z brca.giraffe.gbz -m brca.min -d brca.dist -G reads.gam --named-coordinates > mapped.gam
+is "$?" "0" "Mapping reads to named coordinates on a nontrivial graph without walks succeeds"
+is "$(vg view -aj mapped.gam | jq -r '.score' | grep -v "^0" | wc -l)" "200" "Reads are all mapped"
+is "$(vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | grep null | wc -l)" "0" "GFA segment names are all set"
+
+rm -f reads.gam mapped.gam brca.*
 

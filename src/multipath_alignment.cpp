@@ -523,25 +523,37 @@ namespace vg {
     /// multipath alignment, which we use for finding the optimal alignment,
     /// scoring the optimal alignment, and enumerating the top alignments.
     struct MultipathProblem {
-        // Score of the optimal alignment ending immediately before this
+        // If forward, score of the optimal alignment ending immediately before this
         // subpath. To get the score of the optimal alignment ending with the
         // subpath, add the subpath's score.
+        // If backward, the score of the optimal alignment beginning and including
+        // this subpath.
         vector<int32_t> prefix_score;
         // previous subpath for traceback (we refer to subpaths by their index)
         vector<int64_t> prev_subpath;
-        // the length of read sequence preceding this subpath
+        // the length of read sequence preceding this subpath if forward
+        // else the length of read sequence including and following this subpath
         vector<int64_t> prefix_length;
         
         /// Make a new MultipathProblem over the given number of subpaths with scores
         /// initialized according to whether we're doing a local or global traceback
-        MultipathProblem(const multipath_alignment_t& multipath_aln, bool subpath_global)
+        MultipathProblem(const multipath_alignment_t& multipath_aln, bool subpath_global, bool forward)
             : prefix_score(multipath_aln.subpath_size(), subpath_global ? numeric_limits<int32_t>::min() / 2 : 0),
               prev_subpath(multipath_aln.subpath_size(), -1), prefix_length(multipath_aln.subpath_size(), 0) {
             
             if (subpath_global) {
-                // set the starting score at sources to 0 so that alignments can only start there
-                for (const auto& i : multipath_aln.start()) {
-                    prefix_score[i] = 0;
+                // set the starting score at sources/sinks to 0 so that alignments can only start there
+                if (forward) {
+                    for (const auto& i : multipath_aln.start()) {
+                        prefix_score[i] = 0;
+                    }
+                }
+                else {
+                    for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+                        if (multipath_aln.subpath(i).next_size() == 0 && multipath_aln.subpath(i).connection_size() == 0) {
+                            prefix_score[i] = 0;
+                        }
+                    }
                 }
             }
         }
@@ -554,52 +566,94 @@ namespace vg {
     /// the traceback should be global (a source to a sink in the multipath DAG)
     /// or local (starting and ending at any subpath)
     tuple<MultipathProblem, int64_t, int32_t> run_multipath_dp(const multipath_alignment_t& multipath_aln,
-                                                               bool subpath_global = false) {
+                                                               bool subpath_global = false,
+                                                               bool forward = true) {
         
         // Create and unpack the return value (including setting up the DP table). Initialise score according
         // to whether the alignment is local or global 
-        tuple<MultipathProblem, int64_t, int32_t> to_return(MultipathProblem(multipath_aln, subpath_global),
+        tuple<MultipathProblem, int64_t, int32_t> to_return(MultipathProblem(multipath_aln, subpath_global, forward),
                                                             -1, subpath_global ? numeric_limits<int32_t>::min() : 0);
         auto& problem = get<0>(to_return);
         auto& opt_subpath = get<1>(to_return);
         auto& opt_score = get<2>(to_return);
     
-        for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
-            const subpath_t& subpath = multipath_aln.subpath(i);
-            int32_t extended_score = problem.prefix_score[i] + subpath.score();
-            // carry DP forward
-            if (subpath.next_size() != 0 || subpath.connection_size() != 0) {
-                int64_t thru_length = path_to_length(subpath.path()) + problem.prefix_length[i];
-                for (size_t j = 0; j < subpath.next_size(); ++j) {
-                    int64_t next = subpath.next(j);
-                    problem.prefix_length[next] = thru_length;
-                    
-                    // can we improve prefix score on following subpath through this one?
-                    if (extended_score >= problem.prefix_score[next]) {
-                        problem.prev_subpath[next] = i;
-                        problem.prefix_score[next] = extended_score;
+        // TODO: i'm sure there's a way to generalize this so i don't switch off for the whole
+        // thing, but the iteration schemes are just different enough to be pretty annoying
+        
+        if (forward) {
+            for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+                const subpath_t& subpath = multipath_aln.subpath(i);
+                int32_t extended_score = problem.prefix_score[i] + subpath.score();
+                // carry DP forward
+                if (subpath.next_size() != 0 || subpath.connection_size() != 0) {
+                    int64_t thru_length = path_to_length(subpath.path()) + problem.prefix_length[i];
+                    for (size_t j = 0; j < subpath.next_size(); ++j) {
+                        int64_t next = subpath.next(j);
+                        problem.prefix_length[next] = thru_length;
+                        
+                        // can we improve prefix score on following subpath through this one?
+                        if (extended_score >= problem.prefix_score[next]) {
+                            problem.prev_subpath[next] = i;
+                            problem.prefix_score[next] = extended_score;
+                        }
+                    }
+                    // repeat DP across scored connections
+                    for (size_t j = 0; j < subpath.connection_size(); ++j) {
+                        const connection_t& connection = subpath.connection(j);
+                        
+                        problem.prefix_length[connection.next()] = thru_length;
+                        if (extended_score + connection.score() >= problem.prefix_score[connection.next()]) {
+                            problem.prev_subpath[connection.next()] = i;
+                            problem.prefix_score[connection.next()] = extended_score + connection.score();
+                        }
                     }
                 }
-                // repeat DP across scored connections
-                for (size_t j = 0; j < subpath.connection_size(); ++j) {
-                    const connection_t& connection = subpath.connection(j);
-                    
-                    problem.prefix_length[connection.next()] = thru_length;
-                    if (extended_score + connection.score() >= problem.prefix_score[connection.next()]) {
-                        problem.prev_subpath[connection.next()] = i;
-                        problem.prefix_score[connection.next()] = extended_score + connection.score();
-                    }
+                // check if an alignment is allowed to end here according to global/local rules and
+                // if so whether it's optimal
+                if (extended_score >= opt_score && (!subpath_global || (subpath.next_size() == 0 &&
+                                                                        subpath.connection_size() == 0))) {
+                    // We have a better optimal subpath
+                    opt_score = extended_score;
+                    opt_subpath = i;
                 }
-            }
-            // check if an alignment is allowed to end here according to global/local rules and
-            // if so whether it's optimal
-            if (extended_score >= opt_score && (!subpath_global || (subpath.next_size() == 0 &&
-                                                                    subpath.connection_size() == 0))) {
-                // We have a better optimal subpath
-                opt_score = extended_score;
-                opt_subpath = i;
             }
         }
+        else {
+            // TODO: maybe this should be done with an unordered_set?
+            vector<bool> is_start(multipath_aln.subpath_size(), false);
+            for (auto i : multipath_aln.start()) {
+                is_start[i] = true;
+            }
+            for (int64_t i = multipath_aln.subpath_size() - 1; i >= 0; --i) {
+                const subpath_t& subpath = multipath_aln.subpath(i);
+                // find the length and best score from subsequent subpaths
+                for (size_t j = 0; j < subpath.next_size(); ++j) {
+                    auto n = subpath.next(j);
+                    problem.prefix_length[i] = problem.prefix_length[n];
+                    if (problem.prefix_score[n] > problem.prefix_score[i]) {
+                        problem.prefix_score[i] = problem.prefix_score[n];
+                        problem.prev_subpath[i] = n;
+                    }
+                }
+                for (const auto& connection : subpath.connection()) {
+                    problem.prefix_length[i] = problem.prefix_length[connection.next()];
+                    if (problem.prefix_score[connection.next()] + connection.score() > problem.prefix_score[i]) {
+                        problem.prefix_score[i] = problem.prefix_score[connection.next()] + connection.score();
+                        problem.prev_subpath[i] = connection.next();
+                    }
+                }
+                // add score and length of this subpath
+                problem.prefix_length[i] += path_to_length(subpath.path());
+                problem.prefix_score[i] += subpath.score();
+                
+                if (problem.prefix_score[i] >= opt_score && (!subpath_global || is_start[i])) {
+                    // We have a better optimal subpath
+                    opt_score = problem.prefix_score[i];
+                    opt_subpath = i;
+                }
+            }
+        }
+        
                 
         return to_return;
     
@@ -809,6 +863,89 @@ namespace vg {
             }
         }
         return max<int32_t>(opt, 0);
+    }
+                    
+    void remove_low_scoring_sections(multipath_alignment_t& multipath_aln, int32_t max_score_diff) {
+        
+        // do forward-backward dynamic programming so that we can efficiently
+        // compute maximum score over each subpath and edge
+        auto fwd_dp = run_multipath_dp(multipath_aln, true, true);
+        auto bwd_dp = run_multipath_dp(multipath_aln, true, false);
+        
+        auto& fwd_scores = get<0>(fwd_dp).prefix_score;
+        auto& bwd_scores = get<0>(bwd_dp).prefix_score;
+        
+        // we'll require that the maximum score be at least this much
+        int32_t min_score = get<2>(fwd_dp) - max_score_diff;
+        
+        // remove entire subpaths or individual edges
+        vector<size_t> removed_so_far(multipath_aln.subpath_size() + 1, 0);
+        for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+            auto subpath = multipath_aln.mutable_subpath(i);
+            if (fwd_scores[i] + bwd_scores[i] < min_score) {
+                removed_so_far[i + 1] = removed_so_far[i] + 1;
+            }
+            else {
+                int32_t score_thru = fwd_scores[i] + subpath->score();
+                for (size_t j = 0; j < subpath->next_size(); ) {
+                    // this condition should also filter out edges to deleted subpaths
+                    if (score_thru + bwd_scores[subpath->next(j)] < min_score) {
+                        subpath->set_next(j, subpath->next().back());
+                        subpath->mutable_next()->pop_back();
+                    }
+                    else {
+                        ++j;
+                    }
+                }
+                for (size_t j = 0; j < subpath->connection_size(); ) {
+                    auto connection = subpath->mutable_connection(j);
+                    // this condition should also filter out connections to deleted subpaths
+                    if (score_thru + bwd_scores[connection->next()] + connection->score() < min_score) {
+                        *connection = subpath->connection().back();
+                        subpath->mutable_connection()->pop_back();
+                    }
+                    else {
+                        ++j;
+                    }
+                }
+                
+                if (removed_so_far[i]) {
+                    // move it up in the vector through all the deleted subpaths
+                    *multipath_aln.mutable_subpath(i - removed_so_far[i]) = move(*subpath);
+                }
+                
+                removed_so_far[i + 1] = removed_so_far[i];
+            }
+        }
+        if (removed_so_far.back()) {
+            
+            // get rid of the now unused suffix of the vector
+            multipath_aln.mutable_subpath()->resize(multipath_aln.subpath_size() - removed_so_far.back());
+            
+            // update the indexes of edges and connections
+            for (size_t i = 0; i < multipath_aln.subpath_size(); ++i) {
+                auto subpath = multipath_aln.mutable_subpath(i);
+                for (size_t j = 0; j < subpath->next_size(); ++j) {
+                    subpath->set_next(j, subpath->next(j) - removed_so_far[subpath->next(j)]);
+                }
+                for (size_t j = 0; j < subpath->connection_size(); ++j) {
+                    auto connection = subpath->mutable_connection(j);
+                    connection->set_next(connection->next() - removed_so_far[connection->next()]);
+                }
+            }
+            
+            // and also fix up the starts
+            for (size_t i = 0; i < multipath_aln.start_size(); ) {
+                if (removed_so_far[multipath_aln.start(i)] == removed_so_far[multipath_aln.start(i) + 1]) {
+                    multipath_aln.set_start(i, multipath_aln.start(i) - removed_so_far[multipath_aln.start(i)]);
+                    ++i;
+                }
+                else {
+                    multipath_aln.set_start(i, multipath_aln.mutable_start()->back());
+                    multipath_aln.mutable_start()->pop_back();
+                }
+            }
+        }
     }
     
     vector<Alignment> optimal_alignments(const multipath_alignment_t& multipath_aln, size_t count) {
@@ -3643,7 +3780,7 @@ namespace vg {
     }
     
     bool validate_multipath_alignment(const multipath_alignment_t& multipath_aln, const HandleGraph& handle_graph) {
-        
+                
         // are the subpaths in topological order?
         
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
@@ -3679,7 +3816,7 @@ namespace vg {
             
             if (num_starts != multipath_aln.start_size()) {
 #ifdef debug_verbose_validation
-                cerr << "validation failure on correct number of starts" << endl;
+                cerr << "validation failure on correct number of starts, says " << multipath_aln.start_size() << " but actually " << num_starts << endl;
                 for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
                     if (is_source[i]) {
                         cerr << i << " ";

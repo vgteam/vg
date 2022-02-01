@@ -2404,6 +2404,7 @@ bool operator==(const Visit& a, const Visit& b) {
     // IDs and orientations have to match, and nobody has a snarl or the
     // snarls match.
     return a.node_id() == b.node_id() &&
+        a.name() == b.name() &&
         a.backward() == b.backward() &&
         ((!a.has_snarl() && !b.has_snarl()) ||
          a.snarl() == b.snarl());
@@ -2416,17 +2417,22 @@ bool operator!=(const Visit& a, const Visit& b) {
 bool operator<(const Visit& a, const Visit& b) {
     if (!a.has_snarl() && !b.has_snarl()) {
         // Compare everything but the snarl
-        return make_tuple(a.node_id(), a.backward()) < make_tuple(b.node_id(), b.backward());
+        return make_tuple(a.node_id(), a.backward(), a.name()) < make_tuple(b.node_id(), b.backward(), b.name());
     } else {
         // Compare including the snarl
-        return make_tuple(a.node_id(), a.snarl(), a.backward()) < make_tuple(b.node_id(), b.snarl(), b.backward());
+        return make_tuple(a.node_id(), a.snarl(), a.backward(), a.name()) < make_tuple(b.node_id(), b.snarl(), b.backward(), b.name());
     }        
 }
     
 ostream& operator<<(ostream& out, const Visit& visit) {
     if (!visit.has_snarl()) {
-        // Use the node ID
-        out << visit.node_id();
+        if (visit.name().empty()) {
+            // Use the node ID
+            out << visit.node_id();
+        } else {
+            // Use the name
+            out << visit.name();
+        }
     } else {
         // Use the snarl
         out << visit.snarl();
