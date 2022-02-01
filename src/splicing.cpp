@@ -267,21 +267,23 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
                     // we need to cross a node boundary to backtrack
                     subgraph.follow_edges(handle, !search_left, [&](const handle_t& prev) {
                         if (search_left) {
-                            if (subgraph.get_base(prev, 0) == splice_stats.oriented_motif(i, true).front()) {
+                            if (subgraph.get_base(prev, 0) == splice_stats.oriented_motif(i, true).front() &&
+                                (prev != seed.first || seed.second != 0)) {
                                 int64_t trav_dist = subgraph.min_distance_from_start(prev) + subgraph.get_length(prev) - 1;
                                 motif_matches[i].emplace_back(prev, 1, trav_dist);
 #ifdef debug_splice_region
-                                cerr << "record match to motif " << i << " at " << subgraph.order_of(prev) << ", dist " << trav_dist << endl;
+                                cerr << "record match to motif " << i << " at " << subgraph.order_of(prev) << "-th node " << subgraph.get_id(prev) << ", ending on node " << subgraph.order_of(handle) << ", dist " << trav_dist << endl;
 #endif
                             }
                         }
                         else {
                             size_t k = subgraph.get_length(prev) - 1;
-                            if (subgraph.get_base(prev, k) == splice_stats.oriented_motif(i, false).front()) {
+                            if (subgraph.get_base(prev, k) == splice_stats.oriented_motif(i, false).front() &&
+                                (prev != seed.first || seed.second != subgraph.get_length(seed.first))) {
                                 int64_t trav_dist = subgraph.min_distance_from_start(prev) + k;
                                 motif_matches[i].emplace_back(prev, k, trav_dist);
 #ifdef debug_splice_region
-                                cerr << "record match to motif " << i << " at " << subgraph.order_of(prev) << ", dist " << trav_dist << endl;
+                                cerr << "record match to motif " << i << " at " << subgraph.order_of(prev) << "-th node " << subgraph.get_id(prev) << ", ending on node " << subgraph.order_of(handle) << ", dist " << trav_dist << endl;
 #endif
                             }
                         }
@@ -296,7 +298,7 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
                         trav_dist += j - 1;
                     }
 #ifdef debug_splice_region
-                    cerr << "record match to motif " << i << " at " << (j - 2 * incr + !search_left) << ", dist " << trav_dist << endl;
+                    cerr << "record match to motif " << i << " at " << (j - 2 * incr + !search_left) << "-th node " << subgraph.get_id(handle) << ", ending on same node, dist " << trav_dist << endl;
 #endif
                     motif_matches[i].emplace_back(handle, j - 2 * incr + !search_left, trav_dist);
                 }
@@ -335,7 +337,7 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
         }
         
 #ifdef debug_splice_region
-        cerr << "node number " << i << ", iteration bounds: j = " << j << ", incr = " << incr << ", left end = " << left_end << ", right end " << right_end << ", node len = " << seq.size() << endl;
+        cerr << "node number " << i << ", underlying ID " << graph.get_id(subgraph.get_underlying_handle(here)) << ", iteration bounds: j = " << j << ", incr = " << incr << ", left end = " << left_end << ", right end " << right_end << ", node len = " << seq.size() << endl;
 #endif
         // are we starting at the boundary of a node?
         if ((j == 0 && !search_left) || (j == seq.size() - 1 && search_left)) {
@@ -382,6 +384,7 @@ JoinedSpliceGraph::JoinedSpliceGraph(const HandleGraph& parent_graph,
     vector<bool> keep_left(left_subgraph.get_node_count(), false);
     vector<bool> keep_right(right_subgraph.get_node_count(), false);
     
+    // keep handles that can reach the left side of the join
     keep_left[left_subgraph.order_of(left_splice_node)] = true;
     vector<handle_t> stack(1, left_splice_node);
     while (!stack.empty()) {
@@ -395,6 +398,7 @@ JoinedSpliceGraph::JoinedSpliceGraph(const HandleGraph& parent_graph,
         });
     }
     
+    // keep handles that can reach the right side of the join
     stack.emplace_back(right_splice_node);
     keep_right[right_subgraph.order_of(right_splice_node)] = true;
     // TODO: repetitive code

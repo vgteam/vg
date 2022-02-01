@@ -2510,6 +2510,8 @@ namespace vg {
                 }
                 
                 bool operator==(const iterator& other) const {
+                    // this isn't valid if they are looking at different motifs or have a different maximum,
+                    // but that should never happen within the limited scope of this function
                     return (&iteratee == &other.iteratee && i == other.i);
                 }
                 
@@ -2730,6 +2732,7 @@ namespace vg {
                     }
                 }
                 
+                // figure out how many pairs there are of each motif and across all motifs
                 size_t total_num_pairs = 0;
                 vector<size_t> num_candidate_pairs(splice_stats.motif_size(), 0);
                 for (size_t j = 0; j < splice_stats.motif_size(); ++j) {
@@ -2738,17 +2741,16 @@ namespace vg {
                         continue;
                     }
                     
-                    size_t left = left_region.candidate_splice_sites(j).size();
-                    size_t right = right_region.candidate_splice_sites(j).size();
-                    num_candidate_pairs[j] = left * right;
-                    total_num_pairs += left * right;
+                    num_candidate_pairs[j] = (left_region.candidate_splice_sites(j).size()
+                                              * right_region.candidate_splice_sites(j).size());
+                    total_num_pairs += num_candidate_pairs[j];
                     
 #ifdef debug_multipath_mapper
-                    cerr << "motif " << j << " will have num candidate pairs: " << left << " * " << right << " = " << (left * right) << endl;
+                    cerr << "motif " << j << " will have num candidate pairs: " << left_region.candidate_splice_sites(j).size() << " * " << right_region.candidate_splice_sites(j).size() << " = " << num_candidate_pairs[j] << endl;
 #endif
                 }
                 
-                // apportion the effort across motifs
+                // apportion the effort we'll spend across motifs
                 vector<size_t> motif_max_num_pairs;
                 if (total_num_pairs < max_motif_pairs) {
                     // we can afford to do all of the candidates
@@ -2756,13 +2758,13 @@ namespace vg {
                 }
                 else {
                     // we have to budget out the number of candidates, so we have this procedure
-                    // to apportion them based their frequency
+                    // to apportion them among motifs based the motif frequency
                     // note: each round has to either clear out the entire budget or clear out all
                     // instances of at least one motif pair, which guarantees eventual termination
                     // in `splice_stats.motif_size()` rounds
-                    // (it can actually cause us to break the maximum because of rounding, but it
-                    // shouldn't be by very much, and rounding up is necessary to guarantee this
-                    // property)
+                    // (the rounding up can actually cause us to break the maximum, but it
+                    // shouldn't be by very much, and rounding up is necessary to guarantee the
+                    // clearing property)
                     
                     motif_max_num_pairs.resize(splice_stats.motif_size(), 0);
                     
