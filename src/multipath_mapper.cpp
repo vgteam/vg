@@ -1505,6 +1505,10 @@ namespace vg {
             cerr << "rescue failed, doing independent spliced alignment and then re-attempting pairing" << endl;
 #endif
             
+#ifdef debug_time_phases
+            clock_t start = clock();
+#endif
+            
             multipath_alignment_t* rescue_anchor_1 = nullptr;
             multipath_alignment_t* rescue_anchor_2 = nullptr;
             double rescue_multiplicity_1 = 1.0, rescue_multiplicity_2 = 1.0;
@@ -1537,6 +1541,10 @@ namespace vg {
                                                                     multiplicities_2, multipath_aln_pairs_out,
                                                                     pair_distances, pair_multiplicities);
             }
+            
+#ifdef debug_time_phases
+            cerr << "\trescue failed, spliced alignment used: " << double(clock() - start) / CLOCKS_PER_SEC << " secs" << endl;
+#endif
         }
         
         if (!found_consistent) {
@@ -1862,6 +1870,7 @@ namespace vg {
 #endif
         
 #ifdef debug_time_phases
+        cerr << "starting time measurement for pair " << alignment1.name() << endl;
         clock_t start = clock();
 #endif
         
@@ -2072,6 +2081,10 @@ namespace vg {
             proper_paired = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2, mems1,
                                                                 mems2, multipath_aln_pairs_out, cluster_pairs, rescue_multiplicities,
                                                                 fanouts1.get(), fanouts2.get());
+            
+#ifdef debug_time_phases
+            cerr << "no pairs, did alignments with rescue, time elapsed: " << double(clock() - start) / CLOCKS_PER_SEC << " secs" << endl;
+#endif
             
             if (proper_paired) {
                 // we'll want to remember the multiplicities
@@ -2407,7 +2420,7 @@ namespace vg {
                 
                 if (left_sites.size() * right_sites.size() > max_num_pairs) {
 #ifdef debug_multipath_mapper
-                    cerr << "number of pairs " << left_sites.size() * right_sites.size() << " for motif " << motif_num << " is above maximum " << max_num_pairs << "sampling downward" << endl;
+                    cerr << "number of pairs " << left_sites.size() * right_sites.size() << " for motif " << motif_num << " is above maximum " << max_num_pairs << ", sampling downward" << endl;
 #endif
                     
                     // there are too many pairs to just iterate over all of them, we have to select
@@ -2497,6 +2510,8 @@ namespace vg {
                 }
                 
                 bool operator==(const iterator& other) const {
+                    // this isn't valid if they are looking at different motifs or have a different maximum,
+                    // but that should never happen within the limited scope of this function
                     return (&iteratee == &other.iteratee && i == other.i);
                 }
                 
@@ -2717,28 +2732,95 @@ namespace vg {
                     }
                 }
                 
-#ifdef debug_multipath_mapper
-                cerr << "looking for shared motifs, number of candidate motif pairs will be" << endl;
-                for (size_t j = 0; j < splice_stats.motif_size(); ++j) {
-                    if (strand != Undetermined && splice_stats.motif_is_reverse(j) != (strand == Reverse)) {
-                        // we can only find splicing at junctions that have a consistent strand
-                        continue;
-                    }
-                    size_t left = left_region.candidate_splice_sites(j).size();
-                    size_t right = right_region.candidate_splice_sites(j).size();
-                    cerr << "\tmotif " << j << ": " << left << " * " << right << " = " << (left * right) << endl;
-                }
-#endif
-                
-                
+                // figure out how many pairs there are of each motif and across all motifs
+                size_t total_num_pairs = 0;
+                vector<size_t> num_candidate_pairs(splice_stats.motif_size(), 0);
                 for (size_t j = 0; j < splice_stats.motif_size(); ++j) {
                     if (strand != Undetermined && splice_stats.motif_is_reverse(j) != (strand == Reverse)) {
                         // we can only find splicing at junctions that have a consistent strand
                         continue;
                     }
                     
+                    num_candidate_pairs[j] = (left_region.candidate_splice_sites(j).size()
+                                              * right_region.candidate_splice_sites(j).size());
+                    total_num_pairs += num_candidate_pairs[j];
+                    
+#ifdef debug_multipath_mapper
+                    cerr << "motif " << j << " will have num candidate pairs: " << left_region.candidate_splice_sites(j).size() << " * " << right_region.candidate_splice_sites(j).size() << " = " << num_candidate_pairs[j] << endl;
+#endif
+                }
+                
+                // apportion the effort we'll spend across motifs
+                vector<size_t> motif_max_num_pairs;
+                if (total_num_pairs < max_motif_pairs) {
+                    // we can afford to do all of the candidates
+                    motif_max_num_pairs = move(num_candidate_pairs);
+                }
+                else {
+                    // we have to budget out the number of candidates, so we have this procedure
+                    // to apportion them among motifs based the motif frequency
+                    // note: each round has to either clear out the entire budget or clear out all
+                    // instances of at least one motif pair, which guarantees eventual termination
+                    // in `splice_stats.motif_size()` rounds
+                    // (the rounding up can actually cause us to break the maximum, but it
+                    // shouldn't be by very much, and rounding up is necessary to guarantee the
+                    // clearing property)
+                    
+                    motif_max_num_pairs.resize(splice_stats.motif_size(), 0);
+                    
+                    int64_t budget_remaining = max_motif_pairs;
+                    while (budget_remaining > 0) {
+#ifdef debug_multipath_mapper
+                        cerr << "new round of apportioning motif pair budget:" << endl;
+#endif
+                        // compute the normalizing factor for the frequency among the motifs that
+                        // still have motifs to assign
+                        double total_freq = 0.0;
+                        for (size_t j = 0; j < splice_stats.motif_size(); ++j) {
+                            if (motif_max_num_pairs[j] < num_candidate_pairs[j]) {
+                                total_freq += splice_stats.motif_frequency(j);
+                            }
+                        }
+                        int64_t next_budget_remaining = budget_remaining;
+                        for (size_t j = 0; j < splice_stats.motif_size(); ++j) {
+                            int64_t motif_remaining = num_candidate_pairs[j] - motif_max_num_pairs[j];
+                            if (motif_remaining > 0) {
+                                // figure out how many pairs out of the budget to give to this motif on this
+                                // round
+                                double round_fraction = splice_stats.motif_frequency(j) / total_freq;
+                                int64_t round_pairs = min<int64_t>(ceil(round_fraction * budget_remaining),
+                                                                   motif_remaining);
+                                // give it out from the budget
+                                next_budget_remaining -= round_pairs;
+                                motif_max_num_pairs[j] += round_pairs;
+#ifdef debug_multipath_mapper
+                                cerr << "\tadd " << round_pairs << " to motif " << j << ": " << motif_max_num_pairs[j] << endl;
+#endif
+                            }
+                            
+                        }
+                        budget_remaining = next_budget_remaining;
+                    }
+#ifdef debug_multipath_mapper
+                    cerr << "final apportionment:" << endl;
+                    for (size_t j = 0; j < splice_stats.motif_size(); ++j) {
+                        
+                        size_t left = left_region.candidate_splice_sites(j).size();
+                        size_t right = right_region.candidate_splice_sites(j).size();
+                        cerr << "motif " << j << ": " << motif_max_num_pairs[j]  << " pairs out of " << left * right << endl;
+                    }
+#endif
+                }
+                
+                
+                for (size_t j = 0; j < splice_stats.motif_size(); ++j) {
+                    if (motif_max_num_pairs[j] == 0) {
+                        // skip this one
+                        continue;
+                    }
+                    
                     // let the iterable decide which motif pairs we should look at
-                    MotifPairIterable motif_pairs(max_motif_pairs, left_prejoin_side,
+                    MotifPairIterable motif_pairs(motif_max_num_pairs[j], left_prejoin_side,
                                                   right_prejoin_side, j, alignment.sequence().size());
                     
                     for (auto it = motif_pairs.begin(), end = motif_pairs.end(); it != end; ++it) {
@@ -2802,7 +2884,7 @@ namespace vg {
         }
         
 #ifdef debug_multipath_mapper
-        cerr << "realigning across putative join regions" << endl;
+        cerr << "realigning across " << putative_joins.size() << " putative join regions" << endl;
 #endif
         
         // TODO: allow multiple splices in a multipath alignment
