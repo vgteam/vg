@@ -12,13 +12,13 @@
 //#define debug_time_phases
 //#define debug_log_splice_align_stats
 //#define debug_output_distance_correlation
-//#define debug_check_primers
+//#define debug_check_adapters
 
 #ifdef debug_time_phases
 #include <ctime>
 #endif
 
-#ifdef debug_check_primers
+#ifdef debug_check_adapters
 #include "ssw_aligner.hpp"
 #endif
 
@@ -3819,10 +3819,10 @@ namespace vg {
             return false;
         }
         
-#ifdef debug_check_primers
+#ifdef debug_check_adapters
         bool attempt_1_left = false, attempt_1_right = false, attempt_2_left = false, attempt_2_right = false;
         bool success_1_left = false, success_1_right = false, success_2_left = false, success_2_right = false;
-        bool primer_1_left = false, primer_1_right = false, primer_2_left = false, primer_2_right = false;
+        bool adapter_1_left = false, adapter_1_right = false, adapter_2_left = false, adapter_2_right = false;
 #endif
         
         // TODO: it would be better to use likelihoods rather than scores (esp. in paired)
@@ -3864,7 +3864,7 @@ namespace vg {
             cerr << "determining whether to make spliced alignment for pair at index " << current_index[j] << endl;
 #endif
             
-#ifdef debug_check_primers
+#ifdef debug_check_adapters
             bool attempt_1_left = false, attempt_1_right = false, attempt_2_left = false, attempt_2_right = false;
             bool success_1_left = false, success_1_right = false, success_2_left = false, success_2_right = false;
 #endif
@@ -3894,7 +3894,7 @@ namespace vg {
                 bool search_left = left_max_score >= min_softclipped_score_for_splice;
                 bool search_right = right_max_score >= min_softclipped_score_for_splice;
                 
-#ifdef debug_check_primers
+#ifdef debug_check_adapters
                 if (do_read_1) {
                     attempt_1_left |= search_left;
                     attempt_1_right |= search_right;
@@ -3916,26 +3916,26 @@ namespace vg {
                     }
                     // TODO: magic number
                     // try to figure out the softclip that we're seeing looks like it could be due to readthrough
-                    // of a primer across the paired reads
-                    static int64_t primer_overlap_slosh = 2;
-                    if (do_read_1 && !do_left && !read_1_primer.empty()) {
-                        size_t begin = max<int64_t>(0, interval.second - primer_overlap_slosh);
+                    // of a adapter across the paired reads
+                    static int64_t adapter_overlap_slosh = 2;
+                    if (do_read_1 && !do_left && !read_1_adapter.empty()) {
+                        size_t begin = max<int64_t>(0, interval.second - adapter_overlap_slosh);
                         size_t pos = kmp_search(aln.sequence().c_str() + begin, aln.sequence().size() - begin,
-                                                read_1_primer.c_str(), read_1_primer.size(), read_1_primer_lps);
-                        if (pos != string::npos && pos < 2 * primer_overlap_slosh) {
-                            // this softclip is bracketed by a known primer sequence, it is much more likely
+                                                read_1_adapter.c_str(), read_1_adapter.size(), read_1_adapter_lps);
+                        if (pos != string::npos && pos < 2 * adapter_overlap_slosh) {
+                            // this softclip is bracketed by a known adapter sequence, it is much more likely
                             // that it should be adapter trimmed rather than attempting a spliced alignment
                             continue;
                         }
                     }
-                    if (!do_read_1 && do_left && !read_2_primer.empty()) {
-                        size_t end = min<size_t>(interval.first + primer_overlap_slosh, aln.sequence().size());
+                    if (!do_read_1 && do_left && !read_2_adapter.empty()) {
+                        size_t end = min<size_t>(interval.first + adapter_overlap_slosh, aln.sequence().size());
                         // TODO: ideally this would search backwards, but it's not likely that this will ever cause
-                        // a problem since most primers lack long internal repeats
+                        // a problem since most adapters lack long internal repeats
                         size_t pos = kmp_search(aln.sequence().c_str(), end,
-                                                read_2_primer.c_str(), read_2_primer.size(), read_2_primer_lps);
-                        if (pos != string::npos && pos + read_2_primer.size() + primer_overlap_slosh > interval.first) {
-                            // this softclip is bracketed by a known primer sequence, it is much more likely
+                                                read_2_adapter.c_str(), read_2_adapter.size(), read_2_adapter_lps);
+                        if (pos != string::npos && pos + read_2_adapter.size() + adapter_overlap_slosh > interval.first) {
+                            // this softclip is bracketed by a known adapter sequence, it is much more likely
                             // that it should be adapter trimmed rather than attempting a spliced alignment
                             continue;
                         }
@@ -4124,7 +4124,7 @@ namespace vg {
                         pair_multiplicities[current_index[j]] = anchor_multiplicity;
                     }
                     
-#ifdef debug_check_primers
+#ifdef debug_check_adapters
                     if (do_read_1) {
                         if (do_left) {
                             success_1_left |= spliced_side;
@@ -4161,13 +4161,13 @@ namespace vg {
                 }
             }
             
-#ifdef debug_check_primers
-            vector<int32_t> primer_aln_scores;
-            vector<string> primers{"AGATCGGAAGAG"}; // the illumina universal adapter
-            primers.push_back(reverse_complement(primers.back()));
+#ifdef debug_check_adapters
+            vector<int32_t> adapter_aln_scores;
+            vector<string> adapters{"AGATCGGAAGAG"}; // the illumina universal adapter
+            adapters.push_back(reverse_complement(adapters.back()));
             for (auto mp_aln : {multipath_aln_pairs_out[current_index[j]].first, multipath_aln_pairs_out[current_index[j]].second}) {
-                for (auto primer : primers) {
-                    primer_aln_scores.push_back(SSWAligner().align(mp_aln.sequence(), primer).score());
+                for (auto adapter : adapters) {
+                    adapter_aln_scores.push_back(SSWAligner().align(mp_aln.sequence(), adapter).score());
                 }
             }
             string line = (alignment1.name() +
@@ -4175,7 +4175,7 @@ namespace vg {
                            "\t" + to_string(attempt_2_left) + "\t" + to_string(attempt_2_right) +
                            "\t" + to_string(success_1_left) + "\t" + to_string(success_1_right) +
                            "\t" + to_string(success_2_left) + "\t" + to_string(success_2_right));
-            for (auto s : primer_aln_scores) {
+            for (auto s : adapter_aln_scores) {
                 line += (string("\t") + to_string(s));
             }
             line += "\n";
@@ -7299,24 +7299,24 @@ namespace vg {
         max_tail_merge_supress_length = ceil(double(get_regular_aligner()->match) / double(get_regular_aligner()->mismatch));
     }
 
-    void MultipathMapper::set_read_1_primer(const string& primer) {
+    void MultipathMapper::set_read_1_adapter(const string& adapter) {
         // TODO: magic number
-        string trimmed_primer = primer;
-        if (trimmed_primer.size() > 12) {
-            trimmed_primer.resize(12);
+        string trimmed_adapter = adapter;
+        if (trimmed_adapter.size() > 12) {
+            trimmed_adapter.resize(12);
         }
-        read_1_primer = trimmed_primer;
-        read_1_primer_lps = make_prefix_suffix_table(read_1_primer.c_str(), read_1_primer.size());
+        read_1_adapter = trimmed_adapter;
+        read_1_adapter_lps = make_prefix_suffix_table(read_1_adapter.c_str(), read_1_adapter.size());
     }
 
-    void MultipathMapper::set_read_2_primer(const string& primer) {
+    void MultipathMapper::set_read_2_adapter(const string& adapter) {
         // TODO: magic number
-        string trimmed_primer = primer;
-        if (trimmed_primer.size() > 12) {
-            trimmed_primer.resize(12);
+        string trimmed_adapter = adapter;
+        if (trimmed_adapter.size() > 12) {
+            trimmed_adapter.resize(12);
         }
-        read_2_primer = reverse_complement(trimmed_primer);
-        read_2_primer_lps = make_prefix_suffix_table(read_2_primer.c_str(), read_2_primer.size());
+        read_2_adapter = reverse_complement(trimmed_adapter);
+        read_2_adapter_lps = make_prefix_suffix_table(read_2_adapter.c_str(), read_2_adapter.size());
     }
 
     // make the memos live in this .o file

@@ -106,12 +106,12 @@ namespace vg {
         /// Decide how long of a tail alignment we want before we allow its subpath to be merged
         void set_max_merge_supression_length();
         
-        /// Use primer sequences to help identify soft-clips that should not be splice-aligned, sequences
+        /// Use adapter sequences to help identify soft-clips that should not be splice-aligned, sequences
         /// should be ~12 bp presented in the orientation that a trimmable sequence is found in the
         /// sequencing data (reverse complement to the actual sequence, since it is encountered on the
         /// other read)
-        void set_read_1_primer(const string& primer);
-        void set_read_2_primer(const string& primer);
+        void set_read_1_adapter(const string& adapter);
+        void set_read_2_adapter(const string& adapter);
         
         // parameters
         
@@ -652,10 +652,10 @@ namespace vg {
         vector<MaximalExactMatch> find_mems(const Alignment& alignment,
                                             vector<deque<pair<string::const_iterator, char>>>* mem_fanout_breaks = nullptr);
         
-        string read_1_primer = "";
-        string read_2_primer = "";
-        vector<size_t> read_1_primer_lps;
-        vector<size_t> read_2_primer_lps;
+        string read_1_adapter = "";
+        string read_2_adapter = "";
+        vector<size_t> read_1_adapter_lps;
+        vector<size_t> read_2_adapter_lps;
         
         int64_t min_softclip_length_for_splice = 20;
         int64_t min_softclipped_score_for_splice = 25;
