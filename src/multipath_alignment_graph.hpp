@@ -13,10 +13,7 @@
 #include <unordered_map>
 #include <algorithm>
 
-#include "structures/rank_pairing_heap.hpp"
-
 #include <vg/vg.pb.h>
-#include "vg.hpp"
 #include "snarls.hpp"
 #include "multipath_mapper.hpp"
 

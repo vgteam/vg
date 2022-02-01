@@ -14,6 +14,7 @@
 #include "subcommand.hpp"
 
 #include <vg/io/vpkg.hpp>
+#include "../algorithms/component.hpp"
 #include "../multipath_mapper.hpp"
 #include "../mem_accelerator.hpp"
 #include "../surjector.hpp"
@@ -349,6 +350,11 @@ int main_mpmap(int argc, char** argv) {
     double splice_rescue_graph_std_devs = 3.0;
     bool override_spliced_alignment = false;
     int max_motif_pairs = 200;
+    // the TruSeq primers, which seem to be what mostly gets used for RNA-seq
+    // (this info is only used during spliced alignment, so that should be all
+    // that matters)
+    string read_1_primer = "AGATCGGAAGAG";
+    string read_2_primer = "AGATCGGAAGAG";
     int match_score_arg = std::numeric_limits<int>::min();
     int mismatch_score_arg = std::numeric_limits<int>::min();
     int gap_open_score_arg = std::numeric_limits<int>::min();
@@ -1991,6 +1997,8 @@ int main_mpmap(int argc, char** argv) {
     if (!intron_distr_name.empty()) {
         multipath_mapper.set_intron_length_distribution(intron_mixture_weights, intron_component_params);
     }
+    multipath_mapper.set_read_1_primer(read_1_primer);
+    multipath_mapper.set_read_2_primer(read_2_primer);
 
 #ifdef mpmap_instrument_mem_statistics
     multipath_mapper._mem_stats.open(MEM_STATS_FILE);
