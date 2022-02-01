@@ -348,7 +348,7 @@ int main_mpmap(int argc, char** argv) {
     double no_splice_log_odds = 2.0;
     double splice_rescue_graph_std_devs = 3.0;
     bool override_spliced_alignment = false;
-    int max_motif_pairs = 1024;
+    int max_motif_pairs = 200;
     int match_score_arg = std::numeric_limits<int>::min();
     int mismatch_score_arg = std::numeric_limits<int>::min();
     int gap_open_score_arg = std::numeric_limits<int>::min();
