@@ -102,13 +102,16 @@ class NewSnarlSeedClusterer {
             //Only set these for nodes or snarls in chains
             nid_t node_id = 0;
             bool is_reversed_in_parent = false;
-            size_t node_length = 0;
-            size_t prefix_sum_value = std::numeric_limits<size_t>::max();
+            size_t node_length = std::numeric_limits<size_t>::max(); //of node or snarl
+            size_t prefix_sum_value = std::numeric_limits<size_t>::max(); //of node or first node in snarl
+            size_t chain_component_start = std::numeric_limits<size_t>::max(); //of node or start of snarl
+            size_t chain_component_end = std::numeric_limits<size_t>::max(); //of node or end of snarl
 
             //Only set this one for a chain
             bool is_looping_chain = false;
             size_t chain_length = std::numeric_limits<size_t>::max();
             size_t chain_last_component = std::numeric_limits<size_t>::max();
+            size_t chain_last_child_offset = std::numeric_limits<size_t>::max();
             
 
             //set of the indices of heads of clusters (group ids in the 
@@ -142,13 +145,16 @@ class NewSnarlSeedClusterer {
                     is_looping_chain = distance_index.is_looping_chain(containing_net_handle);
                     chain_length = distance_index.minimum_length(containing_net_handle);
                     chain_last_component = distance_index.get_chain_component(distance_index.get_bound(containing_net_handle, true, false));
+                    chain_last_child_offset = SnarlDistanceIndex::get_record_offset(distance_index.get_bound(containing_net_handle, true, false));
                 }
             }
-            NodeClusters( net_handle_t net, size_t read_count, bool is_reversed_in_parent, nid_t node_id, size_t node_length, size_t prefix_sum) :
+            NodeClusters( net_handle_t net, size_t read_count, bool is_reversed_in_parent, nid_t node_id, size_t node_length, size_t prefix_sum, size_t component) :
                 containing_net_handle(net),
                 is_reversed_in_parent(is_reversed_in_parent),
                 node_length(node_length),
                 prefix_sum_value(prefix_sum),
+                chain_component_start(component),
+                chain_component_end(component),
                 node_id(node_id),
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
                 read_best_left(read_count, std::numeric_limits<size_t>::max()), 

@@ -20,6 +20,43 @@
 
 namespace vg {
 namespace unittest {
+
+    TEST_CASE( "cluster one node",
+                   "[cluster]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex dist_index;
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
+        
+        //graph.to_dot(cerr);
+
+        SECTION( "One cluster" ) {
+ 
+            id_t seed_nodes[] = {1, 1};
+            //all are in the same cluster
+            vector<NewSnarlSeedClusterer::Seed> seeds;
+            for (bool use_minimizers : {true, false} ) {
+                for (id_t n : seed_nodes) {
+                    pos_t pos = make_pos_t(n, false, 0);
+                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
+                REQUIRE(clusters.size() == 1); 
+            }
+
+
+        }
+    }
     TEST_CASE( "cluster simple chain",
                    "[cluster]" ) {
         VG graph;
@@ -757,7 +794,7 @@ namespace unittest {
             REQUIRE( clusters.size() == 1);
         }
     }
-    TEST_CASE( "Loop on first node in a top-level chain","[cluster][bug]" ) {
+    TEST_CASE( "Loop on first node in a top-level chain","[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -802,6 +839,79 @@ namespace unittest {
             vector<NewSnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 10); 
 
             REQUIRE( clusters.size() == 1);
+        }
+        SECTION( "Two clusters across top-level snarl" ) {
+            vector<NewSnarlSeedClusterer::Seed> seeds;
+            vector<pos_t> pos_ts;
+            pos_ts.emplace_back(1, false, 0);
+            pos_ts.emplace_back(4, true, 0);
+
+            for (pos_t pos : pos_ts){
+
+                auto chain_info = get_minimizer_distances(dist_index, pos);
+                seeds.push_back({ pos, 0, chain_info});
+            }
+            vector<NewSnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+
+            REQUIRE( clusters.size() == 2);
+        }
+    }
+    TEST_CASE( "Chain connected to node in top-level snarl","[cluster][bug]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GGGGGGGGGGGG");//12 Gs
+        Node* n6 = graph.create_node("T");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+        Edge* e3 = graph.create_edge(n1, n3, false, true);
+        Edge* e4 = graph.create_edge(n2, n4);
+        Edge* e5 = graph.create_edge(n2, n5);
+        Edge* e6 = graph.create_edge(n3, n5);
+        Edge* e7 = graph.create_edge(n4, n5);
+        Edge* e8 = graph.create_edge(n5, n6);
+        Edge* e9 = graph.create_edge(n5, n6, false, true);
+
+        
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex dist_index;
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
+
+        SECTION( "One cluster across top-level snarl" ) {
+            vector<NewSnarlSeedClusterer::Seed> seeds;
+            vector<pos_t> pos_ts;
+            pos_ts.emplace_back(2, false, 0);
+            pos_ts.emplace_back(6, true, 0);
+
+            for (pos_t pos : pos_ts){
+
+                auto chain_info = get_minimizer_distances(dist_index, pos);
+                seeds.push_back({ pos, 0, chain_info});
+            }
+            vector<NewSnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 20); 
+
+            REQUIRE( clusters.size() == 1);
+        }
+        SECTION( "Two clusters across top-level snarl" ) {
+            vector<NewSnarlSeedClusterer::Seed> seeds;
+            vector<pos_t> pos_ts;
+            pos_ts.emplace_back(2, false, 0);
+            pos_ts.emplace_back(6, true, 0);
+
+            for (pos_t pos : pos_ts){
+
+                auto chain_info = get_minimizer_distances(dist_index, pos);
+                seeds.push_back({ pos, 0, chain_info});
+            }
+            vector<NewSnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 5); 
+
+            REQUIRE( clusters.size() == 2);
         }
     }
     TEST_CASE( "Clusters in snarl","[cluster]" ) {
