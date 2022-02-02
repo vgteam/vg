@@ -3658,6 +3658,23 @@ namespace vg {
                 if ((do_left && !search_left) || (!do_left && !search_right)) {
                     continue;
                 }
+                // try to figure out the softclip that we're seeing looks like it could be due to readthrough
+                // of a adapter across the paired reads
+                // TODO: magic number
+                static const int64_t adapter_overlap_slosh = 2;
+                if (!do_left && !read_1_adapter.empty()) {
+                    size_t begin = max<int64_t>(0, interval.second - adapter_overlap_slosh);
+                    size_t end = min<size_t>(begin + read_1_adapter.size() + 2 * adapter_overlap_slosh,
+                                             aln.sequence().size());
+                    size_t pos = kmp_search(aln.sequence().c_str() + begin, end - begin,
+                                            read_1_adapter.c_str(), read_1_adapter.size(),
+                                            read_1_adapter_lps);
+                    if (pos != string::npos) {
+                        // this softclip is bracketed by a known adapter sequence, it is much more likely
+                        // that it should be adapter trimmed rather than meriting a spliced alignment
+                        continue;
+                    }
+                }
                 
                 // move the anchor out of the vector to protect it from any shuffling that goes on
                 multipath_alignment_t splice_anchor = move(multipath_alns_out[current_index[j]]);
@@ -3914,29 +3931,32 @@ namespace vg {
                     if ((do_left && !search_left) || (!do_left && !search_right)) {
                         continue;
                     }
-                    // TODO: magic number
                     // try to figure out the softclip that we're seeing looks like it could be due to readthrough
                     // of a adapter across the paired reads
-                    static int64_t adapter_overlap_slosh = 2;
+                    // TODO: magic number
+                    static const int64_t adapter_overlap_slosh = 2;
                     if (do_read_1 && !do_left && !read_1_adapter.empty()) {
                         size_t begin = max<int64_t>(0, interval.second - adapter_overlap_slosh);
-                        size_t pos = kmp_search(aln.sequence().c_str() + begin, aln.sequence().size() - begin,
-                                                read_1_adapter.c_str(), read_1_adapter.size(), read_1_adapter_lps);
-                        if (pos != string::npos && pos < 2 * adapter_overlap_slosh) {
+                        size_t end = min<size_t>(begin + read_1_adapter.size() + 2 * adapter_overlap_slosh,
+                                                 aln.sequence().size());
+                        size_t pos = kmp_search(aln.sequence().c_str() + begin, end - begin,
+                                                read_1_adapter.c_str(), read_1_adapter.size(),
+                                                read_1_adapter_lps);
+                        if (pos != string::npos) {
                             // this softclip is bracketed by a known adapter sequence, it is much more likely
-                            // that it should be adapter trimmed rather than attempting a spliced alignment
+                            // that it should be adapter trimmed rather than meriting a spliced alignment
                             continue;
                         }
                     }
                     if (!do_read_1 && do_left && !read_2_adapter.empty()) {
                         size_t end = min<size_t>(interval.first + adapter_overlap_slosh, aln.sequence().size());
-                        // TODO: ideally this would search backwards, but it's not likely that this will ever cause
-                        // a problem since most adapters lack long internal repeats
-                        size_t pos = kmp_search(aln.sequence().c_str(), end,
-                                                read_2_adapter.c_str(), read_2_adapter.size(), read_2_adapter_lps);
-                        if (pos != string::npos && pos + read_2_adapter.size() + adapter_overlap_slosh > interval.first) {
+                        size_t begin = max<int64_t>(0, end - read_2_adapter.size() - 2 * adapter_overlap_slosh);
+                        size_t pos = kmp_search(aln.sequence().c_str() + begin, end - begin,
+                                                read_2_adapter.c_str(), read_2_adapter.size(),
+                                                read_2_adapter_lps);
+                        if (pos != string::npos) {
                             // this softclip is bracketed by a known adapter sequence, it is much more likely
-                            // that it should be adapter trimmed rather than attempting a spliced alignment
+                            // that it should be adapter trimmed rather than meriting a spliced alignment
                             continue;
                         }
                     }
