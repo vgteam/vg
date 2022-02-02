@@ -3665,8 +3665,8 @@ namespace vg {
                 if (!do_left && !read_1_adapter.empty()) {
                     size_t begin = max<int64_t>(0, interval.second - adapter_overlap_slosh);
                     size_t end = min<size_t>(begin + read_1_adapter.size() + 2 * adapter_overlap_slosh,
-                                             aln.sequence().size());
-                    size_t pos = kmp_search(aln.sequence().c_str() + begin, end - begin,
+                                             alignment.sequence().size());
+                    size_t pos = kmp_search(alignment.sequence().c_str() + begin, end - begin,
                                             read_1_adapter.c_str(), read_1_adapter.size(),
                                             read_1_adapter_lps);
                     if (pos != string::npos) {
