@@ -35,7 +35,7 @@ size_t kmp_search(const char* text, size_t text_len,
                   const char* pattern, size_t pattern_len,
                   const vector<size_t>& prefix_suffix_table) {
     if (text_len >= pattern_len) {
-        for (size_t i = 0, j = 0; i < text_len;) {
+        for (size_t i = 0, j = 0, last = text_len - pattern_len; i - j <= last;) {
             if (text[i] == pattern[j]) {
                 ++i;
                 ++j;
