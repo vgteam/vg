@@ -335,32 +335,32 @@ TEST_CASE("IncrementalSubgraph can handle branching paths and bubbles correctly"
           "[incremental]") {
     
     SECTION("Two deletions") {
-        
+
         HashGraph graph;
         handle_t h0 = graph.create_handle("AC");
         handle_t h1 = graph.create_handle("A");
         handle_t h2 = graph.create_handle("T");
         handle_t h3 = graph.create_handle("C");
         handle_t h4 = graph.create_handle("G");
-        
+
         graph.create_edge(h0, h1);
         graph.create_edge(h0, h2);
         graph.create_edge(h1, h2);
         graph.create_edge(h2, h4);
         graph.create_edge(h2, h3);
         graph.create_edge(h3, h4);
-        
+
         pos_t start = make_pos_t(graph.get_id(h0), false, 1);
-        
+
         IncrementalSubgraph subgraph(graph, start, false);
         handle_t s0 = subgraph.handle_at_order(0);
         handle_t s1 = subgraph.extend();
         handle_t s2 = subgraph.extend();
         handle_t s3 = subgraph.extend();
         handle_t s4 = subgraph.extend();
-        
+
         REQUIRE(!subgraph.is_extendable());
-        
+
         // did we get everything in topological order
         REQUIRE(subgraph.get_underlying_handle(s0) == h0);
         REQUIRE(subgraph.get_underlying_handle(s1) == h1);
@@ -368,52 +368,52 @@ TEST_CASE("IncrementalSubgraph can handle branching paths and bubbles correctly"
         REQUIRE(subgraph.get_underlying_handle(s3) == h3);
         REQUIRE(subgraph.get_underlying_handle(s4) == h4);
     }
-    
+
     SECTION("Unreachable branch") {
-        
+
         HashGraph graph;
         handle_t h0 = graph.create_handle("C");
         handle_t h1 = graph.create_handle("A");
         handle_t h2 = graph.create_handle("T");
-        
+
         graph.create_edge(h0, h2);
         graph.create_edge(h1, h2);
-        
+
         pos_t start = make_pos_t(graph.get_id(h0), false, 0);
-        
+
         IncrementalSubgraph subgraph(graph, start, false);
         handle_t s0 = subgraph.handle_at_order(0);
         handle_t s1 = subgraph.extend();
-        
+
         REQUIRE(!subgraph.is_extendable());
-        
+
         REQUIRE(subgraph.get_underlying_handle(s0) == h0);
         REQUIRE(subgraph.get_underlying_handle(s1) == h2);
         REQUIRE(verify_incremental_max_distance(subgraph));
     }
-    
+
     SECTION("Respects max distance") {
-        
+
         HashGraph graph;
         handle_t h0 = graph.create_handle("ACC");
         handle_t h1 = graph.create_handle("AA");
         handle_t h2 = graph.create_handle("GT");
-        
+
         graph.create_edge(h0, h1);
         graph.create_edge(h1, h2);
-        
+
         pos_t start = make_pos_t(graph.get_id(h0), false, 1);
-        
+
         IncrementalSubgraph subgraph(graph, start, false, 4);
         handle_t s0 = subgraph.handle_at_order(0);
         handle_t s1 = subgraph.extend();
-        
+
         REQUIRE(!subgraph.is_extendable());
-        
+
         REQUIRE(subgraph.get_underlying_handle(s0) == h0);
         REQUIRE(subgraph.get_underlying_handle(s1) == h1);
         REQUIRE(verify_incremental_max_distance(subgraph));
-        
+
     }
     
     SECTION("Respects max distance along different paths") {
@@ -452,6 +452,37 @@ TEST_CASE("IncrementalSubgraph can handle branching paths and bubbles correctly"
         REQUIRE(verify_incremental_max_distance(subgraph));
         
     }
+}
+
+TEST_CASE("IncrementalSubgraph remains acyclic when extracting from within a self-loop",
+          "[incremental]") {
+    
+    HashGraph graph;
+    handle_t h0 = graph.create_handle("A");
+    handle_t h1 = graph.create_handle("AAAAAA");
+    
+    graph.create_edge(h0, h0);
+    graph.create_edge(h0, h1);
+    
+    pos_t start = make_pos_t(graph.get_id(h0), false, 0);
+    
+    IncrementalSubgraph subgraph(graph, start, false, 10);
+    
+    REQUIRE(handlealgs::is_directed_acyclic(&subgraph));
+    while (subgraph.is_extendable()) {
+        subgraph.extend();
+        REQUIRE(handlealgs::is_directed_acyclic(&subgraph));
+    }
+    
+//    subgraph.for_each_handle([&](const handle_t& h) {
+//        cerr << subgraph.get_id(h) << " " << subgraph.get_sequence(h) << endl;
+//        subgraph.follow_edges(h, true, [&](const handle_t& n) {
+//            cerr << "\t" << subgraph.get_id(n) << " <-" << endl;
+//        });
+//        subgraph.follow_edges(h, false, [&](const handle_t& n) {
+//            cerr << "\t-> " << subgraph.get_id(n) << endl;
+//        });
+//    });
 }
 
 }

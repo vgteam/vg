@@ -5,6 +5,7 @@
 #ifndef VG_INCREMENTAL_SUBGRAPH_HPP_INCLUDED
 #define VG_INCREMENTAL_SUBGRAPH_HPP_INCLUDED
 
+#include <deque>
 
 #include "handle.hpp"
 
@@ -30,7 +31,7 @@ public:
     IncrementalSubgraph() = default;
     
     /// Default destructor
-    ~IncrementalSubgraph() = default;
+    ~IncrementalSubgraph();
     
     //////////////////////////
     /// Specialized interface
@@ -145,6 +146,17 @@ public:
     
 private:
     
+    // comparator for the frontier, order first by number of unseen incoming edges
+    // and then by distance and break ties arbitrarily based on handle values
+    // TODO: rearrange the tuples to make this less awkward
+    struct FCmp {
+        inline bool operator()(const tuple<int64_t, handle_t, unordered_set<handle_t>*, vector<size_t>*>& a,
+                               const tuple<int64_t, handle_t, unordered_set<handle_t>*, vector<size_t>*>& b) const {
+            return (get<2>(a)->size() < get<2>(b)->size() ||
+                    (get<2>(a)->size() == get<2>(b)->size() && a < b));
+        }
+    };
+    
     pair<size_t, size_t> underlying_interval(size_t i) const;
     
     /// direction we're extracting from the start pos
@@ -153,16 +165,19 @@ private:
     /// farthest distance we will travel from the start pos
     int64_t max_distance;
     
+    
     /// records of (underlying handle, left edges, right edges, min distance, max distance)
     vector<tuple<handle_t, vector<size_t>, vector<size_t>, int64_t, int64_t>> extracted;
-    /// index of latest addition of a handle in the extracted vector
-    unordered_map<handle_t, size_t> extracted_index;
+    /// the number of times a handle has been extracted
+    unordered_map<handle_t, size_t> num_extracted;
     
-    /// records of (incoming edges seen, distance, node). serves as an updateable
-    /// priority queue for nodes that are adjacent to the extracted nodes
-    set<tuple<size_t, int64_t, handle_t>> frontier;
+    /// records of (unseen edges going into, seen edges going into, distance, node).
+    /// serves as an updateable priority queue for nodes that are adjacent to the extracted nodes
+    /// the container classes are created on the heap so that we can do a remove-modify-replace
+    /// update to frontier entries without deep-copying the containers
+    set<tuple<int64_t, handle_t, unordered_set<handle_t>*, vector<size_t>*>, FCmp> frontier;
     /// provides random access into the frontier by handle
-    unordered_map<handle_t, decltype(frontier)::iterator> frontier_index;
+    unordered_map<handle_t, deque<decltype(frontier)::iterator>> frontier_index;
     
     /// The underlying graph
     const HandleGraph* graph = nullptr;
