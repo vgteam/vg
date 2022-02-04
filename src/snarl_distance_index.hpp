@@ -122,6 +122,13 @@ struct MIPayload {
         size_t node_length = std::get<2>(info); 
         size_t component = std::get<3>(info);
         bool is_reversed = std::get<4>(info); 
+        if ( prefix_sum > PREFIX_SUM_MASK 
+             || record_offset > RECORD_MASK
+             || node_length > NODE_LENGTH_MASK
+             || component > COMPONENT_MASK) {
+            //If there aren't enough bits to represent one of the values
+            return NO_CODE;
+        }
 
         return (static_cast<code_type>(prefix_sum) << PREFIX_SUM_OFFSET) 
              | (static_cast<code_type>(record_offset) << RECORD_OFFSET)
