@@ -149,8 +149,8 @@ TEST_CASE("An Alignment can be back-translated while converting to GAF", "[algor
     trans.node_names[1] = "FirstSegment";
     trans.node_names[2] = "SecondSegment";
     
-    SECTION("Original GAF generation produces the right GAF") {
-        auto node_space = vg::io::alignment_to_gaf_old(g, a);
+    SECTION("Translating GAF generation produces the right GAF") {
+        auto node_space = vg::io::alignment_to_gaf(g, a);
         stringstream s;
         s << node_space;
         
@@ -158,14 +158,6 @@ TEST_CASE("An Alignment can be back-translated while converting to GAF", "[algor
         // Alignment block length is longest involved sequence.
         // Note that we combine adjacent duplicate operations in cs across node boundaries.
         // Note that end position is 0-based inclusive
-        REQUIRE(s.str() == "francine\t7\t0\t7\t+\t>2>3>4\t13\t2\t10\t6\t8\t30\tcs:Z::1-G:1+T:2-CA:2");
-    }
-    
-    SECTION("Translating GAF generation produces the right GAF") {
-        auto node_space = vg::io::alignment_to_gaf(g, a);
-        stringstream s;
-        s << node_space;
-        
         REQUIRE(s.str() == "francine\t7\t0\t7\t+\t>2>3>4\t13\t2\t10\t6\t8\t30\tcs:Z::1-G:1+T:2-CA:2");
     }
     
