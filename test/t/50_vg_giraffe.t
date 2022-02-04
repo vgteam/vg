@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 34
+plan tests 36
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -160,5 +160,13 @@ is "$?" "0" "Mapping reads to named coordinates on a nontrivial graph without wa
 is "$(vg view -aj mapped.gam | jq -r '.score' | grep -v "^0" | wc -l)" "200" "Reads are all mapped"
 is "$(vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | grep null | wc -l)" "0" "GFA segment names are all set"
 
-rm -f reads.gam mapped.gam brca.*
+vg giraffe -Z brca.giraffe.gbz -m brca.min -d brca.dist -G reads.gam --named-coordinates -o gaf > mapped.gaf
+is "$?" "0" "Mapping reads as GAF to named coordinates on a nontrivial graph without walks succeeds"
+
+vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | sort | uniq > gam_names.txt
+cat mapped.gaf | cut -f6 | tr '><' '\n\n' | grep "." | sort | uniq > gaf_names.txt
+
+is "$(md5sum gaf-names.txt)" "$(md5sum gam_names.txt)" "Mappign reads as named GAF uses the same names as named GAM""
+
+rm -f reads.gam mapped.gam mapped.gaf brca.* gam_names.txt gaf_names.txt
 
