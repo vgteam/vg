@@ -148,6 +148,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a3db9d73e2a4b296df8df495c028a615b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a3db9d73e2a4b296df8df495c028a615b">set_max_merge_supression_length</a> ()</td></tr>
 <tr class="memdesc:a3db9d73e2a4b296df8df495c028a615b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Decide how long of a tail alignment we want before we allow its subpath to be merged.  <a href="classvg_1_1MultipathMapper.html#a3db9d73e2a4b296df8df495c028a615b">More...</a><br /></td></tr>
 <tr class="separator:a3db9d73e2a4b296df8df495c028a615b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaf7ee8334193018b945900b00cec8826"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aaf7ee8334193018b945900b00cec8826">set_read_1_adapter</a> (const string &amp;adapter)</td></tr>
+<tr class="separator:aaf7ee8334193018b945900b00cec8826"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1c1674e89e4702168e75bca6fdb4d0bd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a1c1674e89e4702168e75bca6fdb4d0bd">set_read_2_adapter</a> (const string &amp;adapter)</td></tr>
+<tr class="separator:a1c1674e89e4702168e75bca6fdb4d0bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1BaseMapper"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1BaseMapper')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1BaseMapper.html">vg::BaseMapper</a></td></tr>
 <tr class="memitem:a9a924463193888114237a20617f9485e inherit pub_methods_classvg_1_1BaseMapper"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a9a924463193888114237a20617f9485e">BaseMapper</a> (<a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *xidex, gcsa::GCSA *g, gcsa::LCPArray *a, <a class="el" href="classhaplo_1_1ScoreProvider.html">haplo::ScoreProvider</a> *<a class="el" href="classvg_1_1BaseMapper.html#af69ce88df203124121b71bdfdc6f3694">haplo_score_provider</a>=nullptr)</td></tr>
 <tr class="separator:a9a924463193888114237a20617f9485e inherit pub_methods_classvg_1_1BaseMapper"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -624,6 +628,14 @@ Static Protected Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
+<tr class="memitem:ac11fe37f1e47b1f3697e1eeeb703a467"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ac11fe37f1e47b1f3697e1eeeb703a467">read_1_adapter</a> = &quot;&quot;</td></tr>
+<tr class="separator:ac11fe37f1e47b1f3697e1eeeb703a467"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9dda8a58ca0a9a3b5f8cf6bb6b72b907"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a9dda8a58ca0a9a3b5f8cf6bb6b72b907">read_2_adapter</a> = &quot;&quot;</td></tr>
+<tr class="separator:a9dda8a58ca0a9a3b5f8cf6bb6b72b907"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a72cfecb533ba72974ca4fe736f5e4616"><td class="memItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a72cfecb533ba72974ca4fe736f5e4616">read_1_adapter_lps</a></td></tr>
+<tr class="separator:a72cfecb533ba72974ca4fe736f5e4616"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab14d5973d561097ca08d9e989b04265b"><td class="memItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ab14d5973d561097ca08d9e989b04265b">read_2_adapter_lps</a></td></tr>
+<tr class="separator:ab14d5973d561097ca08d9e989b04265b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2d6a193c1277d948f7155da585e60367"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a2d6a193c1277d948f7155da585e60367">min_softclip_length_for_splice</a> = 20</td></tr>
 <tr class="separator:a2d6a193c1277d948f7155da585e60367"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaae9feaf584c64fe27628e29778359b4"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aaae9feaf584c64fe27628e29778359b4">min_softclipped_score_for_splice</a> = 25</td></tr>
@@ -3957,6 +3969,43 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="aaf7ee8334193018b945900b00cec8826"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aaf7ee8334193018b945900b00cec8826">&#9670;&nbsp;</a></span>set_read_1_adapter()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MultipathMapper::set_read_1_adapter </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>adapter</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Use adapter sequences to help identify soft-clips that should not be splice-aligned, sequences should be ~12 bp presented in the orientation that a trimmable sequence is found in the sequencing data (reverse complement to the actual sequence, since it is encountered on the other read) </p>
+
+</div>
+</div>
+<a id="a1c1674e89e4702168e75bca6fdb4d0bd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1c1674e89e4702168e75bca6fdb4d0bd">&#9670;&nbsp;</a></span>set_read_2_adapter()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MultipathMapper::set_read_2_adapter </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>adapter</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a2ce30f7fe70325b6101356f5eb67df3d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a2ce30f7fe70325b6101356f5eb67df3d">&#9670;&nbsp;</a></span>set_read_coverage()</h2>
 
@@ -5324,6 +5373,94 @@ Additional Inherited Members</h2></td></tr>
           <td class="memname">double vg::MultipathMapper::prune_subpaths_multiplier = 2.0</td>
         </tr>
       </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ac11fe37f1e47b1f3697e1eeeb703a467"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac11fe37f1e47b1f3697e1eeeb703a467">&#9670;&nbsp;</a></span>read_1_adapter</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::MultipathMapper::read_1_adapter = &quot;&quot;</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a72cfecb533ba72974ca4fe736f5e4616"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a72cfecb533ba72974ca4fe736f5e4616">&#9670;&nbsp;</a></span>read_1_adapter_lps</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt;size_t&gt; vg::MultipathMapper::read_1_adapter_lps</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a9dda8a58ca0a9a3b5f8cf6bb6b72b907"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9dda8a58ca0a9a3b5f8cf6bb6b72b907">&#9670;&nbsp;</a></span>read_2_adapter</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::MultipathMapper::read_2_adapter = &quot;&quot;</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="ab14d5973d561097ca08d9e989b04265b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab14d5973d561097ca08d9e989b04265b">&#9670;&nbsp;</a></span>read_2_adapter_lps</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt;size_t&gt; vg::MultipathMapper::read_2_adapter_lps</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 </div>

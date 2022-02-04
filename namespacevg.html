@@ -1465,6 +1465,10 @@ Functions</h2></td></tr>
 <tr class="separator:a6d8c71ff9f77ddd4a366119e83122771"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a38d9326cbc013aed614bc052c8c224e6"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a38d9326cbc013aed614bc052c8c224e6">write_gcsa_kmers_to_tmpfile</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, int kmer_size, size_t &amp;size_limit, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> head_id, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> tail_id, const string &amp;base_file_name)</td></tr>
 <tr class="separator:a38d9326cbc013aed614bc052c8c224e6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3ff1638bd636bb4b9746545dc261aea1"><td class="memItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3ff1638bd636bb4b9746545dc261aea1">make_prefix_suffix_table</a> (const char *pattern, size_t len)</td></tr>
+<tr class="separator:a3ff1638bd636bb4b9746545dc261aea1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4f32c345e847a3627afcee659116730c"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4f32c345e847a3627afcee659116730c">kmp_search</a> (const char *text, size_t text_len, const char *pattern, size_t pattern_len, const vector&lt; size_t &gt; &amp;prefix_suffix_table)</td></tr>
+<tr class="separator:a4f32c345e847a3627afcee659116730c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab63c41956b73af429507b469108d1759"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab63c41956b73af429507b469108d1759">sub_overlaps_of_first_aln</a> (const vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alns, float overlap_fraction)</td></tr>
 <tr class="separator:ab63c41956b73af429507b469108d1759"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3240e7b9bf787fb218d6324389ea234e"><td class="memItemLeft" align="right" valign="top">set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3240e7b9bf787fb218d6324389ea234e">gcsa_nodes_to_positions</a> (const vector&lt; gcsa::node_type &gt; &amp;nodes)</td></tr>
@@ -11839,6 +11843,52 @@ template&lt;class Element &gt; </div>
 
 </div>
 </div>
+<a id="a4f32c345e847a3627afcee659116730c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4f32c345e847a3627afcee659116730c">&#9670;&nbsp;</a></span>kmp_search()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::kmp_search </td>
+          <td>(</td>
+          <td class="paramtype">const char *&#160;</td>
+          <td class="paramname"><em>text</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>text_len</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const char *&#160;</td>
+          <td class="paramname"><em>pattern</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>pattern_len</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>prefix_suffix_table</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="aa1c1e5b8ce9f9607976913317102d6dc"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aa1c1e5b8ce9f9607976913317102d6dc">&#9670;&nbsp;</a></span>last_path_position()</h2>
 
@@ -12788,6 +12838,34 @@ template&lt;typename Collection &gt; </div>
 </div><div class="memdoc">
 
 <p>Create a <a class="el" href="structvg_1_1Position.html">Position</a> from a <a class="el" href="structvg_1_1Node.html" title="Nodes store sequence data.">Node</a> ID, an orientation flag, and an offset along that strand of the node. </p>
+
+</div>
+</div>
+<a id="a3ff1638bd636bb4b9746545dc261aea1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3ff1638bd636bb4b9746545dc261aea1">&#9670;&nbsp;</a></span>make_prefix_suffix_table()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; size_t &gt; vg::make_prefix_suffix_table </td>
+          <td>(</td>
+          <td class="paramtype">const char *&#160;</td>
+          <td class="paramname"><em>pattern</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>len</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
