@@ -5,6 +5,11 @@
 #include "multipath_alignment_graph.hpp"
 #include "sequence_complexity.hpp"
 
+#include "structures/rank_pairing_heap.hpp"
+
+#include "algorithms/extract_connecting_graph.hpp"
+#include "algorithms/extract_extending_graph.hpp"
+
 //#define debug_multipath_alignment
 //#define debug_decompose_algorithm
 

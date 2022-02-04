@@ -14,36 +14,16 @@
 #include <vg/io/edit.hpp>
 #include <bdsg/hash_graph.hpp>
 
-#include "hash_map.hpp"
 #include "mapper.hpp"
 #include "aligner.hpp"
 #include "types.hpp"
 #include "multipath_alignment.hpp"
-#include "position.hpp"
-#include "nodeside.hpp"
-#include "path.hpp"
 #include "snarls.hpp"
 #include "haplotypes.hpp"
 #include "min_distance.hpp"
-#include "utility.hpp"
-#include "annotation.hpp"
 #include "path_component_index.hpp"
-#include "memoizing_graph.hpp"
-#include "statistics.hpp"
 #include "splicing.hpp"
-
-#include "identity_overlay.hpp"
-#include "reverse_graph.hpp"
-#include "split_strand_graph.hpp"
-#include "dagified_graph.hpp"
-
-#include "algorithms/extract_containing_graph.hpp"
-#include "algorithms/extract_connecting_graph.hpp"
-#include "algorithms/extract_extending_graph.hpp"
-#include "algorithms/locally_expand_graph.hpp"
-#include "algorithms/jump_along_path.hpp"
-#include "algorithms/ref_path_distance.hpp"
-#include "algorithms/component.hpp"
+#include "memoizing_graph.hpp"
 
 
 // note: only activated for single end mapping
@@ -125,6 +105,13 @@ namespace vg {
         
         /// Decide how long of a tail alignment we want before we allow its subpath to be merged
         void set_max_merge_supression_length();
+        
+        /// Use adapter sequences to help identify soft-clips that should not be splice-aligned, sequences
+        /// should be ~12 bp presented in the orientation that a trimmable sequence is found in the
+        /// sequencing data (reverse complement to the actual sequence, since it is encountered on the
+        /// other read)
+        void set_read_1_adapter(const string& adapter);
+        void set_read_2_adapter(const string& adapter);
         
         // parameters
         
@@ -665,6 +652,10 @@ namespace vg {
         vector<MaximalExactMatch> find_mems(const Alignment& alignment,
                                             vector<deque<pair<string::const_iterator, char>>>* mem_fanout_breaks = nullptr);
         
+        string read_1_adapter = "";
+        string read_2_adapter = "";
+        vector<size_t> read_1_adapter_lps;
+        vector<size_t> read_2_adapter_lps;
         
         int64_t min_softclip_length_for_splice = 20;
         int64_t min_softclipped_score_for_splice = 25;
