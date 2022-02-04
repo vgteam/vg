@@ -166,7 +166,7 @@ is "$?" "0" "Mapping reads as GAF to named coordinates on a nontrivial graph wit
 vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | sort | uniq > gam_names.txt
 cat mapped.gaf | cut -f6 | tr '><' '\n\n' | grep "." | sort | uniq > gaf_names.txt
 
-is "$(md5sum gaf-names.txt)" "$(md5sum gam_names.txt)" "Mappign reads as named GAF uses the same names as named GAM""
+is "$(md5sum gaf_names.txt | cut -f1 -d' ')" "$(md5sum gam_names.txt | cut -f1 -d' ')" "Mapping reads as named GAF uses the same names as named GAM"
 
 rm -f reads.gam mapped.gam mapped.gaf brca.* gam_names.txt gaf_names.txt
 
