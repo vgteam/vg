@@ -1245,11 +1245,15 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, NodeCluster
 
 
 void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeClusters& chain_clusters) const {
+#ifdef DBUG_CLUSTERS
     assert(distance_index.is_chain(chain_clusters.containing_net_handle));
+#endif
     
     net_handle_t& chain_handle = chain_clusters.containing_net_handle;
     //Note: This is the first time we deal with the net_handle_t for this chain, so it will be empty
-    if (distance_index.is_trivial_chain(chain_handle)){
+    if (tree_state.chain_to_children[chain_handle].second.size() == 1 &&
+        SnarlDistanceIndex::get_record_offset(chain_handle) == 
+        SnarlDistanceIndex::get_record_offset(tree_state.all_node_clusters[tree_state.chain_to_children[chain_handle].second.back()].containing_net_handle)){
         //If this is just a node pretending to be a chain, cluster the node and claim it's a chain
 #ifdef DEBUG_CLUSTER
         cerr << "\tClustering a chain that is really just a node, so just cluster the node" << endl;
