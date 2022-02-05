@@ -44,7 +44,7 @@ IncrementalSubgraph::IncrementalSubgraph(const HandleGraph& graph,
             auto seen_back_edges = new vector<size_t>(1, 0);
             // add the frontier and its random access index
             auto entry = frontier.emplace(dist_thru, next, unseen_back_edges, seen_back_edges);
-            frontier_index[next].push_back(entry.first);
+            frontier_index[next].emplace(entry.first);
             
 #ifdef debug_incremental_subgraph
             cerr << "initialized frontier with node " << graph.get_id(next) << " " << graph.get_is_reverse(next) << ", which has unseen backward edges to:" << endl;
@@ -77,6 +77,7 @@ handle_t IncrementalSubgraph::extend() {
     size_t copy_num = num_extracted[get<1>(nearest)]++;
     
 #ifdef debug_incremental_subgraph
+    cerr << "####" << endl;
     cerr << "extracting a copy of " << graph->get_id(get<1>(nearest)) << " " << graph->get_is_reverse(get<1>(nearest)) << ", which has remaining unseen backward edges to:" << endl;
     for (auto h : *get<2>(nearest)) {
         cerr << "\t" << graph->get_id(h) << " " << graph->get_is_reverse(h) << endl;
@@ -92,7 +93,7 @@ handle_t IncrementalSubgraph::extend() {
     frontier.erase(it);
     // and the frontier random access (it should always be the first occurrence)
     auto idx_iter = frontier_index.find(get<1>(nearest));
-    idx_iter->second.pop_front();
+    idx_iter->second.erase(idx_iter->second.begin());
     if (idx_iter->second.empty()) {
         // we've removed the last copy of this node in the frontier
         frontier_index.erase(idx_iter);
@@ -131,7 +132,6 @@ handle_t IncrementalSubgraph::extend() {
     int64_t dist_thru = get<0>(nearest) + graph->get_length(get<1>(nearest));
     
     graph->follow_edges(get<1>(nearest), extract_left, [&](const handle_t& next) {
-        
         // see if we can mark this edge on one of the copies of the next node
         // that are currently in the frontier
         bool marked_edge = false;
@@ -158,7 +158,8 @@ handle_t IncrementalSubgraph::extend() {
                     // put it back in the frontier
                     auto new_entry_iter = frontier.emplace(frontier_entry);
                     // and update our random access index
-                    *copy_iter = new_entry_iter.first;
+                    iter->second.erase(copy_iter);
+                    iter->second.emplace(new_entry_iter.first);
                     
 #ifdef debug_incremental_subgraph
                     cerr << "updated frontier node " << graph->get_id(next) << " " << graph->get_is_reverse(next) << ", which has unseen backward edges to:" << endl;
@@ -186,7 +187,7 @@ handle_t IncrementalSubgraph::extend() {
             auto seen_back_edges = new vector<size_t>(1, extracted.size() - 1);
             // add the frontier and its random access index
             auto entry = frontier.emplace(dist_thru, next, unseen_back_edges, seen_back_edges);
-            frontier_index[next].push_back(entry.first);
+            frontier_index[next].emplace(entry.first);
 #ifdef debug_incremental_subgraph
             cerr << "added new frontier copy of node " << graph->get_id(next) << " " << graph->get_is_reverse(next) << ", which has unseen backward edges to:" << endl;
             for (auto h : *unseen_back_edges) {

@@ -5,8 +5,6 @@
 #ifndef VG_INCREMENTAL_SUBGRAPH_HPP_INCLUDED
 #define VG_INCREMENTAL_SUBGRAPH_HPP_INCLUDED
 
-#include <deque>
-
 #include "handle.hpp"
 
 namespace vg {
@@ -146,17 +144,6 @@ public:
     
 private:
     
-    // comparator for the frontier, order first by number of unseen incoming edges
-    // and then by distance and break ties arbitrarily based on handle values
-    // TODO: rearrange the tuples to make this less awkward
-    struct FCmp {
-        inline bool operator()(const tuple<int64_t, handle_t, unordered_set<handle_t>*, vector<size_t>*>& a,
-                               const tuple<int64_t, handle_t, unordered_set<handle_t>*, vector<size_t>*>& b) const {
-            return (get<2>(a)->size() < get<2>(b)->size() ||
-                    (get<2>(a)->size() == get<2>(b)->size() && a < b));
-        }
-    };
-    
     pair<size_t, size_t> underlying_interval(size_t i) const;
     
     /// direction we're extracting from the start pos
@@ -171,15 +158,35 @@ private:
     /// the number of times a handle has been extracted
     unordered_map<handle_t, size_t> num_extracted;
     
-    /// records of (unseen edges going into, seen edges going into, distance, node).
+    
+    
+    /// comparator for the frontier, order first by number of unseen incoming edges
+    /// and then by distance and break ties arbitrarily based on handle values
+    struct FCmp {
+        inline bool operator()(const tuple<int64_t, handle_t, unordered_set<handle_t>*, vector<size_t>*>& a,
+                               const tuple<int64_t, handle_t, unordered_set<handle_t>*, vector<size_t>*>& b) const {
+            return (get<2>(a)->size() < get<2>(b)->size() ||
+                    (get<2>(a)->size() == get<2>(b)->size() && a < b));
+        }
+    };
+    /// records of (distance, node, unseen edges going into, seen edges going into).
     /// serves as an updateable priority queue for nodes that are adjacent to the extracted nodes
     /// the container classes are created on the heap so that we can do a remove-modify-replace
     /// update to frontier entries without deep-copying the containers
     set<tuple<int64_t, handle_t, unordered_set<handle_t>*, vector<size_t>*>, FCmp> frontier;
-    /// provides random access into the frontier by handle
-    unordered_map<handle_t, deque<decltype(frontier)::iterator>> frontier_index;
     
-    /// The underlying graph
+    /// wrapper for the comparator in the frontier index
+    struct IterFCmp {
+        inline bool operator()(const decltype(frontier)::iterator& a,
+                               const decltype(frontier)::iterator& b) {
+            return FCmp()(*a, *b);
+        }
+    };
+    /// provides random access into the frontier by handle, in the same order
+    /// that the handles occur in the frontier
+    unordered_map<handle_t, set<decltype(frontier)::iterator, IterFCmp>> frontier_index;
+    
+    /// the underlying graph
     const HandleGraph* graph = nullptr;
 };
 
