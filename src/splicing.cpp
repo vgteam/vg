@@ -253,7 +253,7 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
         dinuc_states.emplace_back(handle, vector<uint32_t>(subgraph.get_length(handle),
                                                            dinuc_machine.init_state()));
 #ifdef debug_splice_region
-        cerr << "extract " << graph.get_id(subgraph.get_underlying_handle(handle)) << " " << graph.get_is_reverse(subgraph.get_underlying_handle(handle)) << endl;
+        cerr << "extract " << graph.get_id(subgraph.get_underlying_handle(handle)) << " " << graph.get_is_reverse(subgraph.get_underlying_handle(handle)) << " at distance " << subgraph.min_distance_from_start(handle) << endl;
 #endif
     }
     int64_t incr = search_left ? -1 : 1;

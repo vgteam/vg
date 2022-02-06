@@ -999,6 +999,77 @@ TEST_CASE("IncrementalSubgraph does not crash on a particular gnarly graph",
     }
 }
 
+TEST_CASE("IncrementalSubgraph does not loop infinitely on a particular gnarly graph",
+          "[incremental]") {
+    
+    // encountered this one in the wild
+    
+    bdsg::HashGraph graph;
+    
+    graph.create_handle("A", 146852744);
+    graph.create_handle("T", 146853022);
+    graph.create_handle("TT", 146855417);
+    graph.create_handle("T", 146852738);
+    graph.create_handle("T", 146852734);
+    graph.create_handle("TGTGTCTCAAAAAAAATATATA", 146852737);
+    graph.create_handle("A", 146852733);
+    graph.create_handle("C", 146853021);
+    graph.create_handle("A", 146853020);
+    graph.create_handle("G", 146852732);
+    graph.create_handle("A", 146853423);
+    graph.create_handle("T", 146852743);
+    graph.create_handle("C", 146852736);
+    graph.create_handle("G", 146853422);
+    graph.create_handle("T", 146853023);
+    graph.create_handle("C", 146852735);
+    graph.create_handle("T", 146852742);
+    graph.create_handle("TTCTCATTTAGCA", 146853420);
+    
+    graph.create_edge(graph.get_handle(146853022, true), graph.get_handle(146853023, false));
+    graph.create_edge(graph.get_handle(146852734, false), graph.get_handle(146852735, false));
+    graph.create_edge(graph.get_handle(146852734, false), graph.get_handle(146853020, false));
+    graph.create_edge(graph.get_handle(146852734, false), graph.get_handle(146852736, true));
+    graph.create_edge(graph.get_handle(146852734, false), graph.get_handle(146853422, false));
+    graph.create_edge(graph.get_handle(146852737, false), graph.get_handle(146853021, false));
+    graph.create_edge(graph.get_handle(146852733, false), graph.get_handle(146852742, false));
+    graph.create_edge(graph.get_handle(146852733, false), graph.get_handle(146852735, false));
+    graph.create_edge(graph.get_handle(146853021, false), graph.get_handle(146853023, false));
+    graph.create_edge(graph.get_handle(146853020, false), graph.get_handle(146853020, false));
+    graph.create_edge(graph.get_handle(146853020, false), graph.get_handle(146853021, false));
+    graph.create_edge(graph.get_handle(146853020, false), graph.get_handle(146853022, true));
+    graph.create_edge(graph.get_handle(146853020, false), graph.get_handle(146853422, false));
+    graph.create_edge(graph.get_handle(146853020, false), graph.get_handle(146853423, false));
+    graph.create_edge(graph.get_handle(146853020, false), graph.get_handle(146855417, true));
+    graph.create_edge(graph.get_handle(146853420, false), graph.get_handle(146853020, false));
+    graph.create_edge(graph.get_handle(146853422, false), graph.get_handle(146853020, false));
+    graph.create_edge(graph.get_handle(146852732, false), graph.get_handle(146852733, false));
+    graph.create_edge(graph.get_handle(146852732, false), graph.get_handle(146852734, false));
+    graph.create_edge(graph.get_handle(146852744, false), graph.get_handle(146852743, false));
+    graph.create_edge(graph.get_handle(146852744, false), graph.get_handle(146852736, false));
+    graph.create_edge(graph.get_handle(146853422, false), graph.get_handle(146853422, false));
+    graph.create_edge(graph.get_handle(146853422, false), graph.get_handle(146853423, false));
+    graph.create_edge(graph.get_handle(146853422, true), graph.get_handle(146855417, false));
+    graph.create_edge(graph.get_handle(146852735, false), graph.get_handle(146852742, false));
+    graph.create_edge(graph.get_handle(146852735, false), graph.get_handle(146852736, true));
+    graph.create_edge(graph.get_handle(146852735, false), graph.get_handle(146852737, false));
+    graph.create_edge(graph.get_handle(146852735, false), graph.get_handle(146852738, false));
+    graph.create_edge(graph.get_handle(146852735, false), graph.get_handle(146853020, false));
+    graph.create_edge(graph.get_handle(146852742, false), graph.get_handle(146852735, false));
+    graph.create_edge(graph.get_handle(146852742, false), graph.get_handle(146852742, false));
+    graph.create_edge(graph.get_handle(146852742, false), graph.get_handle(146852743, true));
+    graph.create_edge(graph.get_handle(146852742, false), graph.get_handle(146853020, false));
+    graph.create_edge(graph.get_handle(146852742, false), graph.get_handle(146853022, true));
+    graph.create_edge(graph.get_handle(146853020, false), graph.get_handle(146852742, false));
+    graph.create_edge(graph.get_handle(146853420, false), graph.get_handle(146853422, false));
+    
+    IncrementalSubgraph subgraph(graph, make_pos_t(146852742, true, 0), false, 34, 4, 10000);
+    
+    // goal is just to not crash
+    while (subgraph.is_extendable()) {
+        subgraph.extend();
+    }
+}
+
 }
 }
         

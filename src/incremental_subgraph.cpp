@@ -15,11 +15,13 @@ using namespace std;
 IncrementalSubgraph::IncrementalSubgraph(const HandleGraph& graph,
                                          const pos_t& start_pos,
                                          bool extract_left,
-                                         int64_t max_distance) :
-    graph(&graph), extract_left(extract_left), max_distance(max_distance)
+                                         int64_t max_distance,
+                                         size_t frontier_copy_limit,
+                                         size_t max_num_nodes) :
+    graph(&graph), extract_left(extract_left), max_distance(max_distance), frontier_copy_limit(frontier_copy_limit), max_num_nodes(max_num_nodes)
 {
 #ifdef debug_incremental_subgraph
-    cerr << "initializing incremental graph from " << start_pos << " in " << (extract_left ? "left" : "right") << " direction up to distance " << max_distance << endl;
+    cerr << "initializing incremental graph from " << start_pos << " in " << (extract_left ? "left" : "right") << " direction up to distance " << max_distance << ", max frontier count " << frontier_copy_limit << endl;
 #endif
     
     handle_t start = graph.get_handle(id(start_pos), is_rev(start_pos));
@@ -43,10 +45,12 @@ IncrementalSubgraph::IncrementalSubgraph(const HandleGraph& graph,
             auto seen_back_edges = new vector<size_t>(1, 0);
             // add the frontier and its random access index
             auto entry = frontier.emplace(dist_thru, next, unseen_back_edges, seen_back_edges);
+            ++frontier_count[next];
+            auto& target_index = frontier_index[next];
             graph.follow_edges(next, !extract_left, [&](const handle_t& prev) {
                 if (prev != start) {
                     // mark all edges unseen except the one we're traversing
-                    frontier_index[next][prev].emplace(entry.first);
+                    target_index[prev].emplace(entry.first);
                 }
             });
             
@@ -70,23 +74,13 @@ IncrementalSubgraph::~IncrementalSubgraph() {
 }
 
 bool IncrementalSubgraph::is_extendable() const {
-    return !frontier.empty();
+    return !frontier.empty() && get_node_count() < max_num_nodes;
 }
 
 handle_t IncrementalSubgraph::extend() {
     // get frontier group with fewest uncovered edges (breaking ties arbitrarily)
     auto it = frontier.begin();
     auto nearest = *it;
-    
-//    cerr << "frontier state:" << endl;
-//    for (const auto& val : frontier) {
-//        cerr << "\tnode " << graph->get_id(get<1>(val)) << " " << graph->get_is_reverse(get<1>(val)) << ", dist " << get<0>(val) << ", num unseen " << get<2>(val)->size() << ", num seen " << get<3>(val)->size() << endl;
-//    }
-    
-    if ((get_node_count() + 1) % 1000 == 0 ) {
-        cerr << "extracting to size " << get_node_count() + 1 << ", frontier size " << frontier.size() << endl;
-        
-    }
     
 #ifdef debug_incremental_subgraph
     cerr << "####" << endl;
@@ -103,6 +97,7 @@ handle_t IncrementalSubgraph::extend() {
     
     // remove the node from the frontier
     frontier.erase(it);
+    --frontier_count[get<1>(nearest)];
     
     // the index for copies of this node in the frontier
     auto& target_index = frontier_index.at(get<1>(nearest));
@@ -142,48 +137,25 @@ handle_t IncrementalSubgraph::extend() {
     int64_t dist_thru = get<0>(nearest) + graph->get_length(get<1>(nearest));
     
     graph->follow_edges(get<1>(nearest), extract_left, [&](const handle_t& next) {
-//        cerr << "handling next node " << graph->get_id(next) << " " << graph->get_is_reverse(next) << endl;
         // see if we can mark this edge on one of the copies of the next node
         // that are currently in the frontier
         bool marked_edge = false;
         auto index_iter = frontier_index.find(next);
         if (index_iter != frontier_index.end()) {
-//            cerr << "has existed in frontier" << endl;
             // this node exists in the frontier
             auto source_iter = index_iter->second.find(get<1>(nearest));
             if (source_iter != index_iter->second.end() && !source_iter->second.empty()) {
-//                cerr << "a frontier copy needs this edge marked" << endl;
                 // there are copies of this node in the frontier that haven't had
                 // this edge marked yet, get the highest priority copy
                 auto frontier_iter = *source_iter->second.begin();
                 auto frontier_entry = *frontier_iter;
                 
-                
-//                cerr << "frontier state:" << endl;
-//                for (const auto& val : frontier) {
-//                    cerr << "node " << graph->get_id(get<1>(val)) << " " << graph->get_is_reverse(get<1>(val)) << ", dist " << get<0>(val) << ", edges " << get<2>(val) << " " << get<3>(val) << ", location " << &val << endl;
-//                    for (auto n : *get<2>(val)) {
-//                        cerr << "\t" << graph->get_id(n) << " " << graph->get_is_reverse(n) << endl;
-//                    }
-//                }
-//                cerr << "frontier index state:" << endl;
-//                for (const auto& outer_rec : frontier_index) {
-//                    cerr << "target node " << graph->get_id(outer_rec.first) << " " << graph->get_is_reverse(outer_rec.first) << endl;
-//                    for (const auto& inner_rec : outer_rec.second) {
-//                        cerr << "\tsource node " << graph->get_id(inner_rec.first) << " " << graph->get_is_reverse(inner_rec.first) << endl;
-//                        for (auto fiter : inner_rec.second) {
-//                            cerr << "\t\t" << &(*fiter) << endl;
-//                        }
-//                    }
-//                }
                 // remove this frontier entry from everywhere that the index is holding it
-//                cerr << "removing this frontier entry from the index, prevs at " << get<2>(frontier_entry) << endl;
                 for (auto prev : *get<2>(frontier_entry)) {
                     
                     index_iter->second.at(prev).erase(frontier_iter);
                 }
                 frontier.erase(frontier_iter);
-//                cerr << "updating the frontier entry" << endl;
                 // mark the unseen edge and move it to the seen edges
                 get<2>(frontier_entry)->erase(get<1>(nearest));
                 get<3>(frontier_entry)->push_back(extracted.size() - 1);
@@ -206,61 +178,16 @@ handle_t IncrementalSubgraph::extend() {
                 
                 marked_edge = true;
             }
-            
-//
-//            for (auto copy_iter = iter->second.begin(), end = iter->second.end(); copy_iter != end; ++copy_iter) {
-//                auto frontier_iter = *copy_iter;
-//                // TODO: another data structure might make it possible to not iterate
-//                // over all copies of this node in the frontier
-//                auto incoming = get<2>(*frontier_iter);
-//                auto incoming_iter = incoming->find(get<1>(nearest));
-//                if (incoming_iter != incoming->end()) {
-//                    // this frontier node has an unmarked edge from the node
-//                    // we are extracting
-//                    // remove from the frontier
-//                    auto frontier_entry = *frontier_iter;
-//                    frontier.erase(frontier_iter);
-//                    // mark the unseen edge and move it to the seen edges
-//                    incoming->erase(incoming_iter);
-//                    get<3>(frontier_entry)->push_back(extracted.size() - 1);
-//                    // possibly update the minimum distance
-//                    get<0>(frontier_entry) = min(get<0>(frontier_entry), dist_thru);
-//                    // put it back in the frontier
-//                    auto new_entry_iter = frontier.emplace(frontier_entry);
-//                    // and update our random access index
-//                    iter->second.erase(copy_iter);
-//                    iter->second.emplace(new_entry_iter.first);
-//
-//                    marked_edge = true;
-//                    break;
-//                }
-//            }
         }
         
-//        cerr << "frontier state:" << endl;
-//        for (const auto& val : frontier) {
-//            cerr << "node " << graph->get_id(get<1>(val)) << " " << graph->get_is_reverse(get<1>(val)) << ", dist " << get<0>(val) << ", edges " << get<2>(val) << " " << get<3>(val) << ", location " << &val << endl;
-//            for (auto n : *get<2>(val)) {
-//                cerr << "\t" << graph->get_id(n) << " " << graph->get_is_reverse(n) << endl;
-//            }
-//        }
-//        cerr << "frontier index state:" << endl;
-//        for (const auto& outer_rec : frontier_index) {
-//            cerr << "target node " << graph->get_id(outer_rec.first) << " " << graph->get_is_reverse(outer_rec.first) << endl;
-//            for (const auto& inner_rec : outer_rec.second) {
-//                cerr << "\tsource node " << graph->get_id(inner_rec.first) << " " << graph->get_is_reverse(inner_rec.first) << endl;
-//                for (auto fiter : inner_rec.second) {
-//                    cerr << "\t\t" << &(*fiter) << endl;
-//                }
-//            }
-//        }
+        // TODO: it can be suboptimal (in terms of distance) to always reject the incoming
+        // frontier node instead of the current lowest-priority one, but we would need
+        // another whole index to do that...
         
-        if (!marked_edge && dist_thru < max_distance) {
+        if (!marked_edge && dist_thru < max_distance && frontier_count[next] < frontier_copy_limit) {
             // we need to add a new copy of this node to the frontier
-//            cerr << "adding a new frontier copy" << endl;
             
             auto unseen_back_edges = new unordered_set<handle_t>();
-//            cerr << "identifying unseen back edges" << endl;
             graph->follow_edges(next, !extract_left, [&](const handle_t& prev) {
                 if (prev != get<1>(nearest)) {
                     // mark all edges unseen except the one we're traversing
@@ -269,16 +196,12 @@ handle_t IncrementalSubgraph::extend() {
             });
             auto seen_back_edges = new vector<size_t>(1, extracted.size() - 1);
             // add the frontier and its random access index
-//            cerr << "enter it into the frontier" << endl;
             auto entry = frontier.emplace(dist_thru, next, unseen_back_edges, seen_back_edges);
-//            cerr << "add the frontier node into the frontier index" << endl;
+            ++frontier_count[next];
             auto& successor_index = frontier_index[next];
             graph->follow_edges(next, !extract_left, [&](const handle_t& prev) {
                 if (prev != get<1>(nearest)) {
                     // mark all edges unseen except the one we're traversing
-//                    cerr << "doing it for prev node " << graph->get_id(prev) << " " << graph->get_is_reverse(prev) << endl;
-//                    cerr << "exists for next? " << frontier_index.count(next) << endl;
-//                    cerr << "exists for prev? " << frontier_index[next].count(prev) << endl;
                     successor_index[prev].emplace(entry.first);
                 }
             });
@@ -293,27 +216,8 @@ handle_t IncrementalSubgraph::extend() {
     });
     
     // clean up the heap objects
-//    cerr << "deleting unseen edges at " << get<2>(nearest) << endl;
     delete get<2>(nearest);
     delete get<3>(nearest);
-    
-//    cerr << "frontier state:" << endl;
-//    for (const auto& val : frontier) {
-//        cerr << "node " << graph->get_id(get<1>(val)) << " " << graph->get_is_reverse(get<1>(val)) << ", dist " << get<0>(val) << ", edges " << get<2>(val) << " " << get<3>(val) << ", location " << &val << endl;
-//        for (auto n : *get<2>(val)) {
-//            cerr << "\t" << graph->get_id(n) << " " << graph->get_is_reverse(n) << endl;
-//        }
-//    }
-//    cerr << "frontier index state:" << endl;
-//    for (const auto& outer_rec : frontier_index) {
-//        cerr << "target node " << graph->get_id(outer_rec.first) << " " << graph->get_is_reverse(outer_rec.first) << endl;
-//        for (const auto& inner_rec : outer_rec.second) {
-//            cerr << "\tsource node " << graph->get_id(inner_rec.first) << " " << graph->get_is_reverse(inner_rec.first) << endl;
-//            for (auto fiter : inner_rec.second) {
-//                cerr << "\t\t" << &(*fiter) << endl;
-//            }
-//        }
-//    }
     
     return get_handle(extracted.size(), false);
 }

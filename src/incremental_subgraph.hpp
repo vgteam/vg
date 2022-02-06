@@ -21,10 +21,14 @@ class IncrementalSubgraph : public ExpandingOverlayGraph {
 public:
     
     /// Initialize
+    /// the copy number limits how many times a cyce will be traversed before giving
+    /// up on it (until encountering it again)
     IncrementalSubgraph(const HandleGraph& graph,
                         const pos_t& starting_position,
                         bool extract_left,
-                        int64_t max_distance = numeric_limits<int64_t>::max());
+                        int64_t max_distance = numeric_limits<int64_t>::max(),
+                        size_t frontier_copy_limit = numeric_limits<size_t>::max(),
+                        size_t max_num_nodes =  numeric_limits<size_t>::max());
     
     /// Default constructor -- not actually functional
     IncrementalSubgraph() = default;
@@ -156,6 +160,8 @@ private:
     /// the maximum number of copies of a node we will allow in the frontier at a time
     size_t frontier_copy_limit;
     
+    size_t max_num_nodes;
+    
     /// records of (underlying handle, left edges, right edges, min distance, max distance)
     vector<tuple<handle_t, vector<size_t>, vector<size_t>, int64_t, int64_t>> extracted;
     
@@ -186,6 +192,9 @@ private:
     /// that the handles occur in the frontier. indexed by target node and then
     /// by predecessor node
     unordered_map<handle_t, unordered_map<handle_t, set<decltype(frontier)::iterator, IterFCmp>>> frontier_index;
+    
+    /// the number of a given node there is currently in the frontier
+    unordered_map<handle_t, size_t> frontier_count;
     
     /// the underlying graph
     const HandleGraph* graph = nullptr;
