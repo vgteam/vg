@@ -6,6 +6,7 @@
 #define VG_INCREMENTAL_SUBGRAPH_HPP_INCLUDED
 
 #include "handle.hpp"
+#include <sparsepp/spp.h>
 
 namespace vg {
 
@@ -152,13 +153,11 @@ private:
     /// farthest distance we will travel from the start pos
     int64_t max_distance;
     
+    /// the maximum number of copies of a node we will allow in the frontier at a time
+    size_t frontier_copy_limit;
     
     /// records of (underlying handle, left edges, right edges, min distance, max distance)
     vector<tuple<handle_t, vector<size_t>, vector<size_t>, int64_t, int64_t>> extracted;
-    /// the number of times a handle has been extracted
-    unordered_map<handle_t, size_t> num_extracted;
-    
-    
     
     /// comparator for the frontier, order first by number of unseen incoming edges
     /// and then by distance and break ties arbitrarily based on handle values
@@ -175,7 +174,8 @@ private:
     /// update to frontier entries without deep-copying the containers
     set<tuple<int64_t, handle_t, unordered_set<handle_t>*, vector<size_t>*>, FCmp> frontier;
     
-    /// wrapper for the comparator in the frontier index
+    /// wrapper for the comparator in the frontier index, which guarantees that the iterators
+    /// end up in the same relative order in the frontier index as in the frontier
     struct IterFCmp {
         inline bool operator()(const decltype(frontier)::iterator& a,
                                const decltype(frontier)::iterator& b) {
@@ -183,8 +183,9 @@ private:
         }
     };
     /// provides random access into the frontier by handle, in the same order
-    /// that the handles occur in the frontier
-    unordered_map<handle_t, set<decltype(frontier)::iterator, IterFCmp>> frontier_index;
+    /// that the handles occur in the frontier. indexed by target node and then
+    /// by predecessor node
+    unordered_map<handle_t, unordered_map<handle_t, set<decltype(frontier)::iterator, IterFCmp>>> frontier_index;
     
     /// the underlying graph
     const HandleGraph* graph = nullptr;
