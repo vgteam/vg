@@ -94,6 +94,7 @@ void help_sim(char** argv) {
          << "output options:" << endl
          << "    -a, --align-out             write alignments in GAM-format" << endl
          << "    -J, --json-out              write alignments in json" << endl
+         << "    --multi-position            annotate alignments with multiple reference positions" << endl
          << "simulation parameters:" << endl
          << "    -F, --fastq FILE            match the error profile of NGS reads in FILE, repeat for paired reads (ignores -l,-f)" << endl
          << "    -I, --interleaved           reads in FASTQ (-F) are interleaved read pairs" << endl
@@ -128,6 +129,8 @@ int main_sim(int argc, char** argv) {
         return 1;
     }
 
+    #define OPT_MULTI_POSITION 1000
+
     string xg_name;
     int num_reads = 1;
     int read_length = 100;
@@ -140,6 +143,7 @@ int main_sim(int argc, char** argv) {
     bool forward_only = false;
     bool align_out = false;
     bool json_out = false;
+    bool multi_position_annotations = false;
     int fragment_length = 0;
     double fragment_std_dev = 0;
     bool reads_may_contain_Ns = false;
@@ -197,6 +201,7 @@ int main_sim(int argc, char** argv) {
             {"forward-only", no_argument, 0, 'f'},
             {"align-out", no_argument, 0, 'a'},
             {"json-out", no_argument, 0, 'J'},
+            {"multi-position", no_argument, 0, OPT_MULTI_POSITION},
             {"allow-Ns", no_argument, 0, 'N'},
             {"unsheared", no_argument, 0, 'u'},
             {"sub-rate", required_argument, 0, 'e'},
@@ -337,6 +342,10 @@ int main_sim(int argc, char** argv) {
             json_out = true;
             align_out = true;
             break;
+            
+        case OPT_MULTI_POSITION:
+            multi_position_annotations = true;
+            break;
 
         case 'N':
             reads_may_contain_Ns = true;
@@ -431,6 +440,11 @@ int main_sim(int argc, char** argv) {
     
     if (!path_pos_filename.empty() && fastq_name.empty()) {
         cerr << "[vg sim] error: path usage table is not available unless using trained simulation (-F)" << endl;
+        exit(1);
+    }
+    
+    if (fastq_name.empty() && unsheared_fragments) {
+        cerr << "[vg sim] error: unsheared fragment option only available when simulating from FASTQ-trained errors" << endl;
         exit(1);
     }
     
@@ -586,13 +600,8 @@ int main_sim(int argc, char** argv) {
         }
     }
     
-    
-    unique_ptr<vg::io::ProtobufEmitter<Alignment>> aln_emitter;
-    if (align_out && !json_out) {
-        // Make an emitter to emit Alignments
-        aln_emitter = unique_ptr<vg::io::ProtobufEmitter<Alignment>>(new vg::io::ProtobufEmitter<Alignment>(cout));
-    }
-
+    unique_ptr<AlignmentEmitter> alignment_emitter = get_non_hts_alignment_emitter("-", json_out ? "JSON" : "GAM",
+                                                                                       map<string, int64_t>(), get_thread_count()); 
     if (progress) {
         std::cerr << "Simulating " << (fragment_length > 0 ? "read pairs" : "reads") << std::endl;
         std::cerr << "--num-reads " << num_reads << std::endl;
@@ -640,26 +649,81 @@ int main_sim(int argc, char** argv) {
             std::cerr << "--allow-Ns" << std::endl;
         }
     }
-
+    
+    unique_ptr<AbstractReadSampler> sampler;
     if (fastq_name.empty()) {
         // Use the fixed error rate sampler
-        
-        if (unsheared_fragments) {
-            cerr << "Unsheared fragment option only available when simulating from FASTQ-trained errors" << endl;
+        sampler.reset(new Sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names, path_ploidies, transcript_expressions, haplotype_transcripts));
+    } else {
+        // Use the FASTQ-trained sampler
+        sampler.reset(new NGSSimulator(*xgidx,
+                                       fastq_name,
+                                       fastq_2_name,
+                                       interleaved,
+                                       path_names,
+                                       path_ploidies,
+                                       transcript_expressions,
+                                       haplotype_transcripts,
+                                       base_error,
+                                       indel_error,
+                                       indel_prop,
+                                       fragment_length ? fragment_length : std::numeric_limits<double>::max(), // suppresses warnings about fragment length
+                                       fragment_std_dev ? fragment_std_dev : 0.000001, // eliminates errors from having 0 as stddev without substantial difference
+                                       error_scale_factor,
+                                       !reads_may_contain_Ns,
+                                       unsheared_fragments,
+                                       seed_val));
+    }
+    
+    // Do common configuration
+    sampler->multi_position_annotations = multi_position_annotations;
+    
+    // Generate an Aligner for rescoring
+    Aligner aligner(default_score_matrix, default_gap_open, default_gap_extension,
+                    default_full_length_bonus, vg::default_gc_content);
+                    
+    // We define a function to score a using the aligner
+    auto rescore = [&] (Alignment& aln) {
+        // Score using exact distance.
+        aln.set_score(aligner.score_contiguous_alignment(aln, strip_bonuses));
+    };
+    
+    // And a function to emit either single or paired reads, while recomputing scores.
+    auto emit = [&] (Alignment* r1, Alignment* r2) {
+        // write the alignment or its string
+        if (align_out) {
+            // write it out as requested
+            
+            // We will need scores
+            rescore(*r1);
+            if (r2) {
+                // And we have a paired read
+                rescore(*r2);
+                alignment_emitter->emit_pair(std::move(*r1), std::move(*r2));
+            } else {
+                // We have just one read.
+                alignment_emitter->emit_single(std::move(*r1));
+            }
+        } else {
+            // Print the sequences of the reads we have.
+            #pragma omp critical
+            {
+                cout << r1->sequence();
+                if (r2) {
+                    cout << "\t" << r2->sequence();
+                }
+                cout << endl;
+            }
         }
-        
-        // Make a sample to sample reads with
-        Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names, path_ploidies, transcript_expressions, haplotype_transcripts);
-        
-        // initialize an aligner
-        Aligner rescorer(default_score_matrix, default_gap_open, default_gap_extension,
-                         default_full_length_bonus, vg::default_gc_content);
+    };
+    
+    // The rest of the process has to split up by the type of sampler in use.
+    // TODO: Actually refactor to a common sampling interface.
 
-        // We define a function to score a using the aligner
-        auto rescore = [&] (Alignment& aln) {
-            // Score using exact distance.
-            aln.set_score(rescorer.score_contiguous_alignment(aln, strip_bonuses));
-        };
+    if (dynamic_cast<Sampler*>(sampler.get())) {
+        // Not everything is bound to the new interface yet, so we need to do
+        // actual sampling through this typed pointer.
+        Sampler* basic_sampler = dynamic_cast<Sampler*>(sampler.get());
         
         size_t max_iter = 1000;
         int nonce = 1;
@@ -667,8 +731,8 @@ int main_sim(int argc, char** argv) {
             // For each read we are going to generate
             
             if (fragment_length) {
-                // fragment_lenght is nonzero so make it two paired reads
-                auto alns = sampler.alignment_pair(read_length, fragment_length, fragment_std_dev, base_error, indel_error);
+                // fragment_length is nonzero so make it two paired reads
+                auto alns = basic_sampler->alignment_pair(read_length, fragment_length, fragment_std_dev, base_error, indel_error);
                 
                 size_t iter = 0;
                 while (iter++ < max_iter) {
@@ -676,38 +740,22 @@ int main_sim(int argc, char** argv) {
                     if (alns.front().sequence().size() < read_length
                         || alns.back().sequence().size() < read_length) {
                         // If our read was too short, try again
-                        alns = sampler.alignment_pair(read_length, fragment_length, fragment_std_dev, base_error, indel_error);
+                        alns = basic_sampler->alignment_pair(read_length, fragment_length, fragment_std_dev, base_error, indel_error);
                     }
                 }
                 
                 // write the alignment or its string
-                if (align_out) {
-                    // write it out as requested
-                    
-                    // We will need scores
-                    rescore(alns.front());
-                    rescore(alns.back());
-                    
-                    if (json_out) {
-                        cout << pb2json(alns.front()) << endl;
-                        cout << pb2json(alns.back()) << endl;
-                    } else {
-                        aln_emitter->write_copy(alns.front());
-                        aln_emitter->write_copy(alns.back());
-                    }
-                } else {
-                    cout << alns.front().sequence() << "\t" << alns.back().sequence() << endl;
-                }
+                emit(&alns.front(), &alns.back()); 
             } else {
                 // Do single-end reads
-                auto aln = sampler.alignment_with_error(read_length, base_error, indel_error);
+                auto aln = basic_sampler->alignment_with_error(read_length, base_error, indel_error);
                 
                 size_t iter = 0;
                 while (iter++ < max_iter) {
                     // For up to max_iter iterations
                     if (aln.sequence().size() < read_length) {
                         // If our read is too short, try again
-                        auto aln_prime = sampler.alignment_with_error(read_length, base_error, indel_error);
+                        auto aln_prime = basic_sampler->alignment_with_error(read_length, base_error, indel_error);
                         if (aln_prime.sequence().size() > aln.sequence().size()) {
                             // But only keep the new try if it is longer
                             aln = aln_prime;
@@ -715,88 +763,39 @@ int main_sim(int argc, char** argv) {
                     }
                 }
                 
-                // write the alignment or its string
-                if (align_out) {
-                    // write it out as requested
-                    
-                    // We will need scores
-                    rescore(aln);
-                    
-                    if (json_out) {
-                        cout << pb2json(aln) << endl;
-                    } else {
-                        aln_emitter->write_copy(aln);
-                    }
-                } else {
-                    cout << aln.sequence() << endl;
-                }
+                // Emit the unpaired alignment
+                emit(&aln, nullptr);
             }
         }
         
-    }
-    else {
+    } else if (dynamic_cast<NGSSimulator*>(sampler.get())) {
         // Use the trained error rate
         
-        Aligner aligner(default_score_matrix, default_gap_open, default_gap_extension,
-                         default_full_length_bonus, vg::default_gc_content);
-        
-        NGSSimulator sampler(*xgidx,
-                             fastq_name,
-                             fastq_2_name,
-                             interleaved,
-                             path_names,
-                             path_ploidies,
-                             transcript_expressions,
-                             haplotype_transcripts,
-                             base_error,
-                             indel_error,
-                             indel_prop,
-                             fragment_length ? fragment_length : std::numeric_limits<double>::max(), // suppresses warnings about fragment length
-                             fragment_std_dev ? fragment_std_dev : 0.000001, // eliminates errors from having 0 as stddev without substantial difference
-                             error_scale_factor,
-                             !reads_may_contain_Ns,
-                             unsheared_fragments,
-                             seed_val);
+        // Not everything is bound to the new interface yet, so we need to do
+        // actual sampling through this typed pointer.
+        NGSSimulator* ngs_sampler = dynamic_cast<NGSSimulator*>(sampler.get());
         
         if (!path_pos_filename.empty()) {
-            sampler.connect_to_position_file(path_pos_filename);
+            ngs_sampler->connect_to_position_file(path_pos_filename);
         }
-        
-        unique_ptr<AlignmentEmitter> alignment_emitter = get_non_hts_alignment_emitter("-", json_out ? "JSON" : "GAM",
-                                                                                       map<string, int64_t>(), get_thread_count());
         
         // static scheduling could produce some degradation in speed, but i think it should make
         // the output deterministic (except for ordering)
 #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < num_reads; i++) {
             if (fragment_length) {
-                pair<Alignment, Alignment> read_pair = sampler.sample_read_pair();
-                read_pair.first.set_score(aligner.score_contiguous_alignment(read_pair.first, strip_bonuses));
-                read_pair.second.set_score(aligner.score_contiguous_alignment(read_pair.second, strip_bonuses));
-                
-                if (align_out) {
-                    alignment_emitter->emit_pair(std::move(read_pair.first), std::move(read_pair.second));
-                }
-                else {
-                    string line = read_pair.first.sequence() + '\t' + read_pair.second.sequence() + '\n';
-#pragma omp critical
-                    cout << line;
-                }
+                pair<Alignment, Alignment> read_pair = ngs_sampler->sample_read_pair();
+                emit(&read_pair.first, &read_pair.second);
             }
             else {
-                Alignment read = sampler.sample_read();
-                read.set_score(aligner.score_contiguous_alignment(read, strip_bonuses));
-                
-                if (align_out) {
-                    alignment_emitter->emit_single(std::move(read));
-                }
-                else {
-                    string line = read.sequence() + '\n';
-#pragma omp critical
-                    cout << line;
-                }
+                Alignment read = ngs_sampler->sample_read();
+                emit(&read, nullptr);
             }
         }
+    } else {
+        // We don't know about this sampler type.
+        // TODO: Define a real sampler interface that lets you sample.
+        throw std::logic_error("Attempted to use sampler type for which sampling is not implemented!");
     }
     
     return 0;
