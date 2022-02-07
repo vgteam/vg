@@ -220,7 +220,6 @@ var searchData=
   ['extract_5fsub_5fmultipath_5falignment_1265',['extract_sub_multipath_alignment',['../namespacevg.html#a2b9703408d4c7160e8d9e83303c4d1c7',1,'vg']]],
   ['extract_5fsubgraph_1266',['extract_subgraph',['../classvg_1_1PathChunker.html#a90aac076d1669b467ca5ca5868c7ed2e',1,'vg::PathChunker']]],
   ['extracted_1267',['extracted',['../classvg_1_1IncrementalSubgraph.html#a07d9afa325ba5788ae4ad9cb4539d644',1,'vg::IncrementalSubgraph']]],
-  ['extracted_5findex_1268',['extracted_index',['../classvg_1_1IncrementalSubgraph.html#a03e6a015e2c78eb7ba568472c140043a',1,'vg::IncrementalSubgraph']]],
-  ['extracting_5fleft_1269',['extracting_left',['../classvg_1_1IncrementalSubgraph.html#a91bb045370337f4f91aea10c14fdca95',1,'vg::IncrementalSubgraph']]],
-  ['extranodegraph_1270',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html',1,'vg::ExtraNodeGraph'],['../classvg_1_1ExtraNodeGraph.html#aafddbd22f8123df59e0bbdb634f5ba0a',1,'vg::ExtraNodeGraph::ExtraNodeGraph()']]]
+  ['extracting_5fleft_1268',['extracting_left',['../classvg_1_1IncrementalSubgraph.html#a91bb045370337f4f91aea10c14fdca95',1,'vg::IncrementalSubgraph']]],
+  ['extranodegraph_1269',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html',1,'vg::ExtraNodeGraph'],['../classvg_1_1ExtraNodeGraph.html#aafddbd22f8123df59e0bbdb634f5ba0a',1,'vg::ExtraNodeGraph::ExtraNodeGraph()']]]
 ];
