@@ -85,7 +85,8 @@ $(function() {
 <code>#include &lt;vg/vg.pb.h&gt;</code><br />
 <code>#include &lt;<a class="el" href="protobuf__emitter_8hpp.html">vg/io/protobuf_emitter.hpp</a>&gt;</code><br />
 <code>#include &lt;<a class="el" href="stream__multiplexer_8hpp.html">vg/io/stream_multiplexer.hpp</a>&gt;</code><br />
-<code>#include &quot;<a class="el" href="handle__graph_8hpp.html">handlegraph/handle_graph.hpp</a>&quot;</code><br />
+<code>#include &lt;<a class="el" href="handle__graph_8hpp.html">handlegraph/handle_graph.hpp</a>&gt;</code><br />
+<code>#include &lt;<a class="el" href="named__node__back__translation_8hpp.html">handlegraph/named_node_back_translation.hpp</a>&gt;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
@@ -124,8 +125,8 @@ Typedefs</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a2482cb13e9b2d8c8328233d6f328bd6a"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; AlignmentEmitter &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a2482cb13e9b2d8c8328233d6f328bd6a">vg::io::get_non_hts_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads, const HandleGraph *graph)</td></tr>
-<tr class="separator:a2482cb13e9b2d8c8328233d6f328bd6a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2f9f4db8b0374c57d2963881784c40d3"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; AlignmentEmitter &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a2f9f4db8b0374c57d2963881784c40d3">vg::io::get_non_hts_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads, const HandleGraph *graph, const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">handlegraph::NamedNodeBackTranslation</a> *translate_through)</td></tr>
+<tr class="separator:a2f9f4db8b0374c57d2963881784c40d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines a system for emitting alignments and groups of alignments in multiple formats. </p>

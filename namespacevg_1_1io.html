@@ -210,8 +210,8 @@ Functions</h2></td></tr>
 <tr class="memitem:a4b6ad53e3fc9e4c143221b213932db70"><td class="memTemplParams" colspan="2">template&lt;class T &gt; </td></tr>
 <tr class="memitem:a4b6ad53e3fc9e4c143221b213932db70"><td class="memTemplItemLeft" align="right" valign="top">unique_ptr&lt; T &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a4b6ad53e3fc9e4c143221b213932db70">new_output_graph</a> (const string &amp;fmt_string)</td></tr>
 <tr class="separator:a4b6ad53e3fc9e4c143221b213932db70"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2482cb13e9b2d8c8328233d6f328bd6a"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a2482cb13e9b2d8c8328233d6f328bd6a">get_non_hts_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads, const <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> *graph)</td></tr>
-<tr class="separator:a2482cb13e9b2d8c8328233d6f328bd6a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2f9f4db8b0374c57d2963881784c40d3"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1io_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a2f9f4db8b0374c57d2963881784c40d3">get_non_hts_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads, const <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> *graph, const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">handlegraph::NamedNodeBackTranslation</a> *translate_through)</td></tr>
+<tr class="separator:a2f9f4db8b0374c57d2963881784c40d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa357ed5eaa447e495149c7bd7df356b9"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#aa357ed5eaa447e495149c7bd7df356b9">get_next_record_from_gaf</a> (function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt; node_to_length, function&lt; string(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool)&gt; node_to_sequence, htsFile *fp, kstring_t &amp;s_buffer, <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;record)</td></tr>
 <tr class="separator:aa357ed5eaa447e495149c7bd7df356b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0f27b2a472320e0e45a130b73827d1fd"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a0f27b2a472320e0e45a130b73827d1fd">get_next_interleaved_record_pair_from_gaf</a> (function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt; node_to_length, function&lt; string(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool)&gt; node_to_sequence, htsFile *fp, kstring_t &amp;s_buffer, <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;record1, <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;record2)</td></tr>
@@ -236,13 +236,15 @@ Functions</h2></td></tr>
 <tr class="separator:a44d7cb48aae7d9c3621fabc6b31faa6e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a63b12354bf13d6a19b5addc71fc512c7"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a63b12354bf13d6a19b5addc71fc512c7">gaf_paired_interleaved_for_each_parallel_after_wait</a> (const <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> &amp;graph, const string &amp;filename, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda, function&lt; bool(void)&gt; single_threaded_until_true, uint64_t batch_size)</td></tr>
 <tr class="separator:a63b12354bf13d6a19b5addc71fc512c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aba114defe4c87d40c35d5f1bef44b0e8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#aba114defe4c87d40c35d5f1bef44b0e8">alignment_to_gaf</a> (function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt; node_to_length, function&lt; string(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool)&gt; node_to_sequence, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool cs_cigar, bool base_quals, bool frag_links)</td></tr>
-<tr class="separator:aba114defe4c87d40c35d5f1bef44b0e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a39ad4f7f834db40f50b451bf3ffe7a9c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a39ad4f7f834db40f50b451bf3ffe7a9c">alignment_to_gaf</a> (const <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool cs_cigar, bool base_quals, bool frag_links)</td></tr>
-<tr class="separator:a39ad4f7f834db40f50b451bf3ffe7a9c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac7caf6e3e258fda58ef1bd8565074f4a"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#ac7caf6e3e258fda58ef1bd8565074f4a">alignment_to_gaf</a> (function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt; node_to_length, function&lt; string(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool)&gt; node_to_sequence, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">handlegraph::NamedNodeBackTranslation</a> *translate_through, bool cs_cigar, bool base_quals, bool frag_links)</td></tr>
+<tr class="separator:ac7caf6e3e258fda58ef1bd8565074f4a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a711294fa859b37aba71867a0dd9a035a"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a711294fa859b37aba71867a0dd9a035a">alignment_to_gaf</a> (const <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">handlegraph::NamedNodeBackTranslation</a> *translate_through, bool cs_cigar, bool base_quals, bool frag_links)</td></tr>
+<tr class="separator:a711294fa859b37aba71867a0dd9a035a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a44a872a40072dc128fa898a795eeff79"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a44a872a40072dc128fa898a795eeff79">gaf_to_alignment</a> (function&lt; size_t(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>)&gt; node_to_length, function&lt; string(<a class="el" href="namespacevg.html#a26f660292f00451f15d1c95d9b8c6ffb">nid_t</a>, bool)&gt; node_to_sequence, const <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;gaf, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
+<tr class="memdesc:a44a872a40072dc128fa898a795eeff79"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert a GAF alignment into a vg <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. The alignment must be in node ID space.  <a href="namespacevg_1_1io.html#a44a872a40072dc128fa898a795eeff79">More...</a><br /></td></tr>
 <tr class="separator:a44a872a40072dc128fa898a795eeff79"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a363656cc5c1a09f178e3c83785488bad"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a363656cc5c1a09f178e3c83785488bad">gaf_to_alignment</a> (const <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> &amp;graph, const <a class="el" href="structgafkluge_1_1GafRecord.html">gafkluge::GafRecord</a> &amp;gaf, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
+<tr class="memdesc:a363656cc5c1a09f178e3c83785488bad"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert a GAF alignment into a vg <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. The alignment must be in node ID space.  <a href="namespacevg_1_1io.html#a363656cc5c1a09f178e3c83785488bad">More...</a><br /></td></tr>
 <tr class="separator:a363656cc5c1a09f178e3c83785488bad"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a64f819396b817978940de263c04713f9"><td class="memItemLeft" align="right" valign="top">short&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1io.html#a64f819396b817978940de263c04713f9">quality_char_to_short</a> (char c)</td></tr>
 <tr class="separator:a64f819396b817978940de263c04713f9"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -579,8 +581,8 @@ Variables</h2></td></tr>
 
 </div>
 </div>
-<a id="a39ad4f7f834db40f50b451bf3ffe7a9c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a39ad4f7f834db40f50b451bf3ffe7a9c">&#9670;&nbsp;</a></span>alignment_to_gaf() <span class="overload">[1/2]</span></h2>
+<a id="a711294fa859b37aba71867a0dd9a035a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a711294fa859b37aba71867a0dd9a035a">&#9670;&nbsp;</a></span>alignment_to_gaf() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -600,20 +602,26 @@ Variables</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>cs_cigar</em>, </td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">handlegraph::NamedNodeBackTranslation</a> *&#160;</td>
+          <td class="paramname"><em>translate_through</em> = <code>nullptr</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>base_quals</em>, </td>
+          <td class="paramname"><em>cs_cigar</em> = <code>true</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>frag_links</em>&#160;</td>
+          <td class="paramname"><em>base_quals</em> = <code>true</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>frag_links</em> = <code>true</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -622,11 +630,12 @@ Variables</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Convert an alignment to GAF. THe alignment must be in node ID space. If translate_through is set, output will be in segment name space. </p>
 
 </div>
 </div>
-<a id="aba114defe4c87d40c35d5f1bef44b0e8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aba114defe4c87d40c35d5f1bef44b0e8">&#9670;&nbsp;</a></span>alignment_to_gaf() <span class="overload">[2/2]</span></h2>
+<a id="ac7caf6e3e258fda58ef1bd8565074f4a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac7caf6e3e258fda58ef1bd8565074f4a">&#9670;&nbsp;</a></span>alignment_to_gaf() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -652,20 +661,26 @@ Variables</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>cs_cigar</em>, </td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">handlegraph::NamedNodeBackTranslation</a> *&#160;</td>
+          <td class="paramname"><em>translate_through</em> = <code>nullptr</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>base_quals</em>, </td>
+          <td class="paramname"><em>cs_cigar</em> = <code>true</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>frag_links</em>&#160;</td>
+          <td class="paramname"><em>base_quals</em> = <code>true</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>frag_links</em> = <code>true</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -674,6 +689,7 @@ Variables</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Convert an alignment to GAF. THe alignment must be in node ID space. If translate_through is set, output will be in segment name space. </p>
 
 </div>
 </div>
@@ -1384,6 +1400,8 @@ template&lt;typename T &gt; </div>
       </table>
 </div><div class="memdoc">
 
+<p>Convert a GAF alignment into a vg <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. The alignment must be in node ID space. </p>
+
 </div>
 </div>
 <a id="a44a872a40072dc128fa898a795eeff79"></a>
@@ -1423,6 +1441,8 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>Convert a GAF alignment into a vg <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. The alignment must be in node ID space. </p>
 
 </div>
 </div>
@@ -1736,8 +1756,8 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a2482cb13e9b2d8c8328233d6f328bd6a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2482cb13e9b2d8c8328233d6f328bd6a">&#9670;&nbsp;</a></span>get_non_hts_alignment_emitter()</h2>
+<a id="a2f9f4db8b0374c57d2963881784c40d3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2f9f4db8b0374c57d2963881784c40d3">&#9670;&nbsp;</a></span>get_non_hts_alignment_emitter()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1770,7 +1790,13 @@ template&lt;typename T &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>graph</em> = <code>nullptr</code>&#160;</td>
+          <td class="paramname"><em>graph</em> = <code>nullptr</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">handlegraph::NamedNodeBackTranslation</a> *&#160;</td>
+          <td class="paramname"><em>translate_through</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>

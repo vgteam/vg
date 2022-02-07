@@ -88,9 +88,9 @@ Inheritance diagram for vg::io::GafAlignmentEmitter:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a63e7dbd6a661f7ec7d878cb507340d06"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html#a63e7dbd6a661f7ec7d878cb507340d06">GafAlignmentEmitter</a> (const string &amp;filename, const string &amp;format, const <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> &amp;_graph, size_t max_threads)</td></tr>
-<tr class="memdesc:a63e7dbd6a661f7ec7d878cb507340d06"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a <a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html">GafAlignmentEmitter</a> writing to the given file (or "-")  <a href="classvg_1_1io_1_1GafAlignmentEmitter.html#a63e7dbd6a661f7ec7d878cb507340d06">More...</a><br /></td></tr>
-<tr class="separator:a63e7dbd6a661f7ec7d878cb507340d06"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad7b537251b10534375e90a22b795b9cc"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html#ad7b537251b10534375e90a22b795b9cc">GafAlignmentEmitter</a> (const string &amp;filename, const string &amp;format, const <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> &amp;_graph, size_t max_threads, const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">handlegraph::NamedNodeBackTranslation</a> *<a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html#a2e7cff4276d5f1cd7857f91d8970be0e">translate_through</a>=nullptr)</td></tr>
+<tr class="memdesc:ad7b537251b10534375e90a22b795b9cc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a <a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html">GafAlignmentEmitter</a> writing to the given file (or "-")  <a href="classvg_1_1io_1_1GafAlignmentEmitter.html#ad7b537251b10534375e90a22b795b9cc">More...</a><br /></td></tr>
+<tr class="separator:ad7b537251b10534375e90a22b795b9cc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab8c76602efdaadba7319ca5103bc9107"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html#ab8c76602efdaadba7319ca5103bc9107">~GafAlignmentEmitter</a> ()</td></tr>
 <tr class="memdesc:ab8c76602efdaadba7319ca5103bc9107"><td class="mdescLeft">&#160;</td><td class="mdescRight">Finish and drstroy a <a class="el" href="classvg_1_1io_1_1VGAlignmentEmitter.html">VGAlignmentEmitter</a>.  <a href="classvg_1_1io_1_1GafAlignmentEmitter.html#ab8c76602efdaadba7319ca5103bc9107">More...</a><br /></td></tr>
 <tr class="separator:ab8c76602efdaadba7319ca5103bc9107"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -130,12 +130,15 @@ Private Attributes</h2></td></tr>
 <tr class="memitem:a956c6bef21a026c7426da0650a2927b8"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html#a956c6bef21a026c7426da0650a2927b8">graph</a></td></tr>
 <tr class="memdesc:a956c6bef21a026c7426da0650a2927b8"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structvg_1_1Graph.html">Graph</a> that alignments were aligned against.  <a href="classvg_1_1io_1_1GafAlignmentEmitter.html#a956c6bef21a026c7426da0650a2927b8">More...</a><br /></td></tr>
 <tr class="separator:a956c6bef21a026c7426da0650a2927b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2e7cff4276d5f1cd7857f91d8970be0e"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">handlegraph::NamedNodeBackTranslation</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1GafAlignmentEmitter.html#a2e7cff4276d5f1cd7857f91d8970be0e">translate_through</a></td></tr>
+<tr class="memdesc:a2e7cff4276d5f1cd7857f91d8970be0e"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structvg_1_1Translation.html">Translation</a> we should use to report in named segment coordinates, if any.  <a href="classvg_1_1io_1_1GafAlignmentEmitter.html#a2e7cff4276d5f1cd7857f91d8970be0e">More...</a><br /></td></tr>
+<tr class="separator:a2e7cff4276d5f1cd7857f91d8970be0e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Emit Alignments to a stream in GAF format Thread safe. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a63e7dbd6a661f7ec7d878cb507340d06"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a63e7dbd6a661f7ec7d878cb507340d06">&#9670;&nbsp;</a></span>GafAlignmentEmitter()</h2>
+<a id="ad7b537251b10534375e90a22b795b9cc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad7b537251b10534375e90a22b795b9cc">&#9670;&nbsp;</a></span>GafAlignmentEmitter()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -162,7 +165,13 @@ Private Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_threads</em>&#160;</td>
+          <td class="paramname"><em>max_threads</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">handlegraph::NamedNodeBackTranslation</a> *&#160;</td>
+          <td class="paramname"><em>translate_through</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -416,6 +425,30 @@ Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>If we are doing output to a file, this will hold the open file. Otherwise (for stdout) it will be empty. </p>
+
+</div>
+</div>
+<a id="a2e7cff4276d5f1cd7857f91d8970be0e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2e7cff4276d5f1cd7857f91d8970be0e">&#9670;&nbsp;</a></span>translate_through</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">handlegraph::NamedNodeBackTranslation</a>* vg::io::GafAlignmentEmitter::translate_through</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p><a class="el" href="structvg_1_1Translation.html">Translation</a> we should use to report in named segment coordinates, if any. </p>
 
 </div>
 </div>
