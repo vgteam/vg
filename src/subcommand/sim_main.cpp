@@ -600,8 +600,14 @@ int main_sim(int argc, char** argv) {
         }
     }
     
-    unique_ptr<AlignmentEmitter> alignment_emitter = get_non_hts_alignment_emitter("-", json_out ? "JSON" : "GAM",
-                                                                                       map<string, int64_t>(), get_thread_count()); 
+    unique_ptr<AlignmentEmitter> alignment_emitter;
+    if (align_out) {
+        // We're writing in an alignment format
+        alignment_emitter = get_non_hts_alignment_emitter("-", json_out ? "JSON" : "GAM",
+                                                          map<string, int64_t>(), get_thread_count());
+    }
+    // Otherwise we're just dumping sequence strings; leave it null.
+    
     if (progress) {
         std::cerr << "Simulating " << (fragment_length > 0 ? "read pairs" : "reads") << std::endl;
         std::cerr << "--num-reads " << num_reads << std::endl;
