@@ -395,8 +395,12 @@ int main_sim(int argc, char** argv) {
         cerr << "[vg sim] error: we need a graph to sample reads from" << endl;
         return 1;
     }
-    if (gbwt_name.empty() != sample_names.empty()) {
-        cerr << "[vg sim] error: --gbwt-name and --sample-name must be used together" << endl;
+    if (!gbwt_name.empty() && sample_names.empty() && rsem_file_name.empty()) {
+        cerr << "[vg sim] error: --gbwt-name requires --sample-name or --tx-expr-file" << endl;
+        return 1;
+    }
+    if (!sample_names.empty() && gbwt_name.empty()) {
+        cerr << "[vg sim] error: --sample-name must be used with  --gbwt-name" << endl;
         return 1;
     }
 
@@ -468,24 +472,7 @@ int main_sim(int argc, char** argv) {
 
     // Deal with GBWT threads
     if (!gbwt_name.empty()) {
-        // We need to track the contigs that have not had any threads in any sample
-        std::unordered_set<std::string> unvisited_contigs;
-        if (!ploidy_rules.empty()) {
-            // We actually want to visit them, so we have to find them
-            if (progress) {
-                std::cerr << "Inventorying contigs" << std::endl;
-            }
-            path_handle_graph->for_each_path_handle([&](const path_handle_t& handle) {
-                // For each path in the graph
-                auto name = path_handle_graph->get_path_name(handle);
-                if (!Paths::is_alt(name)) {
-                    // TODO: We assume that if it isn't an alt path it represents a contig!
-                    // TODO: We may need to change this when working with graphs with multiple sets of primary paths, or other extra paths.
-                    unvisited_contigs.insert(name);
-                }
-            });
-        }
-    
+        
         if (progress) {
             std::cerr << "Loading GBWT index " << gbwt_name << std::endl;
         }
@@ -494,18 +481,60 @@ int main_sim(int argc, char** argv) {
             std::cerr << "[vg sim] error: GBWT index does not contain sufficient metadata" << std::endl;
             return 1;
         }
-        if (progress) {
-            std::cerr << "Checking " << sample_names.size() << " samples" << std::endl;
-        }
-        hash_set<gbwt::size_type> sample_ids;
-        for (std::string& sample_name : sample_names) {
-            gbwt::size_type id = gbwt_index->metadata.sample(sample_name);
-            if (id >= gbwt_index->metadata.samples()) {
-                std::cerr << "[vg sim] error: sample \"" << sample_name << "\" not found in the GBWT index" << std::endl;
-                return 1;
+        
+        // we will add these threads to the graph as named paths
+        hash_set<gbwt::size_type> thread_ids;
+        
+        // this is used to keep track of named paths that we want to simulate from, even if they
+        // don't have sample information
+        std::unordered_set<std::string> unvisited_paths;
+        
+        if (!sample_names.empty()) {
+            // we're consulting the provided sample names to determine which threads to include
+            
+            // We need to track the contigs that have not had any threads in any sample
+            if (!ploidy_rules.empty()) {
+                // We actually want to visit them, so we have to find them
+                if (progress) {
+                    std::cerr << "Inventorying contigs" << std::endl;
+                }
+                path_handle_graph->for_each_path_handle([&](const path_handle_t& handle) {
+                    // For each path in the graph
+                    auto name = path_handle_graph->get_path_name(handle);
+                    if (!Paths::is_alt(name)) {
+                        // TODO: We assume that if it isn't an alt path it represents a contig!
+                        // TODO: We may need to change this when working with graphs with multiple sets of primary paths, or other extra paths.
+                        unvisited_paths.insert(name);
+                    }
+                });
             }
-            sample_ids.insert(id);
+            
+            if (progress) {
+                std::cerr << "Checking " << sample_names.size() << " samples" << std::endl;
+            }
+            
+            for (std::string& sample_name : sample_names) {
+                gbwt::size_type id = gbwt_index->metadata.sample(sample_name);
+                if (id >= gbwt_index->metadata.samples()) {
+                    std::cerr << "[vg sim] error: sample \"" << sample_name << "\" not found in the GBWT index" << std::endl;
+                    return 1;
+                }
+                thread_ids.insert(id);
+            }
         }
+        else {
+            // we are consulting the transcript expression table to decide which threads to include
+            for (const auto& transcript_expression  : transcript_expressions) {
+                gbwt::size_type id = gbwt_index->metadata.sample(transcript_expression.first);
+                if (id >= gbwt_index->metadata.samples()) {
+                    std::cerr << "[vg sim] error: haplotype-specific transcript \"" << transcript_expression.first << "\" not found in the GBWT index" << std::endl;
+                    return 1;
+                }
+                thread_ids.insert(id);
+            }
+            
+        }
+        
         MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(path_handle_graph.get());
         if (mutable_graph == nullptr) {
             if (progress) {
@@ -516,12 +545,12 @@ int main_sim(int argc, char** argv) {
             path_handle_graph.reset(mutable_graph);
         }
         if (progress) {
-            std::cerr << "Inserting " << sample_ids.size() << " samples into the graph" << std::endl;
+            std::cerr << "Inserting " << thread_ids.size() << " GBWT threads into the graph" << std::endl;
         }
         size_t inserted = 0;
         for (gbwt::size_type i = 0; i < gbwt_index->metadata.paths(); i++) {
             auto& path = gbwt_index->metadata.path(i);
-            if (sample_ids.find(path.sample) != sample_ids.end()) {
+            if (thread_ids.find(path.sample) != thread_ids.end()) {
                 std::string path_name = insert_gbwt_path(*mutable_graph, *gbwt_index, i);
                 if (!path_name.empty()) {
                     // We managed to make a path for this thread
@@ -531,10 +560,10 @@ int main_sim(int argc, char** argv) {
                     // Remember we inserted a path
                     inserted++;
                     
-                    if (!unvisited_contigs.empty()) {
+                    if (!unvisited_paths.empty()) {
                         // Remember that the contig this path is on is visited
                         auto contig_name = gbwt_index->metadata.contig(path.contig);
-                        unvisited_contigs.erase(contig_name);
+                        unvisited_paths.erase(contig_name);
                     }
                 }
             }
@@ -542,16 +571,16 @@ int main_sim(int argc, char** argv) {
         if (progress) {
             std::cerr << "Inserted " << inserted << " paths" << std::endl;
         }
-        if (!unvisited_contigs.empty()) {
+        if (!unvisited_paths.empty()) {
             // There are unvisited contigs we want to sample from too
-            for (auto& name : unvisited_contigs) {
+            for (auto& name : unvisited_paths) {
                 // Sample from each
                 path_names.push_back(name);
                 // With the rule-determined ploidy
                 path_ploidies.push_back(consult_ploidy_rules(name));
             }
             if (progress) {
-                std::cerr << "Also sampling from " << unvisited_contigs.size() << " paths representing unvisited contigs" << std::endl;
+                std::cerr << "Also sampling from " << unvisited_paths.size() << " paths representing unvisited contigs" << std::endl;
             }
         }
     }
