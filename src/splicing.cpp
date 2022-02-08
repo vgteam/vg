@@ -223,11 +223,12 @@ void SpliceStats::init(const vector<tuple<string, string, double>>& motifs,
     }
 }
 
+// FIXME: magic numbers in the incremental graph initializer...
 SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t search_dist,
                            const HandleGraph& graph,
                            const DinucleotideMachine& dinuc_machine,
                            const SpliceStats& splice_stats)
-    : subgraph(graph, seed_pos, search_left, search_dist + 2), motif_matches(splice_stats.motif_size())
+    : subgraph(graph, seed_pos, search_left, search_dist + 2, 5, search_dist * search_dist), motif_matches(splice_stats.motif_size())
 {
     
 #ifdef debug_splice_region
@@ -253,7 +254,7 @@ SpliceRegion::SpliceRegion(const pos_t& seed_pos, bool search_left, int64_t sear
         dinuc_states.emplace_back(handle, vector<uint32_t>(subgraph.get_length(handle),
                                                            dinuc_machine.init_state()));
 #ifdef debug_splice_region
-        cerr << "extract " << graph.get_id(subgraph.get_underlying_handle(handle)) << " " << graph.get_is_reverse(subgraph.get_underlying_handle(handle)) << endl;
+        cerr << "extract " << graph.get_id(subgraph.get_underlying_handle(handle)) << " " << graph.get_is_reverse(subgraph.get_underlying_handle(handle)) << " at distance " << subgraph.min_distance_from_start(handle) << endl;
 #endif
     }
     int64_t incr = search_left ? -1 : 1;

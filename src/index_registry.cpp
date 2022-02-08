@@ -331,7 +331,7 @@ vector<string> vcf_contigs(const string& filename) {
 static void init_in(ifstream& in, const string& name) {
     in.open(name);
     if (!in) {
-        cerr << "error:[IndexRegistry] could not open input file " << name << endl;
+        cerr << "error:[IndexRegistry] could not open input file '" << name << "'" << endl;
         exit(1);
     }
 }
@@ -339,7 +339,7 @@ static void init_in(ifstream& in, const string& name) {
 static void init_out(ofstream& out, const string& name) {
     out.open(name);
     if (!out) {
-        cerr << "error:[IndexRegistry] could not write output to " << name << endl;
+        cerr << "error:[IndexRegistry] could not write output to '" << name << "'" << endl;
         exit(1);
     }
 }
@@ -347,7 +347,7 @@ static void init_out(ofstream& out, const string& name) {
 static void init_in_out(fstream& strm, const string& name) {
     strm.open(name);
     if (!strm) {
-        cerr << "error:[IndexRegistry] could not open " << name << endl;
+        cerr << "error:[IndexRegistry] could not open '" << name << "'" << endl;
         exit(1);
     }
 }
@@ -1443,6 +1443,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                     while (input_gffs_read.load() < tx_filenames.size()) {
                         
                         int64_t idx = input_gffs_read.fetch_add(1);
+                        
+                        if (idx >= tx_filenames.size()) {
+                            break;
+                        }
 
                         ifstream infile_tx;
                         init_in(infile_tx, tx_filenames[idx]);
