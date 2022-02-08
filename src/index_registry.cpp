@@ -2601,7 +2601,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             cover = gbwtgraph::local_haplotypes(*xg_index, *gbwt_index,
                                                 IndexingParameters::giraffe_gbwt_downsample,
                                                 IndexingParameters::downsample_context_length,
-                                                200 * gbwt::MILLION, // buffer size
+                                                IndexingParameters::gbwt_insert_batch_size, 
                                                 IndexingParameters::gbwt_sampling_interval,
                                                 IndexingParameters::verbosity >= IndexingParameters::Debug);
         } else {
@@ -2614,7 +2614,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             gbwtgraph::augment_gbwt(*xg_index, dynamic_index,
                                     IndexingParameters::path_cover_depth,
                                     IndexingParameters::downsample_context_length,
-                                    200 * gbwt::MILLION, // buffer size
+                                    IndexingParameters::gbwt_insert_batch_size, 
                                     IndexingParameters::gbwt_sampling_interval,
                                     IndexingParameters::verbosity >= IndexingParameters::Debug);
             cover = gbwt::GBWT(dynamic_index);
@@ -2662,7 +2662,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*xg_index,
                                                       IndexingParameters::path_cover_depth,
                                                       IndexingParameters::downsample_context_length,
-                                                      20 * max_comp_size, // buffer size recommendation from Jouni
+                                                      std::max(IndexingParameters::gbwt_insert_batch_size, 20 * max_comp_size), // buffer size recommendation from Jouni
                                                       IndexingParameters::gbwt_sampling_interval,
                                                       IndexingParameters::verbosity >= IndexingParameters::Debug);
         
