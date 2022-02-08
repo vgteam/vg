@@ -479,7 +479,11 @@ int main_sim(int argc, char** argv) {
             path_ploidies.push_back(consult_ploidy_rules(path_name));
         }
     }
-
+    
+    // We may add some paths to our graph. If so, we need to ignore them when
+    // annotating with path positions, because they will be useless.
+    unordered_set<string> inserted_path_names;
+    
     // Deal with GBWT threads
     if (!gbwt_name.empty()) {
         // We need to track the contigs that have not had any threads in any sample
@@ -532,7 +536,6 @@ int main_sim(int argc, char** argv) {
         if (progress) {
             std::cerr << "Inserting " << sample_ids.size() << " samples into the graph" << std::endl;
         }
-        size_t inserted = 0;
         for (gbwt::size_type i = 0; i < gbwt_index->metadata.paths(); i++) {
             auto& path = gbwt_index->metadata.path(i);
             if (sample_ids.find(path.sample) != sample_ids.end()) {
@@ -543,7 +546,7 @@ int main_sim(int argc, char** argv) {
                     // It should have ploidy 1
                     path_ploidies.push_back(1.0);
                     // Remember we inserted a path
-                    inserted++;
+                    inserted_path_names.insert(path_name);
                     
                     if (!unvisited_contigs.empty()) {
                         // Remember that the contig this path is on is visited
@@ -554,7 +557,7 @@ int main_sim(int argc, char** argv) {
             }
         }
         if (progress) {
-            std::cerr << "Inserted " << inserted << " paths" << std::endl;
+            std::cerr << "Inserted " << inserted_path_names.size() << " paths" << std::endl;
         }
         if (!unvisited_contigs.empty()) {
             // There are unvisited contigs we want to sample from too
@@ -575,7 +578,19 @@ int main_sim(int argc, char** argv) {
     }
     bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
     PathPositionHandleGraph* xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
-
+    
+    // We want to store the inserted paths as a set of handles, which are
+    // easier to hash than strings for lookup.
+    unordered_set<path_handle_t> inserted_path_handles;
+    if (!inserted_path_names.empty()) {
+        if (progress) {
+            std::cerr << "Finding inserted paths" << std::endl;
+        }
+        for (auto& name : inserted_path_names) {
+            inserted_path_handles.insert(xgidx->get_path_handle(name));
+        }
+    }
+    
     if (haplotype_transcript_file_name.empty()) {
         if (progress && !transcript_expressions.empty()) {
             std::cerr << "Checking " << transcript_expressions.size() << " transcripts" << std::endl;
@@ -683,6 +698,14 @@ int main_sim(int argc, char** argv) {
     
     // Do common configuration
     sampler->multi_position_annotations = multi_position_annotations;
+    if (!inserted_path_handles.empty()) {
+        // Skip paths that we have added ourselves when annotating, so we search
+        // further for base-graph path.
+        std::function<bool(const path_handle_t&)> annotation_path_filter = [&inserted_path_handles](const path_handle_t& path) {
+            return !inserted_path_handles.count(path);
+        };
+        sampler->annotation_path_filter = std::make_unique<std::function<bool(const path_handle_t&)>>(std::move(annotation_path_filter));
+    }
     
     // Generate an Aligner for rescoring
     Aligner aligner(default_score_matrix, default_gap_open, default_gap_extension,

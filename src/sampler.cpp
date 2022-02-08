@@ -19,9 +19,9 @@ void AbstractReadSampler::annotate_with_path_positions(Alignment& aln) {
     // We need to annotate the alignment with the right kind of path positions
     // that we are configured for.
     if (multi_position_annotations) {
-        algorithms::annotate_with_node_path_positions(graph, aln);
+        algorithms::annotate_with_node_path_positions(graph, aln, 0, annotation_path_filter.get());
     } else {
-        algorithms::annotate_with_initial_path_positions(graph, aln);
+        algorithms::annotate_with_initial_path_positions(graph, aln, 0, annotation_path_filter.get());
     }
 }
 

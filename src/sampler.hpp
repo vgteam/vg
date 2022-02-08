@@ -53,6 +53,10 @@ public:
     /// reference paths.
     bool multi_position_annotations = false;
     
+    /// Set to a filter function that returns true if a given path in the graph
+    /// is allowed to be used as an annotation path.
+    std::unique_ptr<std::function<bool(const path_handle_t&)>> annotation_path_filter; 
+    
     // TODO: Move more common fields out here. Make Sampler store at least a
     // default error rate, etc. for the common sampling interface.
     
