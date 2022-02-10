@@ -35,9 +35,9 @@ RUN apt-get -qq -y update && \
 ###DEPS_BEGIN###
 RUN apt-get -qq -y update && apt-get -qq -y upgrade && apt-get -qq -y install \
     make git build-essential protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev \
-    libncurses5-dev automake libtool jq bsdmainutils bc rs parallel npm samtools curl \
-    unzip redland-utils librdf-dev cmake pkg-config wget gtk-doc-tools raptor2-utils \
-    rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev \
+    libncurses5-dev automake gettext autopoint libtool jq bsdmainutils bc rs parallel npm \
+    samtools curl unzip redland-utils librdf-dev cmake pkg-config wget gtk-doc-tools \
+    raptor2-utils rasqal-utils bison flex gawk libgoogle-perftools-dev liblz4-dev liblzma-dev \
     libcairo2-dev libpixman-1-dev libffi-dev libcairo-dev libprotobuf-dev libboost-all-dev \
     tabix bcftools
 ###DEPS_END###
@@ -86,7 +86,7 @@ ARG THREADS=8
 
 RUN echo test > /stage.txt
 
-RUN curl -sL https://deb.nodesource.com/setup_14.x | bash - && apt-get -qq -y install nodejs
+RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - && apt-get -qq -y install nodejs && npm install -g txm@7.4.5
 
 # Fail if any non-portable instructions were used
 RUN /bin/bash -e -c 'if objdump -d /vg/bin/vg | grep vperm2i128 ; then exit 1 ; else exit 0 ; fi'

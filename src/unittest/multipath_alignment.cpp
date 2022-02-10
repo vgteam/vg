@@ -3290,6 +3290,235 @@ TEST_CASE("Least optimal scores can be calculated", "[multipath]") {
     
     REQUIRE(worst_alignment_score(mpaln) == 6);
 }
+
+TEST_CASE( "Low-scoring section of multipath alignments can be removed",
+          "[alignment][multipath][mapping][remove]" ) {
+    
+    multipath_alignment_t mpaln;
+    mpaln.set_sequence("AAAAAA");
+    
+    for (size_t i = 0; i < 10; ++i) {
+        mpaln.add_subpath();
+    }
+    
+    auto s1 = mpaln.mutable_subpath(0);
+    auto s2 = mpaln.mutable_subpath(1);
+    auto s3 = mpaln.mutable_subpath(2);
+    auto s4 = mpaln.mutable_subpath(3);
+    auto s5 = mpaln.mutable_subpath(4);
+    auto s6 = mpaln.mutable_subpath(5);
+    auto s7 = mpaln.mutable_subpath(6);
+    auto s8 = mpaln.mutable_subpath(7);
+    auto s9 = mpaln.mutable_subpath(8);
+    auto s10 = mpaln.mutable_subpath(9);
+    
+    auto m1 = s1->mutable_path()->add_mapping();
+    auto m2 = s2->mutable_path()->add_mapping();
+    auto m3 = s3->mutable_path()->add_mapping();
+    auto m4 = s4->mutable_path()->add_mapping();
+    auto m5 = s5->mutable_path()->add_mapping();
+    auto m6 = s6->mutable_path()->add_mapping();
+    auto m7 = s7->mutable_path()->add_mapping();
+    auto m8 = s8->mutable_path()->add_mapping();
+    auto m9 = s9->mutable_path()->add_mapping();
+    auto m10 = s10->mutable_path()->add_mapping();
+    
+    auto e1 = m1->add_edit();
+    auto e2 = m2->add_edit();
+    auto e3 = m3->add_edit();
+    auto e4 = m4->add_edit();
+    auto e5 = m5->add_edit();
+    auto e6 = m6->add_edit();
+    auto e7 = m7->add_edit();
+    auto e8 = m8->add_edit();
+    auto e9 = m9->add_edit();
+    auto e10 = m10->add_edit();
+    
+    auto p1 = m1->mutable_position();
+    auto p2 = m2->mutable_position();
+    auto p3 = m3->mutable_position();
+    auto p4 = m4->mutable_position();
+    auto p5 = m5->mutable_position();
+    auto p6 = m6->mutable_position();
+    auto p7 = m7->mutable_position();
+    auto p8 = m8->mutable_position();
+    auto p9 = m9->mutable_position();
+    auto p10 = m10->mutable_position();
+    
+    mpaln.add_start(0);
+    
+    s1->set_score(1);
+    s1->add_next(1);
+    s1->add_next(2);
+    p1->set_node_id(1);
+    p1->set_offset(0);
+    p1->set_is_reverse(0);
+    e1->set_from_length(1);
+    e1->set_to_length(1);
+    
+    s2->set_score(-2);
+    s2->add_next(3);
+    p2->set_node_id(2);
+    p2->set_offset(0);
+    p2->set_is_reverse(0);
+    e2->set_from_length(1);
+    e2->set_to_length(1);
+    
+    s3->set_score(1);
+    s3->add_next(3);
+    p3->set_node_id(3);
+    p3->set_offset(0);
+    p3->set_is_reverse(0);
+    e3->set_from_length(1);
+    e3->set_to_length(1);
+    
+    s4->set_score(1);
+    s4->add_next(4);
+    s4->add_next(5);
+    p4->set_node_id(4);
+    p4->set_offset(0);
+    p4->set_is_reverse(0);
+    e4->set_from_length(1);
+    e4->set_to_length(1);
+    
+    s5->set_score(1);
+    s5->add_next(6);
+    s5->add_next(7);
+    p5->set_node_id(5);
+    p5->set_offset(0);
+    p5->set_is_reverse(0);
+    e5->set_from_length(1);
+    e5->set_to_length(1);
+    
+    auto c5 = s5->add_connection();
+    c5->set_next(9);
+    c5->set_score(-2);
+    
+    s6->set_score(-1);
+    s6->add_next(6);
+    s6->add_next(7);
+    p6->set_node_id(6);
+    p6->set_offset(0);
+    p6->set_is_reverse(0);
+    e6->set_from_length(1);
+    e6->set_to_length(1);
+    
+    auto c6 = s6->add_connection();
+    c6->set_next(9);
+    c6->set_score(-2);
+    
+    s7->set_score(-1);
+    s7->add_next(8);
+    p7->set_node_id(7);
+    p7->set_offset(0);
+    p7->set_is_reverse(0);
+    e7->set_from_length(1);
+    e7->set_to_length(1);
+    
+    s8->set_score(1);
+    s8->add_next(8);
+    p8->set_node_id(8);
+    p8->set_offset(0);
+    p8->set_is_reverse(0);
+    e8->set_from_length(1);
+    e8->set_to_length(1);
+    
+    s9->set_score(1);
+    p9->set_node_id(9);
+    p9->set_offset(0);
+    p9->set_is_reverse(0);
+    e9->set_from_length(1);
+    e9->set_to_length(1);
+    
+    s10->set_score(2);
+    p10->set_node_id(10);
+    p10->set_offset(0);
+    p10->set_is_reverse(0);
+    e10->set_from_length(2);
+    e10->set_to_length(2);
+    
+    remove_low_scoring_sections(mpaln, 2);
+    
+    REQUIRE(mpaln.subpath_size() == 9);
+    REQUIRE(mpaln.start_size() == 1);
+    REQUIRE(mpaln.start(0) == 0);
+    REQUIRE(mpaln.subpath(0).path().mapping(0).position().node_id() == 1);
+    REQUIRE(mpaln.subpath(0).next_size() == 1);
+    REQUIRE(mpaln.subpath(0).next(0) == 1);
+    REQUIRE(mpaln.subpath(0).connection_size() == 0);
+    REQUIRE(mpaln.subpath(1).path().mapping(0).position().node_id() == 3);
+    REQUIRE(mpaln.subpath(1).next_size() == 1);
+    REQUIRE(mpaln.subpath(1).next(0) == 2);
+    REQUIRE(mpaln.subpath(1).connection_size() == 0);
+    REQUIRE(mpaln.subpath(2).path().mapping(0).position().node_id() == 4);
+    REQUIRE(mpaln.subpath(2).next_size() == 2);
+    REQUIRE(mpaln.subpath(2).next(0) == 3);
+    REQUIRE(mpaln.subpath(2).next(1) == 4);
+    REQUIRE(mpaln.subpath(2).connection_size() == 0);
+    REQUIRE(mpaln.subpath(3).path().mapping(0).position().node_id() == 5);
+    REQUIRE(mpaln.subpath(3).next_size() == 2);
+    REQUIRE(mpaln.subpath(3).next(0) == 5);
+    REQUIRE(mpaln.subpath(3).next(1) == 6);
+    REQUIRE(mpaln.subpath(3).connection_size() == 1);
+    REQUIRE(mpaln.subpath(3).connection(0).next() == 8);
+    REQUIRE(mpaln.subpath(4).path().mapping(0).position().node_id() == 6);
+    REQUIRE(mpaln.subpath(4).next_size() == 1);
+    REQUIRE(mpaln.subpath(4).next(0) == 6);
+    REQUIRE(mpaln.subpath(4).connection_size() == 0);
+    REQUIRE(mpaln.subpath(5).path().mapping(0).position().node_id() == 7);
+    REQUIRE(mpaln.subpath(5).next_size() == 1);
+    REQUIRE(mpaln.subpath(5).next(0) == 7);
+    REQUIRE(mpaln.subpath(5).connection_size() == 0);
+    REQUIRE(mpaln.subpath(6).path().mapping(0).position().node_id() == 8);
+    REQUIRE(mpaln.subpath(6).next_size() == 1);
+    REQUIRE(mpaln.subpath(6).next(0) == 7);
+    REQUIRE(mpaln.subpath(6).connection_size() == 0);
+    REQUIRE(mpaln.subpath(7).path().mapping(0).position().node_id() == 9);
+    REQUIRE(mpaln.subpath(7).next_size() == 0);
+    REQUIRE(mpaln.subpath(7).connection_size() == 0);
+    REQUIRE(mpaln.subpath(8).path().mapping(0).position().node_id() == 10);
+    REQUIRE(mpaln.subpath(8).next_size() == 0);
+    REQUIRE(mpaln.subpath(8).connection_size() == 0);
+    
+    {
+        // need to also check the adjustment of starts
+        multipath_alignment_t mpaln;
+        mpaln.set_sequence("A");
+        
+        for (size_t i = 0; i < 2; ++i) {
+            mpaln.add_subpath();
+        }
+        auto s1 = mpaln.mutable_subpath(0);
+        auto s2 = mpaln.mutable_subpath(1);
+        auto m1 = s1->mutable_path()->add_mapping();
+        auto m2 = s2->mutable_path()->add_mapping();
+        auto e1 = m1->add_edit();
+        auto e2 = m2->add_edit();
+        auto p1 = m1->mutable_position();
+        auto p2 = m2->mutable_position();
+        mpaln.add_start(0);
+        mpaln.add_start(1);
+        
+        s1->set_score(1);
+        p1->set_node_id(1);
+        p1->set_offset(0);
+        p1->set_is_reverse(0);
+        e1->set_from_length(1);
+        e1->set_to_length(1);
+        
+        s2->set_score(3);
+        p2->set_node_id(2);
+        p2->set_offset(0);
+        p2->set_is_reverse(0);
+        e2->set_from_length(1);
+        e2->set_to_length(1);
+        
+        remove_low_scoring_sections(mpaln, 1);
+        
+        REQUIRE(mpaln.start_size() == 1);
+        REQUIRE(mpaln.start(0) == 0);
+    }
+}
 }
 
 

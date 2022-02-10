@@ -3,7 +3,7 @@
 
 /** \file
  *
- * Holds a surjecting wrapper AlignmentEmitter, and an entry point for getting AlignmentEmitters that can use it.
+ * Holds a surjecting wrapper AlignmentEmitter.
  */
 
 

@@ -1047,8 +1047,7 @@ namespace vg {
                                     deletion_starts.insert(arc_start);
                                     
                                     // No alt path mappings necessary for the
-                                    // deletion; the existence of the empty
-                                    // path is sufficient.
+                                    // deletion
                                 }
 
                             }
@@ -1542,6 +1541,24 @@ namespace vg {
 
         // Remember to tell the caller how many IDs we used
         to_return.max_id = next_id - 1;
+        
+        // Filter out any empty variant Paths.
+        // First stop pointing to them.
+        max_rank.clear();
+        // We have this many nonempty paths at the start of the collection at
+        // the start of every loop.
+        size_t nonempty_paths = 0;
+        while (nonempty_paths < to_return.graph.path_size()) {
+            if (to_return.graph.path(nonempty_paths).mapping_size() == 0) {
+                // This is empty of mappings so swap it to the end and remove it.
+                to_return.graph.mutable_path()->SwapElements(nonempty_paths, to_return.graph.path_size() - 1);
+                to_return.graph.mutable_path()->RemoveLast();
+                // Leave our cursor where it is; we have to check the element we swapped to here.
+            } else {
+                // This is nonempty so advance the cursor.
+                nonempty_paths++;
+            }
+        }
 
         return to_return;
     }

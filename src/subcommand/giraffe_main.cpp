@@ -42,7 +42,7 @@
 #include <linux/perf_event.h>
 #include <asm/unistd.h>
 /// Bind perf_event_open for counting instructions.
-/// See <https://stackoverflow.com/a/64863392/402891>
+/// See <https://stackoverflow.com/a/64863392>
 static long perf_event_open(struct perf_event_attr* hw_event, pid_t pid, int cpu, int group_fd, unsigned long flags) {
     return syscall(__NR_perf_event_open, hw_event, pid, cpu, group_fd, flags);
 }
@@ -332,6 +332,7 @@ void help_giraffe(char** argv) {
     << "  -R, --read-group NAME         add this read group" << endl
     << "  -o, --output-format NAME      output the alignments in NAME format (gam / gaf / json / tsv / SAM / BAM / CRAM) [gam]" << endl
     << "  --ref-paths FILE              ordered list of paths in the graph, one per line or HTSlib .dict, for HTSLib @SQ headers" << endl
+    << "  --named-coordinates           produce GAM outputs in named-segment (GFA) space" << endl
     << "  -P, --prune-low-cplx          prune short and low complexity anchors during linear format realignment" << endl
     << "  -n, --discard                 discard all output alignments (for profiling)" << endl
     << "  --output-basename NAME        write output to a GAM file beginning with the given prefix for each setting combination" << endl
@@ -385,6 +386,7 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_RESCUE_SEED_LIMIT 1009
     #define OPT_REF_PATHS 1010
     #define OPT_SHOW_WORK 1011
+    #define OPT_NAMED_COORDINATES 1012
     
 
     // initialize parameters with their default options
@@ -484,8 +486,11 @@ int main_giraffe(int argc, char** argv) {
 
     // For HTSlib formats, where do we get sequence header info?
     std::string ref_paths_name;
-    // And shoudl we drop low complexity anchors when surjectng?
+    // And should we drop low complexity anchors when surjectng?
     bool prune_anchors = false;
+    
+    // For GAM format, should we report in named-segment space instead of node ID space?
+    bool named_coordinates = false;
 
     // Map algorithm names to rescue algorithms
     std::map<std::string, MinimizerMapper::RescueAlgorithm> rescue_algorithms = {
@@ -523,6 +528,7 @@ int main_giraffe(int argc, char** argv) {
             {"output-format", required_argument, 0, 'o'},
             {"ref-paths", required_argument, 0, OPT_REF_PATHS},
             {"prune-low-cplx", no_argument, 0, 'P'},
+            {"named-coordinates", no_argument, 0, OPT_NAMED_COORDINATES},
             {"discard", no_argument, 0, 'n'},
             {"output-basename", required_argument, 0, OPT_OUTPUT_BASENAME},
             {"report-name", required_argument, 0, OPT_REPORT_NAME},
@@ -721,6 +727,10 @@ int main_giraffe(int argc, char** argv) {
                 
             case 'P':
                 prune_anchors = true;
+                break;
+                
+            case OPT_NAMED_COORDINATES:
+                named_coordinates = true;
                 break;
 
             case 'n':
@@ -1085,11 +1095,7 @@ int main_giraffe(int argc, char** argv) {
     registry.set_target_memory_usage(IndexRegistry::get_system_memory() / 2);
     
     auto index_targets = VGIndexes::get_default_giraffe_indexes();
-    if (track_correctness || hts_output) {
-        // We also need an XG
-        index_targets.push_back("XG");
-    }
-    
+
 #ifdef debug
     for (auto& needed : index_targets) {
         cerr << "Want index: " << needed << endl;
@@ -1114,20 +1120,6 @@ int main_giraffe(int argc, char** argv) {
     }
 #endif
     
-    // If we are tracking correctness, we will fill this in with a graph for
-    // getting offsets along ref paths.
-    PathPositionHandleGraph* path_position_graph = nullptr;
-    // One of these will actually own it
-    bdsg::PathPositionOverlayHelper overlay_helper;
-    unique_ptr<PathHandleGraph> graph;
-    if (track_correctness || hts_output) {
-        // Load the base graph
-        graph = vg::io::VPKG::load_one<PathHandleGraph>(registry.require("XG").at(0));
-        // And make sure it has path position support.
-        // Overlay is owned by the overlay_helper, if one is needed.
-        path_position_graph = overlay_helper.apply(graph.get());
-    }
-    
     // Grab the minimizer index
     auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Minimizers").at(0));
 
@@ -1137,6 +1129,27 @@ int main_giraffe(int argc, char** argv) {
     // Grab the distance index
     SnarlDistanceIndex distance_index;
     distance_index.deserialize(registry.require("Giraffe Distance Index").at(0));
+    
+    // If we are tracking correctness, we will fill this in with a graph for
+    // getting offsets along ref paths.
+    PathPositionHandleGraph* path_position_graph = nullptr;
+    // If we need an overlay for position lookup, we might be pointing into
+    // this overlay
+    bdsg::PathPositionOverlayHelper overlay_helper;
+    // And we might load an XG
+    unique_ptr<PathHandleGraph> xg_graph;
+    if (track_correctness || hts_output) {
+        // Usually we will get our paths from the GBZ
+        PathHandleGraph* base_graph = &gbz->graph;
+        // But if an XG is around, we should use that instead. Otherwise, it's not possible to provide paths when using an old GBWT/GBZ that doesn't have them.
+        if (registry.available("XG")) {
+            xg_graph = vg::io::VPKG::load_one<PathHandleGraph>(registry.require("XG").at(0));
+            base_graph = xg_graph.get();
+        }
+    
+        // Apply the overlay if needed.
+        path_position_graph = overlay_helper.apply(base_graph);
+    }
 
     // Set up the mapper
     if (show_progress) {
@@ -1389,12 +1402,30 @@ int main_giraffe(int argc, char** argv) {
             
             // Set up output to an emitter that will handle serialization and surjection.
             // Unless we want to discard all the alignments in which case do that.
-            // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
-            unique_ptr<AlignmentEmitter> alignment_emitter = discard_alignments ?
-                make_unique<NullAlignmentEmitter>() :
-                get_alignment_emitter("-", output_format, paths, thread_count,
-                    path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)&(gbz->graph),
-                    ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS * prune_anchors);
+            unique_ptr<AlignmentEmitter> alignment_emitter;
+            if (discard_alignments) {
+                alignment_emitter = make_unique<NullAlignmentEmitter>();
+            } else {
+                // We actually want to emit alignments.
+                // Encode flags describing what we want to happen.
+                int flags = ALIGNMENT_EMITTER_FLAG_NONE;
+                if (prune_anchors) {
+                    // When surjecting, do anchor pruning.
+                    flags |= ALIGNMENT_EMITTER_FLAG_HTS_PRUNE_SUSPICIOUS_ANCHORS;
+                }
+                if (named_coordinates) {
+                    // When not surjecting, use named segments instead of node IDs.
+                    flags |= ALIGNMENT_EMITTER_FLAG_VG_USE_SEGMENT_NAMES;
+                }
+                
+                // We send along the positional graph when we have it, and otherwise we send the GBWTGraph which is sufficient for GAF output.
+                // TODO: What if we need both a positional graph and a NamedNodeBackTranslation???
+                const HandleGraph* emitter_graph = path_position_graph ? (const HandleGraph*)path_position_graph : (const HandleGraph*)&(gbz->graph);
+                
+                alignment_emitter = get_alignment_emitter(output_filename, output_format,
+                                                          paths, thread_count,
+                                                          emitter_graph, flags);
+            }
             
 #ifdef USE_CALLGRIND
             // We want to profile the alignment, not the loading.

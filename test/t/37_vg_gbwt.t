@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 131
+plan tests 133
 
 
 # Build vg graphs for two chromosomes
@@ -207,8 +207,8 @@ vg gbwt -E -o xy.ref.gbwt -x xy.xg
 vg gbwt -m -o xy.both.gbwt xy.gbwt xy.ref.gbwt
 is $(vg gbwt -c xy.both.gbwt) 6 "haplotypes and paths: 6 threads"
 
-# Remove the reference
-vg gbwt -R ref -o xy.removed.gbwt xy.both.gbwt
+# Remove the reference sample that GBWTs use for paths
+vg gbwt -R _gbwt_ref -o xy.removed.gbwt xy.both.gbwt
 is $? 0 "samples can be removed from a GBWT index"
 is $(vg gbwt -c xy.removed.gbwt) 4 "haplotypes only: 4 threads"
 
@@ -349,6 +349,12 @@ is $(vg gbwt -H chopping.gbwt) 3 "chopping: 3 haplotypes"
 is $(vg gbwt -S chopping.gbwt) 2 "chopping: 2 samples"
 is $(wc -l < chopping.trans) 9 "chopping: 9 translations"
 
+# Build a GBZ with node chopping and extract the translation
+vg gbwt -g chopping.gbz --gbz-format --max-node 2 -G graphs/chopping_walks.gfa
+vg gbwt -Z chopping.gbz -o /dev/null --translation from_gbz.trans
+is $? 0 "Translation can be extracted from GBZ"
+is $(wc -l < from_gbz.trans) 8 "from GBZ: 8 translations"
+
 # Build GBWT and GBWTGraph from GFA with both paths and walks
 vg gbwt -o ref_paths.gbwt -g ref_paths.gg --translation ref_paths.trans -G graphs/components_paths_walks.gfa
 is $? 0 "GBWT+GBWTGraph construction from GFA with reference paths"
@@ -361,4 +367,5 @@ is $(wc -l < ref_paths.trans) 0 "ref paths: 0 translations"
 rm -f gfa.gbwt
 rm -f gfa2.gbwt gfa2.gg gfa2.trans gfa2.gbz
 rm -f ref_paths.gbwt ref_paths.gg ref_paths.trans
-rm -f chopping.gbwt chopping.gg chopping.trans
+rm -f chopping.gbwt chopping.gg chopping.trans from_gbz.trans
+

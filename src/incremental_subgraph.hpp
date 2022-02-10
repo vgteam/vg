@@ -5,8 +5,8 @@
 #ifndef VG_INCREMENTAL_SUBGRAPH_HPP_INCLUDED
 #define VG_INCREMENTAL_SUBGRAPH_HPP_INCLUDED
 
-
 #include "handle.hpp"
+#include <sparsepp/spp.h>
 
 namespace vg {
 
@@ -21,16 +21,20 @@ class IncrementalSubgraph : public ExpandingOverlayGraph {
 public:
     
     /// Initialize
+    /// the copy number limits how many times a cyce will be traversed before giving
+    /// up on it (until encountering it again)
     IncrementalSubgraph(const HandleGraph& graph,
                         const pos_t& starting_position,
                         bool extract_left,
-                        int64_t max_distance = numeric_limits<int64_t>::max());
+                        int64_t max_distance = numeric_limits<int64_t>::max(),
+                        size_t frontier_copy_limit = numeric_limits<size_t>::max(),
+                        size_t max_num_nodes =  numeric_limits<size_t>::max());
     
     /// Default constructor -- not actually functional
     IncrementalSubgraph() = default;
     
     /// Default destructor
-    ~IncrementalSubgraph() = default;
+    ~IncrementalSubgraph();
     
     //////////////////////////
     /// Specialized interface
@@ -153,18 +157,46 @@ private:
     /// farthest distance we will travel from the start pos
     int64_t max_distance;
     
+    /// the maximum number of copies of a node we will allow in the frontier at a time
+    size_t frontier_copy_limit;
+    
+    size_t max_num_nodes;
+    
     /// records of (underlying handle, left edges, right edges, min distance, max distance)
     vector<tuple<handle_t, vector<size_t>, vector<size_t>, int64_t, int64_t>> extracted;
-    /// index of latest addition of a handle in the extracted vector
-    unordered_map<handle_t, size_t> extracted_index;
     
-    /// records of (incoming edges seen, distance, node). serves as an updateable
-    /// priority queue for nodes that are adjacent to the extracted nodes
-    set<tuple<size_t, int64_t, handle_t>> frontier;
-    /// provides random access into the frontier by handle
-    unordered_map<handle_t, decltype(frontier)::iterator> frontier_index;
+    /// comparator for the frontier, order first by number of unseen incoming edges
+    /// and then by distance and break ties arbitrarily based on handle values
+    struct FCmp {
+        inline bool operator()(const tuple<int64_t, handle_t, unordered_set<handle_t>*, vector<size_t>*>& a,
+                               const tuple<int64_t, handle_t, unordered_set<handle_t>*, vector<size_t>*>& b) const {
+            return (get<2>(a)->size() < get<2>(b)->size() ||
+                    (get<2>(a)->size() == get<2>(b)->size() && a < b));
+        }
+    };
+    /// records of (distance, node, unseen edges going into, seen edges going into).
+    /// serves as an updateable priority queue for nodes that are adjacent to the extracted nodes
+    /// the container classes are created on the heap so that we can do a remove-modify-replace
+    /// update to frontier entries without deep-copying the containers
+    set<tuple<int64_t, handle_t, unordered_set<handle_t>*, vector<size_t>*>, FCmp> frontier;
     
-    /// The underlying graph
+    /// wrapper for the comparator in the frontier index, which guarantees that the iterators
+    /// end up in the same relative order in the frontier index as in the frontier
+    struct IterFCmp {
+        inline bool operator()(const decltype(frontier)::iterator& a,
+                               const decltype(frontier)::iterator& b) {
+            return FCmp()(*a, *b);
+        }
+    };
+    /// provides random access into the frontier by handle, in the same order
+    /// that the handles occur in the frontier. indexed by target node and then
+    /// by predecessor node
+    unordered_map<handle_t, unordered_map<handle_t, set<decltype(frontier)::iterator, IterFCmp>>> frontier_index;
+    
+    /// the number of a given node there is currently in the frontier
+    unordered_map<handle_t, size_t> frontier_count;
+    
+    /// the underlying graph
     const HandleGraph* graph = nullptr;
 };
 

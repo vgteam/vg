@@ -18,7 +18,6 @@ namespace unittest {
 class TestMultipathMapper : public MultipathMapper {
 public:
     using MultipathMapper::MultipathMapper;
-    using MultipathMapper::multipath_map_internal;
     using MultipathMapper::attempt_unpaired_multipath_map_of_pair;
     using MultipathMapper::align_to_cluster_graphs;
     using MultipathMapper::align_to_cluster_graph_pairs;

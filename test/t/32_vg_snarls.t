@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 14
+plan tests 19
 
 vg view -J -v snarls/snarls.json > snarls.vg
 vg snarls -t 1 snarls.vg -r st.pb > snarls.pb
@@ -84,3 +84,20 @@ grep $GOT possibilities.txt >/dev/null
 is $? 0 "vg snarls made snarls in the right order when dealing with nested chains"
 rm -f nested.vg nested.snarls possibilities.txt
 
+# Find snarls from a GFA in GFA space
+is "$(vg snarls --named-coordinates graphs/components_walks_named.gfa | vg view -Rj - | jq -c '[.start.name, .start.backward, .end.name, .end.backward]' | sort)" \
+   "$(printf '["cats",null,"goldfish",null]\n["goldfish",null,"sparrows",null]\n["pigs",true,"squirrels",null]\n["squirrels",null,"rabbits",true]\n')" \
+   "Correct snarls are found in GFA space"
+
+# Find traversals from a chopped GBZ-ified GFA in node ID space
+vg autoindex -p index -g graphs/big_snarl_named.gfa -w giraffe
+vg snarls index.giraffe.gbz --traversals traversals.dat >/dev/null
+is "$(vg view -Ej traversals.dat | jq -c 'select(.visit | length > 2) | .visit[] | select(.node_id // .name)' | wc -l)" "7" "In node ID space traversal visits 7 nodes"
+is "$(vg view -Ej traversals.dat | jq -c 'select(.visit | length > 2) | .visit[] | select(.snarl)' | wc -l)" "4" "In node ID space traversal visits 4 trivial snarls"
+
+# And in GFA space
+vg snarls index.giraffe.gbz --traversals traversals.dat --named-coordinates >/dev/null
+is "$(vg view -Ej traversals.dat | jq -c 'select(.visit | length > 2) | .visit[] | select(.node_id // .name)' | wc -l)" "3" "In segment name space traversal visits 3 segments"
+is "$(vg view -Ej traversals.dat | jq -c 'select(.visit | length > 2) | .visit[] | select(.snarl)' | wc -l)" "0" "In segment name space traversal visits 0 trivial snarls"
+
+rm -f index.* traversals.dat

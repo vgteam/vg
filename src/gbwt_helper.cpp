@@ -250,6 +250,8 @@ std::vector<std::vector<gbwt::size_type>> partition_gbwt_sequences(const gbwt::G
             auto iter = node_to_job.find(node);
             if (iter != node_to_job.end()) {
                 result[iter->second].push_back(sequence);
+            } else if (start.first == gbwt::ENDMARKER) {
+                result[0].push_back(sequence);
             }
         }
     }

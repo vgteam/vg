@@ -80,7 +80,12 @@ TEST_CASE("MEMAccelerator returns same ranges as direct LF queries",
                 --cursor;
             }
             
-            REQUIRE(memo_range == direct_range);
+            if (gcsa::Range::empty(direct_range)) {
+                REQUIRE(gcsa::Range::empty(memo_range));
+            }
+            else {
+                REQUIRE(memo_range == direct_range);
+            }
         }
         
         delete gcsaidx;

@@ -102,12 +102,14 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
                 // Add the start node to the traversal
                 *fresh_trav.add_visit() = site.start();
                 // Fill in our traversal
-                for (auto h : graph.scan_path(graph.get_path_handle(a))) {
-                    int64_t n_id = graph.get_id(h);
-                    bool backward = graph.get_is_reverse(h);
-                    Visit* v = fresh_trav.add_visit();
-                    v->set_node_id(n_id);
-                    v->set_backward(backward);
+                if (graph.has_path(a)) {
+                    for (auto h : graph.scan_path(graph.get_path_handle(a))) {
+                        int64_t n_id = graph.get_id(h);
+                        bool backward = graph.get_is_reverse(h);
+                        Visit* v = fresh_trav.add_visit();
+                        v->set_node_id(n_id);
+                        v->set_backward(backward);
+                    }
                 }
                 // Add the end node to the traversal
                 *fresh_trav.add_visit() = site.end();
@@ -3063,8 +3065,6 @@ pair<SnarlTraversal, vector<edge_t>> VCFTraversalFinder::get_alt_path(vcflib::Va
                     alt_path = std::move(scan_deletion.first);
                     deletion_edges = std::move(scan_deletion.second);
                 }
-            } else {
-                assert(allele == 0);
             }
         }
     }

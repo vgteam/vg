@@ -5,17 +5,21 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 29
+plan tests 36
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
-vg gbwt -x x.vg -o x.gbwt -a -v small/x.vcf.gz
+vg gbwt -o x-haps.gbwt -x x.vg -v small/x.vcf.gz
+vg gbwt -o x-paths.gbwt -x x.vg --index-paths
+vg gbwt -o x-merged.gbwt -m x-haps.gbwt x-paths.gbwt
+vg gbwt -o x.gbwt --augment-gbwt -x x.vg x-merged.gbwt
 vg snarls --include-trivial x.vg > x.snarls
 vg index -s x.snarls -j x.dist x.vg
 vg minimizer -k 29 -w 11 -g x.gbwt -o x.min x.xg
 
 vg giraffe -x x.xg -H x.gbwt -m x.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with xg + gbwt + min + dist specified without crashing"
+rm -f x-haps.gbwt x-paths.gbwt x-merged.gbwt
 
 vg giraffe -Z x.giraffe.gbz -m x.min -d x.dist -f reads/small.middle.ref.fq > mapped1.gam
 is "${?}" "0" "a read can be mapped with gbz + min + dist specified without crashing"
@@ -139,7 +143,30 @@ is $? "0" "provenance tracking succeeds for unpaired reads"
 vg giraffe xy.fa xy.vcf.gz -G x.gam -o SAM -i --fragment-mean 200 --fragment-stdev 10 --distance-limit 50 --track-provenance --discard
 is $? "0" "provenance tracking succeeds for paired reads"
 
-rm -f x.vg x.gam xy.sam
+rm -f x.vg xy.sam
 rm -f xy.vg xy.gbwt xy.xg xy.snarls xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
+
+vg giraffe -Z xy.giraffe.gbz -G x.gam -o BAM >xy.bam
+is $? "0" "vg giraffe can map to BAM using a GBZ alone"
+is "$(samtools view xy.bam | wc -l)" "2000" "GBZ-based BAM contains the expected number of reads"
+
+rm -f x.gam xy.bam
 rm -f xy.giraffe.gbz
+
+vg autoindex -p brca -w giraffe -g graphs/cactus-BRCA2.gfa 
+vg sim -s 100 -x brca.giraffe.gbz -n 200 -a > reads.gam
+vg giraffe -Z brca.giraffe.gbz -m brca.min -d brca.dist -G reads.gam --named-coordinates > mapped.gam
+is "$?" "0" "Mapping reads to named coordinates on a nontrivial graph without walks succeeds"
+is "$(vg view -aj mapped.gam | jq -r '.score' | grep -v "^0" | wc -l)" "200" "Reads are all mapped"
+is "$(vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | grep null | wc -l)" "0" "GFA segment names are all set"
+
+vg giraffe -Z brca.giraffe.gbz -m brca.min -d brca.dist -G reads.gam --named-coordinates -o gaf > mapped.gaf
+is "$?" "0" "Mapping reads as GAF to named coordinates on a nontrivial graph without walks succeeds"
+
+vg view -aj mapped.gam | jq -r '.path.mapping[].position.name' | sort | uniq > gam_names.txt
+cat mapped.gaf | cut -f6 | tr '><' '\n\n' | grep "." | sort | uniq > gaf_names.txt
+
+is "$(md5sum gaf_names.txt | cut -f1 -d' ')" "$(md5sum gam_names.txt | cut -f1 -d' ')" "Mapping reads as named GAF uses the same names as named GAM"
+
+rm -f reads.gam mapped.gam mapped.gaf brca.* gam_names.txt gaf_names.txt
 
