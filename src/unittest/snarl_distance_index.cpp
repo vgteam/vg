@@ -90,6 +90,7 @@ namespace vg {
                 });
                 REQUIRE(root_child_count == 1);
                 REQUIRE(distance_index.get_depth(root_handle) == 0);
+                REQUIRE(distance_index.get_connected_component_number(child_handle) == 0);
 
             }
             SECTION("Minimum distances") {
@@ -386,6 +387,19 @@ namespace vg {
                 net_handle_t root = distance_index.get_parent(chain18);
                 REQUIRE(distance_index.is_root(root));
                 REQUIRE(distance_index.get_depth(root) == 0);
+
+                REQUIRE(distance_index.get_connected_component_number(distance_index.get_node_net_handle(n9->id())) == 
+                distance_index.get_connected_component_number(distance_index.get_node_net_handle(n12->id()))); 
+                REQUIRE(distance_index.get_connected_component_number(distance_index.get_node_net_handle(n9->id())) != 
+                distance_index.get_connected_component_number(distance_index.get_node_net_handle(n1->id()))); 
+                REQUIRE(distance_index.get_handle_from_connected_component(distance_index.get_connected_component_number(distance_index.get_node_net_handle(n1->id()))) == chain18);
+
+                cerr << distance_index.get_connected_component_number(distance_index.get_node_net_handle(n9->id())) << endl;
+                cerr << distance_index.net_handle_as_string(distance_index.get_handle_from_connected_component(distance_index.get_connected_component_number(distance_index.get_node_net_handle(n9->id()))));
+                cerr << distance_index.net_handle_as_string(distance_index.get_handle_from_connected_component(distance_index.get_connected_component_number(distance_index.get_node_net_handle(n12->id()))));
+
+                REQUIRE(distance_index.is_root(distance_index.get_handle_from_connected_component(distance_index.get_connected_component_number(distance_index.get_node_net_handle(n9->id()))))); 
+
 
 
             }
