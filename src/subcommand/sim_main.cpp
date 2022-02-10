@@ -191,6 +191,7 @@ int main_sim(int argc, char** argv) {
             {"ploidy-regex", required_argument, 0, 'R'},
             {"gbwt-name", required_argument, 0, 'g'},
             {"tx-expr-file", required_argument, 0, 'T'},
+            {"haplo-tx-file", required_argument, 0, 'H'},
             {"read-length", required_argument, 0, 'l'},
             {"num-reads", required_argument, 0, 'n'},
             {"random-seed", required_argument, 0, 's'},
@@ -400,7 +401,11 @@ int main_sim(int argc, char** argv) {
         return 1;
     }
     if (!sample_names.empty() && gbwt_name.empty()) {
-        cerr << "[vg sim] error: --sample-name must be used with  --gbwt-name" << endl;
+        cerr << "[vg sim] error: --sample-name must be used with --gbwt-name" << endl;
+        return 1;
+    }
+    if (!gbwt_name.empty() && !rsem_file_name.empty() && !haplotype_transcript_file_name.empty()) {
+        cerr << "[vg sim] error: using --gbwt-name requires that HSTs be included --tx-expr-file, combination with --haplo-tx-file is not implemented" << endl;
         return 1;
     }
 
@@ -482,8 +487,8 @@ int main_sim(int argc, char** argv) {
             return 1;
         }
         
-        // we will add these threads to the graph as named paths
-        hash_set<gbwt::size_type> thread_ids;
+        // we will add these threads to the graph as named paths and index them for easy look up
+        hash_map<gbwt::size_type, size_t> sample_id_to_idx;
         
         // this is used to keep track of named paths that we want to simulate from, even if they
         // don't have sample information
@@ -519,7 +524,7 @@ int main_sim(int argc, char** argv) {
                     std::cerr << "[vg sim] error: sample \"" << sample_name << "\" not found in the GBWT index" << std::endl;
                     return 1;
                 }
-                thread_ids.insert(id);
+                sample_id_to_idx[id] = sample_id_to_idx.size();
             }
         }
         else {
@@ -530,9 +535,9 @@ int main_sim(int argc, char** argv) {
                     std::cerr << "[vg sim] error: haplotype-specific transcript \"" << transcript_expression.first << "\" not found in the GBWT index" << std::endl;
                     return 1;
                 }
-                thread_ids.insert(id);
+                auto idx = sample_id_to_idx.size();
+                sample_id_to_idx[id] = idx;
             }
-            
         }
         
         MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(path_handle_graph.get());
@@ -545,26 +550,37 @@ int main_sim(int argc, char** argv) {
             path_handle_graph.reset(mutable_graph);
         }
         if (progress) {
-            std::cerr << "Inserting " << thread_ids.size() << " GBWT threads into the graph" << std::endl;
+            std::cerr << "Inserting " << sample_id_to_idx.size() << " GBWT threads into the graph" << std::endl;
         }
+        
         size_t inserted = 0;
         for (gbwt::size_type i = 0; i < gbwt_index->metadata.paths(); i++) {
             auto& path = gbwt_index->metadata.path(i);
-            if (thread_ids.find(path.sample) != thread_ids.end()) {
+            auto it = sample_id_to_idx.find(path.sample);
+            if (it != sample_id_to_idx.end()) {
                 std::string path_name = insert_gbwt_path(*mutable_graph, *gbwt_index, i);
                 if (!path_name.empty()) {
-                    // We managed to make a path for this thread
-                    path_names.push_back(path_name);
-                    // It should have ploidy 1
-                    path_ploidies.push_back(1.0);
+                    if (!sample_names.empty()) {
+                        // assign this haplotype a single ploidy
+                        
+                        // We managed to make a path for this thread
+                        path_names.push_back(path_name);
+                        // It should have ploidy 1
+                        path_ploidies.push_back(1.0);
+                        
+                        if (!unvisited_paths.empty()) {
+                            // Remember that the contig this path is on is visited
+                            auto contig_name = gbwt_index->metadata.contig(path.contig);
+                            unvisited_paths.erase(contig_name);
+                        }
+                    }
+                    else {
+                        // update the transcript name so we can assign it expression
+                        // later down
+                        transcript_expressions[it->second].first = path_name;
+                    }
                     // Remember we inserted a path
                     inserted++;
-                    
-                    if (!unvisited_paths.empty()) {
-                        // Remember that the contig this path is on is visited
-                        auto contig_name = gbwt_index->metadata.contig(path.contig);
-                        unvisited_paths.erase(contig_name);
-                    }
                 }
             }
         }
@@ -584,19 +600,14 @@ int main_sim(int argc, char** argv) {
             }
         }
     }
-
-    if (progress) {
-        std::cerr << "Creating path position overlay" << std::endl;
-    }
-    bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
-    PathPositionHandleGraph* xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
-
+    
+    
     if (haplotype_transcript_file_name.empty()) {
         if (progress && !transcript_expressions.empty()) {
             std::cerr << "Checking " << transcript_expressions.size() << " transcripts" << std::endl;
         }
         for (auto& transcript_expression : transcript_expressions) {
-            if (!xgidx->has_path(transcript_expression.first)) {
+            if (!path_handle_graph->has_path(transcript_expression.first)) {
                 cerr << "[vg sim] error: transcript path for \""<< transcript_expression.first << "\" not found in index" << endl;
                 cerr << "if you embedded haplotype-specific transcripts in the graph, you may need the haplotype transcript file from vg rna -i" << endl;
                 return 1;
@@ -608,13 +619,18 @@ int main_sim(int argc, char** argv) {
             std::cerr << "Checking " << haplotype_transcripts.size() << " haplotype transcripts" << std::endl;
         }
         for (auto& haplotype_transcript : haplotype_transcripts) {
-            if (!xgidx->has_path(get<0>(haplotype_transcript))) {
+            if (!path_handle_graph->has_path(get<0>(haplotype_transcript))) {
                 cerr << "[vg sim] error: transcript path for \""<< get<0>(haplotype_transcript) << "\" not found in index" << endl;
                 return 1;
             }
         }
     }
     
+    if (progress) {
+        std::cerr << "Creating path position overlay" << std::endl;
+    }
+    bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
+    PathPositionHandleGraph* xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
     
     unique_ptr<vg::io::ProtobufEmitter<Alignment>> aln_emitter;
     if (align_out && !json_out) {
