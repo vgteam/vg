@@ -106,18 +106,18 @@ Functions</h2></td></tr>
 <tr class="memitem:a5af5b6f1083925669832ae59d0e549e7"><td class="memTemplParams" colspan="2">template&lt;class DistHeuristic &gt; </td></tr>
 <tr class="memitem:a5af5b6f1083925669832ae59d0e549e7"><td class="memTemplItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a5af5b6f1083925669832ae59d0e549e7">a_star</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos_1, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos_2, const DistHeuristic &amp;dist_heuristic, bool find_min=true, int64_t extremal_distance=numeric_limits&lt; int64_t &gt;::max(), bool monotonic_heuristic=true)</td></tr>
 <tr class="separator:a5af5b6f1083925669832ae59d0e549e7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afa01ed56c465ca48c599aaaa5737541b"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#afa01ed56c465ca48c599aaaa5737541b">alignment_path_offsets</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool just_min, bool nearby, size_t search_limit)</td></tr>
-<tr class="separator:afa01ed56c465ca48c599aaaa5737541b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2272ae58e5cb88a5a7a4feaf63d07954"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a2272ae58e5cb88a5a7a4feaf63d07954">multipath_alignment_path_offsets</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;mp_aln)</td></tr>
-<tr class="separator:a2272ae58e5cb88a5a7a4feaf63d07954"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af3299d4c737e2a9e839f19c10a857790"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#af3299d4c737e2a9e839f19c10a857790">annotate_with_initial_path_positions</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, size_t search_limit)</td></tr>
-<tr class="separator:af3299d4c737e2a9e839f19c10a857790"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a64755c8f9f64f00d5df6600cfdd7c6c1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a64755c8f9f64f00d5df6600cfdd7c6c1">annotate_with_node_path_positions</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, size_t search_limit)</td></tr>
-<tr class="separator:a64755c8f9f64f00d5df6600cfdd7c6c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1c1d39d71c49cea6cbd67bf571ef69cc"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a1c1d39d71c49cea6cbd67bf571ef69cc">annotate_with_path_positions</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool just_min, size_t search_limit)</td></tr>
-<tr class="separator:a1c1d39d71c49cea6cbd67bf571ef69cc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afa008e81b421e1d0df315441a3feac25"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#afa008e81b421e1d0df315441a3feac25">annotate_with_initial_path_positions</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alns, size_t search_limit)</td></tr>
-<tr class="separator:afa008e81b421e1d0df315441a3feac25"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad9941053149e9b62a3987e6910aab8f6"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad9941053149e9b62a3987e6910aab8f6">alignment_path_offsets</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool just_min, bool nearby, size_t search_limit, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
+<tr class="separator:ad9941053149e9b62a3987e6910aab8f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad0cecedaa8dd475e634b513af5be028b"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad0cecedaa8dd475e634b513af5be028b">multipath_alignment_path_offsets</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;mp_aln, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
+<tr class="separator:ad0cecedaa8dd475e634b513af5be028b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a47438272f0eac991e9d3edce30cf9123"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a47438272f0eac991e9d3edce30cf9123">annotate_with_initial_path_positions</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, size_t search_limit, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
+<tr class="separator:a47438272f0eac991e9d3edce30cf9123"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae92f9ba72b27512a1a744e60fc164844"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ae92f9ba72b27512a1a744e60fc164844">annotate_with_node_path_positions</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, size_t search_limit, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
+<tr class="separator:ae92f9ba72b27512a1a744e60fc164844"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a001d349e7ad0fa290437ca9846decced"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a001d349e7ad0fa290437ca9846decced">annotate_with_path_positions</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool just_min, size_t search_limit, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
+<tr class="separator:a001d349e7ad0fa290437ca9846decced"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8cf2e0df2e99d24d22fbfac537120cc8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a8cf2e0df2e99d24d22fbfac537120cc8">annotate_with_initial_path_positions</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alns, size_t search_limit, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
+<tr class="separator:a8cf2e0df2e99d24d22fbfac537120cc8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae18b50d29d9accb763b44d6e065dac58"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ae18b50d29d9accb763b44d6e065dac58">min_approx_path_distance</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos1, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos2, uint64_t max_search)</td></tr>
 <tr class="memdesc:ae18b50d29d9accb763b44d6e065dac58"><td class="mdescLeft">&#160;</td><td class="mdescRight">use the embedded paths to get an estimated minimum distance between the positions  <a href="namespacevg_1_1algorithms.html#ae18b50d29d9accb763b44d6e065dac58">More...</a><br /></td></tr>
 <tr class="separator:ae18b50d29d9accb763b44d6e065dac58"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -251,8 +251,8 @@ Functions</h2></td></tr>
 <tr class="separator:a7ae1eba2313c3ce068851c85b8d019e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5cd4d23b1a702613134895c2d5618154"><td class="memItemLeft" align="right" valign="top">vector&lt; unordered_set&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a5cd4d23b1a702613134895c2d5618154">min_cut_decomposition</a> (<a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> graph, const int seed)</td></tr>
 <tr class="separator:a5cd4d23b1a702613134895c2d5618154"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2a7a23da8d7ef96e1e81caa75ccd2d40"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a2a7a23da8d7ef96e1e81caa75ccd2d40">nearest_offsets_in_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos, int64_t max_search)</td></tr>
-<tr class="separator:a2a7a23da8d7ef96e1e81caa75ccd2d40"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aabe67b13884855d54b8f82a3786cc91d"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aabe67b13884855d54b8f82a3786cc91d">nearest_offsets_in_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos, int64_t max_search, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
+<tr class="separator:aabe67b13884855d54b8f82a3786cc91d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aef24fa77dadb09d5920ec94b88af2128"><td class="memItemLeft" align="right" valign="top">map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aef24fa77dadb09d5920ec94b88af2128">offsets_in_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos)</td></tr>
 <tr class="separator:aef24fa77dadb09d5920ec94b88af2128"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a799b55d576410cb7e9f11dbf99f44b27"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a799b55d576410cb7e9f11dbf99f44b27">simple_offsets_in_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> pos)</td></tr>
@@ -490,8 +490,8 @@ template&lt;class DistHeuristic &gt; </div>
 
 </div>
 </div>
-<a id="afa01ed56c465ca48c599aaaa5737541b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afa01ed56c465ca48c599aaaa5737541b">&#9670;&nbsp;</a></span>alignment_path_offsets()</h2>
+<a id="ad9941053149e9b62a3987e6910aab8f6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad9941053149e9b62a3987e6910aab8f6">&#9670;&nbsp;</a></span>alignment_path_offsets()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -524,7 +524,13 @@ template&lt;class DistHeuristic &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>search_limit</em> = <code>0</code>&#160;</td>
+          <td class="paramname"><em>search_limit</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *&#160;</td>
+          <td class="paramname"><em>path_filter</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -533,12 +539,13 @@ template&lt;class DistHeuristic &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Gives the path positions of the alignment. If just_min is set, gives the minimum position on each path. Else, gives all <a class="el" href="structvg_1_1Mapping.html">Mapping</a> start positions on each path. If nearby is set, will search for a nearby path. Will recurse with nearby set if it is not set on initial call and no positions are found. Respects search_limit in bp in that case. If search_limit is 0, read length is used. </p>
+<p>Gives the path positions of the alignment. If just_min is set, gives the minimum position on each path. Else, gives all <a class="el" href="structvg_1_1Mapping.html">Mapping</a> start positions on each path. If nearby is set, will search for a nearby path. Will recurse with nearby set if it is not set on initial call and no positions are found. Respects search_limit in bp in that case. If search_limit is 0, read length is used.</p>
+<p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read. </p>
 
 </div>
 </div>
-<a id="af3299d4c737e2a9e839f19c10a857790"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af3299d4c737e2a9e839f19c10a857790">&#9670;&nbsp;</a></span>annotate_with_initial_path_positions() <span class="overload">[1/2]</span></h2>
+<a id="a47438272f0eac991e9d3edce30cf9123"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a47438272f0eac991e9d3edce30cf9123">&#9670;&nbsp;</a></span>annotate_with_initial_path_positions() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -559,7 +566,13 @@ template&lt;class DistHeuristic &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>search_limit</em> = <code>0</code>&#160;</td>
+          <td class="paramname"><em>search_limit</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *&#160;</td>
+          <td class="paramname"><em>path_filter</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -569,12 +582,13 @@ template&lt;class DistHeuristic &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Use the graph to annotate an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with the first position it touches on each reference path. Thread safe.</p>
-<p>search_limit gives the maximum distance to search for a path if the alignment does not actually touch any paths. If 0, the alignment's sequence length is used. </p>
+<p>search_limit gives the maximum distance to search for a path if the alignment does not actually touch any paths. If 0, the alignment's sequence length is used.</p>
+<p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read. </p>
 
 </div>
 </div>
-<a id="afa008e81b421e1d0df315441a3feac25"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afa008e81b421e1d0df315441a3feac25">&#9670;&nbsp;</a></span>annotate_with_initial_path_positions() <span class="overload">[2/2]</span></h2>
+<a id="a8cf2e0df2e99d24d22fbfac537120cc8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8cf2e0df2e99d24d22fbfac537120cc8">&#9670;&nbsp;</a></span>annotate_with_initial_path_positions() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -595,7 +609,13 @@ template&lt;class DistHeuristic &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>search_limit</em> = <code>0</code>&#160;</td>
+          <td class="paramname"><em>search_limit</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *&#160;</td>
+          <td class="paramname"><em>path_filter</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -605,12 +625,13 @@ template&lt;class DistHeuristic &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Use the graph annotate Alignments with the first position they touch on each reference path. Thread safe.</p>
-<p>search_limit gives the maximum distance to search for a path if the alignment does not actually touch any paths. If 0, the alignment's sequence length is used. </p>
+<p>search_limit gives the maximum distance to search for a path if the alignment does not actually touch any paths. If 0, the alignment's sequence length is used.</p>
+<p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read. </p>
 
 </div>
 </div>
-<a id="a64755c8f9f64f00d5df6600cfdd7c6c1"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a64755c8f9f64f00d5df6600cfdd7c6c1">&#9670;&nbsp;</a></span>annotate_with_node_path_positions()</h2>
+<a id="ae92f9ba72b27512a1a744e60fc164844"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae92f9ba72b27512a1a744e60fc164844">&#9670;&nbsp;</a></span>annotate_with_node_path_positions()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -631,7 +652,13 @@ template&lt;class DistHeuristic &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>search_limit</em> = <code>0</code>&#160;</td>
+          <td class="paramname"><em>search_limit</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *&#160;</td>
+          <td class="paramname"><em>path_filter</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -641,12 +668,13 @@ template&lt;class DistHeuristic &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Use the graph to annotate an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with the first position it touches on each node it visits in each reference path. Thread safe. If no nodes on any path are visited, searches for a nearby path position to use.</p>
-<p>search_limit gives the maximum distance to search for a path if the alignment does not actually touch any paths. If 0, the alignment's sequence length is used. </p>
+<p>search_limit gives the maximum distance to search for a path if the alignment does not actually touch any paths. If 0, the alignment's sequence length is used.</p>
+<p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read. </p>
 
 </div>
 </div>
-<a id="a1c1d39d71c49cea6cbd67bf571ef69cc"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1c1d39d71c49cea6cbd67bf571ef69cc">&#9670;&nbsp;</a></span>annotate_with_path_positions()</h2>
+<a id="a001d349e7ad0fa290437ca9846decced"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a001d349e7ad0fa290437ca9846decced">&#9670;&nbsp;</a></span>annotate_with_path_positions()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -673,7 +701,13 @@ template&lt;class DistHeuristic &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>search_limit</em> = <code>0</code>&#160;</td>
+          <td class="paramname"><em>search_limit</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *&#160;</td>
+          <td class="paramname"><em>path_filter</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -683,7 +717,8 @@ template&lt;class DistHeuristic &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Use the graph to annotate an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with positions on each reference path. Thread safe.</p>
-<p>If just_min is set, gives the minimum position on each path. Else, gives all <a class="el" href="structvg_1_1Mapping.html">Mapping</a> start positions on each path. If no positions on the path are found, looks for nearby path positions in graph space. Respects search_limit in bp in that case. If search_limit is 0, read length is used. </p>
+<p>If just_min is set, gives the minimum position on each path. Else, gives all <a class="el" href="structvg_1_1Mapping.html">Mapping</a> start positions on each path. If no positions on the path are found, looks for nearby path positions in graph space. Respects search_limit in bp in that case. If search_limit is 0, read length is used.</p>
+<p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read. </p>
 
 </div>
 </div>
@@ -2966,8 +3001,8 @@ template&lt;class DistHeuristic &gt; </div>
 
 </div>
 </div>
-<a id="a2272ae58e5cb88a5a7a4feaf63d07954"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2272ae58e5cb88a5a7a4feaf63d07954">&#9670;&nbsp;</a></span>multipath_alignment_path_offsets()</h2>
+<a id="ad0cecedaa8dd475e634b513af5be028b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad0cecedaa8dd475e634b513af5be028b">&#9670;&nbsp;</a></span>multipath_alignment_path_offsets()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2982,7 +3017,13 @@ template&lt;class DistHeuristic &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>mp_aln</em>&#160;</td>
+          <td class="paramname"><em>mp_aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *&#160;</td>
+          <td class="paramname"><em>path_filter</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -2991,12 +3032,13 @@ template&lt;class DistHeuristic &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Find the position of a multipath alignment on paths. Returns the lowest offset position on a path for each contiguous stretch of the multipath alignment, but multiple positions on the same path may be returned if the multipath alignment is disconnected or fans out toward the sources or sinks. </p>
+<p>Find the position of a multipath alignment on paths. Returns the lowest offset position on a path for each contiguous stretch of the multipath alignment, but multiple positions on the same path may be returned if the multipath alignment is disconnected or fans out toward the sources or sinks.</p>
+<p>If path_filter is set, and it returns false for a path, that path is not used to annotate the read. </p>
 
 </div>
 </div>
-<a id="a2a7a23da8d7ef96e1e81caa75ccd2d40"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2a7a23da8d7ef96e1e81caa75ccd2d40">&#9670;&nbsp;</a></span>nearest_offsets_in_paths()</h2>
+<a id="aabe67b13884855d54b8f82a3786cc91d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aabe67b13884855d54b8f82a3786cc91d">&#9670;&nbsp;</a></span>nearest_offsets_in_paths()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -3017,7 +3059,13 @@ template&lt;class DistHeuristic &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>max_search</em>&#160;</td>
+          <td class="paramname"><em>max_search</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *&#160;</td>
+          <td class="paramname"><em>path_filter</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -3026,7 +3074,8 @@ template&lt;class DistHeuristic &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Return, for the nearest position in a path to the given position, subject to the given max search distance, a mapping from path name to all positions on each path where that pos_t occurs. </p>
+<p>Return, for the nearest position in a path to the given position, subject to the given max search distance, a mapping from path name to all positions on each path where that pos_t occurs. Stops search when path(s) are ancountered.</p>
+<p>If path_filter is set, ignores paths for which it returns false. </p>
 
 </div>
 </div>

@@ -76,11 +76,24 @@ $(function() {
 <div class="contents">
 
 <p><code>#include &lt;sampler.hpp&gt;</code></p>
+<div class="dynheader">
+Inheritance diagram for vg::Sampler:</div>
+<div class="dyncontent">
+ <div class="center">
+  <img src="classvg_1_1Sampler.png" usemap="#vg::Sampler_map" alt=""/>
+  <map id="vg::Sampler_map" name="vg::Sampler_map">
+<area href="classvg_1_1AbstractReadSampler.html" alt="vg::AbstractReadSampler" shape="rect" coords="0,0,154,24"/>
+  </map>
+</div></div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:ab1d1e96bcf702979dfc86a92dcd8d24b"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Sampler.html#ab1d1e96bcf702979dfc86a92dcd8d24b">Sampler</a> (<a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *x, int seed=0, bool <a class="el" href="classvg_1_1Sampler.html#a5d105468c850a483ff1b7696b1da7507">forward_only</a>=false, bool allow_Ns=false, const vector&lt; string &gt; &amp;<a class="el" href="classvg_1_1Sampler.html#aea2c52dbdae36a6729621fe3279c2d61">source_paths</a>={}, const vector&lt; double &gt; &amp;source_path_ploidies={}, const vector&lt; pair&lt; string, double &gt;&gt; &amp;transcript_expressions={}, const vector&lt; tuple&lt; string, string, size_t &gt;&gt; &amp;haplotype_transcripts={})</td></tr>
 <tr class="separator:ab1d1e96bcf702979dfc86a92dcd8d24b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab48bd0062b357dfe0cf418beb1e18ad4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Sampler.html#ab48bd0062b357dfe0cf418beb1e18ad4">sample_read</a> ()</td></tr>
+<tr class="separator:ab48bd0062b357dfe0cf418beb1e18ad4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a598b41433f5bb9a040749e7a2327b78d"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Sampler.html#a598b41433f5bb9a040749e7a2327b78d">sample_read_pair</a> ()</td></tr>
+<tr class="separator:a598b41433f5bb9a040749e7a2327b78d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab217a74d97bc905480c236ab66d30232"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Sampler.html#ab217a74d97bc905480c236ab66d30232">set_source_paths</a> (const vector&lt; string &gt; &amp;<a class="el" href="classvg_1_1Sampler.html#aea2c52dbdae36a6729621fe3279c2d61">source_paths</a>, const vector&lt; double &gt; &amp;source_path_ploidies, const vector&lt; pair&lt; string, double &gt;&gt; &amp;transcript_expressions, const vector&lt; tuple&lt; string, string, size_t &gt;&gt; &amp;haplotype_transcripts)</td></tr>
 <tr class="separator:ab217a74d97bc905480c236ab66d30232"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3d983fa5e24b8802ed2516bf0bb362bf"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Sampler.html#a3d983fa5e24b8802ed2516bf0bb362bf">position</a> (void)</td></tr>
@@ -113,11 +126,15 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a514eade400df496e68c96b3ff321cb78"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6f979036816c6f3657c98193b9b1e22d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Sampler.html#a6f979036816c6f3657c98193b9b1e22d">is_valid</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
 <tr class="separator:a6f979036816c6f3657c98193b9b1e22d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pub_methods_classvg_1_1AbstractReadSampler"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1AbstractReadSampler')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1AbstractReadSampler.html">vg::AbstractReadSampler</a></td></tr>
+<tr class="memitem:aab2237075e873b1fac2b9d927835dd5d inherit pub_methods_classvg_1_1AbstractReadSampler"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AbstractReadSampler.html#aab2237075e873b1fac2b9d927835dd5d">~AbstractReadSampler</a> ()=default</td></tr>
+<tr class="separator:aab2237075e873b1fac2b9d927835dd5d inherit pub_methods_classvg_1_1AbstractReadSampler"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:add2ef81ca4c3984e851d690c695bae2d inherit pub_methods_classvg_1_1AbstractReadSampler"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AbstractReadSampler.html#add2ef81ca4c3984e851d690c695bae2d">AbstractReadSampler</a> (<a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;<a class="el" href="classvg_1_1AbstractReadSampler.html#a07bbefa0c0af8f9c4cb5b2c45bcdae53">graph</a>)</td></tr>
+<tr class="memdesc:add2ef81ca4c3984e851d690c695bae2d inherit pub_methods_classvg_1_1AbstractReadSampler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Make a new sampler using the given graph.  <a href="classvg_1_1AbstractReadSampler.html#add2ef81ca4c3984e851d690c695bae2d">More...</a><br /></td></tr>
+<tr class="separator:add2ef81ca4c3984e851d690c695bae2d inherit pub_methods_classvg_1_1AbstractReadSampler"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
-<tr class="memitem:a35bb39d138b576dd29e6652c3f170418"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Sampler.html#a35bb39d138b576dd29e6652c3f170418">xgidx</a></td></tr>
-<tr class="separator:a35bb39d138b576dd29e6652c3f170418"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7fe30513fb778b219886100865cb33e8"><td class="memItemLeft" align="right" valign="top">LRUCache&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="structvg_1_1Node.html">Node</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Sampler.html#a7fe30513fb778b219886100865cb33e8">node_cache</a></td></tr>
 <tr class="separator:a7fe30513fb778b219886100865cb33e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afb7efec11ad329ffaeaf4e5519b797a6"><td class="memItemLeft" align="right" valign="top">LRUCache&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, vector&lt; <a class="el" href="structvg_1_1Edge.html">Edge</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Sampler.html#afb7efec11ad329ffaeaf4e5519b797a6">edge_cache</a></td></tr>
@@ -136,6 +153,21 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a8125a49b29eecf4d5037067c813b2cd7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1e14636749c41aa2d525177bf1a68cf5"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Sampler.html#a1e14636749c41aa2d525177bf1a68cf5">total_seq_length</a> = 0</td></tr>
 <tr class="separator:a1e14636749c41aa2d525177bf1a68cf5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pub_attribs_classvg_1_1AbstractReadSampler"><td colspan="2" onclick="javascript:toggleInherit('pub_attribs_classvg_1_1AbstractReadSampler')"><img src="closed.png" alt="-"/>&#160;Public Attributes inherited from <a class="el" href="classvg_1_1AbstractReadSampler.html">vg::AbstractReadSampler</a></td></tr>
+<tr class="memitem:a679c8195e5411d7460725453298b50f2 inherit pub_attribs_classvg_1_1AbstractReadSampler"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AbstractReadSampler.html#a679c8195e5411d7460725453298b50f2">multi_position_annotations</a> = false</td></tr>
+<tr class="separator:a679c8195e5411d7460725453298b50f2 inherit pub_attribs_classvg_1_1AbstractReadSampler"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a90a7ee1e2979f2126e700b2a8e847cc4 inherit pub_attribs_classvg_1_1AbstractReadSampler"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AbstractReadSampler.html#a90a7ee1e2979f2126e700b2a8e847cc4">annotation_path_filter</a></td></tr>
+<tr class="separator:a90a7ee1e2979f2126e700b2a8e847cc4 inherit pub_attribs_classvg_1_1AbstractReadSampler"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="inherited"></a>
+Additional Inherited Members</h2></td></tr>
+<tr class="inherit_header pro_methods_classvg_1_1AbstractReadSampler"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1AbstractReadSampler')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1AbstractReadSampler.html">vg::AbstractReadSampler</a></td></tr>
+<tr class="memitem:a29d7f66f17c49eeae229d00ea31ed252 inherit pro_methods_classvg_1_1AbstractReadSampler"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AbstractReadSampler.html#a29d7f66f17c49eeae229d00ea31ed252">annotate_with_path_positions</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
+<tr class="separator:a29d7f66f17c49eeae229d00ea31ed252 inherit pro_methods_classvg_1_1AbstractReadSampler"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pro_attribs_classvg_1_1AbstractReadSampler"><td colspan="2" onclick="javascript:toggleInherit('pro_attribs_classvg_1_1AbstractReadSampler')"><img src="closed.png" alt="-"/>&#160;Protected Attributes inherited from <a class="el" href="classvg_1_1AbstractReadSampler.html">vg::AbstractReadSampler</a></td></tr>
+<tr class="memitem:a07bbefa0c0af8f9c4cb5b2c45bcdae53 inherit pro_attribs_classvg_1_1AbstractReadSampler"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AbstractReadSampler.html#a07bbefa0c0af8f9c4cb5b2c45bcdae53">graph</a></td></tr>
+<tr class="memdesc:a07bbefa0c0af8f9c4cb5b2c45bcdae53 inherit pro_attribs_classvg_1_1AbstractReadSampler"><td class="mdescLeft">&#160;</td><td class="mdescRight">The graph being simulated against.  <a href="classvg_1_1AbstractReadSampler.html#a07bbefa0c0af8f9c4cb5b2c45bcdae53">More...</a><br /></td></tr>
+<tr class="separator:a07bbefa0c0af8f9c4cb5b2c45bcdae53 inherit pro_attribs_classvg_1_1AbstractReadSampler"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Generate Alignments (with or without mutations, and in pairs or alone) from an PathPositionHandleGraph index. </p>
@@ -565,6 +597,40 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a id="ab48bd0062b357dfe0cf418beb1e18ad4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab48bd0062b357dfe0cf418beb1e18ad4">&#9670;&nbsp;</a></span>sample_read()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> vg::Sampler::sample_read </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a598b41433f5bb9a040749e7a2327b78d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a598b41433f5bb9a040749e7a2327b78d">&#9670;&nbsp;</a></span>sample_read_pair()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">pair&lt;<a class="el" href="structvg_1_1Alignment.html">Alignment</a>, <a class="el" href="structvg_1_1Alignment.html">Alignment</a>&gt; vg::Sampler::sample_read_pair </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a id="a355de4870a71a88834406f3e7f297272"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a355de4870a71a88834406f3e7f297272">&#9670;&nbsp;</a></span>sequence()</h2>
 
@@ -745,20 +811,6 @@ Public Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">size_t vg::Sampler::total_seq_length = 0</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a35bb39d138b576dd29e6652c3f170418"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a35bb39d138b576dd29e6652c3f170418">&#9670;&nbsp;</a></span>xgidx</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a>* vg::Sampler::xgidx</td>
         </tr>
       </table>
 </div><div class="memdoc">

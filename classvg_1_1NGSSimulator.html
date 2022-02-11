@@ -79,6 +79,15 @@ $(function() {
 <div class="contents">
 
 <p><code>#include &lt;sampler.hpp&gt;</code></p>
+<div class="dynheader">
+Inheritance diagram for vg::NGSSimulator:</div>
+<div class="dyncontent">
+ <div class="center">
+  <img src="classvg_1_1NGSSimulator.png" usemap="#vg::NGSSimulator_map" alt=""/>
+  <map id="vg::NGSSimulator_map" name="vg::NGSSimulator_map">
+<area href="classvg_1_1AbstractReadSampler.html" alt="vg::AbstractReadSampler" shape="rect" coords="0,0,154,24"/>
+  </map>
+</div></div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
@@ -87,7 +96,7 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a51e3a4117f9339b3195d73f2c6cf560e"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a51e3a4117f9339b3195d73f2c6cf560e">NGSSimulator</a> (<a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;<a class="el" href="classvg_1_1NGSSimulator.html#a39eab8a38fd07e9f3d90a25b6830a815">graph</a>, const string &amp;ngs_fastq_file, const string &amp;ngs_paired_fastq_file=&quot;&quot;, bool interleaved_fastq=false, const vector&lt; string &gt; &amp;<a class="el" href="classvg_1_1NGSSimulator.html#ac377f66a4c6d84f5cb660950d56022ff">source_paths</a>={}, const vector&lt; double &gt; &amp;source_path_ploidies={}, const vector&lt; pair&lt; string, double &gt;&gt; &amp;transcript_expressions={}, const vector&lt; tuple&lt; string, string, size_t &gt;&gt; &amp;haplotype_transcripts={}, double substition_polymorphism_rate=0.001, double indel_polymorphism_rate=0.0002, double indel_error_proportion=0.01, double fragment_length_mean=300.0, double fragment_length_stdev=50.0, double error_multiplier=1.0, bool <a class="el" href="classvg_1_1NGSSimulator.html#a95f6ffd660c8c041e4d8b1d36a823bdd">retry_on_Ns</a>=true, bool <a class="el" href="classvg_1_1NGSSimulator.html#af7441bd12030f0e189aca5ba2e0b47ef">sample_unsheared_paths</a>=false, uint64_t <a class="el" href="classvg_1_1NGSSimulator.html#a99ce1e3ba72956bbf9d1cbaa0fd89014">seed</a>=0)</td></tr>
+<tr class="memitem:a51e3a4117f9339b3195d73f2c6cf560e"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a51e3a4117f9339b3195d73f2c6cf560e">NGSSimulator</a> (<a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;<a class="el" href="classvg_1_1AbstractReadSampler.html#a07bbefa0c0af8f9c4cb5b2c45bcdae53">graph</a>, const string &amp;ngs_fastq_file, const string &amp;ngs_paired_fastq_file=&quot;&quot;, bool interleaved_fastq=false, const vector&lt; string &gt; &amp;<a class="el" href="classvg_1_1NGSSimulator.html#ac377f66a4c6d84f5cb660950d56022ff">source_paths</a>={}, const vector&lt; double &gt; &amp;source_path_ploidies={}, const vector&lt; pair&lt; string, double &gt;&gt; &amp;transcript_expressions={}, const vector&lt; tuple&lt; string, string, size_t &gt;&gt; &amp;haplotype_transcripts={}, double substition_polymorphism_rate=0.001, double indel_polymorphism_rate=0.0002, double indel_error_proportion=0.01, double fragment_length_mean=300.0, double fragment_length_stdev=50.0, double error_multiplier=1.0, bool <a class="el" href="classvg_1_1NGSSimulator.html#a95f6ffd660c8c041e4d8b1d36a823bdd">retry_on_Ns</a>=true, bool <a class="el" href="classvg_1_1NGSSimulator.html#af7441bd12030f0e189aca5ba2e0b47ef">sample_unsheared_paths</a>=false, uint64_t <a class="el" href="classvg_1_1NGSSimulator.html#a99ce1e3ba72956bbf9d1cbaa0fd89014">seed</a>=0)</td></tr>
 <tr class="separator:a51e3a4117f9339b3195d73f2c6cf560e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a50a20af9dd3edd86233edf1de13a5cda"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a50a20af9dd3edd86233edf1de13a5cda">sample_read</a> ()</td></tr>
 <tr class="memdesc:a50a20af9dd3edd86233edf1de13a5cda"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sample an individual read and alignment.  <a href="classvg_1_1NGSSimulator.html#a50a20af9dd3edd86233edf1de13a5cda">More...</a><br /></td></tr>
@@ -98,6 +107,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aceec560b267d4a2d4a1c37fb3691dde5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#aceec560b267d4a2d4a1c37fb3691dde5">connect_to_position_file</a> (const string &amp;filename)</td></tr>
 <tr class="memdesc:aceec560b267d4a2d4a1c37fb3691dde5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Open up a stream to output read positions to.  <a href="classvg_1_1NGSSimulator.html#aceec560b267d4a2d4a1c37fb3691dde5">More...</a><br /></td></tr>
 <tr class="separator:aceec560b267d4a2d4a1c37fb3691dde5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pub_methods_classvg_1_1AbstractReadSampler"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1AbstractReadSampler')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1AbstractReadSampler.html">vg::AbstractReadSampler</a></td></tr>
+<tr class="memitem:aab2237075e873b1fac2b9d927835dd5d inherit pub_methods_classvg_1_1AbstractReadSampler"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AbstractReadSampler.html#aab2237075e873b1fac2b9d927835dd5d">~AbstractReadSampler</a> ()=default</td></tr>
+<tr class="separator:aab2237075e873b1fac2b9d927835dd5d inherit pub_methods_classvg_1_1AbstractReadSampler"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:add2ef81ca4c3984e851d690c695bae2d inherit pub_methods_classvg_1_1AbstractReadSampler"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AbstractReadSampler.html#add2ef81ca4c3984e851d690c695bae2d">AbstractReadSampler</a> (<a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;<a class="el" href="classvg_1_1AbstractReadSampler.html#a07bbefa0c0af8f9c4cb5b2c45bcdae53">graph</a>)</td></tr>
+<tr class="memdesc:add2ef81ca4c3984e851d690c695bae2d inherit pub_methods_classvg_1_1AbstractReadSampler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Make a new sampler using the given graph.  <a href="classvg_1_1AbstractReadSampler.html#add2ef81ca4c3984e851d690c695bae2d">More...</a><br /></td></tr>
+<tr class="separator:add2ef81ca4c3984e851d690c695bae2d inherit pub_methods_classvg_1_1AbstractReadSampler"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
@@ -189,8 +204,6 @@ Private Attributes</h2></td></tr>
 <tr class="memitem:a147d596d664076c94b468230d78290c4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1NGSSimulator_1_1MarkovDistribution.html">MarkovDistribution</a>&lt; pair&lt; uint8_t, bool &gt;, pair&lt; pair&lt; uint8_t, bool &gt;, pair&lt; uint8_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a147d596d664076c94b468230d78290c4">joint_initial_distr</a></td></tr>
 <tr class="memdesc:a147d596d664076c94b468230d78290c4"><td class="mdescLeft">&#160;</td><td class="mdescRight">A distribution for the joint initial qualities of a read pair.  <a href="classvg_1_1NGSSimulator.html#a147d596d664076c94b468230d78290c4">More...</a><br /></td></tr>
 <tr class="separator:a147d596d664076c94b468230d78290c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a39eab8a38fd07e9f3d90a25b6830a815"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a39eab8a38fd07e9f3d90a25b6830a815">graph</a></td></tr>
-<tr class="separator:a39eab8a38fd07e9f3d90a25b6830a815"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab5d12a331a39e82fc07202152f254d70"><td class="memItemLeft" align="right" valign="top">vector&lt; mt19937_64 &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#ab5d12a331a39e82fc07202152f254d70">prngs</a></td></tr>
 <tr class="separator:ab5d12a331a39e82fc07202152f254d70"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6101d443a8c314416fbc23dbfd3d5bde"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1discrete__distribution.html">vg::discrete_distribution</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a6101d443a8c314416fbc23dbfd3d5bde">path_sampler</a></td></tr>
@@ -234,6 +247,21 @@ Static Private Attributes</h2></td></tr>
 <tr class="memitem:aa970fcca49e375093b8abf6c3b31e2c5"><td class="memItemLeft" align="right" valign="top">static const string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#aa970fcca49e375093b8abf6c3b31e2c5">alphabet</a> = &quot;ACGT&quot;</td></tr>
 <tr class="memdesc:aa970fcca49e375093b8abf6c3b31e2c5"><td class="mdescLeft">&#160;</td><td class="mdescRight">DNA alphabet.  <a href="classvg_1_1NGSSimulator.html#aa970fcca49e375093b8abf6c3b31e2c5">More...</a><br /></td></tr>
 <tr class="separator:aa970fcca49e375093b8abf6c3b31e2c5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="inherited"></a>
+Additional Inherited Members</h2></td></tr>
+<tr class="inherit_header pub_attribs_classvg_1_1AbstractReadSampler"><td colspan="2" onclick="javascript:toggleInherit('pub_attribs_classvg_1_1AbstractReadSampler')"><img src="closed.png" alt="-"/>&#160;Public Attributes inherited from <a class="el" href="classvg_1_1AbstractReadSampler.html">vg::AbstractReadSampler</a></td></tr>
+<tr class="memitem:a679c8195e5411d7460725453298b50f2 inherit pub_attribs_classvg_1_1AbstractReadSampler"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AbstractReadSampler.html#a679c8195e5411d7460725453298b50f2">multi_position_annotations</a> = false</td></tr>
+<tr class="separator:a679c8195e5411d7460725453298b50f2 inherit pub_attribs_classvg_1_1AbstractReadSampler"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a90a7ee1e2979f2126e700b2a8e847cc4 inherit pub_attribs_classvg_1_1AbstractReadSampler"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AbstractReadSampler.html#a90a7ee1e2979f2126e700b2a8e847cc4">annotation_path_filter</a></td></tr>
+<tr class="separator:a90a7ee1e2979f2126e700b2a8e847cc4 inherit pub_attribs_classvg_1_1AbstractReadSampler"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pro_methods_classvg_1_1AbstractReadSampler"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1AbstractReadSampler')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1AbstractReadSampler.html">vg::AbstractReadSampler</a></td></tr>
+<tr class="memitem:a29d7f66f17c49eeae229d00ea31ed252 inherit pro_methods_classvg_1_1AbstractReadSampler"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AbstractReadSampler.html#a29d7f66f17c49eeae229d00ea31ed252">annotate_with_path_positions</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
+<tr class="separator:a29d7f66f17c49eeae229d00ea31ed252 inherit pro_methods_classvg_1_1AbstractReadSampler"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pro_attribs_classvg_1_1AbstractReadSampler"><td colspan="2" onclick="javascript:toggleInherit('pro_attribs_classvg_1_1AbstractReadSampler')"><img src="closed.png" alt="-"/>&#160;Protected Attributes inherited from <a class="el" href="classvg_1_1AbstractReadSampler.html">vg::AbstractReadSampler</a></td></tr>
+<tr class="memitem:a07bbefa0c0af8f9c4cb5b2c45bcdae53 inherit pro_attribs_classvg_1_1AbstractReadSampler"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AbstractReadSampler.html#a07bbefa0c0af8f9c4cb5b2c45bcdae53">graph</a></td></tr>
+<tr class="memdesc:a07bbefa0c0af8f9c4cb5b2c45bcdae53 inherit pro_attribs_classvg_1_1AbstractReadSampler"><td class="mdescLeft">&#160;</td><td class="mdescRight">The graph being simulated against.  <a href="classvg_1_1AbstractReadSampler.html#a07bbefa0c0af8f9c4cb5b2c45bcdae53">More...</a><br /></td></tr>
+<tr class="separator:a07bbefa0c0af8f9c4cb5b2c45bcdae53 inherit pro_attribs_classvg_1_1AbstractReadSampler"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Class that simulates reads with alignments to a graph that mimic the error profile of NGS sequencing data. </p>
@@ -1516,28 +1544,6 @@ Static Private Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">const double vg::NGSSimulator::fragment_sd</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="a39eab8a38fd07e9f3d90a25b6830a815"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a39eab8a38fd07e9f3d90a25b6830a815">&#9670;&nbsp;</a></span>graph</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a>&amp; vg::NGSSimulator::graph</td>
         </tr>
       </table>
   </td>
