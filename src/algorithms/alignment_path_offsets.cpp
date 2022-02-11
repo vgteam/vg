@@ -10,7 +10,8 @@ alignment_path_offsets(const PathPositionHandleGraph& graph,
                        const Alignment& aln,
                        bool just_min,
                        bool nearby,
-                       size_t search_limit) {
+                       size_t search_limit,
+                       const std::function<bool(const path_handle_t&)>* path_filter) {
     if (nearby && search_limit == 0) {
         // Fill in the search limit
         search_limit = aln.sequence().size();
@@ -34,7 +35,7 @@ alignment_path_offsets(const PathPositionHandleGraph& graph,
         // Find the position of this end of this mapping
         pos_t mapping_pos = make_pos_t(mapping.position());
         // Find the positions for this end of this Mapping
-        auto pos_offs = algorithms::nearest_offsets_in_paths(&graph, mapping_pos, nearby ? search_limit : -1);
+        auto pos_offs = algorithms::nearest_offsets_in_paths(&graph, mapping_pos, nearby ? search_limit : -1, path_filter);
         for (auto look_at_end : end) {
             // For the start and the end of the Mapping, as needed
             for (auto& p : pos_offs) {
@@ -50,7 +51,7 @@ alignment_path_offsets(const PathPositionHandleGraph& graph,
     }
     if (!nearby && offsets.empty()) {
         // find the nearest if we couldn't find any before
-        return alignment_path_offsets(graph, aln, just_min, true, search_limit);
+        return alignment_path_offsets(graph, aln, just_min, true, search_limit, path_filter);
     }
     if (just_min) {
         // We need the minimum position for each path
@@ -69,7 +70,8 @@ alignment_path_offsets(const PathPositionHandleGraph& graph,
 
 unordered_map<path_handle_t, vector<pair<size_t, bool> > >
 multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
-                                 const multipath_alignment_t& mp_aln) {
+                                 const multipath_alignment_t& mp_aln,
+                                 const std::function<bool(const path_handle_t&)>* path_filter) {
     
     using path_positions_t = unordered_map<path_handle_t, vector<pair<size_t, bool>>>;
     
@@ -82,7 +84,7 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
         for (size_t j = 0; j < subpath.path().mapping_size(); ++j) {
             // get the positions on paths that this mapping touches
             pos_t mapping_pos = make_pos_t(subpath.path().mapping(j).position());
-            subpath_search_results[j] = nearest_offsets_in_paths(&graph, mapping_pos, 0);
+            subpath_search_results[j] = nearest_offsets_in_paths(&graph, mapping_pos, 0, path_filter);
             // make sure that offsets are stored in increasing order
             for (pair<const path_handle_t, vector<pair<size_t, bool>>>& search_record : subpath_search_results[j]) {
                 sort(search_record.second.begin(), search_record.second.end());
@@ -191,18 +193,18 @@ multipath_alignment_path_offsets(const PathPositionHandleGraph& graph,
     return return_val;
 }
 
-void annotate_with_initial_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, size_t search_limit) {
-    annotate_with_path_positions(graph, aln, true, search_limit);
+void annotate_with_initial_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, size_t search_limit, const std::function<bool(const path_handle_t&)>* path_filter) {
+    annotate_with_path_positions(graph, aln, true, search_limit, path_filter);
 }
 
-void annotate_with_node_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, size_t search_limit) {
-    annotate_with_path_positions(graph, aln, false, search_limit);
+void annotate_with_node_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, size_t search_limit, const std::function<bool(const path_handle_t&)>* path_filter) {
+    annotate_with_path_positions(graph, aln, false, search_limit, path_filter);
 }
 
-void annotate_with_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, bool just_min, size_t search_limit) {
+void annotate_with_path_positions(const PathPositionHandleGraph& graph, Alignment& aln, bool just_min, size_t search_limit, const std::function<bool(const path_handle_t&)>* path_filter) {
     if (!aln.refpos_size()) {
         // Get requested path positions
-        unordered_map<path_handle_t, vector<pair<size_t, bool> > > positions = alignment_path_offsets(graph, aln, just_min, false, search_limit);
+        unordered_map<path_handle_t, vector<pair<size_t, bool> > > positions = alignment_path_offsets(graph, aln, just_min, false, search_limit, path_filter);
         // emit them in order of the path handle
         vector<path_handle_t> ordered;
         for (auto& path : positions) { ordered.push_back(path.first); }
@@ -219,8 +221,8 @@ void annotate_with_path_positions(const PathPositionHandleGraph& graph, Alignmen
     }
 }
 
-void annotate_with_initial_path_positions(const PathPositionHandleGraph& graph, vector<Alignment>& alns, size_t search_limit) {
-    for (auto& aln : alns) annotate_with_initial_path_positions(graph, aln, search_limit);
+void annotate_with_initial_path_positions(const PathPositionHandleGraph& graph, vector<Alignment>& alns, size_t search_limit, const std::function<bool(const path_handle_t&)>* path_filter) {
+    for (auto& aln : alns) annotate_with_initial_path_positions(graph, aln, search_limit, path_filter);
 }
 
 }
