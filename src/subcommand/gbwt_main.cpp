@@ -57,6 +57,7 @@ struct GBWTConfig {
     bool show_progress = false;
     bool count_threads = false;
     bool metadata = false, contigs = false, haplotypes = false, samples = false, list_names = false, thread_names = false;
+    bool include_named_paths = false;
     size_t num_paths = default_num_paths(), context_length = default_context_length();
     bool num_paths_set = false;
     size_t search_threads = omp_get_max_threads();
@@ -288,6 +289,7 @@ void help_gbwt(char** argv) {
     std::cerr << "    -P, --path-cover        build a greedy path cover (no input GBWTs)" << std::endl;
     std::cerr << "    -n, --num-paths N       find N paths per component (default " << GBWTConfig::default_num_paths_local() << " for -l, " << GBWTConfig::default_num_paths() << " otherwise)" << std::endl;
     std::cerr << "    -k, --context-length N  use N-node contexts (default " << GBWTConfig::default_context_length() << ")" << std::endl;
+    std::cerr << "        --pass-paths        include named graph paths in local haplotype or greedy path cover GBWT" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 5: GBWTGraph construction (requires an input graph and one input GBWT):" << std::endl;
     std::cerr << "    -g, --graph-name FILE   build GBWTGraph and store it in FILE" << std::endl;
@@ -377,6 +379,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     constexpr int OPT_THREAD_BUFFER = 1202;
     constexpr int OPT_MERGE_BUFFERS = 1203;
     constexpr int OPT_MERGE_JOBS = 1204;
+    constexpr int OPT_PASS_PATHS = 1400;
     constexpr int OPT_GBZ_FORMAT = 1500;
 
     static struct option long_options[] =
@@ -448,6 +451,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         { "path-cover", no_argument, 0, 'P' },
         { "num-paths", required_argument, 0, 'n' },
         { "context-length", required_argument, 0, 'k' },
+        { "pass-paths", no_argument, 0, OPT_PASS_PATHS },
 
         // GBWTGraph
         { "graph-name", required_argument, 0, 'g' },
@@ -699,6 +703,9 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             break;
         case 'k':
             config.context_length = parse<size_t>(optarg);
+            break;
+        case OPT_PASS_PATHS:
+            config.include_named_paths = true;
             break;
 
         // GBWTGraph
@@ -1272,26 +1279,54 @@ void step_4_path_cover(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& con
     if (config.show_progress) {
         std::cerr << "Finding a " << config.num_paths << "-path cover with context length " << config.context_length << std::endl;
     }
-
+    
     graphs.get_graph(config);
+    
+    // We need to drop paths that are alt allele paths and not pass them
+    // through from a graph that has them to the synthesized GBWT.
+    std::function<bool(const path_handle_t&)> path_filter = [&graphs](const path_handle_t& path) {
+        return !Paths::is_alt(graphs.path_graph->get_path_name(path));
+    };
+    
     if (config.path_cover == GBWTConfig::path_cover_greedy) {
         if (config.show_progress) {
             std::cerr << "Algorithm: greedy" << std::endl;
         }
-        gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*(graphs.path_graph), config.num_paths, config.context_length, config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION, config.haplotype_indexer.id_interval, config.show_progress);
+        gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*(graphs.path_graph),
+                                                      config.num_paths,
+                                                      config.context_length,
+                                                      config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION,
+                                                      config.haplotype_indexer.id_interval,
+                                                      config.include_named_paths,
+                                                      &path_filter,
+                                                      config.show_progress);
         gbwts.use(cover);
     } else if (config.path_cover == GBWTConfig::path_cover_augment) {
         if (config.show_progress) {
             std::cerr << "Algorithm: augment" << std::endl;
         }
         gbwts.use_dynamic();
-        gbwtgraph::augment_gbwt(*(graphs.path_graph), gbwts.dynamic, config.num_paths, config.context_length, config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION, config.haplotype_indexer.id_interval, config.show_progress);
+        gbwtgraph::augment_gbwt(*(graphs.path_graph),
+                                gbwts.dynamic,
+                                config.num_paths,
+                                config.context_length,
+                                config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION,
+                                config.haplotype_indexer.id_interval,
+                                config.show_progress);
     } else {
         if (config.show_progress) {
             std::cerr << "Algorithm: local haplotypes" << std::endl;
         }
         gbwts.use_compressed();
-        gbwt::GBWT cover = gbwtgraph::local_haplotypes(*(graphs.path_graph), gbwts.compressed, config.num_paths, config.context_length, config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION, config.haplotype_indexer.id_interval, config.show_progress);
+        gbwt::GBWT cover = gbwtgraph::local_haplotypes(*(graphs.path_graph),
+                                                       gbwts.compressed,
+                                                       config.num_paths,
+                                                       config.context_length,
+                                                       config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION,
+                                                       config.haplotype_indexer.id_interval,
+                                                       config.include_named_paths,
+                                                       &path_filter,
+                                                       config.show_progress);
         gbwts.use(cover);
     }
     gbwts.unbacked(); // We modified the GBWT.

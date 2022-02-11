@@ -386,6 +386,11 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const std::vecto
                 std::cerr << "Indexing embedded paths" << std::endl;
             }
         }
+        
+        // TODO: Get rid of paths_as_samples and use
+        // gbwtgraph::store_named_paths to store the paths, and the metadata's
+        // dictionaries to keep track of which numbers mean which strings.
+        
         // For each path we want to add to the GBWT
         auto add_graph_path_to_gbwt = [&](path_handle_t path_handle) {
             std::string path_name = graph->get_path_name(path_handle);
