@@ -174,7 +174,7 @@ int main_sim(int argc, char** argv) {
     // expression profile
     string haplotype_transcript_file_name;
     vector<tuple<string, string, size_t>> haplotype_transcripts;
-
+    
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -690,7 +690,7 @@ int main_sim(int argc, char** argv) {
         // Use the fixed error rate sampler
         
         if (unsheared_fragments) {
-            cerr << "Unsheared fragment option only available when simulating from FASTQ-trained errors" << endl;
+            cerr << "warning: Unsheared fragment option only available when simulating from FASTQ-trained errors" << endl;
         }
         
         // Make a sample to sample reads with
