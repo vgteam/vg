@@ -15,6 +15,15 @@ using namespace vg::io;
 
 namespace vg {
 
+void AbstractReadSampler::annotate_with_path_positions(Alignment& aln) {
+    // We need to annotate the alignment with the right kind of path positions
+    // that we are configured for.
+    if (multi_position_annotations) {
+        algorithms::annotate_with_node_path_positions(graph, aln, 0, annotation_path_filter.get());
+    } else {
+        algorithms::annotate_with_initial_path_positions(graph, aln, 0, annotation_path_filter.get());
+    }
+}
 
 void Sampler::set_source_paths(const vector<string>& source_paths,
                                const vector<double>& source_path_ploidies,
@@ -39,7 +48,7 @@ void Sampler::set_source_paths(const vector<string>& source_paths,
         if (haplotype_transcripts.empty()) {
             for (const pair<string, double>& transcript_expression : transcript_expressions) {
                 this->source_paths.push_back(transcript_expression.first);
-                size_t tx_len = xgidx->get_path_length(xgidx->get_path_handle(transcript_expression.first));
+                size_t tx_len = graph.get_path_length(graph.get_path_handle(transcript_expression.first));
                 expression_values.push_back(transcript_expression.second * tx_len);
             }
         }
@@ -55,7 +64,7 @@ void Sampler::set_source_paths(const vector<string>& source_paths,
                 }
                 for (size_t i : haplotypes_of_transcript[transcript_expression.first]) {
                     double haplotype_expression = (transcript_expression.second * get<2>(haplotype_transcripts[i])) / total_haplotypes;
-                    size_t hp_tx_len = xgidx->get_path_length(xgidx->get_path_handle(get<0>(haplotype_transcripts[i])));
+                    size_t hp_tx_len = graph.get_path_length(graph.get_path_handle(get<0>(haplotype_transcripts[i])));
                     expression_values.push_back(haplotype_expression * hp_tx_len);
                     this->source_paths.push_back(get<0>(haplotype_transcripts[i]));
                 }
@@ -74,7 +83,7 @@ void Sampler::set_source_paths(const vector<string>& source_paths,
             double ploidy = i >= source_path_ploidies.size() ? 1.0 : source_path_ploidies[i];
             
             // Add each path, weighted by ploidy and length, to the distribution for sampling paths
-            path_weights.push_back(ploidy * xgidx->get_path_length(xgidx->get_path_handle(source_path)));
+            path_weights.push_back(ploidy * graph.get_path_length(graph.get_path_handle(source_path)));
         }
         path_sampler = vg::discrete_distribution<>(path_weights.begin(), path_weights.end());
     }
@@ -86,21 +95,21 @@ void Sampler::set_source_paths(const vector<string>& source_paths,
 
 /// We have a helper function to convert path positions and orientations to
 /// pos_t values.
-pos_t position_at(PathPositionHandleGraph* xgidx, const string& path_name, const size_t& path_offset, bool is_reverse) {
-    path_handle_t path_handle = xgidx->get_path_handle(path_name);
-    step_handle_t step = xgidx->get_step_at_position(path_handle, path_offset);
-    handle_t handle = xgidx->get_handle_of_step(step);
+pos_t position_at(PathPositionHandleGraph* graph_ptr, const string& path_name, const size_t& path_offset, bool is_reverse) {
+    path_handle_t path_handle = graph_ptr->get_path_handle(path_name);
+    step_handle_t step = graph_ptr->get_step_at_position(path_handle, path_offset);
+    handle_t handle = graph_ptr->get_handle_of_step(step);
     
     // Work out where in that mapping we should be.
-    size_t node_offset = path_offset - xgidx->get_position_of_step(step);
+    size_t node_offset = path_offset - graph_ptr->get_position_of_step(step);
 
     if (is_reverse) {
         // Flip the node offset around to be from the end and not the start
-        node_offset = xgidx->get_length(handle) - node_offset - 1;
+        node_offset = graph_ptr->get_length(handle) - node_offset - 1;
     }
 
     // Make a pos_t for where we are, on the appropriate strand
-    pos_t pos = make_pos_t(xgidx->get_id(handle), xgidx->get_is_reverse(handle) != is_reverse, node_offset);
+    pos_t pos = make_pos_t(graph_ptr->get_id(handle), graph_ptr->get_is_reverse(handle) != is_reverse, node_offset);
     
     return pos;
 }
@@ -109,11 +118,11 @@ pos_t Sampler::position(void) {
     // We sample from the entire graph sequence, 1-based.
     vg::uniform_int_distribution<size_t> xdist(1, total_seq_length);
     size_t offset = xdist(rng);
-    id_t id = dynamic_cast<VectorizableHandleGraph*>(xgidx)->node_at_vector_offset(offset);
+    id_t id = dynamic_cast<VectorizableHandleGraph*>(&graph)->node_at_vector_offset(offset);
     vg::uniform_int_distribution<size_t> flip(0, 1);
     bool rev = forward_only ? false : flip(rng);
     // 1-0 base conversion
-    size_t node_offset = offset - dynamic_cast<VectorizableHandleGraph*>(xgidx)->node_vector_offset(id) - 1;
+    size_t node_offset = offset - dynamic_cast<VectorizableHandleGraph*>(&graph)->node_vector_offset(id) - 1;
     // Ignore flipping the node offset because we're uniform over both strands
     return make_pos_t(id, rev, node_offset);
 }
@@ -347,12 +356,12 @@ Alignment Sampler::mutate(const Alignment& aln,
     mutaln.set_sequence(alignment_seq(mutaln));
     mutaln.set_name(aln.name());
     mutaln.clear_refpos();
-    algorithms::annotate_with_initial_path_positions(*xgidx, mutaln);
+    annotate_with_path_positions(mutaln);
     return mutaln;
 }
 
 string Sampler::alignment_seq(const Alignment& aln) {
-    return algorithms::path_string(*xgidx, aln.path());
+    return algorithms::path_string(graph, aln.path());
 }
 
 vector<Alignment> Sampler::alignment_pair(size_t read_length, size_t fragment_length, double fragment_std_dev, double base_error, double indel_error) {
@@ -401,8 +410,8 @@ Alignment Sampler::alignment(size_t length) {
 Alignment Sampler::alignment_to_path(const string& source_path, size_t length) {
 
     // Pick a starting point along the path and an orientation
-    path_handle_t path_handle = xgidx->get_path_handle(source_path);
-    uint64_t path_length = xgidx->get_path_length(path_handle);
+    path_handle_t path_handle = graph.get_path_handle(source_path);
+    uint64_t path_length = graph.get_path_length(path_handle);
     vg::uniform_int_distribution<size_t> xdist(0, path_length - 1);
     size_t path_offset = xdist(rng);
     vg::uniform_int_distribution<size_t> flip(0, 1);
@@ -417,7 +426,7 @@ Alignment Sampler::alignment_to_path(const string& source_path, size_t length) {
     while (seq.size() < length) {
 
         // Make a pos_t for where we are, on the appropriate strand
-        pos_t pos = position_at(xgidx, source_path, path_offset, rev);
+        pos_t pos = position_at(&graph, source_path, path_offset, rev);
 
         // Add that character to the sequence
         seq.push_back(pos_char(pos));
@@ -463,7 +472,7 @@ Alignment Sampler::alignment_to_path(const string& source_path, size_t length) {
     // And set its identity
     aln.set_identity(identity(aln.path()));
     aln.clear_refpos();
-    algorithms::annotate_with_initial_path_positions(*xgidx, aln);
+    annotate_with_path_positions(aln);
     return aln;
 }
 
@@ -515,7 +524,7 @@ Alignment Sampler::alignment_to_graph(size_t length) {
     }
     // And set its identity
     aln.set_identity(identity(aln.path()));
-    algorithms::annotate_with_initial_path_positions(*xgidx, aln);
+    annotate_with_path_positions(aln);
     return aln;
 }
 
@@ -558,20 +567,20 @@ Alignment Sampler::alignment_with_error(size_t length,
     
     // Check the alignment to make sure we didn't mess it up
     assert(is_valid(aln));
-    algorithms::annotate_with_initial_path_positions(*xgidx, aln);
+    annotate_with_path_positions(aln);
     return aln;
 }
 
 size_t Sampler::node_length(id_t id) {
-    return xgidx->get_length(xgidx->get_handle(id));
+    return graph.get_length(graph.get_handle(id));
 }
 
 char Sampler::pos_char(pos_t pos) {
-    return xgidx->get_base(xgidx->get_handle(id(pos), is_rev(pos)), offset(pos));
+    return graph.get_base(graph.get_handle(id(pos), is_rev(pos)), offset(pos));
 }
 
 map<pos_t, char> Sampler::next_pos_chars(pos_t pos) {
-    return algorithms::next_pos_chars(*xgidx, pos);
+    return algorithms::next_pos_chars(graph, pos);
 }
 
 bool Sampler::is_valid(const Alignment& aln) {
@@ -587,7 +596,7 @@ bool Sampler::is_valid(const Alignment& aln) {
         auto accounted_bases = observed_from + mapping.position().offset();
         
         // How many bases need to be accounted for?
-        auto expected_bases = xgidx->get_length(xgidx->get_handle(mapping.position().node_id()));
+        auto expected_bases = graph.get_length(graph.get_handle(mapping.position().node_id()));
         
         if (accounted_bases != expected_bases) {
             cerr << "[vg::Sampler] Warning: alignment mapping " << i << " accounts for "
@@ -623,7 +632,7 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
                            bool retry_on_Ns,
                            bool sample_unsheared_paths,
                            uint64_t manual_seed) :
-      graph(graph)
+      AbstractReadSampler(graph)
     , sub_poly_rate(substition_polymorphism_rate)
     , indel_poly_rate(indel_polymorphism_rate)
     , indel_error_prop(indel_error_proportion)
@@ -978,7 +987,7 @@ Alignment NGSSimulator::sample_read() {
     // mask out any of the sequence that we sampled to be an 'N'
     apply_N_mask(*aln.mutable_sequence(), qual_and_masks.second);
     
-    algorithms::annotate_with_initial_path_positions(graph, aln);
+    annotate_with_path_positions(aln);
     
     register_sampled_position(aln, source_path, sampled_offset + sampled_is_reverse, sampled_is_reverse);
     return aln;
@@ -1170,8 +1179,8 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     apply_N_mask(*aln_pair.first.mutable_sequence(), qual_and_mask_pair.first.second);
     apply_N_mask(*aln_pair.second.mutable_sequence(), qual_and_mask_pair.second.second);
         
-    algorithms::annotate_with_initial_path_positions(graph, aln_pair.first);
-    algorithms::annotate_with_initial_path_positions(graph, aln_pair.second);
+    annotate_with_path_positions(aln_pair.first);
+    annotate_with_path_positions(aln_pair.second);
     
     // take back the final base that we sampled
     register_sampled_position(aln_pair.first, source_path, sampled_offset + sampled_is_reverse, sampled_is_reverse);

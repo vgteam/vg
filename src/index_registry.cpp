@@ -2598,11 +2598,20 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         gbwt::GBWT cover;
         if (downsample) {
             // Downsample the haplotypes and generate a path cover of components without haplotypes.
+            
+            // We need to drop paths that are alt allele paths and not pass them
+            // through from a graph that has them to the synthesized GBWT.
+            std::function<bool(const path_handle_t&)> path_filter = [&xg_index](const path_handle_t& path) {
+                return !Paths::is_alt(xg_index->get_path_name(path));
+            };
+            
             cover = gbwtgraph::local_haplotypes(*xg_index, *gbwt_index,
                                                 IndexingParameters::giraffe_gbwt_downsample,
                                                 IndexingParameters::downsample_context_length,
-                                                200 * gbwt::MILLION, // buffer size
+                                                IndexingParameters::gbwt_insert_batch_size, 
                                                 IndexingParameters::gbwt_sampling_interval,
+                                                true, // Also include named paths from the graph
+                                                &path_filter,
                                                 IndexingParameters::verbosity >= IndexingParameters::Debug);
         } else {
             // Augment the GBWT with a path cover of components without haplotypes.
@@ -2614,7 +2623,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             gbwtgraph::augment_gbwt(*xg_index, dynamic_index,
                                     IndexingParameters::path_cover_depth,
                                     IndexingParameters::downsample_context_length,
-                                    200 * gbwt::MILLION, // buffer size
+                                    IndexingParameters::gbwt_insert_batch_size, 
                                     IndexingParameters::gbwt_sampling_interval,
                                     IndexingParameters::verbosity >= IndexingParameters::Debug);
             cover = gbwt::GBWT(dynamic_index);
@@ -2658,12 +2667,20 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto comp_sizes = algorithms::component_sizes(*xg_index);
         size_t max_comp_size = *max_element(comp_sizes.begin(), comp_sizes.end());
         
+        // We need to drop paths that are alt allele paths and not pass them
+        // through from a graph that has them to the synthesized GBWT.
+        std::function<bool(const path_handle_t&)> path_filter = [&xg_index](const path_handle_t& path) {
+            return !Paths::is_alt(xg_index->get_path_name(path));
+        };
+        
         // make a GBWT from a greedy path cover
         gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*xg_index,
                                                       IndexingParameters::path_cover_depth,
                                                       IndexingParameters::downsample_context_length,
-                                                      20 * max_comp_size, // buffer size recommendation from Jouni
+                                                      std::max<gbwt::size_type>(IndexingParameters::gbwt_insert_batch_size, 20 * max_comp_size), // buffer size recommendation from Jouni
                                                       IndexingParameters::gbwt_sampling_interval,
+                                                      true, // Also include named paths from the graph
+                                                      &path_filter,
                                                       IndexingParameters::verbosity >= IndexingParameters::Debug);
         
         save_gbwt(cover, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
