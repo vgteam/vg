@@ -3384,7 +3384,6 @@ namespace vg {
                 
                 if (i == 0 && j == 0 && !rev) {
                     // base case if the position is given for the beginning of the surjected alignment
-                    // TODO: will this work if the position is between two nodes?
                     auto step = graph.get_step_at_position(path_handle, path_pos);
 #ifdef debug_cigar
                     cerr << "got step " << graph.get_id(graph.get_handle_of_step(step)) << " " << graph.get_is_reverse(graph.get_handle_of_step(step)) << " as path pos " << graph.get_position_of_step(step) << endl;
