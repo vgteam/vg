@@ -968,7 +968,8 @@ Alignment NGSSimulator::sample_read() {
     while (!aln.has_path()) {
         // Populate the sample positions
         pos_t pos;
-        sample_start_pos(source_path_idx, -1, sampled_offset, sampled_is_reverse, pos);
+        sample_start_pos(source_path_idx, (int64_t) qual_and_masks.first.size(),
+                         sampled_offset, sampled_is_reverse, pos);
         // copy the values so that we can change them without forgetting the start location
         int64_t offset = sampled_offset;
         bool is_reverse = sampled_is_reverse;
