@@ -18,7 +18,7 @@ var searchData=
   ['read_5flog_5flikelihood_8779',['read_log_likelihood',['../classvg_1_1PhasedGenome.html#af754f8a4e9793ebd5f4aa3b673b7e442',1,'vg::PhasedGenome']]],
   ['read_5fmapping_8780',['read_mapping',['../classvg_1_1PhaseUnfolder.html#adbf93e421183b64f73276639c3c23dfb',1,'vg::PhaseUnfolder']]],
   ['readrestrictedtraversalfinder_8781',['ReadRestrictedTraversalFinder',['../classvg_1_1ReadRestrictedTraversalFinder.html#a8cf6a940b0fce108e8af39d8a50a380f',1,'vg::ReadRestrictedTraversalFinder']]],
-  ['realigning_5fsurject_8782',['realigning_surject',['../classvg_1_1Surjector.html#a1ca787971c88c602434bd70073f7df2b',1,'vg::Surjector']]],
+  ['realigning_5fsurject_8782',['realigning_surject',['../classvg_1_1Surjector.html#a14e1e1e6e00de6609e6c95826f53f3e3',1,'vg::Surjector']]],
   ['reallocate_5fatomic_5fint_5fvector_8783',['reallocate_atomic_int_vector',['../namespacevg_1_1algorithms.html#acd891e00c4846e53f760d504434ead12',1,'vg::algorithms']]],
   ['reassign_5fnode_8784',['reassign_node',['../classvg_1_1Paths.html#aed5ea00a6a8dab5b54eeedd9e8f91a7b',1,'vg::Paths']]],
   ['reassign_5fnode_5fids_8785',['reassign_node_ids',['../classvg_1_1VG.html#aca4a358ff4c7f387c1c6d5d239499a07',1,'vg::VG::reassign_node_ids()'],['../classhandlegraph_1_1MutableHandleGraph.html#a4805d276a83a1dad2462e6b8dd2443dc',1,'handlegraph::MutableHandleGraph::reassign_node_ids()']]],

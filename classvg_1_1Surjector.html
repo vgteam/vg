@@ -142,26 +142,26 @@ Public Attributes</h2></td></tr>
 Protected Member Functions</h2></td></tr>
 <tr class="memitem:ae96dd1321ff616a23b471e069e8597ea"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ae96dd1321ff616a23b471e069e8597ea">surject_internal</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> *source_aln, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> *source_mp_aln, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> *aln_out, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> *mp_aln_out, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;paths, string &amp;path_name_out, int64_t &amp;path_pos_out, bool &amp;path_rev_out, bool allow_negative_scores, bool preserve_deletions) const</td></tr>
 <tr class="separator:ae96dd1321ff616a23b471e069e8597ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1ca787971c88c602434bd70073f7df2b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a1ca787971c88c602434bd70073f7df2b">realigning_surject</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;source, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle, const vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;path_chunks, pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;path_range_out, bool allow_negative_scores, bool preserve_N_alignments=false, bool preserve_tail_indel_anchors=false) const</td></tr>
-<tr class="separator:a1ca787971c88c602434bd70073f7df2b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8c12eebabcf714e75d4c0feea05c781f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a8c12eebabcf714e75d4c0feea05c781f">spliced_surject</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *path_position_graph, const string &amp;src_sequence, const string &amp;src_quality, const int32_t src_mapping_quality, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle, vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;path_chunks, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;ref_chunks, vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt; &amp;connections, pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;path_range_out, bool allow_negative_scores, bool deletions_as_splices) const</td></tr>
-<tr class="separator:a8c12eebabcf714e75d4c0feea05c781f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a160910efa71892d87e316fe86d668150"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, pair&lt; vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt;, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a160910efa71892d87e316fe86d668150">extract_overlapping_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;source, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;surjection_paths) const</td></tr>
-<tr class="memdesc:a160910efa71892d87e316fe86d668150"><td class="mdescLeft">&#160;</td><td class="mdescRight">get the chunks of the alignment path that follow the given reference paths  <a href="classvg_1_1Surjector.html#a160910efa71892d87e316fe86d668150">More...</a><br /></td></tr>
-<tr class="separator:a160910efa71892d87e316fe86d668150"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a75f94ffa222c74f6e77edbeb55e775b0"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, pair&lt; vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt;, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a75f94ffa222c74f6e77edbeb55e775b0">extract_overlapping_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;source, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;surjection_paths, unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt;&gt; &amp;connections_out) const</td></tr>
-<tr class="memdesc:a75f94ffa222c74f6e77edbeb55e775b0"><td class="mdescLeft">&#160;</td><td class="mdescRight">same semantics except for a multipath alignment  <a href="classvg_1_1Surjector.html#a75f94ffa222c74f6e77edbeb55e775b0">More...</a><br /></td></tr>
-<tr class="separator:a75f94ffa222c74f6e77edbeb55e775b0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a14e1e1e6e00de6609e6c95826f53f3e3"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a14e1e1e6e00de6609e6c95826f53f3e3">realigning_surject</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;source, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle, bool rev_strand, const vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;path_chunks, pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;path_range_out, bool allow_negative_scores, bool preserve_N_alignments=false, bool preserve_tail_indel_anchors=false) const</td></tr>
+<tr class="separator:a14e1e1e6e00de6609e6c95826f53f3e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8418e7a55b6b53456c80cbcf937406b5"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a8418e7a55b6b53456c80cbcf937406b5">spliced_surject</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *path_position_graph, const string &amp;src_sequence, const string &amp;src_quality, const int32_t src_mapping_quality, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle, bool rev_strand, vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;path_chunks, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;ref_chunks, vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt; &amp;connections, pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &amp;path_range_out, bool allow_negative_scores, bool deletions_as_splices) const</td></tr>
+<tr class="separator:a8418e7a55b6b53456c80cbcf937406b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af4b7099431a6a5334141760cc8922281"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; pair&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, bool &gt;, pair&lt; vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt;, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#af4b7099431a6a5334141760cc8922281">extract_overlapping_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;source, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;surjection_paths) const</td></tr>
+<tr class="memdesc:af4b7099431a6a5334141760cc8922281"><td class="mdescLeft">&#160;</td><td class="mdescRight">get the chunks of the alignment path that follow the given reference paths  <a href="classvg_1_1Surjector.html#af4b7099431a6a5334141760cc8922281">More...</a><br /></td></tr>
+<tr class="separator:af4b7099431a6a5334141760cc8922281"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adc4dbb4ce6f48d755c91e4931028c6d8"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; pair&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, bool &gt;, pair&lt; vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt;, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#adc4dbb4ce6f48d755c91e4931028c6d8">extract_overlapping_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;source, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;surjection_paths, unordered_map&lt; pair&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, bool &gt;, vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt;&gt; &amp;connections_out) const</td></tr>
+<tr class="memdesc:adc4dbb4ce6f48d755c91e4931028c6d8"><td class="mdescLeft">&#160;</td><td class="mdescRight">same semantics except for a multipath alignment  <a href="classvg_1_1Surjector.html#adc4dbb4ce6f48d755c91e4931028c6d8">More...</a><br /></td></tr>
+<tr class="separator:adc4dbb4ce6f48d755c91e4931028c6d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa5bf36e4334688af92729d6ca4f6d112"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#aa5bf36e4334688af92729d6ca4f6d112">filter_redundant_path_chunks</a> (vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;path_chunks, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;ref_chunks, vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt; &amp;connections) const</td></tr>
 <tr class="separator:aa5bf36e4334688af92729d6ca4f6d112"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a42720471bb1ffd2b50ca9751d87738f8"><td class="memItemLeft" align="right" valign="top">pair&lt; size_t, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a42720471bb1ffd2b50ca9751d87738f8">compute_path_interval</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;source, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> path_handle, const vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;path_chunks) const</td></tr>
-<tr class="separator:a42720471bb1ffd2b50ca9751d87738f8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af146dba8aa5b22978c94cfcf0fd643d1"><td class="memItemLeft" align="right" valign="top">pair&lt; size_t, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#af146dba8aa5b22978c94cfcf0fd643d1">compute_path_interval</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;source, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> path_handle, bool rev_strand, const vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;path_chunks) const</td></tr>
+<tr class="separator:af146dba8aa5b22978c94cfcf0fd643d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af05f461840ebac9a70156214c843ee39"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#af05f461840ebac9a70156214c843ee39">extract_linearized_path_graph</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *into, <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> path_handle, size_t first, size_t last) const</td></tr>
 <tr class="memdesc:af05f461840ebac9a70156214c843ee39"><td class="mdescLeft">&#160;</td><td class="mdescRight">make a linear graph that corresponds to a path interval, possibly duplicating nodes in case of cycles  <a href="classvg_1_1Surjector.html#af05f461840ebac9a70156214c843ee39">More...</a><br /></td></tr>
 <tr class="separator:af05f461840ebac9a70156214c843ee39"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aad8f2ef886816ffbc83f5292cb9887ac"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#aad8f2ef886816ffbc83f5292cb9887ac">set_path_position</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;init_surj_pos, const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;final_surj_pos, const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;range_begin, const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;range_end, string &amp;path_name_out, int64_t &amp;path_pos_out, bool &amp;path_rev_out) const</td></tr>
-<tr class="memdesc:aad8f2ef886816ffbc83f5292cb9887ac"><td class="mdescLeft">&#160;</td><td class="mdescRight">use the graph position bounds and the path range bounds to assign a path position to a surjected read  <a href="classvg_1_1Surjector.html#aad8f2ef886816ffbc83f5292cb9887ac">More...</a><br /></td></tr>
-<tr class="separator:aad8f2ef886816ffbc83f5292cb9887ac"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac4e7823cc2ce4b65bb8910ef2c1dcbee"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ac4e7823cc2ce4b65bb8910ef2c1dcbee">set_path_position</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *<a class="el" href="classvg_1_1Surjector.html#a118010284d37b604a7bcd7eb8dd13537">graph</a>, const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;init_surj_pos, const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;final_surj_pos, const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;range_begin, const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;range_end, bool rev_strand, string &amp;path_name_out, int64_t &amp;path_pos_out, bool &amp;path_rev_out) const</td></tr>
+<tr class="memdesc:ac4e7823cc2ce4b65bb8910ef2c1dcbee"><td class="mdescLeft">&#160;</td><td class="mdescRight">use the graph position bounds and the path range bounds to assign a path position to a surjected read  <a href="classvg_1_1Surjector.html#ac4e7823cc2ce4b65bb8910ef2c1dcbee">More...</a><br /></td></tr>
+<tr class="separator:ac4e7823cc2ce4b65bb8910ef2c1dcbee"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a98ca84936638bdcb054e3304b6f959f1"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a98ca84936638bdcb054e3304b6f959f1">reverse_adjacencies</a> (const vector&lt; vector&lt; size_t &gt;&gt; &amp;adj) const</td></tr>
 <tr class="memdesc:a98ca84936638bdcb054e3304b6f959f1"><td class="mdescLeft">&#160;</td><td class="mdescRight">reverses an adjacency list  <a href="classvg_1_1Surjector.html#a98ca84936638bdcb054e3304b6f959f1">More...</a><br /></td></tr>
 <tr class="separator:a98ca84936638bdcb054e3304b6f959f1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -245,8 +245,8 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a42720471bb1ffd2b50ca9751d87738f8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a42720471bb1ffd2b50ca9751d87738f8">&#9670;&nbsp;</a></span>compute_path_interval()</h2>
+<a id="af146dba8aa5b22978c94cfcf0fd643d1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af146dba8aa5b22978c94cfcf0fd643d1">&#9670;&nbsp;</a></span>compute_path_interval()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -271,6 +271,12 @@ Additional Inherited Members</h2></td></tr>
           <td></td>
           <td class="paramtype"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td>
           <td class="paramname"><em>path_handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>rev_strand</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -393,8 +399,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a160910efa71892d87e316fe86d668150"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a160910efa71892d87e316fe86d668150">&#9670;&nbsp;</a></span>extract_overlapping_paths() <span class="overload">[1/2]</span></h2>
+<a id="af4b7099431a6a5334141760cc8922281"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af4b7099431a6a5334141760cc8922281">&#9670;&nbsp;</a></span>extract_overlapping_paths() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -403,7 +409,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, pair&lt; vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">Surjector::path_chunk_t</a> &gt;, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &gt; &gt; &gt; vg::Surjector::extract_overlapping_paths </td>
+          <td class="memname">unordered_map&lt; pair&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, bool &gt;, pair&lt; vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">Surjector::path_chunk_t</a> &gt;, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &gt; &gt; &gt; vg::Surjector::extract_overlapping_paths </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
@@ -437,8 +443,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a75f94ffa222c74f6e77edbeb55e775b0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a75f94ffa222c74f6e77edbeb55e775b0">&#9670;&nbsp;</a></span>extract_overlapping_paths() <span class="overload">[2/2]</span></h2>
+<a id="adc4dbb4ce6f48d755c91e4931028c6d8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adc4dbb4ce6f48d755c91e4931028c6d8">&#9670;&nbsp;</a></span>extract_overlapping_paths() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -447,7 +453,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, pair&lt; vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">Surjector::path_chunk_t</a> &gt;, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &gt; &gt; &gt; vg::Surjector::extract_overlapping_paths </td>
+          <td class="memname">unordered_map&lt; pair&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, bool &gt;, pair&lt; vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">Surjector::path_chunk_t</a> &gt;, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; &gt; &gt; &gt; vg::Surjector::extract_overlapping_paths </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
@@ -467,7 +473,7 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">unordered_map&lt; pair&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, bool &gt;, vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>connections_out</em>&#160;</td>
         </tr>
         <tr>
@@ -703,8 +709,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a1ca787971c88c602434bd70073f7df2b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1ca787971c88c602434bd70073f7df2b">&#9670;&nbsp;</a></span>realigning_surject()</h2>
+<a id="a14e1e1e6e00de6609e6c95826f53f3e3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a14e1e1e6e00de6609e6c95826f53f3e3">&#9670;&nbsp;</a></span>realigning_surject()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -729,6 +735,12 @@ Additional Inherited Members</h2></td></tr>
           <td></td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>path_handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>rev_strand</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -859,8 +871,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="aad8f2ef886816ffbc83f5292cb9887ac"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aad8f2ef886816ffbc83f5292cb9887ac">&#9670;&nbsp;</a></span>set_path_position()</h2>
+<a id="ac4e7823cc2ce4b65bb8910ef2c1dcbee"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac4e7823cc2ce4b65bb8910ef2c1dcbee">&#9670;&nbsp;</a></span>set_path_position()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -901,6 +913,12 @@ Additional Inherited Members</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>rev_strand</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">string &amp;&#160;</td>
           <td class="paramname"><em>path_name_out</em>, </td>
         </tr>
@@ -933,8 +951,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a8c12eebabcf714e75d4c0feea05c781f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8c12eebabcf714e75d4c0feea05c781f">&#9670;&nbsp;</a></span>spliced_surject()</h2>
+<a id="a8418e7a55b6b53456c80cbcf937406b5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8418e7a55b6b53456c80cbcf937406b5">&#9670;&nbsp;</a></span>spliced_surject()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -971,6 +989,12 @@ Additional Inherited Members</h2></td></tr>
           <td></td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>path_handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>rev_strand</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>

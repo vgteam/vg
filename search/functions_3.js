@@ -137,7 +137,7 @@ var searchData=
   ['compute_5fmax_5fmapping_5fquality_6979',['compute_max_mapping_quality',['../classvg_1_1GSSWAligner.html#a673269c14426e70ff8c01817ac06eda4',1,'vg::GSSWAligner']]],
   ['compute_5fmin_5fcut_6980',['compute_min_cut',['../namespacevg_1_1algorithms.html#a7ae1eba2313c3ce068851c85b8d019e2',1,'vg::algorithms']]],
   ['compute_5fpaired_5fmapping_5fquality_6981',['compute_paired_mapping_quality',['../classvg_1_1GSSWAligner.html#a86d07f5ef78625fc4ca8c166c396f613',1,'vg::GSSWAligner']]],
-  ['compute_5fpath_5finterval_6982',['compute_path_interval',['../classvg_1_1Surjector.html#a42720471bb1ffd2b50ca9751d87738f8',1,'vg::Surjector']]],
+  ['compute_5fpath_5finterval_6982',['compute_path_interval',['../classvg_1_1Surjector.html#af146dba8aa5b22978c94cfcf0fd643d1',1,'vg::Surjector']]],
   ['compute_5fquality_6983',['compute_quality',['../classvg_1_1Packer.html#aedce0118963e5d735a2e70e29b70fe62',1,'vg::Packer']]],
   ['compute_5fraw_5fmapping_5fquality_5ffrom_5fscores_6984',['compute_raw_mapping_quality_from_scores',['../classvg_1_1MultipathMapper.html#ab013a5c0c2558d345bc003b7f9888a8b',1,'vg::MultipathMapper']]],
   ['compute_5ftail_5fmem_5fcoverage_6985',['compute_tail_mem_coverage',['../classvg_1_1OrientedDistanceClusterer.html#a5fad154b1267d5d3861870a51b482d9b',1,'vg::OrientedDistanceClusterer']]],
