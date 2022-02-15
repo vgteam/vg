@@ -169,9 +169,12 @@ Private Member Functions</h2></td></tr>
 <tr class="memitem:aa81005880d4667e04ff07de3a0881322"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#aa81005880d4667e04ff07de3a0881322">apply_N_mask</a> (string &amp;sequence, const vector&lt; bool &gt; &amp;n_mask)</td></tr>
 <tr class="memdesc:aa81005880d4667e04ff07de3a0881322"><td class="mdescLeft">&#160;</td><td class="mdescRight">Mask out bases with 'N's if the mask is true.  <a href="classvg_1_1NGSSimulator.html#aa81005880d4667e04ff07de3a0881322">More...</a><br /></td></tr>
 <tr class="separator:aa81005880d4667e04ff07de3a0881322"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6bfb28e81523fe792596f8b3a65e1f67"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a6bfb28e81523fe792596f8b3a65e1f67">walk_backwards</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, int64_t distance)</td></tr>
-<tr class="memdesc:a6bfb28e81523fe792596f8b3a65e1f67"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the position a given distance from the end of the path, walking backwards.  <a href="classvg_1_1NGSSimulator.html#a6bfb28e81523fe792596f8b3a65e1f67">More...</a><br /></td></tr>
-<tr class="separator:a6bfb28e81523fe792596f8b3a65e1f67"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3b87398480be75b240a98d270bfc843c"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a3b87398480be75b240a98d270bfc843c">walk_backwards</a> (int64_t &amp;<a class="el" href="namespacevg.html#a416939020600ce2996331c350f1fe68c">offset</a>, bool &amp;is_reverse, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;pos, int64_t distance, const string &amp;source_path, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path)</td></tr>
+<tr class="memdesc:a3b87398480be75b240a98d270bfc843c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Walk backwards either along an alignment path or a source path, updates positions.  <a href="classvg_1_1NGSSimulator.html#a3b87398480be75b240a98d270bfc843c">More...</a><br /></td></tr>
+<tr class="separator:a3b87398480be75b240a98d270bfc843c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af033e5bc63e8407c917f151a4311b64d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#af033e5bc63e8407c917f151a4311b64d">walk_backwards_along_alignment</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, int64_t distance, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;pos)</td></tr>
+<tr class="memdesc:af033e5bc63e8407c917f151a4311b64d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Walk backwards along the alignment path.  <a href="classvg_1_1NGSSimulator.html#af033e5bc63e8407c917f151a4311b64d">More...</a><br /></td></tr>
+<tr class="separator:af033e5bc63e8407c917f151a4311b64d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac9767a14ddba8d462c562c8d3b60af6c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#ac9767a14ddba8d462c562c8d3b60af6c">apply_deletion</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;pos)</td></tr>
 <tr class="memdesc:ac9767a14ddba8d462c562c8d3b60af6c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add a deletion to the alignment.  <a href="classvg_1_1NGSSimulator.html#ac9767a14ddba8d462c562c8d3b60af6c">More...</a><br /></td></tr>
 <tr class="separator:ac9767a14ddba8d462c562c8d3b60af6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1426,8 +1429,8 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
-<a id="a6bfb28e81523fe792596f8b3a65e1f67"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6bfb28e81523fe792596f8b3a65e1f67">&#9670;&nbsp;</a></span>walk_backwards()</h2>
+<a id="a3b87398480be75b240a98d270bfc843c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3b87398480be75b240a98d270bfc843c">&#9670;&nbsp;</a></span>walk_backwards()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1436,16 +1439,40 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> vg::NGSSimulator::walk_backwards </td>
+          <td class="memname">bool vg::NGSSimulator::walk_backwards </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;&#160;</td>
-          <td class="paramname"><em>path</em>, </td>
+          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramname"><em>offset</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool &amp;&#160;</td>
+          <td class="paramname"><em>is_reverse</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>pos</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>distance</em>&#160;</td>
+          <td class="paramname"><em>distance</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>source_path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1460,7 +1487,51 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Returns the position a given distance from the end of the path, walking backwards. </p>
+<p>Walk backwards either along an alignment path or a source path, updates positions. </p>
+
+</div>
+</div>
+<a id="af033e5bc63e8407c917f151a4311b64d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af033e5bc63e8407c917f151a4311b64d">&#9670;&nbsp;</a></span>walk_backwards_along_alignment()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::NGSSimulator::walk_backwards_along_alignment </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>distance</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>pos</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Walk backwards along the alignment path. </p>
 
 </div>
 </div>

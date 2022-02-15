@@ -209,7 +209,7 @@ var searchData=
   ['travs_5ffrom_5072',['travs_from',['../classvg_1_1VG.html#a34a493a0628857a3bfae181295ba541d',1,'vg::VG']]],
   ['travs_5fof_5073',['travs_of',['../classvg_1_1VG.html#ae065082f817e9bc0e278cf71f31af1e2',1,'vg::VG']]],
   ['travs_5fto_5074',['travs_to',['../classvg_1_1VG.html#a0a962957210c079fa242b383d5c65de3',1,'vg::VG']]],
-  ['tree_5075',['Tree',['../structvg_1_1Tree.html',1,'vg::Tree&lt; T &gt;'],['../classvg_1_1TreeSubgraph.html#a91ef2cd31f18ada628b0990faae105a1',1,'vg::TreeSubgraph::tree()'],['../structvg_1_1Tree.html#a2583e3d479b8b3fa66e8eb0065417934',1,'vg::Tree::Tree()']]],
+  ['tree_5075',['Tree',['../structvg_1_1Tree.html',1,'vg::Tree&lt; T &gt;'],['../structvg_1_1Tree.html#a2583e3d479b8b3fa66e8eb0065417934',1,'vg::Tree::Tree()'],['../classvg_1_1TreeSubgraph.html#a91ef2cd31f18ada628b0990faae105a1',1,'vg::TreeSubgraph::tree()']]],
   ['tree_5fdepth_5076',['tree_depth',['../classvg_1_1MinimumDistanceIndex.html#a32b89d9850b59f0354be0bfa05774d4b',1,'vg::MinimumDistanceIndex']]],
   ['tree_5fsubgraph_2ecpp_5077',['tree_subgraph.cpp',['../tree__subgraph_8cpp.html',1,'']]],
   ['tree_5fsubgraph_2ehpp_5078',['tree_subgraph.hpp',['../tree__subgraph_8hpp.html',1,'']]],
