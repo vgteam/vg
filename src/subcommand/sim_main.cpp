@@ -178,7 +178,7 @@ int main_sim(int argc, char** argv) {
     // expression profile
     string haplotype_transcript_file_name;
     vector<tuple<string, string, size_t>> haplotype_transcripts;
-
+    
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -195,6 +195,7 @@ int main_sim(int argc, char** argv) {
             {"ploidy-regex", required_argument, 0, 'R'},
             {"gbwt-name", required_argument, 0, 'g'},
             {"tx-expr-file", required_argument, 0, 'T'},
+            {"haplo-tx-file", required_argument, 0, 'H'},
             {"read-length", required_argument, 0, 'l'},
             {"num-reads", required_argument, 0, 'n'},
             {"random-seed", required_argument, 0, 's'},
@@ -404,8 +405,16 @@ int main_sim(int argc, char** argv) {
         cerr << "[vg sim] error: we need a graph to sample reads from" << endl;
         return 1;
     }
-    if (gbwt_name.empty() != sample_names.empty()) {
-        cerr << "[vg sim] error: --gbwt-name and --sample-name must be used together" << endl;
+    if (!gbwt_name.empty() && sample_names.empty() && rsem_file_name.empty()) {
+        cerr << "[vg sim] error: --gbwt-name requires --sample-name or --tx-expr-file" << endl;
+        return 1;
+    }
+    if (!sample_names.empty() && gbwt_name.empty()) {
+        cerr << "[vg sim] error: --sample-name must be used with --gbwt-name" << endl;
+        return 1;
+    }
+    if (!gbwt_name.empty() && !rsem_file_name.empty() && !haplotype_transcript_file_name.empty()) {
+        cerr << "[vg sim] error: using --gbwt-name requires that HSTs be included --tx-expr-file, combination with --haplo-tx-file is not implemented" << endl;
         return 1;
     }
 
@@ -486,24 +495,10 @@ int main_sim(int argc, char** argv) {
     
     // Deal with GBWT threads
     if (!gbwt_name.empty()) {
+        
         // We need to track the contigs that have not had any threads in any sample
         std::unordered_set<std::string> unvisited_contigs;
-        if (!ploidy_rules.empty()) {
-            // We actually want to visit them, so we have to find them
-            if (progress) {
-                std::cerr << "Inventorying contigs" << std::endl;
-            }
-            path_handle_graph->for_each_path_handle([&](const path_handle_t& handle) {
-                // For each path in the graph
-                auto name = path_handle_graph->get_path_name(handle);
-                if (!Paths::is_alt(name)) {
-                    // TODO: We assume that if it isn't an alt path it represents a contig!
-                    // TODO: We may need to change this when working with graphs with multiple sets of primary paths, or other extra paths.
-                    unvisited_contigs.insert(name);
-                }
-            });
-        }
-    
+        
         if (progress) {
             std::cerr << "Loading GBWT index " << gbwt_name << std::endl;
         }
@@ -512,18 +507,57 @@ int main_sim(int argc, char** argv) {
             std::cerr << "[vg sim] error: GBWT index does not contain sufficient metadata" << std::endl;
             return 1;
         }
-        if (progress) {
-            std::cerr << "Checking " << sample_names.size() << " samples" << std::endl;
-        }
-        hash_set<gbwt::size_type> sample_ids;
-        for (std::string& sample_name : sample_names) {
-            gbwt::size_type id = gbwt_index->metadata.sample(sample_name);
-            if (id >= gbwt_index->metadata.samples()) {
-                std::cerr << "[vg sim] error: sample \"" << sample_name << "\" not found in the GBWT index" << std::endl;
-                return 1;
+        
+        // we will add these threads to the graph as named paths and index them for easy look up
+        hash_map<gbwt::size_type, size_t> sample_id_to_idx;
+        
+        if (!sample_names.empty()) {
+            // we're consulting the provided sample names to determine which threads to include
+            
+            // We need to track the contigs that have not had any threads in any sample
+            if (!ploidy_rules.empty()) {
+                // We actually want to visit them, so we have to find them
+                if (progress) {
+                    std::cerr << "Inventorying contigs" << std::endl;
+                }
+                path_handle_graph->for_each_path_handle([&](const path_handle_t& handle) {
+                    // For each path in the graph
+                    auto name = path_handle_graph->get_path_name(handle);
+                    if (!Paths::is_alt(name)) {
+                        // TODO: We assume that if it isn't an alt path it represents a contig!
+                        // TODO: We may need to change this when working with graphs with multiple sets of primary paths, or other extra paths.
+                        unvisited_contigs.insert(name);
+                    }
+                });
             }
-            sample_ids.insert(id);
+            
+            if (progress) {
+                std::cerr << "Checking " << sample_names.size() << " samples" << std::endl;
+            }
+            
+            for (std::string& sample_name : sample_names) {
+                gbwt::size_type id = gbwt_index->metadata.sample(sample_name);
+                if (id >= gbwt_index->metadata.samples()) {
+                    std::cerr << "[vg sim] error: sample \"" << sample_name << "\" not found in the GBWT index" << std::endl;
+                    return 1;
+                }
+                auto idx = sample_id_to_idx.size();
+                sample_id_to_idx[id] = idx;
+            }
         }
+        else {
+            // we are consulting the transcript expression table to decide which threads to include
+            for (const auto& transcript_expression  : transcript_expressions) {
+                gbwt::size_type id = gbwt_index->metadata.sample(transcript_expression.first);
+                if (id >= gbwt_index->metadata.samples()) {
+                    std::cerr << "[vg sim] error: haplotype-specific transcript \"" << transcript_expression.first << "\" not found in the GBWT index" << std::endl;
+                    return 1;
+                }
+                auto idx = sample_id_to_idx.size();
+                sample_id_to_idx[id] = idx;
+            }
+        }
+        
         MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(path_handle_graph.get());
         if (mutable_graph == nullptr) {
             if (progress) {
@@ -534,25 +568,37 @@ int main_sim(int argc, char** argv) {
             path_handle_graph.reset(mutable_graph);
         }
         if (progress) {
-            std::cerr << "Inserting " << sample_ids.size() << " samples into the graph" << std::endl;
+            std::cerr << "Inserting " << sample_id_to_idx.size() << " GBWT threads into the graph" << std::endl;
         }
+        
         for (gbwt::size_type i = 0; i < gbwt_index->metadata.paths(); i++) {
             auto& path = gbwt_index->metadata.path(i);
-            if (sample_ids.find(path.sample) != sample_ids.end()) {
+            auto it = sample_id_to_idx.find(path.sample);
+            if (it != sample_id_to_idx.end()) {
                 std::string path_name = insert_gbwt_path(*mutable_graph, *gbwt_index, i);
                 if (!path_name.empty()) {
-                    // We managed to make a path for this thread
-                    path_names.push_back(path_name);
-                    // It should have ploidy 1
-                    path_ploidies.push_back(1.0);
+                    // path was successfully added
+                    if (!sample_names.empty()) {
+                        // assign this haplotype a ploidy of 1
+                        
+                        // We managed to make a path for this thread
+                        path_names.push_back(path_name);
+                        // It should have ploidy 1
+                        path_ploidies.push_back(1.0);
+                        
+                        if (!unvisited_contigs.empty()) {
+                            // Remember that the contig this path is on is visited
+                            auto contig_name = gbwt_index->metadata.contig(path.contig);
+                            unvisited_contigs.erase(contig_name);
+                        }
+                    }
+                    else {
+                        // update the transcript name so we can assign it expression
+                        // later down
+                        transcript_expressions[it->second].first = path_name;
+                    }
                     // Remember we inserted a path
                     inserted_path_names.insert(path_name);
-                    
-                    if (!unvisited_contigs.empty()) {
-                        // Remember that the contig this path is on is visited
-                        auto contig_name = gbwt_index->metadata.contig(path.contig);
-                        unvisited_contigs.erase(contig_name);
-                    }
                 }
             }
         }
@@ -572,10 +618,37 @@ int main_sim(int argc, char** argv) {
             }
         }
     }
-
+    
+    if (haplotype_transcript_file_name.empty()) {
+        if (!transcript_expressions.empty()) {
+            if (progress) {
+                std::cerr << "Checking " << transcript_expressions.size() << " transcripts" << std::endl;
+            }
+            for (auto& transcript_expression : transcript_expressions) {
+                if (!path_handle_graph->has_path(transcript_expression.first)) {
+                    cerr << "[vg sim] error: transcript path for \""<< transcript_expression.first << "\" not found in index" << endl;
+                    cerr << "if you embedded haplotype-specific transcripts in the graph, you may need the haplotype transcript file from vg rna -i" << endl;
+                    return 1;
+                }
+            }
+        }
+    }
+    else {
+        if (progress) {
+            std::cerr << "Checking " << haplotype_transcripts.size() << " haplotype transcripts" << std::endl;
+        }
+        for (auto& haplotype_transcript : haplotype_transcripts) {
+            if (!path_handle_graph->has_path(get<0>(haplotype_transcript))) {
+                cerr << "[vg sim] error: transcript path for \""<< get<0>(haplotype_transcript) << "\" not found in index" << endl;
+                return 1;
+            }
+        }
+    }
+    
     if (progress) {
         std::cerr << "Creating path position overlay" << std::endl;
     }
+    
     bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
     PathPositionHandleGraph* xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
     
@@ -588,30 +661,6 @@ int main_sim(int argc, char** argv) {
         }
         for (auto& name : inserted_path_names) {
             inserted_path_handles.insert(xgidx->get_path_handle(name));
-        }
-    }
-    
-    if (haplotype_transcript_file_name.empty()) {
-        if (progress && !transcript_expressions.empty()) {
-            std::cerr << "Checking " << transcript_expressions.size() << " transcripts" << std::endl;
-        }
-        for (auto& transcript_expression : transcript_expressions) {
-            if (!xgidx->has_path(transcript_expression.first)) {
-                cerr << "[vg sim] error: transcript path for \""<< transcript_expression.first << "\" not found in index" << endl;
-                cerr << "if you embedded haplotype-specific transcripts in the graph, you may need the haplotype transcript file from vg rna -i" << endl;
-                return 1;
-            }
-        }
-    }
-    else {
-        if (progress) {
-            std::cerr << "Checking " << haplotype_transcripts.size() << " haplotype transcripts" << std::endl;
-        }
-        for (auto& haplotype_transcript : haplotype_transcripts) {
-            if (!xgidx->has_path(get<0>(haplotype_transcript))) {
-                cerr << "[vg sim] error: transcript path for \""<< get<0>(haplotype_transcript) << "\" not found in index" << endl;
-                return 1;
-            }
         }
     }
     
@@ -674,6 +723,11 @@ int main_sim(int argc, char** argv) {
     unique_ptr<AbstractReadSampler> sampler;
     if (fastq_name.empty()) {
         // Use the fixed error rate sampler
+        
+        if (unsheared_fragments) {
+            cerr << "warning: Unsheared fragment option only available when simulating from FASTQ-trained errors" << endl;
+        }
+        
         sampler.reset(new Sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names, path_ploidies, transcript_expressions, haplotype_transcripts));
     } else {
         // Use the FASTQ-trained sampler

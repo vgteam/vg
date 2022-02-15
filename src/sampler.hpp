@@ -339,9 +339,13 @@ private:
     
     /// Mask out bases with 'N's if the mask is true
     void apply_N_mask(string& sequence, const vector<bool>& n_mask);
+        
+    /// Walk backwards either along an alignment path or a source path, updates positions
+    bool walk_backwards(int64_t& offset, bool& is_reverse, pos_t& pos, int64_t distance,
+                        const string& source_path, const Path& path);
+    /// Walk backwards along the alignment path
+    bool walk_backwards_along_alignment(const Path& path, int64_t distance, pos_t& pos);
     
-    /// Returns the position a given distance from the end of the path, walking backwards
-    pos_t walk_backwards(const Path& path, int64_t distance);
     /// Add a deletion to the alignment
     void apply_deletion(Alignment& aln, const pos_t& pos);
     /// Add an insertion to the alignment
