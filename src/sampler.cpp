@@ -394,6 +394,9 @@ vector<Alignment> Sampler::alignment_pair(size_t read_length, size_t fragment_le
                                                   (function<int64_t(int64_t)>) ([&](int64_t id) {
                                                           return (int64_t)node_length(id);
                                                       }));
+    // And annotate with true positions
+    annotate_with_path_positions(aln1);
+    annotate_with_path_positions(aln2);
     return fragments;
 }
 
