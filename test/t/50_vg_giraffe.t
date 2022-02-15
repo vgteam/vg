@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 36
+plan tests 41
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -137,13 +137,24 @@ else
 fi
 is "${IN_RANGE}" "1" "unpaired reads are evenly split between equivalent mappings"
 
-vg giraffe xy.fa xy.vcf.gz -G x.gam -o SAM --track-provenance --discard
+vg giraffe xy.fa xy.vcf.gz -G x.gam --track-provenance --discard
 is $? "0" "provenance tracking succeeds for unpaired reads"
 
-vg giraffe xy.fa xy.vcf.gz -G x.gam -o SAM -i --fragment-mean 200 --fragment-stdev 10 --distance-limit 50 --track-provenance --discard
+vg giraffe xy.fa xy.vcf.gz -G x.gam --track-provenance --track-correctness -o json >xy.json
+is $? "0" "correctness tracking succeeds for unpaired reads"
+
+is "$(cat xy.json | grep "correct-minimizer-coverage" | wc -l)" "2000" "unpaired reads are annotated with minimizer coverage"
+
+vg giraffe xy.fa xy.vcf.gz -G x.gam -i --fragment-mean 200 --fragment-stdev 10 --distance-limit 50 --track-provenance --discard
 is $? "0" "provenance tracking succeeds for paired reads"
 
-rm -f x.vg xy.sam
+vg giraffe xy.fa xy.vcf.gz -G x.gam -i --fragment-mean 200 --fragment-stdev 10 --distance-limit 50 --track-provenance --track-correctness -o json >xy.json
+is $? "0" "correctness tracking succeeds for paired reads"
+
+is "$(cat xy.json | grep "correct-minimizer-coverage" | wc -l)" "2000" "paired reads are annotated with minimizer coverage"
+is "$(cat xy.json | jq '.annotation["correct-minimizer-coverage"] | select(. > 0)' | wc -l)" "2000" "paired reads all have nonzero correct minimizer coverage"
+
+rm -f x.vg xy.sam xy.json
 rm -f xy.vg xy.gbwt xy.xg xy.snarls xy.min xy.dist xy.gg xy.fa xy.fa.fai xy.vcf.gz xy.vcf.gz.tbi
 
 vg giraffe -Z xy.giraffe.gbz -G x.gam -o BAM >xy.bam

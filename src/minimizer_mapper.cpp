@@ -11,6 +11,7 @@
 #include "split_strand_graph.hpp"
 #include "subgraph.hpp"
 #include "statistics.hpp"
+#include "algorithms/count_covered.hpp"
 
 #include <bdsg/overlays/strand_split_overlay.hpp>
 #include <gbwtgraph/algorithms.h>
@@ -702,6 +703,9 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     funnel.annotate_mapped_alignment(mappings[0], track_correctness);
     
     if (track_provenance) {
+        if (track_correctness) {
+            annotate_with_minimizer_statistics(mappings[0], minimizers, seeds, funnel);
+        }
         // Annotate with parameters used for the filters.
         set_annotation(mappings[0], "param_hit-cap", (double) hit_cap);
         set_annotation(mappings[0], "param_hard-hit-cap", (double) hard_hit_cap);
@@ -2160,6 +2164,10 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
     funnels[1].annotate_mapped_alignment(mappings.second[0], track_correctness);
     
     if (track_provenance) {
+        if (track_correctness) {
+            annotate_with_minimizer_statistics(mappings.first[0], minimizers_by_read[0], seeds_by_read[0], funnels[0]);
+            annotate_with_minimizer_statistics(mappings.second[0], minimizers_by_read[1], seeds_by_read[1], funnels[1]);
+        }
         // Annotate with parameters used for the filters.
         set_annotation(mappings.first[0] , "param_hit-cap", (double) hit_cap);
         set_annotation(mappings.first[0] , "param_hard-hit-cap", (double) hard_hit_cap);
@@ -2970,7 +2978,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         funnel.substage("correct");
 
         if (this->path_graph == nullptr) {
-            cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no XG index" << endl;
+            cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no graph with paths" << endl;
             exit(1);
         }
 
@@ -2978,7 +2986,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             for (size_t i = 0; i < seeds.size(); i++) {
                 // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
                 auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, seeds[i].pos, 100);
-                
+                bool found = false;
                 for (auto& true_pos : aln.refpos()) {
                     // For every annotated true position
                     for (auto& hit_pos : offsets[this->path_graph->get_path_handle(true_pos.name())]) {
@@ -2986,7 +2994,12 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
                         if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
                             // Call this seed hit close enough to be correct
                             funnel.tag_correct(i);
+                            found = true;
+                            break;
                         }
+                    }
+                    if (found) {
+                        break;
                     }
                 }
             }
@@ -3003,6 +3016,37 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     }
 
     return seeds;
+}
+
+void MinimizerMapper::annotate_with_minimizer_statistics(Alignment& target, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, const Funnel& funnel) const {
+    // Annotate with fraction covered by correct (and necessarily located) seed hits.
+    
+    // First make the set of minimizers that got correct seeds
+    std::unordered_set<size_t> seeded;
+    for (size_t i = 0; i < seeds.size(); i++) {
+        // We need to get correctness out of the funnel, since we don't tag the seed or minimizer.
+        // Correctness is assessed per seed, not per minimizer.
+        // We know seed finding was always stage 1.
+        if (funnel.was_correct(1, "seed", i)) {
+            seeded.insert(seeds[i].source);
+        }
+    }
+    
+    // Then we make a table of all the ranges covered by correct minimizers
+    std::vector<std::pair<size_t, size_t>> bounds;
+    bounds.reserve(seeded.size());
+    for(auto& minimizer_number : seeded) {
+        // For each minimizer with correct seeds
+        auto& minimizer = minimizers[minimizer_number];
+        // Cover all consecutive instances.
+        bounds.emplace_back(minimizer.agglomeration_start, minimizer.agglomeration_start + minimizer.agglomeration_length);
+    }
+    // Then we count the positions covered
+    size_t covered_count = algorithms::count_covered(bounds);
+    // And turn it into a fraction
+    double covered_fraction = (double) covered_count / target.sequence().size();
+    // And add the annotation
+    set_annotation(target, "correct-minimizer-coverage", covered_fraction);
 }
 
 //-----------------------------------------------------------------------------
@@ -4023,6 +4067,8 @@ void MinimizerMapper::dfs_gbwt(const gbwt::SearchState& start_state, size_t from
     recursive_dfs(start_state, distance_to_node_end, distance_to_node_end == 0, true);
 
 }
+
+//-----------------------------------------------------------------------------
 
 double MinimizerMapper::score_alignment_pair(Alignment& aln1, Alignment& aln2, int64_t fragment_distance) {
     //Score a pair of alignments
