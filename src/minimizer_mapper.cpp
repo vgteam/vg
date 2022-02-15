@@ -3038,8 +3038,9 @@ void MinimizerMapper::annotate_with_minimizer_statistics(Alignment& target, cons
     for(auto& minimizer_number : seeded) {
         // For each minimizer with correct seeds
         auto& minimizer = minimizers[minimizer_number];
-        // Cover all consecutive instances.
-        bounds.emplace_back(minimizer.agglomeration_start, minimizer.agglomeration_start + minimizer.agglomeration_length);
+        // Cover the minimizer k-mer itself.
+        size_t start = minimizer.forward_offset();
+        bounds.emplace_back(start, start + minimizer.length);
     }
     // Then we count the positions covered
     size_t covered_count = algorithms::count_covered(bounds);
