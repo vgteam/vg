@@ -1124,7 +1124,7 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
             // we need to walk backwards from the end of the first read
             if (walk_backwards(walked_offset, is_reverse, pos, -remaining_length, source_path, aln_pair.first.path())) {
 #ifdef debug_ngs_sim
-                cerr << "rejecting because backwards walk is off path" << endl;
+                cerr << "rejecting because backwards walk is off path/graph" << endl;
 #endif
                 continue;
             }
@@ -1458,7 +1458,7 @@ bool NGSSimulator::walk_backwards_along_alignment(const Path& path, int64_t dist
             const auto& edit = mapping.edit(j);
             if (edit.to_length() < remaining_to_walk) {
                 // we can continue to walk through this edit
-                remaining_to_walk += edit.to_length();
+                remaining_to_walk -= edit.to_length();
                 walked_from_length += edit.from_length();
             }
             else {
