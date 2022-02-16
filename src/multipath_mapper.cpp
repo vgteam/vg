@@ -39,6 +39,7 @@
 #include "split_strand_graph.hpp"
 #include "dagified_graph.hpp"
 
+#include "algorithms/count_covered.hpp"
 #include "algorithms/extract_containing_graph.hpp"
 #include "algorithms/locally_expand_graph.hpp"
 #include "algorithms/jump_along_path.hpp"
@@ -6282,22 +6283,7 @@ namespace vg {
         for (auto& mem_hit : mem_hits.first) {
             mem_read_segments.emplace_back(mem_hit.first->begin, mem_hit.first->end);
         }
-        std::sort(mem_read_segments.begin(), mem_read_segments.end());
-        auto curr_begin = mem_read_segments[0].first;
-        auto curr_end = mem_read_segments[0].second;
-        
-        int64_t total = 0;
-        for (size_t i = 1; i < mem_read_segments.size(); i++) {
-            if (mem_read_segments[i].first >= curr_end) {
-                total += (curr_end - curr_begin);
-                curr_begin = mem_read_segments[i].first;
-                curr_end = mem_read_segments[i].second;
-            }
-            else if (mem_read_segments[i].second > curr_end) {
-                curr_end = mem_read_segments[i].second;
-            }
-        }
-        get<2>(cluster_graph) = total + (curr_end - curr_begin);
+        get<2>(cluster_graph) = algorithms::count_covered(mem_read_segments);
         
         stable_sort(get<1>(cluster_graph).first.begin(), get<1>(cluster_graph).first.end(), length_first_cmp);
     }
