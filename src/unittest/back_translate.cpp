@@ -86,6 +86,130 @@ TEST_CASE("A Path can be back-translated", "[algorithms][back_translate]") {
     REQUIRE(p.mapping(0).position().offset() == 5);
 }
 
+TEST_CASE("A Path can be back-translated properly when it goes around cycles", "[algorithms][back_translate]") {
+
+    // Make a path
+    string path_string = R"(
+        {
+            "mapping": [
+                {
+                    "position": {"node_id": 1},
+                    "edit": [
+                        {"from_length": 10, "to_length": 10}
+                    ]
+                },
+                {
+                    "position": {"node_id": 1},
+                    "edit": [
+                        {"from_length": 10, "to_length": 10}
+                    ]
+                },
+                {
+                    "position": {"node_id": 1},
+                    "edit": [
+                        {"from_length": 10, "to_length": 10}
+                    ]
+                },
+                {
+                    "position": {"node_id": 1, "is_reverse": true},
+                    "edit": [
+                        {"from_length": 10, "to_length": 10}
+                    ]
+                },
+                {
+                    "position": {"node_id": 2},
+                    "edit": [
+                        {"from_length": 5, "to_length": 5}
+                    ]
+                },
+                {
+                    "position": {"node_id": 3},
+                    "edit": [
+                        {"from_length": 5, "to_length": 5}
+                    ]
+                },
+                {
+                    "position": {"node_id": 2},
+                    "edit": [
+                        {"from_length": 5, "to_length": 5}
+                    ]
+                },
+                {
+                    "position": {"node_id": 3},
+                    "edit": [
+                        {"from_length": 5, "to_length": 5}
+                    ]
+                },
+                {
+                    "position": {"node_id": 2},
+                    "edit": [
+                        {"from_length": 5, "to_length": 5}
+                    ]
+                }
+            ]
+        }
+    )";
+    Path p;
+    json2pb(p, path_string.c_str(), path_string.size());
+    
+    // Define a translation back to a named node space.
+    // We have node 1 just be as is and nodes 2 and 3 come from two halves of segment 2
+    MockBackTranslation trans;
+    trans.translation[oriented_node_range_t(1, false, 0, 10)] = {oriented_node_range_t(1, false, 0, 10)};
+    trans.translation[oriented_node_range_t(1, true, 0, 10)] = {oriented_node_range_t(1, true, 0, 10)};
+    trans.translation[oriented_node_range_t(2, false, 0, 5)] = {oriented_node_range_t(2, false, 0, 5)};
+    trans.translation[oriented_node_range_t(3, false, 0, 5)] = {oriented_node_range_t(2, false, 5, 5)};
+    trans.node_names[1] = "A";
+    trans.node_names[2] = "B";
+    
+    // Translate the path
+    vg::algorithms::back_translate_in_place(&trans, p);
+
+    // Check the result
+    REQUIRE(p.mapping_size() == 7);
+    REQUIRE(p.mapping(0).edit_size() == 1);
+    REQUIRE(p.mapping(0).edit(0).from_length() == 10);
+    REQUIRE(p.mapping(0).position().name() == "A");
+    REQUIRE(p.mapping(0).position().offset() == 0);
+    REQUIRE(p.mapping(0).position().is_reverse() == false);
+    
+    REQUIRE(p.mapping(1).edit_size() == 1);
+    REQUIRE(p.mapping(1).edit(0).from_length() == 10);
+    REQUIRE(p.mapping(1).position().name() == "A");
+    REQUIRE(p.mapping(1).position().offset() == 0);
+    REQUIRE(p.mapping(1).position().is_reverse() == false);
+    
+    REQUIRE(p.mapping(2).edit_size() == 1);
+    REQUIRE(p.mapping(2).edit(0).from_length() == 10);
+    REQUIRE(p.mapping(2).position().name() == "A");
+    REQUIRE(p.mapping(2).position().offset() == 0);
+    REQUIRE(p.mapping(2).position().is_reverse() == false);
+    
+    REQUIRE(p.mapping(3).edit_size() == 1);
+    REQUIRE(p.mapping(3).edit(0).from_length() == 10);
+    REQUIRE(p.mapping(3).position().name() == "A");
+    REQUIRE(p.mapping(3).position().offset() == 0);
+    REQUIRE(p.mapping(3).position().is_reverse() == true);
+    
+    REQUIRE(p.mapping(4).edit_size() == 1);
+    REQUIRE(p.mapping(4).edit(0).from_length() == 10);
+    REQUIRE(p.mapping(4).position().name() == "B");
+    REQUIRE(p.mapping(4).position().offset() == 0);
+    REQUIRE(p.mapping(4).position().is_reverse() == false);
+    
+    REQUIRE(p.mapping(5).edit_size() == 1);
+    REQUIRE(p.mapping(5).edit(0).from_length() == 10);
+    REQUIRE(p.mapping(5).position().name() == "B");
+    REQUIRE(p.mapping(5).position().offset() == 0);
+    REQUIRE(p.mapping(5).position().is_reverse() == false);
+    
+    REQUIRE(p.mapping(6).edit_size() == 1);
+    REQUIRE(p.mapping(6).edit(0).from_length() == 5);
+    REQUIRE(p.mapping(6).position().name() == "B");
+    REQUIRE(p.mapping(6).position().offset() == 0);
+    REQUIRE(p.mapping(6).position().is_reverse() == false);
+}
+
 TEST_CASE("An Alignment can be back-translated while converting to GAF", "[algorithms][back_translate]") {
 
     string alignment_string = R"(
