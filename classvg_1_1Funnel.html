@@ -147,6 +147,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a4296184811926cf97a42d52aaf3fc6f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aac71f37530afee1b7e49770aff8cc53b"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#aac71f37530afee1b7e49770aff8cc53b">was_correct</a> (size_t prev_stage_item) const</td></tr>
 <tr class="separator:aac71f37530afee1b7e49770aff8cc53b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5f0037505a9df13b92e381f5ff108d72"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a5f0037505a9df13b92e381f5ff108d72">was_correct</a> (size_t prev_stage_index, const string &amp;prev_stage_name, size_t prev_stage_item) const</td></tr>
+<tr class="separator:a5f0037505a9df13b92e381f5ff108d72"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a99b8a07d0b3a1d0649aae4090918bfad"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a99b8a07d0b3a1d0649aae4090918bfad">last_correct_stage</a> () const</td></tr>
 <tr class="separator:a99b8a07d0b3a1d0649aae4090918bfad"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a933c8a296c5a680aa96b0b913c465250"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a933c8a296c5a680aa96b0b913c465250">latest</a> () const</td></tr>
@@ -896,8 +898,43 @@ template&lt;typename Iterator &gt; </div>
 
 </div>
 </div>
+<a id="a5f0037505a9df13b92e381f5ff108d72"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5f0037505a9df13b92e381f5ff108d72">&#9670;&nbsp;</a></span>was_correct() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Funnel::was_correct </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>prev_stage_index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>prev_stage_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>prev_stage_item</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Return true if the given item at the given named previous stage is tagged correct, or descends from an item that was tagged correct. Needs a hint about what number the stage was in the order, to make lookup fast. </p>
+
+</div>
+</div>
 <a id="aac71f37530afee1b7e49770aff8cc53b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aac71f37530afee1b7e49770aff8cc53b">&#9670;&nbsp;</a></span>was_correct()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#aac71f37530afee1b7e49770aff8cc53b">&#9670;&nbsp;</a></span>was_correct() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">

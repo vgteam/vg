@@ -140,6 +140,9 @@ Functions</h2></td></tr>
 <tr class="separator:acd891e00c4846e53f760d504434ead12"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a10b07f6f41f8dd36c5d3b1ff9a03ce93"><td class="memItemLeft" align="right" valign="top">vector&lt; unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a10b07f6f41f8dd36c5d3b1ff9a03ce93">component_paths_parallel</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> &amp;graph)</td></tr>
 <tr class="separator:a10b07f6f41f8dd36c5d3b1ff9a03ce93"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2b477c1e232c9d4f1e689a95dd55861d"><td class="memTemplParams" colspan="2">template&lt;typename Collection &gt; </td></tr>
+<tr class="memitem:a2b477c1e232c9d4f1e689a95dd55861d"><td class="memTemplItemLeft" align="right" valign="top">size_t&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a2b477c1e232c9d4f1e689a95dd55861d">count_covered</a> (Collection &amp;segments)</td></tr>
+<tr class="separator:a2b477c1e232c9d4f1e689a95dd55861d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abd431ebd9786d796f708a7046e643e2e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#abd431ebd9786d796f708a7046e643e2e">packed_depths</a> (const <a class="el" href="classvg_1_1Packer.html">Packer</a> &amp;packer, const string &amp;path_name, size_t min_coverage, ostream &amp;out_stream)</td></tr>
 <tr class="separator:abd431ebd9786d796f708a7046e643e2e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a62ebbcbfe1250940eb8ebf0a2dcbc19a"><td class="memItemLeft" align="right" valign="top">pair&lt; double, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a62ebbcbfe1250940eb8ebf0a2dcbc19a">packed_depth_of_bin</a> (const <a class="el" href="classvg_1_1Packer.html">Packer</a> &amp;packer, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> start_step, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> end_plus_one_step, size_t min_coverage, bool include_deletions)</td></tr>
@@ -1153,6 +1156,29 @@ template&lt;class DistHeuristic &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a id="a2b477c1e232c9d4f1e689a95dd55861d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2b477c1e232c9d4f1e689a95dd55861d">&#9670;&nbsp;</a></span>count_covered()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Collection &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::algorithms::count_covered </td>
+          <td>(</td>
+          <td class="paramtype">Collection &amp;&#160;</td>
+          <td class="paramname"><em>segments</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Count, from begin to end, the number of positions covered by ranges in the given collection. The collection will be sorted in place.</p>
+<p>The collection must be a have a begin(), end(), and random [] access (like a vector).</p>
+<p>No boundaries are needed because no positions can be covered without segments representing them. </p>
 
 </div>
 </div>

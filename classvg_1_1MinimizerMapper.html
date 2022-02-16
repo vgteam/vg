@@ -261,6 +261,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a33fac2713ca1929fc6f870f4bb9e82b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acbce4d169474ab23ad79a9aaf8af2c92"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#acbce4d169474ab23ad79a9aaf8af2c92">pair_all</a> (pair&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;mappings) const</td></tr>
 <tr class="separator:acbce4d169474ab23ad79a9aaf8af2c92"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a13a01aa980e431540b2eaeb40654a1de"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a13a01aa980e431540b2eaeb40654a1de">annotate_with_minimizer_statistics</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;target, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#a72644e4df554de0f0a2d3b50a9a3094a">Seed</a> &gt; &amp;seeds, const <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;funnel) const</td></tr>
+<tr class="separator:a13a01aa980e431540b2eaeb40654a1de"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a827c2936a317f2a2dbc1d744aff6c0e1"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a827c2936a317f2a2dbc1d744aff6c0e1">compute_mapq_caps</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;minimizers, const <a class="el" href="classvg_1_1SmallBitset.html">SmallBitset</a> &amp;explored)</td></tr>
 <tr class="separator:a827c2936a317f2a2dbc1d744aff6c0e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4247391b8d74dc68b48a792a31ed6d60"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a4247391b8d74dc68b48a792a31ed6d60">find_optimal_tail_alignments</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, <a class="el" href="classvg_1_1LazyRNG.html">LazyRNG</a> &amp;rng, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;best, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;second_best) const</td></tr>
@@ -502,6 +504,55 @@ Additional Inherited Members</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a13a01aa980e431540b2eaeb40654a1de"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a13a01aa980e431540b2eaeb40654a1de">&#9670;&nbsp;</a></span>annotate_with_minimizer_statistics()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MinimizerMapper::annotate_with_minimizer_statistics </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>target</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structvg_1_1MinimizerMapper_1_1Minimizer.html">Minimizer</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>minimizers</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="classvg_1_1MinimizerMapper.html#a72644e4df554de0f0a2d3b50a9a3094a">Seed</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>seeds</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1Funnel.html">Funnel</a> &amp;&#160;</td>
+          <td class="paramname"><em>funnel</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Add annotations to an <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with statistics about the minimizers. </p>
+
+</div>
+</div>
 <a id="a79aa2191150ce4c8d2fe5aef039d95f8"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a79aa2191150ce4c8d2fe5aef039d95f8">&#9670;&nbsp;</a></span>attempt_rescue()</h2>
 
