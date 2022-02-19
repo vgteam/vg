@@ -22,7 +22,12 @@ class NewSnarlSeedClusterer {
             size_t source; // Source minimizer.
 
             //For nodes
-            uint64_t node_net_handle_as_integer=MIPayload::NO_VALUE;
+            //payload is node length, component (of the root but may be inf if the parent isnt a top-level chain), prefix sum, chain component, and is_reversed 
+            tuple<size_t, size_t, size_t, size_t, bool> payload = make_tuple (std::numeric_limits<size_t>::max(),
+                                                   std::numeric_limits<size_t>::max(),
+                                                   std::numeric_limits<size_t>::max(),
+                                                   std::numeric_limits<size_t>::max(),
+                                                   false);
 
         };
 

@@ -49,9 +49,8 @@ public:
 
 
 //Given a position, return the distances that can be stored by a minimizer
-//This is just the net handle for the node as an integer
-// 
-uint64_t  get_minimizer_distances (const SnarlDistanceIndex& distance_index, pos_t pos);
+//node length, connected component, prefix sum, chain component, is-reversed 
+tuple<size_t, size_t, size_t, size_t, bool>  get_minimizer_distances (const SnarlDistanceIndex& distance_index, pos_t pos);
 
 
 
@@ -107,8 +106,8 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
 /**
  * The encoding of distances for positions
  * Stores 
- *     31 bit   |          32          |           1
- *  node length |  node record offset  |  is_reversed_in_parent
+ *     11 bit   |            13         |     31       |         8         |      1
+ *  node length |  connected component  |  prefix sum  |  chain_component  | is_reversed
  *
  * We store this information in the minimizer index.
  */
@@ -116,19 +115,61 @@ struct MIPayload {
     typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::payload_type.
 
     constexpr static code_type NO_CODE = std::numeric_limits<code_type>::max();
-    constexpr static std::uint64_t NO_VALUE = std::numeric_limits<uint64_t>::max(); // From offset_in_root_chain().
+    constexpr static std::size_t NO_VALUE = std::numeric_limits<size_t>::max(); 
 
-    static code_type encode(uint64_t info) {
+    const static size_t CHAIN_COMPONENT_OFFSET = 1;
+    const static size_t CHAIN_COMPONENT_WIDTH = 8;
+    const static code_type CHAIN_COMPONENT_MASK = (static_cast<code_type>(1) << CHAIN_COMPONENT_WIDTH) - 1;
 
-        return info;
+    const static size_t PREFIX_SUM_OFFSET = 9;
+    const static size_t PREFIX_SUM_WIDTH = 31;
+    const static code_type PREFIX_SUM_MASK = (static_cast<code_type>(1) << PREFIX_SUM_WIDTH) - 1;
+
+    const static size_t COMPONENT_OFFSET = 40;
+    const static size_t COMPONENT_WIDTH = 13;
+    const static code_type COMPONENT_MASK = (static_cast<code_type>(1) << COMPONENT_WIDTH) - 1;
+
+    const static size_t NODE_LENGTH_OFFSET = 53;
+    const static size_t NODE_LENGTH_WIDTH = 11;
+    const static code_type NODE_LENGTH_MASK = (static_cast<code_type>(1) << NODE_LENGTH_WIDTH) - 1;
+
+
+
+    static code_type encode(tuple<size_t, size_t, size_t, size_t, bool> info) {
+
+        size_t node_length = std::get<0>(info);
+        size_t component = std::get<1>(info);
+        size_t prefix_sum = std::get<2>(info);
+        size_t chain_component = std::get<3>(info);
+        bool is_reversed = std::get<4>(info);
+
+        if ( node_length > NODE_LENGTH_MASK 
+             || component > COMPONENT_MASK
+             || prefix_sum > PREFIX_SUM_MASK
+             || chain_component > CHAIN_COMPONENT_MASK) {
+            //If there aren't enough bits to represent one of the values
+            return NO_CODE;
+        }
+
+        return (static_cast<code_type>(node_length) << NODE_LENGTH_OFFSET) 
+             | (static_cast<code_type>(component) << COMPONENT_OFFSET)
+             | (static_cast<code_type>(prefix_sum) << PREFIX_SUM_OFFSET)
+             | (static_cast<code_type>(chain_component) << CHAIN_COMPONENT_OFFSET)
+             | is_reversed;
 
     }
 
-    static uint64_t decode(code_type code) {
+    static std::tuple<size_t, size_t, size_t, size_t, bool> decode(code_type code) {
         if (code == NO_CODE) {
-            return NO_VALUE;
+            return make_tuple(NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE, false);
         } else {
-            return code;
+
+            return std::tuple<size_t, size_t, size_t, size_t, bool> (
+                code >> NODE_LENGTH_OFFSET & NODE_LENGTH_MASK,
+                code >> COMPONENT_OFFSET & COMPONENT_MASK,
+                code >> PREFIX_SUM_OFFSET & PREFIX_SUM_MASK,
+                code >> CHAIN_COMPONENT_OFFSET & CHAIN_COMPONENT_MASK,
+                code & 1);
         }
     }
 };

@@ -309,14 +309,20 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
              //And the node to a chain
             if (seen_nodes.count(id) < 1) {
                  seen_nodes.insert(id);
-                 net_handle_t node_net_handle = seed.node_net_handle_as_integer == MIPayload::NO_VALUE ? distance_index.get_node_net_handle(id) 
-                                                                        : as_net_handle(seed.node_net_handle_as_integer); 
+
+                 net_handle_t node_net_handle = distance_index.get_node_net_handle(id); 
                  //Look up important values for the node here and cache them
                  SnarlDistanceIndex::CachedNetHandle cached_net_handle = distance_index.get_cached_net_handle(node_net_handle);
                  distance_index.set_cached_rank(cached_net_handle);
-                 distance_index.set_cached_node_values(cached_net_handle);
-                 distance_index.set_cached_min_length(cached_net_handle);
-                 net_handle_t parent = distance_index.get_parent(cached_net_handle);
+                 //This sets the prefix sum value and makes the loop values infinite because I don't need them
+                 //IF this wasn't a top-level chain, then the prefix-sum value is inf and these get set from the index
+                 distance_index.set_cached_node_values(cached_net_handle, std::get<2>(seed.payload), 
+                            std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), 
+                            std::get<3>(seed.payload), std::get<4>(seed.payload));
+                 distance_index.set_cached_min_length(cached_net_handle, std::get<0>(seed.payload));
+                 net_handle_t parent = distance_index.get_parent(cached_net_handle);//std::get<1>(seed.payload) == std::numeric_limits<size_t>::max()
+                        //? distance_index.get_parent(cached_net_handle)
+                        //: distance_index.get_handle_from_connected_component(std::get<1>(seed.payload));
                  bool is_reversed_in_parent = distance_index.get_cached_is_reverse(cached_net_handle);
                  distance_index.set_cached_min_length(cached_net_handle);
 
