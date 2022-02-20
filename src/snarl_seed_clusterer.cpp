@@ -320,9 +320,9 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                             std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), 
                             std::get<3>(seed.payload), std::get<4>(seed.payload));
                  distance_index.set_cached_min_length(cached_net_handle, std::get<0>(seed.payload));
-                 net_handle_t parent = distance_index.get_parent(cached_net_handle);//std::get<1>(seed.payload) == std::numeric_limits<size_t>::max()
-                        //? distance_index.get_parent(cached_net_handle)
-                        //: distance_index.get_handle_from_connected_component(std::get<1>(seed.payload));
+                 net_handle_t parent = std::get<1>(seed.payload) == std::numeric_limits<size_t>::max()
+                        ? distance_index.get_parent(cached_net_handle)
+                        : distance_index.get_handle_from_connected_component(std::get<1>(seed.payload));
                  bool is_reversed_in_parent = distance_index.get_cached_is_reverse(cached_net_handle);
                  distance_index.set_cached_min_length(cached_net_handle);
 
