@@ -1430,7 +1430,6 @@ using namespace std;
                     // the second one is further along both the read and the path, so it is colinear
                     colinear_adj[i].push_back(j);
                 }
-                
             }
         }
         
@@ -1826,6 +1825,21 @@ using namespace std;
             }
         }
         
+        // TODO: repetitive with path_dist
+        auto section_path_dist = [&](size_t i, size_t j) {
+            if (rev_strand) {
+                return (graph->get_position_of_step(section_path_ranges[i].second)
+                        - graph->get_position_of_step(section_path_ranges[j].first)
+                        - graph->get_length(graph->get_handle_of_step(section_path_ranges[j].first)));
+                        
+            }
+            else {
+                return (graph->get_position_of_step(section_path_ranges[j].first)
+                        - graph->get_position_of_step(section_path_ranges[i].second)
+                        - graph->get_length(graph->get_handle_of_step(section_path_ranges[i].second)));
+            }
+        };
+        
         // do the dynamic programming
         for (size_t i = 0; i < comp_groups.size(); ++i) {
             
@@ -1834,7 +1848,7 @@ using namespace std;
                 int32_t extended_score = score_dp[i] + get<1>(edge) + sections[get<0>(edge)].score();
                 
 #ifdef debug_spliced_surject
-                cerr << "extending from component " << i << " (DP score " << score_dp[i] << ") with score of " << extended_score << " to " << get<0>(edge) << " (DP score " << score_dp[get<0>(edge)] << ")" << endl;
+                cerr << "extending from component " << i << " (DP score " << score_dp[i] << ") with score of " << extended_score << " to " << get<0>(edge) << " (DP score " << score_dp[get<0>(edge)] << ") dist " << section_path_dist(i, get<0>(edge)) << endl;
 #endif
                 
                 if (extended_score > score_dp[get<0>(edge)]) {
@@ -1845,10 +1859,7 @@ using namespace std;
                          && sections[i].path().mapping_size() != 0
                          && sections[get<0>(edge)].path().mapping_size() != 0
                          && backpointer[get<0>(edge)] >= 0
-                         && (abs<int64_t>(graph->get_position_of_step(section_path_ranges[i].first)
-                                          - graph->get_position_of_step(section_path_ranges[get<0>(edge)].first))
-                             < abs<int64_t>(graph->get_position_of_step(section_path_ranges[backpointer[get<0>(edge)]].first)
-                                            - graph->get_position_of_step(section_path_ranges[get<0>(edge)].first)))) {
+                         && section_path_dist(i, get<0>(edge)) < section_path_dist(backpointer[get<0>(edge)], get<0>(edge))) {
                     // break ties in favor of the closer exon
                     backpointer[get<0>(edge)] = i;
                 }
@@ -1861,6 +1872,13 @@ using namespace std;
         for (size_t i = 0; i < score_dp.size(); ++i) {
             if (score_dp[i] > max_score && (!allow_negative_scores || comp_group_edges[i].empty())) {
                 max_score = score_dp[i];
+                traceback[0] = i;
+            }
+            else if (score_dp[i] == max_score
+                     && traceback[0] != -1
+                     && (!allow_negative_scores || comp_group_edges[i].empty())
+                     && section_path_dist(backpointer[i], i) < section_path_dist(backpointer[traceback[0]], traceback[0])) {
+                // break ties in favor exon with closer connection
                 traceback[0] = i;
             }
         }
