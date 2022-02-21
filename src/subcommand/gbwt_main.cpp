@@ -16,6 +16,7 @@
 #include "../haplotype_indexer.hpp"
 #include "../path.hpp"
 #include "../region.hpp"
+#include "../algorithms/find_translation.hpp"
 
 #include <vg/io/vpkg.hpp>
 
@@ -185,7 +186,7 @@ int main_gbwt(int argc, char** argv) {
     }
 
     // Serialize the segment translation if necessary.
-    if (graphs.in_use == GraphHandler::graph_source || !config.segment_translation.empty()) {
+    if (!config.segment_translation.empty()) {
         graphs.serialize_segment_translation(config);
     }
 
@@ -233,14 +234,15 @@ void help_gbwt(char** argv) {
     std::cerr << "        --buffer-size N     GBWT construction buffer size in millions of nodes (default " << (gbwt::DynamicGBWT::INSERT_BATCH_SIZE / gbwt::MILLION) << ")" << std::endl;
     std::cerr << "        --id-interval N     store path ids at one out of N positions (default " << gbwt::DynamicGBWT::SAMPLE_INTERVAL << ")" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Search parameters (for -b and -r):" << std::endl;
-    std::cerr << "        --num-threads N     use N parallel search threads (default " << omp_get_max_threads() << ")" << std::endl;
+    std::cerr << "Multithreading:" << std::endl;
+    std::cerr << "        --num-jobs N        use at most N parallel build jobs (for -v and -G; default " << GBWTConfig::default_build_jobs() << ")" << std::endl;
+    std::cerr << "        --num-threads N     use N parallel search threads (for -b and -r; default " << omp_get_max_threads() << ")" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 1: GBWT construction (requires -o and one of { -v, -G, -Z, -E, A }):" << std::endl;
     std::cerr << "    -v, --vcf-input         index the haplotypes in the VCF files specified in input args in parallel" << std::endl;
     std::cerr << "                            (inputs must be over different contigs; requires -x, implies -f)" << std::endl;
+    std::cerr << "                            (does not store graph contigs in the GBWT)" << std::endl;
     std::cerr << "        --preset X          use preset X (available: 1000gp)" << std::endl;
-    std::cerr << "        --num-jobs N        use at most N parallel build jobs (default " << GBWTConfig::default_build_jobs() << ")" << std::endl;
     std::cerr << "        --inputs-as-jobs    create one build job for each input instead of using first-fit heuristic" << std::endl;
     std::cerr << "        --parse-only        store the VCF parses without building GBWTs" << std::endl;
     std::cerr << "                            (use -o for the file name prefix; skips subsequent steps)" << std::endl;
@@ -261,6 +263,7 @@ void help_gbwt(char** argv) {
     std::cerr << "        --path-fields X     map regex submatches to these fields (default " << gbwtgraph::GFAParsingParameters::DEFAULT_FIELDS << ")" << std::endl;
     std::cerr << "        --translation FILE  write the segment to node translation table to FILE" << std::endl;
     std::cerr << "    -Z, --gbz-input         extract GBWT and GBWTGraph from GBZ input (one input arg)" << std::endl;
+    std::cerr << "        --translation FILE  write the segment to node translation table to FILE" << std::endl;
     std::cerr << "    -E, --index-paths       index the embedded non-alt paths in the graph (requires -x, no input args)" << std::endl;
     std::cerr << "        --paths-as-samples  each path becomes a sample instead of a contig in the metadata" << std::endl;
     std::cerr << "    -A, --alignment-input   index the alignments in the GAF files specified in input args (requires -x)" << std::endl;
@@ -348,9 +351,9 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     // Long options with no corresponding short options.
     constexpr int OPT_BUFFER_SIZE = 1000;
     constexpr int OPT_ID_INTERVAL = 1001;
-    constexpr int OPT_NUM_THREADS = 1002;
+    constexpr int OPT_NUM_JOBS = 1002;
+    constexpr int OPT_NUM_THREADS = 1003;
     constexpr int OPT_PRESET = 1100;
-    constexpr int OPT_NUM_JOBS = 1101;
     constexpr int OPT_INPUTS_AS_JOBS = 1102;
     constexpr int OPT_PARSE_ONLY = 1103;
     constexpr int OPT_IGNORE_MISSING = 1104;
@@ -388,13 +391,13 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         { "buffer-size", required_argument, 0, OPT_BUFFER_SIZE },
         { "id-interval", required_argument, 0, OPT_ID_INTERVAL },
 
-        // Search parameters
+        // Multithreading parameters
+        { "num-jobs", required_argument, 0, OPT_NUM_JOBS },
         { "num-threads", required_argument, 0, OPT_NUM_THREADS },
 
         // Input GBWT construction: VCF
         { "vcf-input", no_argument, 0, 'v' },
         { "preset", required_argument, 0, OPT_PRESET },
-        { "num-jobs", required_argument, 0, OPT_NUM_JOBS },
         { "inputs-as-jobs", no_argument, 0, OPT_INPUTS_AS_JOBS },
         { "parse-only", no_argument, 0, OPT_PARSE_ONLY },
         { "ignore-missing", no_argument, 0, OPT_IGNORE_MISSING },
@@ -505,7 +508,10 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             config.haplotype_indexer.id_interval = parse<size_t>(optarg);
             break;
 
-        // Search parameters
+        // Multithreading parameters
+        case OPT_NUM_JOBS:
+            config.build_jobs = parse<size_t>(optarg);
+            break;
         case OPT_NUM_THREADS:
             config.search_threads = std::max(parse<size_t>(optarg), 1ul);
             break;
@@ -518,9 +524,6 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             break;
         case OPT_PRESET:
             use_preset(optarg, config);
-            break;
-        case OPT_NUM_JOBS:
-            config.build_jobs = parse<size_t>(optarg);
             break;
         case OPT_INPUTS_AS_JOBS:
             config.inputs_as_jobs = true;
@@ -771,6 +774,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     // Copy information from primary fields to redundant fields.
     config.haplotype_indexer.show_progress = config.show_progress;
     config.gfa_parameters.show_progress = config.show_progress;
+    config.gfa_parameters.parallel_jobs = config.build_jobs;
     config.gfa_parameters.batch_size = config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION;
     config.gfa_parameters.sample_interval = config.haplotype_indexer.id_interval;
 
@@ -874,6 +878,13 @@ void validate_gbwt_config(GBWTConfig& config) {
         }
         if (config.context_length < gbwtgraph::PATH_COVER_MIN_K) {
             std::cerr << "error: [vg gbwt] context length must be at least " << gbwtgraph::PATH_COVER_MIN_K << " for path cover" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+    }
+
+    if (!config.segment_translation.empty()) {
+        if (config.build != GBWTConfig::build_gfa && config.build != GBWTConfig::build_gbz) {
+            std::cerr << "error: [vg gbwt] segment to node translation requires GFA or GBZ input" << std::endl;
             std::exit(EXIT_FAILURE);
         }
     }
@@ -1308,7 +1319,7 @@ void step_5_gbwtgraph(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& conf
         if (config.show_progress) {
             std::cerr << "Starting the construction" << std::endl;
         }
-        graph = gbwtgraph::GBWTGraph(gbwts.compressed, *(graphs.path_graph));
+        graph = gbwtgraph::GBWTGraph(gbwts.compressed, *(graphs.path_graph), vg::algorithms::find_translation(graphs.path_graph.get()));
     }
     if (config.gbz_format) {
         save_gbz(gbwts.compressed, graph, config.graph_output, config.show_progress);
@@ -1480,20 +1491,31 @@ void GraphHandler::serialize_segment_translation(const GBWTConfig& config) const
     if (config.show_progress) {
         std::cerr << "Serializing segment to node translation to " << config.segment_translation << std::endl;
     }
-
     std::ofstream out(config.segment_translation, std::ios_base::binary);
-    if (this->sequence_source->uses_translation()) {
-        auto& translation = this->sequence_source->segment_translation;
-        for (auto iter = translation.begin(); iter != translation.end(); ++iter) {
-            out << "T\t" << iter->first << "\t" << iter->second.first;
-            for(nid_t i = iter->second.first + 1; i < iter->second.second; i++) {
-            out << "," << i;
+
+    if (this->in_use == graph_source) {
+        if (this->sequence_source->uses_translation()) {
+            auto& translation = this->sequence_source->segment_translation;
+            for (auto iter = translation.begin(); iter != translation.end(); ++iter) {
+                out << "T\t" << iter->first << "\t" << iter->second.first;
+                for (nid_t i = iter->second.first + 1; i < iter->second.second; i++) {
+                    out << "," << i;
+                }
+                out << "\n";
+            }
+        }
+    } else if (this->in_use == graph_gbz) {
+        this->gbwt_graph->for_each_segment([&](const std::string& name, std::pair<nid_t, nid_t> nodes) -> bool {
+            out << "T\t" << name << "\t" << nodes.first;
+            for (nid_t i = nodes.first + 1; i < nodes.second; i++) {
+                out << "," << i;
             }
             out << "\n";
-        }
+            return true;
+        });
     }
-    out.close();
 
+    out.close();
     report_time_memory("Translation serialized", start, config);
 }
 

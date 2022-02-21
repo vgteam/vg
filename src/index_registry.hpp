@@ -215,7 +215,7 @@ public:
     void register_index(const IndexName& identifier, const string& suffix);
     
     /// Register a recipe to produce an index using other indexes
-    /// or input files. Also takes a for output as input
+    /// or input files. Recipes registered earlier will have higher priority.
     RecipeName register_recipe(const vector<IndexName>& identifiers,
                                const vector<IndexName>& input_identifiers,
                                const RecipeFunc& exec);
@@ -240,6 +240,10 @@ public:
     
     /// Indicate a list of serialized files that contains some identified index
     void provide(const IndexName& identifier, const vector<string>& filenames);
+    
+    /// Return true if the given index is available and can be require()'d, and
+    /// false otherwise.
+    bool available(const IndexName& identifier) const;
     
     /// Get the filename(s) associated with the given index. Aborts if the
     /// index is not a known type, or if it is not provided or made.

@@ -5,7 +5,9 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 24
+plan tests 28
+
+rm auto.*
 
 vg autoindex -p auto -w map -r tiny/tiny.fa -v tiny/tiny.vcf.gz --force-unphased
 is $(echo $?) 0 "autoindexing successfully completes indexing for vg map with basic input"
@@ -79,6 +81,24 @@ is $(echo $?) 0 "GFA autoindexing results can be used by vg giraffe"
 
 rm auto.*
 rm g.xg
+
+vg autoindex -p auto -w giraffe -g graphs/named_with_walk.gfa 
+is $(echo $?) 0 "autoindexing successfully completes on a GFA with named segments and W-lines"
+printf '@read\nGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGATTACACATTAGGGGGGGGGGGGGGGGGGGGGGGGGGGG\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n' > read.fq
+vg giraffe -Z auto.giraffe.gbz -m auto.min -d auto.dist -f read.fq --named-coordinates > read.gam
+is "$(vg view -aj read.gam | jq -r '.path.mapping[].position.name')" "Ishmael" "GFA segment names are available in output GAM when a walk exists"
+
+rm auto.*
+rm read.fq read.gam
+
+vg autoindex -p auto -w giraffe -g graphs/named.gfa 
+is $(echo $?) 0 "autoindexing successfully completes on a GFA with named segments and no W-lines"
+printf '@read\nGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGATTACACATTAGGGGGGGGGGGGGGGGGGGGGGGGGGGG\n+\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n' > read.fq
+vg giraffe -Z auto.giraffe.gbz -m auto.min -d auto.dist -f read.fq --named-coordinates > read.gam
+is "$(vg view -aj read.gam | jq -r '.path.mapping[].position.name')" "Ishmael" "GFA segment names are available in output GAM when no walks exist"
+
+rm auto.*
+rm read.fq read.gam
 
 
 

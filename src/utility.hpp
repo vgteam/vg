@@ -487,12 +487,12 @@ pair<string, string> split_ext(const string& filename);
 bool file_exists(const string& filename);
 
 /// Parse a command-line argument string. Exits with an error if the string
-/// does not contain exactly an item fo the appropriate type.
+/// does not contain exactly an item of the appropriate type.
 template<typename Result>
 Result parse(const string& arg);
 
 /// Parse a command-line argument C string. Exits with an error if the string
-/// does not contain exactly an item fo the appropriate type.
+/// does not contain exactly an item of the appropriate type.
 template<typename Result>
 Result parse(const char* arg);
 

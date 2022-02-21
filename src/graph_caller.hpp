@@ -70,6 +70,7 @@ protected:
 class VCFOutputCaller {
 public:
     VCFOutputCaller(const string& sample_name);
+
     virtual ~VCFOutputCaller();
 
     /// Write the vcf header (version and contigs and basic info)
@@ -80,13 +81,23 @@ public:
     void add_variant(vcflib::Variant& var) const;
 
     /// Sort then write variants in the buffer
-    void write_variants(ostream& out_stream) const;
+    /// snarl_manager needed if include_nested is true
+    void write_variants(ostream& out_stream, const SnarlManager* snarl_manager = nullptr);
 
     /// Run vcffixup from vcflib
     void vcf_fixup(vcflib::Variant& var) const;
+
+    /// Add a translation map
+    void set_translation(const unordered_map<nid_t, pair<nid_t, size_t>>* translation);
+
+    /// Assume writing nested snarls is enabled
+    void set_nested(bool nested);
     
 protected:
 
+    /// add a traversal to the VCF info field in the format of a GFA W-line or GAF path
+    void add_allele_path_to_info(vcflib::Variant& v, int allele, const SnarlTraversal& trav, bool reversed, bool one_based) const;
+    
     /// convert a traversal into an allele string
     string trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const;
     
@@ -101,20 +112,28 @@ protected:
     /// the bool is true if the snarl's backward on the path
     /// first returned value -1 if no traversal found 
     tuple<int64_t, int64_t, bool, step_handle_t, step_handle_t> get_ref_interval(const PathPositionHandleGraph& graph, const Snarl& snarl,
-                                                                               const string& ref_path_name) const;
+                                                                                 const string& ref_path_name) const;
+
+    /// used for making gaf traversal names
+    pair<string, int64_t> get_ref_position(const PathPositionHandleGraph& graph, const Snarl& snarl, const string& ref_path_name,
+                                           int64_t ref_path_offset) const;
 
     /// clean up the alleles to not share common prefixes / suffixes
     /// if len_override given, just do that many bases without thinking
     void flatten_common_allele_ends(vcflib::Variant& variant, bool backward, size_t len_override) const;
 
-    /// print a snarl in a consistent form <SNARL(Start,END)>
-    string print_snarl(const Snarl& snarl, bool in_brackets = true) const;
+    /// print a snarl in a consistent form like >3435<12222
+    /// if in_brackets set to true,  do (>3435<12222) instead (this is only used for nested caller)
+    string print_snarl(const Snarl& snarl, bool in_brackets = false) const;
 
     /// do the opposite of above
-    /// So a string that looks like AACT<12_-17>TTT would invoke the callback three times with
+    /// So a string that looks like AACT(>12<17)TTT would invoke the callback three times with
     /// ("AACT", Snarl), ("", Snarl(12,-17)), ("TTT", Snarl(12,-17))
     /// The parameters are to be treated as unions:  A sequence fragment if non-empty, otherwise a snarl
     void scan_snarl(const string& allele_string, function<void(const string&, Snarl&)> callback) const;
+
+    // update the PS and LV tags in the output buffer (called in write_variants if include_nested is true)
+    void update_nesting_info_tags(const SnarlManager* snarl_manager);
     
     /// output vcf
     mutable vcflib::VariantCallFile output_vcf;
@@ -128,6 +147,12 @@ protected:
 
     /// print up to this many uncalled alleles when doing ref-genotpes in -a mode
     size_t max_uncalled_alleles = 5;
+
+    // optional node translation to apply to snarl names in variant IDs
+    const unordered_map<nid_t, pair<nid_t, size_t>>* translation;
+
+    // need to write LV/PS info tags
+    bool include_nested;
 };
 
 /**
@@ -141,14 +166,20 @@ public:
     virtual ~GAFOutputCaller();
 
     /// print the GAF traversals
-    void emit_gaf_traversals(const PathHandleGraph& graph, const vector<SnarlTraversal>& travs);
+    void emit_gaf_traversals(const PathHandleGraph& graph, const string& snarl_name,
+                             const vector<SnarlTraversal>& travs,
+                             int64_t ref_trav_idx,
+                             const string& ref_path_name, int64_t ref_path_position,
+                             const TraversalSupportFinder* support_finder = nullptr);
 
     /// print the GAF genotype
-    void emit_gaf_variant(const HandleGraph& graph,
-                          const Snarl& snarl,
-                          const vector<SnarlTraversal>& traversals,
-                          const vector<int>& genotype);
-
+    void emit_gaf_variant(const PathHandleGraph& graph, const string& snarl_name,
+                          const vector<SnarlTraversal>& travs,
+                          const vector<int>& genotype,
+                          int64_t ref_trav_idx,
+                          const string& ref_path_name, int64_t ref_path_position,
+                          const TraversalSupportFinder* support_finder = nullptr);
+    
     /// pad a traversal with (first found) reference path, adding up to trav_padding to each side
     SnarlTraversal pad_traversal(const PathHandleGraph& graph, const SnarlTraversal& trav) const;
     

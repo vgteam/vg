@@ -36,6 +36,8 @@ gbwt::vector_type short_path {
     static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(9, false))
 };
 
+gbwt::vector_type empty_path;
+
 gbwt::vector_type sample_1_a {
     static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(11, false)),
     static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(12, false)),
@@ -81,7 +83,7 @@ void check_paths(const gbwt::GBWT& index, const std::vector<gbwt::vector_type>& 
 
 TEST_CASE("GBWT reconstruction", "[index_helpers]") {
     std::vector<gbwt::vector_type> source {
-        short_path, alt_path, short_path
+        short_path, alt_path, empty_path, short_path,
     };
     gbwt::GBWT original = get_gbwt(source);
 
@@ -94,6 +96,7 @@ TEST_CASE("GBWT reconstruction", "[index_helpers]") {
         std::vector<gbwt::vector_type> truth {
             { 2, 10, 14, 18 },
             { 2, 4, 10, 12, 20, 16, 18 },
+            { },
             { 2, 10, 14, 18 },
         };
         gbwt::GBWT index = rebuild_gbwt(original, mappings);
@@ -109,6 +112,7 @@ TEST_CASE("GBWT reconstruction", "[index_helpers]") {
         std::vector<gbwt::vector_type> truth {
             { 2, 10, 14, 18 },
             { 2, 4, 10, 12, 20, 16, 18 },
+            { },
             { 2, 10, 14, 18 },
         };
         gbwt::GBWT index = rebuild_gbwt(original, mappings);
@@ -125,6 +129,7 @@ TEST_CASE("GBWT reconstruction", "[index_helpers]") {
         std::vector<gbwt::vector_type> truth {
             { 2, 6, 8, 22, 12, 14, 18 },
             { 2, 4, 6, 8, 22, 12, 20, 16, 18 },
+            { },
             { 2, 6, 8, 22, 12, 14, 18 },
         };
         gbwt::GBWT index = rebuild_gbwt(original, mappings);

@@ -16,6 +16,8 @@
 #include "../cactus_snarl_finder.hpp"
 #include "../integrated_snarl_finder.hpp"
 #include "../gbwtgraph_helper.hpp"
+#include "../algorithms/find_translation.hpp"
+#include "../algorithms/back_translate.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 
@@ -29,20 +31,21 @@ void help_snarl(char** argv) {
     cerr << "usage: " << argv[0] << " snarls [options] graph > snarls.pb" << endl
          << "       By default, a list of protobuf Snarls is written" << endl
          << "options:" << endl
-         << "    -A, --algorithm NAME   compute snarls using 'cactus' or 'integrated' algorithms (default: integrated)" << endl
-         << "    -p, --pathnames        output variant paths as SnarlTraversals to STDOUT" << endl
-         << "    -r, --traversals FILE  output SnarlTraversals for ultrabubbles." << endl
-         << "    -e, --path-traversals  only consider traversals that correspond to paths in the graph. (-m ignored)" << endl
-         << "    -l, --leaf-only        restrict traversals to leaf ultrabubbles." << endl
-         << "    -o, --top-level        restrict traversals to top level ultrabubbles" << endl
-         << "    -a, --any-snarl-type   compute traversals for any snarl type (not limiting to ultrabubbles)" << endl
-         << "    -m, --max-nodes N      only compute traversals for snarls with <= N nodes (with degree > 1) [10]" << endl
-         << "    -T, --include-trivial  report snarls that consist of a single edge" << endl
-         << "    -s, --sort-snarls      return snarls in sorted order by node ID (for topologically ordered graphs)" << endl
-         << "    -v, --vcf FILE         use vcf-based instead of exhaustive traversal finder with -r" << endl
-         << "    -f  --fasta FILE       reference in FASTA format (required for SVs by -v)" << endl
-         << "    -i  --ins-fasta FILE   insertion sequences in FASTA format (required for SVs by -v)" << endl
-         << "    -t, --threads N        number of threads to use [all available]" << endl;
+         << "    -A, --algorithm NAME       compute snarls using 'cactus' or 'integrated' algorithms (default: integrated)" << endl
+         << "    -p, --pathnames            output variant paths as SnarlTraversals to STDOUT" << endl
+         << "    -r, --traversals FILE      output SnarlTraversals for ultrabubbles." << endl
+         << "    -e, --path-traversals      only consider traversals that correspond to paths in the graph. (-m ignored)" << endl
+         << "    -l, --leaf-only            restrict traversals to leaf ultrabubbles." << endl
+         << "    -o, --top-level            restrict traversals to top level ultrabubbles" << endl
+         << "    -a, --any-snarl-type       compute traversals for any snarl type (not limiting to ultrabubbles)" << endl
+         << "    -m, --max-nodes N          only compute traversals for snarls with <= N nodes (with degree > 1) [10]" << endl
+         << "    -n, --named-coordinates    produce snarl and traversal outputs in named-segment (GFA) space" << endl
+         << "    -T, --include-trivial      report snarls that consist of a single edge" << endl
+         << "    -s, --sort-snarls          return snarls in sorted order by node ID (for topologically ordered graphs)" << endl
+         << "    -v, --vcf FILE             use vcf-based instead of exhaustive traversal finder with -r" << endl
+         << "    -f  --fasta FILE           reference in FASTA format (required for SVs by -v)" << endl
+         << "    -i  --ins-fasta FILE       insertion sequences in FASTA format (required for SVs by -v)" << endl
+         << "    -t, --threads N            number of threads to use [all available]" << endl;
 }
 
 int main_snarl(int argc, char** argv) {
@@ -60,6 +63,7 @@ int main_snarl(int argc, char** argv) {
     bool top_level_only = false;
     bool ultrabubble_only = true;
     int max_nodes = 10;
+    bool named_coordinates = false;
     bool filter_trivial_snarls = true;
     bool sort_snarls = false;
     bool fill_path_names = false;
@@ -80,6 +84,7 @@ int main_snarl(int argc, char** argv) {
                 {"top-level", no_argument, 0, 'o'},
                 {"any-snarl-type", no_argument, 0, 'a'},
                 {"max-nodes", required_argument, 0, 'm'},
+                {"named-coordinates", no_argument, 0, 'n'},
                 {"include-trivial", no_argument, 0, 'T'},
                 {"sort-snarls", no_argument, 0, 's'},
                 {"vcf", required_argument, 0, 'v'},
@@ -92,7 +97,7 @@ int main_snarl(int argc, char** argv) {
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "A:sr:laTopm:v:f:i:eh?t:",
+        c = getopt_long (argc, argv, "A:sr:laTopm:nv:f:i:eh?t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -124,6 +129,10 @@ int main_snarl(int argc, char** argv) {
 
         case 'm':
             max_nodes = parse<int>(optarg);
+            break;
+            
+        case 'n':
+            named_coordinates = true;
             break;
             
         case 'T':
@@ -183,47 +192,31 @@ int main_snarl(int argc, char** argv) {
         }
     }
 
-    // Read the graph into one of these two typed pointers.
-    unique_ptr<PathHandleGraph> path_handle_graph;
-    unique_ptr<gbwtgraph::GBZ> gbz;
-    // And set this to point to the actual handle graph to use.
-    // TODO: Should GBZ be a handle graph proxy?
-    HandleGraph* handle_graph = nullptr;
-    
+    // Read the graph into a PathHandleGraph.
     string graph_filename = get_input_file_name(optind, argc, argv);
-    auto input = vg::io::VPKG::try_load_first<gbwtgraph::GBZ, PathHandleGraph>(graph_filename);
-    if (get<0>(input)) {
-        // We encountered a GBZ
-        gbz = std::move(get<0>(input));
-        handle_graph = &(gbz->graph);
-        
-        // Make sure we can still do what we wanted to do.
-        // GBZ input does not work with all options.
-        if (algorithm == "cactus") {
-            cerr << "error: [vg snarls] the cactus algorithm does not work with GBZ graphs" << endl;
+    unique_ptr<PathHandleGraph> graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_filename);
+    
+    // Determine what translation we should apply, if any, to our output coordinates.
+    const NamedNodeBackTranslation* translation = nullptr;
+    if (named_coordinates) {
+        translation = vg::algorithms::find_translation(graph.get());
+        if (!translation) {
+            cerr << "error:[vg snarls] Named coordinate output (-n) was requested, but the graph does not come with a named coordinate space." << endl;
             return 1;
         }
-        if (fill_path_names || path_traversals || !vcf_filename.empty()) {
-            cerr << "error: [vg snarls] GBZ graphs do not have embedded paths required by -p, -r, and -v" << endl;
-            return 1;
-        }
-    } else if (get<1>(input)) {
-        // We encountered a PathHandleGraph
-        path_handle_graph = std::move(get<1>(input));
-        handle_graph = path_handle_graph.get();
-    } else {
-        // We didn't get anything.
-        cerr << "error: [vg snarls] input graph is not in GBZ or PathHandleGraph format" << endl;
-        return 1;
     }
     
+    // TODO: Everything but Cactus and the path-related options can work with a
+    // non-path HandleGraph, but we don't really have any of those implemented
+    // anymore, so we don't bother supporting them.
+        
     // Pick a SnalrFinder
     unique_ptr<SnarlFinder> snarl_finder;
     
     if (algorithm == "cactus") {
-        snarl_finder.reset(new CactusSnarlFinder(*path_handle_graph));
+        snarl_finder.reset(new CactusSnarlFinder(*graph));
     } else if (algorithm == "integrated") {
-        snarl_finder.reset(new IntegratedSnarlFinder(*handle_graph));
+        snarl_finder.reset(new IntegratedSnarlFinder(*graph));
     } else {
         cerr << "error:[vg snarls]: Algorithm must be 'cactus' or 'integrated', not '" << algorithm << "'" << endl;
         return 1;
@@ -282,16 +275,22 @@ int main_snarl(int argc, char** argv) {
     
     if (fill_path_names){
         // This finder needs a vg::VG
-        trav_finder.reset(new PathBasedTraversalFinder(*path_handle_graph, snarl_manager));
+        trav_finder.reset(new PathBasedTraversalFinder(*graph, snarl_manager));
         for (const Snarl* snarl : snarl_roots ){
             if (filter_trivial_snarls) {
-                auto contents = snarl_manager.shallow_contents(snarl, *handle_graph, false);
+                auto contents = snarl_manager.shallow_contents(snarl, *graph, false);
                 if (contents.first.empty()) {
                     // Nothing but the boundary nodes in this snarl
                     continue;
                 }
             }
             vector<SnarlTraversal> travs =  trav_finder->find_traversals(*snarl);
+            if (translation) {
+                for (auto& trav : travs) {
+                    // Bring all the output traversals into named segment space.
+                    algorithms::back_translate_in_place(translation, trav);
+                }
+            }
             vg::io::write_buffered(cout, travs, 0);
         }
 
@@ -300,23 +299,23 @@ int main_snarl(int argc, char** argv) {
 
     if (path_traversals) {
         // Limit traversals to embedded paths
-        trav_finder.reset(new PathTraversalFinder(*path_handle_graph, snarl_manager));
+        trav_finder.reset(new PathTraversalFinder(*graph, snarl_manager));
     } else if (vcf_filename.empty()) {
         // This finder works with any backing graph
-        trav_finder.reset(new ExhaustiveTraversalFinder(*handle_graph, snarl_manager));
+        trav_finder.reset(new ExhaustiveTraversalFinder(*graph, snarl_manager));
     } else {
         // This should effectively be the same as above, and is included in this tool
         // for testing purposes.  The VCFTraversalFinder differs from Exhaustive in that
         // it's easier to limit traversals using read support, and it takes care of
         // mapping back to the VCF via the alt paths.
         vector<string> ref_paths;
-        path_handle_graph->for_each_path_handle([&](path_handle_t path_handle) {
-            const string& name = path_handle_graph->get_path_name(path_handle);
+        graph->for_each_path_handle([&](path_handle_t path_handle) {
+            const string& name = graph->get_path_name(path_handle);
             if (!Paths::is_alt(name)) {
               ref_paths.push_back(name);
             }
         });
-        trav_finder.reset(new VCFTraversalFinder(*path_handle_graph, snarl_manager, variant_file, ref_paths,
+        trav_finder.reset(new VCFTraversalFinder(*graph, snarl_manager, variant_file, ref_paths,
                                                  ref_fasta.get(), ins_fasta.get()));
     }
     
@@ -363,7 +362,7 @@ int main_snarl(int argc, char** argv) {
             stack.pop_back();
             
             if (filter_trivial_snarls) {
-                auto contents = snarl_manager.shallow_contents(snarl, *handle_graph, false);
+                auto contents = snarl_manager.shallow_contents(snarl, *graph, false);
                 if (contents.first.empty()) {
                     // Nothing but the boundary nodes in this snarl
                     continue;
@@ -372,13 +371,17 @@ int main_snarl(int argc, char** argv) {
             
             // Write our snarl tree
             snarl_buffer.push_back(*snarl);
+            if (translation) {
+                // Bring all the output snarls into named segment space.
+                algorithms::back_translate_in_place(translation, snarl_buffer.back());
+            }
             vg::io::write_buffered(cout, snarl_buffer, buffer_size);
 
-            auto check_max_nodes = [&handle_graph, &max_nodes](const unordered_set<vg::id_t>& nodeset)  {
+            auto check_max_nodes = [&graph, &max_nodes](const unordered_set<vg::id_t>& nodeset)  {
                 int node_count = 0;
                 for (auto node_id : nodeset) {
-                    handle_t node = handle_graph->get_handle(node_id);
-                    if (handle_graph->get_degree(node, false) > 1 || handle_graph->get_degree(node, true) > 1) {
+                    handle_t node = graph->get_handle(node_id);
+                    if (graph->get_degree(node, false) > 1 || graph->get_degree(node, true) > 1) {
                         ++node_count;
                         if (node_count > max_nodes) {
                             return false;
@@ -393,7 +396,7 @@ int main_snarl(int argc, char** argv) {
                 (!ultrabubble_only || snarl->type() == ULTRABUBBLE) &&
                 (!leaf_only || snarl_manager.is_leaf(snarl)) &&
                 (!top_level_only || snarl_manager.is_root(snarl)) &&
-                (path_traversals || check_max_nodes(snarl_manager.deep_contents(snarl, *handle_graph, true).first))) { 
+                (path_traversals || check_max_nodes(snarl_manager.deep_contents(snarl, *graph, true).first))) { 
                 
 #ifdef debug
                 cerr << "Look for traversals of " << pb2json(*snarl) << endl;
@@ -402,6 +405,13 @@ int main_snarl(int argc, char** argv) {
 #ifdef debug        
                 cerr << "Found " << travs.size() << endl;
 #endif
+                
+                if (translation) {
+                    for (auto& trav : travs) {
+                        // Bring all the output traversals into named segment space.
+                        algorithms::back_translate_in_place(translation, trav);
+                    }
+                }
                 
                 traversal_buffer.insert(traversal_buffer.end(), travs.begin(), travs.end());
                 vg::io::write_buffered(trav_stream, traversal_buffer, buffer_size);

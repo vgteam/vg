@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 68
+plan tests 69
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -236,14 +236,14 @@ vg view components.hg | grep "^S" | sort > converted.gfa
 cmp sorted.gfa converted.gfa
 is $? 0 "GFA -> GBZ -> HashGraph -> GFA conversion maintains segments"
 
-# GBWTGraph to GFA with walks
-vg convert -b components.gbwt -f components.gg > extracted.gfa
+# GBWTGraph to GFA with walks (needs 1 thread)
+vg convert -b components.gbwt -f -t 1 components.gg > extracted.gfa
 is $? 0 "GBWTGraph to GFA conversion with walks"
 cmp extracted.gfa graphs/components_walks.gfa
 is $? 0 "GBWTGraph to GFA conversion creates the correct normalized GFA file"
 
-# GBZ to GFA with walks
-vg convert -Z -f components.gbz > extracted.gfa
+# GBZ to GFA with walks (needs 1 thread)
+vg convert -Z -f -t 1 components.gbz > extracted.gfa
 is $? 0 "GBZ to GFA conversion with walks"
 cmp extracted.gfa graphs/components_walks.gfa
 is $? 0 "GBZ to GFA conversion creates the correct normalized GFA file"
@@ -288,23 +288,30 @@ vg paths -A -v components.xg > gbz_xg_paths.gaf
 cmp gbz_xg_paths.gaf correct_paths.gaf
 is $? 0 "GBZ to XG conversion creates the correct reference paths"
 
-# GBWTGraph to GFA with paths and walks
-vg convert -b components.gbwt -f components.gg > extracted.gfa
+# GBWTGraph to GFA with paths and walks (needs 1 thread)
+vg convert -b components.gbwt -f -t 1 components.gg > extracted.gfa
 is $? 0 "GBWTGraph to GFA conversion with paths and walks"
 cmp extracted.gfa graphs/components_paths_walks.gfa
 is $? 0 "GBWTGraph to GFA conversion creates the correct normalized GFA file"
 
-# GBZ to GFA with paths and walks
-vg convert -Z -f components.gbz > gbz.gfa
+# GBZ to GFA with paths and walks (needs 1 thread)
+vg convert -Z -f -t 1 components.gbz > gbz.gfa
 is $? 0 "GBZ to GFA conversion with paths and walks"
 cmp gbz.gfa graphs/components_paths_walks.gfa
 is $? 0 "GBZ to GFA conversion creates the correct normalized GFA file"
+
+# Multithreaded GBZ to GFA with paths and walks
+vg convert -Z -f components.gbz | sort > sorted.gfa
+sort graphs/components_paths_walks.gfa > correct.gfa
+cmp sorted.gfa correct.gfa
+is $? 0 "GBZ to GFA conversion works with multiple threads"
 
 rm -f components.gbwt components.gg components.gbz
 rm -f direct.hg correct_paths.gaf
 rm -f components.hg hg_paths.gaf gbz_hg_paths.gaf
 rm -f components.xg xg_paths.gaf gbz_xg_paths.gaf
 rm -f extracted.gfa gbz.gfa
+rm -f sorted.gfa correct.gfa
 
 
 # GFA Streaming

@@ -94,9 +94,9 @@ build-job:
     # Connect to the Kubernetes-based builder "buildkit"
     # See vgci/buildkit-deployment.yml
     - docker buildx create --use --name=buildkit --platform=linux/amd64,linux/arm64 --node=buildkit-amd64 --driver=kubernetes --driver-opt="nodeselector=kubernetes.io/arch=amd64"
-    # Report on the builders
-    - docker buildx inspect --bootstrap || true
-    # Prune down build cache to make space
+    # Report on the builders, and make sure they exist.
+    - docker buildx inspect --bootstrap || (echo "Docker builder deployment can't be found in our Kubernetes namespace! Are we on the right Gitlab runner?" && exit 1)
+    # Prune down build cache to make space. This will hang if the builder isn't findable.
     - (echo "y" | docker buildx prune --keep-storage 80G) || true
   script:
     - make include/vg_git_version.hpp
@@ -128,7 +128,9 @@ arm-build-job:
     # Connect to the Kubernetes-based builder "buildkit"
     # See vgci/buildkit-deployment.yml
     - docker buildx create --use --name=buildkit --platform=linux/amd64,linux/arm64 --node=buildkit-amd64 --driver=kubernetes --driver-opt="nodeselector=kubernetes.io/arch=amd64"
-    # Prune down build cache to make space
+    # Report on the builders, and make sure they exist.
+    - docker buildx inspect --bootstrap || (echo "Docker builder deployment can't be found in our Kubernetes namespace! Are we on the right Gitlab runner?" && exit 1)
+    # Prune down build cache to make space. This will hang if the builder isn't findable.
     - docker buildx prune --keep-storage 80G
     # Connect so we can upload our images
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"

@@ -17,6 +17,9 @@
 #include "gfa.hpp"
 #include <memory>
 
+// TODO: move GFAIDMapInfo out of here
+#include "../algorithms/gfa_to_handle.hpp"
+
 namespace vg {
 
 /// Use to load in GFAs and remember where they came from
@@ -24,6 +27,11 @@ class GFAHandleGraph : public bdsg::PackedGraph {
 public:
    GFAHandleGraph() : bdsg::PackedGraph() {}
    virtual ~GFAHandleGraph() = default;
+   
+   /// Store the translation from graph ID space (as initially read in) back to
+   /// GFA ID space.
+   /// Won't be useful if the graph is modified.
+   vg::algorithms::GFAIDMapInfo gfa_id_space;
 };
 
 namespace io {

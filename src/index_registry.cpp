@@ -44,6 +44,7 @@
 #include "gbwt_helper.hpp"
 #include "gbwtgraph_helper.hpp"
 #include "gcsa_helper.hpp"
+#include "flat_file_back_translation.hpp"
 #include "kmer.hpp"
 #include "transcriptome.hpp"
 #include "integrated_snarl_finder.hpp"
@@ -57,6 +58,8 @@
 
 #include "algorithms/gfa_to_handle.hpp"
 #include "algorithms/prune.hpp"
+#include "algorithms/component.hpp"
+#include "algorithms/find_translation.hpp"
 
 //#define debug_index_registry
 //#define debug_index_registry_setup
@@ -319,6 +322,59 @@ vector<string> vcf_contigs(const string& filename) {
     return return_val;
 }
 
+/*********************
+ * Indexing helper functions
+ ***********************/
+
+// These can't be local lambdas in our indexer setup function because they
+// would go away when the setup function returns.
+
+static void init_in(ifstream& in, const string& name) {
+    in.open(name);
+    if (!in) {
+        cerr << "error:[IndexRegistry] could not open input file '" << name << "'" << endl;
+        exit(1);
+    }
+}
+
+static void init_out(ofstream& out, const string& name) {
+    out.open(name);
+    if (!out) {
+        cerr << "error:[IndexRegistry] could not write output to '" << name << "'" << endl;
+        exit(1);
+    }
+}
+
+static void init_in_out(fstream& strm, const string& name) {
+    strm.open(name);
+    if (!strm) {
+        cerr << "error:[IndexRegistry] could not open '" << name << "'" << endl;
+        exit(1);
+    }
+}
+
+static auto init_mutable_graph() -> unique_ptr<MutablePathDeletableHandleGraph> {
+    unique_ptr<MutablePathDeletableHandleGraph> graph;
+    switch (IndexingParameters::mut_graph_impl) {
+        case IndexingParameters::HashGraph:
+            graph = make_unique<bdsg::HashGraph>();
+            break;
+        case IndexingParameters::ODGI:
+            graph = make_unique<bdsg::ODGI>();
+            break;
+        case IndexingParameters::PackedGraph:
+            graph = make_unique<bdsg::PackedGraph>();
+            break;
+        case IndexingParameters::VG:
+            graph = make_unique<VG>();
+            break;
+        default:
+            cerr << "error:[IndexRegistry] unrecognized mutable graph implementation format" << endl;
+            exit(1);
+            break;
+    }
+    return graph;
+}
 
 IndexRegistry VGIndexes::get_vg_index_registry() {
     
@@ -363,6 +419,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("MaxNodeID", "maxid.txt");
     registry.register_index("Spliced MaxNodeID", "spliced.maxid.txt");
     registry.register_index("Unfolded NodeMapping", "mapping");
+    registry.register_index("NamedNodeBackTranslation", "segments.tsv");
     registry.register_index("Haplotype-Pruned VG", "haplopruned.vg");
     registry.register_index("Unfolded Spliced NodeMapping", "spliced.mapping");
     registry.register_index("Haplotype-Pruned Spliced VG", "spliced.haplopruned.vg");
@@ -387,59 +444,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     registry.register_index("Minimizers", "min");
     
-    
-    /*********************
-     * A few handy lambda functions
-     ***********************/
-    
-    auto init_in = [](ifstream& in, const string& name) {
-        in.open(name);
-        if (!in) {
-            cerr << "error:[IndexRegistry] could not open input file " << name << endl;
-            exit(1);
-        }
-    };
-    auto init_out = [](ofstream& out, const string& name) {
-        out.open(name);
-        if (!out) {
-            cerr << "error:[IndexRegistry] could not write output to " << name << endl;
-            exit(1);
-        }
-    };
-    auto init_in_out = [](fstream& strm, const string& name) {
-        strm.open(name);
-        if (!strm) {
-            cerr << "error:[IndexRegistry] could not open " << name << endl;
-            exit(1);
-        }
-    };
-    
-    auto init_mutable_graph = [&]() -> unique_ptr<MutablePathDeletableHandleGraph> {
-        unique_ptr<MutablePathDeletableHandleGraph> graph;
-        switch (IndexingParameters::mut_graph_impl) {
-            case IndexingParameters::HashGraph:
-                graph = make_unique<bdsg::HashGraph>();
-                break;
-            case IndexingParameters::ODGI:
-                graph = make_unique<bdsg::ODGI>();
-                break;
-            case IndexingParameters::PackedGraph:
-                graph = make_unique<bdsg::PackedGraph>();
-                break;
-            case IndexingParameters::VG:
-                graph = make_unique<VG>();
-                break;
-            default:
-                cerr << "error:[IndexRegistry] unrecognized mutable graph implementation format" << endl;
-                exit(1);
-                break;
-        }
-        return graph;
-    };
-    
     /*********************
      * Register all recipes
      ***********************/
+     
+    // Note that recipes MAY NOT CAPTURE ANYTHING BY REFERENCE ([&]) from this scope!
+    // This scope is on the stack and will go away by the time the recipes actually run!
     
     ////////////////////////////////////
     // VCF Recipes
@@ -494,10 +504,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 #endif
     
     // meta recipe for with/out phasing and with/out transcripts
-    auto chunk_contigs = [&](const vector<const IndexFile*>& inputs,
-                             const IndexingPlan* plan,
-                             AliasGraph& alias_graph,
-                             const IndexGroup& constructing) {
+    auto chunk_contigs = [](const vector<const IndexFile*>& inputs,
+                            const IndexingPlan* plan,
+                            AliasGraph& alias_graph,
+                            const IndexGroup& constructing) {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Chunking inputs for parallelism." << endl;
@@ -1135,6 +1145,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             atomic<int64_t> buckets_finished(0);
             vector<thread> workers;
             for (int64_t i = 0; i < num_threads; ++i) {
+                // Worker must not capture i; it will be out of scope!
                 workers.emplace_back([&]() {
                     int64_t bucket_idx = -1;
                     while (buckets_finished.load() < buckets.size()) {
@@ -1428,11 +1439,15 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             atomic<int64_t> input_gffs_read(0);
             for (int64_t i = 0; i < num_threads; ++i) {
-                
+                // Worker must not capture i; it will be out of scope! 
                 tx_workers.emplace_back([&]() {
                     while (input_gffs_read.load() < tx_filenames.size()) {
                         
                         int64_t idx = input_gffs_read.fetch_add(1);
+                        
+                        if (idx >= tx_filenames.size()) {
+                            break;
+                        }
 
                         ifstream infile_tx;
                         init_in(infile_tx, tx_filenames[idx]);
@@ -1519,28 +1534,28 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     // call the meta recipe
     registry.register_recipe({"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF w/ Phasing"}, {"GTF/GFF", "Reference FASTA", "VCF w/ Phasing"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [=](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         return chunk_contigs(inputs, plan, alias_graph, constructing);
     });
     registry.register_recipe({"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF"}, {"GTF/GFF", "Reference FASTA", "VCF"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [=](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         return chunk_contigs(inputs, plan, alias_graph, constructing);
     });
     registry.register_recipe({"Chunked Reference FASTA", "Chunked VCF w/ Phasing"}, {"Reference FASTA", "VCF w/ Phasing"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [=](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         return chunk_contigs(inputs, plan, alias_graph, constructing);
     });
     registry.register_recipe({"Chunked Reference FASTA", "Chunked VCF"}, {"Reference FASTA", "VCF"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [=](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -1557,9 +1572,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 #endif
     
     // meta-recipe for removing variant paths
-    auto strip_variant_paths = [&](const vector<const IndexFile*>& inputs,
-                                   const IndexingPlan* plan,
-                                   const IndexGroup& constructing) {
+    auto strip_variant_paths = [](const vector<const IndexFile*>& inputs,
+                                  const IndexingPlan* plan,
+                                  const IndexGroup& constructing) {
         
         assert(inputs.size() == 1);
         assert(constructing.size() == 1);
@@ -1619,7 +1634,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     // strip alt allele paths from a graph that has them
     registry.register_recipe({"VG"}, {"VG w/ Variant Paths"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [strip_variant_paths](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -1631,7 +1646,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         return strip_variant_paths(inputs, plan, constructing);
     });
         
-    // meta-recipe for creating a VG from a GFA
+    // meta-recipe for creating a VG and its segment space from a GFA
     auto construct_from_gfa = [&](const vector<const IndexFile*>& inputs,
                                   const IndexingPlan* plan,
                                   const IndexGroup& constructing) {
@@ -1640,12 +1655,17 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             cerr << "[IndexRegistry]: Constructing VG graph from GFA input." << endl;
         }
         
-        assert(constructing.size() == 2);
+        assert(constructing.size() == 3);
         vector<vector<string>> all_outputs(constructing.size());
         
         assert(inputs.size() == 1);
-        auto output_max_id = *constructing.begin();
-        auto output_index = *constructing.rbegin();
+        assert(constructing.size() == 3);
+        IndexName output_max_id = "MaxNodeID";
+        assert(constructing.count(output_max_id));
+        IndexName output_translation = "NamedNodeBackTranslation";
+        assert(constructing.count(output_translation));
+        IndexName output_index = "VG";
+        assert(constructing.count(output_index));
         auto input_filenames = inputs.at(0)->get_filenames();
         if (input_filenames.size() > 1) {
             cerr << "error:[IndexRegistry] Graph construction does not support multiple GFAs at this time." << endl;
@@ -1654,16 +1674,17 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto input_filename = input_filenames.front();
         
         string output_name = plan->output_filepath(output_index);
+        string translation_name = plan->output_filepath(output_translation);
         string max_id_name = plan->output_filepath(output_max_id);
+        // The graph and max ID are streams we start here.
         ofstream outfile, max_id_outfile;
         init_out(outfile, output_name);
         init_out(max_id_outfile, max_id_name);
         auto graph = init_mutable_graph();
         
-        // make the graph from GFA
+        // make the graph from GFA, and save segment info to the translation file if there is nontrivial segment info.
         try {
-            algorithms::gfa_to_path_handle_graph(input_filename, graph.get(), true,
-                                                 IndexingParameters::mut_graph_impl == IndexingParameters::ODGI);
+            algorithms::gfa_to_path_handle_graph(input_filename, graph.get(), numeric_limits<int64_t>::max(), translation_name);
         }
         catch (algorithms::GFAFormatError& e) {
             cerr << "error:[IndexRegistry] Input GFA is not usable in VG." << endl;
@@ -1671,7 +1692,21 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             exit(1);
         }
         
-        handlealgs::chop(*graph, IndexingParameters::max_node_size);
+        // Now we need to append some splits to the output file.
+        ofstream translation_outfile;
+        translation_outfile.open(translation_name, std::ios_base::app);
+        if (!translation_outfile) {
+            cerr << "error:[IndexRegistry] could not append output to " << translation_name << endl;
+            exit(1);
+        }
+        
+        handlealgs::chop(*graph, IndexingParameters::max_node_size, [&](nid_t old_id, size_t offset, size_t rev_offset, handle_t new_node) {
+#pragma omp critical (translation_outfile)
+            {
+                // Write each cut to a line in the translation file, after the segment names are defined.
+                translation_outfile << "K\t" << old_id << "\t" << offset << "\t" << rev_offset << "\t" << graph->get_id(new_node) << std::endl;
+            }
+        });
         
         // save the graph
         vg::io::save_handle_graph(graph.get(), outfile);
@@ -1680,7 +1715,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         // return the filenames
         all_outputs[0].push_back(max_id_name);
-        all_outputs[1].push_back(output_name);
+        all_outputs[1].push_back(translation_name);
+        all_outputs[2].push_back(output_name);
         return all_outputs;
     };
     
@@ -1688,11 +1724,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     // A meta-recipe to make VG and spliced VG files using the Constructor
     // Expects inputs to be ordered: FASTA, VCF[, GTF/GFF][, Insertion FASTA]
-    auto construct_with_constructor = [&](const vector<const IndexFile*>& inputs,
-                                          const IndexingPlan* plan,
-                                          const IndexGroup& constructing,
-                                          bool alt_paths,
-                                          bool has_transcripts) {
+    auto construct_with_constructor = [](const vector<const IndexFile*>& inputs,
+                                         const IndexingPlan* plan,
+                                         const IndexGroup& constructing,
+                                         bool alt_paths,
+                                         bool has_transcripts) {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing";
@@ -1875,10 +1911,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                 auto dummy = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
                 size_t transcripts_added = transcriptome.add_reference_transcripts(vector<istream *>({&infile_tx}), dummy, false, false);
                 
-#ifdef debug_index_registry_recipes
-                cerr << "spliced graph has " << transcriptome.splice_graph().get_node_count() << " nodes" << endl;
-#endif
-                
                 if (broadcasting_txs && !path_names.empty() && transcripts_added == 0
                     && transcript_file_nonempty(transcripts[idx])) {
                     cerr << "warning:[IndexRegistry] no matching paths from transcript file " << transcript_filename << " were found in graph chunk containing the following paths:" << endl;
@@ -1969,20 +2001,20 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     // the specific instantiations of the meta-recipe above
     registry.register_recipe({"MaxNodeID", "VG w/ Variant Paths"}, {"Chunked Reference FASTA", "Chunked VCF w/ Phasing", "Insertion Sequence FASTA"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [construct_with_constructor](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         return construct_with_constructor(inputs, plan, constructing, true, false);
     });
     registry.register_recipe({"MaxNodeID", "VG w/ Variant Paths"}, {"Chunked Reference FASTA", "Chunked VCF w/ Phasing"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [construct_with_constructor](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         return construct_with_constructor(inputs, plan, constructing, true, false);
     });
-    registry.register_recipe({"MaxNodeID", "VG"}, {"Reference GFA"},
+    registry.register_recipe({"MaxNodeID", "NamedNodeBackTranslation", "VG"}, {"Reference GFA"},
                              [&](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
@@ -1990,14 +2022,14 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         return construct_from_gfa(inputs, plan, constructing);
     });
     registry.register_recipe({"MaxNodeID", "VG"}, {"Chunked Reference FASTA", "Chunked VCF", "Insertion Sequence FASTA"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [construct_with_constructor](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         return construct_with_constructor(inputs, plan, constructing, false, false);
     });
     registry.register_recipe({"MaxNodeID", "VG"}, {"Chunked Reference FASTA", "Chunked VCF"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [construct_with_constructor](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -2013,7 +2045,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     ////////////////////////////////////
     
     registry.register_recipe({"Spliced VG"}, {"Spliced VG w/ Variant Paths"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [strip_variant_paths](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -2029,7 +2061,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     registry.register_recipe({"Spliced MaxNodeID", "Spliced VG"},
                              {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF", "Insertion Sequence FASTA"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [construct_with_constructor](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -2038,7 +2070,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     registry.register_recipe({"Spliced MaxNodeID", "Spliced VG"},
                              {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [construct_with_constructor](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -2046,7 +2078,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     registry.register_recipe({"Spliced MaxNodeID", "Spliced VG w/ Variant Paths"},
                              {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF w/ Phasing", "Insertion Sequence FASTA"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [construct_with_constructor](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -2055,7 +2087,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     registry.register_recipe({"Spliced MaxNodeID", "Spliced VG w/ Variant Paths"},
                              {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF w/ Phasing"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [construct_with_constructor](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -2076,10 +2108,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // with simplifications
     
 //    registry.register_recipe({"XG"}, {"Reference GFA"},
-//                             [&](const vector<const IndexFile*>& inputs,
-//                                 const IndexingPlan* plan,
-//                                 AliasGraph& alias_graph,
-//                                 const IndexGroup& constructing) {
+//                             [](const vector<const IndexFile*>& inputs,
+//                                const IndexingPlan* plan,
+//                                AliasGraph& alias_graph,
+//                                const IndexGroup& constructing) {
 //        if (IndexingParameters::verbosity != IndexingParameters::None) {
 //            cerr << "[IndexRegistry]: Constructing XG graph from GFA input." << endl;
 //        }
@@ -2106,9 +2138,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 //        return all_outputs;
 //    });
     
-    auto make_xg_from_graph = [&](const vector<const IndexFile*>& inputs,
-                                  const IndexingPlan* plan,
-                                  const IndexGroup& constructing) {
+    auto make_xg_from_graph = [](const vector<const IndexFile*>& inputs,
+                                 const IndexingPlan* plan,
+                                 const IndexGroup& constructing) {
         
         assert(inputs.size() == 1);
         assert(constructing.size() == 1);
@@ -2160,7 +2192,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     };
     
     registry.register_recipe({"XG"}, {"VG"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [make_xg_from_graph](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -2171,7 +2203,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     
     registry.register_recipe({"Spliced XG"}, {"Spliced VG w/ Transcript Paths"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [make_xg_from_graph](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -2193,9 +2225,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 //#endif
 //
 //    // meta-recipe to write max node id down to a file
-//    auto write_max_node_id = [&](const vector<const IndexFile*>& inputs,
-//                                 const IndexingPlan* plan,
-//                                 const IndexGroup& constructing) {
+//    auto write_max_node_id = [](const vector<const IndexFile*>& inputs,
+//                                const IndexingPlan* plan,
+//                                const IndexGroup& constructing) {
 //
 //        if (IndexingParameters::verbosity != IndexingParameters::None) {
 //            cerr << "[IndexRegistry]: Determining node ID interval." << endl;
@@ -2229,7 +2261,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 //    };
 //
 //    registry.register_recipe({"MaxNodeID"}, {"VG"},
-//                             [&](const vector<const IndexFile*>& inputs,
+//                             [write_max_node_id](const vector<const IndexFile*>& inputs,
 //                                 const IndexingPlan* plan,
 //                                 AliasGraph& alias_graph,
 //                                 const IndexGroup& constructing) {
@@ -2237,7 +2269,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 //    });
 //
 //    registry.register_recipe({"Spliced MaxNodeID"}, {"Spliced VG w/ Transcript Paths"},
-//                             [&](const vector<const IndexFile*>& inputs,
+//                             [write_max_node_id](const vector<const IndexFile*>& inputs,
 //                                 const IndexingPlan* plan,
 //                                 AliasGraph& alias_graph,
 //                                 const IndexGroup& constructing) {
@@ -2253,7 +2285,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 #endif
     
     // merge multiple GBWTs if there are multiple, otherwise leave in place
-    auto merge_gbwts = [&](const vector<string>& gbwt_names,
+    auto merge_gbwts = [](const vector<string>& gbwt_names,
                            const IndexingPlan* plan,
                            const IndexName& constructing_name) {
         if (gbwt_names.size() > 1) {
@@ -2282,9 +2314,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     };
     
     // meta-recipe to make GBWTs
-    auto make_gbwt = [&](const vector<const IndexFile*>& inputs,
-                         const IndexingPlan* plan,
-                         const IndexGroup& constructing) {
+    auto make_gbwt = [merge_gbwts](const vector<const IndexFile*>& inputs,
+                        bool include_named_paths,
+                        const IndexingPlan* plan,
+                        const IndexGroup& constructing) {
         
         assert(inputs.size() == 2);
         
@@ -2348,6 +2381,44 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
         }
         
+        // Prepare a single shared haplotype indexer, since everything on it is thread safe.
+        // Make this critical so we don't end up with a race on the verbosity
+        unique_ptr<HaplotypeIndexer> haplotype_indexer;
+#pragma omp critical
+        {
+            haplotype_indexer = unique_ptr<HaplotypeIndexer>(new HaplotypeIndexer());
+            // HaplotypeIndexer resets this in its constructor
+            if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
+                gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
+            }
+            else {
+                gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
+            }
+        }
+        haplotype_indexer->show_progress = IndexingParameters::verbosity >= IndexingParameters::Debug;
+        // from the toil-vg best practices
+        haplotype_indexer->force_phasing = true;
+        haplotype_indexer->discard_overlaps = true;
+        
+        // If we're using a single graph, we're going to need to do each VCF's
+        // named paths in its job, and then come back and do the rest. So we
+        // need to know which paths still need to be done (and whether there are any).
+        // So we first make a set of all the paths that need doing, and then we
+        // clear them out when they're done, and if any are left we know we
+        // need a job to do them.
+        unordered_set<path_handle_t> broadcast_graph_paths_to_do;
+        if (include_named_paths && broadcast_graph) {
+            broadcast_graph->for_each_path_handle([&](const path_handle_t& path_handle) {
+                // Look at all the paths in advance
+                if (broadcast_graph->is_empty(path_handle) || Paths::is_alt(broadcast_graph->get_path_name(path_handle))) {
+                    // Skip empty paths and alt allele paths
+                    return;
+                }
+                // Keep the rest.
+                broadcast_graph_paths_to_do.insert(path_handle);
+            });
+        }
+        
         // construct a GBWT from the i-th VCF
         auto gbwt_job = [&](size_t i) {
             string gbwt_name;
@@ -2370,38 +2441,81 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             
             auto graph = graph_filenames.size() == 1 ? broadcast_graph.get() : contig_graph.get();
             
-            // make this critical so we don't end up with a race on the verbosity
-            unique_ptr<HaplotypeIndexer> haplotype_indexer;
-#pragma omp critical
-            {
-                haplotype_indexer = unique_ptr<HaplotypeIndexer>(new HaplotypeIndexer());
-                // HaplotypeIndexer resets this in its constructor
-                if (IndexingParameters::verbosity >= IndexingParameters::Debug) {
-                    gbwt::Verbosity::set(gbwt::Verbosity::BASIC);
-                }
-                else {
-                    gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
-                }
-            }
-            haplotype_indexer->show_progress = IndexingParameters::verbosity >= IndexingParameters::Debug;
-            
-            // from the toil-vg best practices
-            haplotype_indexer->force_phasing = true;
-            haplotype_indexer->discard_overlaps = true;
-            
+            // Parse the VCFs for this job
             vector<string> parse_files = haplotype_indexer->parse_vcf(vcf_filenames[i],
                                                                       *graph);
             
-            unique_ptr<gbwt::DynamicGBWT> gbwt_index = haplotype_indexer->build_gbwt(parse_files);
+            // Build the GBWT from the parse files and the graph.
+            // For fast merging later, we need to ensure that all threads on a single contig end up in the same initial GBWT.
+            // So, if we have just one graph, only threads visited by the VCF can go in.
+            // Then at the end, if there are non-alt paths left over, we add another job to make a GBWT just of those paths.
+            // Otherwise, if we have one graph per job, all threads from the graph can go in.
+            unique_ptr<gbwt::DynamicGBWT> gbwt_index = haplotype_indexer->build_gbwt(parse_files, 
+                                                                                     "GBWT" + std::to_string(i),
+                                                                                     include_named_paths ? graph : nullptr,
+                                                                                     nullptr,
+                                                                                     include_named_paths && (bool)broadcast_graph);
             
             save_gbwt(*gbwt_index, gbwt_name, IndexingParameters::verbosity == IndexingParameters::Debug);
             
             gbwt_names[i] = gbwt_name;
+            
+            if (include_named_paths && broadcast_graph) {
+                // We have to check off the paths we embeded in this job.
+                for (size_t contig_number = 0; contig_number < gbwt_index->metadata.contigs(); contig_number++) {
+                    // Go through all contig names in the metadata
+                    string contig_name = gbwt_index->metadata.contig(contig_number);
+                    
+                    if (graph->has_path(contig_name)) {
+                        // And get the graph path
+                        path_handle_t contig_path = graph->get_path_handle(contig_name);
+                        #pragma omp critical (broadcast_graph_paths_done)
+                        {
+                            // Check it off in a thread-safe way.
+                            // TODO: Will this be too much locking and unlocking when we do transcripts?
+                            broadcast_graph_paths_to_do.erase(contig_path);
+                        }
+                    }
+                }
+            }
         };
         
+        {
+            // Do all the GBWT jobs
+            JobSchedule schedule(approx_job_requirements, gbwt_job);
+            schedule.execute(target_memory_usage);
+        }
         
-        JobSchedule schedule(approx_job_requirements, gbwt_job);
-        schedule.execute(target_memory_usage);
+        if (include_named_paths && broadcast_graph && !broadcast_graph_paths_to_do.empty()) {
+            // We're Back for One Last Job.
+            // We need to embed these remaining paths that weren't VCF contigs.
+            
+            // There's no VCF to load, so our memory estimate is just 0. The graph is loaded already.
+            // TODO: can we improve this?
+            approx_job_requirements.clear();
+            approx_job_requirements.emplace_back(0, 0);
+            
+            // This job has exclusive use of our data structures.
+            auto one_last_job = [&](size_t ignored) {
+                // Make a temp file
+                string gbwt_name = temp_file::create();
+                
+                // Make a GBWT of the remaining graph paths.
+                unique_ptr<gbwt::DynamicGBWT> gbwt_index = haplotype_indexer->build_gbwt({}, 
+                                                                                         "Leftovers",
+                                                                                         broadcast_graph.get(),
+                                                                                         &broadcast_graph_paths_to_do);
+                
+                // And save it in the temp file
+                save_gbwt(*gbwt_index, gbwt_name, IndexingParameters::verbosity == IndexingParameters::Debug);
+                
+                // And add it as one final GBWT.
+                gbwt_names.push_back(gbwt_name);
+            };
+            
+            JobSchedule schedule(approx_job_requirements, one_last_job);
+            schedule.execute(target_memory_usage);
+        }
         
         // merge GBWTs if necessary
         output_names.push_back(merge_gbwts(gbwt_names, plan, output_index));
@@ -2410,7 +2524,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     };
     
     registry.register_recipe({"GBWT"}, {"Chunked VCF w/ Phasing", "VG w/ Variant Paths"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [make_gbwt](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -2421,11 +2535,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         else {
             gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
         }
-        return make_gbwt(inputs, plan, constructing);
+        return make_gbwt(inputs, true, plan, constructing);
     });
     
     registry.register_recipe({"Spliced GBWT"}, {"Chunked VCF w/ Phasing", "Spliced VG w/ Variant Paths"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [make_gbwt](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -2436,15 +2550,20 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         else {
             gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
         }
-        return make_gbwt(inputs, plan, constructing);
+        // TODO: If we include named paths here, we then generate
+        // haplotype-specific transcripts following them when making the
+        // "Haplotype-Transcript GBWT". It's not clear that that's correct, and
+        // the "Spliced GBWT" never feeds into a GBZ, so we leave them out for
+        // now. 
+        return make_gbwt(inputs, false, plan, constructing);
     });
     
     // Giraffe will prefer to use a downsampled haplotype GBWT if possible
     registry.register_recipe({"Giraffe GBWT"}, {"GBWT", "XG"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Downsampling full GBWT." << endl;
         }
@@ -2509,10 +2628,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     // do a greedy haplotype cover if we don't have haplotypes
     registry.register_recipe({"Giraffe GBWT"}, {"XG"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing a greedy path cover GBWT" << endl;
@@ -2537,11 +2656,14 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         
         auto xg_index = vg::io::VPKG::load_one<xg::XG>(infile_xg);
         
+        auto comp_sizes = algorithms::component_sizes(*xg_index);
+        size_t max_comp_size = *max_element(comp_sizes.begin(), comp_sizes.end());
+        
         // make a GBWT from a greedy path cover
         gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*xg_index,
                                                       IndexingParameters::path_cover_depth,
                                                       IndexingParameters::downsample_context_length,
-                                                      200 * gbwt::MILLION, // buffer size
+                                                      20 * max_comp_size, // buffer size recommendation from Jouni
                                                       IndexingParameters::gbwt_sampling_interval,
                                                       IndexingParameters::verbosity >= IndexingParameters::Debug);
         
@@ -2552,10 +2674,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     registry.register_recipe({"Haplotype-Transcript GBWT", "Spliced VG w/ Transcript Paths", "Unjoined Transcript Origin Table", },
                              {"Chunked GTF/GFF", "Spliced GBWT", "Spliced VG"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
+                             [merge_gbwts](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing haplotype-transcript GBWT and finishing spliced VG." << endl;
@@ -2715,10 +2837,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     ////////////////////////////////////
     
     registry.register_recipe({"Transcript Origin Table"}, {"Unjoined Transcript Origin Table"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Joining transcript origin table." << endl;
@@ -2768,9 +2890,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 #endif
     
     // meta-recipe for pruning with/without GBWT
-    auto prune_graph = [&](const vector<const IndexFile*>& inputs,
-                           const IndexingPlan* plan,
-                           const IndexGroup& constructing) {
+    auto prune_graph = [](const vector<const IndexFile*>& inputs,
+                          const IndexingPlan* plan,
+                          const IndexGroup& constructing) {
         
         // we only want to focus on two specific recipes
         assert(inputs.size() == 2 || inputs.size() == 3);
@@ -2928,7 +3050,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     };
     
     registry.register_recipe({"Pruned VG"}, {"MaxNodeID", "VG"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [prune_graph](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -2940,7 +3062,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     
     registry.register_recipe({"Haplotype-Pruned VG", "Unfolded NodeMapping"}, {"GBWT", "MaxNodeID", "VG"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [prune_graph](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -2952,7 +3074,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     
     registry.register_recipe({"Pruned Spliced VG"}, {"Spliced MaxNodeID", "Spliced VG w/ Transcript Paths"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [prune_graph](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -2967,7 +3089,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // the splice edges will be covered by the transcript paths, so it won't be too bad
     registry.register_recipe({"Haplotype-Pruned Spliced VG", "Unfolded Spliced NodeMapping"},
                              {"Spliced GBWT", "Spliced MaxNodeID", "Spliced VG w/ Transcript Paths"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [prune_graph](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -2987,9 +3109,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 #endif
     
     // meta-recipe for GCSA indexing with or without unfolded input
-    auto construct_gcsa = [&](const vector<const IndexFile*>& inputs,
-                              const IndexingPlan* plan,
-                              const IndexGroup& constructing) {
+    auto construct_gcsa = [](const vector<const IndexFile*>& inputs,
+                             const IndexingPlan* plan,
+                             const IndexGroup& constructing) {
         
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing GCSA/LCP indexes." << endl;
@@ -3075,7 +3197,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     };
     
     registry.register_recipe({"GCSA", "LCP"}, {"Haplotype-Pruned VG", "Unfolded NodeMapping"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [construct_gcsa](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -3084,7 +3206,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     
     registry.register_recipe({"GCSA", "LCP"}, {"Pruned VG"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [construct_gcsa](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -3093,7 +3215,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     
     registry.register_recipe({"Spliced GCSA", "Spliced LCP"}, {"Haplotype-Pruned Spliced VG", "Unfolded Spliced NodeMapping"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [construct_gcsa](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -3102,7 +3224,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     
     registry.register_recipe({"Spliced GCSA", "Spliced LCP"}, {"Pruned Spliced VG"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [construct_gcsa](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -3115,9 +3237,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     ////////////////////////////////////
     
     // meta-recipe to find snarls
-    auto find_snarls = [&](const HandleGraph& graph,
-                           const IndexingPlan* plan,
-                           const IndexGroup& constructing) {
+    auto find_snarls = [](const HandleGraph& graph,
+                          const IndexingPlan* plan,
+                          const IndexGroup& constructing) {
         
         assert(constructing.size() == 1);
         vector<vector<string>> all_outputs(constructing.size());
@@ -3156,7 +3278,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     };
 
     registry.register_recipe({"Giraffe Snarls"}, {"Giraffe GBZ"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [find_snarls](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -3178,7 +3300,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // TODO: disabling so that we can distinguish giraffe graphs that may have
     // different node IDs from the GFA import
 //    registry.register_recipe({"Snarls"}, {"XG"},
-//                             [&](const vector<const IndexFile*>& inputs,
+//                             [find_snarls](const vector<const IndexFile*>& inputs,
 //                                 const IndexingPlan* plan,
 //                                 AliasGraph& alias_graph,
 //                                 const IndexGroup& constructing) {
@@ -3189,7 +3311,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
 //    });
     
     registry.register_recipe({"Spliced Snarls"}, {"Spliced XG"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [find_snarls](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -3215,9 +3337,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     ////////////////////////////////////
     
     // meta-recipe to make distance index
-    auto make_distance_index = [&](const HandleGraph& graph,
-                                   const IndexingPlan* plan,
-                                   const IndexGroup& constructing) {
+    auto make_distance_index = [](const HandleGraph& graph,
+                                  const IndexingPlan* plan,
+                                  const IndexGroup& constructing) {
         
         assert(constructing.size() == 1);
         vector<vector<string>> all_outputs(constructing.size());
@@ -3236,9 +3358,9 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         output_names.push_back(output_name);
         return all_outputs;
     };
-    
+   
     registry.register_recipe({"Giraffe Distance Index"}, {"Giraffe GBZ"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [make_distance_index](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -3259,7 +3381,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
     
     registry.register_recipe({"Spliced Distance Index"}, {"Spliced XG"},
-                             [&](const vector<const IndexFile*>& inputs,
+                             [make_distance_index](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -3285,10 +3407,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     ////////////////////////////////////
     
     registry.register_recipe({"Giraffe GBZ"}, {"Reference GFA w/ Haplotypes"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Combining Giraffe GBWT and GBWTGraph into GBZ." << endl;
         }
@@ -3330,10 +3452,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     });
 
     registry.register_recipe({"Giraffe GBZ"}, {"GBWTGraph", "Giraffe GBWT"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Combining Giraffe GBWT and GBWTGraph into GBZ." << endl;
         }
@@ -3360,13 +3482,61 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         output_names.push_back(output_name);
         return all_outputs;
     });
+    
+    // Thses used to be a GBWTGraph recipe, but we don't want to produce GBWTGraphs anymore.
+    
+    registry.register_recipe({"Giraffe GBZ"}, {"Giraffe GBWT", "NamedNodeBackTranslation", "XG"},
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
+        if (IndexingParameters::verbosity != IndexingParameters::None) {
+            cerr << "[IndexRegistry]: Constructing GBZ using NamedNodeBackTranslation." << endl;
+        }
+        
+        assert(inputs.size() == 3);
+        auto gbwt_filenames = inputs[0]->get_filenames();
+        auto translation_filenames = inputs[1]->get_filenames();
+        auto xg_filenames = inputs[2]->get_filenames();
+        assert(gbwt_filenames.size() == 1);
+        assert(translation_filenames.size() == 1);
+        assert(xg_filenames.size() == 1);
+        auto gbwt_filename = gbwt_filenames.front();
+        auto translation_filename = translation_filenames.front(); 
+        auto xg_filename = xg_filenames.front();
+        
+        assert(constructing.size() == 1);
+        vector<vector<string>> all_outputs(constructing.size());
+        auto gbz_output = *constructing.begin();
+        auto& output_names = all_outputs[0];
+        
+        ifstream infile_xg;
+        init_in(infile_xg, xg_filename);
+        auto xg_index = vg::io::VPKG::load_one<xg::XG>(infile_xg);
+        
+        ifstream infile_translation;
+        init_in(infile_translation, translation_filename);
+        // There's only one implementation we can use here at the moment, so
+        // don't bother with the normal loader/saver system.
+        FlatFileBackTranslation translation(infile_translation);
 
-    // This used to be a GBWTGraph recipe, but we don't want to produce GBWTGraphs anymore.
+        gbwtgraph::GBZ gbz;
+        load_gbwt(gbz.index, gbwt_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
+        // TODO: could add simplification to replace XG index with a gbwt::SequenceSource here
+        gbz.graph = gbwtgraph::GBWTGraph(gbz.index, *xg_index, &translation);
+
+        string output_name = plan->output_filepath(gbz_output);
+        save_gbz(gbz, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
+
+        output_names.push_back(output_name);
+        return all_outputs;
+    });
+
     registry.register_recipe({"Giraffe GBZ"}, {"Giraffe GBWT", "XG"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing GBZ." << endl;
         }
@@ -3391,7 +3561,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         gbwtgraph::GBZ gbz;
         load_gbwt(gbz.index, gbwt_filename, IndexingParameters::verbosity == IndexingParameters::Debug);
         // TODO: could add simplification to replace XG index with a gbwt::SequenceSource here
-        gbz.graph = gbwtgraph::GBWTGraph(gbz.index, *xg_index);
+        gbz.graph = gbwtgraph::GBWTGraph(gbz.index, *xg_index, algorithms::find_translation(xg_index.get()));
 
         string output_name = plan->output_filepath(gbz_output);
         save_gbz(gbz, output_name, IndexingParameters::verbosity == IndexingParameters::Debug);
@@ -3407,10 +3577,10 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // FIXME We may not always want to store the minimizer index. Rebuilding the index may be
     // faster than loading it from a network drive.
     registry.register_recipe({"Minimizers"}, {"Giraffe Distance Index", "Giraffe GBZ"},
-                             [&](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
+                             [](const vector<const IndexFile*>& inputs,
+                                const IndexingPlan* plan,
+                                AliasGraph& alias_graph,
+                                const IndexGroup& constructing) {
         if (IndexingParameters::verbosity != IndexingParameters::None) {
             cerr << "[IndexRegistry]: Constructing minimizer index." << endl;
         }
@@ -3696,6 +3866,19 @@ void IndexRegistry::provide(const IndexName& identifier, const vector<string>& f
         exit(1);
     }
     get_index(identifier)->provide(filenames);
+}
+
+bool IndexRegistry::available(const IndexName& identifier) const {
+    if (!index_registry.count(identifier)) {
+        // Index is not registered
+        return false;
+    }
+    const IndexFile* index = get_index(identifier);
+    if (!index->is_finished()) {
+        // Index is not made
+        return false;
+    }
+    return true;
 }
 
 vector<string> IndexRegistry::require(const IndexName& identifier) const {

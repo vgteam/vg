@@ -14,6 +14,7 @@
 #include "subcommand.hpp"
 
 #include <vg/io/vpkg.hpp>
+#include "../algorithms/component.hpp"
 #include "../multipath_mapper.hpp"
 #include "../mem_accelerator.hpp"
 #include "../surjector.hpp"
@@ -214,6 +215,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_SPLICE_ODDS 1033
     #define OPT_REPORT_ALLELIC_MAPQ 1034
     #define OPT_RESEED_LENGTH 1035
+    #define OPT_MAX_MOTIF_PAIRS 1036
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -347,6 +349,12 @@ int main_mpmap(int argc, char** argv) {
     double no_splice_log_odds = 2.0;
     double splice_rescue_graph_std_devs = 3.0;
     bool override_spliced_alignment = false;
+    int max_motif_pairs = 200;
+    // the TruSeq adapters, which seem to be what mostly gets used for RNA-seq
+    // (this info is only used during spliced alignment, so that should be all
+    // that matters)
+    string read_1_adapter = "AGATCGGAAGAG";
+    string read_2_adapter = "AGATCGGAAGAG";
     int match_score_arg = std::numeric_limits<int>::min();
     int mismatch_score_arg = std::numeric_limits<int>::min();
     int gap_open_score_arg = std::numeric_limits<int>::min();
@@ -440,6 +448,7 @@ int main_mpmap(int argc, char** argv) {
             {"not-spliced", no_argument, 0, 'X'},
             {"splice-odds", required_argument, 0, OPT_SPLICE_ODDS},
             {"intron-distr", required_argument, 0, 'r'},
+            {"max-motif-pairs", required_argument, 0, OPT_MAX_MOTIF_PAIRS},
             {"read-length", required_argument, 0, 'l'},
             {"nt-type", required_argument, 0, 'n'},
             {"error-rate", required_argument, 0, 'e'},
@@ -795,6 +804,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_SPLICE_ODDS:
                 no_splice_log_odds = parse<double>(optarg);
+                break;
+                
+            case OPT_MAX_MOTIF_PAIRS:
+                max_motif_pairs = parse<int>(optarg);
                 break;
                 
             case 'r':
@@ -1183,7 +1196,12 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    if (max_mapq <= 0 && mapq_method != None) {
+    if (mapq_method == None) {
+        cerr << "error:[vg mpmap] The mapping quality method 'None' is no longer supported." << endl;
+        exit(1);
+    }
+    
+    if (max_mapq <= 0) {
         cerr << "error:[vg mpmap] Maximum mapping quality (-Q) set to " << max_mapq << ", must set to a positive integer." << endl;
         exit(1);
     }
@@ -1386,6 +1404,11 @@ int main_mpmap(int argc, char** argv) {
     
     if (no_splice_log_odds <= 0.0) {
         cerr << "warning:[vg mpmap] Log odds against splicing (--splice-odds) set to " << no_splice_log_odds << ", non-positive values can lead to spurious identification of spliced alignments." << endl;
+    }
+    
+    if (max_motif_pairs < 0) {
+        cerr << "error:[vg mpmap] Maximum attempted splice motif pairs (--max-motif-pairs) set to " << max_motif_pairs << ", must set to a non-negative number." << endl;
+        exit(1);
     }
     
     if ((match_score_arg != std::numeric_limits<int>::min() || mismatch_score_arg != std::numeric_limits<int>::min()) && !matrix_file_name.empty())  {
@@ -1782,9 +1805,9 @@ int main_mpmap(int argc, char** argv) {
         log_progress("Completed loading GBWT");
 
         if (gbwt.get() == nullptr) {
-          // Complain if we couldn't.
-          cerr << "error:[vg mpmap] unable to load gbwt index file" << endl;
-          exit(1);
+            // Complain if we couldn't.
+            cerr << "error:[vg mpmap] unable to load gbwt index file" << endl;
+            exit(1);
         }
     
         // We have the GBWT available for scoring haplotypes
@@ -1970,9 +1993,12 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.max_splice_overhang = max_splice_overhang;
     multipath_mapper.splice_rescue_graph_std_devs = splice_rescue_graph_std_devs;
     multipath_mapper.ref_path_handles = move(ref_path_handles);
+    multipath_mapper.max_motif_pairs = max_motif_pairs;
     if (!intron_distr_name.empty()) {
         multipath_mapper.set_intron_length_distribution(intron_mixture_weights, intron_component_params);
     }
+    multipath_mapper.set_read_1_adapter(read_1_adapter);
+    multipath_mapper.set_read_2_adapter(read_2_adapter);
 
 #ifdef mpmap_instrument_mem_statistics
     multipath_mapper._mem_stats.open(MEM_STATS_FILE);

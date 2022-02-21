@@ -6,8 +6,10 @@
 
 #include "hts_alignment_emitter.hpp"
 #include "surjecting_alignment_emitter.hpp"
+#include "back_translating_alignment_emitter.hpp"
 #include "alignment.hpp"
 #include "vg/io/json2pb.h"
+#include "algorithms/find_translation.hpp"
 #include <vg/io/hfile_cppstream.hpp>
 #include <vg/io/stream.hpp>
 
@@ -66,7 +68,27 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
     } else {
         // The non-HTSlib formats don't actually use the path name and length info.
         // See https://github.com/vgteam/libvgio/issues/34
-        emitter = get_non_hts_alignment_emitter(filename, format, {}, max_threads, graph);
+        
+        const NamedNodeBackTranslation* translation = nullptr;
+        if (flags & ALIGNMENT_EMITTER_FLAG_VG_USE_SEGMENT_NAMES) {
+            // Need to translate from node IDs to segment names
+            
+            translation = vg::algorithms::find_translation(graph);
+            if (translation == nullptr) {
+                cerr << "error[vg::get_alignment_emitter]: No graph available supporting translation to named-segment space" << endl;
+                exit(1);
+            }
+        }
+        
+        // TODO: Push some logic here into libvgio? Or move this top function out of hts_alignment_emitter.cpp?
+        // TODO: Only GAF actually handles the translation in the emitter right now.
+        // TODO: Move BackTranslatingAlignmentEmitter to libvgio so they all can and we don't have to sniff format here.
+        emitter = get_non_hts_alignment_emitter(filename, format, {}, max_threads, graph, translation);
+        if (translation && format != "GAF") {
+            // Need to translate from node IDs to segment names beforehand.
+            // Interpose a translating AlignmentEmitter
+            emitter = make_unique<BackTranslatingAlignmentEmitter>(translation, std::move(emitter));
+        }
     }
     
     return emitter;
