@@ -316,17 +316,22 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                  distance_index.set_cached_rank(cached_net_handle);
                  //This sets the prefix sum value and makes the loop values infinite because I don't need them
                  //IF this wasn't a top-level chain, then the prefix-sum value is inf and these get set from the index
-                 distance_index.set_cached_node_values(cached_net_handle, std::get<2>(seed.payload), 
+                 if (std::get<2>(seed.payload) == std::numeric_limits<size_t>::max()) {
+                    distance_index.set_cached_node_values(cached_net_handle);
+                 } else {
+                    distance_index.set_cached_node_values(cached_net_handle, true, std::get<2>(seed.payload), 
                             std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), 
                             std::get<3>(seed.payload), std::get<4>(seed.payload));
+                 }
                  distance_index.set_cached_min_length(cached_net_handle, std::get<0>(seed.payload));
                  net_handle_t parent = std::get<1>(seed.payload) == std::numeric_limits<size_t>::max()
                         ? distance_index.get_parent(cached_net_handle)
                         : distance_index.get_handle_from_connected_component(std::get<1>(seed.payload));
-                 bool is_reversed_in_parent = distance_index.get_cached_is_reverse(cached_net_handle);
+                 bool is_reversed_in_parent = std::get<4>(seed.payload);
                  distance_index.set_cached_min_length(cached_net_handle);
 
-                 size_t depth = distance_index.get_depth(parent);
+                 size_t depth = std::get<1>(seed.payload) != std::numeric_limits<size_t>::max() ? 1 
+                        : distance_index.get_depth(parent);
                  if (depth+1 > chain_to_children_by_level.size()) {
                      chain_to_children_by_level.resize(depth+1);
                  }
