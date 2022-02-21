@@ -1807,6 +1807,22 @@ using namespace std;
 #endif
         }
         
+        // distance between the path ranges of two sections
+        // assumes direct adjacency over an edge, but this may not be true in the case of a connection
+        // TODO: repetitive with path_dist
+        auto section_path_dist = [&](size_t i, size_t j) {
+            if (rev_strand) {
+                return (graph->get_position_of_step(section_path_ranges[i].second)
+                        - graph->get_position_of_step(section_path_ranges[j].first)
+                        - graph->get_length(graph->get_handle_of_step(section_path_ranges[j].first)));
+                
+            }
+            else {
+                return (graph->get_position_of_step(section_path_ranges[j].first)
+                        - graph->get_position_of_step(section_path_ranges[i].second)
+                        - graph->get_length(graph->get_handle_of_step(section_path_ranges[i].second)));
+            }
+        };
         
 #ifdef debug_spliced_surject
         cerr << "computing optimal combination of sections" << endl;
@@ -1824,21 +1840,6 @@ using namespace std;
                 score_dp[i] = sections[i].score();
             }
         }
-        
-        // TODO: repetitive with path_dist
-        auto section_path_dist = [&](size_t i, size_t j) {
-            if (rev_strand) {
-                return (graph->get_position_of_step(section_path_ranges[i].second)
-                        - graph->get_position_of_step(section_path_ranges[j].first)
-                        - graph->get_length(graph->get_handle_of_step(section_path_ranges[j].first)));
-                        
-            }
-            else {
-                return (graph->get_position_of_step(section_path_ranges[j].first)
-                        - graph->get_position_of_step(section_path_ranges[i].second)
-                        - graph->get_length(graph->get_handle_of_step(section_path_ranges[i].second)));
-            }
-        };
         
         // do the dynamic programming
         for (size_t i = 0; i < comp_groups.size(); ++i) {
@@ -1876,6 +1877,7 @@ using namespace std;
             }
             else if (score_dp[i] == max_score
                      && traceback[0] != -1
+                     && backpointer[traceback[0]] != -1
                      && (!allow_negative_scores || comp_group_edges[i].empty())
                      && section_path_dist(backpointer[i], i) < section_path_dist(backpointer[traceback[0]], traceback[0])) {
                 // break ties in favor exon with closer connection
