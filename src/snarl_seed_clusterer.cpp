@@ -333,7 +333,9 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                                               is_reversed_in_parent, id, node_length, prefix_sum, component));
                  //Add this node to its parent
                  if (distance_index.is_root(parent)) {
-                    tree_state.root_children.emplace_back(tree_state.all_node_clusters.size());
+                     if (distance_index.is_root_snarl(parent)) {
+                        tree_state.root_children.emplace_back(tree_state.all_node_clusters.size());
+                     }
                  } else {
                     add_child_to_vector(tree_state, chain_to_children_by_level[depth], parent, tree_state.all_node_clusters.size() - 1);
                  }
@@ -427,7 +429,9 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
         net_handle_t parent = distance_index.get_parent(chain_handle);
         if (distance_index.is_root(parent)) {
             //If the parent is the root, remember the index of this chain in all_node_clusters
-            tree_state.root_children.emplace_back(kv.second.first);
+            if (distance_index.is_root_snarl(parent)) {
+                tree_state.root_children.emplace_back(kv.second.first);
+            }
         } else {
             //If the parent is just a snarl
              add_child_to_vector(tree_state, tree_state.snarl_to_children, parent, kv.second.first);
