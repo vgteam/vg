@@ -1459,18 +1459,19 @@ tuple<size_t, size_t, size_t, size_t, bool> get_minimizer_distances (const Snarl
     net_handle_t node_handle = distance_index.get_node_net_handle(get_id(pos));
     net_handle_t parent_handle = distance_index.get_parent(node_handle);
 
-    if (distance_index.is_chain(parent_handle) && 
-        !distance_index.is_trivial_chain(parent_handle) && 
-        distance_index.is_root(distance_index.get_parent(parent_handle))) {
-        //If this is a top-level non-trivial chain
-        return make_tuple(distance_index.get_prefix_sum_value(node_handle),
-                          distance_index.get_record_offset(parent_handle),
-                          distance_index.minimum_length(node_handle),
-                          distance_index.get_chain_component(node_handle),
-                          distance_index.is_reversed_in_parent(node_handle)); 
-    } else {
-        return MIPayload::decode(MIPayload::NO_CODE);
-    }
+    bool in_top_level_chain = distance_index.is_chain(parent_handle) &&
+                              distance_index.is_root(distance_index.get_parent(parent_handle)) &&
+                              !distance_index.is_root_snarl(distance_index.get_parent(parent_handle));
+
+    return make_tuple(distance_index.minimum_length(node_handle),
+                      in_top_level_chain ? distance_index.get_connected_component_number(node_handle)
+                                         : std::numeric_limits<size_t>::max(),
+                      in_top_level_chain ? distance_index.get_prefix_sum_value(node_handle)
+                                                                     : std::numeric_limits<size_t>::max(),
+                      in_top_level_chain ? distance_index.get_chain_component(node_handle)
+                                                                     : std::numeric_limits<size_t>::max(),
+                      distance_index.is_reversed_in_parent(node_handle));
+
 
 
 

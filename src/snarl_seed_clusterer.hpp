@@ -22,8 +22,8 @@ class NewSnarlSeedClusterer {
             size_t source; // Source minimizer.
 
             //Cached values from the minimizer
-            //prefix sum, record offset of parent, node length, component, is reversed in parent
-            tuple<size_t, size_t, size_t, size_t, bool> parent_chain_info  = 
+            //node length, root component, prefix sum, chain component, is_reversed
+            tuple<size_t, size_t, size_t, size_t, bool> minimizer_cache  = 
                 make_tuple(MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
 
         };

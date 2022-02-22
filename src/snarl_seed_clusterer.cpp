@@ -300,29 +300,27 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                  net_handle_t parent;
 
                  size_t depth;
-                 bool is_reversed_in_parent;
-                 size_t node_length;
                  size_t prefix_sum;
                  size_t component;
+                 bool is_reversed_in_parent = std::get<4>(seed.minimizer_cache);
+                 size_t node_length = std::get<0>(seed.minimizer_cache);
 
-                 if (std::get<0>(seed.parent_chain_info) == MIPayload::NO_VALUE) {
+                 //Seed payload is: node length, root component, prefix sum, chain component, is_reversed 
+                 //Node length and is_reversed are always set
+                 if (std::get<1>(seed.minimizer_cache) == MIPayload::NO_VALUE) {
                      //If we didn't store information in the seed, then get it from the distance index
-                     parent = distance_index.get_parent(node_net_handle);
+                    parent = distance_index.get_parent(node_net_handle);
 
                     depth = distance_index.get_depth(parent);
-                    is_reversed_in_parent = distance_index.is_reversed_in_parent(node_net_handle);
-                    node_length = distance_index.minimum_length(node_net_handle);
                     prefix_sum = distance_index.get_prefix_sum_value(node_net_handle);
                     component = distance_index.get_chain_component(node_net_handle);
                  } else {
-                     //Otherwise, get the values from the seed
-                     //The values only get stored for nodes in top-level chains, so the depth is 1
-                     depth = 1; 
-                    prefix_sum = std::get<0>(seed.parent_chain_info);
-                    node_length = std::get<2>(seed.parent_chain_info);
-                    component = std::get<3>(seed.parent_chain_info);
-                    is_reversed_in_parent = std::get<4>(seed.parent_chain_info);
-                    parent = distance_index.get_net_handle(std::get<1>(seed.parent_chain_info), SnarlDistanceIndex::START_END, SnarlDistanceIndex::CHAIN_HANDLE);
+                    //Otherwise, get the values from the seed
+                    //The values only get stored for nodes in top-level chains, so the depth is 1
+                    depth = 1; 
+                    prefix_sum = std::get<2>(seed.minimizer_cache);
+                    component = std::get<3>(seed.minimizer_cache);
+                    parent = distance_index.get_handle_from_connected_component(std::get<1>(seed.minimizer_cache));
                  }
                  if (depth+1 > chain_to_children_by_level.size()) {
                      chain_to_children_by_level.resize(depth+1);
