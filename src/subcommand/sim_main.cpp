@@ -94,6 +94,7 @@ void help_sim(char** argv) {
          << "output options:" << endl
          << "    -a, --align-out             write alignments in GAM-format" << endl
          << "    -J, --json-out              write alignments in json" << endl
+         << "    --multi-position            annotate alignments with multiple reference positions" << endl
          << "simulation parameters:" << endl
          << "    -F, --fastq FILE            match the error profile of NGS reads in FILE, repeat for paired reads (ignores -l,-f)" << endl
          << "    -I, --interleaved           reads in FASTQ (-F) are interleaved read pairs" << endl
@@ -128,6 +129,8 @@ int main_sim(int argc, char** argv) {
         return 1;
     }
 
+    #define OPT_MULTI_POSITION 1000
+
     string xg_name;
     int num_reads = 1;
     int read_length = 100;
@@ -140,6 +143,7 @@ int main_sim(int argc, char** argv) {
     bool forward_only = false;
     bool align_out = false;
     bool json_out = false;
+    bool multi_position_annotations = false;
     int fragment_length = 0;
     double fragment_std_dev = 0;
     bool reads_may_contain_Ns = false;
@@ -174,7 +178,7 @@ int main_sim(int argc, char** argv) {
     // expression profile
     string haplotype_transcript_file_name;
     vector<tuple<string, string, size_t>> haplotype_transcripts;
-
+    
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -191,12 +195,14 @@ int main_sim(int argc, char** argv) {
             {"ploidy-regex", required_argument, 0, 'R'},
             {"gbwt-name", required_argument, 0, 'g'},
             {"tx-expr-file", required_argument, 0, 'T'},
+            {"haplo-tx-file", required_argument, 0, 'H'},
             {"read-length", required_argument, 0, 'l'},
             {"num-reads", required_argument, 0, 'n'},
             {"random-seed", required_argument, 0, 's'},
             {"forward-only", no_argument, 0, 'f'},
             {"align-out", no_argument, 0, 'a'},
             {"json-out", no_argument, 0, 'J'},
+            {"multi-position", no_argument, 0, OPT_MULTI_POSITION},
             {"allow-Ns", no_argument, 0, 'N'},
             {"unsheared", no_argument, 0, 'u'},
             {"sub-rate", required_argument, 0, 'e'},
@@ -337,6 +343,10 @@ int main_sim(int argc, char** argv) {
             json_out = true;
             align_out = true;
             break;
+            
+        case OPT_MULTI_POSITION:
+            multi_position_annotations = true;
+            break;
 
         case 'N':
             reads_may_contain_Ns = true;
@@ -395,8 +405,16 @@ int main_sim(int argc, char** argv) {
         cerr << "[vg sim] error: we need a graph to sample reads from" << endl;
         return 1;
     }
-    if (gbwt_name.empty() != sample_names.empty()) {
-        cerr << "[vg sim] error: --gbwt-name and --sample-name must be used together" << endl;
+    if (!gbwt_name.empty() && sample_names.empty() && rsem_file_name.empty()) {
+        cerr << "[vg sim] error: --gbwt-name requires --sample-name or --tx-expr-file" << endl;
+        return 1;
+    }
+    if (!sample_names.empty() && gbwt_name.empty()) {
+        cerr << "[vg sim] error: --sample-name must be used with --gbwt-name" << endl;
+        return 1;
+    }
+    if (!gbwt_name.empty() && !rsem_file_name.empty() && !haplotype_transcript_file_name.empty()) {
+        cerr << "[vg sim] error: using --gbwt-name requires that HSTs be included --tx-expr-file, combination with --haplo-tx-file is not implemented" << endl;
         return 1;
     }
 
@@ -434,6 +452,11 @@ int main_sim(int argc, char** argv) {
         exit(1);
     }
     
+    if (fastq_name.empty() && unsheared_fragments) {
+        cerr << "[vg sim] error: unsheared fragment option only available when simulating from FASTQ-trained errors" << endl;
+        exit(1);
+    }
+    
     // Deal with path names. Do this before we create paths to represent threads.
     if (any_path) {
         if (progress) {
@@ -465,27 +488,17 @@ int main_sim(int argc, char** argv) {
             path_ploidies.push_back(consult_ploidy_rules(path_name));
         }
     }
-
+    
+    // We may add some paths to our graph. If so, we need to ignore them when
+    // annotating with path positions, because they will be useless.
+    unordered_set<string> inserted_path_names;
+    
     // Deal with GBWT threads
     if (!gbwt_name.empty()) {
+        
         // We need to track the contigs that have not had any threads in any sample
         std::unordered_set<std::string> unvisited_contigs;
-        if (!ploidy_rules.empty()) {
-            // We actually want to visit them, so we have to find them
-            if (progress) {
-                std::cerr << "Inventorying contigs" << std::endl;
-            }
-            path_handle_graph->for_each_path_handle([&](const path_handle_t& handle) {
-                // For each path in the graph
-                auto name = path_handle_graph->get_path_name(handle);
-                if (!Paths::is_alt(name)) {
-                    // TODO: We assume that if it isn't an alt path it represents a contig!
-                    // TODO: We may need to change this when working with graphs with multiple sets of primary paths, or other extra paths.
-                    unvisited_contigs.insert(name);
-                }
-            });
-        }
-    
+        
         if (progress) {
             std::cerr << "Loading GBWT index " << gbwt_name << std::endl;
         }
@@ -494,18 +507,57 @@ int main_sim(int argc, char** argv) {
             std::cerr << "[vg sim] error: GBWT index does not contain sufficient metadata" << std::endl;
             return 1;
         }
-        if (progress) {
-            std::cerr << "Checking " << sample_names.size() << " samples" << std::endl;
-        }
-        hash_set<gbwt::size_type> sample_ids;
-        for (std::string& sample_name : sample_names) {
-            gbwt::size_type id = gbwt_index->metadata.sample(sample_name);
-            if (id >= gbwt_index->metadata.samples()) {
-                std::cerr << "[vg sim] error: sample \"" << sample_name << "\" not found in the GBWT index" << std::endl;
-                return 1;
+        
+        // we will add these threads to the graph as named paths and index them for easy look up
+        hash_map<gbwt::size_type, size_t> sample_id_to_idx;
+        
+        if (!sample_names.empty()) {
+            // we're consulting the provided sample names to determine which threads to include
+            
+            // We need to track the contigs that have not had any threads in any sample
+            if (!ploidy_rules.empty()) {
+                // We actually want to visit them, so we have to find them
+                if (progress) {
+                    std::cerr << "Inventorying contigs" << std::endl;
+                }
+                path_handle_graph->for_each_path_handle([&](const path_handle_t& handle) {
+                    // For each path in the graph
+                    auto name = path_handle_graph->get_path_name(handle);
+                    if (!Paths::is_alt(name)) {
+                        // TODO: We assume that if it isn't an alt path it represents a contig!
+                        // TODO: We may need to change this when working with graphs with multiple sets of primary paths, or other extra paths.
+                        unvisited_contigs.insert(name);
+                    }
+                });
             }
-            sample_ids.insert(id);
+            
+            if (progress) {
+                std::cerr << "Checking " << sample_names.size() << " samples" << std::endl;
+            }
+            
+            for (std::string& sample_name : sample_names) {
+                gbwt::size_type id = gbwt_index->metadata.sample(sample_name);
+                if (id >= gbwt_index->metadata.samples()) {
+                    std::cerr << "[vg sim] error: sample \"" << sample_name << "\" not found in the GBWT index" << std::endl;
+                    return 1;
+                }
+                auto idx = sample_id_to_idx.size();
+                sample_id_to_idx[id] = idx;
+            }
         }
+        else {
+            // we are consulting the transcript expression table to decide which threads to include
+            for (const auto& transcript_expression  : transcript_expressions) {
+                gbwt::size_type id = gbwt_index->metadata.sample(transcript_expression.first);
+                if (id >= gbwt_index->metadata.samples()) {
+                    std::cerr << "[vg sim] error: haplotype-specific transcript \"" << transcript_expression.first << "\" not found in the GBWT index" << std::endl;
+                    return 1;
+                }
+                auto idx = sample_id_to_idx.size();
+                sample_id_to_idx[id] = idx;
+            }
+        }
+        
         MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(path_handle_graph.get());
         if (mutable_graph == nullptr) {
             if (progress) {
@@ -516,31 +568,42 @@ int main_sim(int argc, char** argv) {
             path_handle_graph.reset(mutable_graph);
         }
         if (progress) {
-            std::cerr << "Inserting " << sample_ids.size() << " samples into the graph" << std::endl;
+            std::cerr << "Inserting " << sample_id_to_idx.size() << " GBWT threads into the graph" << std::endl;
         }
-        size_t inserted = 0;
+        
         for (gbwt::size_type i = 0; i < gbwt_index->metadata.paths(); i++) {
             auto& path = gbwt_index->metadata.path(i);
-            if (sample_ids.find(path.sample) != sample_ids.end()) {
+            auto it = sample_id_to_idx.find(path.sample);
+            if (it != sample_id_to_idx.end()) {
                 std::string path_name = insert_gbwt_path(*mutable_graph, *gbwt_index, i);
                 if (!path_name.empty()) {
-                    // We managed to make a path for this thread
-                    path_names.push_back(path_name);
-                    // It should have ploidy 1
-                    path_ploidies.push_back(1.0);
-                    // Remember we inserted a path
-                    inserted++;
-                    
-                    if (!unvisited_contigs.empty()) {
-                        // Remember that the contig this path is on is visited
-                        auto contig_name = gbwt_index->metadata.contig(path.contig);
-                        unvisited_contigs.erase(contig_name);
+                    // path was successfully added
+                    if (!sample_names.empty()) {
+                        // assign this haplotype a ploidy of 1
+                        
+                        // We managed to make a path for this thread
+                        path_names.push_back(path_name);
+                        // It should have ploidy 1
+                        path_ploidies.push_back(1.0);
+                        
+                        if (!unvisited_contigs.empty()) {
+                            // Remember that the contig this path is on is visited
+                            auto contig_name = gbwt_index->metadata.contig(path.contig);
+                            unvisited_contigs.erase(contig_name);
+                        }
                     }
+                    else {
+                        // update the transcript name so we can assign it expression
+                        // later down
+                        transcript_expressions[it->second].first = path_name;
+                    }
+                    // Remember we inserted a path
+                    inserted_path_names.insert(path_name);
                 }
             }
         }
         if (progress) {
-            std::cerr << "Inserted " << inserted << " paths" << std::endl;
+            std::cerr << "Inserted " << inserted_path_names.size() << " paths" << std::endl;
         }
         if (!unvisited_contigs.empty()) {
             // There are unvisited contigs we want to sample from too
@@ -555,22 +618,18 @@ int main_sim(int argc, char** argv) {
             }
         }
     }
-
-    if (progress) {
-        std::cerr << "Creating path position overlay" << std::endl;
-    }
-    bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
-    PathPositionHandleGraph* xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
-
+    
     if (haplotype_transcript_file_name.empty()) {
-        if (progress && !transcript_expressions.empty()) {
-            std::cerr << "Checking " << transcript_expressions.size() << " transcripts" << std::endl;
-        }
-        for (auto& transcript_expression : transcript_expressions) {
-            if (!xgidx->has_path(transcript_expression.first)) {
-                cerr << "[vg sim] error: transcript path for \""<< transcript_expression.first << "\" not found in index" << endl;
-                cerr << "if you embedded haplotype-specific transcripts in the graph, you may need the haplotype transcript file from vg rna -i" << endl;
-                return 1;
+        if (!transcript_expressions.empty()) {
+            if (progress) {
+                std::cerr << "Checking " << transcript_expressions.size() << " transcripts" << std::endl;
+            }
+            for (auto& transcript_expression : transcript_expressions) {
+                if (!path_handle_graph->has_path(transcript_expression.first)) {
+                    cerr << "[vg sim] error: transcript path for \""<< transcript_expression.first << "\" not found in index" << endl;
+                    cerr << "if you embedded haplotype-specific transcripts in the graph, you may need the haplotype transcript file from vg rna -i" << endl;
+                    return 1;
+                }
             }
         }
     }
@@ -579,20 +638,40 @@ int main_sim(int argc, char** argv) {
             std::cerr << "Checking " << haplotype_transcripts.size() << " haplotype transcripts" << std::endl;
         }
         for (auto& haplotype_transcript : haplotype_transcripts) {
-            if (!xgidx->has_path(get<0>(haplotype_transcript))) {
+            if (!path_handle_graph->has_path(get<0>(haplotype_transcript))) {
                 cerr << "[vg sim] error: transcript path for \""<< get<0>(haplotype_transcript) << "\" not found in index" << endl;
                 return 1;
             }
         }
     }
     
-    
-    unique_ptr<vg::io::ProtobufEmitter<Alignment>> aln_emitter;
-    if (align_out && !json_out) {
-        // Make an emitter to emit Alignments
-        aln_emitter = unique_ptr<vg::io::ProtobufEmitter<Alignment>>(new vg::io::ProtobufEmitter<Alignment>(cout));
+    if (progress) {
+        std::cerr << "Creating path position overlay" << std::endl;
     }
-
+    
+    bdsg::PathPositionVectorizableOverlayHelper overlay_helper;
+    PathPositionHandleGraph* xgidx = dynamic_cast<PathPositionHandleGraph*>(overlay_helper.apply(path_handle_graph.get()));
+    
+    // We want to store the inserted paths as a set of handles, which are
+    // easier to hash than strings for lookup.
+    unordered_set<path_handle_t> inserted_path_handles;
+    if (!inserted_path_names.empty()) {
+        if (progress) {
+            std::cerr << "Finding inserted paths" << std::endl;
+        }
+        for (auto& name : inserted_path_names) {
+            inserted_path_handles.insert(xgidx->get_path_handle(name));
+        }
+    }
+    
+    unique_ptr<AlignmentEmitter> alignment_emitter;
+    if (align_out) {
+        // We're writing in an alignment format
+        alignment_emitter = get_non_hts_alignment_emitter("-", json_out ? "JSON" : "GAM",
+                                                          map<string, int64_t>(), get_thread_count());
+    }
+    // Otherwise we're just dumping sequence strings; leave it null.
+    
     if (progress) {
         std::cerr << "Simulating " << (fragment_length > 0 ? "read pairs" : "reads") << std::endl;
         std::cerr << "--num-reads " << num_reads << std::endl;
@@ -640,26 +719,94 @@ int main_sim(int argc, char** argv) {
             std::cerr << "--allow-Ns" << std::endl;
         }
     }
-
+    
+    unique_ptr<AbstractReadSampler> sampler;
     if (fastq_name.empty()) {
         // Use the fixed error rate sampler
         
         if (unsheared_fragments) {
-            cerr << "Unsheared fragment option only available when simulating from FASTQ-trained errors" << endl;
+            cerr << "warning: Unsheared fragment option only available when simulating from FASTQ-trained errors" << endl;
         }
         
-        // Make a sample to sample reads with
-        Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names, path_ploidies, transcript_expressions, haplotype_transcripts);
-        
-        // initialize an aligner
-        Aligner rescorer(default_score_matrix, default_gap_open, default_gap_extension,
-                         default_full_length_bonus, vg::default_gc_content);
-
-        // We define a function to score a using the aligner
-        auto rescore = [&] (Alignment& aln) {
-            // Score using exact distance.
-            aln.set_score(rescorer.score_contiguous_alignment(aln, strip_bonuses));
+        sampler.reset(new Sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names, path_ploidies, transcript_expressions, haplotype_transcripts));
+    } else {
+        // Use the FASTQ-trained sampler
+        sampler.reset(new NGSSimulator(*xgidx,
+                                       fastq_name,
+                                       fastq_2_name,
+                                       interleaved,
+                                       path_names,
+                                       path_ploidies,
+                                       transcript_expressions,
+                                       haplotype_transcripts,
+                                       base_error,
+                                       indel_error,
+                                       indel_prop,
+                                       fragment_length ? fragment_length : std::numeric_limits<double>::max(), // suppresses warnings about fragment length
+                                       fragment_std_dev ? fragment_std_dev : 0.000001, // eliminates errors from having 0 as stddev without substantial difference
+                                       error_scale_factor,
+                                       !reads_may_contain_Ns,
+                                       unsheared_fragments,
+                                       seed_val));
+    }
+    
+    // Do common configuration
+    sampler->multi_position_annotations = multi_position_annotations;
+    if (!inserted_path_handles.empty()) {
+        // Skip paths that we have added ourselves when annotating, so we search
+        // further for base-graph path.
+        std::function<bool(const path_handle_t&)> annotation_path_filter = [&inserted_path_handles](const path_handle_t& path) {
+            return !inserted_path_handles.count(path);
         };
+        sampler->annotation_path_filter = std::make_unique<std::function<bool(const path_handle_t&)>>(std::move(annotation_path_filter));
+    }
+    
+    // Generate an Aligner for rescoring
+    Aligner aligner(default_score_matrix, default_gap_open, default_gap_extension,
+                    default_full_length_bonus, vg::default_gc_content);
+                    
+    // We define a function to score a using the aligner
+    auto rescore = [&] (Alignment& aln) {
+        // Score using exact distance.
+        aln.set_score(aligner.score_contiguous_alignment(aln, strip_bonuses));
+    };
+    
+    // And a function to emit either single or paired reads, while recomputing scores.
+    auto emit = [&] (Alignment* r1, Alignment* r2) {
+        // write the alignment or its string
+        if (align_out) {
+            // write it out as requested
+            
+            // We will need scores
+            rescore(*r1);
+            if (r2) {
+                // And we have a paired read
+                rescore(*r2);
+                alignment_emitter->emit_pair(std::move(*r1), std::move(*r2));
+            } else {
+                // We have just one read.
+                alignment_emitter->emit_single(std::move(*r1));
+            }
+        } else {
+            // Print the sequences of the reads we have.
+            #pragma omp critical
+            {
+                cout << r1->sequence();
+                if (r2) {
+                    cout << "\t" << r2->sequence();
+                }
+                cout << endl;
+            }
+        }
+    };
+    
+    // The rest of the process has to split up by the type of sampler in use.
+    // TODO: Actually refactor to a common sampling interface.
+
+    if (dynamic_cast<Sampler*>(sampler.get())) {
+        // Not everything is bound to the new interface yet, so we need to do
+        // actual sampling through this typed pointer.
+        Sampler* basic_sampler = dynamic_cast<Sampler*>(sampler.get());
         
         size_t max_iter = 1000;
         int nonce = 1;
@@ -667,8 +814,8 @@ int main_sim(int argc, char** argv) {
             // For each read we are going to generate
             
             if (fragment_length) {
-                // fragment_lenght is nonzero so make it two paired reads
-                auto alns = sampler.alignment_pair(read_length, fragment_length, fragment_std_dev, base_error, indel_error);
+                // fragment_length is nonzero so make it two paired reads
+                auto alns = basic_sampler->alignment_pair(read_length, fragment_length, fragment_std_dev, base_error, indel_error);
                 
                 size_t iter = 0;
                 while (iter++ < max_iter) {
@@ -676,38 +823,22 @@ int main_sim(int argc, char** argv) {
                     if (alns.front().sequence().size() < read_length
                         || alns.back().sequence().size() < read_length) {
                         // If our read was too short, try again
-                        alns = sampler.alignment_pair(read_length, fragment_length, fragment_std_dev, base_error, indel_error);
+                        alns = basic_sampler->alignment_pair(read_length, fragment_length, fragment_std_dev, base_error, indel_error);
                     }
                 }
                 
                 // write the alignment or its string
-                if (align_out) {
-                    // write it out as requested
-                    
-                    // We will need scores
-                    rescore(alns.front());
-                    rescore(alns.back());
-                    
-                    if (json_out) {
-                        cout << pb2json(alns.front()) << endl;
-                        cout << pb2json(alns.back()) << endl;
-                    } else {
-                        aln_emitter->write_copy(alns.front());
-                        aln_emitter->write_copy(alns.back());
-                    }
-                } else {
-                    cout << alns.front().sequence() << "\t" << alns.back().sequence() << endl;
-                }
+                emit(&alns.front(), &alns.back()); 
             } else {
                 // Do single-end reads
-                auto aln = sampler.alignment_with_error(read_length, base_error, indel_error);
+                auto aln = basic_sampler->alignment_with_error(read_length, base_error, indel_error);
                 
                 size_t iter = 0;
                 while (iter++ < max_iter) {
                     // For up to max_iter iterations
                     if (aln.sequence().size() < read_length) {
                         // If our read is too short, try again
-                        auto aln_prime = sampler.alignment_with_error(read_length, base_error, indel_error);
+                        auto aln_prime = basic_sampler->alignment_with_error(read_length, base_error, indel_error);
                         if (aln_prime.sequence().size() > aln.sequence().size()) {
                             // But only keep the new try if it is longer
                             aln = aln_prime;
@@ -715,88 +846,39 @@ int main_sim(int argc, char** argv) {
                     }
                 }
                 
-                // write the alignment or its string
-                if (align_out) {
-                    // write it out as requested
-                    
-                    // We will need scores
-                    rescore(aln);
-                    
-                    if (json_out) {
-                        cout << pb2json(aln) << endl;
-                    } else {
-                        aln_emitter->write_copy(aln);
-                    }
-                } else {
-                    cout << aln.sequence() << endl;
-                }
+                // Emit the unpaired alignment
+                emit(&aln, nullptr);
             }
         }
         
-    }
-    else {
+    } else if (dynamic_cast<NGSSimulator*>(sampler.get())) {
         // Use the trained error rate
         
-        Aligner aligner(default_score_matrix, default_gap_open, default_gap_extension,
-                         default_full_length_bonus, vg::default_gc_content);
-        
-        NGSSimulator sampler(*xgidx,
-                             fastq_name,
-                             fastq_2_name,
-                             interleaved,
-                             path_names,
-                             path_ploidies,
-                             transcript_expressions,
-                             haplotype_transcripts,
-                             base_error,
-                             indel_error,
-                             indel_prop,
-                             fragment_length ? fragment_length : std::numeric_limits<double>::max(), // suppresses warnings about fragment length
-                             fragment_std_dev ? fragment_std_dev : 0.000001, // eliminates errors from having 0 as stddev without substantial difference
-                             error_scale_factor,
-                             !reads_may_contain_Ns,
-                             unsheared_fragments,
-                             seed_val);
+        // Not everything is bound to the new interface yet, so we need to do
+        // actual sampling through this typed pointer.
+        NGSSimulator* ngs_sampler = dynamic_cast<NGSSimulator*>(sampler.get());
         
         if (!path_pos_filename.empty()) {
-            sampler.connect_to_position_file(path_pos_filename);
+            ngs_sampler->connect_to_position_file(path_pos_filename);
         }
-        
-        unique_ptr<AlignmentEmitter> alignment_emitter = get_non_hts_alignment_emitter("-", json_out ? "JSON" : "GAM",
-                                                                                       map<string, int64_t>(), get_thread_count());
         
         // static scheduling could produce some degradation in speed, but i think it should make
         // the output deterministic (except for ordering)
 #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < num_reads; i++) {
             if (fragment_length) {
-                pair<Alignment, Alignment> read_pair = sampler.sample_read_pair();
-                read_pair.first.set_score(aligner.score_contiguous_alignment(read_pair.first, strip_bonuses));
-                read_pair.second.set_score(aligner.score_contiguous_alignment(read_pair.second, strip_bonuses));
-                
-                if (align_out) {
-                    alignment_emitter->emit_pair(std::move(read_pair.first), std::move(read_pair.second));
-                }
-                else {
-                    string line = read_pair.first.sequence() + '\t' + read_pair.second.sequence() + '\n';
-#pragma omp critical
-                    cout << line;
-                }
+                pair<Alignment, Alignment> read_pair = ngs_sampler->sample_read_pair();
+                emit(&read_pair.first, &read_pair.second);
             }
             else {
-                Alignment read = sampler.sample_read();
-                read.set_score(aligner.score_contiguous_alignment(read, strip_bonuses));
-                
-                if (align_out) {
-                    alignment_emitter->emit_single(std::move(read));
-                }
-                else {
-                    string line = read.sequence() + '\n';
-#pragma omp critical
-                    cout << line;
-                }
+                Alignment read = ngs_sampler->sample_read();
+                emit(&read, nullptr);
             }
         }
+    } else {
+        // We don't know about this sampler type.
+        // TODO: Define a real sampler interface that lets you sample.
+        throw std::logic_error("Attempted to use sampler type for which sampling is not implemented!");
     }
     
     return 0;

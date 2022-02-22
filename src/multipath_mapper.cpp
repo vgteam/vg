@@ -12,16 +12,39 @@
 //#define debug_time_phases
 //#define debug_log_splice_align_stats
 //#define debug_output_distance_correlation
-
+//#define debug_check_adapters
 
 #ifdef debug_time_phases
 #include <ctime>
 #endif
 
+#ifdef debug_check_adapters
+#include "ssw_aligner.hpp"
+#endif
+
 #include "multipath_mapper.hpp"
 
-// include this here to avoid a circular dependency
 #include "multipath_alignment_graph.hpp"
+#include "kmp.hpp"
+#include "hash_map.hpp"
+#include "position.hpp"
+#include "nodeside.hpp"
+#include "path.hpp"
+#include "utility.hpp"
+#include "annotation.hpp"
+#include "statistics.hpp"
+
+#include "identity_overlay.hpp"
+#include "reverse_graph.hpp"
+#include "split_strand_graph.hpp"
+#include "dagified_graph.hpp"
+
+#include "algorithms/count_covered.hpp"
+#include "algorithms/extract_containing_graph.hpp"
+#include "algorithms/locally_expand_graph.hpp"
+#include "algorithms/jump_along_path.hpp"
+#include "algorithms/ref_path_distance.hpp"
+#include "algorithms/component.hpp"
 
 namespace vg {
     
@@ -1505,6 +1528,10 @@ namespace vg {
             cerr << "rescue failed, doing independent spliced alignment and then re-attempting pairing" << endl;
 #endif
             
+#ifdef debug_time_phases
+            clock_t start = clock();
+#endif
+            
             multipath_alignment_t* rescue_anchor_1 = nullptr;
             multipath_alignment_t* rescue_anchor_2 = nullptr;
             double rescue_multiplicity_1 = 1.0, rescue_multiplicity_2 = 1.0;
@@ -1537,6 +1564,10 @@ namespace vg {
                                                                     multiplicities_2, multipath_aln_pairs_out,
                                                                     pair_distances, pair_multiplicities);
             }
+            
+#ifdef debug_time_phases
+            cerr << "\trescue failed, spliced alignment used: " << double(clock() - start) / CLOCKS_PER_SEC << " secs" << endl;
+#endif
         }
         
         if (!found_consistent) {
@@ -1862,6 +1893,7 @@ namespace vg {
 #endif
         
 #ifdef debug_time_phases
+        cerr << "starting time measurement for pair " << alignment1.name() << endl;
         clock_t start = clock();
 #endif
         
@@ -2072,6 +2104,10 @@ namespace vg {
             proper_paired = align_to_cluster_graphs_with_rescue(alignment1, alignment2, cluster_graphs1, cluster_graphs2, mems1,
                                                                 mems2, multipath_aln_pairs_out, cluster_pairs, rescue_multiplicities,
                                                                 fanouts1.get(), fanouts2.get());
+            
+#ifdef debug_time_phases
+            cerr << "no pairs, did alignments with rescue, time elapsed: " << double(clock() - start) / CLOCKS_PER_SEC << " secs" << endl;
+#endif
             
             if (proper_paired) {
                 // we'll want to remember the multiplicities
@@ -2407,7 +2443,7 @@ namespace vg {
                 
                 if (left_sites.size() * right_sites.size() > max_num_pairs) {
 #ifdef debug_multipath_mapper
-                    cerr << "number of pairs " << left_sites.size() * right_sites.size() << " for motif " << motif_num << " is above maximum " << max_num_pairs << "sampling downward" << endl;
+                    cerr << "number of pairs " << left_sites.size() * right_sites.size() << " for motif " << motif_num << " is above maximum " << max_num_pairs << ", sampling downward" << endl;
 #endif
                     
                     // there are too many pairs to just iterate over all of them, we have to select
@@ -2497,6 +2533,8 @@ namespace vg {
                 }
                 
                 bool operator==(const iterator& other) const {
+                    // this isn't valid if they are looking at different motifs or have a different maximum,
+                    // but that should never happen within the limited scope of this function
                     return (&iteratee == &other.iteratee && i == other.i);
                 }
                 
@@ -2717,28 +2755,95 @@ namespace vg {
                     }
                 }
                 
-#ifdef debug_multipath_mapper
-                cerr << "looking for shared motifs, number of candidate motif pairs will be" << endl;
-                for (size_t j = 0; j < splice_stats.motif_size(); ++j) {
-                    if (strand != Undetermined && splice_stats.motif_is_reverse(j) != (strand == Reverse)) {
-                        // we can only find splicing at junctions that have a consistent strand
-                        continue;
-                    }
-                    size_t left = left_region.candidate_splice_sites(j).size();
-                    size_t right = right_region.candidate_splice_sites(j).size();
-                    cerr << "\tmotif " << j << ": " << left << " * " << right << " = " << (left * right) << endl;
-                }
-#endif
-                
-                
+                // figure out how many pairs there are of each motif and across all motifs
+                size_t total_num_pairs = 0;
+                vector<size_t> num_candidate_pairs(splice_stats.motif_size(), 0);
                 for (size_t j = 0; j < splice_stats.motif_size(); ++j) {
                     if (strand != Undetermined && splice_stats.motif_is_reverse(j) != (strand == Reverse)) {
                         // we can only find splicing at junctions that have a consistent strand
                         continue;
                     }
                     
+                    num_candidate_pairs[j] = (left_region.candidate_splice_sites(j).size()
+                                              * right_region.candidate_splice_sites(j).size());
+                    total_num_pairs += num_candidate_pairs[j];
+                    
+#ifdef debug_multipath_mapper
+                    cerr << "motif " << j << " will have num candidate pairs: " << left_region.candidate_splice_sites(j).size() << " * " << right_region.candidate_splice_sites(j).size() << " = " << num_candidate_pairs[j] << endl;
+#endif
+                }
+                
+                // apportion the effort we'll spend across motifs
+                vector<size_t> motif_max_num_pairs;
+                if (total_num_pairs < max_motif_pairs) {
+                    // we can afford to do all of the candidates
+                    motif_max_num_pairs = move(num_candidate_pairs);
+                }
+                else {
+                    // we have to budget out the number of candidates, so we have this procedure
+                    // to apportion them among motifs based the motif frequency
+                    // note: each round has to either clear out the entire budget or clear out all
+                    // instances of at least one motif pair, which guarantees eventual termination
+                    // in `splice_stats.motif_size()` rounds
+                    // (the rounding up can actually cause us to break the maximum, but it
+                    // shouldn't be by very much, and rounding up is necessary to guarantee the
+                    // clearing property)
+                    
+                    motif_max_num_pairs.resize(splice_stats.motif_size(), 0);
+                    
+                    int64_t budget_remaining = max_motif_pairs;
+                    while (budget_remaining > 0) {
+#ifdef debug_multipath_mapper
+                        cerr << "new round of apportioning motif pair budget:" << endl;
+#endif
+                        // compute the normalizing factor for the frequency among the motifs that
+                        // still have motifs to assign
+                        double total_freq = 0.0;
+                        for (size_t j = 0; j < splice_stats.motif_size(); ++j) {
+                            if (motif_max_num_pairs[j] < num_candidate_pairs[j]) {
+                                total_freq += splice_stats.motif_frequency(j);
+                            }
+                        }
+                        int64_t next_budget_remaining = budget_remaining;
+                        for (size_t j = 0; j < splice_stats.motif_size(); ++j) {
+                            int64_t motif_remaining = num_candidate_pairs[j] - motif_max_num_pairs[j];
+                            if (motif_remaining > 0) {
+                                // figure out how many pairs out of the budget to give to this motif on this
+                                // round
+                                double round_fraction = splice_stats.motif_frequency(j) / total_freq;
+                                int64_t round_pairs = min<int64_t>(ceil(round_fraction * budget_remaining),
+                                                                   motif_remaining);
+                                // give it out from the budget
+                                next_budget_remaining -= round_pairs;
+                                motif_max_num_pairs[j] += round_pairs;
+#ifdef debug_multipath_mapper
+                                cerr << "\tadd " << round_pairs << " to motif " << j << ": " << motif_max_num_pairs[j] << endl;
+#endif
+                            }
+                            
+                        }
+                        budget_remaining = next_budget_remaining;
+                    }
+#ifdef debug_multipath_mapper
+                    cerr << "final apportionment:" << endl;
+                    for (size_t j = 0; j < splice_stats.motif_size(); ++j) {
+                        
+                        size_t left = left_region.candidate_splice_sites(j).size();
+                        size_t right = right_region.candidate_splice_sites(j).size();
+                        cerr << "motif " << j << ": " << motif_max_num_pairs[j]  << " pairs out of " << left * right << endl;
+                    }
+#endif
+                }
+                
+                
+                for (size_t j = 0; j < splice_stats.motif_size(); ++j) {
+                    if (motif_max_num_pairs[j] == 0) {
+                        // skip this one
+                        continue;
+                    }
+                    
                     // let the iterable decide which motif pairs we should look at
-                    MotifPairIterable motif_pairs(max_motif_pairs, left_prejoin_side,
+                    MotifPairIterable motif_pairs(motif_max_num_pairs[j], left_prejoin_side,
                                                   right_prejoin_side, j, alignment.sequence().size());
                     
                     for (auto it = motif_pairs.begin(), end = motif_pairs.end(); it != end; ++it) {
@@ -2802,7 +2907,7 @@ namespace vg {
         }
         
 #ifdef debug_multipath_mapper
-        cerr << "realigning across putative join regions" << endl;
+        cerr << "realigning across " << putative_joins.size() << " putative join regions" << endl;
 #endif
         
         // TODO: allow multiple splices in a multipath alignment
@@ -3554,6 +3659,23 @@ namespace vg {
                 if ((do_left && !search_left) || (!do_left && !search_right)) {
                     continue;
                 }
+                // try to figure out the softclip that we're seeing looks like it could be due to readthrough
+                // of a adapter across the paired reads
+                // TODO: magic number
+                static const int64_t adapter_overlap_slosh = 2;
+                if (!do_left && !read_1_adapter.empty()) {
+                    size_t begin = max<int64_t>(0, interval.second - adapter_overlap_slosh);
+                    size_t end = min<size_t>(begin + read_1_adapter.size() + 2 * adapter_overlap_slosh,
+                                             alignment.sequence().size());
+                    size_t pos = kmp_search(alignment.sequence().c_str() + begin, end - begin,
+                                            read_1_adapter.c_str(), read_1_adapter.size(),
+                                            read_1_adapter_lps);
+                    if (pos != string::npos) {
+                        // this softclip is bracketed by a known adapter sequence, it is much more likely
+                        // that it should be adapter trimmed rather than meriting a spliced alignment
+                        continue;
+                    }
+                }
                 
                 // move the anchor out of the vector to protect it from any shuffling that goes on
                 multipath_alignment_t splice_anchor = move(multipath_alns_out[current_index[j]]);
@@ -3715,6 +3837,12 @@ namespace vg {
             return false;
         }
         
+#ifdef debug_check_adapters
+        bool attempt_1_left = false, attempt_1_right = false, attempt_2_left = false, attempt_2_right = false;
+        bool success_1_left = false, success_1_right = false, success_2_left = false, success_2_right = false;
+        bool adapter_1_left = false, adapter_1_right = false, adapter_2_left = false, adapter_2_right = false;
+#endif
+        
         // TODO: it would be better to use likelihoods rather than scores (esp. in paired)
         
         // choose the score cutoff based on the original unspliced mappings
@@ -3754,6 +3882,11 @@ namespace vg {
             cerr << "determining whether to make spliced alignment for pair at index " << current_index[j] << endl;
 #endif
             
+#ifdef debug_check_adapters
+            bool attempt_1_left = false, attempt_1_right = false, attempt_2_left = false, attempt_2_right = false;
+            bool success_1_left = false, success_1_right = false, success_2_left = false, success_2_right = false;
+#endif
+            
             for (int read_num = 0; read_num < 2; ) {
                 
                 bool do_read_1 = (read_num == 0);
@@ -3779,6 +3912,16 @@ namespace vg {
                 bool search_left = left_max_score >= min_softclipped_score_for_splice;
                 bool search_right = right_max_score >= min_softclipped_score_for_splice;
                 
+#ifdef debug_check_adapters
+                if (do_read_1) {
+                    attempt_1_left |= search_left;
+                    attempt_1_right |= search_right;
+                }
+                else {
+                    attempt_2_left |= search_left;
+                    attempt_2_right |= search_right;
+                }
+#endif
 #ifdef debug_multipath_mapper
                 cerr << "on read " << (do_read_1 ? 1 : 2) << " looking for spliced alignments, to left? " << search_left << ", to right? " << search_right << ", interval " << interval.first << ":" << interval.second << " with max tail scores " << left_max_score << " " << right_max_score << ", and required max score " << min_softclipped_score_for_splice << endl;
 #endif
@@ -3788,6 +3931,35 @@ namespace vg {
                 for (bool do_left : {true, false}) {
                     if ((do_left && !search_left) || (!do_left && !search_right)) {
                         continue;
+                    }
+                    // try to figure out the softclip that we're seeing looks like it could be due to readthrough
+                    // of a adapter across the paired reads
+                    // TODO: magic number
+                    static const int64_t adapter_overlap_slosh = 2;
+                    if (do_read_1 && !do_left && !read_1_adapter.empty()) {
+                        size_t begin = max<int64_t>(0, interval.second - adapter_overlap_slosh);
+                        size_t end = min<size_t>(begin + read_1_adapter.size() + 2 * adapter_overlap_slosh,
+                                                 aln.sequence().size());
+                        size_t pos = kmp_search(aln.sequence().c_str() + begin, end - begin,
+                                                read_1_adapter.c_str(), read_1_adapter.size(),
+                                                read_1_adapter_lps);
+                        if (pos != string::npos) {
+                            // this softclip is bracketed by a known adapter sequence, it is much more likely
+                            // that it should be adapter trimmed rather than meriting a spliced alignment
+                            continue;
+                        }
+                    }
+                    if (!do_read_1 && do_left && !read_2_adapter.empty()) {
+                        size_t end = min<size_t>(interval.first + adapter_overlap_slosh, aln.sequence().size());
+                        size_t begin = max<int64_t>(0, end - read_2_adapter.size() - 2 * adapter_overlap_slosh);
+                        size_t pos = kmp_search(aln.sequence().c_str() + begin, end - begin,
+                                                read_2_adapter.c_str(), read_2_adapter.size(),
+                                                read_2_adapter_lps);
+                        if (pos != string::npos) {
+                            // this softclip is bracketed by a known adapter sequence, it is much more likely
+                            // that it should be adapter trimmed rather than meriting a spliced alignment
+                            continue;
+                        }
                     }
                     
                     // select the candidate sources for the corresponding read
@@ -3973,6 +4145,25 @@ namespace vg {
                         pair_multiplicities[current_index[j]] = anchor_multiplicity;
                     }
                     
+#ifdef debug_check_adapters
+                    if (do_read_1) {
+                        if (do_left) {
+                            success_1_left |= spliced_side;
+                        }
+                        else {
+                            success_1_right |= spliced_side;
+                        }
+                    }
+                    else {
+                        if (do_left) {
+                            success_2_left |= spliced_side;
+                        }
+                        else {
+                            success_2_right |= spliced_side;
+                        }
+                    }
+#endif
+                    
                     any_splices = any_splices || spliced_side;
                     found_splice_for_anchor = found_splice_for_anchor || spliced_side;
                     
@@ -3990,6 +4181,27 @@ namespace vg {
                     ++read_num;
                 }
             }
+            
+#ifdef debug_check_adapters
+            vector<int32_t> adapter_aln_scores;
+            vector<string> adapters{"AGATCGGAAGAG"}; // the illumina universal adapter
+            adapters.push_back(reverse_complement(adapters.back()));
+            for (auto mp_aln : {multipath_aln_pairs_out[current_index[j]].first, multipath_aln_pairs_out[current_index[j]].second}) {
+                for (auto adapter : adapters) {
+                    adapter_aln_scores.push_back(SSWAligner().align(mp_aln.sequence(), adapter).score());
+                }
+            }
+            string line = (alignment1.name() +
+                           "\t" + to_string(attempt_1_left) + "\t" + to_string(attempt_1_right) +
+                           "\t" + to_string(attempt_2_left) + "\t" + to_string(attempt_2_right) +
+                           "\t" + to_string(success_1_left) + "\t" + to_string(success_1_right) +
+                           "\t" + to_string(success_2_left) + "\t" + to_string(success_2_right));
+            for (auto s : adapter_aln_scores) {
+                line += (string("\t") + to_string(s));
+            }
+            line += "\n";
+            cerr << line;
+#endif
         }
         
         if (any_splices) {
@@ -6071,22 +6283,7 @@ namespace vg {
         for (auto& mem_hit : mem_hits.first) {
             mem_read_segments.emplace_back(mem_hit.first->begin, mem_hit.first->end);
         }
-        std::sort(mem_read_segments.begin(), mem_read_segments.end());
-        auto curr_begin = mem_read_segments[0].first;
-        auto curr_end = mem_read_segments[0].second;
-        
-        int64_t total = 0;
-        for (size_t i = 1; i < mem_read_segments.size(); i++) {
-            if (mem_read_segments[i].first >= curr_end) {
-                total += (curr_end - curr_begin);
-                curr_begin = mem_read_segments[i].first;
-                curr_end = mem_read_segments[i].second;
-            }
-            else if (mem_read_segments[i].second > curr_end) {
-                curr_end = mem_read_segments[i].second;
-            }
-        }
-        get<2>(cluster_graph) = total + (curr_end - curr_begin);
+        get<2>(cluster_graph) = algorithms::count_covered(mem_read_segments);
         
         stable_sort(get<1>(cluster_graph).first.begin(), get<1>(cluster_graph).first.end(), length_first_cmp);
     }
@@ -7106,6 +7303,26 @@ namespace vg {
 
     void MultipathMapper::set_max_merge_supression_length() {
         max_tail_merge_supress_length = ceil(double(get_regular_aligner()->match) / double(get_regular_aligner()->mismatch));
+    }
+
+    void MultipathMapper::set_read_1_adapter(const string& adapter) {
+        // TODO: magic number
+        string trimmed_adapter = adapter;
+        if (trimmed_adapter.size() > 12) {
+            trimmed_adapter.resize(12);
+        }
+        read_1_adapter = trimmed_adapter;
+        read_1_adapter_lps = make_prefix_suffix_table(read_1_adapter.c_str(), read_1_adapter.size());
+    }
+
+    void MultipathMapper::set_read_2_adapter(const string& adapter) {
+        // TODO: magic number
+        string trimmed_adapter = adapter;
+        if (trimmed_adapter.size() > 12) {
+            trimmed_adapter.resize(12);
+        }
+        read_2_adapter = reverse_complement(trimmed_adapter);
+        read_2_adapter_lps = make_prefix_suffix_table(read_2_adapter.c_str(), read_2_adapter.size());
     }
 
     // make the memos live in this .o file

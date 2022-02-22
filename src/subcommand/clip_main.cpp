@@ -67,7 +67,7 @@ int main_clip(int argc, char** argv) {
     bool snarl_option = false;
     
     int64_t max_deletion = -1;
-    int64_t context_steps = 1;
+    int64_t context_steps = -1;
 
     if (argc == 2) {
         help_clip(argv);
@@ -201,13 +201,9 @@ int main_clip(int argc, char** argv) {
         return 1;
     }
 
-    // to do: This is implementable but I don't think that useful:
-    if (min_depth >= 0 && !bed_path.empty()) {
-        cerr << "error:[vg-clip] -b cannot be used with -D" << endl;
-    }
-
     if (context_steps >= 0 && max_deletion < 0) {
-        cerr << "error:[vg-clip] -s can only be used with -D" << endl;
+        cerr << "error:[vg-clip] -c can only be used with -D" << endl;
+        return 1;
     }
 
     // default to same

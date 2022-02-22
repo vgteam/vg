@@ -7,6 +7,7 @@
 
 //#define debug_incremental_subgraph
 
+
 namespace vg {
 
 using namespace std;
@@ -14,101 +15,210 @@ using namespace std;
 IncrementalSubgraph::IncrementalSubgraph(const HandleGraph& graph,
                                          const pos_t& start_pos,
                                          bool extract_left,
-                                         int64_t max_distance) :
-    graph(&graph), extract_left(extract_left), max_distance(max_distance)
+                                         int64_t max_distance,
+                                         size_t frontier_copy_limit,
+                                         size_t max_num_nodes) :
+    graph(&graph), extract_left(extract_left), max_distance(max_distance), frontier_copy_limit(frontier_copy_limit), max_num_nodes(max_num_nodes)
 {
+#ifdef debug_incremental_subgraph
+    cerr << "initializing incremental graph from " << start_pos << " in " << (extract_left ? "left" : "right") << " direction up to distance " << max_distance << ", max frontier count " << frontier_copy_limit << endl;
+#endif
+    
     handle_t start = graph.get_handle(id(start_pos), is_rev(start_pos));
     int64_t dist = extract_left ? offset(start_pos) - graph.get_length(start) : -offset(start_pos);
+    
     extracted.emplace_back(start, vector<size_t>(), vector<size_t>(), dist, dist);
-    extracted_index[start] = 0;
     
     // initialize the frontier
     int64_t dist_thru = dist + graph.get_length(start);
     if (dist_thru < max_distance) {
         graph.follow_edges(start, extract_left, [&](const handle_t& next) {
-            // we start by covering one edge (the one we're traversing right now)
-            size_t back_degree = graph.get_degree(next, !extract_left) - 1;
-            auto entry = frontier.emplace(back_degree, dist_thru, next);
-            frontier_index[next] = entry.first;
+            
+            // add all the back edges except the one we're using
+            auto unseen_back_edges = new unordered_set<handle_t>();
+            graph.follow_edges(next, !extract_left, [&](const handle_t& prev) {
+                if (prev != start) {
+                    // mark all edges unseen except the one we're traversing
+                    unseen_back_edges->emplace(prev);
+                }
+            });
+            auto seen_back_edges = new vector<size_t>(1, 0);
+            // add the frontier and its random access index
+            auto entry = frontier.emplace(dist_thru, next, unseen_back_edges, seen_back_edges);
+            ++frontier_count[next];
+            auto& target_index = frontier_index[next];
+            graph.follow_edges(next, !extract_left, [&](const handle_t& prev) {
+                if (prev != start) {
+                    // mark all edges unseen except the one we're traversing
+                    target_index[prev].emplace(entry.first);
+                }
+            });
+            
+#ifdef debug_incremental_subgraph
+            cerr << "initialized frontier with node " << graph.get_id(next) << " " << graph.get_is_reverse(next) << " at " << &(*entry.first) << ", which has unseen backward edges to:" << endl;
+            for (auto h : *unseen_back_edges) {
+                cerr << "\t" << graph.get_id(h) << " " << graph.get_is_reverse(h) << endl;
+            }
+            cerr << "allocated unseen edges at " << unseen_back_edges << endl;
+#endif
         });
     }
         
 }
 
+IncrementalSubgraph::~IncrementalSubgraph() {
+    for (auto& record : frontier) {
+        delete get<2>(record);
+        delete get<3>(record);
+    }
+}
+
 bool IncrementalSubgraph::is_extendable() const {
-    return !frontier.empty();
+    return !frontier.empty() && get_node_count() < max_num_nodes;
 }
 
 handle_t IncrementalSubgraph::extend() {
-
-    // get frontier group with fewest uncovered edges (breaking ties
-    auto front = frontier.begin();
-    auto nearest = *front;
+    // get frontier group with fewest uncovered edges (breaking ties arbitrarily)
+    auto it = frontier.begin();
+    auto nearest = *it;
     
 #ifdef debug_incremental_subgraph
-    cerr << "adding frontier node " << graph->get_id(get<2>(nearest)) << " " << graph->get_is_reverse(get<2>(nearest)) << endl;
+    cerr << "####" << endl;
+    cerr << "extracting a copy of " << graph->get_id(get<1>(nearest)) << " " << graph->get_is_reverse(get<1>(nearest)) << " at " << &(*it) << ", which has remaining unseen backward edges at " << get<2>(nearest) << " to:" << endl;
+    for (auto h : *get<2>(nearest)) {
+        cerr << "\t" << graph->get_id(h) << " " << graph->get_is_reverse(h) << endl;
+    }
+    cerr << "and seen backward edges to:" << endl;
+    for (auto i : *get<3>(nearest)) {
+        auto h = get<0>(extracted[i]);
+        cerr << "\t" << i << " (" << graph->get_id(h) << " " << graph->get_is_reverse(h) << ")" << endl;
+    }
 #endif
     
-    // remove the node from corresponding index
-    frontier_index.erase(get<2>(nearest));
-    frontier.erase(nearest);
+    // remove the node from the frontier
+    frontier.erase(it);
+    --frontier_count[get<1>(nearest)];
     
-    // the distance to the end of this node
-    int64_t dist_thru = get<1>(nearest) + graph->get_length(get<2>(nearest));
+    // the index for copies of this node in the frontier
+    auto& target_index = frontier_index.at(get<1>(nearest));
+    for (auto prev : *get<2>(nearest)) {
+        // the index for all unseen predecessors of this frontier node
+        auto& source_index = target_index.at(prev);
+        // the frontier node we're removing should always be the first one
+        source_index.erase(source_index.begin());
+    }
     
-    graph->follow_edges(get<2>(nearest), extract_left, [&](const handle_t& next) {
-        auto it = frontier_index.find(next);
-        if (it != frontier_index.end()) {
-            // we've already added this node into the frontier, but now we're covering
-            // one more of its edges is covered, move it into the next bucket
-            auto record = *it->second;
-            frontier.erase(it->second);
-            auto entry = frontier.emplace(get<0>(record) - 1,
-                                          min(dist_thru, get<1>(record)),
-                                          get<2>(record));
-            it->second = entry.first;
-#ifdef debug_incremental_subgraph
-            cerr << "decrementing incoming count of frontier node " << graph->get_id(next) << " " << graph->get_is_reverse(next) << " to " << get<0>(record) - 1 << endl;
-#endif
-        }
-        else if (dist_thru < max_distance) {
-            // we haven't added this node to the frontier, but it's still within the
-            // distance limits
-#ifdef debug_incremental_subgraph
-            cerr << "adding " << graph->get_id(next) << " " << graph->get_is_reverse(next) << " to the frontier" << endl;
-#endif
-            
-            // we start by covering one edge (the one we're traversing right now)
-            size_t back_degree = graph->get_degree(next, !extract_left) - 1;
-            auto entry = frontier.emplace(back_degree, dist_thru, next);
-            frontier_index[next] = entry.first;
-        }
-    });
-    
-    // make an entry in the extracted
-    extracted_index[get<2>(nearest)] = extracted.size();
+    // make a node in the extracted subgraph
     extracted.emplace_back();
     auto& extracted_record = extracted.back();
-    get<0>(extracted_record) = get<2>(nearest);
-    get<3>(extracted_record) = get<1>(nearest);
+    get<0>(extracted_record) = get<1>(nearest);
+    
+    // add the edges
+    get<1>(extracted_record) = move(*get<3>(nearest));
+    for (size_t prev : get<1>(extracted_record)) {
+        get<2>(extracted[prev]).push_back(extracted.size() - 1);
+    }
+    
+    // retrieve minimum distance
+    get<3>(extracted_record) = get<0>(nearest);
+    // figure out the maximum distance
     get<4>(extracted_record) = 0;
-    // add edges to predecessors that have already been taken out of the frontier
-    graph->follow_edges(get<2>(nearest), !extract_left, [&](const handle_t& prev) {
-        // TODO: is it sufficient to only add edges to the last copy in the presence
-        // of cycles?
-        auto it = extracted_index.find(prev);
-        if (it != extracted_index.end()) {
-            get<1>(extracted_record).push_back(it->second);
-            get<2>(extracted[it->second]).push_back(extracted.size() - 1);
-            get<4>(extracted_record) = max<int64_t>(get<4>(extracted_record),
-                                                    get<4>(extracted[it->second])
-                                                    + graph->get_length(it->first));
+    for (size_t prev : get<1>(extracted_record)) {
+        auto& prev_record = extracted[prev];
+        get<4>(extracted_record) = max<int64_t>(get<4>(extracted_record),
+                                                get<4>(prev_record) + graph->get_length(get<0>(prev_record)));
+    }
+    
 #ifdef debug_incremental_subgraph
-            cerr << "add edge " << it->second << " -> " << extracted.size() - 1 << endl;
-            cerr << "update max dist to " << get<4>(extracted_record) << endl;
+    cerr << "min distance: " << get<3>(extracted_record) << ", max distance: " << get<4>(extracted_record) << endl;
+#endif
+    
+    // the distance to the end of this node
+    int64_t dist_thru = get<0>(nearest) + graph->get_length(get<1>(nearest));
+    
+    graph->follow_edges(get<1>(nearest), extract_left, [&](const handle_t& next) {
+        // see if we can mark this edge on one of the copies of the next node
+        // that are currently in the frontier
+        bool marked_edge = false;
+        auto index_iter = frontier_index.find(next);
+        if (index_iter != frontier_index.end()) {
+            // this node exists in the frontier
+            auto source_iter = index_iter->second.find(get<1>(nearest));
+            if (source_iter != index_iter->second.end() && !source_iter->second.empty()) {
+                // there are copies of this node in the frontier that haven't had
+                // this edge marked yet, get the highest priority copy
+                auto frontier_iter = *source_iter->second.begin();
+                auto frontier_entry = *frontier_iter;
+                
+                // remove this frontier entry from everywhere that the index is holding it
+                for (auto prev : *get<2>(frontier_entry)) {
+                    
+                    index_iter->second.at(prev).erase(frontier_iter);
+                }
+                frontier.erase(frontier_iter);
+                // mark the unseen edge and move it to the seen edges
+                get<2>(frontier_entry)->erase(get<1>(nearest));
+                get<3>(frontier_entry)->push_back(extracted.size() - 1);
+                // possibly update the minimum distance
+                get<0>(frontier_entry) = min(get<0>(frontier_entry), dist_thru);
+                // put it back in the frontier
+                auto new_entry_iter = frontier.emplace(frontier_entry);
+                // reinsert the new iterator everwhere it needs to go in the
+                // random access index
+                for (auto prev : *get<2>(frontier_entry)) {
+                    index_iter->second.at(prev).emplace(new_entry_iter.first);
+                }
+                
+#ifdef debug_incremental_subgraph
+                cerr << "updated frontier node " << graph->get_id(next) << " " << graph->get_is_reverse(next) << ", which has unseen backward edges to:" << endl;
+                for (auto h : *get<2>(frontier_entry)) {
+                    cerr << "\t" << graph->get_id(h) << " " << graph->get_is_reverse(h) << endl;
+                }
+#endif
+                
+                marked_edge = true;
+            }
+        }
+        
+        // TODO: it can be suboptimal (in terms of distance) to always reject the incoming
+        // frontier node instead of the current lowest-priority one, but we would need
+        // another whole index to do that...
+        
+        if (!marked_edge && dist_thru < max_distance && frontier_count[next] < frontier_copy_limit) {
+            // we need to add a new copy of this node to the frontier
+            
+            auto unseen_back_edges = new unordered_set<handle_t>();
+            graph->follow_edges(next, !extract_left, [&](const handle_t& prev) {
+                if (prev != get<1>(nearest)) {
+                    // mark all edges unseen except the one we're traversing
+                    unseen_back_edges->emplace(prev);
+                }
+            });
+            auto seen_back_edges = new vector<size_t>(1, extracted.size() - 1);
+            // add the frontier and its random access index
+            auto entry = frontier.emplace(dist_thru, next, unseen_back_edges, seen_back_edges);
+            ++frontier_count[next];
+            auto& successor_index = frontier_index[next];
+            graph->follow_edges(next, !extract_left, [&](const handle_t& prev) {
+                if (prev != get<1>(nearest)) {
+                    // mark all edges unseen except the one we're traversing
+                    successor_index[prev].emplace(entry.first);
+                }
+            });
+#ifdef debug_incremental_subgraph
+            cerr << "added new frontier copy of node " << graph->get_id(next) << " " << graph->get_is_reverse(next) << " at " << &(*entry.first) << ", which has unseen backward edges to:" << endl;
+            for (auto h : *unseen_back_edges) {
+                cerr << "\t" << graph->get_id(h) << " " << graph->get_is_reverse(h) << endl;
+            }
+            cerr << "allocated unseen edges at " << unseen_back_edges << endl;
 #endif
         }
     });
+    
+    // clean up the heap objects
+    delete get<2>(nearest);
+    delete get<3>(nearest);
+    
     return get_handle(extracted.size(), false);
 }
 

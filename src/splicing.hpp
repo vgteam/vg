@@ -52,6 +52,8 @@ public:
     string unoriented_motif(size_t motif_num, bool left_side) const;
     // the score associated with a splicing motif
     int32_t motif_score(size_t motif_num) const;
+    // the frequency of the motif in the input data
+    double motif_frequency(size_t motif_num) const;
     // the score associated with an intron length
     int32_t intron_length_score(int64_t length) const;
     // change the motifs

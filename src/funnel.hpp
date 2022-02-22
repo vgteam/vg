@@ -122,6 +122,12 @@ public:
     /// Return true if the given item at the previous stage is tagged correct, or
     /// descends from an item that was tagged correct.
     bool was_correct(size_t prev_stage_item) const;
+    
+    /// Return true if the given item at the given named previous stage is
+    /// tagged correct, or descends from an item that was tagged correct.
+    /// Needs a hint about what number the stage was in the order, to make
+    /// lookup fast.
+    bool was_correct(size_t prev_stage_index, const string& prev_stage_name, size_t prev_stage_item) const;
 
     /// Get the name of the most recent stage that had a correct-tagged item
     /// survive into it, or "none" if no items were ever tagged correct.

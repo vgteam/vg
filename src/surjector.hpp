@@ -109,7 +109,8 @@ using namespace std;
         
         Alignment
         realigning_surject(const PathPositionHandleGraph* graph, const Alignment& source,
-                           const path_handle_t& path_handle, const vector<path_chunk_t>& path_chunks,
+                           const path_handle_t& path_handle, bool rev_strand,
+                           const vector<path_chunk_t>& path_chunks,
                            pair<step_handle_t, step_handle_t>& path_range_out,
                            bool allow_negative_scores,
                            bool preserve_N_alignments = false,
@@ -119,7 +120,8 @@ using namespace std;
         spliced_surject(const PathPositionHandleGraph* path_position_graph,
                         const string& src_sequence, const string& src_quality,
                         const int32_t src_mapping_quality,
-                        const path_handle_t& path_handle, vector<path_chunk_t>& path_chunks,
+                        const path_handle_t& path_handle, bool rev_strand,
+                        vector<path_chunk_t>& path_chunks,
                         vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                         vector<tuple<size_t, size_t, int32_t>>& connections,
                         pair<step_handle_t, step_handle_t>& path_range_out,
@@ -130,16 +132,16 @@ using namespace std;
         ///////////////////////
         
         /// get the chunks of the alignment path that follow the given reference paths
-        unordered_map<path_handle_t, pair<vector<path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>
+        unordered_map<pair<path_handle_t, bool>, pair<vector<path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>
         extract_overlapping_paths(const PathPositionHandleGraph* graph, const Alignment& source,
                                   const unordered_set<path_handle_t>& surjection_paths) const;
         
         /// same semantics except for a multipath alignment
-        unordered_map<path_handle_t, pair<vector<path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>
+        unordered_map<pair<path_handle_t, bool>, pair<vector<path_chunk_t>, vector<pair<step_handle_t, step_handle_t>>>>
         extract_overlapping_paths(const PathPositionHandleGraph* graph,
                                   const multipath_alignment_t& source,
                                   const unordered_set<path_handle_t>& surjection_paths,
-                                  unordered_map<path_handle_t, vector<tuple<size_t, size_t, int32_t>>>& connections_out) const;
+                                  unordered_map<pair<path_handle_t, bool>, vector<tuple<size_t, size_t, int32_t>>>& connections_out) const;
         
         /// remove any path chunks and corresponding ref chunks that are identical to a longer
         /// path chunk over the region where they overlap
@@ -152,7 +154,7 @@ using namespace std;
         /// end if there are no path chunks.
         pair<size_t, size_t>
         compute_path_interval(const PathPositionHandleGraph* graph, const Alignment& source, path_handle_t path_handle,
-                              const vector<path_chunk_t>& path_chunks) const;
+                              bool rev_strand, const vector<path_chunk_t>& path_chunks) const;
         
         /// make a linear graph that corresponds to a path interval, possibly duplicating nodes in case of cycles
         unordered_map<id_t, pair<id_t, bool>>
@@ -163,7 +165,7 @@ using namespace std;
         void set_path_position(const PathPositionHandleGraph* graph, const pos_t& init_surj_pos,
                                const pos_t& final_surj_pos,
                                const step_handle_t& range_begin, const step_handle_t& range_end,
-                               string& path_name_out, int64_t& path_pos_out, bool& path_rev_out) const;
+                               bool rev_strand, string& path_name_out, int64_t& path_pos_out, bool& path_rev_out) const;
         
         ///////////////////////
         // Support methods for the spliced surject algorithm

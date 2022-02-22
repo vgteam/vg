@@ -223,17 +223,19 @@ TEST_CASE("Path overlapping segments can be identified from multipath alignment"
     
     SECTION("Forward strand of path") {
         
-        unordered_map<path_handle_t, vector<tuple<size_t, size_t, int32_t>>> connections;
+        unordered_map<pair<path_handle_t, bool>, vector<tuple<size_t, size_t, int32_t>>> connections;
         
         auto overlaps = surjector.extract_overlapping_paths(&pos_graph, mp_aln,
                                                             surjection_paths,
                                                             connections);
         
-        REQUIRE(overlaps.count(p));
+        auto fp = make_pair(p, false);
+        
+        REQUIRE(overlaps.count(fp));
         REQUIRE(overlaps.size() == 1);
         REQUIRE(connections.empty());
         
-        auto& p_overlaps = overlaps[p];
+        auto& p_overlaps = overlaps[fp];
         
         REQUIRE(p_overlaps.first.size() == 1);
         REQUIRE(p_overlaps.first.front().first.first == mp_aln.sequence().begin());
@@ -259,7 +261,7 @@ TEST_CASE("Path overlapping segments can be identified from multipath alignment"
     
     SECTION("Reverse strand of path"){
         
-        unordered_map<path_handle_t, vector<tuple<size_t, size_t, int32_t>>> connections;
+        unordered_map<pair<path_handle_t, bool>, vector<tuple<size_t, size_t, int32_t>>> connections;
         
         multipath_alignment_t rev_mp_aln;
         rev_comp_multipath_alignment(mp_aln, node_length, rev_mp_aln);
@@ -268,11 +270,13 @@ TEST_CASE("Path overlapping segments can be identified from multipath alignment"
                                                             surjection_paths,
                                                             connections);
         
-        REQUIRE(overlaps.count(p));
+        auto rp = make_pair(p, true);
+            
+        REQUIRE(overlaps.count(rp));
         REQUIRE(overlaps.size() == 1);
         REQUIRE(connections.empty());
         
-        auto& p_overlaps = overlaps[p];
+        auto& p_overlaps = overlaps[rp];
         
         REQUIRE(p_overlaps.first.size() == 1);
         REQUIRE(p_overlaps.first.front().first.first == rev_mp_aln.sequence().begin());
@@ -326,24 +330,26 @@ TEST_CASE("Path overlapping segments can be identified from multipath alignment"
     
     SECTION("Connections break segments and are recorded correctly") {
         
-        unordered_map<path_handle_t, vector<tuple<size_t, size_t, int32_t>>> connections;
+        unordered_map<pair<path_handle_t, bool>, vector<tuple<size_t, size_t, int32_t>>> connections;
         
         auto overlaps = surjector.extract_overlapping_paths(&pos_graph, mp_aln,
                                                             surjection_paths,
                                                             connections);
         
-        REQUIRE(overlaps.count(p));
+        auto fp = make_pair(p, false);
+        
+        REQUIRE(overlaps.count(fp));
         REQUIRE(overlaps.size() == 1);
         
-        auto& p_overlaps = overlaps[p];
+        auto& p_overlaps = overlaps[fp];
         
         REQUIRE(p_overlaps.first.size() == 5);
         REQUIRE(p_overlaps.second.size() == 5);
         
         REQUIRE(connections.size() == 1);
-        REQUIRE(connections.count(p));
+        REQUIRE(connections.count(fp));
         
-        auto& p_connections = connections[p];
+        auto& p_connections = connections[fp];
         
         REQUIRE(p_connections.size() == 2);
         

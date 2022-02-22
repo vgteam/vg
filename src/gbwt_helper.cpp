@@ -442,7 +442,8 @@ std::vector<gbwt::size_type> threads_for_contig(const gbwt::GBWT& gbwt_index, co
 
 std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id, std::string path_name) {
 
-    gbwt::size_type sequence_id = gbwt::Path::encode(id, false);
+    gbwt::size_type sequence_id = gbwt_index.bidirectional() ? gbwt::Path::encode(id, false) : id;
+
     if (sequence_id >= gbwt_index.sequences()) {
         std::cerr << "error: [insert_gbwt_path()] invalid path id: " << id << std::endl;
         return "";
@@ -470,7 +471,7 @@ std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gb
 Path extract_gbwt_path(const HandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
 
     Path result;
-    gbwt::size_type sequence_id = gbwt::Path::encode(id, false);
+    gbwt::size_type sequence_id = gbwt_index.bidirectional() ? gbwt::Path::encode(id, false) : id;
     if (sequence_id >= gbwt_index.sequences()) {
         std::cerr << "error: [insert_gbwt_path()] invalid path id: " << id << std::endl;
         return result;
