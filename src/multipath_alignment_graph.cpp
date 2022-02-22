@@ -2539,6 +2539,17 @@ namespace vg {
             return end ? end_node_id(idx) : start_node_id(idx);
         };
         
+        auto non_empty_from_length = [&](size_t idx) {
+            for (const auto& mapping : path_nodes[idx].path.mapping()) {
+                for (const auto& edit : mapping.edit()) {
+                    if (edit.from_length()) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+        
         // record the start and end node ids of every path
         // Maps from node ID to the list of MEM numbers that start on that node.
         unordered_map<id_t, vector<size_t>> path_starts;
@@ -2664,10 +2675,10 @@ namespace vg {
                 size_t curr_end_offset = end_offset(ends[end_range_begin]);
                 size_t prev_offset = 0;
                 
-                while (end_range_end == ends.size() ? false : end_offset(ends[end_range_end]) == curr_end_offset) {
+                while (end_range_end != ends.size() && end_offset(ends[end_range_end]) == curr_end_offset) {
                     end_range_end++;
                 }
-                while (start_range_end == starts.size() ? false : start_offset(starts[start_range_end]) == curr_start_offset) {
+                while (start_range_end != starts.size() && start_offset(starts[start_range_end]) == curr_start_offset) {
                     start_range_end++;
                 }
                 
@@ -2741,7 +2752,7 @@ namespace vg {
                 prev_offset = *curr_offset;
                 if (*range_begin != endpoints->size()) {
                     *curr_offset = endpoint_offset(endpoints->at(*range_begin), at_end);
-                    while (*range_end == endpoints->size() ? false : endpoint_offset(endpoints->at(*range_end), at_end) == *curr_offset) {
+                    while (*range_end != endpoints->size() && endpoint_offset(endpoints->at(*range_end), at_end) == *curr_offset) {
                         (*range_end)++;
                     }
                 }
@@ -2817,7 +2828,7 @@ namespace vg {
                     prev_offset = *curr_offset;
                     if (*range_begin != endpoints->size()) {
                         *curr_offset = endpoint_offset(endpoints->at(*range_begin), at_end);
-                        while (*range_end == endpoints->size() ? false : endpoint_offset(endpoints->at(*range_end), at_end) == *curr_offset) {
+                        while (*range_end != endpoints->size() && endpoint_offset(endpoints->at(*range_end), at_end) == *curr_offset) {
                             (*range_end)++;
                         }
                     }
@@ -2901,7 +2912,7 @@ namespace vg {
                     
                     if (*range_begin != endpoints->size()) {
                         *curr_offset = endpoint_offset(endpoints->at(*range_begin), at_end);
-                        while (*range_end == endpoints->size() ? false : endpoint_offset(endpoints->at(*range_end), at_end) == *curr_offset) {
+                        while (*range_end != endpoints->size() && endpoint_offset(endpoints->at(*range_end), at_end) == *curr_offset) {
                             (*range_end)++;
                         }
                     }
@@ -3196,7 +3207,7 @@ namespace vg {
                     
                     while (!start_queue.empty() || !end_queue.empty()) {
                         // is the next item on the queues a start or an end?
-                        if (start_queue.empty() ? false : (end_queue.empty() ? true : start_queue.top().second < end_queue.top().second)) {
+                        if (!start_queue.empty() && (end_queue.empty() || start_queue.top().second < end_queue.top().second)) {
                             
                             // the next closest endpoint is a start, traverse through it to find ends (which is what we really want)
                             
@@ -3241,7 +3252,7 @@ namespace vg {
                             // if we get this far, the two paths are colinear or overlap-colinear, so we won't add it to the
                             // non-colinear shell. now we need to decide whether to keep searching backward. we'll check a
                             // few conditions that will guarantee that the rest of the search is redundant
-                            
+
                             // TODO: this actually isn't a full set of criteria, we don't just want to know if there is an
                             // edge, we want to know if it is reachable along any series of edges...
                             // at least this will only cause a few false positive edges that we can remove later with
@@ -3346,8 +3357,12 @@ namespace vg {
                             
                             if (candidate_end_node.end <= start_node.begin) {
                                 // these MEMs are read colinear and graph reachable
-                                if (start != candidate_end) {
-                                    // and they are not the same path node, so add an edge
+                                if (candidate_dist != 0
+                                    || candidate_end_node.end != candidate_end_node.begin
+                                    || start_node.end != start_node.begin
+                                    || non_empty_from_length(start)
+                                    || non_empty_from_length(candidate_end)) {
+                                    // and they are not empty nodes at the exact same position, so add an edge
                                     // (this is almost always the case, but some code paths will add empty read sequences
                                     // to anchor to specific locations, which slightly confuses the reachability logic)
                                     candidate_end_node.edges.emplace_back(start, candidate_dist);
