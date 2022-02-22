@@ -11,6 +11,7 @@
 
 #include <htslib/hts.h>
 #include <htslib/vcf.h>
+#include <gbwt/utils.h>
 #include <omp.h>
 
 #include "subcommand.hpp"
@@ -112,6 +113,8 @@ void help_autoindex(char** argv) {
     << "    -T, --tmp-dir DIR      temporary directory to use for intermediate files" << endl
     << "    -M, --target-mem MEM   target max memory usage (not exact, formatted INT[kMG])" << endl
     << "                           (default: 1/2 of available)" << endl
+    << "    --gbwt-buffer-size NUM GBWT construction buffer size in millions of nodes; may need to be" << endl
+    << "                           increased for graphs with long haplotypes (default: " << IndexingParameters::gbwt_insert_batch_size / gbwt::MILLION << ")" << endl
     << "    -t, --threads NUM      number of threads (default: all available)" << endl
     << "    -V, --verbosity NUM    log to stderr (0 = none, 1 = basic, 2 = debug; default " << (int) IndexingParameters::verbosity << ")" << endl
     //<< "    -d, --dot              print the dot-formatted graph of index recipes and exit" << endl
@@ -128,6 +131,7 @@ int main_autoindex(int argc, char** argv) {
 #define OPT_KEEP_INTERMEDIATE 1000
 #define OPT_FORCE_UNPHASED 1001
 #define OPT_FORCE_PHASED 1002
+#define OPT_GBWT_BUFFER_SIZE 1003
     
     // load the registry
     IndexRegistry registry = VGIndexes::get_vg_index_registry();
@@ -155,6 +159,7 @@ int main_autoindex(int argc, char** argv) {
             {"provide", required_argument, 0, 'P'},
             {"request", required_argument, 0, 'R'},
             {"target-mem", required_argument, 0, 'M'},
+            {"gbwt-buffer-size", required_argument, 0, OPT_GBWT_BUFFER_SIZE},
             {"tmp-dir", required_argument, 0, 'T'},
             {"threads", required_argument, 0, 't'},
             {"verbosity", required_argument, 0, 'V'},
@@ -237,6 +242,9 @@ int main_autoindex(int argc, char** argv) {
                 break;
             case 'M':
                 target_mem_usage = parse_memory_usage(optarg);
+                break;
+            case OPT_GBWT_BUFFER_SIZE:
+                IndexingParameters::gbwt_insert_batch_size = std::max(parse<size_t>(optarg), 1ul) * gbwt::MILLION;
                 break;
             case 'T':
                 temp_file::set_dir(optarg);

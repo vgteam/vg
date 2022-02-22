@@ -2386,7 +2386,7 @@ void VG::id_sort() {
     apply_ordering(algorithms::id_order(this));
 }
         
-void VG::apply_ordering(const vector<handle_t>& ordering, bool compact_ids) {
+bool VG::apply_ordering(const vector<handle_t>& ordering, bool compact_ids) {
     
     if (get_node_count() != ordering.size()) {
         cerr << "error:[algorithms] attempting to sort a graph with an incomplete ordering" << endl;
@@ -2411,6 +2411,7 @@ void VG::apply_ordering(const vector<handle_t>& ordering, bool compact_ids) {
     if (compact_ids) {
         this->compact_ids();
     }
+    return compact_ids;
 }
     
 void VG::set_id_increment(const nid_t& min_id) {

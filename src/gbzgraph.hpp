@@ -20,7 +20,7 @@ namespace vg {
  *
  * Should be removed if/when GBZ implements PathHandleGraph.
  */
-class GBZGraph : bdsg::PathHandleGraphProxy<gbwtgraph::GBWTGraph> {
+class GBZGraph : public bdsg::PathHandleGraphProxy<gbwtgraph::GBWTGraph> {
 public:
     /// This is the GBZ object we own that actually holds the graph and GBWT
     /// data.

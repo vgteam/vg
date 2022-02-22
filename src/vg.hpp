@@ -297,9 +297,12 @@ public:
     
     /// Reorder the graph's internal structure to match that given.
     /// This sets the order that is used for iteration in functions like for_each_handle.
-    /// Optionally compact the id space of the graph to match the ordering, from 1->|ordering|.
+    /// If compact_ids is true, may (but will not necessarily) compact the id space of the graph to match the ordering, from 1->|ordering|.
+    /// In other cases, node IDs will be preserved.
     /// This may be a no-op in the case of graph implementations that do not have any mechanism to maintain an ordering.
-    virtual void apply_ordering(const std::vector<handle_t>& order, bool compact_ids = false);
+    /// This may invalidate outstanding handles.
+    /// Returns true if node IDs actually were adjusted to match the given order, and false if they remain unchanged.
+    virtual bool apply_ordering(const std::vector<handle_t>& order, bool compact_ids = false);
     
     /// No-op function (required by MutableHandleGraph interface)
     virtual void set_id_increment(const nid_t& min_id);
