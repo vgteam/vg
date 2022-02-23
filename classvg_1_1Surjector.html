@@ -173,6 +173,9 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:aafa4eb4d310ac530ed186170dc34dba9"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#aafa4eb4d310ac530ed186170dc34dba9">remove_dominated_chunks</a> (const string &amp;src_sequence, const vector&lt; vector&lt; size_t &gt;&gt; &amp;adj, vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;path_chunks, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;ref_chunks, vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt; &amp;connections) const</td></tr>
 <tr class="memdesc:aafa4eb4d310ac530ed186170dc34dba9"><td class="mdescLeft">&#160;</td><td class="mdescRight">eliminate any path chunks that have the exact same colinearities as another but are much shorter  <a href="classvg_1_1Surjector.html#aafa4eb4d310ac530ed186170dc34dba9">More...</a><br /></td></tr>
 <tr class="separator:aafa4eb4d310ac530ed186170dc34dba9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac59182d764335c01e1d6ce301179f039"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ac59182d764335c01e1d6ce301179f039">cut_anchors</a> (bool rev_strand, vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;path_chunks, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;ref_chunks, vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt; &amp;connections) const</td></tr>
+<tr class="memdesc:ac59182d764335c01e1d6ce301179f039"><td class="mdescLeft">&#160;</td><td class="mdescRight">if any anchors overlap each other, cut the second at the implied overlap position  <a href="classvg_1_1Surjector.html#ac59182d764335c01e1d6ce301179f039">More...</a><br /></td></tr>
+<tr class="separator:ac59182d764335c01e1d6ce301179f039"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a057141cd5d1aabc6fbb977ab71446f6c"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; vector&lt; size_t &gt;, vector&lt; size_t &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a057141cd5d1aabc6fbb977ab71446f6c">find_constriction_bicliques</a> (const vector&lt; vector&lt; size_t &gt;&gt; &amp;adj, const string &amp;src_sequence, const vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;path_chunks, const vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt; &amp;connections) const</td></tr>
 <tr class="separator:a057141cd5d1aabc6fbb977ab71446f6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab65da876e448d86bc64985c0b14d3e78"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#ab65da876e448d86bc64985c0b14d3e78">prune_unconnectable</a> (vector&lt; vector&lt; size_t &gt;&gt; &amp;adj, vector&lt; vector&lt; tuple&lt; size_t, int32_t, bool &gt;&gt;&gt; &amp;splice_adj, vector&lt; size_t &gt; &amp;component, vector&lt; vector&lt; size_t &gt;&gt; &amp;comp_groups, vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;path_chunks, vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;ref_chunks) const</td></tr>
@@ -340,6 +343,56 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>returns a vector assignming each node to a connectd component, requires both the forward and reverse adjacency lists. optionally also returns the total number of components </p>
+
+</div>
+</div>
+<a id="ac59182d764335c01e1d6ce301179f039"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac59182d764335c01e1d6ce301179f039">&#9670;&nbsp;</a></span>cut_anchors()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Surjector::cut_anchors </td>
+          <td>(</td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>rev_strand</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1Surjector.html#ad79d4e7acb0ed17759fd3e3301767b02">path_chunk_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>path_chunks</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>ref_chunks</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; tuple&lt; size_t, size_t, int32_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>connections</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>if any anchors overlap each other, cut the second at the implied overlap position </p>
 
 </div>
 </div>
