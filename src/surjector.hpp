@@ -190,6 +190,11 @@ using namespace std;
                                                        vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                                        vector<tuple<size_t, size_t, int32_t>>& connections) const;
         
+        /// if any anchors overlap each other, cut the second at the implied overlap position
+        void cut_anchors(bool rev_strand, vector<path_chunk_t>& path_chunks,
+                         vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
+                         vector<tuple<size_t, size_t, int32_t>>& connections) const;
+        
         /// returns all sets of chunks such that 1) all of chunks on the left set abut all of the chunks on the right
         /// set on the read, 2) all source-to-sink paths in the connected component go through an edge between
         /// the left and right sides, 3) all of the chunks that do not have a connection between them are fully
