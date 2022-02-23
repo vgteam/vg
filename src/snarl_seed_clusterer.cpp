@@ -340,7 +340,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                      if (tree_state.root_children.count(root_child) == 0) {
                         tree_state.root_children.emplace(root_child, vector<size_t>(0));
                      }
-                     tree_state.root_children[root_child].emplace_back(tree_state.all_node_clusters.size());
+                     tree_state.root_children[root_child].emplace_back(tree_state.all_node_clusters.size()-1);
                  } else {
                     add_child_to_vector(tree_state, chain_to_children_by_level[depth], parent, tree_state.all_node_clusters.size() - 1);
                  }
@@ -398,7 +398,7 @@ void NewSnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state) const {
                      if (tree_state.root_children.count(root_child) == 0) {
                         tree_state.root_children.emplace(root_child, vector<size_t>(0));
                      }
-                     tree_state.root_children[root_child].emplace_back(tree_state.all_node_clusters.size());
+                     tree_state.root_children[root_child].emplace_back(kv.second.first);
                 } else {
                     add_child_to_vector(tree_state, tree_state.parent_chain_to_children, snarl_parent, kv.second.first);
                 }
@@ -438,13 +438,11 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
         net_handle_t parent = distance_index.get_parent(chain_handle);
         if (distance_index.is_root(parent)) {
             //If the parent is the root, remember the index of this chain in all_node_clusters
-            if (distance_index.is_root_snarl(parent)) {
-                net_handle_t root_child = distance_index.is_root_snarl(parent) ? parent : chain_handle;
-                if (tree_state.root_children.count(root_child) == 0) {
-                   tree_state.root_children.emplace(root_child, vector<size_t>(0));
-                }
-                tree_state.root_children[root_child].emplace_back(tree_state.all_node_clusters.size());
+            net_handle_t root_child = distance_index.is_root_snarl(parent) ? parent : chain_handle;
+            if (tree_state.root_children.count(root_child) == 0) {
+               tree_state.root_children.emplace(root_child, vector<size_t>(0));
             }
+            tree_state.root_children[root_child].emplace_back(kv.second.first);
         } else {
             //If the parent is just a snarl
              add_child_to_vector(tree_state, tree_state.snarl_to_children, parent, kv.second.first);
@@ -1929,7 +1927,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
 //This is basically cluster_one_snarl except the snarl is the root, which has no boundary nodes
 void NewSnarlSeedClusterer::cluster_root(TreeState& tree_state) const { 
 #ifdef DEBUG_CLUSTER
-    cerr << "Finding clusters on the root" << endl;
+    cerr << "Finding clusters on the root with " << tree_state.root_children.size() << " children" << endl;
 #endif
 
     //Keep track of all clusters on the root
