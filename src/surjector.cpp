@@ -1485,45 +1485,19 @@ using namespace std;
         }
 #endif
         
-        // if any constrictions correspond to pure deletions, remove them from the colineary
-        // graph and record them as splice edges
-        
         // records of (to idx, score, is a connection)
         vector<vector<tuple<size_t, int32_t, bool>>> splice_edges(path_chunks.size());
-        vector<pair<vector<size_t>, vector<size_t>>> constrictions;
-        if (deletions_as_splices) {
+        
+        vector<bool> has_inward_connection(path_chunks.size(), false);
+        
+        if (!connections.empty()) {
             
-#ifdef debug_spliced_surject
-            cerr << "finding constrictions" << endl;
-#endif
-            
-            // find bicliques that constrict the colinearity graph
-            constrictions = find_constriction_bicliques(colinear_adj_red, src_sequence,
-                                                        path_chunks, connections);
-            
-#ifdef debug_spliced_surject
-            cerr << "found " << constrictions.size() << " constriction bicliques:" << endl;
-            for (auto& constriction : constrictions) {
-                cerr << "left:" << endl;
-                for (auto i : constriction.first) {
-                    cerr << "\t" << i << endl;
-                }
-                cerr << "right:" << endl;
-                for (auto i : constriction.second) {
-                    cerr << "\t" << i << endl;
-                }
-            }
-#endif
-        }
-                        
-        if (!connections.empty() || !constrictions.empty()) {
+            // clear outward edges for chunks that send connections, and record
+            // the scored edge
             
 #ifdef debug_spliced_surject
             cerr << "handling any connections" << endl;
 #endif
-            // clear outward edges for chunks that send connections, and record
-            // the scored edge
-            vector<bool> has_inward_connection(path_chunks.size(), false);
             
             unordered_set<pair<size_t, size_t>> connection_set;
             for (const auto& connection : connections) {
@@ -1583,71 +1557,110 @@ using namespace std;
                 }
                 cerr << endl;
             }
-            
-            cerr << "handling any constrictions" << endl;
 #endif
-            for (const auto& constriction : constrictions) {
+        }
+        
+        
+        if (deletions_as_splices) {
+            
+            // look for constrictions and move them into the splice edges iteratively
+            // (some edges that are not originally constrictions can become constrictions
+            // once other constriction edges are removed, which separates the component)
+            
+            bool removed_edges = true;
+            while (removed_edges) {
+                removed_edges = false;
                 
-                vector<tuple<size_t, size_t, int64_t>> new_edges;
-                bool includes_splice = false;
-                for (auto i : constriction.first) {
-                    if (colinear_adj_red[i].empty()) {
-                        // the edges have been cleared when incorporating a connection
-                        continue;
+#ifdef debug_spliced_surject
+                cerr << "finding constrictions" << endl;
+#endif
+                
+                // find bicliques that constrict the colinearity graph
+                auto constrictions = find_constriction_bicliques(colinear_adj_red, src_sequence,
+                                                                 path_chunks, connections);
+                
+#ifdef debug_spliced_surject
+                cerr << "found " << constrictions.size() << " constriction bicliques:" << endl;
+                for (auto& constriction : constrictions) {
+                    cerr << "left:" << endl;
+                    for (auto i : constriction.first) {
+                        cerr << "\t" << i << endl;
                     }
-                    for (auto j : constriction.second) {
-                        if (has_inward_connection[j]) {
-                            // backward edgs have been removed
+                    cerr << "right:" << endl;
+                    for (auto i : constriction.second) {
+                        cerr << "\t" << i << endl;
+                    }
+                }
+#endif
+                
+                // if any constrictions correspond to pure deletions, remove them from the colineary
+                // graph and record them as splice edges
+                
+                for (const auto& constriction : constrictions) {
+                    
+                    vector<tuple<size_t, size_t, int64_t>> new_edges;
+                    bool includes_splice = false;
+                    for (auto i : constriction.first) {
+                        if (colinear_adj_red[i].empty()) {
+                            // the edges have been cleared when incorporating a connection
                             continue;
                         }
-                        int64_t dist = path_distance(i, j);
-                        int64_t score;
-                        if (dist >= min_splice_length) {
-                            includes_splice = true;
-                            score = 0;
-                        }
-                        else {
-                            score = get_aligner(!src_quality.empty())->score_gap(dist);
-                        }
-                        
+                        for (auto j : constriction.second) {
+                            if (has_inward_connection[j]) {
+                                // backward edgs have been removed
+                                continue;
+                            }
+                            int64_t dist = path_distance(i, j);
+                            int64_t score;
+                            if (dist >= min_splice_length) {
+                                includes_splice = true;
+                                score = 0;
+                            }
+                            else {
+                                score = get_aligner(!src_quality.empty())->score_gap(dist);
+                            }
+                            
 #ifdef debug_spliced_surject
-                        cerr << "deletion of length " << dist << " from " << i << " to " << j << " is recorded as part of a splice biclique, and given score " << score << endl;
+                            cerr << "deletion of length " << dist << " from " << i << " to " << j << " is recorded as part of a splice biclique, and given score " << score << endl;
 #endif
-                        
-                        new_edges.emplace_back(i, j, score);
+                            
+                            new_edges.emplace_back(i, j, score);
+                        }
+                    }
+                    if (includes_splice) {
+                        removed_edges = true;
+                        // remove the colinearity edges
+                        for (auto i : constriction.first) {
+                            colinear_adj_red[i].clear();
+                        }
+                        // transfer them to splice edges
+                        for (const auto& edge : new_edges) {
+                            splice_edges[get<0>(edge)].emplace_back(get<1>(edge), get<2>(edge), false);
+                        }
                     }
                 }
-                if (includes_splice) {
-                    // remove the colinearity edges
-                    for (auto i : constriction.first) {
-                        colinear_adj_red[i].clear();
-                    }
-                    // transfer them to splice edges
-                    for (const auto& edge : new_edges) {
-                        splice_edges[get<0>(edge)].emplace_back(get<1>(edge), get<2>(edge), false);
-                    }
-                }
-            }
-            
-            
+                
+                
 #ifdef debug_spliced_surject
-            cerr << "after removing long constriction deletions:" << endl;
-            for (size_t i = 0; i < colinear_adj_red.size(); ++i) {
-                cerr << i << ":";
-                for (auto j : colinear_adj_red[i]) {
-                    cerr << " " << j;
+                cerr << "after removing long constriction deletions:" << endl;
+                for (size_t i = 0; i < colinear_adj_red.size(); ++i) {
+                    cerr << i << ":";
+                    for (auto j : colinear_adj_red[i]) {
+                        cerr << " " << j;
+                    }
+                    cerr << endl;
                 }
-                cerr << endl;
-            }
-            cerr << "splice graph:" << endl;
-            for (size_t i = 0; i < splice_edges.size(); ++i) {
-                cerr << i << ":";
-                for (auto edge : splice_edges[i]) {
-                    cerr << " (" << get<0>(edge) << ", " << get<1>(edge) << ", " << get<2>(edge) << ")";
+                cerr << "splice graph:" << endl;
+                for (size_t i = 0; i < splice_edges.size(); ++i) {
+                    cerr << i << ":";
+                    for (auto edge : splice_edges[i]) {
+                        cerr << " (" << get<0>(edge) << ", " << get<1>(edge) << ", " << get<2>(edge) << ")";
+                    }
+                    cerr << endl;
                 }
-                cerr << endl;
-            }
 #endif
+                
+            }
         }
         
 #ifdef debug_spliced_surject
