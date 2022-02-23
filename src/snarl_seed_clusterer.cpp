@@ -336,9 +336,11 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                                               is_reversed_in_parent, id, node_length, prefix_sum, component));
                  //Add this node to its parent
                  if (distance_index.is_root(parent)) {
-                     if (distance_index.is_root_snarl(parent)) {
-                        tree_state.root_children.emplace_back(tree_state.all_node_clusters.size());
+                     net_handle_t root_child = distance_index.is_root_snarl(parent) ? parent : tree_state.all_node_clusters.back().containing_net_handle;
+                     if (tree_state.root_children.count(root_child) == 0) {
+                        tree_state.root_children.emplace(root_child, vector<size_t>(0));
                      }
+                     tree_state.root_children[root_child].emplace_back(tree_state.all_node_clusters.size());
                  } else {
                     add_child_to_vector(tree_state, chain_to_children_by_level[depth], parent, tree_state.all_node_clusters.size() - 1);
                  }
@@ -392,7 +394,11 @@ void NewSnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state) const {
             if (reachable_left || reachable_right) {
                 //If we can reach the ends of the snarl, add it to it's parent 
                 if (distance_index.is_root(snarl_parent)) {
-                    tree_state.root_children.emplace_back(kv.second.first);
+                     net_handle_t root_child = distance_index.is_root_snarl(snarl_parent) ? snarl_parent : snarl_handle;
+                     if (tree_state.root_children.count(root_child) == 0) {
+                        tree_state.root_children.emplace(root_child, vector<size_t>(0));
+                     }
+                     tree_state.root_children[root_child].emplace_back(tree_state.all_node_clusters.size());
                 } else {
                     add_child_to_vector(tree_state, tree_state.parent_chain_to_children, snarl_parent, kv.second.first);
                 }
@@ -433,7 +439,11 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
         if (distance_index.is_root(parent)) {
             //If the parent is the root, remember the index of this chain in all_node_clusters
             if (distance_index.is_root_snarl(parent)) {
-                tree_state.root_children.emplace_back(kv.second.first);
+                net_handle_t root_child = distance_index.is_root_snarl(parent) ? parent : chain_handle;
+                if (tree_state.root_children.count(root_child) == 0) {
+                   tree_state.root_children.emplace(root_child, vector<size_t>(0));
+                }
+                tree_state.root_children[root_child].emplace_back(tree_state.all_node_clusters.size());
             }
         } else {
             //If the parent is just a snarl
@@ -1931,34 +1941,37 @@ void NewSnarlSeedClusterer::cluster_root(TreeState& tree_state) const {
             make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
     }
 
+    for (auto& kv : tree_state.root_children) {
+        vector<size_t>& children = kv.second;
 
-    for (size_t i = 0; i < tree_state.root_children.size() ; i++) {
-        //Go through each child node of the netgraph
+        for (size_t i = 0; i < children.size() ; i++) {
+            //Go through each child node of the netgraph
 
-        NodeClusters& child_clusters_i = tree_state.all_node_clusters[tree_state.root_children[i]];
-        for (const pair<size_t, size_t>& head : child_clusters_i.read_cluster_heads) {
-            child_distances[head.first][head.second] = tree_state.read_cluster_heads_to_distances[head.first][head.second];
-        }
-
-        for (size_t j = 0 ; j <= i ; j++){
-            //Go through other child net graph nodes up to and including i
-
-            //Get the other node and its clusters
-            NodeClusters& child_clusters_j = tree_state.all_node_clusters[tree_state.root_children[j]];
-
-#ifdef DEBUG_CLUSTER
-            cerr << "\tComparing two children of the root: " 
-                 << distance_index.net_handle_as_string(child_clusters_i.containing_net_handle) << " and " 
-                 << distance_index.net_handle_as_string(child_clusters_j.containing_net_handle) << endl;
-#endif
-            if (distance_index.get_record_offset(distance_index.get_parent(child_clusters_i.containing_net_handle)) 
-                    == distance_index.get_record_offset(distance_index.get_parent(child_clusters_j.containing_net_handle))) {
-
-
-                compare_and_combine_cluster_on_child_structures(tree_state, child_clusters_i,
-                        child_clusters_j, root_clusters, child_distances, true);
+            NodeClusters& child_clusters_i = tree_state.all_node_clusters[children[i]];
+            for (const pair<size_t, size_t>& head : child_clusters_i.read_cluster_heads) {
+                child_distances[head.first][head.second] = tree_state.read_cluster_heads_to_distances[head.first][head.second];
             }
 
+            for (size_t j = 0 ; j <= i ; j++){
+                //Go through other child net graph nodes up to and including i
+
+                //Get the other node and its clusters
+                NodeClusters& child_clusters_j = tree_state.all_node_clusters[children[j]];
+
+#ifdef DEBUG_CLUSTER
+                cerr << "\tComparing two children of the root: " 
+                     << distance_index.net_handle_as_string(child_clusters_i.containing_net_handle) << " and " 
+                     << distance_index.net_handle_as_string(child_clusters_j.containing_net_handle) << endl;
+#endif
+                if (distance_index.get_record_offset(distance_index.get_parent(child_clusters_i.containing_net_handle)) 
+                        == distance_index.get_record_offset(distance_index.get_parent(child_clusters_j.containing_net_handle))) {
+
+
+                    compare_and_combine_cluster_on_child_structures(tree_state, child_clusters_i,
+                            child_clusters_j, root_clusters, child_distances, true);
+                }
+
+            }
         }
     }
 #ifdef DEBUG_CLUSTER

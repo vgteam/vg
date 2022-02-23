@@ -230,8 +230,9 @@ class NewSnarlSeedClusterer {
             hash_map<net_handle_t, pair<size_t, vector<size_t>>> parent_chain_to_children;
 
             //This holds all the child clusters of the root
+            //maps a child of the root (or a root snarl) to its children (or self)
             //size_t is the index into all_node_clusters
-            vector<size_t> root_children;
+            hash_map<net_handle_t, vector<size_t>> root_children;
 
 
             /////////////////////////////////////////////////////////
