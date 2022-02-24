@@ -313,8 +313,12 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                     parent = distance_index.get_parent(node_net_handle);
 
                     depth = distance_index.get_depth(parent);
-                    prefix_sum = distance_index.get_prefix_sum_value(node_net_handle);
-                    component = distance_index.get_chain_component(node_net_handle);
+                    prefix_sum = distance_index.is_trivial_chain(parent) 
+                            ? std::numeric_limits<size_t>::max() 
+                            : distance_index.get_prefix_sum_value(node_net_handle);
+                    component = distance_index.is_multicomponent_chain(parent) 
+                            ? distance_index.get_chain_component(node_net_handle)
+                            : 0;
                     if (node_length == MIPayload::NO_VALUE) {
                         node_length = distance_index.minimum_length(node_net_handle);
                         is_reversed_in_parent = distance_index.is_reversed_in_parent(node_net_handle);
@@ -1206,8 +1210,10 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, NodeCluster
     snarl_clusters.node_length = distance_index.minimum_length(snarl_clusters.containing_net_handle);
 
     //Chain component of the start and end nodes of the snarl
-    snarl_clusters.chain_component_start = distance_index.get_chain_component(distance_index.get_node_from_sentinel(distance_index.get_bound(snarl_clusters.containing_net_handle, false, false)));
-    snarl_clusters.chain_component_end = distance_index.get_chain_component(distance_index.get_node_from_sentinel(distance_index.get_bound(snarl_clusters.containing_net_handle, true, false)));
+    if (distance_index.is_multicomponent_chain(distance_index.get_parent(snarl_clusters.containing_net_handle))) {
+        snarl_clusters.chain_component_start = distance_index.get_chain_component(distance_index.get_node_from_sentinel(distance_index.get_bound(snarl_clusters.containing_net_handle, false, false)));
+        snarl_clusters.chain_component_end = distance_index.get_chain_component(distance_index.get_node_from_sentinel(distance_index.get_bound(snarl_clusters.containing_net_handle, true, false)));
+    }
 #ifdef DEBUG_CLUSTER
 //    cerr << "\tFound clusters on " << distance_index.net_handle_as_string(snarl_handle) << endl;
 //    cerr << "\t   with best left and right values: " << snarl_clusters.fragment_best_left << " "

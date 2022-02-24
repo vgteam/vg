@@ -104,8 +104,8 @@ class NewSnarlSeedClusterer {
             bool is_reversed_in_parent = false;
             size_t node_length = std::numeric_limits<size_t>::max(); //of node or snarl
             size_t prefix_sum_value = std::numeric_limits<size_t>::max(); //of node or first node in snarl
-            size_t chain_component_start = std::numeric_limits<size_t>::max(); //of node or start of snarl
-            size_t chain_component_end = std::numeric_limits<size_t>::max(); //of node or end of snarl
+            size_t chain_component_start = 0; //of node or start of snarl
+            size_t chain_component_end = 0; //of node or end of snarl
 
             //Only set this one for a chain
             bool is_looping_chain = false;
