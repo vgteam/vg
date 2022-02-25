@@ -379,44 +379,39 @@ void NewSnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state) const {
         cerr << "Cluster one snarl " << distance_index.net_handle_as_string(snarl_handle) << endl;
 #endif
         net_handle_t snarl_parent = distance_index.get_parent(snarl_handle);
-        if (!distance_index.is_root(snarl_parent)){
-            //If this snarl is in a chain, cluster and add let the
-            //tree state know which chain it belongs to (in order)
+        //If this snarl is in a chain, cluster and add let the
+        //tree state know which chain it belongs to (in order)
 
-            //Cluster the snarl
-            cluster_one_snarl(tree_state, tree_state.all_node_clusters[kv.second.first]);
-            NodeClusters& snarl_clusters = tree_state.all_node_clusters[kv.second.first];
+        //Cluster the snarl
+        cluster_one_snarl(tree_state, tree_state.all_node_clusters[kv.second.first]);
+        NodeClusters& snarl_clusters = tree_state.all_node_clusters[kv.second.first];
 
-            //Now check the best distance of any seed to the ends of the snarl
-            //Is the distance small enough that we can cluster it with something else?
-            bool reachable_right = snarl_clusters.fragment_best_right <= 
-                (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit);
-            bool reachable_left = snarl_clusters.fragment_best_left <= 
-                (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit);
+        //Now check the best distance of any seed to the ends of the snarl
+        //Is the distance small enough that we can cluster it with something else?
+        bool reachable_right = snarl_clusters.fragment_best_right <= 
+            (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit);
+        bool reachable_left = snarl_clusters.fragment_best_left <= 
+            (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit);
 
 
-            if (reachable_left || reachable_right) {
-                //If we can reach the ends of the snarl, add it to it's parent 
-                if (distance_index.is_root(snarl_parent)) {
-                     net_handle_t root_child = distance_index.is_root_snarl(snarl_parent) ? snarl_parent : snarl_handle;
-                     if (tree_state.root_children.count(root_child) == 0) {
-                        tree_state.root_children.emplace(root_child, vector<size_t>(0));
-                     }
-                     tree_state.root_children[root_child].emplace_back(kv.second.first);
-                } else {
-                    add_child_to_vector(tree_state, tree_state.parent_chain_to_children, snarl_parent, kv.second.first);
-                }
+        if (reachable_left || reachable_right) {
+            //If we can reach the ends of the snarl, add it to it's parent 
+            if (distance_index.is_root(snarl_parent)) {
+                 net_handle_t root_child = distance_index.is_root_snarl(snarl_parent) ? snarl_parent : snarl_handle;
+                 if (tree_state.root_children.count(root_child) == 0) {
+                    tree_state.root_children.emplace(root_child, vector<size_t>(0));
+                 }
+                 tree_state.root_children[root_child].emplace_back(kv.second.first);
+            } else {
+                add_child_to_vector(tree_state, tree_state.parent_chain_to_children, snarl_parent, kv.second.first);
             }
+        }
 
 #ifdef DEBUG_CLUSTER
-            cerr << "\tRecording snarl " << distance_index.net_handle_as_string(snarl_handle)  << " as a child of "
-                  << distance_index.net_handle_as_string(distance_index.get_parent(snarl_handle)) << endl;
+        cerr << "\tRecording snarl " << distance_index.net_handle_as_string(snarl_handle)  << " as a child of "
+              << distance_index.net_handle_as_string(distance_index.get_parent(snarl_handle)) << endl;
 #endif
 
-        } else {
-            //TODO: I think I don't need to check if the parent is the root because it should always be a chain
-            assert(false);
-        }
     }
     tree_state.snarl_to_children.clear();
 }

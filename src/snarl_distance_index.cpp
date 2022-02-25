@@ -736,6 +736,7 @@ void populate_snarl_index(
     };
 
 
+
     /*Now go through each of the children and add distances from that child to everything reachable from it
      * Start a dijkstra traversal from each node side in the snarl and record all distances
      */
@@ -743,8 +744,13 @@ void populate_snarl_index(
     //Add the start and end nodes to the list of children so that we include them in the traversal 
     //TODO: Copying the list
     vector<pair<SnarlDistanceIndex::temp_record_t, size_t>> all_children = temp_snarl_record.children;
-    if (!temp_snarl_record.is_root_snarl) {
 
+    //Reserve enough space to store all possible distances
+    temp_snarl_distances.reserve( (temp_snarl_record.node_count > size_limit || size_limit == 0) 
+            ? temp_snarl_record.node_count * 2
+            : temp_snarl_record.node_count * temp_snarl_record.node_count);
+
+    if (!temp_snarl_record.is_root_snarl) {
 
         all_children.emplace_back(SnarlDistanceIndex::TEMP_NODE, temp_snarl_record.start_node_id);
         all_children.emplace_back(SnarlDistanceIndex::TEMP_NODE, temp_snarl_record.end_node_id);
@@ -809,7 +815,7 @@ void populate_snarl_index(
           //  assert(start_rank != 0 && start_rank != 1);
           //}
 
-        if ( (temp_snarl_record.node_count < size_limit || size_limit == 0) && !start_is_tip &&
+        if ( (temp_snarl_record.node_count > size_limit || size_limit == 0) && !start_is_tip &&
              !start_rank == 0 && ! start_rank == 1) {
             //If we don't care about internal distances, and we also are not at a boundary or tip
             continue;
@@ -843,6 +849,7 @@ void populate_snarl_index(
             };
             std::priority_queue<NetgraphNode, vector<NetgraphNode>, decltype(cmp)> queue(cmp);
             unordered_set<pair<pair<SnarlDistanceIndex::temp_record_t, size_t>, bool>> seen_nodes;
+            seen_nodes.reserve(temp_snarl_record.node_count * 2);
             queue.push(make_pair(0, make_pair(start_index, start_rev)));
 
             while (!queue.empty()) {
@@ -852,6 +859,7 @@ void populate_snarl_index(
                 bool current_rev = queue.top().second.second;
                 seen_nodes.emplace(queue.top().second);
                 queue.pop();
+
 
                 //The handle that we need to follow to get the next reachable nodes
                 //If the current node is a node, then its just the node. Otherwise, it's the 
@@ -1060,6 +1068,7 @@ void populate_snarl_index(
 
 
     //Record the distances in the snarl
+    temp_snarl_record.distances.reserve(temp_snarl_distances.size());
     for (auto& distances : temp_snarl_distances) {
         temp_snarl_record.distances.emplace_back(distances.first.first, distances.first.second, distances.second);
     }
