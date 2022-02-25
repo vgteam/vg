@@ -736,7 +736,6 @@ void populate_snarl_index(
     };
 
 
-
     /*Now go through each of the children and add distances from that child to everything reachable from it
      * Start a dijkstra traversal from each node side in the snarl and record all distances
      */
@@ -847,17 +846,23 @@ void populate_snarl_index(
             auto cmp = [] (const NetgraphNode a, const NetgraphNode b) {
                 return a.first > b.first;
             };
+
+            //The priority queue of the next nodes to visit, ordered by the distance
             std::priority_queue<NetgraphNode, vector<NetgraphNode>, decltype(cmp)> queue(cmp);
-            unordered_set<pair<pair<SnarlDistanceIndex::temp_record_t, size_t>, bool>> seen_nodes;
-            seen_nodes.reserve(temp_snarl_record.node_count * 2);
+            //The nodes we've already visited
+            unordered_set<pair<pair<SnarlDistanceIndex::temp_record_t, size_t>, bool>> visited_nodes;
+            visited_nodes.reserve(temp_snarl_record.node_count * 2);
+
+            //Start from the current start node
             queue.push(make_pair(0, make_pair(start_index, start_rev)));
 
             while (!queue.empty()) {
 
+                //Get the current node from the queue and pop it out of the queue
                 size_t current_distance = queue.top().first;
                 pair<SnarlDistanceIndex::temp_record_t, size_t> current_index = queue.top().second.first;
                 bool current_rev = queue.top().second.second;
-                seen_nodes.emplace(queue.top().second);
+                visited_nodes.emplace(queue.top().second);
                 queue.pop();
 
 
@@ -915,11 +920,14 @@ void populate_snarl_index(
                     bool next_rev = next_index.first == SnarlDistanceIndex::TEMP_NODE || temp_index.temp_chain_records[next_index.second].is_trivial 
                             ? graph->get_is_reverse(next_handle) 
                             : graph->get_id(next_handle) == temp_index.temp_chain_records[next_index.second].end_node_id;
+                    
+                    /**Record the distance **/
 
                     if (size_limit != 0 &&
                         (temp_snarl_record.node_count < size_limit ||
                          (start_rank == 0 || start_rank == 1 || next_rank == 0 || next_rank == 1))) {
-                        //If we are looking at all distances or we are looking at tips or boundaries
+                        //If the snarl is too big, then we don't record distances between internal nodes
+                        //If we are looking at all distances or we are looking at boundaries
 
                         //Set the distance
                         pair<size_t, bool> start = !temp_snarl_record.is_root_snarl && (start_rank == 0 || start_rank == 1) 
@@ -937,7 +945,9 @@ void populate_snarl_index(
                     }
 
 
-                    if (seen_nodes.count(make_pair(next_index, next_rev)) == 0 &&
+                    /**Add the next node to the priority queue**/
+
+                    if (visited_nodes.count(make_pair(next_index, next_rev)) == 0 &&
                         graph->get_id(next_handle) != temp_snarl_record.start_node_id &&
                         graph->get_id(next_handle) != temp_snarl_record.end_node_id) {
                         //If this isn't leaving the snarl, then add the next node to the queue, 
@@ -951,7 +961,7 @@ void populate_snarl_index(
                         size_t loop_distance = next_rev ? temp_index.temp_chain_records[next_index.second].backward_loops.back() 
                                                          : temp_index.temp_chain_records[next_index.second].forward_loops.front();
                         if (loop_distance != std::numeric_limits<size_t>::max() &&
-                            seen_nodes.count(make_pair(next_index, !next_rev)) == 0 &&
+                            visited_nodes.count(make_pair(next_index, !next_rev)) == 0 &&
                             graph->get_id(next_handle) != temp_snarl_record.start_node_id &&
                             graph->get_id(next_handle) != temp_snarl_record.end_node_id) {
                             //If the next node can loop back on itself, then add the next node in the opposite direction
@@ -971,6 +981,8 @@ void populate_snarl_index(
                 temp_snarl_record.is_simple = false;
             }
         }
+
+        /** Check the minimum length of the snarl passing through this node **/
         if (start_rank != 0 && start_rank != 1) {
 
             size_t child_max_length = start_index.first == SnarlDistanceIndex::TEMP_NODE 
