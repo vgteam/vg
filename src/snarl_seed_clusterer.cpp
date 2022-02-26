@@ -1962,13 +1962,10 @@ void NewSnarlSeedClusterer::cluster_root(TreeState& tree_state) const {
                      << distance_index.net_handle_as_string(child_clusters_i.containing_net_handle) << " and " 
                      << distance_index.net_handle_as_string(child_clusters_j.containing_net_handle) << endl;
 #endif
-                if (distance_index.get_record_offset(distance_index.get_parent(child_clusters_i.containing_net_handle)) 
-                        == distance_index.get_record_offset(distance_index.get_parent(child_clusters_j.containing_net_handle))) {
 
 
-                    compare_and_combine_cluster_on_child_structures(tree_state, child_clusters_i,
+                compare_and_combine_cluster_on_child_structures(tree_state, child_clusters_i,
                             child_clusters_j, root_clusters, child_distances, true);
-                }
 
             }
         }
