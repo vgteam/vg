@@ -863,6 +863,7 @@ void populate_snarl_index(
                 pair<SnarlDistanceIndex::temp_record_t, size_t> current_index = queue.top().second.first;
                 bool current_rev = queue.top().second.second;
                 if (visited_nodes.count(queue.top().second)) {
+                    queue.pop();
                     continue;
                 }
                 visited_nodes.emplace(queue.top().second);
