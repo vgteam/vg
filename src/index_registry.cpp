@@ -2063,6 +2063,24 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     // TODO: spliced vg from GFA input
     
+    registry.register_recipe({"Spliced MaxNodeID", "Spliced VG w/ Variant Paths"},
+                             {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF w/ Phasing", "Insertion Sequence FASTA"},
+                             [construct_with_constructor](const vector<const IndexFile*>& inputs,
+                                                          const IndexingPlan* plan,
+                                                          AliasGraph& alias_graph,
+                                                          const IndexGroup& constructing) {
+        return construct_with_constructor(inputs, plan, constructing, true, true);
+    });
+    
+    registry.register_recipe({"Spliced MaxNodeID", "Spliced VG w/ Variant Paths"},
+                             {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF w/ Phasing"},
+                             [construct_with_constructor](const vector<const IndexFile*>& inputs,
+                                                          const IndexingPlan* plan,
+                                                          AliasGraph& alias_graph,
+                                                          const IndexGroup& constructing) {
+        return construct_with_constructor(inputs, plan, constructing, true, true);
+    });
+    
     registry.register_recipe({"Spliced MaxNodeID", "Spliced VG"},
                              {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF", "Insertion Sequence FASTA"},
                              [construct_with_constructor](const vector<const IndexFile*>& inputs,
@@ -2079,23 +2097,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         return construct_with_constructor(inputs, plan, constructing, false, true);
-    });
-    registry.register_recipe({"Spliced MaxNodeID", "Spliced VG w/ Variant Paths"},
-                             {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF w/ Phasing", "Insertion Sequence FASTA"},
-                             [construct_with_constructor](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
-        return construct_with_constructor(inputs, plan, constructing, true, true);
-    });
-    
-    registry.register_recipe({"Spliced MaxNodeID", "Spliced VG w/ Variant Paths"},
-                             {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF w/ Phasing"},
-                             [construct_with_constructor](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
-        return construct_with_constructor(inputs, plan, constructing, true, true);
     });
     
     
