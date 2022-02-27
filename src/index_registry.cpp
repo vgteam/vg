@@ -1467,7 +1467,12 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                 continue;
                             }
                             
-                            int64_t chunk_idx = contig_to_idx.at(chrom);
+                            auto it = contig_to_idx.find(chrom);
+                            if (it == contig_to_idx.end()) {
+                                cerr << "error:[IndexRegistry] contig " << chrom << " from GTF/GFF " << tx_filenames[idx] << " is not found in reference" << endl;
+                                exit(1);
+                            }
+                            int64_t chunk_idx = it->second;
                             if (chunk_idx != prev_chunk_idx) {
                                 // we're transitioning between chunks, so we need to check the chunk
                                 // out for writing
@@ -2058,6 +2063,24 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     
     // TODO: spliced vg from GFA input
     
+    registry.register_recipe({"Spliced MaxNodeID", "Spliced VG w/ Variant Paths"},
+                             {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF w/ Phasing", "Insertion Sequence FASTA"},
+                             [construct_with_constructor](const vector<const IndexFile*>& inputs,
+                                                          const IndexingPlan* plan,
+                                                          AliasGraph& alias_graph,
+                                                          const IndexGroup& constructing) {
+        return construct_with_constructor(inputs, plan, constructing, true, true);
+    });
+    
+    registry.register_recipe({"Spliced MaxNodeID", "Spliced VG w/ Variant Paths"},
+                             {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF w/ Phasing"},
+                             [construct_with_constructor](const vector<const IndexFile*>& inputs,
+                                                          const IndexingPlan* plan,
+                                                          AliasGraph& alias_graph,
+                                                          const IndexGroup& constructing) {
+        return construct_with_constructor(inputs, plan, constructing, true, true);
+    });
+    
     registry.register_recipe({"Spliced MaxNodeID", "Spliced VG"},
                              {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF", "Insertion Sequence FASTA"},
                              [construct_with_constructor](const vector<const IndexFile*>& inputs,
@@ -2074,23 +2097,6 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
         return construct_with_constructor(inputs, plan, constructing, false, true);
-    });
-    registry.register_recipe({"Spliced MaxNodeID", "Spliced VG w/ Variant Paths"},
-                             {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF w/ Phasing", "Insertion Sequence FASTA"},
-                             [construct_with_constructor](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
-        return construct_with_constructor(inputs, plan, constructing, true, true);
-    });
-    
-    registry.register_recipe({"Spliced MaxNodeID", "Spliced VG w/ Variant Paths"},
-                             {"Chunked GTF/GFF", "Chunked Reference FASTA", "Chunked VCF w/ Phasing"},
-                             [construct_with_constructor](const vector<const IndexFile*>& inputs,
-                                 const IndexingPlan* plan,
-                                 AliasGraph& alias_graph,
-                                 const IndexGroup& constructing) {
-        return construct_with_constructor(inputs, plan, constructing, true, true);
     });
     
     

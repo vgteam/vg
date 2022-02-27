@@ -198,13 +198,14 @@ int32_t Transcriptome::add_reference_transcripts(vector<istream *> transcript_st
 
     vector<Transcript> transcripts;
 
+    int64_t lines_parsed = 0;
     for (auto & transcript_stream: transcript_streams) {
 
         // Parse transcripts in gtf/gff3 format.
-        parse_transcripts(&transcripts, transcript_stream, graph_path_pos_overlay, *haplotype_index, use_haplotype_paths);
+        lines_parsed += parse_transcripts(&transcripts, transcript_stream, graph_path_pos_overlay, *haplotype_index, use_haplotype_paths);
     }
 
-    if (transcripts.empty()) {
+    if (transcripts.empty() && lines_parsed != 0) {
 
         cerr << "[transcriptome] ERROR: No transcripts parsed (remember to set feature type \"-y\" in vg rna or \"-f\" in vg autoindex)" << endl;
         exit(1);        
@@ -274,13 +275,14 @@ int32_t Transcriptome::add_haplotype_transcripts(vector<istream *> transcript_st
 
     vector<Transcript> transcripts;
 
+    int64_t lines_parsed = 0;
     for (auto & transcript_stream: transcript_streams) {
 
         // Parse transcripts in gtf/gff3 format.
-        parse_transcripts(&transcripts, transcript_stream, graph_path_pos_overlay, haplotype_index, false);
+        lines_parsed += parse_transcripts(&transcripts, transcript_stream, graph_path_pos_overlay, haplotype_index, false);
     }
 
-    if (transcripts.empty()) {
+    if (transcripts.empty() && lines_parsed != 0) {
 
         cerr << "[transcriptome] ERROR: No transcripts parsed (remember to set feature type \"-y\" in vg rna or \"-f\" in vg autoindex)" << endl;
         exit(1);        
@@ -381,7 +383,7 @@ void Transcriptome::parse_introns(vector<Transcript> * introns, istream * intron
     }
 }
 
-void Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istream * transcript_stream, const bdsg::PositionOverlay & graph_path_pos_overlay, const gbwt::GBWT & haplotype_index, const bool use_haplotype_paths) const {
+int32_t Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istream * transcript_stream, const bdsg::PositionOverlay & graph_path_pos_overlay, const gbwt::GBWT & haplotype_index, const bool use_haplotype_paths) const {
 
     spp::sparse_hash_map<string, uint32_t> chrom_lengths;
 
@@ -416,6 +418,7 @@ void Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istream 
     spp::sparse_hash_map<string, uint32_t> transcripts_index;
 
     int32_t line_number = 0;
+    int32_t parsed_lines = 0;
 
     string chrom;
     string feature;
@@ -437,6 +440,7 @@ void Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istream 
             transcript_stream->ignore(numeric_limits<streamsize>::max(), '\n');
             continue;
         }
+        parsed_lines += 1;
 
         auto chrom_lengths_it = chrom_lengths.find(chrom);
 
@@ -593,6 +597,8 @@ void Transcriptome::parse_transcripts(vector<Transcript> * transcripts, istream 
         // Reorder reversed order exons.
         reorder_exons(&(transcripts->at(transcript_idx.second)));
     }
+    
+    return parsed_lines;
 }
 
 string Transcriptome::parse_attribute_value(const string & attribute, const string & name) const {
