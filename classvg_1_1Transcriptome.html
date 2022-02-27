@@ -148,9 +148,9 @@ Private Member Functions</h2></td></tr>
 <tr class="memitem:ad040b82553e6b03ccd926c0fe622e84c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#ad040b82553e6b03ccd926c0fe622e84c">parse_introns</a> (vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; *introns, istream *intron_stream, const bdsg::PositionOverlay &amp;graph_path_pos_overlay) const</td></tr>
 <tr class="memdesc:ad040b82553e6b03ccd926c0fe622e84c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parse BED file of introns.  <a href="classvg_1_1Transcriptome.html#ad040b82553e6b03ccd926c0fe622e84c">More...</a><br /></td></tr>
 <tr class="separator:ad040b82553e6b03ccd926c0fe622e84c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7bda3e836fa604bf7bac78e4bedb4844"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a7bda3e836fa604bf7bac78e4bedb4844">parse_transcripts</a> (vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; *transcripts, istream *transcript_stream, const bdsg::PositionOverlay &amp;graph_path_pos_overlay, const gbwt::GBWT &amp;haplotype_index, const bool use_haplotype_paths) const</td></tr>
-<tr class="memdesc:a7bda3e836fa604bf7bac78e4bedb4844"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parse gtf/gff3 file of transcripts.  <a href="classvg_1_1Transcriptome.html#a7bda3e836fa604bf7bac78e4bedb4844">More...</a><br /></td></tr>
-<tr class="separator:a7bda3e836fa604bf7bac78e4bedb4844"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a57e329cf9ecd49ee357de368b1afa0bb"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a57e329cf9ecd49ee357de368b1afa0bb">parse_transcripts</a> (vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; *transcripts, istream *transcript_stream, const bdsg::PositionOverlay &amp;graph_path_pos_overlay, const gbwt::GBWT &amp;haplotype_index, const bool use_haplotype_paths) const</td></tr>
+<tr class="memdesc:a57e329cf9ecd49ee357de368b1afa0bb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parse gtf/gff3 file of transcripts. Returns the number of non-header lines in the parsed file.  <a href="classvg_1_1Transcriptome.html#a57e329cf9ecd49ee357de368b1afa0bb">More...</a><br /></td></tr>
+<tr class="separator:a57e329cf9ecd49ee357de368b1afa0bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a401bd93346ea5e02f586823d8f3b458e"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a401bd93346ea5e02f586823d8f3b458e">parse_attribute_value</a> (const string &amp;attribute, const string &amp;name) const</td></tr>
 <tr class="memdesc:a401bd93346ea5e02f586823d8f3b458e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parse gtf/gff3 attribute value.  <a href="classvg_1_1Transcriptome.html#a401bd93346ea5e02f586823d8f3b458e">More...</a><br /></td></tr>
 <tr class="separator:a401bd93346ea5e02f586823d8f3b458e"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1343,8 +1343,8 @@ template&lt;class T &gt; </div>
 
 </div>
 </div>
-<a id="a7bda3e836fa604bf7bac78e4bedb4844"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a7bda3e836fa604bf7bac78e4bedb4844">&#9670;&nbsp;</a></span>parse_transcripts()</h2>
+<a id="a57e329cf9ecd49ee357de368b1afa0bb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a57e329cf9ecd49ee357de368b1afa0bb">&#9670;&nbsp;</a></span>parse_transcripts()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1353,7 +1353,7 @@ template&lt;class T &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::Transcriptome::parse_transcripts </td>
+          <td class="memname">int32_t vg::Transcriptome::parse_transcripts </td>
           <td>(</td>
           <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Transcript.html">Transcript</a> &gt; *&#160;</td>
           <td class="paramname"><em>transcripts</em>, </td>
@@ -1395,7 +1395,7 @@ template&lt;class T &gt; </div>
 </table>
 </div><div class="memdoc">
 
-<p>Parse gtf/gff3 file of transcripts. </p>
+<p>Parse gtf/gff3 file of transcripts. Returns the number of non-header lines in the parsed file. </p>
 
 </div>
 </div>

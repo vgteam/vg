@@ -74,7 +74,7 @@ var searchData=
   ['parse_5frg_5fsample_5fmap_3612',['parse_rg_sample_map',['../namespacevg.html#a637c855dffc0296c6575ae8a4cac6b43',1,'vg']]],
   ['parse_5frsem_5fexpression_5ffile_3613',['parse_rsem_expression_file',['../sim__main_8cpp.html#aa1964053fdd12fb9dde544ce6d18ab70',1,'sim_main.cpp']]],
   ['parse_5fsubpath_5fname_3614',['parse_subpath_name',['../classvg_1_1Paths.html#ad435e28133a430c86840081efd04d57d',1,'vg::Paths']]],
-  ['parse_5ftranscripts_3615',['parse_transcripts',['../classvg_1_1Transcriptome.html#a7bda3e836fa604bf7bac78e4bedb4844',1,'vg::Transcriptome']]],
+  ['parse_5ftranscripts_3615',['parse_transcripts',['../classvg_1_1Transcriptome.html#a57e329cf9ecd49ee357de368b1afa0bb',1,'vg::Transcriptome']]],
   ['parse_5ftranslation_3616',['parse_translation',['../structvg_1_1PathIndex.html#aa5272234ddb7686f1ae88881ebf99a61',1,'vg::PathIndex']]],
   ['parse_5fvcf_3617',['parse_vcf',['../classvg_1_1HaplotypeIndexer.html#ad3eda4acd04b8bae303b4604410ece41',1,'vg::HaplotypeIndexer::parse_vcf(const std::string &amp;filename, const PathHandleGraph &amp;graph, const std::string &amp;job_name=&quot;GBWT&quot;) const'],['../classvg_1_1HaplotypeIndexer.html#ad81dbd24bba40aaa14536d79754d387b',1,'vg::HaplotypeIndexer::parse_vcf(const std::string &amp;filename, const PathHandleGraph &amp;graph, const std::vector&lt; path_handle_t &gt; &amp;paths, const std::string &amp;job_name=&quot;GBWT&quot;) const']]],
   ['parsegenotypes_3618',['parseGenotypes',['../namespacevg.html#a8bcecf9fe02b7f50dd5e72e40dcd98e1',1,'vg']]],
