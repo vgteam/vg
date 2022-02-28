@@ -340,11 +340,17 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                                               is_reversed_in_parent, id, node_length, prefix_sum, component));
                  //Add this node to its parent
                  if (distance_index.is_root(parent)) {
-                     net_handle_t root_child = distance_index.is_root_snarl(parent) ? parent : tree_state.all_node_clusters.back().containing_net_handle;
-                     if (tree_state.root_children.count(root_child) == 0) {
-                        tree_state.root_children.emplace(root_child, vector<size_t>(0));
+                     if (distance_index.is_root_snarl(parent)) {
+                         //If this is a root snarl, then remember it to cluster in the root
+                        if (tree_state.root_children.count(parent) == 0) {
+                           tree_state.root_children.emplace(parent, vector<size_t>(0));
+                        }
+                        tree_state.root_children[parent].emplace_back(tree_state.all_node_clusters.size()-1);
+                     } else {
+                         //Otherwise, just compare the single child's external connectivity
+                         compare_and_combine_cluster_on_one_child(tree_state, tree_state.all_node_clusters.back());
+
                      }
-                     tree_state.root_children[root_child].emplace_back(tree_state.all_node_clusters.size()-1);
                  } else {
                     add_child_to_vector(tree_state, chain_to_children_by_level[depth], parent, tree_state.all_node_clusters.size() - 1);
                  }
@@ -397,11 +403,16 @@ void NewSnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state) const {
         if (reachable_left || reachable_right) {
             //If we can reach the ends of the snarl, add it to it's parent 
             if (distance_index.is_root(snarl_parent)) {
-                 net_handle_t root_child = distance_index.is_root_snarl(snarl_parent) ? snarl_parent : snarl_handle;
-                 if (tree_state.root_children.count(root_child) == 0) {
-                    tree_state.root_children.emplace(root_child, vector<size_t>(0));
+                 if(distance_index.is_root_snarl(snarl_parent)){
+                     //If the parent is a root snarl, then remember it to be compared in the root
+                    if (tree_state.root_children.count(snarl_parent) == 0) {
+                       tree_state.root_children.emplace(snarl_parent, vector<size_t>(0));
+                    }
+                    tree_state.root_children[snarl_parent].emplace_back(kv.second.first);
+                 } else {
+                     //Otherwise, compare it to itself using external connectivity
+                         compare_and_combine_cluster_on_one_child(tree_state, snarl_clusters);
                  }
-                 tree_state.root_children[root_child].emplace_back(kv.second.first);
             } else {
                 add_child_to_vector(tree_state, tree_state.parent_chain_to_children, snarl_parent, kv.second.first);
             }
@@ -437,11 +448,16 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
         net_handle_t parent = distance_index.get_parent(chain_handle);
         if (distance_index.is_root(parent)) {
             //If the parent is the root, remember the index of this chain in all_node_clusters
-            net_handle_t root_child = distance_index.is_root_snarl(parent) ? parent : chain_handle;
-            if (tree_state.root_children.count(root_child) == 0) {
-               tree_state.root_children.emplace(root_child, vector<size_t>(0));
+            if(distance_index.is_root_snarl(parent)) {
+                //If the parent is a root snarl, then remember it to cluster in the root
+                if (tree_state.root_children.count(parent) == 0) {
+                   tree_state.root_children.emplace(parent, vector<size_t>(0));
+                }
+                tree_state.root_children[parent].emplace_back(kv.second.first);
+            } else {
+                //Otherwise, cluster it with itself using external connectivity only
+                 compare_and_combine_cluster_on_one_child(tree_state, tree_state.all_node_clusters[kv.second.first]);
             }
-            tree_state.root_children[root_child].emplace_back(kv.second.first);
         } else {
             //If the parent is just a snarl
              add_child_to_vector(tree_state, tree_state.snarl_to_children, parent, kv.second.first);
@@ -752,6 +768,7 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
     /* Find the distances from the start/end of the parent to the left/right of the first child
      * If this is the root, then the distances are infinite since it has no start/end
      */
+
     if (is_root){
         if (distance_left_left == std::numeric_limits<size_t>::max() &&
             distance_left_right == std::numeric_limits<size_t>::max() &&
@@ -779,6 +796,7 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
             distance_index.distance_to_parent_bound(parent_handle, false, child_handle1,false);
 
     }
+   
 #ifdef DEBUG_CLUSTER
     cerr << "\t\tFound distances between the two children: " << distance_left_left << " " << distance_left_right << " " << distance_right_right << " " << distance_right_left << endl;
     cerr << "\t\tAnd distances from the ends of child1 to ends of parent: " << child_clusters1.distance_start_left << " " 
@@ -1134,6 +1152,188 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
 //            }
 //        }
 //#endif
+}
+
+void NewSnarlSeedClusterer::compare_and_combine_cluster_on_one_child(TreeState& tree_state, NodeClusters& child_clusters) const {
+#ifdef DEBUG_CLUSTER
+    cerr << "\tCompare " << distance_index.net_handle_as_string(child_clusters1.containing_net_handle) 
+         << " to itself in the root" << endl;
+#endif
+
+    net_handle_t& handle = child_clusters.containing_net_handle;
+
+
+    //Get the distances between the two sides of the child
+    size_t distance_left_left = distance_index.is_externally_start_start_connected(handle) ? 0 : std::numeric_limits<size_t>::max();
+    size_t distance_left_right = distance_index.is_externally_start_end_connected(handle) ? 0 : std::numeric_limits<size_t>::max();
+    size_t distance_right_right = distance_index.is_externally_end_end_connected(handle) ? 0 : std::numeric_limits<size_t>::max();
+
+#ifdef DEBUG_CLUSTER
+    cerr << "\t\tFound distances between the two children: " << distance_left_left << " " << distance_left_right << " " << distance_right_right << " " << distance_right_left << endl;
+#endif
+    /*
+     * We're going to go through all clusters to see which can get combined. There will be up to four combined clusters (per read), 
+     * one for each path between the two sides of the two nodes
+     *
+     * If a cluster from the first child can be combined with a cluster of the second by taking the left-right path, 
+     * then any cluster of the second child with a right distance that is less than the distance limit - the best left distance 
+     * of the first will be combined with the cluster with the best left distances. So in the end there will only be four combined
+     * clusters, one for each path
+     * This strategy ends up unioning a cluster with itself but it only goes through the clusters once so I think
+     * it's efficient
+     */
+
+    //These will be the cluster heads and distances of everything combined by taking the indicated path
+    //one cluster head per read
+    //pair< pair<read_num, seed_num>, pair<left dist, right_dist>>
+    //The default value will be ((inf, 0), (0,0)). Only the inf gets checked to see if it's a real value so I filled it in with 0 so I wouldn't have to type out inf 
+    vector<pair<size_t, size_t>> new_cluster_left_left_by_read(tree_state.all_seeds->size(), 
+            make_pair(std::numeric_limits<size_t>::max(), 0));
+    vector<pair<size_t, size_t>> new_cluster_left_right_by_read(tree_state.all_seeds->size(),
+        make_pair(std::numeric_limits<size_t>::max(), 0));
+    vector<pair<size_t, size_t>> new_cluster_right_right_by_read(tree_state.all_seeds->size(),
+        make_pair(std::numeric_limits<size_t>::max(), 0));
+
+    //And the new cluster heads for the fragment
+    //These are the values of the cluster heads in the union finds, which include the values from read_index_offset
+    size_t new_cluster_left_left_fragment = std::numeric_limits<size_t>::max();
+    size_t new_cluster_left_right_fragment = std::numeric_limits<size_t>::max();
+    size_t new_cluster_right_right_fragment = std::numeric_limits<size_t>::max();
+
+    //Helper function that will compare two clusters
+    //Given the read num and seed_num of the cluster head, the distance to the other node side we're looking at, 
+    //the distances to the ends of the parent for the cluster head, a reference
+    //to the current cluster head and distances of the potential combined cluster (pair<pair<>pair<>> which will be updated if it gets combined),
+    //the relevant combined cluster head for the fragment
+    //Returns true if this cluster got combined
+    auto compare_and_combine_clusters = [&] (size_t read_num, size_t cluster_num, size_t distance_between_reads, 
+            size_t distance_between_fragments, 
+            pair<size_t, size_t>& new_cluster_head, size_t& new_cluster_head_fragment){
+        if (read_num == new_cluster_head.first && cluster_num ==  new_cluster_head.second) {
+            //If this is the same as the old cluster head, then don't bother trying to compare
+            return false;
+        }
+        distance_between_reads = SnarlDistanceIndex::minus(distance_between_reads, 1);
+        distance_between_fragments = SnarlDistanceIndex::minus(distance_between_fragments, 1);
+        bool combined = false;
+
+        if (distance_between_reads <= tree_state.read_distance_limit) {
+            //If this can be combined with the given combined cluster
+            if (new_cluster_head.first == std::numeric_limits<size_t>::max()){
+                //new cluster head
+                new_cluster_head = make_pair(read_num, cluster_num);
+            } else {
+                //Combine with old cluster head
+                tree_state.read_union_find.at(read_num).union_groups(cluster_num, new_cluster_head.second);
+
+                //Update distances
+
+                //And remember new head and distances
+                new_cluster_head = make_pair(read_num, tree_state.read_union_find.at(read_num).find_group(cluster_num));
+            }
+            //Remember to erase this cluster head
+            combined = true;
+
+#ifdef DEBUG_CLUSTER
+            cerr << "\t\t\tCombining read/cluster " << read_num << "/" << cluster_num << "... new cluster head:" << new_cluster_head.second << endl; 
+#endif
+        }
+        if (tree_state.fragment_distance_limit != 0 && 
+                    distance_between_fragments <= tree_state.fragment_distance_limit ) {
+            //Just union the fragment
+            if (new_cluster_head_fragment == std::numeric_limits<size_t>::max()) {
+                new_cluster_head_fragment =cluster_num+tree_state.read_index_offsets[read_num];
+            } else {
+                tree_state.fragment_union_find.union_groups(cluster_num+tree_state.read_index_offsets[read_num], 
+                                                                    new_cluster_head_fragment);
+                new_cluster_head_fragment = tree_state.fragment_union_find.find_group(new_cluster_head_fragment);
+            }
+#ifdef DEBUG_CLUSTER
+            cerr << "\t\t\tCombining fragment" << endl;
+#endif
+        }
+        return combined;
+    };
+
+    /*
+     * Go through all clusters on the first child and see if they can be combined with clusters on the second child
+     */
+    for (auto& child_cluster_head : child_clusters.read_cluster_heads) {
+
+        bool combined = false;
+        size_t read_num = child_cluster_head.first;
+        size_t cluster_num = tree_state.read_union_find[read_num].find_group(child_cluster_head.second);
+
+        //Distances to the ends of the child
+        pair<size_t, size_t> distances = tree_state.read_cluster_heads_to_distances[read_num][child_cluster_head.second];
+            
+
+        //Check if the left of 1 can connect with the left of 2
+        combined = combined | compare_and_combine_clusters (read_num, cluster_num, 
+            SnarlDistanceIndex::sum({distances.first,distance_left_left, child_clusters.read_best_left[read_num]}), 
+            SnarlDistanceIndex::sum({distances.first,distance_left_left, child_clusters.fragment_best_left}), 
+            new_cluster_left_left_by_read[read_num], new_cluster_left_left_fragment);
+
+        //Check if the left of 1 can connect with the right of 2
+        combined = combined | compare_and_combine_clusters (read_num, cluster_num, 
+            SnarlDistanceIndex::sum({distances.first,distance_left_right, child_clusters.read_best_right[read_num]}), 
+            SnarlDistanceIndex::sum({distances.first,distance_left_right, child_clusters.fragment_best_right}), 
+             new_cluster_left_right_by_read[read_num], new_cluster_left_right_fragment);
+
+        //Check if the right of 1 can connect with the right of 2
+        combined = combined | compare_and_combine_clusters (read_num, cluster_num, 
+            SnarlDistanceIndex::sum({distances.second,distance_right_right, child_clusters.read_best_right[read_num]}), 
+            SnarlDistanceIndex::sum({distances.second,distance_right_right, child_clusters.fragment_best_right}), 
+            new_cluster_right_right_by_read[read_num], new_cluster_right_right_fragment);
+
+        size_t cluster_head = tree_state.read_union_find[read_num].find_group(cluster_num); 
+
+    }
+//
+//    /*Now go through clusters on the second child, and see if they can be combined with clusters on the first child
+//     */
+//    for (auto& child_cluster_head : child_clusters2.read_cluster_heads) {
+//
+//        size_t read_num = child_cluster_head.first;
+//        size_t cluster_num = tree_state.read_union_find[read_num].find_group(child_cluster_head.second);
+//        pair<size_t, size_t> distances = child_distances[read_num][child_cluster_head.second];
+//        size_t new_dist_left = std::min(SnarlDistanceIndex::sum({distances.first,child_clusters2.distance_start_left}), 
+//                                        SnarlDistanceIndex::sum({distances.second,child_clusters2.distance_start_right}));
+//        size_t new_dist_right = std::min(SnarlDistanceIndex::sum({distances.first,child_clusters2.distance_end_left}), 
+//                                        SnarlDistanceIndex::sum({distances.second,child_clusters2.distance_end_right}));
+//        pair<size_t, size_t> distances_to_parent = make_pair(new_dist_left, new_dist_right);
+//
+//        if (parent_clusters.read_cluster_heads.count(make_pair(read_num, cluster_num)) > 0) {
+//            distances_to_parent = make_pair(
+//                std::min(new_dist_left, tree_state.read_cluster_heads_to_distances[read_num][cluster_num].first),
+//                std::min(new_dist_right,tree_state.read_cluster_heads_to_distances[read_num][cluster_num].second));
+//        }
+//
+//        //Check if the left of 1 can connect with the left of 2
+//        compare_and_combine_clusters (read_num, cluster_num, 
+//            SnarlDistanceIndex::sum({distances.first,distance_left_left,child_clusters1.read_best_left[read_num]}), 
+//            SnarlDistanceIndex::sum({distances.first,distance_left_left,child_clusters1.fragment_best_left}), 
+//            distances_to_parent, new_cluster_left_left_by_read[read_num], new_cluster_left_left_fragment);
+//
+//        //Check if the left of 1 can connect with the right of 2
+//        compare_and_combine_clusters (read_num, cluster_num, 
+//            SnarlDistanceIndex::sum({distances.second,distance_left_right,child_clusters1.read_best_left[read_num]}),
+//            SnarlDistanceIndex::sum({distances.second,distance_left_right,child_clusters1.fragment_best_left}),
+//            distances_to_parent, new_cluster_left_right_by_read[read_num], new_cluster_left_right_fragment);
+//
+//        //Check if the right of 1 can connect with the right of 2
+//        compare_and_combine_clusters (read_num, cluster_num, 
+//            SnarlDistanceIndex::sum({distances.second,distance_right_right,child_clusters1.read_best_right[read_num]}),
+//            SnarlDistanceIndex::sum({distances.second,distance_right_right,child_clusters1.fragment_best_right}),
+//            distances_to_parent, new_cluster_right_right_by_read[read_num], new_cluster_right_right_fragment);
+//
+//        //Check if the right of 1 can connect with the left of 2
+//        compare_and_combine_clusters (read_num, cluster_num, 
+//            SnarlDistanceIndex::sum({distances.first,distance_right_left,child_clusters1.read_best_right[read_num]}),
+//            SnarlDistanceIndex::sum({distances.first,distance_right_left,child_clusters1.fragment_best_right}),
+//            distances_to_parent, new_cluster_right_left_by_read[read_num], new_cluster_right_left_fragment);
+//    }
+
 }
 
 
@@ -1957,11 +2157,6 @@ void NewSnarlSeedClusterer::cluster_root(TreeState& tree_state) const {
                 //Get the other node and its clusters
                 NodeClusters& child_clusters_j = tree_state.all_node_clusters[children[j]];
 
-#ifdef DEBUG_CLUSTER
-                cerr << "\tComparing two children of the root: " 
-                     << distance_index.net_handle_as_string(child_clusters_i.containing_net_handle) << " and " 
-                     << distance_index.net_handle_as_string(child_clusters_j.containing_net_handle) << endl;
-#endif
 
 
                 compare_and_combine_cluster_on_child_structures(tree_state, child_clusters_i,

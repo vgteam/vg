@@ -306,8 +306,12 @@ class NewSnarlSeedClusterer {
         //since the distances in tree_state.read_cluster_heads_to_distances will get updated
         void compare_and_combine_cluster_on_child_structures(TreeState& tree_state, NodeClusters& child_clusters1,
                 NodeClusters& child_clusters2, NodeClusters& parent_clusters, 
-                vector<vector<pair<size_t, size_t>>>& child_distances, 
-                bool is_root=false) const;
+                vector<vector<pair<size_t, size_t>>>& child_distances, bool is_root = false) const;
+
+        //The same as above, but compare clusters on a single child
+        //This assumes that the child is the child of the root and not a root snarl
+        //so we just look at external distances 
+        void compare_and_combine_cluster_on_one_child(TreeState& tree_state, NodeClusters& child_clusters) const;
 
 
         //Helper function to add to one of the cluster/snarl_to_children hash_maps.
