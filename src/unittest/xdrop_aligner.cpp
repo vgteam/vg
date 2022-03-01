@@ -954,6 +954,37 @@ TEST_CASE("XdropAligner can align to a graph where some nodes are entirely unali
     REQUIRE(path_to_length(aln.path()) == aln.sequence().size());
 }
 
+TEST_CASE("X-drop alignment applies quality penalities to the read sequence and not the ref", "[aligner][xdrop]") {
+    
+    // this case turned up as an unexpected instance of GSSW and dozeu producing different alignments
+    
+    bdsg::HashGraph graph;
+    auto h1 = graph.create_handle("TGGTGCAGGAAAAGAAGATTGGA");
+    auto h2 = graph.create_handle("AAAAGACCAAAACACACTTCTCCAGCAACACT");
+    auto h3 = graph.create_handle("CCATCAGCTTTTTAAAATTTAGAGCTATCTGC");
+    auto h4 = graph.create_handle("TAATTTTTTCCCTCTTCCTTCTCAATAAATGA");
+    
+    graph.create_edge(h1, h2);
+    graph.create_edge(h2, h3);
+    graph.create_edge(h3, h4);
+    
+    TestAligner aligner_source(0.417098);
+    aligner_source.set_alignment_scores(1, 4, 6, 1, 5);
+    const auto& aligner = *(aligner_source.get_qual_adj_aligner());
+    
+    Alignment aln;
+    aln.set_sequence("CGGCGAGTGAAGGTGATTACCGGTTAGCAAAAAAACTAGCTTCTCAAGGACACCGCGAACTGCTCTGATTTGGAT");
+    aln.set_quality("+,C########################################################################");
+    alignment_quality_char_to_short(aln);
+    
+    aligner.align_pinned(aln, graph, true, true, 26);
+    
+    // should find a short alignment of 3 bases
+    REQUIRE(aln.score() == 1);
+    REQUIRE(path_from_length(aln.path()) == 3);
+}
+
+
 }
 }
         

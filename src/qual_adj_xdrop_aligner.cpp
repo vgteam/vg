@@ -1,7 +1,6 @@
 /**
  * \file qual_adj_xdrop_aliigner.cpp: contains implementation of QualAdjXdropAligner
  */
-
 #include "dozeu_interface.hpp"
 
 // Configure dozeu:
@@ -51,7 +50,6 @@ QualAdjXdropAligner& QualAdjXdropAligner::operator=(const QualAdjXdropAligner& o
         
         free(qual_adj_matrix);
     }
-
 	return *this;
 }
 
@@ -82,13 +80,14 @@ QualAdjXdropAligner::QualAdjXdropAligner(const int8_t* _score_matrix,
     assert(_gap_open - _gap_extension >= 0);
     assert(_gap_extension > 0);
     
-    // convert the 5x5 matrices into a 4x4 like dozeu wants
+    // convert the 5x5 matrices into a 4x4 like dozeu wants, and also transpose
+    // the matrix so that the read error probabilities are where dozeu expects
     uint32_t max_qual = 255;
     int8_t* qual_adj_scores_4x4 = (int8_t*) malloc(16 * (max_qual + 1));
-    for (int q = 0; q < max_qual; ++q) {
+    for (int q = 0; q <= max_qual; ++q) {
         for (int i = 0; i < 4; ++i) {
             for (int j = 0; j < 4; ++j) {
-                qual_adj_scores_4x4[q * 16 + i * 4 + j] = _qual_adj_score_matrix[q * 25 + i * 5 + j];
+                qual_adj_scores_4x4[q * 16 + i * 4 + j] = _qual_adj_score_matrix[q * 25 + j * 5 + i];
             }
         }
     }
