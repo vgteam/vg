@@ -1718,7 +1718,8 @@ namespace vg {
                 // make the alignment
                 vector<multipath_alignment_t> cluster_multipath_alns;
                 cluster_multipath_alns.emplace_back();
-                multipath_align(anchor_aln, cluster_graphs[i], cluster_multipath_alns.back(), anchor_fanouts);
+                multipath_align(anchor_aln, cluster_graphs[i], cluster_multipath_alns.back(), anchor_fanouts,
+                                anchor_is_read_1);
                 
                 if (!suppress_multicomponent_splitting) {
                     // split it up if it turns out to be multiple components
@@ -2609,19 +2610,19 @@ namespace vg {
                     
                 }
                 
-                if (distance_index && dist == numeric_limits<int64_t>::max()) {
-                    // FIXME: this will still sometimes produce finite distances for reads that
-                    // can't reach each other along a surjection path in cyclic graphs
-                    // FIXME: it can also find finite distances to different strands of a path,
-                    // but this might be okay sometimes?
-                    
-                    // they're probably still reachable if they got this far, get a worse estimate of the
-                    // distance from the distance index
-                    int64_t min_dist = distance_index->min_distance(pos_1, pos_2);
-                    if (min_dist >= 0) {
-                        dist = min_dist;
-                    }
-                }
+//                if (distance_index && dist == numeric_limits<int64_t>::max()) {
+//                    // FIXME: this will still sometimes produce finite distances for reads that
+//                    // can't reach each other along a surjection path in cyclic graphs
+//                    // FIXME: it can also find finite distances to different strands of a path,
+//                    // but this might be okay sometimes?
+//
+//                    // they're probably still reachable if they got this far, get a worse estimate of the
+//                    // distance from the distance index
+//                    int64_t min_dist = distance_index->min_distance(pos_1, pos_2);
+//                    if (min_dist >= 0) {
+//                        dist = min_dist;
+//                    }
+//                }
                 
                 if (dist != numeric_limits<int64_t>::max()) {
                     // not memoizing unreachable distances, since distance index should
@@ -5238,7 +5239,7 @@ namespace vg {
                 
                 multipath_align(alignment1, cluster_graphs1[cluster_pair.first.first],
                                 multipath_aln_pairs_out.back().first,
-                                fanouts1);
+                                fanouts1, true);
                 
                 // keep track of the fact that we have completed this multipath alignment
                 previous_multipath_alns_1[cluster_pair.first.first] = i;
@@ -5262,7 +5263,7 @@ namespace vg {
 #endif
                 
                 multipath_align(alignment2, cluster_graphs2[cluster_pair.first.second],
-                                multipath_aln_pairs_out.back().second, fanouts2);
+                                multipath_aln_pairs_out.back().second, fanouts2, false);
                 
                 // keep track of the fact that we have completed this multipath alignment
                 previous_multipath_alns_2[cluster_pair.first.second] = i;
@@ -5961,7 +5962,7 @@ namespace vg {
     
     void MultipathMapper::multipath_align(const Alignment& alignment, clustergraph_t& cluster_graph,
                                           multipath_alignment_t& multipath_aln_out,
-                                          const match_fanouts_t* fanouts) const {
+                                          const match_fanouts_t* fanouts, bool read_1) const {
 
         // we put this in a loop so that we can check to make sure we didn't miss part of the
         // alignment because there wasn't enough graph extracted
@@ -6176,11 +6177,53 @@ namespace vg {
                                                               : size_t(band_padding_multiplier * sqrt(read_length)) + 1;
             };
             
+            // if we encounter a primer at a tail alignment point, just take a soft clip instead of trying to align it
+            function<bool(string::const_iterator,bool)> softclip_filter_primers = [&](string::const_iterator it, bool to_left) {
+                // TODO: magic number
+                // the MEMs might have overshot into the primers, so we'll also try it with 1 base of overlap
+                static int64_t max_overlap = 1;
+                bool matches_primer = false;
+                if (read_1 && !to_left && !read_1_adapter.empty()) {
+                    for (int64_t i = 0; i <= max_overlap && !matches_primer; ++i) {
+                        if (it - i + read_2_adapter.size() <= alignment.sequence().end()) {
+                            size_t pos = kmp_search(&(*it) - i, read_1_adapter.size(),
+                                                    read_1_adapter.c_str(), read_1_adapter.size(),
+                                                    read_1_adapter_lps);
+                            matches_primer = (pos != string::npos);
+                        }
+                    }
+                }
+                else if (!read_1 && to_left && !read_2_adapter.empty()) {
+                    for (int64_t i = 0; i <= max_overlap && !matches_primer; ++i) {
+                        if (alignment.sequence().begin() + i + read_2_adapter.size() <= it) {
+                            size_t pos = kmp_search(&(*it) - read_2_adapter.size() + i, read_2_adapter.size(),
+                                                    read_2_adapter.c_str(), read_2_adapter.size(),
+                                                    read_2_adapter_lps);
+                            matches_primer = (pos != string::npos);
+                        }
+                    }
+                }
+                return matches_primer;
+            };
+            
             // do the connecting alignments and fill out the multipath_alignment_t object
-            multi_aln_graph.align(alignment, *align_dag, aligner, true, num_alt_alns, dynamic_max_alt_alns, max_alignment_gap,
-                                  use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0, simplify_topologies,
-                                  max_tail_merge_supress_length, choose_band_padding, multipath_aln_out, snarl_manager,
-                                  distance_index, &translator);
+            multi_aln_graph.align(alignment,
+                                  *align_dag,
+                                  aligner,
+                                  true, // anchors are matches
+                                  num_alt_alns,
+                                  dynamic_max_alt_alns,
+                                  max_alignment_gap,
+                                  use_pessimistic_tail_alignment ? pessimistic_gap_multiplier : 0.0,
+                                  simplify_topologies,
+                                  max_tail_merge_supress_length,
+                                  choose_band_padding,
+                                  multipath_aln_out,
+                                  snarl_manager,
+                                  distance_index,
+                                  &translator,
+                                  false, // take soft clips of anchors instead of negative scores
+                                  &softclip_filter_primers);
             
             // Note that we do NOT topologically order the multipath_alignment_t. The
             // caller has to do that, after it is finished breaking it up into

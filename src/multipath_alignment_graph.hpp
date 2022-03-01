@@ -194,7 +194,7 @@ namespace vg {
                    size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, bool simplify_topologies,
                    size_t unmergeable_len, size_t band_padding, multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls = nullptr,
                    MinimumDistanceIndex* dist_index = nullptr, const function<pair<id_t, bool>(id_t)>* project = nullptr,
-                   bool allow_negative_scores = false);
+                   bool allow_negative_scores = false, const function<bool(string::const_iterator,bool)>* auto_clip_function = nullptr);
         
         /// Do intervening and tail alignments between the anchoring paths and
         /// store the result in a multipath_alignment_t. Reachability edges must
@@ -212,7 +212,8 @@ namespace vg {
                    size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier, bool simplify_topologies,
                    size_t unmergeable_len, function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
                    multipath_alignment_t& multipath_aln_out, SnarlManager* cutting_snarls = nullptr, MinimumDistanceIndex* dist_index = nullptr,
-                   const function<pair<id_t, bool>(id_t)>* project = nullptr, bool allow_negative_scores = false);
+                   const function<pair<id_t, bool>(id_t)>* project = nullptr, bool allow_negative_scores = false,
+                   const function<bool(string::const_iterator,bool)>* auto_clip_function = nullptr);
         
         /// Converts a MultipathAlignmentGraph to a GraphViz Dot representation, output to the given ostream.
         /// If given the Alignment query we are working on, can produce information about subpath iterators.
@@ -306,7 +307,8 @@ namespace vg {
         unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
         align_tails(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
                     size_t max_alt_alns, bool dynamic_alt_alns, size_t max_gap, double pessimistic_tail_gap_multiplier,
-                    size_t min_paths, unordered_set<size_t>* sources = nullptr);
+                    size_t min_paths, unordered_set<size_t>* sources = nullptr,
+                    const function<bool(string::const_iterator,bool)>* auto_clip_function = nullptr);
         
         /// Removes alignments that follow the same path through the graph, retaining only the
         /// highest scoring ones. If deduplicating leftward, then also removes paths that take a

@@ -529,7 +529,8 @@ namespace vg {
         void multipath_align(const Alignment& alignment,
                              clustergraph_t& cluster_graph,
                              multipath_alignment_t& multipath_aln_out,
-                             const match_fanouts_t* fanouts) const;
+                             const match_fanouts_t* fanouts,
+                             bool read_1 = true) const;
         
         /// If any softclips could have arisen because not enough graph was extracted, extract
         /// extra graph in those areas. Returns true if the graph was expanded.
