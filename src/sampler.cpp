@@ -717,10 +717,14 @@ NGSSimulator::NGSSimulator(PathPositionHandleGraph& graph,
             // Always use accurate length for sampling start pos, even with sample_unsheared_paths
             start_pos_samplers.emplace_back(0, length - 1);
             
-            if (sample_unsheared_paths) {
+            if (length == 0) {
+                path_weights.push_back(0.0);
+            }
+            else if (sample_unsheared_paths) {
                 // sample uniformly between paths
                 path_weights.push_back(1.0);
-            } else {
+            }
+            else {
                 // Sample paths proportional to effective length and ploidy
                 double eff_path_len;
                 if (fragment_mean != numeric_limits<double>::max()) {
