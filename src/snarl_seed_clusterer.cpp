@@ -153,7 +153,7 @@ for (size_t i = 1 ; i < tree_state.all_seeds->size() ; i++) {
         cluster_chain_level(tree_state);
 
         //And cluster all the snarls, record the parents of these snarls
-        cluster_snarl_level(tree_state);
+        //cluster_snarl_level(tree_state);
 
 
         // Swap buffer over for the next level
@@ -368,61 +368,61 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 
 //Cluster all of the snarls in tree_state from the same depth (all present in snarl_to_children)
 //Assumes that all the children of the snarls have been clustered already and are present in tree_state.snarls_to_children
-void NewSnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state) const {
-
-    for (auto& kv : tree_state.snarl_to_children){
-        //Go through each of the snarls at this level, cluster them,
-        //and find which chains they belong to, if any
-        //key is the index of the snarl and value is a vector of pair of
-        // net_handle_t, NodeClusters
-
-        net_handle_t snarl_handle = kv.first;
-
-#ifdef DEBUG_CLUSTER
-        cerr << "Cluster one snarl " << distance_index.net_handle_as_string(snarl_handle) << endl;
-#endif
-        net_handle_t snarl_parent = distance_index.get_parent(snarl_handle);
-        //If this snarl is in a chain, cluster and add let the
-        //tree state know which chain it belongs to (in order)
-
-        //Cluster the snarl
-        cluster_one_snarl(tree_state, tree_state.all_node_clusters[kv.second.first]);
-        NodeClusters& snarl_clusters = tree_state.all_node_clusters[kv.second.first];
-
-        //Now check the best distance of any seed to the ends of the snarl
-        //Is the distance small enough that we can cluster it with something else?
-        bool reachable_right = snarl_clusters.fragment_best_right <= 
-            (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit);
-        bool reachable_left = snarl_clusters.fragment_best_left <= 
-            (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit);
-
-
-        if (reachable_left || reachable_right) {
-            //If we can reach the ends of the snarl, add it to it's parent 
-            if (distance_index.is_root(snarl_parent)) {
-                 if(distance_index.is_root_snarl(snarl_parent)){
-                     //If the parent is a root snarl, then remember it to be compared in the root
-                    if (tree_state.root_children.count(snarl_parent) == 0) {
-                       tree_state.root_children.emplace(snarl_parent, vector<size_t>(0));
-                    }
-                    tree_state.root_children[snarl_parent].emplace_back(kv.second.first);
-                 } else {
-                     //Otherwise, compare it to itself using external connectivity
-                         compare_and_combine_cluster_on_one_child(tree_state, snarl_clusters);
-                 }
-            } else {
-                add_child_to_vector(tree_state, tree_state.parent_chain_to_children, snarl_parent, kv.second.first);
-            }
-        }
-
-#ifdef DEBUG_CLUSTER
-        cerr << "\tRecording snarl " << distance_index.net_handle_as_string(snarl_handle)  << " as a child of "
-              << distance_index.net_handle_as_string(distance_index.get_parent(snarl_handle)) << endl;
-#endif
-
-    }
-    tree_state.snarl_to_children.clear();
-}
+//void NewSnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state) const {
+//
+//    for (auto& kv : tree_state.snarl_to_children){
+//        //Go through each of the snarls at this level, cluster them,
+//        //and find which chains they belong to, if any
+//        //key is the index of the snarl and value is a vector of pair of
+//        // net_handle_t, NodeClusters
+//
+//        net_handle_t snarl_handle = kv.first;
+//
+//#ifdef DEBUG_CLUSTER
+//        cerr << "Cluster one snarl " << distance_index.net_handle_as_string(snarl_handle) << endl;
+//#endif
+//        net_handle_t snarl_parent = distance_index.get_parent(snarl_handle);
+//        //If this snarl is in a chain, cluster and add let the
+//        //tree state know which chain it belongs to (in order)
+//
+//        //Cluster the snarl
+//        cluster_one_snarl(tree_state, tree_state.all_node_clusters[kv.second.first]);
+//        NodeClusters& snarl_clusters = tree_state.all_node_clusters[kv.second.first];
+//
+//        //Now check the best distance of any seed to the ends of the snarl
+//        //Is the distance small enough that we can cluster it with something else?
+//        bool reachable_right = snarl_clusters.fragment_best_right <= 
+//            (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit);
+//        bool reachable_left = snarl_clusters.fragment_best_left <= 
+//            (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit);
+//
+//
+//        if (reachable_left || reachable_right) {
+//            //If we can reach the ends of the snarl, add it to it's parent 
+//            if (distance_index.is_root(snarl_parent)) {
+//                 if(distance_index.is_root_snarl(snarl_parent)){
+//                     //If the parent is a root snarl, then remember it to be compared in the root
+//                    if (tree_state.root_children.count(snarl_parent) == 0) {
+//                       tree_state.root_children.emplace(snarl_parent, vector<size_t>(0));
+//                    }
+//                    tree_state.root_children[snarl_parent].emplace_back(kv.second.first);
+//                 } else {
+//                     //Otherwise, compare it to itself using external connectivity
+//                         compare_and_combine_cluster_on_one_child(tree_state, snarl_clusters);
+//                 }
+//            } else {
+//                add_child_to_vector(tree_state, tree_state.parent_chain_to_children, snarl_parent, kv.second.first);
+//            }
+//        }
+//
+//#ifdef DEBUG_CLUSTER
+//        cerr << "\tRecording snarl " << distance_index.net_handle_as_string(snarl_handle)  << " as a child of "
+//              << distance_index.net_handle_as_string(distance_index.get_parent(snarl_handle)) << endl;
+//#endif
+//
+//    }
+//    tree_state.snarl_to_children.clear();
+//}
 
 
 void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
@@ -456,8 +456,30 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
                  compare_and_combine_cluster_on_one_child(tree_state, tree_state.all_node_clusters[kv.second.first]);
             }
         } else {
-            //If the parent is just a snarl
-             add_child_to_vector(tree_state, tree_state.snarl_to_children, parent, kv.second.first);
+            //If the parent is just a snarl, add it to its parent snarl
+            size_t parent_snarl_index = add_child_to_vector(tree_state, tree_state.snarl_to_children, parent, kv.second.first);
+
+            //And add the snarl to its parent chain
+            net_handle_t grandparent_chain = distance_index.get_parent(parent);
+            if (distance_index.is_root(grandparent_chain)) {
+                assert(false);
+                 //if(distance_index.is_root_snarl(grandparent_chain)){
+                 //    //If the parent is a root snarl, then remember it to be compared in the root
+                 //   if (tree_state.root_children.count(grandparent_chain) == 0) {
+                 //      tree_state.root_children.emplace(grandparent_chain, vector<size_t>(0));
+                 //   }
+                 //   tree_state.root_children[grandparent_chain].emplace_back(parent_snarl_index);
+                 //} else {
+                 //    //Otherwise, compare it to itself using external connectivity
+                 //    cluster_one_snarl(tree_state,
+                 //    compare_and_combine_cluster_on_one_child(tree_state, snarl_clusters);
+                 //}
+            } else {
+                if (parent_snarl_index != std::numeric_limits<size_t>::max()) {
+                    //If this is the first time we see this parent snarl, then add it to the grandparent chain
+                    add_child_to_vector(tree_state, tree_state.parent_chain_to_children, grandparent_chain, parent_snarl_index);
+                }
+            }
         }
 
 
@@ -1153,7 +1175,7 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
 
 void NewSnarlSeedClusterer::compare_and_combine_cluster_on_one_child(TreeState& tree_state, NodeClusters& child_clusters) const {
 #ifdef DEBUG_CLUSTER
-    cerr << "\tCompare " << distance_index.net_handle_as_string(child_clusters1.containing_net_handle) 
+    cerr << "\tCompare " << distance_index.net_handle_as_string(child_clusters.containing_net_handle) 
          << " to itself in the root" << endl;
 #endif
 
@@ -1166,7 +1188,7 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_one_child(TreeState& 
     size_t distance_right_right = distance_index.is_externally_end_end_connected(handle) ? 0 : std::numeric_limits<size_t>::max();
 
 #ifdef DEBUG_CLUSTER
-    cerr << "\t\tFound distances between the two children: " << distance_left_left << " " << distance_left_right << " " << distance_right_right << " " << distance_right_left << endl;
+    cerr << "\t\tFound distances between the two children: " << distance_left_left << " " << distance_left_right << " " << distance_right_right <<  endl;
 #endif
     /*
      * We're going to go through all clusters to see which can get combined. There will be up to four combined clusters (per read), 
@@ -1680,6 +1702,8 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
         //If cluster the children here
         if (distance_index.is_node(child_handle)){
             cluster_one_node(tree_state, child_clusters);
+        } else {
+            cluster_one_snarl(tree_state, child_clusters);
         }
 
         //Skip this child if its seeds are all too far away
@@ -2185,7 +2209,10 @@ void NewSnarlSeedClusterer::cluster_root(TreeState& tree_state) const {
 #endif
 }
 
-void NewSnarlSeedClusterer::add_child_to_vector(TreeState& tree_state, hash_map<net_handle_t, pair<size_t, vector<size_t>>>& parent_to_child_map, const net_handle_t& parent,size_t child_index) const {
+size_t NewSnarlSeedClusterer::add_child_to_vector(TreeState& tree_state, hash_map<net_handle_t, pair<size_t, vector<size_t>>>& parent_to_child_map, const net_handle_t& parent,size_t child_index) const {
+
+    //THe indexes of the parent in all_node_clusters, to be returned
+    size_t parent_index = std::numeric_limits<size_t>::max();
     if (parent_to_child_map.count(parent) == 0) {
         //If we haven't seen the parent before
 
@@ -2195,7 +2222,8 @@ void NewSnarlSeedClusterer::add_child_to_vector(TreeState& tree_state, hash_map<
         //Add the parent to the map
         parent_to_child_map.emplace(parent, 
                make_pair(tree_state.all_node_clusters.size()-1, vector<size_t>(0)));
-    }
+        parent_index = tree_state.all_node_clusters.size()-1;
+    } 
 
     if (distance_index.is_snarl(parent)){
         //If the parent is a snarl, then the order doesn't matter
@@ -2223,6 +2251,7 @@ void NewSnarlSeedClusterer::add_child_to_vector(TreeState& tree_state, hash_map<
         };
         insert_in_order(parent_to_child_map.at(parent).second, child_index);
     }
+    return parent_index;
 }
 
 }

@@ -287,7 +287,7 @@ class NewSnarlSeedClusterer {
 
         //Cluster all the snarls at the current level and update the tree_state
         //to add each of the snarls to the parent level
-        void cluster_snarl_level(TreeState& tree_state) const;
+        //void cluster_snarl_level(TreeState& tree_state) const;
 
         //Cluster all the chains at the current level
         void cluster_chain_level(TreeState& tree_state) const;
@@ -324,7 +324,8 @@ class NewSnarlSeedClusterer {
 
         //Helper function to add to one of the cluster/snarl_to_children hash_maps.
         //Adds parent -> child_cluster to the parent_to_child_map
-        void add_child_to_vector(TreeState& tree_state, hash_map<net_handle_t, pair<size_t, vector<size_t>>>& parent_to_child_map, const net_handle_t& parent,
+        //Returns the index of the parent in all_node_clusters if this is the first time we see the parent, and inf otherwise
+        size_t add_child_to_vector(TreeState& tree_state, hash_map<net_handle_t, pair<size_t, vector<size_t>>>& parent_to_child_map, const net_handle_t& parent,
             size_t child_index) const;
 };
 }
