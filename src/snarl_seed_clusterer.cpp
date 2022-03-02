@@ -297,10 +297,12 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
             if (seen_nodes.count(id) < 1) {
                  seen_nodes.insert(id);
                  net_handle_t node_net_handle = distance_index.get_node_net_handle(id) ; 
-                 net_handle_t parent;
+                 net_handle_t parent = std::get<1>(seed.minimizer_cache) == MIPayload::NO_VALUE 
+                                      ? distance_index.get_parent(node_net_handle)
+                                      : distance_index.get_handle_from_connected_component(std::get<1>(seed.minimizer_cache));
 
                  //Get the values from the seed. Some may be infinite and need to be re-set
-                 size_t depth;
+                 size_t depth = std::get<1>(seed.minimizer_cache) == MIPayload::NO_VALUE ? distance_index.get_depth(parent) : 1;
                  size_t node_length = std::get<0>(seed.minimizer_cache);
                  size_t prefix_sum = std::get<2>(seed.minimizer_cache);
                  size_t component = std::get<3>(seed.minimizer_cache);
@@ -310,9 +312,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                  //Node length and is_reversed are always set
                  if (prefix_sum == MIPayload::NO_VALUE) {
                      //If we didn't store information in the seed, then get it from the distance index
-                    parent = distance_index.get_parent(node_net_handle);
 
-                    depth = distance_index.get_depth(parent);
                     prefix_sum = distance_index.is_trivial_chain(parent) 
                             ? std::numeric_limits<size_t>::max() 
                             : distance_index.get_prefix_sum_value(node_net_handle);
@@ -323,11 +323,6 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                         node_length = distance_index.minimum_length(node_net_handle);
                         is_reversed_in_parent = distance_index.is_reversed_in_parent(node_net_handle);
                     }
-                 } else {
-                    //Otherwise, get the values from the seed
-                    //The values only get stored for nodes in top-level chains, so the depth is 1
-                    depth = 1; 
-                    parent = distance_index.get_handle_from_connected_component(std::get<1>(seed.minimizer_cache));
                  }
                  if (depth+1 > chain_to_children_by_level.size()) {
                      chain_to_children_by_level.resize(depth+1);
@@ -338,8 +333,9 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                  tree_state.all_node_clusters.emplace_back(
                                  NodeClusters(std::move(node_net_handle), tree_state.all_seeds->size(),
                                               is_reversed_in_parent, id, node_length, prefix_sum, component));
-                 //Add this node to its parent
                  if (distance_index.is_root(parent)) {
+                     //If this is a child of the root, then cluster it now
+                     cluster_one_node(tree_state, tree_state.all_node_clusters.back());
                      if (distance_index.is_root_snarl(parent)) {
                          //If this is a root snarl, then remember it to cluster in the root
                         if (tree_state.root_children.count(parent) == 0) {
@@ -352,6 +348,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 
                      }
                  } else {
+                     //Otherwise, add this node to its parent
                     add_child_to_vector(tree_state, chain_to_children_by_level[depth], parent, tree_state.all_node_clusters.size() - 1);
                  }
             }
@@ -784,16 +781,16 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
 
     } else {
         child_clusters1.distance_start_left = 
-            distance_index.distance_to_parent_bound(parent_handle, true, child_handle1, true);
+            distance_index.distance_in_parent(parent_handle, parent_clusters.start_in, distance_index.flip(child_handle1));
 
         child_clusters1.distance_start_right = 
-            distance_index.distance_to_parent_bound(parent_handle, true, child_handle1, false);
+            distance_index.distance_in_parent(parent_handle, parent_clusters.start_in, child_handle1);
 
         child_clusters1.distance_end_left =
-            distance_index.distance_to_parent_bound(parent_handle, false, child_handle1, true);
+            distance_index.distance_in_parent(parent_handle, parent_clusters.end_in, distance_index.flip(child_handle1));
 
         child_clusters1.distance_end_right = 
-            distance_index.distance_to_parent_bound(parent_handle, false, child_handle1,false);
+            distance_index.distance_in_parent(parent_handle, parent_clusters.end_in, child_handle1);
 
     }
    
@@ -1737,7 +1734,7 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
 
         size_t distance_from_current_end_to_end_of_chain;
         if (i != children_in_chain.size() - 1 || 
-                     SnarlDistanceIndex::get_record_offset(child_handle) == chain_clusters.chain_last_child_offset) {
+                     SnarlDistanceIndex::get_record_offset(child_handle) == SnarlDistanceIndex::get_record_offset(chain_clusters.end_in)) {
             //If this is the last node in the chain
             distance_from_current_end_to_end_of_chain = 0;
         } else if (chain_clusters.is_looping_chain) {

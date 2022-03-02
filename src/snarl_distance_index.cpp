@@ -1492,10 +1492,11 @@ tuple<size_t, size_t, size_t, size_t, bool> get_minimizer_distances (const Snarl
                       in_top_level_chain 
                        ?  distance_index.get_connected_component_number(node_handle)
                        : std::numeric_limits<size_t>::max(),
-                      in_top_level_chain ? distance_index.get_prefix_sum_value(node_handle)
+                      distance_index.is_chain(parent_handle) ? distance_index.get_prefix_sum_value(node_handle)
                                                                      : std::numeric_limits<size_t>::max(),
-                      in_top_level_chain ? (distance_index.is_multicomponent_chain(parent_handle) ? distance_index.get_chain_component(node_handle) : 0)
-                                                                     : std::numeric_limits<size_t>::max(),
+                      distance_index.is_chain(parent_handle) 
+                            ? (distance_index.is_multicomponent_chain(parent_handle) ? distance_index.get_chain_component(node_handle) : 0)
+                            : std::numeric_limits<size_t>::max(),
                       distance_index.is_reversed_in_parent(node_handle));
 
 

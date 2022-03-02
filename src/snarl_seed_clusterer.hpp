@@ -112,6 +112,10 @@ class NewSnarlSeedClusterer {
             size_t chain_length = std::numeric_limits<size_t>::max();
             size_t chain_last_component = std::numeric_limits<size_t>::max();
             size_t chain_last_child_offset = std::numeric_limits<size_t>::max();
+
+            //This one gets set for a (nontrivial) chain or snarl
+            net_handle_t start_in;
+            net_handle_t end_in;
             
 
             //set of the indices of heads of clusters (group ids in the 
@@ -144,8 +148,12 @@ class NewSnarlSeedClusterer {
                 if (distance_index.is_chain(containing_net_handle) && !distance_index.is_trivial_chain(containing_net_handle)) {
                     is_looping_chain = distance_index.is_looping_chain(containing_net_handle);
                     chain_length = distance_index.minimum_length(containing_net_handle);
-                    chain_last_component = distance_index.get_chain_component(distance_index.get_bound(containing_net_handle, true, false));
-                    chain_last_child_offset = SnarlDistanceIndex::get_record_offset(distance_index.get_bound(containing_net_handle, true, false));
+                    start_in = distance_index.get_bound(containing_net_handle, false, true);
+                    end_in = distance_index.get_bound(containing_net_handle, true, true);
+                    chain_last_component = distance_index.get_chain_component(end_in);
+                } else if (distance_index.is_snarl(containing_net_handle)) {
+                    start_in = distance_index.get_bound(containing_net_handle, false, true);
+                    end_in = distance_index.get_bound(containing_net_handle, true, true);
                 }
             }
             NodeClusters( net_handle_t net, size_t read_count, bool is_reversed_in_parent, nid_t node_id, size_t node_length, size_t prefix_sum, size_t component) :
@@ -259,7 +267,7 @@ class NewSnarlSeedClusterer {
                     read_cluster_heads_to_distances[i] = vector<pair<size_t,size_t>>(size, make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
                 }
 
-                all_node_clusters.reserve(seed_count);
+                all_node_clusters.reserve(5*seed_count);
                 snarl_to_children.reserve(seed_count);
                 chain_to_children.reserve(seed_count);
             }
