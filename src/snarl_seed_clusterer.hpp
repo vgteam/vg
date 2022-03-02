@@ -153,7 +153,7 @@ class NewSnarlSeedClusterer {
                     chain_last_component = distance_index.get_chain_component(end_in);
                 } else if (distance_index.is_snarl(containing_net_handle)) {
                     start_in = distance_index.get_bound(containing_net_handle, false, true);
-                    end_in = distance_index.get_bound(containing_net_handle, true, true);
+                    end_in =   distance_index.get_bound(containing_net_handle, true, true);
                 }
             }
             NodeClusters( net_handle_t net, size_t read_count, bool is_reversed_in_parent, nid_t node_id, size_t node_length, size_t prefix_sum, size_t component) :
@@ -296,7 +296,7 @@ class NewSnarlSeedClusterer {
         void cluster_one_node(TreeState& tree_state, NodeClusters& node_clusters) const; 
 
         //Cluster the seeds in a snarl given by its net handle
-        void cluster_one_snarl(TreeState& tree_state, NodeClusters& snarl_clusters) const;
+        void cluster_one_snarl(TreeState& tree_state, NodeClusters& snarl_clusters, const NodeClusters& parent_clusters) const;
 
         //Cluster the seeds in a chain given by chain_index_i, an index into
         //distance_index.chain_indexes
