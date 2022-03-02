@@ -2609,19 +2609,19 @@ namespace vg {
                     
                 }
                 
-                if (distance_index && dist == numeric_limits<int64_t>::max()) {
-                    // FIXME: this will still sometimes produce finite distances for reads that
-                    // can't reach each other along a surjection path in cyclic graphs
-                    // FIXME: it can also find finite distances to different strands of a path,
-                    // but this might be okay sometimes?
-                    
-                    // they're probably still reachable if they got this far, get a worse estimate of the
-                    // distance from the distance index
-                    int64_t min_dist = distance_index->min_distance(pos_1, pos_2);
-                    if (min_dist >= 0) {
-                        dist = min_dist;
-                    }
-                }
+//                if (distance_index && dist == numeric_limits<int64_t>::max()) {
+//                    // FIXME: this will still sometimes produce finite distances for reads that
+//                    // can't reach each other along a surjection path in cyclic graphs
+//                    // FIXME: it can also find finite distances to different strands of a path,
+//                    // but this might be okay sometimes?
+//                    
+//                    // they're probably still reachable if they got this far, get a worse estimate of the
+//                    // distance from the distance index
+//                    int64_t min_dist = distance_index->min_distance(pos_1, pos_2);
+//                    if (min_dist >= 0) {
+//                        dist = min_dist;
+//                    }
+//                }
                 
                 if (dist != numeric_limits<int64_t>::max()) {
                     // not memoizing unreachable distances, since distance index should

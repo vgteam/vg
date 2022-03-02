@@ -898,7 +898,7 @@ public:
         : m_mu(_mu), m_sigma(_sigma), m_alpha((_a - _mu) / _sigma), m_beta((_b - _mu) / _sigma)
     {
         assert(m_sigma > 0.0);
-        assert(m_alpha < m_beta);
+        assert(m_alpha <= m_beta);
     }
     
     void reset() {
@@ -912,19 +912,34 @@ public:
     }
     
     T mean() const {
-        return m_mu + m_sigma * A();
+        if (m_alpha != m_beta) {
+            return m_mu + m_sigma * A();
+        }
+        else {
+            return m_mu + m_sigma * m_alpha;
+        }
     }
     
     T stddev() const {
-        T b = (m_alpha * normal_pdf(m_alpha) - m_beta * normal_pdf(m_beta)) / Z();
-        T a = A();
-        return m_sigma * std::sqrt(1.0 + b - a * a);
+        if (m_alpha != m_beta) {
+            T b = (m_alpha * normal_pdf(m_alpha) - m_beta * normal_pdf(m_beta)) / Z();
+            T a = A();
+            return m_sigma * std::sqrt(1.0 + b - a * a);
+        }
+        else {
+            return 0.0;
+        }
     }
     
     T density(T x) const {
         T z = (x - m_mu) / m_sigma;
         if (z >= m_alpha && z <= m_beta) {
-            return normal_pdf(z) / (m_sigma * Z());
+            if (m_alpha != m_beta) {
+                return normal_pdf(z) / (m_sigma * Z());
+            }
+            else {
+                return numeric_limits<double>::infinity();
+            }
         }
         else {
             return 0.0;
@@ -934,7 +949,12 @@ public:
     T cumul(T x) const {
         T z = (x - m_mu) / m_sigma;
         if (z >= m_alpha && z <= m_beta) {
-            return (Phi(z) - Phi(m_alpha)) / Z();
+            if (m_alpha != m_beta) {
+                return (Phi(z) - Phi(m_alpha)) / Z();
+            }
+            else {
+                return 1.0;
+            }
         }
         else if (z > m_beta) {
             return 1.0;
