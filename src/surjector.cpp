@@ -1884,11 +1884,13 @@ using namespace std;
         vector<size_t> traceback(1, -1);
         int32_t max_score = numeric_limits<int32_t>::min();
         for (size_t i = 0; i < score_dp.size(); ++i) {
+            
             if (score_dp[i] > max_score && (!allow_negative_scores || comp_group_edges[i].empty())) {
                 max_score = score_dp[i];
                 traceback[0] = i;
             }
             else if (score_dp[i] == max_score
+                     && backpointer[i] != -1
                      && traceback[0] != -1
                      && backpointer[traceback[0]] != -1
                      && (!allow_negative_scores || comp_group_edges[i].empty())
