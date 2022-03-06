@@ -1,2 +1,0 @@
-#!/bin/bash
-dot -Tsvg -o x.svg; chromium-browser x.svg
