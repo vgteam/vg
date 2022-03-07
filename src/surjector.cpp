@@ -1144,7 +1144,7 @@ using namespace std;
             step_handle_t step_1 = ref_chunks[chunk_idx_1].second;
             // move right from the beginning of the second chunk if necessary
             step_handle_t step_2 = ref_chunks[chunk_idx_2].first;
-            for (size_t i = 0; i < chunk_idx_2; ++i) {
+            for (size_t i = 0; i < mapping_idx_2; ++i) {
                 step_2 = rev_strand ? graph->get_previous_step(step_2) : graph->get_next_step(step_2);
             }
             
