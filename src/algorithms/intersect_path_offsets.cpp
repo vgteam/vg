@@ -6,7 +6,7 @@
 
 #include "intersect_path_offsets.hpp"
 
-#include <algorithms>
+#include <algorithm>
 
 //#define debug
 
@@ -16,87 +16,55 @@ namespace algorithms {
 using namespace std;
 
 
-bool intersect_path_offsets(path_offset_collection_t& a_offsets,
-                            path_offset_collection_t& b_offsets,
+bool intersect_path_offsets(const path_offset_collection_t& a_offsets,
+                            const path_offset_collection_t& b_offsets,
                             size_t maximum_distance) {
                             
-    for (auto& kv : a_offsets) {
-        // For each path on th a side
-        path_handle_t& path = kv.first;
+    for (auto& kv : b_offsets) {
+        // For each path on the b side
+        const path_handle_t& path = kv.first;
         
-        auto found = b_offsets.find(path);
-        if (found == b_ffsets.end()) {
-            // Skip it if it's not also on the b side
+        auto found = a_offsets.find(path);
+        if (found == a_offsets.end()) {
+            // Skip it if it's not also on the a side
             continue;
         }
+        // If it is on the a side, we'll do search against this sorted list.
+        auto& target_positions = found->second;
         
-        // Otherwise, find all the positions
-        vector<pair<size_t, bool>>& a_positions = kv.second;
-        vector<pair<size_t, bool>>& b_positions = found->second;
-        
-        if (a_positions.empty() || b_positions.empty()) {
-            // Stop if either side is actually empty somehow
-            continue;
-        }
-        
-        // Otherwise sort them
-        std::sort(a_positions.begin(), a_positions.end());
-        std::sort(b_positions.begin(), b_positions.end());
-        
-        // Go through both collections at the same time
-        auto a_cursor = a_positions.begin();
-        auto b_cursor = b_positions.begin();
-        
-        while (a_cursor != a_positions.end() && b_cursor != b_positions.end()) {
-            // Compute the distance of the things we are considering.
+        for (auto& b_position : kv.second) {
+            // For each offset on the b side, we need to do a binary search.
             
-            size_t distance = (size_t) abs((int64_t)a_cursor->first - (int64_t)b_cursor->first);
-            
-            if (distance <= maximum_distance) {
-                // These two things are close enough. 
-                // Return that we found a match.
-                return true;
-            }
-            
-            // Otherwise, peek ahead on both sides, and advance whichever one
-            // exists and is earliest.
-            
-            auto a_next = a_cursor;
-            ++a_next;
-            if (a_next == a_positions.end()) {
-                // We can't advance a, so we must advance b.
-                // If we hit the end in b we will stop.
-                ++b_cursor;
-            } else {
-                // We might want to advance b instead though.
-                auto b_next = b_cusrsor;
-                ++b_next;
-                if (b_next == b_positions.end()) {
-                    // Actually we can only advance a. If we hit the end in a we will stop.
-                    a_cursor = a_next;
-                } else {
-                    // We could advance a or b, so advance whichever is soonest
-                    if (a_next->first < b_next->first) {
-                        // the next thing in a is earlier
-                        a_cursor = a_next;
-                    } else {
-                        // The next thing in b is earlier, or we are tied
-                        b_cursor = b_next;
-                    }
+            // Find the nearest thing to our right, if any.
+            auto falling_after_it = std::lower_bound(target_positions.begin(), target_positions.end(), b_position);
+            if (falling_after_it != target_positions.begin()) {
+                // There's also going to be something to our left. Check that first.
+                auto falling_before_it = falling_after_it;
+                --falling_before_it;
+                if (b_position.first - falling_before_it->first <= maximum_distance) {
+                    // It is close enough before to constitute a hit
+                    return true;
                 }
             }
-            
-            // The correctness of this approach depends on being able to ignore
-            // strand, and thus rule out the existence of a match to something
-            // later if there was no match to something earlier.
-            
-            // TODO: Support depending on strand by running one set of cursors per strand?
+            if (falling_after_it != target_positions.end()) {
+                // The thing to our right actually exists. Check it too.
+                if (falling_after_it->first - b_position.first <= maximum_distance) {
+                    // It is close enough to constitute a hit
+                    return true;
+                }
+            }
         }
-        
     }
-    
+        
     // If we get here we found no matches on any paths.
     return false;
+}
+
+void sort_path_offsets(path_offset_collection_t& offsets) {
+    for (auto& kv : offsets) {
+        // Sort along each path.
+        std::sort(kv.second.begin(), kv.second.end());
+    }
 }
 
 }

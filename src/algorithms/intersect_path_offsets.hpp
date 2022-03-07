@@ -19,21 +19,26 @@ using namespace std;
     
 /**
  * Given two maps from path handle to (position, orientation) pair vectors,
- * determine if any positions in the two sets are on the
- * same path, within the given maximum distance.
+ * determine if any positions in the two sets are on the same path, within the
+ * given maximum distance.
  *
- * The set expected to visit fewer paths should be passed first.
+ * The set expected to have more visits should be passed first.
  *
  * Orientation is ignored.
  *
- * See nearest_offsets_in_paths() for a function that generates these.
+ * The first set must be sorted, for binary search. We run binary search for
+ * each item in the second set, so the first set should be the larger one.
  *
- * Needs write access to its input position collections, so it can sort them in
- * place.
+ * We run in b log a time.
  */
-bool intersect_path_offsets(path_offset_collection_t& a_offsets,
-                            path_offset_collection_t& b_offsets,
+bool intersect_path_offsets(const path_offset_collection_t& a_offsets,
+                            const path_offset_collection_t& b_offsets,
                             size_t maximum_distance);
+                            
+/**
+ * Sort path offsets, so intersect_path_offsets() can use them as a target.
+ */
+void sort_path_offsets(path_offset_collection_t& offsets);
     
 
 }
