@@ -12,6 +12,7 @@
 #include "subgraph.hpp"
 #include "statistics.hpp"
 #include "algorithms/count_covered.hpp"
+#include "algorithms/intersect_path_offsets.hpp"
 
 #include <bdsg/overlays/strand_split_overlay.hpp>
 #include <gbwtgraph/algorithms.h>
@@ -2983,24 +2984,27 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         }
 
         if (aln.refpos_size() != 0) {
+            // Compose path handle to position and strand data structure for the annotated reference positions
+            algorithms::path_offset_collection_t ref_positions;
+            for (auto& true_pos : aln.refpos()) {
+               ref_positions[this->path_graph->get_path_handle(true_pos.name())].emplace_back(true_pos.offset(), true_pos.is_reverse());
+            }
+            // Make sure it is sorted
+            algorithms::sort_path_offsets(ref_positions);
+            
+            // We need to know whether each seed is correct or not, and the
+            // seeds probably have about one position each. So we look up the
+            // seeds' positions in the sorted ref positions, and take: 
+            // O(#seed positions * log(#ref positions)) 
+            
             for (size_t i = 0; i < seeds.size(); i++) {
                 // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
-                auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, seeds[i].pos, 100);
-                bool found = false;
-                for (auto& true_pos : aln.refpos()) {
-                    // For every annotated true position
-                    for (auto& hit_pos : offsets[this->path_graph->get_path_handle(true_pos.name())]) {
-                        // Look at all the hit positions on the path the read's true position is on.
-                        if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
-                            // Call this seed hit close enough to be correct
-                            funnel.tag_correct(i);
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (found) {
-                        break;
-                    }
+                algorithms::path_offset_collection_t seed_positions = algorithms::nearest_offsets_in_paths(this->path_graph, seeds[i].pos, 100);
+                // Check against the annotated truth position set
+                if (algorithms::intersect_path_offsets(ref_positions, seed_positions, 200)) {
+                    // It's within range of a truth position.
+                    // Call this seed hit close enough to be correct.
+                    funnel.tag_correct(i);
                 }
             }
         }
