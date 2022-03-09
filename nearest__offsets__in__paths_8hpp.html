@@ -68,6 +68,7 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#namespaces">Namespaces</a> &#124;
+<a href="#typedef-members">Typedefs</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">nearest_offsets_in_paths.hpp File Reference</div>  </div>
@@ -87,15 +88,20 @@ Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg_1_1algorithms"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html">vg::algorithms</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="typedef-members"></a>
+Typedefs</h2></td></tr>
+<tr class="memitem:a6474017f8ab54b0c6e20095206a880a8"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a6474017f8ab54b0c6e20095206a880a8">vg::algorithms::path_offset_collection_t</a> = unordered_map&lt; path_handle_t, vector&lt; pair&lt; size_t, bool &gt; &gt;&gt;</td></tr>
+<tr class="separator:a6474017f8ab54b0c6e20095206a880a8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:aabe67b13884855d54b8f82a3786cc91d"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; path_handle_t, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aabe67b13884855d54b8f82a3786cc91d">vg::algorithms::nearest_offsets_in_paths</a> (const PathPositionHandleGraph *graph, const pos_t &amp;pos, int64_t max_search, const std::function&lt; bool(const path_handle_t &amp;)&gt; *path_filter)</td></tr>
-<tr class="separator:aabe67b13884855d54b8f82a3786cc91d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a477330d3ab29cbd3c48e4830d51b3e0f"><td class="memItemLeft" align="right" valign="top">path_offset_collection_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a477330d3ab29cbd3c48e4830d51b3e0f">vg::algorithms::nearest_offsets_in_paths</a> (const PathPositionHandleGraph *graph, const pos_t &amp;pos, int64_t max_search, const std::function&lt; bool(const path_handle_t &amp;)&gt; *path_filter)</td></tr>
+<tr class="separator:a477330d3ab29cbd3c48e4830d51b3e0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aef24fa77dadb09d5920ec94b88af2128"><td class="memItemLeft" align="right" valign="top">map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aef24fa77dadb09d5920ec94b88af2128">vg::algorithms::offsets_in_paths</a> (const PathPositionHandleGraph *graph, const pos_t &amp;pos)</td></tr>
 <tr class="separator:aef24fa77dadb09d5920ec94b88af2128"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a799b55d576410cb7e9f11dbf99f44b27"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; path_handle_t, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a799b55d576410cb7e9f11dbf99f44b27">vg::algorithms::simple_offsets_in_paths</a> (const PathPositionHandleGraph *graph, pos_t pos)</td></tr>
-<tr class="memdesc:a799b55d576410cb7e9f11dbf99f44b27"><td class="mdescLeft">&#160;</td><td class="mdescRight">A "simple" model for path position getting for debugging.  <a href="namespacevg_1_1algorithms.html#a799b55d576410cb7e9f11dbf99f44b27">More...</a><br /></td></tr>
-<tr class="separator:a799b55d576410cb7e9f11dbf99f44b27"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9ddb73ef3cf5a8891aa82001f272c3c4"><td class="memItemLeft" align="right" valign="top">path_offset_collection_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a9ddb73ef3cf5a8891aa82001f272c3c4">vg::algorithms::simple_offsets_in_paths</a> (const PathPositionHandleGraph *graph, pos_t pos)</td></tr>
+<tr class="memdesc:a9ddb73ef3cf5a8891aa82001f272c3c4"><td class="mdescLeft">&#160;</td><td class="mdescRight">A "simple" model for path position getting for debugging.  <a href="namespacevg_1_1algorithms.html#a9ddb73ef3cf5a8891aa82001f272c3c4">More...</a><br /></td></tr>
+<tr class="separator:a9ddb73ef3cf5a8891aa82001f272c3c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines algorithm for finding the nearest offset along a path of the the closest position in the graph that overlaps a path </p>

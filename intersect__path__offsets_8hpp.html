@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.17"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>vg: src/algorithms/nearest_offsets_in_paths.cpp File Reference</title>
+<title>vg: src/algorithms/intersect_path_offsets.hpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -70,10 +70,11 @@ $(function() {
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
-<div class="title">nearest_offsets_in_paths.cpp File Reference</div>  </div>
+<div class="title">intersect_path_offsets.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="nearest__offsets__in__paths_8hpp.html">nearest_offsets_in_paths.hpp</a>&quot;</code><br />
+<div class="textblock"><code>#include &quot;<a class="el" href="handle_8hpp.html">../handle.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="nearest__offsets__in__paths_8hpp.html">nearest_offsets_in_paths.hpp</a>&quot;</code><br />
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
@@ -84,16 +85,13 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a477330d3ab29cbd3c48e4830d51b3e0f"><td class="memItemLeft" align="right" valign="top">path_offset_collection_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a477330d3ab29cbd3c48e4830d51b3e0f">vg::algorithms::nearest_offsets_in_paths</a> (const PathPositionHandleGraph *graph, const pos_t &amp;pos, int64_t max_search, const std::function&lt; bool(const path_handle_t &amp;)&gt; *path_filter)</td></tr>
-<tr class="separator:a477330d3ab29cbd3c48e4830d51b3e0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aef24fa77dadb09d5920ec94b88af2128"><td class="memItemLeft" align="right" valign="top">map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aef24fa77dadb09d5920ec94b88af2128">vg::algorithms::offsets_in_paths</a> (const PathPositionHandleGraph *graph, const pos_t &amp;pos)</td></tr>
-<tr class="separator:aef24fa77dadb09d5920ec94b88af2128"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9ddb73ef3cf5a8891aa82001f272c3c4"><td class="memItemLeft" align="right" valign="top">path_offset_collection_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a9ddb73ef3cf5a8891aa82001f272c3c4">vg::algorithms::simple_offsets_in_paths</a> (const PathPositionHandleGraph *graph, pos_t pos)</td></tr>
-<tr class="memdesc:a9ddb73ef3cf5a8891aa82001f272c3c4"><td class="mdescLeft">&#160;</td><td class="mdescRight">A "simple" model for path position getting for debugging.  <a href="namespacevg_1_1algorithms.html#a9ddb73ef3cf5a8891aa82001f272c3c4">More...</a><br /></td></tr>
-<tr class="separator:a9ddb73ef3cf5a8891aa82001f272c3c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9ce4dabb6661657c7d72593afc3f41df"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a9ce4dabb6661657c7d72593afc3f41df">vg::algorithms::intersect_path_offsets</a> (const path_offset_collection_t &amp;a_offsets, const path_offset_collection_t &amp;b_offsets, size_t maximum_distance)</td></tr>
+<tr class="separator:a9ce4dabb6661657c7d72593afc3f41df"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad8e5913b682c7c14f119543eca7e7548"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad8e5913b682c7c14f119543eca7e7548">vg::algorithms::sort_path_offsets</a> (path_offset_collection_t &amp;offsets)</td></tr>
+<tr class="separator:ad8e5913b682c7c14f119543eca7e7548"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Contains implementation of nearest_offsets_in_paths function </p>
+<div class="textblock"><p>Defines algorithm for finding whether any offsets on paths in one set are near any offsets on paths in a different set. </p>
 </div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
