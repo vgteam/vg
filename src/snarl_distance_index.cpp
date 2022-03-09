@@ -1321,7 +1321,12 @@ void subgraph_in_distance_range_walk_graph(const HandleGraph* super_graph, size_
                 });
             }
             first_node = false;
+        } 
+#ifdef debug_subgraph 
+        else {
+            cerr << "\tthe node was already seen" << endl;
         }
+#endif
 
     }
 
@@ -1359,6 +1364,7 @@ void subgraph_in_distance_range_walk_across_chain (const SnarlDistanceIndex& dis
                     if (!checked_loop && next_loop != std::numeric_limits<size_t>::max()) {
 #ifdef debug_subgraph
                         cerr << "\tsnarl loops so also check the other direction" << endl;
+#endif
                         //If we haven't yet checked the chain in the other direction and this snarl allows us to loop
                         if ( SnarlDistanceIndex::sum({next_loop, current_distance}) != std::numeric_limits<size_t>::max()  &&
                              SnarlDistanceIndex::sum({next_loop, current_distance, distance_index.node_length(current_node)}) >= min_distance) {
@@ -1407,7 +1413,7 @@ void subgraph_in_distance_range_walk_across_chain (const SnarlDistanceIndex& dis
                     //If we added something, stop traversing the chain
                     return true;
                 } else if (distance_index.is_node(next)) {
-                    seen_nodes.emplace(distance_index.node_id(next), distance_index.ends_at(next) == SnarlDistanceIndex::END);
+                    seen_nodes.emplace(distance_index.node_id(next), distance_index.ends_at(next) == SnarlDistanceIndex::START);
                 }
                 current_node = next;
                 current_distance = SnarlDistanceIndex::sum({next_length, current_distance});
