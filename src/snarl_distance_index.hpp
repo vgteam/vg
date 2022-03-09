@@ -64,9 +64,19 @@ void subgraph_in_distance_range(const SnarlDistanceIndex& distance_index, const 
 ///Helper for subgraph_in_distance_range
 ///Given starting handles in the super graph and the distances to each handle (including the start position and
 //the first position in the handle), add all nodes within the distance range, excluding nodes in seen_nodes
-void add_nodes_in_distance_range(const HandleGraph* super_graph, size_t min_distance, size_t max_distance,
+void subgraph_in_distance_range_walk_graph(const HandleGraph* super_graph, size_t min_distance, size_t max_distance,
                         std::unordered_set<nid_t>& subgraph, vector<pair<handle_t, size_t>>& start_nodes,
                         hash_set<pair<nid_t, bool>>& seen_nodes);
+
+//Helper function for subgraph_in_distance_range
+//Given a node that is a child of a chain and the distance to it, walk forward from the
+//current child and add nodes to search_start_nodes
+void subgraph_in_distance_range_walk_across_chain (const SnarlDistanceIndex& distance_index, 
+        const HandleGraph* super_graph,std::unordered_set<nid_t>& subgraph,
+        net_handle_t current_node, size_t current_distance, 
+        vector<pair<handle_t, size_t>>& search_start_nodes,
+        hash_set<pair<nid_t, bool>>& seen_nodes, 
+        const size_t& min_distane, const size_t& max_distance, bool checked_loop=false);
 
 
 //Add nodes to the subgraph if they are near the path in the snarl tree
