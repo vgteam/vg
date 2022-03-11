@@ -1,7 +1,7 @@
 //#define debug_distance_indexing
 //#define debug_snarl_traversal
 //#define debug_distances
-//#define debug_subgraph
+#define debug_subgraph
 
 #include "snarl_distance_index.hpp"
 
@@ -1110,6 +1110,7 @@ void subgraph_in_distance_range(const SnarlDistanceIndex& distance_index, const 
         node_len = super_graph->get_length(super_graph->get_handle(get_id(start_pos)));
         start_pos = reverse_base_pos(start_pos, node_len);
     }
+    pair<nid_t, bool> traversal_start = std::make_pair(get_id(start_pos), get_is_rev(start_pos));
 
 #ifdef debug_subgraph
 cerr << endl << "Find subgraph in distance range " << min_distance << " to " << max_distance << endl;
@@ -1148,7 +1149,7 @@ cerr << "Start positon: "<< start_pos << endl;
         });
 
         //Search for reachable nodes
-        subgraph_in_distance_range_walk_graph(super_graph, min_distance, max_distance, subgraph, search_start_nodes, seen_nodes); 
+        subgraph_in_distance_range_walk_graph(super_graph, min_distance, max_distance, subgraph, search_start_nodes, seen_nodes, traversal_start); 
 
         return;
     }
@@ -1249,7 +1250,7 @@ cerr << "Start positon: "<< start_pos << endl;
                 distance_index.get_bound(current_net, true, false), super_graph),
             current_distance_right);
     }
-    subgraph_in_distance_range_walk_graph(super_graph, min_distance, max_distance, subgraph, search_start_nodes, seen_nodes); 
+    subgraph_in_distance_range_walk_graph(super_graph, min_distance, max_distance, subgraph, search_start_nodes, seen_nodes, traversal_start); 
 
     return;
 }
@@ -1260,7 +1261,7 @@ cerr << "Start positon: "<< start_pos << endl;
 //the first position in the handle), add all nodes within the distance range, excluding nodes in seen_nodes
 void subgraph_in_distance_range_walk_graph(const HandleGraph* super_graph, size_t min_distance, size_t max_distance,
                         std::unordered_set<nid_t>& subgraph, vector<pair<handle_t, size_t>>& start_nodes,
-                        hash_set<pair<nid_t, bool>>& seen_nodes) {
+                        hash_set<pair<nid_t, bool>>& seen_nodes, const pair<nid_t, bool>& traversal_start) {
 #ifdef debug_subgraph
     cerr << "Starting search from nodes " << endl;
     for (auto& start_handle : start_nodes) {
@@ -1285,7 +1286,7 @@ void subgraph_in_distance_range_walk_graph(const HandleGraph* super_graph, size_
         size_t curr_distance=next_handles.top().second;
         next_handles.pop();
 #ifdef debug_subgraph
-        cerr << "At node " << super_graph->get_id(curr_handle) << " with distance " << curr_distance << endl;
+        cerr << "At node " << super_graph->get_id(curr_handle) << " " << super_graph->get_is_reverse(curr_handle) << " with distance " << curr_distance << endl;
 #endif
         if (seen_nodes.count(make_pair(super_graph->get_id(curr_handle), super_graph->get_is_reverse(curr_handle))) == 0) {
             seen_nodes.emplace(super_graph->get_id(curr_handle), super_graph->get_is_reverse(curr_handle));
@@ -1311,10 +1312,14 @@ void subgraph_in_distance_range_walk_graph(const HandleGraph* super_graph, size_
             curr_distance = SnarlDistanceIndex::sum({node_len, curr_distance});
 
             //If the end of this node is still within the range, add the next nodes that are within
-            if (SnarlDistanceIndex::minus(curr_distance,1) <= max_distance ) {
+            //Also check that the node we're currently at isn't the start node
+            if (SnarlDistanceIndex::minus(curr_distance,1) <= max_distance &&
+                !(super_graph->get_id(curr_handle) == traversal_start.first &&
+                  super_graph->get_is_reverse(curr_handle) == traversal_start.second)) {
                 super_graph->follow_edges(curr_handle, false, [&](const handle_t& next) {
                     nid_t next_id = super_graph->get_id(next);
                     if (seen_nodes.count(make_pair(next_id, super_graph->get_is_reverse(next))) == 0) {
+                        cerr << "\t\t add next node " << next_id << " with distance " << curr_distance << endl;
                         next_handles.emplace(next, curr_distance);
                     }
                     return true;
