@@ -1180,6 +1180,9 @@ cerr << "Start positon: "<< start_pos << endl;
                     distance_index.distance_to_parent_bound(parent, false, current_net, true)});
         size_t distance_end_right = SnarlDistanceIndex::sum({current_distance_right,
                      distance_index.distance_to_parent_bound(parent, false, current_net, false)});
+        cerr << "Distance dne right =" <<  distance_index.distance_to_parent_bound(parent, false, current_net, false) << endl;
+        cerr << " in parent " << distance_index.net_handle_as_string(parent) << endl;
+        cerr << "New distances will be " << distance_start_left << " " << distance_start_right << " " << distance_end_left << " " << distance_end_right << endl;
 
         if ((SnarlDistanceIndex::sum({max_parent_length, current_distance_left}) != std::numeric_limits<size_t>::max() &&
             SnarlDistanceIndex::sum({max_parent_length, current_distance_left}) >= min_distance) 
@@ -1368,13 +1371,18 @@ void subgraph_in_distance_range_walk_across_chain (const SnarlDistanceIndex& dis
                         //If we haven't yet checked the chain in the other direction and this snarl allows us to loop
                         if ( SnarlDistanceIndex::sum({next_loop, current_distance}) != std::numeric_limits<size_t>::max()  &&
                              SnarlDistanceIndex::sum({next_loop, current_distance, distance_index.node_length(current_node)}) >= min_distance) {
+#ifdef debug_subgraph
+                            cerr << "\t\t add the current node" << endl;
+#endif
                             //If the loop will put us over the edge, then start from the current node
-                            search_start_nodes.emplace_back(distance_index.get_handle(distance_index.flip(current_node), super_graph), 
-                                                                SnarlDistanceIndex::sum({next_loop, current_distance}));
+                            super_graph->follow_edges(distance_index.get_handle(current_node, super_graph), false, [&](const handle_t& next_handle) {
+                                search_start_nodes.emplace_back(next_handle,current_distance);
+                            });
+                            return true;
                         } else {
                             //Otherwise, switch direction in the chain and walk along it again
                             subgraph_in_distance_range_walk_across_chain(distance_index, super_graph, subgraph, distance_index.flip(current_node),
-                                    SnarlDistanceIndex::sum({current_distance, next_loop}), 
+                                    SnarlDistanceIndex::sum({current_distance, next_loop, distance_index.node_length(current_node)}), 
                                     search_start_nodes, seen_nodes, min_distance, max_distance, true);
                             checked_loop = true;
                         }

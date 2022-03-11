@@ -548,6 +548,13 @@ namespace vg {
                         distance_index.get_net(graph.get_handle(n1->id(), false), &graph),
                         distance_index.get_net(graph.get_handle(n8->id(), false), &graph)) == std::numeric_limits<size_t>:: max());
             }
+            SECTION("distance to parent bound is correct for a chain"){
+                REQUIRE(distance_index.distance_to_parent_bound(chain1, true, n1_fd, true) == 0);
+                REQUIRE(distance_index.distance_to_parent_bound(chain1, true, n1_fd, false) == std::numeric_limits<size_t>::max());
+                net_handle_t n8_rev = distance_index.get_net(graph.get_handle(n8->id(), true), &graph);
+                REQUIRE(distance_index.distance_to_parent_bound(chain1, false, n8_rev, true) == std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.distance_to_parent_bound(chain1, false, n8_rev, false) == 0);
+            }
 
             SECTION( "The top-level snarl has 3 nodes" ) {
 
@@ -5769,6 +5776,54 @@ namespace vg {
             }
         
         }//end test case
+        TEST_CASE("single node loop subgraph", "[snarl_distance][snarl_distance_subgraph]") {
+            VG graph;
+        
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("TTTTT"); //5
+            Node* n3 = graph.create_node("G");
+        
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n2, n3);
+            Edge* e3 = graph.create_edge(n2, n2);
+        
+            IntegratedSnarlFinder snarl_finder(graph);
+        
+            SECTION("Take loop once") {
+        
+                std::unordered_set<id_t> sub_graph;
+                handle_t handle = graph.get_handle(2, true);
+                path_handle_t path_handle = graph.create_path_handle("path");
+                graph.append_step(path_handle, handle);
+                Path path = path_from_path_handle(graph, path_handle);
+        
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                subgraph_in_distance_range(distance_index, path, &graph, 10, 10, sub_graph, true);
+        
+                REQUIRE(!sub_graph.count(1));
+                REQUIRE(sub_graph.count(2));
+                REQUIRE(!sub_graph.count(3));
+        
+            }
+            SECTION("Don't take loop twice") {
+        
+                std::unordered_set<id_t> sub_graph;
+                handle_t handle = graph.get_handle(2, true);
+                path_handle_t path_handle = graph.create_path_handle("path");
+                graph.append_step(path_handle, handle);
+                Path path = path_from_path_handle(graph, path_handle);
+        
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                subgraph_in_distance_range(distance_index, path, &graph, 11, 11, sub_graph, true);
+        
+                REQUIRE(!sub_graph.count(1));
+                REQUIRE(!sub_graph.count(2));
+                REQUIRE(!sub_graph.count(3));
+        
+            }
+        } //End test case
         TEST_CASE("top level chain subgraph", "[snarl_distance][snarl_distance_subgraph]") {
             VG graph;
         
@@ -5943,7 +5998,7 @@ namespace vg {
             for (int i = 0; i < 100; i++) {
                 //1000 different graphs
                 VG graph;
-                random_graph(1000, 10, 15, &graph);
+                random_graph(1000, 10, 16, &graph);
 
                 IntegratedSnarlFinder snarl_finder(graph);
                 SnarlManager snarl_manager = snarl_finder.find_snarls();
@@ -5957,9 +6012,9 @@ namespace vg {
                 snarl_manager.for_each_snarl_preorder(addSnarl);
 
                 uniform_int_distribution<int> randSnarlIndex(0, allSnarls.size()-1);
-                default_random_engine generator(time(NULL));
+                default_random_engine generator(test_seed_source());
                 for (int j = 0; j < 100; j++) {
-                    //Check distances for random pairs of positions
+                    //Check subgraphs
                     const Snarl* snarl1 = allSnarls[randSnarlIndex(generator)];
 
                     pair<unordered_set<Node*>, unordered_set<Edge*>> contents1 =
@@ -5991,7 +6046,20 @@ namespace vg {
                         bool end_forward = dist_end_fd != -1 && (dist_end_fd >= min && dist_end_fd <= max);
                         bool in_forward = dist_start_fd != -1 && dist_end_fd == -1 || (dist_start_fd <= min && dist_end_fd >= max);
 
+                        if (dist_start_fd == 0) {
+                            //If this node is the start node, then also check one loop
+                            size_t loop_dist = SnarlDistanceIndex::sum({distance_index.minimum_distance(nodeID1, false, 1, node_id, false, 0), 1});
+                            size_t loop_dist_end =  loop_dist == -1 ? -1 : loop_dist+len-1; 
+                            start_forward = start_forward ||  loop_dist != -1 && (loop_dist >= min && loop_dist <= max);
+                            end_forward = end_forward ||  loop_dist_end != -1 && (loop_dist_end >= min && loop_dist_end <= max);
+                            in_forward = in_forward ||  loop_dist != -1 && loop_dist_end == -1 || (loop_dist <= min && loop_dist_end >= max);
+                        }
+
                         int64_t dist_start_bk = distance_index.minimum_distance(nodeID1, false, 0, node_id, true, 0);
+                        if (dist_start_bk == 0) {
+                            //If this node is the start node
+                            dist_start_bk = SnarlDistanceIndex::sum({1, distance_index.minimum_distance(nodeID1, false, 1, node_id, true, 0)});
+                        }
                         int64_t dist_end_bk = dist_start_bk == -1 ? -1 : dist_start_bk + len - 1;
 
                         bool start_backward = dist_start_bk != -1 && (dist_start_bk >= min && dist_start_bk <= max);
@@ -6006,7 +6074,7 @@ namespace vg {
                                      << distance_index.minimum_distance(nodeID1, false, 0, node_id, true, 0)
                                      << " (" << dist_start_fd << " " << dist_end_fd << " " << dist_start_bk << " " << dist_end_bk << ") "
                                      << " is in the subgraph but shouldn't be " << endl;
-                                graph.serialize_to_file("testGraph");
+                                graph.serialize_to_file("test_graph.vg");
                             }
                             REQUIRE((start_forward || end_forward || in_forward || start_backward || end_backward || in_backward));
                         } else {
@@ -6017,7 +6085,7 @@ namespace vg {
                                      << distance_index.minimum_distance(nodeID1, false, 0,node_id, true, 0)
                                      << " (" << dist_start_fd << " " << dist_end_fd << " " << dist_start_bk << " " << dist_end_bk << ") "
                                      << " is not in the subgraph but should be " << endl;
-                                graph.serialize_to_file("testGraph");
+                                graph.serialize_to_file("test_graph.vg");
                                 REQUIRE(!(start_forward || end_forward || in_forward || start_backward || end_backward || in_backward));
                             }
                         }
@@ -6086,7 +6154,7 @@ namespace vg {
         
             // Each actual graph takes a fairly long time to do so we randomize sizes...
             
-            default_random_engine generator(std::chrono::system_clock::now().time_since_epoch().count());
+            default_random_engine generator(test_seed_source());
             
             for (size_t repeat = 0; repeat < 0; repeat++) {
             
@@ -6125,7 +6193,7 @@ namespace vg {
                     id_t node_id1 = 0;
                     id_t node_id2 = 0;
                     uniform_int_distribution<int> random_node_ids(graph.min_node_id(),graph.max_node_id());
-                    default_random_engine generator(std::chrono::system_clock::now().time_since_epoch().count());
+                    default_random_engine generator(test_seed_source());
                     while (node_id1 == 0) {
                         id_t new_id = random_node_ids(generator); 
                         if (graph.has_node(new_id)) {
