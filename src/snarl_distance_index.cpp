@@ -1,7 +1,7 @@
 //#define debug_distance_indexing
 //#define debug_snarl_traversal
 //#define debug_distances
-#define debug_subgraph
+//#define debug_subgraph
 
 #include "snarl_distance_index.hpp"
 
@@ -1180,9 +1180,6 @@ cerr << "Start positon: "<< start_pos << endl;
                     distance_index.distance_to_parent_bound(parent, false, current_net, true)});
         size_t distance_end_right = SnarlDistanceIndex::sum({current_distance_right,
                      distance_index.distance_to_parent_bound(parent, false, current_net, false)});
-        cerr << "Distance dne right =" <<  distance_index.distance_to_parent_bound(parent, false, current_net, false) << endl;
-        cerr << " in parent " << distance_index.net_handle_as_string(parent) << endl;
-        cerr << "New distances will be " << distance_start_left << " " << distance_start_right << " " << distance_end_left << " " << distance_end_right << endl;
 
         if ((SnarlDistanceIndex::sum({max_parent_length, current_distance_left}) != std::numeric_limits<size_t>::max() &&
             SnarlDistanceIndex::sum({max_parent_length, current_distance_left}) >= min_distance) 
