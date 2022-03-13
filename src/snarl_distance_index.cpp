@@ -1165,12 +1165,8 @@ cerr << "Start positon: "<< start_pos << endl;
         size_t max_parent_length = distance_index.maximum_length(parent);
 
         //Distances to loop in the chain  (or inf if parent isn't a chain
-        size_t distance_loop_right = distance_index.is_chain(parent) 
-            ? distance_index.distance_in_parent(parent, current_net, current_net, super_graph, max_distance)
-            : std::numeric_limits<size_t>::max();
-        size_t distance_loop_left = distance_index.is_chain(parent) 
-            ? distance_index.distance_in_parent(parent, distance_index.flip(current_net), distance_index.flip(current_net), super_graph, max_distance)
-            : std::numeric_limits<size_t>::max();
+        size_t distance_loop_right = distance_index.distance_in_parent(parent, current_net, current_net, super_graph, max_distance);
+        size_t distance_loop_left =  distance_index.distance_in_parent(parent, distance_index.flip(current_net), distance_index.flip(current_net), super_graph, max_distance);
 
         //Distances to get to the ends of the parent
         size_t distance_start_left = SnarlDistanceIndex::sum({current_distance_left,
@@ -1205,7 +1201,23 @@ cerr << "Start positon: "<< start_pos << endl;
                 //add the current node
                 subgraph_in_distance_range_walk_across_chain(distance_index, super_graph, subgraph, distance_index.flip(current_net), current_distance_left, search_start_nodes, seen_nodes, min_distance, max_distance);
             }
-        }
+        } else {// if (SnarlDistanceIndex::sum({distance_loop_left, current_distance_left}) != std::numeric_limits<size_t>::max()) {
+            //TOOD: old version- If it looped going backward and the distance didn't exceed the minimum, then remember not to search the loop again
+            //Make sure that we don't re-enter snarls and chains that we leave
+            //Note that this isn't technically correct, because there might be another loop further up in the snarl tree,
+            //but ignoring loops seems to help mapping
+            id_t id; bool rev;
+            if (distance_index.is_node(current_net)) {
+                id = distance_index.node_id(current_net);
+                rev = distance_index.ends_at(current_net) == SnarlDistanceIndex::START;
+            } else {
+                net_handle_t bound = distance_index.get_bound(current_net, 
+                    distance_index.ends_at(current_net) != SnarlDistanceIndex::END, true);
+                id = distance_index.node_id(bound);
+                rev = distance_index.ends_at(bound) == SnarlDistanceIndex::END;
+            }
+            seen_nodes.emplace(id, rev);
+        } 
         if ((SnarlDistanceIndex::sum({max_parent_length, current_distance_right}) != std::numeric_limits<size_t>::max() &&
             SnarlDistanceIndex::sum({max_parent_length, current_distance_right}) >= min_distance)
             ||
@@ -1226,6 +1238,20 @@ cerr << "Start positon: "<< start_pos << endl;
                 //add the current node
                 subgraph_in_distance_range_walk_across_chain(distance_index, super_graph, subgraph, current_net, current_distance_right, search_start_nodes, seen_nodes, min_distance, max_distance);
             }
+        } else {//if (SnarlDistanceIndex::sum({distance_loop_right, current_distance_right}) != std::numeric_limits<size_t>::max()) {
+            //TODO:If it looped going forward and the distance didn't exceed the minimum, then remember not to search the loop again
+            //The same as above: This isn't technically correct but it helps mapping
+            id_t id; bool rev;
+            if (distance_index.is_node(current_net)) {
+                id = distance_index.node_id(current_net);
+                rev = distance_index.ends_at(current_net) == SnarlDistanceIndex::END;
+            } else {
+                net_handle_t bound = distance_index.get_bound(current_net, 
+                    distance_index.ends_at(current_net) == SnarlDistanceIndex::END, true);
+                id = distance_index.node_id(bound);
+                rev = distance_index.ends_at(bound) != SnarlDistanceIndex::END;
+            }
+            seen_nodes.emplace(id, rev);
         }
         current_distance_left = std::min(distance_start_left, distance_start_right);
         current_distance_right = std::min(distance_end_left, distance_end_right);
