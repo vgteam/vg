@@ -5972,6 +5972,49 @@ namespace vg {
             }
         }//end test case
 
+        TEST_CASE("weird loop in snarl", "[snarl_distance][snarl_distance_subgraph]") {
+            VG graph;
+        
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            Node* n6 = graph.create_node("GCA");
+        
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n4);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n3, n2, false, true);
+            Edge* e5 = graph.create_edge(n3, n6);
+            Edge* e6 = graph.create_edge(n6, n4);
+            Edge* e7 = graph.create_edge(n6, n6, false, true);
+            Edge* e8 = graph.create_edge(n4, n5);
+        
+            IntegratedSnarlFinder snarl_finder(graph);
+            SECTION("Don't take loop") {
+        
+                std::unordered_set<id_t> sub_graph;
+                handle_t handle = graph.get_handle(2, false);
+                path_handle_t path_handle = graph.create_path_handle("path");
+                graph.append_step(path_handle, handle);
+                Path path = path_from_path_handle(graph, path_handle);
+        
+                SnarlDistanceIndex distance_index;
+                fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+                subgraph_in_distance_range(distance_index, path, &graph, 9, 9, sub_graph, true);
+        
+                REQUIRE(!sub_graph.count(1));
+                REQUIRE(!sub_graph.count(2));
+                REQUIRE(!sub_graph.count(3));
+                REQUIRE(!sub_graph.count(4));
+                REQUIRE(sub_graph.count(5));
+                REQUIRE(!sub_graph.count(6));
+        
+            }
+        
+        }//end test case
+
         TEST_CASE("random test subgraph", "[snarl_distance][snarl_distance_subgraph]") {
 
             int64_t min = 20; int64_t max = 50;
@@ -6056,15 +6099,22 @@ namespace vg {
                         }
 
                         int64_t dist_start_bk = distance_index.minimum_distance(nodeID1, false, 0, node_id, true, 0);
-                        if (dist_start_bk == 0) {
-                            //If this node is the start node
-                            dist_start_bk = SnarlDistanceIndex::sum({1, distance_index.minimum_distance(nodeID1, false, 1, node_id, true, 0)});
-                        }
                         int64_t dist_end_bk = dist_start_bk == -1 ? -1 : dist_start_bk + len - 1;
 
                         bool start_backward = dist_start_bk != -1 && (dist_start_bk >= min && dist_start_bk <= max);
                         bool end_backward = dist_end_bk != -1 && (dist_end_bk >= min && dist_end_bk <= max);
                         bool in_backward = dist_start_bk != -1 && dist_end_bk == -1 || (dist_start_bk <= min && dist_end_bk >= max);
+
+                        if (dist_start_bk == 0) {
+                            //If this node is the start node, then also check one loop
+                            size_t loop_dist = SnarlDistanceIndex::sum({distance_index.minimum_distance(nodeID1, false, 1, node_id, true, 0), 1});
+                            cerr << " Loop dist " << loop_dist << endl;
+                            size_t loop_dist_end =  loop_dist == -1 ? -1 : loop_dist+len-1; 
+
+                            start_backward = loop_dist != -1 && (loop_dist >= min && loop_dist <= max);
+                            end_backward = loop_dist_end != -1 && (loop_dist_end >= min && loop_dist_end <= max);
+                            in_backward = loop_dist != -1 && loop_dist_end == -1 || (loop_dist <= min && loop_dist_end >= max);
+                        }
                         if (sub_graph.count(node_id)) {
                             //If this node is in the subgraph, then the node must be within the range
 
