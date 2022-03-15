@@ -1338,6 +1338,10 @@ using namespace std;
                                                      pair<step_handle_t, step_handle_t>& path_range_out,
                                                      bool allow_negative_scores, bool deletions_as_splices) const {
                 
+#ifdef debug_spliced_surject
+        cerr << "doing spliced/multipath surject on path " << graph->get_path_name(path_handle) << endl;
+#endif
+        
         assert(path_chunks.size() == ref_chunks.size());
         
         function<int64_t(size_t,size_t)> path_distance = [&](size_t i, size_t j) {
