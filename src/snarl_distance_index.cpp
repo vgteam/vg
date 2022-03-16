@@ -1,7 +1,7 @@
 //#define debug_distance_indexing
 //#define debug_snarl_traversal
 //#define debug_distances
-//#define debug_subgraph
+#define debug_subgraph
 
 #include "snarl_distance_index.hpp"
 
@@ -1153,7 +1153,6 @@ cerr << "Start positon: "<< start_pos << endl;
 
         return;
     }
-    seen_nodes.emplace(get_id(start_pos), get_is_rev(start_pos));
 
 
     
@@ -1387,6 +1386,7 @@ void subgraph_in_distance_range_walk_across_chain (const SnarlDistanceIndex& dis
         return;
     }
     bool finished_chain = false;
+    bool added_nodes = false; //Did we start a search? if not, add the last node in the chain
     while (current_distance <= min_distance && !finished_chain) {
         finished_chain = distance_index.follow_net_edges(current_node, super_graph, false, 
             [&](const net_handle_t& next) {
@@ -1450,6 +1450,7 @@ void subgraph_in_distance_range_walk_across_chain (const SnarlDistanceIndex& dis
                         });
                     }
                     //If we added something, stop traversing the chain
+                    added_nodes = true;
                     return true;
                 } else if (distance_index.is_node(next)) {
                     seen_nodes.emplace(distance_index.node_id(next), distance_index.ends_at(next) == SnarlDistanceIndex::START);
@@ -1457,11 +1458,18 @@ void subgraph_in_distance_range_walk_across_chain (const SnarlDistanceIndex& dis
                 current_node = next;
                 current_distance = SnarlDistanceIndex::sum({next_length, current_distance});
                 if (current_distance > max_distance) {
+                    added_nodes = true;
                     return true;
                 } else {
                     return false;
                 }
         }); 
+    }
+    if (!added_nodes && current_distance <= max_distance) {
+        //If we haven't added anything and haven't exceeded the distance limit, then start from the end of the chain
+        handle_t bound = distance_index.get_handle(current_node, super_graph);
+        seen_nodes.erase(make_pair(super_graph->get_id(bound), super_graph->get_is_reverse(bound)));
+        search_start_nodes.emplace_back( bound, current_distance);
     }
 };
 
