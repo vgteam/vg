@@ -1188,6 +1188,9 @@ cerr << "Start positon: "<< start_pos << endl;
 
             if (distance_index.is_snarl(parent)) {
                 //If this is the child of a snarl, then just traverse from the end of the node
+#ifdef debug_subgraph
+cerr << "Start search in parent " << distance_index.net_handle_as_string(parent);
+#endif
                 if (current_distance_left != std::numeric_limits<size_t>::max() ){
                     //If we can go left
                     net_handle_t bound = distance_index.is_node(current_net) ? distance_index.flip(current_net) 
@@ -1198,6 +1201,9 @@ cerr << "Start positon: "<< start_pos << endl;
                     handle_t current_node = distance_index.get_handle(bound, super_graph);
                     search_start_nodes.emplace_back(current_node,current_distance_left);
                     seen_nodes.erase(make_pair(super_graph->get_id(current_node), super_graph->get_is_reverse(current_node)));
+#ifdef debug_subgraph
+                    cerr << " going left from " << super_graph->get_id(current_node) << (super_graph->get_is_reverse(current_node) ? "rev " : "fd ") ;
+#endif
                 } 
                 if (current_distance_right != std::numeric_limits<size_t>::max()) {
                     //If we can go right
@@ -1210,8 +1216,17 @@ cerr << "Start positon: "<< start_pos << endl;
 
                     search_start_nodes.emplace_back(current_node,current_distance_right);
                     seen_nodes.erase(make_pair(super_graph->get_id(current_node), super_graph->get_is_reverse(current_node)));
+#ifdef debug_subgraph
+                    cerr << " going right from " << super_graph->get_id(current_node) << (super_graph->get_is_reverse(current_node) ? "rev " : "fd ");
+#endif
                 }
+#ifdef debug_subgraph
+                cerr << endl;
+#endif
             } else {
+#ifdef debug_subgraph
+cerr << "Start search along parent chain " << distance_index.net_handle_as_string(parent);
+#endif
                 //If this is the child of a chain, then traverse along the chain
                 if (current_distance_left != std::numeric_limits<size_t>::max()) {
                     subgraph_in_distance_range_walk_across_chain (distance_index, super_graph,  subgraph, 
@@ -1234,13 +1249,7 @@ cerr << "Start positon: "<< start_pos << endl;
                 bound = distance_index.get_node_from_sentinel(bound);
             }
             handle_t current_node = distance_index.get_handle(bound, super_graph);
-            super_graph->follow_edges(distance_index.get_handle(bound, super_graph), 
-                    false, [&](const handle_t& next_handle) {
-                    //Make sure that we don't re-enter snarls and chains that we leave
-                    //Note that this isn't technically correct, because there might be another loop further up in the snarl tree,
-                    //but ignoring loops seems to help mapping
-                    seen_nodes.emplace(super_graph->get_id(next_handle), super_graph->get_is_reverse(next_handle));
-            });
+                    seen_nodes.emplace(super_graph->get_id(current_node), super_graph->get_is_reverse(current_node));
         }
         if (current_distance_right != std::numeric_limits<size_t>::max()) {
             //If we can go right
@@ -1250,10 +1259,7 @@ cerr << "Start positon: "<< start_pos << endl;
                 bound = distance_index.get_node_from_sentinel(bound);
             }
             handle_t current_node = distance_index.get_handle(bound, super_graph);
-            super_graph->follow_edges(distance_index.get_handle(bound, super_graph), 
-                    false, [&](const handle_t& next_handle) {
-                seen_nodes.emplace(super_graph->get_id(next_handle),super_graph->get_is_reverse(next_handle));
-            });
+                    seen_nodes.emplace(super_graph->get_id(current_node), super_graph->get_is_reverse(current_node));
         }
 
         current_distance_left = std::min(distance_start_left, distance_start_right);
@@ -1267,17 +1273,15 @@ cerr << "Start positon: "<< start_pos << endl;
         cerr << "Adding the end of a child of the root " << distance_index.net_handle_as_string(distance_index.get_bound(current_net, false, false)) << " with distance " << current_distance_left << endl;
 #endif
 
-        search_start_nodes.emplace_back(distance_index.get_handle(
-                distance_index.get_bound(current_net, false, false), super_graph),
-            current_distance_left);
+        handle_t bound = distance_index.get_handle(distance_index.get_bound(current_net, false, false), super_graph);
+        search_start_nodes.emplace_back(bound, current_distance_left);
     }
     if (current_distance_right <= min_distance) {
 #ifdef debug_subgraph
         cerr << "Adding the end of a child of the root " << distance_index.net_handle_as_string(distance_index.get_bound(current_net, false, false)) << " with distance " << current_distance_right << endl;
 #endif
-        search_start_nodes.emplace_back(distance_index.get_handle(
-                distance_index.get_bound(current_net, true, false), super_graph),
-            current_distance_right);
+        handle_t bound = distance_index.get_handle(distance_index.get_bound(current_net, true, false), super_graph);
+        search_start_nodes.emplace_back(bound,current_distance_right);
     }
     subgraph_in_distance_range_walk_graph(super_graph, min_distance, max_distance, subgraph, search_start_nodes, seen_nodes, traversal_start); 
 
@@ -1342,14 +1346,12 @@ void subgraph_in_distance_range_walk_graph(const HandleGraph* super_graph, size_
 
             //If the end of this node is still within the range, add the next nodes that are within
             //Also check that the node we're currently at isn't the start node
-            if (SnarlDistanceIndex::minus(curr_distance,1) <= max_distance &&
-                !(super_graph->get_id(curr_handle) == traversal_start.first &&
-                  super_graph->get_is_reverse(curr_handle) == traversal_start.second)) {
+            if (SnarlDistanceIndex::minus(curr_distance,1) <= max_distance) {
                 super_graph->follow_edges(curr_handle, false, [&](const handle_t& next) {
                     nid_t next_id = super_graph->get_id(next);
                     if (seen_nodes.count(make_pair(next_id, super_graph->get_is_reverse(next))) == 0) {
                         next_handles.emplace(next, curr_distance);
-                    }
+                    } 
                     return true;
                 });
             }
@@ -1437,8 +1439,8 @@ void subgraph_in_distance_range_walk_across_chain (const SnarlDistanceIndex& dis
                             subgraph.emplace(distance_index.node_id(next));
                         }
                         super_graph->follow_edges(distance_index.get_handle(next, super_graph), false, [&](const handle_t& next_handle) {
-                            search_start_nodes.emplace_back(next_handle, 
-                                SnarlDistanceIndex::sum({current_distance, next_length}));
+                            search_start_nodes.emplace_back(next_handle, SnarlDistanceIndex::sum({current_distance, next_length}));
+                            seen_nodes.erase(make_pair(super_graph->get_id(next_handle), super_graph->get_is_reverse(next_handle)));
                         });
                     } else {
                         //If it's a snarl, then we'll start from the last node
@@ -1447,6 +1449,7 @@ void subgraph_in_distance_range_walk_across_chain (const SnarlDistanceIndex& dis
 #endif
                         super_graph->follow_edges(distance_index.get_handle(current_node, super_graph), false, [&](const handle_t& next_handle) {
                             search_start_nodes.emplace_back(next_handle,current_distance);
+                            seen_nodes.erase(make_pair(super_graph->get_id(next_handle), super_graph->get_is_reverse(next_handle)));
                         });
                     }
                     //If we added something, stop traversing the chain
