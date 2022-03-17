@@ -1199,8 +1199,18 @@ cerr << "Start search in parent " << distance_index.net_handle_as_string(parent)
                         bound = distance_index.get_node_from_sentinel(bound);
                     }
                     handle_t current_node = distance_index.get_handle(bound, super_graph);
-                    search_start_nodes.emplace_back(current_node,current_distance_left);
-                    seen_nodes.erase(make_pair(super_graph->get_id(current_node), super_graph->get_is_reverse(current_node)));
+                    //search_start_nodes.emplace_back(current_node,current_distance_left);
+                    //seen_nodes.erase(make_pair(super_graph->get_id(current_node), super_graph->get_is_reverse(current_node)));
+                    super_graph->follow_edges(distance_index.get_handle(bound, super_graph),
+                            false, [&](const handle_t& next_handle) {
+                            //Make sure that we don't re-enter snarls and chains that we leave
+                            //Note that this isn't technically correct, because there might be another loop further up in the snarl tree,
+                            //but ignoring loops seems to help mapping
+                            seen_nodes.erase(make_pair(super_graph->get_id(next_handle), super_graph->get_is_reverse(next_handle)));
+                            search_start_nodes.emplace_back(next_handle,current_distance_left);
+
+                    });
+
 #ifdef debug_subgraph
                     cerr << " going left from " << super_graph->get_id(current_node) << (super_graph->get_is_reverse(current_node) ? "rev " : "fd ") ;
 #endif
@@ -1214,8 +1224,14 @@ cerr << "Start search in parent " << distance_index.net_handle_as_string(parent)
                     }
                     handle_t current_node = distance_index.get_handle(bound, super_graph);
 
-                    search_start_nodes.emplace_back(current_node,current_distance_right);
-                    seen_nodes.erase(make_pair(super_graph->get_id(current_node), super_graph->get_is_reverse(current_node)));
+                    //search_start_nodes.emplace_back(current_node,current_distance_right);
+                    //seen_nodes.erase(make_pair(super_graph->get_id(current_node), super_graph->get_is_reverse(current_node)));
+                    super_graph->follow_edges(distance_index.get_handle(bound, super_graph),
+                            false, [&](const handle_t& next_handle) {
+                        seen_nodes.erase(make_pair(super_graph->get_id(next_handle),super_graph->get_is_reverse(next_handle)));
+                        search_start_nodes.emplace_back(next_handle, current_distance_right);
+                    });
+
 #ifdef debug_subgraph
                     cerr << " going right from " << super_graph->get_id(current_node) << (super_graph->get_is_reverse(current_node) ? "rev " : "fd ");
 #endif
