@@ -1199,15 +1199,11 @@ cerr << "Start search in parent " << distance_index.net_handle_as_string(parent)
                         bound = distance_index.get_node_from_sentinel(bound);
                     }
                     handle_t current_node = distance_index.get_handle(bound, super_graph);
-                    //search_start_nodes.emplace_back(current_node,current_distance_left);
-                    //seen_nodes.erase(make_pair(super_graph->get_id(current_node), super_graph->get_is_reverse(current_node)));
+                    //Add everything immediately after the left bound of this node/chain
                     super_graph->follow_edges(distance_index.get_handle(bound, super_graph),
                             false, [&](const handle_t& next_handle) {
-                            //Make sure that we don't re-enter snarls and chains that we leave
-                            //Note that this isn't technically correct, because there might be another loop further up in the snarl tree,
-                            //but ignoring loops seems to help mapping
-                            seen_nodes.erase(make_pair(super_graph->get_id(next_handle), super_graph->get_is_reverse(next_handle)));
-                            search_start_nodes.emplace_back(next_handle,current_distance_left);
+                        seen_nodes.erase(make_pair(super_graph->get_id(next_handle), super_graph->get_is_reverse(next_handle)));
+                        search_start_nodes.emplace_back(next_handle,current_distance_left);
 
                     });
 
@@ -1224,8 +1220,7 @@ cerr << "Start search in parent " << distance_index.net_handle_as_string(parent)
                     }
                     handle_t current_node = distance_index.get_handle(bound, super_graph);
 
-                    //search_start_nodes.emplace_back(current_node,current_distance_right);
-                    //seen_nodes.erase(make_pair(super_graph->get_id(current_node), super_graph->get_is_reverse(current_node)));
+                    //Add everything immediately after the right bound of this node/chain
                     super_graph->follow_edges(distance_index.get_handle(bound, super_graph),
                             false, [&](const handle_t& next_handle) {
                         seen_nodes.erase(make_pair(super_graph->get_id(next_handle),super_graph->get_is_reverse(next_handle)));
@@ -1435,6 +1430,35 @@ void subgraph_in_distance_range_walk_across_chain (const SnarlDistanceIndex& dis
                                     search_start_nodes, seen_nodes, min_distance, max_distance, true);
                             checked_loop = true;
                         }
+                    }
+                    if (next_loop != std::numeric_limits<size_t>::max()){
+                        //TODO: This might be overkill. It prevents us from adding nodes that shouldn't be in the subgraph, but might be too slow
+                        //If we don't check the other direction, go through the loop and add everything whose distance is lower than the minimum
+                        //to seen_nodes
+                        cerr << "Don't go back to nodes from loop from " << distance_index.net_handle_as_string(bound_fd) << endl;
+                        vector<pair<handle_t, size_t>> loop_handles_to_check;
+                        handle_t start_out = distance_index.get_handle(distance_index.get_bound(next, false, false), super_graph);
+                        handle_t end_out = distance_index.get_handle(distance_index.get_bound(next, true, false), super_graph);
+                        loop_handles_to_check.emplace_back(distance_index.get_handle(bound_fd, super_graph), current_distance);
+                        while (!loop_handles_to_check.empty()) {
+                            handle_t current_loop_handle = loop_handles_to_check.back().first;
+                            size_t current_loop_distance = loop_handles_to_check.back().second;
+                            loop_handles_to_check.pop_back();
+
+                            //Add to seen_nodes
+                            seen_nodes.emplace(super_graph->get_id(current_loop_handle), super_graph->get_is_reverse(current_loop_handle));
+                            cerr << "\t adding node to seen nodes: " << super_graph->get_id(current_loop_handle) << ( super_graph->get_is_reverse(current_loop_handle) ? "rev" : "fd") << endl;
+
+                            //Walk one step out from this node
+                            super_graph->follow_edges(current_loop_handle, false, [&](const handle_t& next_handle) {
+                                //If the next node is close enough and isn't exiting the snarl, then add it to stack
+                                size_t new_distance = current_loop_distance + super_graph->get_length(next_handle);
+                                if (new_distance < min_distance && next_handle != start_out && next_handle != end_out) {
+                                    loop_handles_to_check.emplace_back(next_handle, new_distance);
+                                }
+                            });
+                        }
+
                     }
                 }
                 size_t next_max_length = distance_index.maximum_length(next);
