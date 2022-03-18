@@ -1250,7 +1250,39 @@ cerr << "Start search along parent chain " << distance_index.net_handle_as_strin
             }
             subgraph_in_distance_range_walk_graph(super_graph, min_distance, max_distance, subgraph, search_start_nodes, seen_nodes, traversal_start); 
             return;
+        } else if (distance_index.is_snarl(parent)){
+            //TODO: This might be overkill. It prevents us from adding nodes that shouldn't be in the subgraph, but might be too slow
+            //If we don't check the other direction, go through the loop and add everything whose distance is lower than the minimum
+            //to seen_nodes
+            vector<pair<handle_t, size_t>> loop_handles_to_check;
+            handle_t start_out = distance_index.get_handle(distance_index.get_bound(parent, false, false), super_graph);
+            handle_t end_out = distance_index.get_handle(distance_index.get_bound(parent, true, false), super_graph);
+            if (current_distance_left != std::numeric_limits<size_t>::max()) {
+                loop_handles_to_check.emplace_back(distance_index.get_handle(distance_index.get_bound(current_net, false, false), super_graph), current_distance_left);
+            }
+            if (current_distance_right != std::numeric_limits<size_t>::max()) {
+                loop_handles_to_check.emplace_back(distance_index.get_handle(distance_index.get_bound(current_net, true, false), super_graph), current_distance_right);
+            }
+            while (!loop_handles_to_check.empty()) {
+                handle_t current_loop_handle = loop_handles_to_check.back().first;
+                size_t current_loop_distance = loop_handles_to_check.back().second;
+                loop_handles_to_check.pop_back();
+
+                //Add to seen_nodes
+                seen_nodes.emplace(super_graph->get_id(current_loop_handle), super_graph->get_is_reverse(current_loop_handle));
+                cerr << "\t adding node to seen nodes: " << super_graph->get_id(current_loop_handle) << ( super_graph->get_is_reverse(current_loop_handle) ? "rev" : "fd") << endl;
+
+                //Walk one step out from this node
+                super_graph->follow_edges(current_loop_handle, false, [&](const handle_t& next_handle) {
+                    //If the next node is close enough and isn't exiting the snarl, then add it to stack
+                    size_t new_distance = current_loop_distance + super_graph->get_length(next_handle);
+                    if (new_distance < min_distance && next_handle != start_out && next_handle != end_out) {
+                        loop_handles_to_check.emplace_back(next_handle, new_distance);
+                    }
+                });
+            }
         }
+
         //Remember the bounds of this child so we don't return to it
         if (current_distance_left != std::numeric_limits<size_t>::max() ){
             //If we can go left
