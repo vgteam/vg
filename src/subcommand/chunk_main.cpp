@@ -14,6 +14,7 @@
 
 #include "../vg.hpp"
 #include <vg/io/stream.hpp>
+#include <vg/io/stream_multiplexer.hpp>
 #include <vg/io/vpkg.hpp>
 #include "../utility.hpp"
 #include "../chunker.hpp"
@@ -875,49 +876,143 @@ int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix, 
     // We're going to skip parsing the GAM reads and just treat these as type-tagged opaque messages.
     vg::io::MessageIterator gam_iterator(gam_stream);
     
-    // THe emitter has its own internal buffering.
-    unique_ptr<vg::io::MessageEmitter> gam_emitter;
+    // We're going to do multithreaded output of batches of this size.
+    // If our reads are paired, these had better be even.
+    // We want to use a reasonably substantial size here instead of
+    // gam_buffer_size which is pretty small, so we don't spin too much on the
+    // OMP task machinery.
+    size_t batch_size = std::min((size_t) 1000, chunk_size);
     
-    while (gam_iterator.has_current()) {
-        // There's a read message to process.
-        if (count++ % chunk_size == 0) {
-            // We're at read 0, or the first read past the end of a chunk.
+    // We use this to merge together compressed data from multiple threads.
+    unique_ptr<vg::io::StreamMultiplexer> gam_multiplexer;
+    
+    // We need to know how many threads there will be.
+    size_t thread_count = get_thread_count();
+    
+    // Each thread needs a place to keep a MessageEmitter
+    vector<unique_ptr<vg::io::MessageEmitter>> emitters(thread_count);
+    
+    // We fill in batch buffers in the main thread and give them away to tasks to write.
+    vector<vg::io::MessageIterator::TaggedMessage>* batch_in_progress = nullptr;
+    
+    #pragma omp parallel shared(gam_multiplexer, emitters)
+    {
+        #pragma omp single
+        {
+            while (gam_iterator.has_current()) {
+                // There's a read message to process.
+                if (count++ % chunk_size == 0) {
+                    // We're at read 0, or the first read past the end of a chunk.
+                    
+                    // Wait for all tasks
+                    #pragma omp taskwait
+                    
+                    for (size_t i = 0; i < thread_count; i++) {
+                        // Flush everything tasks have written into the multiplexer
+                        if (emitters[i]) {
+                            emitters[i]->flush();
+                            emitters[i].reset();
+                            gam_multiplexer->register_breakpoint(i);
+                        }
+                    }
+                            
+                    if (out_file.is_open()) {
+                        // Destroy the old multiplexer to flush
+                        gam_multiplexer.reset();
+                        // And close the file out.
+                        out_file.close();
+                    }
+                    stringstream out_name;
+                    out_name << out_prefix << setfill('0') <<setw(6) << (count / chunk_size + 1) << ".gam";
+                    out_file.open(out_name.str());
+                    if (!out_file) {
+                        cerr << "error[vg chunk]: unable to open output gam: " << out_name.str() << endl;
+                        exit(1);
+                    }
+                    // Open a new multiplexer on the new file
+                    gam_multiplexer.reset(new vg::io::StreamMultiplexer(out_file, thread_count));
+                }
+                
+                if (!batch_in_progress) {
+                    // We need a new batch to fill in. Either we started a new file, or we shipped off our previous batch.
+                    batch_in_progress = new vector<vg::io::MessageIterator::TaggedMessage>();
+                    batch_in_progress->reserve(batch_size);
+                }
+                
+                
+                // Grab the message, paired with its tag, and advance.
+                // TODO: Stop copying tag?
+                batch_in_progress->emplace_back(std::move(gam_iterator.take()));
+                if (batch_in_progress->back().first.empty()) {
+                    // This is untagged data; assume it's GAM.
+                    batch_in_progress->back().first = "GAM";
+                }
+                if (!batch_in_progress->back().second) {
+                    // This is just a tag alone; throw this away.
+                    batch_in_progress->pop_back();
+                    count--;
+                }
+                
+                if (batch_in_progress->size() == batch_size || count % chunk_size == 0 || !gam_iterator.has_current()) {
+                    // We've hit the batch size, or we've hit the last read that fits in this chunk, or we've hit the end of the input.
+                    // Launch a task to deal with this batch
+                    #pragma omp task firstprivate(batch_in_progress)
+                    {
+                        // Get our thread
+                        size_t thread = omp_get_thread_num();
+                        
+                        // Find our GAM emitter
+                        auto& emitter_ptr = emitters[thread];
+                        if (!emitter_ptr) {
+                            // Make it exist if it doesn't yet. Make sure to compress and to pass along the buffer size.
+                            emitter_ptr.reset(new vg::io::MessageEmitter(gam_multiplexer->get_thread_stream(thread), true, gam_buffer_size));
+                        }
+                    
+                        for (auto& message : *batch_in_progress) {
+                            // Send each message over to the emitter, with the tag, moving the message body
+                            emitter_ptr->write(message.first, std::move(*message.second));
+                        }
+                        
+                        // Throw out our assigned batch copy.
+                        delete batch_in_progress;
+                        
+                        if (gam_multiplexer->want_breakpoint(thread)) {
+                            // The multiplexer wants our data.
+                            // Flush and create a breakpoint.
+                            emitter_ptr->flush();
+                            gam_multiplexer->register_breakpoint(thread);
+                            // TODO: No EOF marker we could remove???
+                        }
+                    }
+                    
+                    
+                    // Task frees the batch, so null out our pointer to it.
+                    batch_in_progress = nullptr;
+                }
+            }
             
-            if (out_file.is_open()) {
-                // Destroy the old emitter
-                gam_emitter.reset();
-                // And close the file out.
-                out_file.close();
+            // Wait for the final tasks.
+            #pragma omp taskwait
+            
+            for (size_t i = 0; i < thread_count; i++) {
+                // Flush everything tasks have written into the multiplexer
+                if (emitters[i]) {
+                    emitters[i]->flush();
+                    emitters[i].reset();
+                    gam_multiplexer->register_breakpoint(i);
+                }
             }
-            stringstream out_name;
-            out_name << out_prefix << setfill('0') <<setw(6) << (count / chunk_size + 1) << ".gam";
-            out_file.open(out_name.str());
-            if (!out_file) {
-                cerr << "error[vg chunk]: unable to open output gam: " << out_name.str() << endl;
-                exit(1);
-            }
-            // Open a new emitter on the new file
-            gam_emitter.reset(new vg::io::MessageEmitter(out_file, true, gam_buffer_size));
-        }
-        
-        // Grab the message, paired with its tag, and advance.
-        // TODO: Stop copying tag?
-        vg::io::MessageIterator::TaggedMessage message(std::move(gam_iterator.take()));
-        if (message.first.empty()) {
-            // This is untagged data; assume it's GAM.
-            message.first = "GAM";
-        }
-        if (message.second) {
-            // This isn't just a tag alone.
-            // Send it over to the emitter, with the tag, moving the message body
-            gam_emitter->write(message.first, std::move(*message.second));
+            
+            // Get rid of the multiplexer to flush
+            gam_multiplexer.reset();
+            
+            // There will be no final batch, because when we hit EOF we launch a task
+            assert(batch_in_progress == nullptr);
         }
     }
     
     if (out_file.is_open()) {
-        // Close out the emitter, writing any partial final group.
-        gam_emitter.reset();
-        // And close the file.
+        // Close out the file.
         out_file.close();
     }
     return 0;
