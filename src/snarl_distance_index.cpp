@@ -1132,9 +1132,13 @@ cerr << "Start positon: "<< start_pos << endl;
     //including the position
     vector<pair<handle_t, size_t>> search_start_nodes;
 
-    if ((current_distance_left != std::numeric_limits<size_t>::max() && current_distance_left > min_distance) ||
-           (current_distance_right != std::numeric_limits<size_t>::max() && current_distance_right > min_distance)) {
+    if (((current_distance_left != std::numeric_limits<size_t>::max() && current_distance_left > min_distance) ||
+           (current_distance_right != std::numeric_limits<size_t>::max() && current_distance_right > min_distance)) ||
+         (distance_index.is_trivial_chain(parent) 
+            && distance_index.distance_in_parent(distance_index.get_parent(parent), parent, distance_index.flip(parent)) == 0
+            && node_len*2 > min_distance)) {
         //If the distance to either end of the node is within the range
+        //Or of there is a loop on the node ( a duplication of just the node) and the node length would put one loop in the distance range
 
         //Add this node to the subgraph
         subgraph.emplace(get_id(start_pos));

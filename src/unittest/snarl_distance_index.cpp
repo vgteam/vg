@@ -5820,7 +5820,7 @@ namespace vg {
         
                 SnarlDistanceIndex distance_index;
                 fill_in_distance_index(&distance_index, &graph, &snarl_finder);
-                subgraph_in_distance_range(distance_index, path, &graph, 10, 10, sub_graph, true);
+                subgraph_in_distance_range(distance_index, path, &graph, 9, 9, sub_graph, true);
         
                 REQUIRE(!sub_graph.count(1));
                 REQUIRE(sub_graph.count(2));
