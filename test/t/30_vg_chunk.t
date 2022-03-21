@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 25
+plan tests 27
 
 # Construct a graph with alt paths so we can make a GBWT and a GBZ
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz -a >x.vg
@@ -39,6 +39,12 @@ is $(ls -l _chunk_test*.gam | wc -l) 2 "gam chunker produces correct number of g
 is $(grep x _chunk_test_out.bed | wc -l) 2 "gam chunker produces bed with correct number of chunks"
 is "$(vg view -aj _chunk_test_0_x_0_199.gam | wc -l)" "$(vg view -aj _chunk_test_0_x_0_199.gam | sort | uniq | wc -l)" "gam chunker emits each matching read at most once"
 is "$(vg view -aj _chunk_test_1_x_500_627.gam | wc -l)" "225" "chunk contains the expected number of alignments"
+rm -f _chunk_test*
+
+#check that we can chunk by read count
+vg chunk -a small/x-l100-n1000-s10-e0.01-i0.01.gam -m 100 -b _chunk_test
+is $(ls -l _chunk_test*.gam | wc -l) 10 "simple gam chunker produces correct number of gams"
+is "$(vg view -aj _chunk_test000005.gam | wc -l)" "100" "simple chunk contains the expected number of alignments"
 
 #check that id ranges work
 is $(vg chunk -x x.xg -r 1:3 -c 0 | vg view - -j | jq .node | grep id |  wc -l) 3 "id chunker produces correct chunk size"

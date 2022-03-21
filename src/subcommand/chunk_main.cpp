@@ -903,8 +903,15 @@ int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix, 
         // Grab the message, paired with its tag, and advance.
         // TODO: Stop copying tag?
         vg::io::MessageIterator::TaggedMessage message(std::move(gam_iterator.take()));
-        // Send it over to the emitter, with the tag, moving the message body
-        gam_emitter->write(message.first, std::move(*message.second));
+        if (message.first.empty()) {
+            // This is untagged data; assume it's GAM.
+            message.first = "GAM";
+        }
+        if (message.second) {
+            // This isn't just a tag alone.
+            // Send it over to the emitter, with the tag, moving the message body
+            gam_emitter->write(message.first, std::move(*message.second));
+        }
     }
     
     if (out_file.is_open()) {
