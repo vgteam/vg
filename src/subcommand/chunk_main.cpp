@@ -871,26 +871,48 @@ string chunk_name(const string& out_chunk_prefix, int i, const Region& region, s
 int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix, size_t gam_buffer_size) {
     ofstream out_file;
     size_t count = 0;
-    vector<Alignment> gam_buffer;
-    // Todo: try parallel stream.  The only snag is that we'd have to either know
-    // a-priori if it's interleaved or not, or else make a new stream function that handles
-    // the last element instead of throwing error (very trivial as for_each_parallel_impl supports this)
-    vg::io::for_each<Alignment>(gam_stream, [&](Alignment& alignment) {
-            if (count++ % chunk_size == 0) {
-                if (out_file.is_open()) {
-                    out_file.close();
-                }
-                stringstream out_name;
-                out_name << out_prefix << setfill('0') <<setw(6) << (count / chunk_size + 1) << ".gam";
-                out_file.open(out_name.str());
-                if (!out_file) {
-                    cerr << "error[vg chunk]: unable to open output gam: " << out_name.str() << endl;
-                    exit(1);
-                }
+    
+    // We're going to skip parsing the GAM reads and just treat these as type-tagged opaque messages.
+    vg::io::MessageIterator gam_iterator(gam_stream);
+    
+    // THe emitter has its own internal buffering.
+    unique_ptr<vg::io::MessageEmitter> gam_emitter;
+    
+    while (gam_iterator.has_current()) {
+        // There's a read message to process.
+        if (count++ % chunk_size == 0) {
+            // We're at read 0, or the first read past the end of a chunk.
+            
+            if (out_file.is_open()) {
+                // Destroy the old emitter
+                gam_emitter.reset();
+                // And close the file out.
+                out_file.close();
             }
-            gam_buffer.push_back(alignment);
-            vg::io::write_buffered(out_file, gam_buffer, gam_buffer_size);
-        });
+            stringstream out_name;
+            out_name << out_prefix << setfill('0') <<setw(6) << (count / chunk_size + 1) << ".gam";
+            out_file.open(out_name.str());
+            if (!out_file) {
+                cerr << "error[vg chunk]: unable to open output gam: " << out_name.str() << endl;
+                exit(1);
+            }
+            // Open a new emitter on the new file
+            gam_emitter.reset(new vg::io::MessageEmitter(out_file, true, gam_buffer_size));
+        }
+        
+        // Grab the message, paired with its tag, and advance.
+        // TODO: Stop copying tag?
+        vg::io::MessageIterator::TaggedMessage message(std::move(gam_iterator.take()));
+        // Send it over to the emitter, with the tag, moving the message body
+        gam_emitter->write(message.first, std::move(*message.second));
+    }
+    
+    if (out_file.is_open()) {
+        // Close out the emitter, writing any partial final group.
+        gam_emitter.reset();
+        // And close the file.
+        out_file.close();
+    }
     return 0;
 }
 
