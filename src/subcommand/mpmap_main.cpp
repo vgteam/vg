@@ -1931,7 +1931,8 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.mapping_quality_method = mapq_method;
     multipath_mapper.max_mapping_quality = max_mapq;
     multipath_mapper.mapq_scaling_factor = mapq_scaling_factor;
-    multipath_mapper.report_group_mapq = report_group_mapq;
+    // always report group MAPQ when we're reporting multimapped reads
+    multipath_mapper.report_group_mapq = report_group_mapq || (max_num_mappings > 1 && !agglomerate_multipath_alns);
     multipath_mapper.report_allelic_mapq = report_allelic_mapq;
     // Use population MAPQs when we have the right option combination to make that sensible.
     multipath_mapper.use_population_mapqs = (haplo_score_provider != nullptr && population_max_paths > 0);
