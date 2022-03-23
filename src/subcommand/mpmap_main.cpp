@@ -129,10 +129,10 @@ void help_mpmap(char** argv) {
     //<< "  -a, --alt-paths INT          align to (up to) this many alternate paths in snarls [10]" << endl
     //<< "      --suppress-tail-anchors  don't produce extra anchors when aligning to alternate paths in snarls" << endl
     //<< "  -T, --same-strand            read pairs are from the same strand of the DNA/RNA molecule" << endl
-    << "  -a, --agglomerate-alns    combine separate multipath alignments into one (possibly disconnected) alignment" << endl
     << "  -X, --not-spliced         do not form spliced alignments, even if aligning with --nt-type 'rna'" << endl
-    << "  -r, --intron-distr FILE   intron length distribution (from scripts/intron_length_distribution.py)" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
+    << "  -a, --agglomerate-alns    combine separate multipath alignments into one (possibly disconnected) alignment" << endl
+    << "  -r, --intron-distr FILE   intron length distribution (from scripts/intron_length_distribution.py)" << endl
     << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
     << "  -b, --frag-sample INT     look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
     << "  -I, --frag-mean FLOAT     mean for a pre-determined fragment length distribution (also requires -D)" << endl
@@ -140,7 +140,7 @@ void help_mpmap(char** argv) {
     //<< "  -B, --no-calibrate           do not auto-calibrate mismapping dectection" << endl
     << "  -G, --gam-input FILE      input GAM (for stdin, use -)" << endl
     //<< "  -P, --max-p-val FLOAT        background model p-value must be less than this to avoid mismapping detection [0.0001]" << endl
-    << "  -U, --report-group-mapq   add an annotation for the collective mapping quality of all reported alignments" << endl
+    //<< "  -U, --report-group-mapq   add an annotation for the collective mapping quality of all reported alignments" << endl
     //<< "      --padding-mult FLOAT     pad dynamic programming bands in inter-MEM alignment FLOAT * sqrt(read length) [1.0]" << endl
     << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [24 paired / 64 unpaired]" << endl
     //<< "      --max-paths INT          consider (up to) this many paths per alignment for population consistency scoring, 0 to disable [10]" << endl
