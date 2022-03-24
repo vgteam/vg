@@ -1675,7 +1675,7 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
     */
 
     //Get the children of this chain from the tree state. They will be ordered by their order in the chain
-    vector<size_t> children_in_chain = std::move(tree_state.chain_to_children->at(chain_handle).second);
+    vector<size_t>& children_in_chain = tree_state.chain_to_children->at(chain_handle).second;
 
     /*
      * As we walk along the chain, we maintain clusters of the chain up to the last node we saw (the later
@@ -1691,11 +1691,18 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
     //we want to remember after we're done with the chain because the left distance is small
     vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> cluster_heads_to_add_again;
 
+   
+    //These get cleared every loop but I"m declaring them here so I don't keep reallocating memory
+    vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> to_add;
+    vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> new_cluster_by_read;
+    vector<size_t> old_best_left_by_read;
+    vector<size_t> old_best_right_by_read;
+
     for (size_t i = 0 ; i < children_in_chain.size() ; i++) {
         /*
          * Snarls and nodes are in the order that they are traversed in the chain
          */
-        size_t child_clusters_i = children_in_chain[i];
+        size_t& child_clusters_i = children_in_chain[i];
 
         //The NodeClusters we're currently looking at
         NodeClusters& child_clusters = tree_state.all_node_clusters[child_clusters_i];
@@ -1784,10 +1791,10 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
 
         //Clusters to remove from the chain because they got combined
         //And new clusters to add
-        vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> to_add;
+        to_add.clear();
 
         //There is at most one new cluster per read
-        vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> new_cluster_by_read(tree_state.all_seeds->size(), 
+        new_cluster_by_read = vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>(tree_state.all_seeds->size(), 
             make_pair(make_pair(std::numeric_limits<size_t>::max(), 0), make_pair(0,0)) );
         //And one new fragment cluster
         size_t new_cluster_head_fragment = std::numeric_limits<size_t>::max();
@@ -1799,9 +1806,9 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
         chain_clusters.fragment_best_left = std::numeric_limits<size_t>::max();
         size_t old_best_right = std::move(chain_clusters.fragment_best_right);
         chain_clusters.fragment_best_right = std::numeric_limits<size_t>::max(); 
-        vector<size_t> old_best_left_by_read = std::move(chain_clusters.read_best_left);
+        old_best_left_by_read = std::move(chain_clusters.read_best_left);
         chain_clusters.read_best_left = vector<size_t>(old_best_left_by_read.size(), std::numeric_limits<size_t>::max());
-        vector<size_t> old_best_right_by_read = std::move(chain_clusters.read_best_right);
+        old_best_right_by_read = std::move(chain_clusters.read_best_right);
         chain_clusters.read_best_right = vector<size_t>(old_best_right_by_read.size(), std::numeric_limits<size_t>::max());
 
 
