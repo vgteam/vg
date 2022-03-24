@@ -227,7 +227,7 @@ class NewSnarlSeedClusterer {
             //  Since maps are ordered, it will be in the order of traversal
             //  of the snarls in the chain
             //  size_t is the index into all_node_clusters
-            hash_map<net_handle_t, pair<size_t, vector<size_t>>> chain_to_children;
+            hash_map<net_handle_t, pair<size_t, vector<size_t>>>* chain_to_children;
 
 
             //TODO: Not using this anymore
@@ -235,7 +235,7 @@ class NewSnarlSeedClusterer {
             //tree above the current one
             //This gets updated as the current level is processed
             //size_t is the index into all_node_clusters
-            hash_map<net_handle_t, pair<size_t, vector<size_t>>> parent_chain_to_children;
+            hash_map<net_handle_t, pair<size_t, vector<size_t>>>* parent_chain_to_children;
 
             //This holds all the child clusters of the root
             //maps a child of the root (or a root snarl) to its children (or self)
@@ -269,7 +269,6 @@ class NewSnarlSeedClusterer {
 
                 all_node_clusters.reserve(5*seed_count);
                 snarl_to_children.reserve(seed_count);
-                chain_to_children.reserve(seed_count);
             }
         };
 
@@ -325,7 +324,7 @@ class NewSnarlSeedClusterer {
         //Helper function to add to one of the cluster/snarl_to_children hash_maps.
         //Adds parent -> child_cluster to the parent_to_child_map
         //Returns the index of the parent in all_node_clusters if this is the first time we see the parent, and inf otherwise
-        size_t add_child_to_vector(TreeState& tree_state, hash_map<net_handle_t, pair<size_t, vector<size_t>>>& parent_to_child_map, const net_handle_t& parent,
+        size_t add_child_to_vector(TreeState& tree_state, hash_map<net_handle_t, pair<size_t, vector<size_t>>>* parent_to_child_map, const net_handle_t& parent,
             size_t child_index) const;
 };
 }
