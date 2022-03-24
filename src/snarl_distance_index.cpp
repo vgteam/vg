@@ -1,7 +1,7 @@
 //#define debug_distance_indexing
 //#define debug_snarl_traversal
 //#define debug_distances
-#define debug_subgraph
+//#define debug_subgraph
 
 #include "snarl_distance_index.hpp"
 
@@ -1271,7 +1271,6 @@ cerr << "Start search along parent chain " << distance_index.net_handle_as_strin
 
                 //Add to seen_nodes
                 seen_nodes.emplace(super_graph->get_id(current_loop_handle), super_graph->get_is_reverse(current_loop_handle));
-                cerr << "\t adding node to seen nodes: " << super_graph->get_id(current_loop_handle) << ( super_graph->get_is_reverse(current_loop_handle) ? "rev" : "fd") << endl;
 
                 //Walk one step out from this node
                 super_graph->follow_edges(current_loop_handle, false, [&](const handle_t& next_handle) {
@@ -1446,7 +1445,6 @@ void subgraph_in_distance_range_walk_across_chain (const SnarlDistanceIndex& dis
     cerr << "Walk along parent chain " << distance_index.net_handle_as_string(distance_index.get_parent(current_node)) << " from " << distance_index.net_handle_as_string(current_node) << " with " << current_distance << endl;
 #endif
     if (distance_index.is_trivial_chain(distance_index.get_parent(current_node))){
-        cerr << "Trivial chain" << endl;
         return;
     }
     bool finished_chain = false;
@@ -1486,7 +1484,6 @@ void subgraph_in_distance_range_walk_across_chain (const SnarlDistanceIndex& dis
                         //TODO: This might be overkill. It prevents us from adding nodes that shouldn't be in the subgraph, but might be too slow
                         //If we don't check the other direction, go through the loop and add everything whose distance is lower than the minimum
                         //to seen_nodes
-                        cerr << "Don't go back to nodes from loop from " << distance_index.net_handle_as_string(bound_fd) << endl;
                         vector<pair<handle_t, size_t>> loop_handles_to_check;
                         handle_t start_out = distance_index.get_handle(distance_index.get_bound(next, false, false), super_graph);
                         handle_t end_out = distance_index.get_handle(distance_index.get_bound(next, true, false), super_graph);
@@ -1498,7 +1495,6 @@ void subgraph_in_distance_range_walk_across_chain (const SnarlDistanceIndex& dis
 
                             //Add to seen_nodes
                             seen_nodes.emplace(super_graph->get_id(current_loop_handle), super_graph->get_is_reverse(current_loop_handle));
-                            cerr << "\t adding node to seen nodes: " << super_graph->get_id(current_loop_handle) << ( super_graph->get_is_reverse(current_loop_handle) ? "rev" : "fd") << endl;
 
                             //Walk one step out from this node
                             super_graph->follow_edges(current_loop_handle, false, [&](const handle_t& next_handle) {
