@@ -1697,6 +1697,10 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
     vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> new_cluster_by_read;
     vector<size_t> old_best_left_by_read;
     vector<size_t> old_best_right_by_read;
+    size_t new_cluster_head_fragment = std::numeric_limits<size_t>::max();
+    bool child_is_reversed;
+    size_t old_best_left;
+    size_t old_best_right;
 
     for (size_t i = 0 ; i < children_in_chain.size() ; i++) {
         /*
