@@ -1533,15 +1533,19 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
          size_t combined_fragment = std::numeric_limits<size_t>::max();
          vector<pair<size_t, size_t>> to_erase;
 
+         //Declare values here that will be reset in the loop
+         size_t read_num, cluster_num, old_left, old_right, updated_left, updated_right, distance_between_left, 
+                distance_between_right, distance_between_left_fragment, distance_between_right_fragment;
+         pair<size_t, size_t> cluster_head;
          for (auto& child_cluster_head : child_clusters.read_cluster_heads) {
             //Go through each of the clusters on this child
-            size_t read_num = child_cluster_head.first;
-            const size_t cluster_num = tree_state.read_union_find[read_num].find_group(child_cluster_head.second);
-            size_t old_left = tree_state.read_cluster_heads_to_distances[read_num][cluster_num].first;
-            size_t old_right = tree_state.read_cluster_heads_to_distances[read_num][cluster_num].second;
+            read_num = child_cluster_head.first;
+            cluster_num = tree_state.read_union_find[read_num].find_group(child_cluster_head.second);
+            old_left = tree_state.read_cluster_heads_to_distances[read_num][cluster_num].first;
+            old_right = tree_state.read_cluster_heads_to_distances[read_num][cluster_num].second;
             //Get the new best distances for the cluster considering chain loops
-            size_t updated_left = std::min(old_left, SnarlDistanceIndex::sum({old_right, loop_right, distance_index.minimum_length(child_clusters.containing_net_handle)}));
-            size_t updated_right = std::min(old_right, SnarlDistanceIndex::sum({old_left, loop_left, distance_index.minimum_length(child_clusters.containing_net_handle)}));
+            updated_left = std::min(old_left, SnarlDistanceIndex::sum({old_right, loop_right, distance_index.minimum_length(child_clusters.containing_net_handle)}));
+            updated_right = std::min(old_right, SnarlDistanceIndex::sum({old_left, loop_left, distance_index.minimum_length(child_clusters.containing_net_handle)}));
 
 
 
@@ -1562,27 +1566,27 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
 
             //Now see if we can combine this cluster with anything else 
             //The distance between this cluster and anything else taking the left loop
-            size_t distance_between_left = SnarlDistanceIndex::minus(
+            distance_between_left = SnarlDistanceIndex::minus(
                     SnarlDistanceIndex::sum({updated_left, 
                                              loop_left,
                                              child_clusters.read_best_left[read_num]}),
                     1); 
-            size_t distance_between_right = SnarlDistanceIndex::minus(
+            distance_between_right = SnarlDistanceIndex::minus(
                      SnarlDistanceIndex::sum({updated_right, 
                                               loop_right,
                                               child_clusters.read_best_right[read_num]}),
                      1); 
-            size_t distance_between_left_fragment = SnarlDistanceIndex::minus(
+            distance_between_left_fragment = SnarlDistanceIndex::minus(
                       SnarlDistanceIndex::sum({updated_left, 
                                                 loop_left,
                                                 child_clusters.fragment_best_left}),
                       1); 
-            size_t distance_between_right_fragment = SnarlDistanceIndex::minus(
+            distance_between_right_fragment = SnarlDistanceIndex::minus(
                        SnarlDistanceIndex::sum({updated_right, 
                                                 loop_right,
                                                 child_clusters.fragment_best_right}),
                        1); 
-            pair<size_t, size_t> cluster_head = make_pair(read_num, cluster_num);
+            cluster_head = make_pair(read_num, cluster_num);
             if (distance_between_left <= tree_state.read_distance_limit) {
                 //Combine it left
                 to_erase.emplace_back(cluster_head);
@@ -1592,12 +1596,11 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
                 } else {
                     to_erase.emplace_back(combined_left[read_num].first);
                     tree_state.read_union_find.at(read_num).union_groups(cluster_num, combined_left[read_num].first.second);
-                    size_t new_left =  std::min(updated_left, combined_left[read_num].second.first);
-                    size_t new_right = std::min(updated_right, combined_left[read_num].second.second);
                     combined_left[read_num] = make_pair(
                          make_pair(read_num, 
                             tree_state.read_union_find.at(read_num).find_group(cluster_num)), 
-                         make_pair(new_left, new_right)); 
+                         make_pair(std::min(updated_left, combined_left[read_num].second.first), 
+                                   std::min(updated_right, combined_left[read_num].second.second))); 
                     
                 }
             }
@@ -1609,12 +1612,11 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
                 } else {
                     to_erase.emplace_back(combined_right[read_num].first);
                     tree_state.read_union_find.at(read_num).union_groups(cluster_num, combined_right[read_num].first.second);
-                    size_t new_left = std::min(updated_left, combined_right[read_num].second.first);
-                    size_t new_right = std::min(updated_right, combined_right[read_num].second.second); 
                     combined_right[read_num] =make_pair(
                          make_pair(read_num, 
                             tree_state.read_union_find.at(read_num).find_group(cluster_num)), 
-                         make_pair(new_left, new_right)); 
+                         make_pair(std::min(updated_left, combined_right[read_num].second.first), 
+                                   std::min(updated_right, combined_right[read_num].second.second))); 
                     
                 }
             }

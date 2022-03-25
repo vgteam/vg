@@ -269,6 +269,7 @@ class NewSnarlSeedClusterer {
 
                 all_node_clusters.reserve(5*seed_count);
                 snarl_to_children.reserve(seed_count);
+                root_children.reserve(seed_count);
             }
         };
 
