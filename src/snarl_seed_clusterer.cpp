@@ -1516,26 +1516,32 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
      * in the chain
      */
 
+    //These are used in update_distance_on_same_child but I"m declaring them here because I seem to be spending
+    //a lot of time allocating and deallocating memory and I want to do it just once
+    size_t loop_right, loop_left, combined_fragment;
+    vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> combined_left,combined_right; 
+    vector<pair<size_t, size_t>> to_erase;
+    size_t read_num, cluster_num, old_left, old_right, updated_left, updated_right, distance_between_left, 
+           distance_between_right, distance_between_left_fragment, distance_between_right_fragment;
+    pair<size_t, size_t> cluster_head;
+
      auto update_distances_on_same_child = [&] (NodeClusters& child_clusters) {
          //Distance to go forward (relative to the child) in the chain and back
-         size_t loop_right = distance_index.distance_in_parent(chain_handle, child_clusters.containing_net_handle, 
+         loop_right = distance_index.distance_in_parent(chain_handle, child_clusters.containing_net_handle, 
                                   child_clusters.containing_net_handle);
          //Distance to go backward in the chain and back
-         size_t loop_left = distance_index.distance_in_parent(chain_handle, distance_index.flip(child_clusters.containing_net_handle), 
+         loop_left = distance_index.distance_in_parent(chain_handle, distance_index.flip(child_clusters.containing_net_handle), 
                                   distance_index.flip(child_clusters.containing_net_handle));
 
 
          //Combined clusters in case we can combine anything
-         vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> combined_left (tree_state.all_seeds->size(),
+         combined_left = vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>  (tree_state.all_seeds->size(),
                 make_pair(make_pair(std::numeric_limits<size_t>::max(), 0), make_pair(0,0)));
-         vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> combined_right(tree_state.all_seeds->size(),
+         combined_right = vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>(tree_state.all_seeds->size(),
                 make_pair(make_pair(std::numeric_limits<size_t>::max(), 0), make_pair(0,0))); 
-         size_t combined_fragment = std::numeric_limits<size_t>::max();
-         vector<pair<size_t, size_t>> to_erase;
+         combined_fragment = std::numeric_limits<size_t>::max();
+         to_erase.clear();
 
-         //Declare values here that will be reset in the loop
-         size_t read_num, cluster_num, old_left, old_right, updated_left, updated_right, distance_between_left, 
-                distance_between_right, distance_between_left_fragment, distance_between_right_fragment;
          pair<size_t, size_t> cluster_head;
          for (auto& child_cluster_head : child_clusters.read_cluster_heads) {
             //Go through each of the clusters on this child
