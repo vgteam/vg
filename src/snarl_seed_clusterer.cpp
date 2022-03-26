@@ -1535,9 +1535,9 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
 
 
          //Combined clusters in case we can combine anything
-         combined_left = vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>  (tree_state.all_seeds->size(),
+         combined_left.assign(tree_state.all_seeds->size(),
                 make_pair(make_pair(std::numeric_limits<size_t>::max(), 0), make_pair(0,0)));
-         combined_right = vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>(tree_state.all_seeds->size(),
+         combined_right.assign(tree_state.all_seeds->size(),
                 make_pair(make_pair(std::numeric_limits<size_t>::max(), 0), make_pair(0,0))); 
          combined_fragment = std::numeric_limits<size_t>::max();
          to_erase.clear();
@@ -1806,22 +1806,22 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
         to_add.clear();
 
         //There is at most one new cluster per read
-        new_cluster_by_read = vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>(tree_state.all_seeds->size(), 
+        new_cluster_by_read.assign(tree_state.all_seeds->size(), 
             make_pair(make_pair(std::numeric_limits<size_t>::max(), 0), make_pair(0,0)) );
         //And one new fragment cluster
-        size_t new_cluster_head_fragment = std::numeric_limits<size_t>::max();
+        new_cluster_head_fragment = std::numeric_limits<size_t>::max();
 
         bool child_is_reversed = child_clusters.is_reversed_in_parent;
 
         //Remember the current best chain distances, and reset them to inf since we need to update them
-        size_t old_best_left = std::move(chain_clusters.fragment_best_left);
+        old_best_left = std::move(chain_clusters.fragment_best_left);
         chain_clusters.fragment_best_left = std::numeric_limits<size_t>::max();
-        size_t old_best_right = std::move(chain_clusters.fragment_best_right);
+        old_best_right = std::move(chain_clusters.fragment_best_right);
         chain_clusters.fragment_best_right = std::numeric_limits<size_t>::max(); 
         old_best_left_by_read = std::move(chain_clusters.read_best_left);
-        chain_clusters.read_best_left = vector<size_t>(old_best_left_by_read.size(), std::numeric_limits<size_t>::max());
+        chain_clusters.read_best_left.assign(old_best_left_by_read.size(), std::numeric_limits<size_t>::max());
         old_best_right_by_read = std::move(chain_clusters.read_best_right);
-        chain_clusters.read_best_right = vector<size_t>(old_best_right_by_read.size(), std::numeric_limits<size_t>::max());
+        chain_clusters.read_best_right.assign(old_best_right_by_read.size(), std::numeric_limits<size_t>::max());
 
 
         if (SnarlDistanceIndex::sum({distance_from_last_child_to_current_child, old_best_right}) 
