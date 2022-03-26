@@ -214,7 +214,7 @@ export CXXFLAGS
 LD_LIB_FLAGS += "-lboost_program_options$(BOOST_SUFFIX)"
 
 # These libs need to come after libdw if used, because libdw depends on them
-LD_LIB_FLAGS += -ldl -llzma -lbz2
+LD_LIB_FLAGS += -ldl -llzma -lbz2 -lzstd
 
 # Sometimes we need to filter the assembler output. The assembler can run during
 # ./configure scripts, compiler calls, or $(MAKE) calls (other than $(MAKE)
