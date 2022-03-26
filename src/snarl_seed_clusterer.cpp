@@ -279,6 +279,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 
     // Assign each seed to a node.
     hash_set<id_t> seen_nodes;
+    seen_nodes.reserve(tree_state.all_seeds->size());
     for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++){ 
         const vector<Seed>* seeds = tree_state.all_seeds->at(read_num);
         vector<pair<id_t, size_t>>& node_to_seeds = tree_state.node_to_seeds.at(read_num);
