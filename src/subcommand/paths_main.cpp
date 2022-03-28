@@ -28,10 +28,10 @@ void help_paths(char** argv) {
     cerr << "usage: " << argv[0] << " paths [options]" << endl
          << "options:" << endl
          << "  input:" << endl
-         << "    -v, --vg FILE            use the paths in this vg FILE" << endl
-         << "    -x, --xg FILE            use the paths in the XG index FILE" << endl
+         << "    -x, --xg FILE            use the paths and haplotypes in this graph FILE. Supports GBZ haplotypes." <<endl
+         << "                             (Also accepts -v, --vg)" << endl
          << "    -g, --gbwt FILE          use the threads in the GBWT index in FILE" << endl
-         << "                             (XG index or vg graph required for most output options; -g takes priority over -x)" << endl
+         << "                             (graph also required for most output options; -g takes priority over -x)" << endl
          << "  output graph (.vg format)" << endl
          << "    -V, --extract-vg         output a path-only graph covering the selected paths" << endl
          << "    -d, --drop-paths         output a graph with the selected paths removed" << endl
@@ -47,7 +47,7 @@ void help_paths(char** argv) {
          << "  path selection:" << endl
          << "    -p, --paths-file FILE    select the paths named in a file (one per line)" << endl
          << "    -Q, --paths-by STR       select the paths with the given name prefix" << endl
-         << "    -S, --sample STR         select the threads for this sample (GBWT)" << endl
+         << "    -S, --sample STR         select the haplotypes or reference paths for this sample" << endl
          << "    -a, --variant-paths      select the variant paths added by 'vg construct -a'" << endl;
 }
 
@@ -89,13 +89,16 @@ int main_paths(int argc, char** argv) {
     bool extract_as_fasta = false;
     bool drop_paths = false;
     bool retain_paths = false;
-    string xg_file;
-    string vg_file;
+    string graph_file;
     string gbwt_file;
     string path_prefix;
     string sample_name;
     string path_file;
     bool select_alt_paths = false;
+    // What kinds of paths are we interested in?
+    vector<handlegraph::PathMetadata::Sense> path_senses {handlegraph::PathMetadata::SENSE_REFERENCE,
+                                                          handlegraph::PathMetadata::SENSE_GENERIC,
+                                                          handlegraph::PathMetadata::SENSE_HAPLOTYPE}
     bool list_lengths = false;
     size_t output_formats = 0, selection_criteria = 0;
     size_t input_formats = 0;
@@ -145,13 +148,9 @@ int main_paths(int argc, char** argv) {
         switch (c)
         {
 
-        case 'v':
-            vg_file = optarg;
-            ++input_formats;
-            break;
-
+        case 'v': // Fall through
         case 'x':
-            xg_file = optarg;
+            graph_file = optarg;
             ++input_formats;
             break;
 
@@ -213,6 +212,8 @@ int main_paths(int argc, char** argv) {
 
         case 'S':
             sample_name = optarg;
+            // We only care about things with references now.
+            path_senses = {handlegraph::PathMetadata::SENSE_REFERENCE, handlegraph::PathMetadata::SENSE_HAPLOTYPE};
             selection_criteria++;
             break;
                 
@@ -253,25 +254,21 @@ int main_paths(int argc, char** argv) {
         }
     }
 
-    if (!vg_file.empty() && !(xg_file.empty() && gbwt_file.empty())) {
-        std::cerr << "error: [vg paths] cannot read input from multiple sources" << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
     if (input_formats != 1 && input_formats != 2) {
         std::cerr << "error: [vg paths] at least one input format (-v, -x, -g) must be specified" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (!gbwt_file.empty()) {
         bool need_graph = (extract_as_gam || extract_as_gaf || extract_as_vg || drop_paths || retain_paths || extract_as_fasta || list_lengths);
-        if (need_graph && xg_file.empty() && vg_file.empty()) {
-            std::cerr << "error: [vg paths] an XG index or vg graph needed for extracting threads in -X, -A, -V, -d, -r, -E or -F format" << std::endl;
+        if (need_graph && graph_file.empty()) {
+            std::cerr << "error: [vg paths] a graph is needed for extracting threads in -X, -A, -V, -d, -r, -E or -F format" << std::endl;
             std::exit(EXIT_FAILURE);
         }
-        if (!need_graph && (!xg_file.empty() || !vg_file.empty())) {
+        if (!need_graph && !graph_file.empty()) {
             // TODO: This should be an error, but we display a warning instead for backward compatibility.
             //std::cerr << "error: [vg paths] cannot read input from multiple sources" << std::endl;
             //std::exit(EXIT_FAILURE);
-            std::cerr << "warning: [vg paths] XG index and/or vg graph  unnecessary for listing GBWT threads" << std::endl;
+            std::cerr << "warning: [vg paths] graph unnecessary for listing GBWT threads" << std::endl;
         }
     } 
     if (output_formats != 1) {
@@ -282,35 +279,31 @@ int main_paths(int argc, char** argv) {
         std::cerr << "error: [vg paths] multiple selection criteria (-Q, -S, -a, -p) cannot be used" << std::endl;
         std::exit(EXIT_FAILURE);
     }
-    if (!sample_name.empty() && gbwt_file.empty()) {
-        std::cerr << "error: [vg paths] selection by sample name only works with a GBWT index" << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
     if (select_alt_paths && !gbwt_file.empty()) {
         std::cerr << "error: [vg paths] selecting variant allele paths is not compatible with a GBWT index" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if ((drop_paths || retain_paths) && !gbwt_file.empty()) {
-        std::cerr << "error: [vg paths] dropping or retaining paths only works on embedded VG/XG paths, not GBWT threads" << std::endl;
+        std::cerr << "error: [vg paths] dropping or retaining paths only works on embedded graph paths, not GBWT threads" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (coverage && !gbwt_file.empty()) {
-        std::cerr << "error: [vg paths] coverage option -c only works on embedded VG/XG paths, not GBWT threads" << std::endl;
+        std::cerr << "error: [vg paths] coverage option -c only works on embedded graph paths, not GBWT threads" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     
     if (select_alt_paths) {
         // alt paths all have a specific prefix
         path_prefix = "_alt_";
+        // And are all generic sense.
+        path_senses = {handlegraph::PathMetadata::SENSE_GENERIC};
     }
     
     // Load whatever indexes we were given
     // Note: during handlifiction, distinction between -v and -x options disappeared.
     unique_ptr<PathHandleGraph> graph;
-    if (!vg_file.empty() || !xg_file.empty()) {
-        assert(vg_file.empty() || xg_file.empty());
-        const string& graph_file = vg_file.empty() ? xg_file : vg_file;
-        // Load the vg or xg
+    if (!graph_file.empty()) {
+        // Load the graph
         graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_file);
     }
     unique_ptr<gbwt::GBWT> gbwt_index;
