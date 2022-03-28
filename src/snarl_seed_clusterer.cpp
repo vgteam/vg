@@ -1543,7 +1543,6 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
          combined_fragment = std::numeric_limits<size_t>::max();
          to_erase.clear();
 
-         pair<size_t, size_t> cluster_head;
          for (auto& child_cluster_head : child_clusters.read_cluster_heads) {
             //Go through each of the clusters on this child
             read_num = child_cluster_head.first;
@@ -1880,7 +1879,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
             //Otherwise, check to see if anything on the current child can be combined with 
             //anything in the chain thus far
 
-            size_t cluster_num, distance_between, fragment_distance_between;
+            size_t cluster_num, distance_between, fragment_distance_between, new_best_left, new_best_right;
             for (auto& child_cluster_head : child_clusters.read_cluster_heads) {
                 //Go through all clusters of the current child and see if they can be combined with anything on the chain
                 cluster_num = tree_state.read_union_find[child_cluster_head.first].find_group(child_cluster_head.second);
@@ -1917,8 +1916,8 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
                         //Union the two clusters
                         tree_state.read_union_find.at(child_cluster_head.first).union_groups(cluster_num, new_cluster_by_read[child_cluster_head.first].first.second);
                         //Find the best distances of the two
-                        size_t new_best_left= std::min(new_cluster_by_read[child_cluster_head.first].second.first, new_distances.first);
-                        size_t new_best_right= std::min(new_cluster_by_read[child_cluster_head.first].second.second, new_distances.second);
+                        new_best_left= std::min(new_cluster_by_read[child_cluster_head.first].second.first, new_distances.first);
+                        new_best_right= std::min(new_cluster_by_read[child_cluster_head.first].second.second, new_distances.second);
                         //And remember the new combined cluster head
                         new_cluster_by_read[child_cluster_head.first] = make_pair(
                                 make_pair(child_cluster_head.first, tree_state.read_union_find.at(child_cluster_head.first).find_group(cluster_num)),
@@ -1947,6 +1946,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
                 chain_clusters.read_best_left[child_cluster_head.first] = std::min(chain_clusters.read_best_left[child_cluster_head.first], new_distances.first);
                 chain_clusters.read_best_right[child_cluster_head.first] = std::min(chain_clusters.read_best_right[child_cluster_head.first], new_distances.second);
             }
+            size_t current_distance_left, current_fragment_distance_left, distance_right;
 
             for (auto& chain_cluster_head : chain_clusters.read_cluster_heads) {
                 //Each has distances up to the previous node
@@ -1954,11 +1954,12 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
                 dists = tree_state.read_cluster_heads_to_distances[chain_cluster_head.first][cluster_num];
 
                 //Best distance to the left side (relative to the chain) of the current child
-                const size_t current_distance_left = child_is_reversed ? child_clusters.read_best_right[chain_cluster_head.first]
-                                                                              : child_clusters.read_best_left[chain_cluster_head.first];
-                const size_t current_fragment_distance_left = child_is_reversed ? child_clusters.fragment_best_right 
-                                                                                       : child_clusters.fragment_best_left;
-                const size_t distance_right = dists.second;
+                current_distance_left = child_is_reversed ? child_clusters.read_best_right[chain_cluster_head.first]
+                                                                 : child_clusters.read_best_left[chain_cluster_head.first];
+                current_fragment_distance_left = child_is_reversed ? child_clusters.fragment_best_right 
+                                                                          : child_clusters.fragment_best_left;
+                distance_right = dists.second;
+
                 distance_between = SnarlDistanceIndex::minus(
                         SnarlDistanceIndex::sum({distance_right, 
                                                  distance_from_last_child_to_current_child, 
@@ -1987,8 +1988,8 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
                         //Union the two clusters
                         tree_state.read_union_find.at(chain_cluster_head.first).union_groups(cluster_num, new_cluster_by_read[chain_cluster_head.first].first.second);
                         //Find the best distances of the two
-                        size_t new_best_left= std::min(new_cluster_by_read[chain_cluster_head.first].second.first, new_distances.first);
-                        size_t new_best_right= std::min(new_cluster_by_read[chain_cluster_head.first].second.second, new_distances.second);
+                        new_best_left= std::min(new_cluster_by_read[chain_cluster_head.first].second.first, new_distances.first);
+                        new_best_right= std::min(new_cluster_by_read[chain_cluster_head.first].second.second, new_distances.second);
                         //And remember the new combined cluster head
                         new_cluster_by_read[chain_cluster_head.first] = make_pair(
                                 make_pair(chain_cluster_head.first, tree_state.read_union_find.at(chain_cluster_head.first).find_group(cluster_num)),
@@ -2089,20 +2090,19 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
         vector<size_t> combined_cluster_by_read (tree_state.all_seeds->size(), std::numeric_limits<size_t>::max()); 
         size_t combined_cluster_fragment = std::numeric_limits<size_t>::max();
         for (auto& cluster_head : chain_clusters.read_cluster_heads) {
-            size_t read_num = cluster_head.first;
-            size_t cluster_num=cluster_head.second;
-            size_t dist_left = tree_state.read_cluster_heads_to_distances[read_num][cluster_num].first;
-            size_t dist_right = tree_state.read_cluster_heads_to_distances[read_num][cluster_num].second;
+            //cluster_head is the <read_num, cluster_num>
+            size_t dist_left = tree_state.read_cluster_heads_to_distances[cluster_head.first][cluster_head.second].first;
+            size_t dist_right = tree_state.read_cluster_heads_to_distances[cluster_head.first][cluster_head.second].second;
 
-            size_t distance_between_left_right =SnarlDistanceIndex::minus(SnarlDistanceIndex::sum({dist_left, chain_clusters.read_best_right[read_num]}), 1); 
-            size_t distance_between_right_left = SnarlDistanceIndex::minus( SnarlDistanceIndex::sum({dist_right, chain_clusters.read_best_left[read_num]}), 1);
+            size_t distance_between_left_right =SnarlDistanceIndex::minus(SnarlDistanceIndex::sum({dist_left, chain_clusters.read_best_right[cluster_head.first]}), 1); 
+            size_t distance_between_right_left = SnarlDistanceIndex::minus( SnarlDistanceIndex::sum({dist_right, chain_clusters.read_best_left[cluster_head.first]}), 1);
             if (distance_between_left_right <= tree_state.read_distance_limit
              || distance_between_right_left <= tree_state.read_distance_limit) {
                 //If we can combine the read
-                if (combined_cluster_by_read[read_num] == std::numeric_limits<size_t>::max()) {
-                    combined_cluster_by_read[read_num] = cluster_num;
+                if (combined_cluster_by_read[cluster_head.first] == std::numeric_limits<size_t>::max()) {
+                    combined_cluster_by_read[cluster_head.first] = cluster_head.second;
                 } else {
-                    tree_state.read_union_find[read_num].union_groups(combined_cluster_by_read[read_num], cluster_num);
+                    tree_state.read_union_find[cluster_head.first].union_groups(combined_cluster_by_read[cluster_head.first], cluster_head.second);
                 }
             }
             size_t distance_between_left_right_fragment = SnarlDistanceIndex::minus(SnarlDistanceIndex::sum({dist_left, chain_clusters.fragment_best_right}) ,1);
@@ -2113,9 +2113,9 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
 
                 if (combined_cluster_fragment != std::numeric_limits<size_t>::max()) {
                     tree_state.fragment_union_find.union_groups(combined_cluster_fragment, 
-                            cluster_num + tree_state.read_index_offsets[read_num]);
+                            cluster_head.second + tree_state.read_index_offsets[cluster_head.first]);
                 }
-                combined_cluster_fragment = cluster_num + tree_state.read_index_offsets[read_num];
+                combined_cluster_fragment = cluster_head.second + tree_state.read_index_offsets[cluster_head.first];
             }
         }
 
