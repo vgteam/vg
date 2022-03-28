@@ -986,7 +986,8 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
     
     // pass 2) add the LV and PS tags
 #pragma omp parallel for
-    for (auto& thread_buf : output_variants) {
+    for (uint64_t i = 0; i < output_variants.size(); ++i) {
+        auto& thread_buf = output_variants[i];
         for (auto& output_variant_record : thread_buf) {
             string output_variant_string;
             zstdutil::DecompressString(output_variant_record.second, output_variant_string);
