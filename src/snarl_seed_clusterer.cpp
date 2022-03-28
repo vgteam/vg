@@ -279,7 +279,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 
     // Assign each seed to a node.
     hash_set<id_t> seen_nodes;
-    seen_nodes.reserve(tree_state.all_seeds->size());
+    seen_nodes.reserve(tree_state.seed_count);
     for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++){ 
         const vector<Seed>* seeds = tree_state.all_seeds->at(read_num);
         vector<pair<id_t, size_t>>& node_to_seeds = tree_state.node_to_seeds.at(read_num);
@@ -327,7 +327,7 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                  }
                  if (depth+1 > chain_to_children_by_level.size()) {
                      chain_to_children_by_level.resize(depth+1);
-                     chain_to_children_by_level.back().reserve(seeds->size()*2);
+                     chain_to_children_by_level.back().reserve(tree_state.seed_count);
                  }
 
 
@@ -2245,6 +2245,7 @@ size_t NewSnarlSeedClusterer::add_child_to_vector(TreeState& tree_state, hash_ma
         //Add the parent to the map
         parent_to_child_map->emplace(parent, 
                make_pair(tree_state.all_node_clusters.size()-1, vector<size_t>(0)));
+        parent_to_child_map->at(parent).second.reserve(tree_state.seed_count);
         parent_index = tree_state.all_node_clusters.size()-1;
     } 
 

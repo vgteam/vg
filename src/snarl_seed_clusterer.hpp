@@ -179,6 +179,7 @@ class NewSnarlSeedClusterer {
 
             //Vector of all the seeds for each read
             const vector<const vector<Seed>*>* all_seeds; 
+            size_t seed_count; //How many seeds total in all_seeds
 
             //prefix sum vector of the number of seeds per read
             //To get the index of a seed for the fragment clusters
@@ -252,6 +253,7 @@ class NewSnarlSeedClusterer {
                 all_seeds(all_seeds),
                 read_distance_limit(read_distance_limit),
                 fragment_distance_limit(fragment_distance_limit),
+                seed_count(seed_count),
                 fragment_union_find (seed_count, false),
                 read_index_offsets(1,0),
                 read_cluster_heads_to_distances(all_seeds->size()){
