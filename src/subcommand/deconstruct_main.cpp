@@ -38,6 +38,7 @@ void help_deconstruct(char** argv){
          << "    -a, --all-snarls         Process all snarls, including nested snarls (by default only top-level snarls reported)." << endl
          << "    -d, --ploidy N           Expected ploidy.  If more traversals found, they will be flagged as conflicts (default: 2)" << endl
          << "    -c, --context-jaccard N  Set context mapping size used to disambiguate alleles at sites with multiple reference traversals (default: 10000)." << endl
+         << "    -u, --untangle-travs     Use context mapping to determine the reference-relative positions of each step in allele traversals (AP INFO field)." << endl
          << "    -K, --keep-conflicted    Retain conflicted genotypes in output." << endl
          << "    -S, --strict-conflicts   Drop genotypes when we have more than one haplotype for any given phase (set by default when using GBWT input)." << endl
          << "    -t, --threads N          Use N threads" << endl
@@ -53,7 +54,6 @@ int main_deconstruct(int argc, char** argv){
 
     vector<string> refpaths;
     vector<string> refpath_prefixes;
-    //vector<string> altpath_prefixes;
     string graphname;
     string snarl_file_name;
     string gbwt_file_name;
@@ -66,6 +66,7 @@ int main_deconstruct(int argc, char** argv){
     bool keep_conflicted = false;
     bool strict_conflicts = false;
     int context_jaccard_window = 10000;
+    bool untangle_traversals = false;
     string path_sep;
     
     int c;
@@ -76,7 +77,6 @@ int main_deconstruct(int argc, char** argv){
                 {"help", no_argument, 0, 'h'},
                 {"path", required_argument, 0, 'p'},
                 {"path-prefix", required_argument, 0, 'P'},
-                //{"alt-prefix", required_argument, 0, 'A'},
                 {"path-sep", required_argument, 0, 'H'},
                 {"snarls", required_argument, 0, 'r'},
                 {"gbwt", required_argument, 0, 'g'},
@@ -84,6 +84,7 @@ int main_deconstruct(int argc, char** argv){
                 {"path-traversals", no_argument, 0, 'e'},
                 {"ploidy", required_argument, 0, 'd'},
                 {"context-jaccard", required_argument, 0, 'c'},
+                {"untangle-travs", no_argument, 0, 'u'},
                 {"all-snarls", no_argument, 0, 'a'},
                 {"keep-conflicted", no_argument, 0, 'K'},
                 {"strict-conflicts", no_argument, 0, 'S'},
@@ -93,7 +94,7 @@ int main_deconstruct(int argc, char** argv){
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:P:H:r:g:T:eKSd:c:at:v",
+        c = getopt_long (argc, argv, "hp:P:H:r:g:T:eKSd:c:uat:v",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -129,6 +130,9 @@ int main_deconstruct(int argc, char** argv){
             break;
         case 'c':
             context_jaccard_window = parse<int>(optarg);
+            break;
+        case 'u':
+            untangle_traversals = true;
             break;
         case 'a':
             all_snarls = true;
@@ -359,6 +363,7 @@ int main_deconstruct(int argc, char** argv){
     dd.deconstruct(refpaths, graph, snarl_manager.get(), path_restricted_traversals, ploidy,
                    all_snarls,
                    context_jaccard_window,
+                   untangle_traversals,
                    keep_conflicted,
                    strict_conflicts,
                    !alt_path_to_sample_phase.empty() ? &alt_path_to_sample_phase : nullptr,
