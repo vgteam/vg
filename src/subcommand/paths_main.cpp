@@ -96,9 +96,11 @@ int main_paths(int argc, char** argv) {
     string path_file;
     bool select_alt_paths = false;
     // What kinds of paths are we interested in?
-    vector<handlegraph::PathMetadata::Sense> path_senses {handlegraph::PathMetadata::SENSE_REFERENCE,
-                                                          handlegraph::PathMetadata::SENSE_GENERIC,
-                                                          handlegraph::PathMetadata::SENSE_HAPLOTYPE}
+    unordered_set<handlegraph::PathMetadata::Sense> path_senses {
+        handlegraph::PathMetadata::SENSE_REFERENCE,
+        handlegraph::PathMetadata::SENSE_GENERIC,
+        handlegraph::PathMetadata::SENSE_HAPLOTYPE
+    };
     bool list_lengths = false;
     size_t output_formats = 0, selection_criteria = 0;
     size_t input_formats = 0;
@@ -255,7 +257,7 @@ int main_paths(int argc, char** argv) {
     }
 
     if (input_formats != 1 && input_formats != 2) {
-        std::cerr << "error: [vg paths] at least one input format (-v, -x, -g) must be specified" << std::endl;
+        std::cerr << "error: [vg paths] at least one input format (-x, -g) must be specified" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (!gbwt_file.empty()) {
@@ -306,19 +308,30 @@ int main_paths(int argc, char** argv) {
         // Load the graph
         graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_file);
     }
-    unique_ptr<gbwt::GBWT> gbwt_index;
+    unique_ptr<gbwt::GBWT> gbwt_index_holder;
+    gbwt::GBWT* gbwt_index;
     if (!gbwt_file.empty()) {
         // We want a gbwt
         
         // Load the GBWT from its container
-        gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file);
+        gbwt_index_holder = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file);
 
         if (gbwt_index.get() == nullptr) {
           // Complain if we couldn't.
           cerr << "error: [vg paths] unable to load gbwt index file" << endl;
           exit(1);
         }
+        
+        gbwt_index = gbwt_index_holder.get();
+    } else {
+        // See if we can get a GBWT from the graph we loaded.
+        GBZGraph* gbz_graph = dynamic_cast<GBZGraph*>(graph.get());
+        if (gbz_graph) {
+            gbwt_index = &gbz_graph->gbz.index;
+        }
     }
+    
+    
     
     set<string> path_names;
     if (!path_file.empty()) {
@@ -348,7 +361,8 @@ int main_paths(int argc, char** argv) {
         graph_emitter = unique_ptr<vg::io::ProtobufEmitter<Graph>>(new vg::io::ProtobufEmitter<Graph>(cout));
     }
     
-    if (gbwt_index.get() != nullptr) {
+    if (!gbwt_file.empty()) {
+        // We want to operate on a GBWT instead of the graph.
 
         if (!(gbwt_index->hasMetadata() && gbwt_index->metadata.hasPathNames())) {
             std::cerr << "warning: [vg paths] the GBWT index does not contain thread names" << std::endl;
@@ -426,35 +440,112 @@ int main_paths(int argc, char** argv) {
         }
     } else if (graph.get() != nullptr) {
         
-        // Handle non-thread queries from vg or xg
+        // Handle queries from the graph
         
-        auto check_path_name = [&](const string& name) {
-            // Note: we're using a filter rather than index, so O(#paths in graph).
-            if (path_file.empty()) {
-                return (path_prefix.empty() ||
-                        std::mismatch(name.begin(), name.end(),
-                                      path_prefix.begin(), path_prefix.end()).second == path_prefix.end());
+        // Make a helper to loop over the selected paths in the graph
+        auto for_each_selected_path = [&](const std::function<void(const path_handle_t)>&) {
+            if (!path_file.empty()) {
+                // We only want paths with full names from the file. Just look them all up.
+                for (auto& name : path_names) {
+                    if (graph->has_path(name)) {
+                        auto path_handle = graph->get_path_handle(name);
+                        if (path_senses.count(graph->get_sense(path_handle))) {
+                            // But only take those with senses we want.
+                            iteratee(path_handle);
+                        }
+                    }
+                }
+            } else {
+                // We have only prefixes or other criteria.
+                // We need to do a scan.
+                
+                // We may restrict to some exact locus names.
+                unordered_set<string>* locus_name_filter = nullptr;
+                // We may restrict to some exact sample names
+                unordered_set<string> sample_name_set;
+                unordered_set<string>* sample_name_filter = nullptr;
+                if (!sample_name.empty()) {
+                    // We only want paths with this exact sample name
+                    sample_name_set.insert(sample_name);
+                    sample_name_filter = &sample_name_set;
+                }
+                
+                graph->for_each_path_matching(&path_senses, sample_name_filter, locus_name_filter,
+                    [&](const path_handle_t& path_handle) {
+                
+                    // We got a path of appropriate sense, locus, and sample.
+                    if (!path_prefix.empty()) {
+                        // Filter by name prefix
+                        std::string path_name = graph->get_path_name(path_handle);
+                        
+                        if (std::mismatch(name.begin(), name.end(),
+                                          path_prefix.begin(), path_prefix.end()).second != path_prefix.end()) {
+                            // The path does not match the prefix. Skip it.
+                            return;
+                        }
+                    }
+                    
+                    // It didn't fail a prefix check, so use it.
+                    iteratee(path_handle);
+                });
             }
-            else {
-                return bool(path_names.count(name));
-            }
+            
         };
-
-        if (drop_paths || retain_paths) {
-
-            vector<string> to_destroy;
-            graph->for_each_path_handle([&](const path_handle_t& path_handle) {
-                    string name = graph->get_path_name(path_handle);
-                    if (check_path_name(name) == drop_paths) {
-                        to_destroy.push_back(name);
+        // Make a helper to loop over the complement set of un-selected paths in the graph
+        auto for_each_unselected_path = [&](const std::function<void(const path_handle_t)>& iteratee) {
+            // Get all the selected paths
+            unordered_set<path_handle_t> selected;
+            for_each_selected_path([&](const path_handle_t& path_handle) {
+                selected.insert(path_handle);
+            });
+            
+            unordered_set<handlegraph::PathMetadata::Sense> all_senses {
+                handlegraph::PathMetadata::SENSE_REFERENCE,
+                handlegraph::PathMetadata::SENSE_GENERIC,
+                handlegraph::PathMetadata::SENSE_HAPLOTYPE
+            };
+            
+            graph->for_each_path_matching(&all_senses, nullptr, nullptr, [&](const path_handle_t& path_handle) {
+                // And then, for each path of any sense
+                if (!selected.count(path_handle)) {
+                    // If it isn't selected, yield it.
+                    iteratee(path_handle);
                 }
             });
+            
+            
+        };
+        
+        if (drop_paths || retain_paths) {
+            MutablePathMutableHandleGraph* mutable_graph = dynamic_cast<MutablePathMutableHandleGraph*>(graph.get());
+            if (!mutable_graph) {
+                std::cerr << "error[vg paths]: graph cannot be modified" << std::endl;
+                exit(1);
+            }
+            SerializableHandleGraph* serializable_graph = dynamic_cast<SerializableHandleGraph*>(graph.get());
+            if (!serializable_graph) {
+                std::cerr << "error[vg paths]: graph cannot be saved after modification" << std::endl;
+                exit(1);
+            }
+
+            vector<string> to_destroy;
+            if (drop_paths) {
+                for_each_selected_path([&](const path_handle_t& path_handle) {
+                    string name = graph->get_path_name(path_handle);
+                    to_destroy.push_back(name);
+                });
+            } else {
+                for_each_unselected_path([&](const path_handle_t& path_handle) {
+                    string name = graph->get_path_name(path_handle);
+                    to_destroy.push_back(name);
+                });
+            }
             for (string& path_name : to_destroy) {
-                dynamic_cast<MutablePathMutableHandleGraph*>(graph.get())->destroy_path(graph->get_path_handle(path_name));
+                mutable_graph->destroy_path(graph->get_path_handle(path_name));
             }
             
             // output the graph
-            dynamic_cast<SerializableHandleGraph*>(graph.get())->serialize(cout);
+            serializable_graph->serialize(cout);
         }
         else if (coverage) {
             // for every node, count the number of unique paths.  then add the coverage count to each one
@@ -465,7 +556,13 @@ int main_paths(int argc, char** argv) {
             unordered_map<path_handle_t, string> path_to_name;
             size_t max_coverage = 0;
             graph->for_each_handle([&](handle_t handle) {
-                    vector<step_handle_t> steps = graph->steps_of_handle(handle);
+                    vector<step_handle_t> steps;
+                    for (auto sense& : path_senses) {
+                        graph->for_each_step_of_sense(handle, sense, [&](const step_handle_t& step) {
+                            // For every step on this handle of any sense we care about, remember it
+                            steps.push_back(step);
+                        });
+                    }
                     unordered_set<string> unique_names;
                     unordered_set<path_handle_t> unique_paths;
                     for (auto step_handle : steps) {
@@ -534,52 +631,47 @@ int main_paths(int argc, char** argv) {
                 } 
             }
             cout << endl;
-            graph->for_each_path_handle([&](path_handle_t path_handle) {
-                    string path_name = graph->get_path_name(path_handle);
-                    if (check_path_name(path_name)) {
-                        cout << path_name;
-                        auto& path_cov = coverage_map[path_handle];
-                        for (size_t cov = 0; cov < path_cov.size(); ++cov) {
-                            cout << "\t" << path_cov[cov];
-                        }
-                        cout << endl;
-                    }
-                });
-        } else {            
-            graph->for_each_path_handle([&](path_handle_t path_handle) {
+            for_each_selected_path([&](path_handle_t path_handle) {
                 string path_name = graph->get_path_name(path_handle);
-                if (check_path_name(path_name)) {
-                    if (list_names) {
-                        cout << path_name;
-                        if (list_lengths) {
-                            size_t path_length = 0;
-                            for (handle_t handle : graph->scan_path(path_handle)) {
-                                path_length += graph->get_length(handle);
-                            }
-                            cout << "\t" << path_length;
+                cout << path_name;
+                auto& path_cov = coverage_map[path_handle];
+                for (size_t cov = 0; cov < path_cov.size(); ++cov) {
+                    cout << "\t" << path_cov[cov];
+                }
+                cout << endl;
+            });
+        } else {            
+            for_each_selected_path([&](path_handle_t path_handle) {
+                if (list_names) {
+                    cout << graph->get_path_name(path_handle);
+                    if (list_lengths) {
+                        size_t path_length = 0;
+                        for (handle_t handle : graph->scan_path(path_handle)) {
+                            path_length += graph->get_length(handle);
                         }
-                        if (list_cyclicity) {
-                            bool cyclic = false;
-                            unordered_set<handle_t> visits;
-                            graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
-                                    pair<unordered_set<handle_t>::iterator, bool> ret = visits.insert(graph->get_handle_of_step(step_handle));
-                                    if (ret.second == false) {
-                                        cyclic = true;
-                                    }
-                                    return !cyclic;
-                                });
-                            cout << "\t" << (cyclic ? "cyclic" : "acyclic");
-                        }
-                        cout << endl;
-                    } else {
-                        Path path = path_from_path_handle(*graph, path_handle);
-                        if (extract_as_gam || extract_as_gaf) {
-                            aln_emitter->emit_singles({alignment_from_path(*graph, path)});
-                        } else if (extract_as_vg) {
-                            chunk_to_emitter(path, *graph_emitter); 
-                        } else if (extract_as_fasta) {
-                            write_fasta_sequence(path_name, path_sequence(*graph, path), cout);
-                        }
+                        cout << "\t" << path_length;
+                    }
+                    if (list_cyclicity) {
+                        bool cyclic = false;
+                        unordered_set<handle_t> visits;
+                        graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
+                                pair<unordered_set<handle_t>::iterator, bool> ret = visits.insert(graph->get_handle_of_step(step_handle));
+                                if (ret.second == false) {
+                                    cyclic = true;
+                                }
+                                return !cyclic;
+                            });
+                        cout << "\t" << (cyclic ? "cyclic" : "acyclic");
+                    }
+                    cout << endl;
+                } else {
+                    Path path = path_from_path_handle(*graph, path_handle);
+                    if (extract_as_gam || extract_as_gaf) {
+                        aln_emitter->emit_singles({alignment_from_path(*graph, path)});
+                    } else if (extract_as_vg) {
+                        chunk_to_emitter(path, *graph_emitter); 
+                    } else if (extract_as_fasta) {
+                        write_fasta_sequence(graph->get_path_name(path_handle), path_sequence(*graph, path), cout);
                     }
                 }
             });
