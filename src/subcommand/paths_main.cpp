@@ -308,26 +308,17 @@ int main_paths(int argc, char** argv) {
         // Load the graph
         graph = vg::io::VPKG::load_one<PathHandleGraph>(graph_file);
     }
-    unique_ptr<gbwt::GBWT> gbwt_index_holder;
-    gbwt::GBWT* gbwt_index;
+    unique_ptr<gbwt::GBWT> gbwt_index;
     if (!gbwt_file.empty()) {
         // We want a gbwt
         
         // Load the GBWT from its container
-        gbwt_index_holder = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file);
+        gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file);
 
         if (gbwt_index.get() == nullptr) {
           // Complain if we couldn't.
           cerr << "error: [vg paths] unable to load gbwt index file" << endl;
           exit(1);
-        }
-        
-        gbwt_index = gbwt_index_holder.get();
-    } else {
-        // See if we can get a GBWT from the graph we loaded.
-        GBZGraph* gbz_graph = dynamic_cast<GBZGraph*>(graph.get());
-        if (gbz_graph) {
-            gbwt_index = &gbz_graph->gbz.index;
         }
     }
     
@@ -361,7 +352,7 @@ int main_paths(int argc, char** argv) {
         graph_emitter = unique_ptr<vg::io::ProtobufEmitter<Graph>>(new vg::io::ProtobufEmitter<Graph>(cout));
     }
     
-    if (!gbwt_file.empty()) {
+    if (gbwt_index) {
         // We want to operate on a GBWT instead of the graph.
 
         if (!(gbwt_index->hasMetadata() && gbwt_index->metadata.hasPathNames())) {
@@ -438,12 +429,12 @@ int main_paths(int argc, char** argv) {
                 cout << path.name() << "\t" << (cyclic ? "cyclic" : "acyclic") << endl;
             }
         }
-    } else if (graph.get() != nullptr) {
+    } else if (graph) {
         
         // Handle queries from the graph
         
         // Make a helper to loop over the selected paths in the graph
-        auto for_each_selected_path = [&](const std::function<void(const path_handle_t)>&) {
+        auto for_each_selected_path = [&](const std::function<void(const path_handle_t)>& iteratee) {
             if (!path_file.empty()) {
                 // We only want paths with full names from the file. Just look them all up.
                 for (auto& name : path_names) {
@@ -478,7 +469,7 @@ int main_paths(int argc, char** argv) {
                         // Filter by name prefix
                         std::string path_name = graph->get_path_name(path_handle);
                         
-                        if (std::mismatch(name.begin(), name.end(),
+                        if (std::mismatch(path_name.begin(), path_name.end(),
                                           path_prefix.begin(), path_prefix.end()).second != path_prefix.end()) {
                             // The path does not match the prefix. Skip it.
                             return;
@@ -557,7 +548,7 @@ int main_paths(int argc, char** argv) {
             size_t max_coverage = 0;
             graph->for_each_handle([&](handle_t handle) {
                     vector<step_handle_t> steps;
-                    for (auto sense& : path_senses) {
+                    for (auto& sense : path_senses) {
                         graph->for_each_step_of_sense(handle, sense, [&](const step_handle_t& step) {
                             // For every step on this handle of any sense we care about, remember it
                             steps.push_back(step);
