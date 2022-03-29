@@ -169,7 +169,6 @@ class NewSnarlSeedClusterer {
                 read_best_right(read_count, std::numeric_limits<size_t>::max()){}
         };
 
-
         struct TreeState {
             //Hold all the tree relationships, seed locations, and cluster info
 
@@ -217,6 +216,9 @@ class NewSnarlSeedClusterer {
             //This stores all the node clusters so we stop spending all our time allocating lots of vectors of NodeClusters
             vector<NodeClusters> all_node_clusters;
 
+            //Map each net_handle to its index in all_node_clusters
+            hash_map<net_handle_t, size_t> net_handle_to_index;
+
             //Map from each snarl's net_handle_t to it's child net_handle_ts 
             //clusters at the node
             //size_t is the index into all_node_clusters
@@ -241,9 +243,10 @@ class NewSnarlSeedClusterer {
             hash_map<net_handle_t, pair<size_t, vector<size_t>>>* parent_chain_to_children;
 
             //This holds all the child clusters of the root
-            //maps a child of the root (or a root snarl) to its children (or self)
-            //size_t is the index into all_node_clusters
-            hash_map<net_handle_t, vector<size_t>> root_children;
+            //each size_t is the index into all_node_clusters
+            //Each pair is the parent and the child. This will be sorted by parent before
+            //clustering so it
+            vector<pair<size_t, size_t>> root_children;
 
 
             /////////////////////////////////////////////////////////
@@ -270,6 +273,7 @@ class NewSnarlSeedClusterer {
                     make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
                 all_node_clusters.reserve(5*seed_count);
                 snarl_to_children.reserve(seed_count);
+                net_handle_to_index.reserve(seed_count);
                 root_children.reserve(seed_count);
             }
         };

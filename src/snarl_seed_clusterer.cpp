@@ -331,18 +331,22 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 
 
 
+                 tree_state.net_handle_to_index[node_net_handle] = tree_state.all_node_clusters.size();
                  tree_state.all_node_clusters.emplace_back(
                                  NodeClusters(std::move(node_net_handle), tree_state.all_seeds->size(),
                                               is_reversed_in_parent, id, node_length, prefix_sum, component));
+
                  if (distance_index.is_root(parent)) {
                      //If this is a child of the root, then cluster it now
                      cluster_one_node(tree_state, tree_state.all_node_clusters.back());
                      if (distance_index.is_root_snarl(parent)) {
                          //If this is a root snarl, then remember it to cluster in the root
-                        if (tree_state.root_children.count(parent) == 0) {
-                           tree_state.root_children.emplace(parent, vector<size_t>(0));
+                        if (tree_state.net_handle_to_index.count(parent) == 0) {
+                            tree_state.net_handle_to_index[parent] = tree_state.all_node_clusters.size();
+                            tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(), distance_index);
+
                         }
-                        tree_state.root_children[parent].emplace_back(tree_state.all_node_clusters.size()-1);
+                        tree_state.root_children.emplace_back(tree_state.net_handle_to_index[parent],tree_state.all_node_clusters.size()-1);
                      } else {
                          //Otherwise, just compare the single child's external connectivity
                          compare_and_combine_cluster_on_one_child(tree_state, tree_state.all_node_clusters.back());
@@ -448,10 +452,11 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
             //If the parent is the root, remember the index of this chain in all_node_clusters
             if(distance_index.is_root_snarl(parent)) {
                 //If the parent is a root snarl, then remember it to cluster in the root
-                if (tree_state.root_children.count(parent) == 0) {
-                   tree_state.root_children.emplace(parent, vector<size_t>(0));
+                if (tree_state.net_handle_to_index.count(parent) == 0) {
+                    tree_state.net_handle_to_index[parent] = tree_state.all_node_clusters.size();
+                    tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(), distance_index);
                 }
-                tree_state.root_children[parent].emplace_back(kv.second.first);
+                tree_state.root_children.emplace_back(tree_state.net_handle_to_index[parent],kv.second.first);
             } else {
                 //Otherwise, cluster it with itself using external connectivity only
                  compare_and_combine_cluster_on_one_child(tree_state, tree_state.all_node_clusters[kv.second.first]);
@@ -2172,14 +2177,30 @@ void NewSnarlSeedClusterer::cluster_root(TreeState& tree_state) const {
     //Keep track of all clusters on the root
     NodeClusters root_clusters(distance_index.get_root(), tree_state.all_seeds->size(), distance_index);
 
+    //Remember old distances
     vector<vector<pair<size_t, size_t>>> child_distances (tree_state.all_seeds->size());
     for (size_t i = 0 ; i < tree_state.all_seeds->size() ; i++) {
         child_distances[i] = std::vector<pair<size_t, size_t>>(tree_state.all_seeds->at(i)->size(),
             make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
     }
 
-    for (auto& kv : tree_state.root_children) {
-        vector<size_t>& children = kv.second;
+ 
+    //Sort the root children by parent, the order of the children doesn't matter
+    std::sort(tree_state.root_children.begin(), tree_state.root_children.end());   
+
+    //Go through the list of parent child pairs. Once we reach a new parent, cluster all children found up to this point
+    net_handle_t current_parent = distance_index.get_root();
+    vector<size_t> children;
+    for (size_t root_child_i = 0 ; root_child_i < tree_state.root_children.size() ; root_child_i++) {
+        const pair<size_t, size_t>& parent_to_child = tree_state.root_children[root_child_i];
+        net_handle_t& parent = tree_state.all_node_clusters[parent_to_child.first].containing_net_handle;
+
+        if (current_parent == parent) {
+            children.emplace_back(parent_to_child.second);
+            if (root_child_i != tree_state.root_children.size()-1) {
+                continue;
+            }
+        }
 
         for (size_t i = 0; i < children.size() ; i++) {
             //Go through each child node of the netgraph
@@ -2202,6 +2223,10 @@ void NewSnarlSeedClusterer::cluster_root(TreeState& tree_state) const {
 
             }
         }
+
+        current_parent = parent;
+        children.clear();
+        children.emplace_back(parent_to_child.second);
     }
 #ifdef DEBUG_CLUSTER
     cerr << "\tFound clusters on the root" << endl;
@@ -2234,6 +2259,7 @@ size_t NewSnarlSeedClusterer::add_child_to_vector(TreeState& tree_state, hash_ma
         //If we haven't seen the parent before
 
         //Make a new NodeClusters for the parent
+        tree_state.net_handle_to_index[parent] = tree_state.all_node_clusters.size();
         tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(), distance_index);
 
         //Add the parent to the map
