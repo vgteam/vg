@@ -180,15 +180,12 @@ class NewSnarlSeedClusterer {
             //Vector of all the seeds for each read
             const vector<const vector<Seed>*>* all_seeds; 
 
-            //prefix sum vector of how many seeds are before 
-            //Use this so that data structures that store information per seed can be single
-            //vectors, instead of a vector of vectors following the structure of all_seeds 
-            //since it uses less memory allocation to use a single vector
-            vector<size_t> seed_counts;
-
             //prefix sum vector of the number of seeds per read
             //To get the index of a seed for the fragment clusters
-            vector<size_t> read_index_offsets;
+            //Also se this so that data structures that store information per seed can be single
+            //vectors, instead of a vector of vectors following the structure of all_seeds 
+            //since it uses less memory allocation to use a single vector
+            vector<size_t> seed_count_prefix_sum;
 
             //The minimum distance between nodes for them to be put in the
             //same cluster
@@ -259,22 +256,18 @@ class NewSnarlSeedClusterer {
                 read_distance_limit(read_distance_limit),
                 fragment_distance_limit(fragment_distance_limit),
                 fragment_union_find (seed_count, false),
-                read_index_offsets(1,0){
-                    //TODO: REplace seed counts with read_index_offsets
+                seed_count_prefix_sum(1,0){
 
-                seed_counts.emplace_back(0);
                 for (size_t i = 0 ; i < all_seeds->size() ; i++) {
                     size_t size = all_seeds->at(i)->size();
-                    size_t offset = read_index_offsets.back() + size;
-                    seed_counts.emplace_back(seed_counts[i] + size);
-                    read_index_offsets.push_back(offset);
+                    size_t offset = seed_count_prefix_sum.back() + size;
+                    seed_count_prefix_sum.push_back(offset);
                     read_union_find.emplace_back(size, false);
 
                 }
 
-                read_cluster_heads_to_distances.assign(seed_counts.back(), 
+                read_cluster_heads_to_distances.assign(seed_count_prefix_sum.back(), 
                     make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
-                node_to_seeds.reserve(seed_counts.back());
                 all_node_clusters.reserve(5*seed_count);
                 snarl_to_children.reserve(seed_count);
                 root_children.reserve(seed_count);
