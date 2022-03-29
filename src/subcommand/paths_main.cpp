@@ -41,6 +41,7 @@ void help_paths(char** argv) {
          << "    -A, --extract-gaf        print (as GAF alignments) the stored paths in the graph" << endl
          << "    -L, --list               print (as a list of names, one per line) the path (or thread) names" << endl
          << "    -E, --lengths            print a list of path names (as with -L) but paired with their lengths" << endl
+         << "    -M, --metadata           print a table of path names and their metadata" << endl
          << "    -C, --cyclicity          print a list of path names (as with -L) but paired with flag denoting the cyclicity" << endl
          << "    -F, --extract-fasta      print the paths in FASTA format" << endl
          << "    -c, --coverage           print the coverage stats for selected paths (not including cylces)" << endl
@@ -75,6 +76,13 @@ void chunk_to_emitter(const Path& path, vg::io::ProtobufEmitter<Graph>& graph_em
     }
 }
 
+// TODO: promote this to libhandlegraph
+unordered_map<handlegraph::PathMetadata::Sense, string> SENSE_TO_STRING {
+    {handlegraph::PathMetadata::SENSE_REFERENCE, "SENSE_REFERENCE"},
+    {handlegraph::PathMetadata::SENSE_GENERIC, "SENSE_GENERIC"},
+    {handlegraph::PathMetadata::SENSE_HAPLOTYPE, "SENSE_HAPLOTYPE"}
+};
+
 int main_paths(int argc, char** argv) {
 
     if (argc == 2) {
@@ -102,9 +110,10 @@ int main_paths(int argc, char** argv) {
         handlegraph::PathMetadata::SENSE_HAPLOTYPE
     };
     bool list_lengths = false;
+    bool list_metadata = false;
+    bool list_cyclicity = false;
     size_t output_formats = 0, selection_criteria = 0;
     size_t input_formats = 0;
-    bool list_cyclicity = false;
     bool coverage = false;
     const size_t coverage_bins = 10;
 
@@ -124,12 +133,13 @@ int main_paths(int argc, char** argv) {
             {"extract-gaf", no_argument, 0, 'A'},            
             {"list", no_argument, 0, 'L'},
             {"lengths", no_argument, 0, 'E'},
+            {"metadata", no_argument, 0, 'M'},
+            {"cyclicity", no_argument, 0, 'C'},
             {"extract-fasta", no_argument, 0, 'F'},
             {"paths-file", required_argument, 0, 'p'},
             {"paths-by", required_argument, 0, 'Q'},
             {"sample", required_argument, 0, 'S'},
             {"variant-paths", no_argument, 0, 'a'},
-            {"cyclicity", no_argument, 0, 'C'},
             {"coverage", no_argument, 0, 'c'},            
 
             // Hidden options for backward compatibility.
@@ -140,7 +150,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEFAS:Tq:drap:Cc",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:drap:c",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -196,6 +206,18 @@ int main_paths(int argc, char** argv) {
             list_lengths = true;
             output_formats++;
             break;
+            
+        case 'M':
+            list_names = true;          
+            list_metadata = true;
+            output_formats++;
+            break;
+            
+        case 'C':
+            list_names = true;          
+            list_cyclicity = true;
+            output_formats++;
+            break;
                 
         case 'F':
             extract_as_fasta = true;
@@ -222,12 +244,6 @@ int main_paths(int argc, char** argv) {
         case 'a':
             select_alt_paths = true;
             selection_criteria++;
-            break;
-
-        case 'C':
-            list_names = true;          
-            list_cyclicity = true;
-            output_formats++;
             break;
 
         case 'c':
@@ -396,10 +412,13 @@ int main_paths(int argc, char** argv) {
             std::string name = thread_name(*gbwt_index, id);        
 
             // We are only interested in the name
+            // TODO: do we need to consult list_cyclicity or list_metadata here?
             if (list_names && !list_lengths) {
                 std::cout << name << endl;
                 continue;
             }
+            
+            // TODO: implement list_metadata for GBWT threads?
             
             // Otherwise we need the actual thread data
             Path path = extract_gbwt_path(*graph, *gbwt_index, id);
@@ -631,7 +650,24 @@ int main_paths(int argc, char** argv) {
                 }
                 cout << endl;
             });
-        } else {            
+        } else {
+            if (list_metadata) {
+                // Add a header
+                cout << "#NAME";
+                if (list_lengths) {
+                    cout << "\tLENGTH";
+                }
+                cout << "\tSENSE";
+                cout << "\tSAMPLE";
+                cout << "\tHAPLOTYPE";
+                cout << "\tLOCUS";
+                cout << "\tPHASE_BLOCK";
+                cout << "\tSUBRANGE";
+                if (list_cyclicity) {
+                    cout << "\tCYCLICITY";
+                }
+                cout << endl;
+            }
             for_each_selected_path([&](path_handle_t path_handle) {
                 if (list_names) {
                     cout << graph->get_path_name(path_handle);
@@ -641,6 +677,27 @@ int main_paths(int argc, char** argv) {
                             path_length += graph->get_length(handle);
                         }
                         cout << "\t" << path_length;
+                    }
+                    if (list_metadata) {
+                        // Dump fields for all the metadata
+                        cout << "\t" << SENSE_TO_STRING.at(graph->get_sense(path_handle));
+                        auto sample = graph->get_sample_name(path_handle);
+                        cout << "\t" << (sample == handlegraph::PathMetadata::NO_SAMPLE_NAME ? "NO_SAMPLE_NAME" : sample);
+                        auto haplotype = graph->get_haplotype(path_handle);
+                        cout << "\t" << (haplotype == handlegraph::PathMetadata::NO_HAPLOTYPE ? "NO_HAPLOTYPE" : std::to_string(haplotype));
+                        auto locus = graph->get_locus_name(path_handle);
+                        cout << "\t" << (locus == handlegraph::PathMetadata::NO_LOCUS_NAME ? "NO_LOCUS_NAME" : locus);
+                        auto phase_block = graph->get_phase_block(path_handle);
+                        cout << "\t" << (phase_block == handlegraph::PathMetadata::NO_PHASE_BLOCK ? "NO_PAHSE_BLOCK" : std::to_string(phase_block));
+                        auto subrange = graph->get_subrange(path_handle);
+                        cout << "\t";
+                        if (subrange == handlegraph::PathMetadata::NO_SUBRANGE) {
+                            cout << "NO_SUBRANGE";
+                        } else if (subrange.second == handlegraph::PathMetadata::NO_END_POSITION) {
+                            cout << subrange.first;
+                        } else {
+                            cout << subrange.first << "-" << subrange.second;
+                        }
                     }
                     if (list_cyclicity) {
                         bool cyclic = false;
