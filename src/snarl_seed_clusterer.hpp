@@ -213,9 +213,9 @@ class NewSnarlSeedClusterer {
             //The snarls and chains get updated as we move up the snarl tree
 
             //Maps each node to a vector of the seeds that are contained in it
-            //seeds are represented by indexes into the seeds vector
+            //seeds are represented by indexes into the seeds vector (read_num, seed_num)
             //The array is sorted.
-            vector<vector<pair<id_t, size_t>>> node_to_seeds;
+            vector<tuple<id_t, size_t, size_t>> node_to_seeds;
 
             //This stores all the node clusters so we stop spending all our time allocating lots of vectors of NodeClusters
             vector<NodeClusters> all_node_clusters;
@@ -260,6 +260,7 @@ class NewSnarlSeedClusterer {
                 fragment_distance_limit(fragment_distance_limit),
                 fragment_union_find (seed_count, false),
                 read_index_offsets(1,0){
+                    //TODO: REplace seed counts with read_index_offsets
 
                 seed_counts.emplace_back(0);
                 for (size_t i = 0 ; i < all_seeds->size() ; i++) {
@@ -267,14 +268,13 @@ class NewSnarlSeedClusterer {
                     size_t offset = read_index_offsets.back() + size;
                     seed_counts.emplace_back(seed_counts[i] + size);
                     read_index_offsets.push_back(offset);
-                    node_to_seeds.emplace_back();
-                    node_to_seeds.back().reserve(size);
                     read_union_find.emplace_back(size, false);
 
                 }
 
                 read_cluster_heads_to_distances.assign(seed_counts.back(), 
                     make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
+                node_to_seeds.reserve(seed_counts.back());
                 all_node_clusters.reserve(5*seed_count);
                 snarl_to_children.reserve(seed_count);
                 root_children.reserve(seed_count);
