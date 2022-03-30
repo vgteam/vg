@@ -463,28 +463,25 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
             }
         } else {
             //If the parent is just a snarl, add it to its parent snarl
-            size_t parent_snarl_index = add_child_to_vector(tree_state, &tree_state.snarl_to_children, parent, kv.second.first);
+            bool add_to_grandparent = false;
+            if (tree_state.net_handle_to_index.count(parent) == 0) {
+                tree_state.net_handle_to_index[parent] = tree_state.all_node_clusters.size();
+                tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(), distance_index);
+                add_to_grandparent=true;
+            }
+            size_t parent_index = tree_state.net_handle_to_index[parent];
+            tree_state.snarl_to_children.add_child(parent_index, kv.second.first);
 
-            //And add the snarl to its parent chain
-            net_handle_t grandparent_chain = distance_index.get_parent(parent);
-            if (distance_index.is_root(grandparent_chain)) {
-                assert(false);
-                 //if(distance_index.is_root_snarl(grandparent_chain)){
-                 //    //If the parent is a root snarl, then remember it to be compared in the root
-                 //   if (tree_state.root_children.count(grandparent_chain) == 0) {
-                 //      tree_state.root_children.emplace(grandparent_chain, vector<size_t>(0));
-                 //   }
-                 //   tree_state.root_children[grandparent_chain].emplace_back(parent_snarl_index);
-                 //} else {
-                 //    //Otherwise, compare it to itself using external connectivity
-                 //    cluster_one_snarl(tree_state,
-                 //    compare_and_combine_cluster_on_one_child(tree_state, snarl_clusters);
-                 //}
-            } else {
-                if (parent_snarl_index != std::numeric_limits<size_t>::max()) {
-                    //If this is the first time we see this parent snarl, then add it to the grandparent chain
-                    add_child_to_vector(tree_state, tree_state.parent_chain_to_children, grandparent_chain, parent_snarl_index);
-                }
+            if (add_to_grandparent) {
+                //If this is the first time we've seen the parent snarl, then add it to the grandparent chain
+
+                net_handle_t grandparent_chain = distance_index.get_parent(parent);
+                //if (tree_state.net_handle_to_index.count(grandparent_chain) == 0) {
+                //    tree_state.net_handle_to_index[grandparent_chain] = tree_state.all_node_clusters.size();
+                //    tree_state.all_node_clusters.emplace_back(grandparent_chain, tree_state.all_seeds->size(), distance_index);
+                //}
+                //tree_state.snarl_to_children.add_child(tree_state.net_handle_to_index[grandparent_chain], parent_index);
+                add_child_to_vector(tree_state, tree_state.parent_chain_to_children, grandparent_chain, parent_index);
             }
         }
 
@@ -1387,7 +1384,7 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, NodeCluster
     net_handle_t& snarl_handle = snarl_clusters.containing_net_handle;
 
     //Get the children of this snarl and their clusters
-    vector<size_t> children = std::move(tree_state.snarl_to_children[snarl_handle].second);
+    vector<size_t> children = tree_state.snarl_to_children.get_children(tree_state.net_handle_to_index[snarl_handle]);
     //The distances within the children, since we will be updating read_cluster_head_to_distances
     //to represent distances in the parent
     vector<vector<pair<size_t, size_t>>> child_distances (tree_state.all_seeds->size());
