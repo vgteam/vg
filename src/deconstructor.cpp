@@ -589,6 +589,17 @@ vector<nid_t> Deconstructor::get_context(
     return get_context(start_step, end_step);
 }
 
+pair<string, int> Deconstructor::get_trav_sample_phase(
+    const pair<vector<SnarlTraversal>,
+               vector<pair<step_handle_t, step_handle_t>>>& path_travs,
+    const int& trav_idx) const {
+    step_handle_t start_step = path_travs.second[trav_idx].first;
+    auto name = graph->get_path_name(graph->get_path_handle_of_step(start_step));
+    auto sp = path_to_sample_phase->find(name);
+    auto& sample_name = sp->second.first;
+    return make_pair(sample_name, sp->second.second);
+}
+
 bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
 
     auto contents = snarl_manager->shallow_contents(snarl, *graph, false);
@@ -763,7 +774,7 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
     // remember that path_travs := pair<vector<SnarlTraversal>, vector<pair<step_handle_t, step_handle_t> > > path_travs;
 
     // map from each path_trav index to the ref_trav index it best maps to
-    vector<int> path_trav_to_ref_trav;
+    vector<pair<int, double>> path_trav_to_ref_trav;
     if (ref_travs.size() > 1 && this->path_jaccard_window) {
         path_trav_to_ref_trav.resize(path_travs.first.size());
 #ifdef debug
@@ -793,7 +804,8 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
                 }
                 std::sort(ref_mappings.begin(), ref_mappings.end());
                 // the best is the last, which has the highest jaccard
-                path_trav_to_ref_trav[i] = ref_mappings.back().second;
+                path_trav_to_ref_trav[i] = make_pair(ref_mappings.back().second,
+                                                     ref_mappings.back().first);
             }
         }
     }
@@ -857,12 +869,23 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
             v.position = first_path_pos + ref_trav_offset;
 
             v.id = print_snarl(*snarl);
-            
+
             // Convert the snarl traversals to strings and add them to the variant
             vector<bool> use_trav(path_travs.first.size());
             if (path_trav_to_ref_trav.size()) {
+                unordered_map<pair<string, int>, vector<pair<double, int>>> groupings;
                 for (uint64_t i = 0; i < use_trav.size(); ++i) {
-                    use_trav[i] = (ref_trav_idx == path_trav_to_ref_trav[i]);
+                    //use_trav[i] = (ref_trav_idx == path_trav_to_ref_trav[i].first);
+                    if (ref_trav_idx == path_trav_to_ref_trav[i].first) {
+                        auto p = get_trav_sample_phase(path_travs, i);
+                        groupings[p].push_back(make_pair(path_trav_to_ref_trav[i].second, i));
+                    }
+                }
+                // filter all but the best traversal per haplotype ("phase")
+                for (auto& g : groupings) {
+                    auto& t = g.second;
+                    std::sort(t.begin(), t.end());
+                    use_trav[t.back().second] = true;
                 }
             } else {
                 for (uint64_t i = 0; i < use_trav.size(); ++i) {

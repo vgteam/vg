@@ -97,6 +97,11 @@ private:
         step_handle_t start_step,
         step_handle_t end_step) const;
 
+    pair<string, int> get_trav_sample_phase(
+        const pair<vector<SnarlTraversal>,
+        vector<pair<step_handle_t, step_handle_t>>>& path_travs,
+        const int& trav_idx) const;
+
     // compares node contexts
     double context_jaccard(const vector<nid_t>& target,
                            const vector<nid_t>& query) const;
