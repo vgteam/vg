@@ -189,6 +189,13 @@ class NewSnarlSeedClusterer {
                 parent_to_children.emplace_back(parent_index, child_index);
                 is_sorted=false;
             }
+            void reserve(size_t size) {
+                parent_to_children.reserve(size);
+            }
+            void sort() {
+                std::sort(parent_to_children.begin(), parent_to_children.end());
+                is_sorted = true;
+            }
 
             //Get a list of the children of this parent
             //Equivalent of map[parent]
@@ -199,8 +206,7 @@ class NewSnarlSeedClusterer {
             vector<size_t> get_children(const size_t& parent) {
                 //We need to sort the vector first to find everything with the right parent
                 if (!is_sorted) {
-                    std::sort(parent_to_children.begin(), parent_to_children.end());
-                    is_sorted = true;
+                    sort();
                 }
                 vector<size_t> children;
                 auto iter_start = std::lower_bound(parent_to_children.begin(), parent_to_children.end(),
@@ -209,9 +215,6 @@ class NewSnarlSeedClusterer {
                     children.emplace_back(iter->second);
                 }
                 return children;
-            }
-            void reserve(size_t size) {
-                parent_to_children.reserve(size);
             }
         };
 
@@ -278,7 +281,7 @@ class NewSnarlSeedClusterer {
             //  Since maps are ordered, it will be in the order of traversal
             //  of the snarls in the chain
             //  size_t is the index into all_node_clusters
-            hash_map<net_handle_t, pair<size_t, vector<size_t>>>* chain_to_children;
+            ParentToChildMap* chain_to_children;
 
 
             //TODO: Not using this anymore
@@ -286,7 +289,7 @@ class NewSnarlSeedClusterer {
             //tree above the current one
             //This gets updated as the current level is processed
             //size_t is the index into all_node_clusters
-            hash_map<net_handle_t, pair<size_t, vector<size_t>>>* parent_chain_to_children;
+            ParentToChildMap* parent_chain_to_children;
 
             //This holds all the child clusters of the root
             //each size_t is the index into all_node_clusters
@@ -333,7 +336,7 @@ class NewSnarlSeedClusterer {
         //in the tree state as each level is processed
         //size_t is the index into all_node_clusters
         void get_nodes( TreeState& tree_state,
-                        vector<hash_map<net_handle_t, pair<size_t, vector<size_t>>>>& chain_to_children_by_level) const;
+                        vector<ParentToChildMap>& chain_to_children_by_level) const;
 
 
         //Cluster all the snarls at the current level and update the tree_state
