@@ -326,12 +326,6 @@ class NewSnarlSeedClusterer {
         //so we just look at external distances 
         void compare_and_combine_cluster_on_one_child(TreeState& tree_state, NodeClusters& child_clusters) const;
 
-
-        //Helper function to add to one of the cluster/snarl_to_children hash_maps.
-        //Adds parent -> child_cluster to the parent_to_child_map
-        //Returns the index of the parent in all_node_clusters if this is the first time we see the parent, and inf otherwise
-        size_t add_child_to_vector(TreeState& tree_state, hash_map<net_handle_t, pair<size_t, vector<size_t>>>* parent_to_child_map, const net_handle_t& parent,
-            size_t child_index) const;
 };
 }
 
