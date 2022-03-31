@@ -447,7 +447,10 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
 void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
 
     //Go through chain_to_children, which is a vector of chain, child pairs. Start by sorting by parent chain
-    tree_state.chain_to_children->sort();
+    tree_state.chain_to_children->sort([&] (const size_t& a, const size_t& b)-> bool {
+        return distance_index.is_ordered_in_chain(tree_state.all_node_clusters[a].containing_net_handle,
+                                                   tree_state.all_node_clusters[b].containing_net_handle);
+    });
     vector<pair<size_t, size_t>>& chain_to_children = tree_state.chain_to_children->parent_to_children;
 
     //The current chain that's getting clustered
@@ -1544,7 +1547,11 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
     net_handle_t& chain_handle = chain_clusters.containing_net_handle;
 
     //Get the children of this chain from the tree state. They will be ordered by their order in the chain
-    vector<size_t> children_in_chain = tree_state.chain_to_children->get_children(tree_state.net_handle_to_index[chain_handle]);
+    vector<size_t> children_in_chain = tree_state.chain_to_children->get_children(tree_state.net_handle_to_index[chain_handle],
+    [&] (const size_t& a, const size_t& b)-> bool {
+        return distance_index.is_ordered_in_chain(tree_state.all_node_clusters[a].containing_net_handle,
+                                                   tree_state.all_node_clusters[b].containing_net_handle);
+    });
 
 
     //Note: This is the first time we deal with the net_handle_t for this chain, so it will be empty
@@ -1741,12 +1748,6 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, NodeCluster
      */
 
     //Get a vector of all the children in the chain
-    //Sort the children, since the multimap isn't sorted
-    std::sort(children_in_chain.begin(), children_in_chain.end(), [&](const size_t& index1, const size_t& index2) {
-        return distance_index.is_ordered_in_chain(
-                tree_state.all_node_clusters[index1].containing_net_handle,
-                tree_state.all_node_clusters[index2].containing_net_handle);
-    });
     
     //The last node we saw is initialized to the first node in the chain
     NodeClusters& last_child = tree_state.all_node_clusters[children_in_chain.front()];

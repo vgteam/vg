@@ -191,9 +191,16 @@ class NewSnarlSeedClusterer {
             void reserve(size_t size) {
                 parent_to_children.reserve(size);
             }
-            void sort() {
+            void sort(const std::function<bool(const size_t&, const size_t&)>& comparator) {
                 if (!is_sorted) {
-                    std::sort(parent_to_children.begin(), parent_to_children.end());
+                    std::sort(parent_to_children.begin(), parent_to_children.end(),
+                    [&] (const pair<size_t, size_t>& a, const pair<size_t, size_t>& b)->bool {
+                        if (a.first == b.first) {
+                            return comparator(a.second, b.second);
+                        } else {
+                            return a.first < b.first;
+                        }
+                    });
                     is_sorted = true;
                 }
             }
@@ -204,10 +211,10 @@ class NewSnarlSeedClusterer {
             //and then finding the first occurrence of the parent using std::lower_bound and walking
             //through the vector
             //The vector of children will not be sorted
-            vector<size_t> get_children(const size_t& parent) {
+            vector<size_t> get_children(const size_t& parent, const std::function<bool(const size_t&, const size_t&)>& comparator) {
                 //We need to sort the vector first to find everything with the right parent
                 if (!is_sorted) {
-                    sort();
+                    sort(comparator);
                 }
                 vector<size_t> children;
                 auto iter_start = std::lower_bound(parent_to_children.begin(), parent_to_children.end(),
