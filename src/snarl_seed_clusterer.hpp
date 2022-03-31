@@ -223,7 +223,7 @@ class NewSnarlSeedClusterer {
             //Map from each snarl's net_handle_t to it's child net_handle_ts 
             //clusters at the node
             //size_t is the index into all_node_clusters
-            std::multimap<size_t, size_t> snarl_to_children;
+            std::unordered_multimap<size_t, size_t> snarl_to_children;
             
             //Map each chain to the snarls (only ones that contain seeds) that
             //comprise it. 
