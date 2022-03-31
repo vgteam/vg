@@ -797,7 +797,7 @@ void NewSnarlSeedClusterer::cluster_one_node(
 //TODO: Make sure to add the first child's clusters to the parent before looking at pairs and calling this
 void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(TreeState& tree_state, NodeClusters& child_clusters1, 
     NodeClusters& child_clusters2, NodeClusters& parent_clusters, 
-    vector<vector<pair<size_t, size_t>>> & child_distances, bool is_root) const {
+    vector<pair<size_t, size_t>> & child_distances, bool is_root) const {
 #ifdef DEBUG_CLUSTER
     cerr << "\tCompare " << distance_index.net_handle_as_string(child_clusters1.containing_net_handle) 
          << " and " << distance_index.net_handle_as_string(child_clusters2.containing_net_handle)
@@ -963,7 +963,7 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
         size_t cluster_num = tree_state.read_union_find[read_num].find_group(child_cluster_head.second);
 
         //Distances to the ends of the child
-        pair<size_t, size_t> distances = child_distances[read_num][child_cluster_head.second];
+        pair<size_t, size_t> distances = child_distances[child_cluster_head.second + tree_state.seed_count_prefix_sum[read_num]];
 
         //Distances to the parent
         size_t new_dist_left = std::min(SnarlDistanceIndex::sum({distances.first, child_clusters1.distance_start_left}),
@@ -1025,7 +1025,7 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
 
         size_t read_num = child_cluster_head.first;
         size_t cluster_num = tree_state.read_union_find[read_num].find_group(child_cluster_head.second);
-        pair<size_t, size_t> distances = child_distances[read_num][child_cluster_head.second];
+        pair<size_t, size_t> distances = child_distances[child_cluster_head.second + tree_state.seed_count_prefix_sum[read_num]];
         size_t new_dist_left = std::min(SnarlDistanceIndex::sum({distances.first,child_clusters2.distance_start_left}), 
                                         SnarlDistanceIndex::sum({distances.second,child_clusters2.distance_start_right}));
         size_t new_dist_right = std::min(SnarlDistanceIndex::sum({distances.first,child_clusters2.distance_end_left}), 
@@ -1412,11 +1412,8 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, NodeCluster
     //Get the children of this snarl and their clusters
     //The distances within the children, since we will be updating read_cluster_head_to_distances
     //to represent distances in the parent
-    vector<vector<pair<size_t, size_t>>> child_distances (tree_state.all_seeds->size());
-    for (size_t i = 0 ; i < tree_state.all_seeds->size() ; i++) {
-        child_distances[i] = std::vector<pair<size_t, size_t>>(tree_state.all_seeds->at(i)->size(),
-            make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
-    }
+    vector<pair<size_t, size_t>> child_distances (tree_state.seed_count_prefix_sum.back(), 
+                                                  make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
 
 
     //THis returns a pair of iterators to the values with the snarl as the key 
@@ -1432,7 +1429,7 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, NodeCluster
         }
 
         for (const pair<size_t, size_t>& head : child_clusters_i.read_cluster_heads) {
-            child_distances[head.first][head.second] = 
+            child_distances[head.second + tree_state.seed_count_prefix_sum[head.first]] = 
                     tree_state.read_cluster_heads_to_distances[tree_state.seed_count_prefix_sum[head.first]+head.second];
         }
 
@@ -2215,11 +2212,8 @@ void NewSnarlSeedClusterer::cluster_root(TreeState& tree_state) const {
     NodeClusters root_clusters(distance_index.get_root(), tree_state.all_seeds->size(), distance_index);
 
     //Remember old distances
-    vector<vector<pair<size_t, size_t>>> child_distances (tree_state.all_seeds->size());
-    for (size_t i = 0 ; i < tree_state.all_seeds->size() ; i++) {
-        child_distances[i] = std::vector<pair<size_t, size_t>>(tree_state.all_seeds->at(i)->size(),
-            make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
-    }
+    vector<pair<size_t, size_t>> child_distances (tree_state.seed_count_prefix_sum.back(), 
+                                                  make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
 
  
     //Sort the root children by parent, the order of the children doesn't matter
@@ -2244,7 +2238,7 @@ void NewSnarlSeedClusterer::cluster_root(TreeState& tree_state) const {
 
             NodeClusters& child_clusters_i = tree_state.all_node_clusters[children[i]];
             for (const pair<size_t, size_t>& head : child_clusters_i.read_cluster_heads) {
-                child_distances[head.first][head.second] = tree_state.read_cluster_heads_to_distances[tree_state.seed_count_prefix_sum[head.first]+head.second];
+                child_distances[head.second + tree_state.seed_count_prefix_sum[head.first]] = tree_state.read_cluster_heads_to_distances[tree_state.seed_count_prefix_sum[head.first]+head.second];
             }
 
             for (size_t j = 0 ; j <= i ; j++){
