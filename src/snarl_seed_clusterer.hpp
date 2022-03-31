@@ -169,54 +169,6 @@ class NewSnarlSeedClusterer {
                 read_best_right(read_count, std::numeric_limits<size_t>::max()){}
         };
 
-        struct ParentToChildMap {
-            //Struct for storing a map from a parent net_handle_t to a list of it's children
-            //The children are represented as an index into all_clusters
-
-            //The actual data that gets stored
-            //The size_t's are indexes into all_clusters. The first is the parent and the second is the child
-            //This stores every child as a separate pair
-            vector<pair<size_t, size_t>> parent_to_children;
-
-            //is parent_to_children sorted?
-            //Each time we look up the children of a parent, sort and look it up
-            //If it's already sorted, skip sorting
-            //Also set this to false any time something gets added
-            bool is_sorted = false; 
-            bool is_sorted_children = false;
-
-            void add_child(size_t parent_index, size_t child_index) {
-                parent_to_children.emplace_back(parent_index, child_index);
-                is_sorted=false;
-            }
-            void reserve(size_t size) {
-                parent_to_children.reserve(size);
-            }
-            void sort() {
-                std::sort(parent_to_children.begin(), parent_to_children.end());
-                is_sorted = true;
-            }
-
-            //Get a list of the children of this parent
-            //Equivalent of map[parent]
-            //Does this by sorting (if necessary) the vector parent_to_children of the parent
-            //and then finding the first occurrence of the parent using std::lower_bound and walking
-            //through the vector
-            //The vector of children will not be sorted
-            vector<size_t> get_children(const size_t& parent) {
-                //We need to sort the vector first to find everything with the right parent
-                if (!is_sorted) {
-                    sort();
-                }
-                vector<size_t> children;
-                auto iter_start = std::lower_bound(parent_to_children.begin(), parent_to_children.end(),
-                        std::make_pair(parent, (size_t)0));
-                for (auto iter = iter_start ; iter != parent_to_children.end() && iter->first == parent ; ++iter) {
-                    children.emplace_back(iter->second);
-                }
-                return children;
-            }
-        };
 
         struct TreeState {
             //Hold all the tree relationships, seed locations, and cluster info
@@ -271,7 +223,7 @@ class NewSnarlSeedClusterer {
             //Map from each snarl's net_handle_t to it's child net_handle_ts 
             //clusters at the node
             //size_t is the index into all_node_clusters
-            ParentToChildMap snarl_to_children;
+            std::multimap<size_t, size_t> snarl_to_children;
             
             //Map each chain to the snarls (only ones that contain seeds) that
             //comprise it. 
@@ -281,7 +233,7 @@ class NewSnarlSeedClusterer {
             //  Since maps are ordered, it will be in the order of traversal
             //  of the snarls in the chain
             //  size_t is the index into all_node_clusters
-            ParentToChildMap* chain_to_children;
+            std::multimap<size_t, size_t>* chain_to_children;
 
 
             //TODO: Not using this anymore
@@ -289,7 +241,7 @@ class NewSnarlSeedClusterer {
             //tree above the current one
             //This gets updated as the current level is processed
             //size_t is the index into all_node_clusters
-            ParentToChildMap* parent_chain_to_children;
+            std::multimap<size_t, size_t>* parent_chain_to_children;
 
             //This holds all the child clusters of the root
             //each size_t is the index into all_node_clusters
@@ -321,7 +273,6 @@ class NewSnarlSeedClusterer {
                 read_cluster_heads_to_distances.assign(seed_count_prefix_sum.back(), 
                     make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
                 all_node_clusters.reserve(5*seed_count);
-                snarl_to_children.reserve(seed_count);
                 net_handle_to_index.reserve(seed_count);
                 root_children.reserve(seed_count);
             }
@@ -336,7 +287,7 @@ class NewSnarlSeedClusterer {
         //in the tree state as each level is processed
         //size_t is the index into all_node_clusters
         void get_nodes( TreeState& tree_state,
-                        vector<ParentToChildMap>& chain_to_children_by_level) const;
+                        vector<std::multimap<size_t, size_t>>& chain_to_children_by_level) const;
 
 
         //Cluster all the snarls at the current level and update the tree_state
