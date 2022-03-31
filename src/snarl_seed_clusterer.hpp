@@ -273,7 +273,7 @@ class NewSnarlSeedClusterer {
                 read_cluster_heads_to_distances.assign(seed_count_prefix_sum.back(), 
                     make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
                 all_node_clusters.reserve(5*seed_count);
-                net_handle_to_index.reserve(seed_count);
+                net_handle_to_index.reserve(5*seed_count);
                 root_children.reserve(seed_count);
             }
         };

@@ -340,13 +340,18 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                      //If this is a child of the root, then cluster it now
                      cluster_one_node(tree_state, tree_state.all_node_clusters.back());
                      if (distance_index.is_root_snarl(parent)) {
-                         //If this is a root snarl, then remember it to cluster in the root
-                        if (tree_state.net_handle_to_index.count(parent) == 0) {
-                            tree_state.net_handle_to_index[parent] = tree_state.all_node_clusters.size();
-                            tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(), distance_index);
 
-                        }
-                        tree_state.root_children.emplace_back(tree_state.net_handle_to_index[parent],child_index);
+                         //If this is a root snarl, then remember it to cluster in the root
+                         size_t parent_index;
+                         if (tree_state.net_handle_to_index.count(parent) == 0) {
+                             parent_index = tree_state.all_node_clusters.size();
+                             tree_state.net_handle_to_index[parent] = parent_index;
+                             tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(), distance_index);
+
+                         } else {
+                             parent_index = tree_state.net_handle_to_index[parent];
+                         }
+                         tree_state.root_children.emplace_back(parent_index,child_index);
                      } else {
                          //Otherwise, just compare the single child's external connectivity
                          compare_and_combine_cluster_on_one_child(tree_state, tree_state.all_node_clusters.back());
@@ -354,12 +359,16 @@ cerr << "Add all seeds to nodes: " << endl << "\t";
                      }
                  } else {
                      //Otherwise, add this node to its parent
+                     size_t parent_index;
                      if (tree_state.net_handle_to_index.count(parent) == 0) {
                          //If we haven't seen the parent before, add it
-                        tree_state.net_handle_to_index[parent] = tree_state.all_node_clusters.size();
+                         parent_index = tree_state.all_node_clusters.size();
+                        tree_state.net_handle_to_index[parent] = parent_index;
                         tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(), distance_index);
+                    } else {
+                        parent_index = tree_state.net_handle_to_index[parent];
                     }
-                    chain_to_children_by_level[depth].emplace(tree_state.net_handle_to_index[parent], child_index);
+                    chain_to_children_by_level[depth].emplace(parent_index, child_index);
                  }
             }
         }
@@ -461,11 +470,15 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
             //If the parent is the root, remember the index of this chain in all_node_clusters
             if(distance_index.is_root_snarl(parent)) {
                 //If the parent is a root snarl, then remember it to cluster in the root
+                size_t parent_index;
                 if (tree_state.net_handle_to_index.count(parent) == 0) {
-                    tree_state.net_handle_to_index[parent] = tree_state.all_node_clusters.size();
+                    parent_index = tree_state.all_node_clusters.size();
+                    tree_state.net_handle_to_index[parent] = parent_index;
                     tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(), distance_index);
+                } else {
+                    parent_index = tree_state.net_handle_to_index[parent];
                 }
-                tree_state.root_children.emplace_back(tree_state.net_handle_to_index[parent],chain_index);
+                tree_state.root_children.emplace_back(parent_index,chain_index);
             } else {
                 //Otherwise, cluster it with itself using external connectivity only
                  compare_and_combine_cluster_on_one_child(tree_state, tree_state.all_node_clusters[chain_index]);
@@ -473,23 +486,30 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
         } else {
             //If the parent is just a snarl, add it to its parent snarl
             bool add_to_grandparent = false;
+            size_t parent_index;
             if (tree_state.net_handle_to_index.count(parent) == 0) {
-                tree_state.net_handle_to_index[parent] = tree_state.all_node_clusters.size();
+                parent_index = tree_state.all_node_clusters.size();
+                tree_state.net_handle_to_index[parent] = parent_index;
                 tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(), distance_index);
                 add_to_grandparent=true;
+            } else {
+                parent_index = tree_state.net_handle_to_index[parent];
             }
-            size_t parent_index = tree_state.net_handle_to_index[parent];
             tree_state.snarl_to_children.emplace(parent_index, chain_index);
 
             if (add_to_grandparent) {
                 //If this is the first time we've seen the parent snarl, then add it to the grandparent chain
 
                 net_handle_t grandparent_chain = distance_index.get_parent(parent);
+                size_t grandparent_index;
                 if (tree_state.net_handle_to_index.count(grandparent_chain) == 0) {
-                    tree_state.net_handle_to_index[grandparent_chain] = tree_state.all_node_clusters.size();
+                    grandparent_index = tree_state.all_node_clusters.size();
+                    tree_state.net_handle_to_index[grandparent_chain] = grandparent_index;
                     tree_state.all_node_clusters.emplace_back(grandparent_chain, tree_state.all_seeds->size(), distance_index);
+                } else {
+                    grandparent_index = tree_state.net_handle_to_index[grandparent_chain];
                 }
-                tree_state.parent_chain_to_children->emplace(tree_state.net_handle_to_index[grandparent_chain], parent_index);
+                tree_state.parent_chain_to_children->emplace(grandparent_index, parent_index);
             }
         }
     }
