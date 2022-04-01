@@ -357,12 +357,13 @@ class NewSnarlSeedClusterer {
         void cluster_one_node(TreeState& tree_state, NodeClusters& node_clusters) const; 
 
         //Cluster the seeds in a snarl given by its net handle
-        void cluster_one_snarl(TreeState& tree_state, NodeClusters& snarl_clusters, const NodeClusters& parent_clusters) const;
+        //Snarl_cluster_index is the index into tree_state.all_node_clusters
+        void cluster_one_snarl(TreeState& tree_state, size_t snarl_clusters_index, size_t parent_clusters_index) const;
 
         //Cluster the seeds in a chain given by chain_index_i, an index into
         //distance_index.chain_indexes
         //If the depth is 0, also incorporate the top-level seeds from tree_state.top_level_seed_clusters
-        void cluster_one_chain(TreeState& tree_state, NodeClusters& chain_clusters) const;
+        void cluster_one_chain(TreeState& tree_state, size_t chain_clusters_index) const;
 
         //Cluster in the root 
         void cluster_root(TreeState& tree_state) const;
