@@ -19,7 +19,7 @@ is "$(vg paths --list -x x.xg)" "x" "path listing works from XG"
 is $(vg paths --list -g x.gbwt | wc -l) 2 "thread listing works from GBWT"
 
 # Select threads by name
-is $(vg paths --list -Q _thread_1_x_0 -g x.gbwt | wc -l) 1 "thread selection by name prefix works correctly"
+is $(vg paths --list -Q "1#0#x#" -g x.gbwt | wc -l) 1 "thread selection by name prefix works correctly"
 is $(vg paths --list -S 1 -g x.gbwt | wc -l) 2 "thread selection by sample name works correctly"
 is $(vg paths --list -S 2 -g x.gbwt | wc -l) 0 "no threads are reported for invalid samples"
 
