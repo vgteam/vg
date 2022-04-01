@@ -301,6 +301,10 @@ int main_paths(int argc, char** argv) {
         std::cerr << "error: [vg paths] selecting variant allele paths is not compatible with a GBWT index" << std::endl;
         std::exit(EXIT_FAILURE);
     }
+    if (list_metadata && !gbwt_file.empty()) {
+        std::cerr << "error: [vg paths] listing path metadata is not compatible with a GBWT index" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
     if ((drop_paths || retain_paths) && !gbwt_file.empty()) {
         std::cerr << "error: [vg paths] dropping or retaining paths only works on embedded graph paths, not GBWT threads" << std::endl;
         std::exit(EXIT_FAILURE);
