@@ -132,6 +132,25 @@ With dependencies installed, VG can now be built:
 
 Our team has successfully built vg on Mac with GCC versions 4.9, 5.3, 6, 7, and 7.3, as well as Clang 9.0.
 
+#### Migrating to ARM Macs
+
+The Mac platform is moving to ARM, with Apple's M1, M1 Pro, M1 Max, and subsequent chip designs. The vg codebase supports ARM on Mac as well as on Linux. **The normal installation instructions work on a factory-fresh ARM Mac**.
+
+However, it is easy to run into problems when **migrating a working vg build environment** or **migrating Macports or Homebrew** from x86_64 to ARM. The ARM machine can successfully run x86_64 tools installed via Macports or Homebrew on the old machine, but vg can only build properly on ARM if you are using ARM versions of the build tools, like `make` and CMake.
+
+So, after migrating to an ARM Mac using e.g. Apple's migration tools:
+
+1. Uninstall Macports and its packages, if they were migrated from the old machine. Only an ARM Macports install can be used to provide dependencies for vg on ARM.
+2. Uninstall Homebrew and its packages, if they were migrated. Similarly, only an ARM Homebrew install will work.
+3. Reinstall one of Macports or Homebrew. Make sure to use the M1 or ARM version.
+4. Use the package manager you installed to install system dependencies of vg, such as CMake, [as documented above](#install-dependencies).
+5. Clean vg with `make clean`. This *should* remove all build artefacts.
+6. Build vg again with `make`.
+
+If you still experience build problems after this, delete the whole checkout and check out the code again; `make clean` is not under CI test and is not always up to date with the rest of the build system.
+
+Whether or not that helps, please then [open an issue](https://github.com/vgteam/vg/issues/new) so we can help fix the build or fix `make clean`.
+
 ## Usage
 
 ### Variation graph construction
