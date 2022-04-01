@@ -146,6 +146,9 @@ namespace vg {
     /// Finds the start subpaths (i.e. the source nodes of the multipath DAG) and stores
     /// them in the 'start' field of the multipath_alignment_t
     void identify_start_subpaths(multipath_alignment_t& multipath_aln);
+
+    /// Clear all of the field associated with the alignment
+    void clear_alignment(multipath_alignment_t& multipath_aln);
     
     /// Stores the highest scoring alignment contained in the multipath_alignment_t in an Alignment
     ///

@@ -156,19 +156,13 @@ namespace vg {
             agglomerate_alignments(multipath_alns_out, &multiplicities);
         }
         
-        if (likely_mismapping(multipath_alns_out.front())) {
-            // we can't distinguish this alignment from the longest MEM of a random sequence
-#ifdef debug_multipath_mapper
-            cerr << "mapping is not distinguishable from a random sequence, snapping MAPQ to 0" << endl;
-#endif
-            
-            multipath_alns_out.front().set_mapping_quality(0);
-        }
-        
         // if we computed extra alignments to get a mapping quality, remove them
         if (multipath_alns_out.size() > max_alt_mappings) {
             multipath_alns_out.resize(max_alt_mappings);
         }
+        
+        // mark unmapped reads and get rid of noise alignments
+        purge_unmapped_alignments(multipath_alns_out);
         
         for (size_t i = 1; i < multipath_alns_out.size(); ++i) {
             multipath_alns_out[i].set_annotation("secondary", true);
@@ -2151,6 +2145,9 @@ namespace vg {
         if (multipath_aln_pairs_out.size() > max_alt_mappings) {
             multipath_aln_pairs_out.resize(max_alt_mappings);
         }
+        
+        // mark if any of the alignments are just noise
+        purge_unmapped_alignments(multipath_aln_pairs_out, proper_paired);
         
         for (size_t i = 0; i < multipath_aln_pairs_out.size(); ++i) {
             multipath_aln_pairs_out[i].first.set_annotation("proper_pair", proper_paired);
@@ -4538,6 +4535,90 @@ namespace vg {
                 multipath_aln_pairs_out[k] = move(multipath_aln_pairs_out[j]);
             }
             multipath_aln_pairs_out.resize(multipath_aln_pairs_out.size() - i + 1);
+        }
+    }
+
+    void MultipathMapper::purge_unmapped_alignments(vector<multipath_alignment_t>& multipath_alns_out) {
+        for (size_t i = 0; i < multipath_alns_out.size(); ++i) {
+            // TODO: could do this more efficiently by bisect search
+            if (likely_mismapping(multipath_alns_out[i])) {
+                // we can't distinguish this alignment from the longest MEM of a random sequence
+                // so we don't report this mapping
+                if (i == 0) {
+#ifdef debug_multipath_mapper
+                    cerr << "mapping is not distinguishable from a random sequence, reporting as unmapped" << endl;
+#endif
+                    // leave an unmapped placeholder
+                    multipath_alns_out.resize(1);
+                    clear_alignment(multipath_alns_out.front());
+                }
+                else {
+                    // truncate the output from this point on
+                    multipath_alns_out.resize(i);
+                }
+                break;
+            }
+        }
+    }
+
+    void MultipathMapper::purge_unmapped_alignments(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out, bool proper_paired) {
+        
+        // decide if the read is unmapped
+        if (proper_paired) {
+            for (size_t i = 0; i < multipath_aln_pairs_out.size(); ++i) {
+                // if they're part of a proper pair, we count even pretty bad alignments
+                // as mapped
+                if (likely_mismapping(multipath_aln_pairs_out[i].first) &&
+                    likely_mismapping(multipath_aln_pairs_out[i].second)) {
+                    // this pair is actually unmapped
+                    // TODO: maybe we should accept it though, in a large genome they are very
+                    // unlikely to be paired by chance...
+                    if (i == 0) {
+                        // the read is completely unmapped, get rid of multimappings
+                        multipath_aln_pairs_out.resize(1);
+                        clear_alignment(multipath_aln_pairs_out.front().first);
+                        clear_alignment(multipath_aln_pairs_out.front().second);
+                    }
+                    else {
+                        // truncate the list here
+                        multipath_aln_pairs_out.resize(i);
+                    }
+                    break;
+                }
+            }
+        }
+        else {
+            // we have to do some complicated logic to look for unmapped reads in both primary
+            // and secondary because of vg's silly interleaving logic...
+            
+            // find where unmapped reads begin in each list
+            size_t i, j;
+            for (i = 0; i < multipath_aln_pairs_out.size(); ++i) {
+                if (multipath_aln_pairs_out[i].first.subpath().empty()
+                    || likely_mismapping(multipath_aln_pairs_out[i].first)) {
+                    break;
+                }
+            }
+            for (j = 0; j < multipath_aln_pairs_out.size(); ++j) {
+                if (multipath_aln_pairs_out[j].second.subpath().empty()
+                    || likely_mismapping(multipath_aln_pairs_out[j].second)) {
+                    break;
+                }
+            }
+            
+            if (i != multipath_aln_pairs_out.size() || j != multipath_aln_pairs_out.size()) {
+                // we need to clear out unmapped reads in at least one of the read lists
+                
+                // truncate
+                multipath_aln_pairs_out.resize(max<size_t>(1, max(i, j)));
+                // add placeholders for unmapped reads if necessary
+                for (; i < multipath_aln_pairs_out.size(); ++i) {
+                    clear_alignment(multipath_aln_pairs_out[i].first);
+                }
+                for (; j < multipath_aln_pairs_out.size(); ++j) {
+                    clear_alignment(multipath_aln_pairs_out[j].second);
+                }
+            }
         }
     }
 
