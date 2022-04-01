@@ -61,6 +61,7 @@ using oriented_node_range_t = handlegraph::oriented_node_range_t;
 using HandleGraph = handlegraph::HandleGraph;
 using RankedHandleGraph = handlegraph::RankedHandleGraph;
 using MutableHandleGraph = handlegraph::MutableHandleGraph;
+using PathMetadata = handlegraph::PathMetadata;
 using PathHandleGraph = handlegraph::PathHandleGraph;
 using PathPositionHandleGraph = handlegraph::PathPositionHandleGraph;
 using MutablePathHandleGraph = handlegraph::MutablePathHandleGraph;
