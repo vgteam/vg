@@ -9,13 +9,15 @@ namespace vg {
 using namespace std;
 using namespace gfak;
 
-static bool is_w_line(const PathHandleGraph* graph, const string& wline_sep,
-                      path_handle_t path_handle);
-static void write_w_line(const PathHandleGraph* graph, ostream& out, const string& wline_sep,
-                         path_handle_t path_handle);
+/// Determine if a path should be written as a GFA W line or a GFA P line.
+static bool should_write_as_w_line(const PathHandleGraph* graph, path_handle_t path_handle);
+/// Write out a W line for a path. Uses a map to keep track of fake offset
+/// ranges used to distinguish multiple phase blocks on a haplotype, since GFA
+/// doesn't support them.
+static void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path_handle, unordered_map<tuple<string, int64_t, string>, size_t>& last_phase_block_end);
 
 void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>& rgfa_paths,
-                  bool rgfa_pline, const string& wline_sep) {
+                  bool rgfa_pline, bool use_w_lines) {
     GFAKluge gg;
     gg.set_version(1.0);
     for (auto h : gg.get_header()){
@@ -100,7 +102,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
         path_elem p_elem;
         p_elem.name = graph->get_path_name(h);
         if (rgfa_pline || !rgfa_paths.count(p_elem.name)) {
-            if (is_w_line(graph, wline_sep, h)) {
+            if (use_w_lines && should_write_as_w_line(graph, h)) {
                 w_line_paths.push_back(h);
             } else {
                 graph->for_each_step_in_path(h, [&](const step_handle_t& ph) {
@@ -119,8 +121,11 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     }
     
     // Paths as W-lines
-    for (const path_handle_t& h : w_line_paths) {
-        write_w_line(graph, out, wline_sep, h);
+    {
+        unordered_map<tuple<string, int64_t, string>, size_t> last_phase_block_end;
+        for (const path_handle_t& h : w_line_paths) {
+            write_w_line(graph, out, h, last_phase_block_end);
+        }
     }
 
     graph->for_each_edge([&](const edge_t& h) {
@@ -162,44 +167,38 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     //gg.output_to_stream(cout);
 }
 
-bool is_w_line(const PathHandleGraph* graph, const string& wline_sep,
-               path_handle_t path_handle) {
-    if (wline_sep.empty()) {
-        return false;
-    }
-    string path_name = graph->get_path_name(path_handle);
-    vector<string> toks = split_delims(path_name, wline_sep);
-    if (toks.size() < 3) {
-        return false;
-    }
-    string& sample = toks[0];
-    size_t hap_index;
-    try {
-        hap_index = stol(toks[1]);
-    } catch(...) {
-        return false;
-    }
-    return true;
+bool should_write_as_w_line(const PathHandleGraph* graph, path_handle_t path_handle) {
+    auto sense = graph->get_sense(path_handle);
+    // Haplotype and reference sense paths both have good W line descriptions.
+    // TODO: how to tell them apart?
+    return sense == PathMetadata::SENSE_HAPLOTYPE || sense == PathMetadata::SENSE_REFERENCE;
 }
 
-void write_w_line(const PathHandleGraph* graph, ostream& out, const string& wline_sep,
-                  path_handle_t path_handle) {
-    string path_name = graph->get_path_name(path_handle);
-    vector<string> toks = split_delims(path_name, wline_sep, 2);
-    string& sample = toks[0];
-    size_t hap_index = stol(toks[1]);
-    auto subpath_parse = Paths::parse_subpath_name(toks[2]);
-    string contig;
+void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path_handle, unordered_map<tuple<string, int64_t, string>, size_t>& last_phase_block_end) {
+    // Extract the path metadata
+    string sample = graph->get_sample_name(path_handle);
+    string contig = graph->get_locus_name(path_handle);
+    int64_t hap_index = graph->get_haplotype(path_handle);
+    int64_t phase_block = graph->get_phase_block(path_handle);
+    auto subrange = graph->get_subrange(path_handle);
     size_t start_offset = 0;
     size_t end_offset = 0;
-    if (get<0>(subpath_parse) == true) {
-        contig = get<1>(subpath_parse);
-        start_offset = get<2>(subpath_parse);
-        end_offset = get<3>(subpath_parse);
-    } else {
-        contig = toks[2];
+    if (subrange != PathMetadata::NO_SUBRANGE) {
+        start_offset = subrange.first;
+        if (subrange.second != PathMetadata::NO_END_POSITION) {
+            end_offset = subrange.second;
+        }
     }
-
+    
+    if (hap_index == PathMetadata::NO_HAPLOTYPE) {
+        // No haplotype is actually assigned here.
+        // We really shouldn't have paths with it assigned and not assigned, so assign it 0 and make the sample haploid.
+        // TODO: check for collisions somehoe?
+        hap_index = 0;
+    }
+     
+    // Get the path length.
+    // TODO: sniff if the graph has this cached somehow?
     size_t path_length = 0 ;
     graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
             path_length += graph->get_length(graph->get_handle_of_step(step_handle));
@@ -208,6 +207,22 @@ void write_w_line(const PathHandleGraph* graph, ostream& out, const string& wlin
     if (end_offset != 0 && start_offset + path_length != end_offset) {
         cerr << "[gfa] warning: incorrect end offset (" << end_offset << ") extracted from from path name " << path_name
              << ", using " << (start_offset + path_length) << " instead" << endl;
+    }
+    
+    // See if we need to bump along the start offset to avoid collisions of phase blocks
+    auto key = std::make_tuple<string, int64_t, string>(sample, hap_index, contig);
+    auto& phase_block_end_cursor = last_phase_block_end[key];
+    if (phase_block_end_cursor != 0) {
+        if (start_offset != 0) {
+            cerr << "[gfa] error: cannot write multiple phase blocks on a sample, haplotyope, and contig in GFA format"
+                 << " when paths already have subranges. Fix path " << graph->get_path_name(path_handle) << endl;
+            exit(1);
+        }
+        // Budge us to after the last thing and budge the cursor to after us, plus a gigabase.
+        // TODO: How are we ever going to round-trip this back to phase blocks?
+        // Encode some very high bits in the offsets even for the first path?
+        start_offset += phase_block_end_cursor + 1000000000;
+        phase_block_end_cursor += path_length;
     }
 
     out << "W\t" << sample << "\t" << hap_index << "\t" << contig << "\t" << start_offset << "\t" << (start_offset + path_length) << "\t";

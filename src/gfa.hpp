@@ -21,7 +21,7 @@ using namespace std;
 void graph_to_gfa(const PathHandleGraph* graph, ostream& out,
                   const set<string>& rgfa_paths = {},
                   bool rgfa_pline = false,
-                  const string& wline_sep = "");
+                  bool use_w_lines = false);
 
 }
 

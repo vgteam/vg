@@ -31,10 +31,14 @@ enum input_type { input_default, input_gam, input_gaf, input_gfa, input_gbwtgrap
 
 void help_convert(char** argv);
 void no_multiple_inputs(input_type input);
-void gbwtgraph_to_xg(const gbwtgraph::GBWTGraph* input, xg::XG* output, const std::unordered_set<std::string>& ref_samples);
-// Copy paths from input to output. Promote haplotype-sense paths for the samples in ref_samples to reference sense.
+// Generate an XG with nodes, edges, and paths from input.
+// Promote haplotype-sense paths for the samples in ref_samples to reference sense.
 // Copy across other haplotype-sense paths if unless drop_haplotypes is true.
-void add_paths(const PathHandleGraph* input, MutablePathHandleGraph* output, const std::unordered_set<std::string>& ref_samples, bool drop_haplotypes);
+void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output, const std::unordered_set<std::string>& ref_samples, bool drop_haplotypes);
+// Copy paths from input to output.
+// Promote haplotype-sense paths for the samples in ref_samples to reference sense.
+// Copy across other haplotype-sense paths if unless drop_haplotypes is true.
+void add_and_adjust_paths(const PathHandleGraph* input, MutablePathHandleGraph* output, const std::unordered_set<std::string>& ref_samples, bool drop_haplotypes);
 
 
 //------------------------------------------------------------------------------
@@ -329,11 +333,11 @@ int main_convert(int argc, char** argv) {
             // XG output.
             if (output_format == "xg") {
                 xg::XG* xg_graph = dynamic_cast<xg::XG*>(output_graph.get());
-                if (input == input_gbwtgraph || input == input_gbz) {
-                    gbwtgraph_to_xg(dynamic_cast<gbwtgraph::GBWTGraph*>(input_graph.get()), xg_graph, ref_samples);
-                } else if (input_path_graph != nullptr) {
-                    xg_graph->from_path_handle_graph(*input_path_graph);
+                if (input_path_graph != nullptr) {
+                    // We can convert to XG with paths, which we might adjust
+                    graph_to_xg_adjusting_paths(input_graph.get(), xg_graph, ref_samples);
                 } else {
+                    // No paths, just convert to xg without paths
                     xg_graph->from_handle_graph(*input_graph);
                 }
             }
@@ -346,7 +350,7 @@ int main_convert(int argc, char** argv) {
                 // Copy the graph as-is
                 handlealgs::copy_handle_graph(input_graph.get(), mutable_output_graph);
                 // Copy the paths across with possibly some rewriting
-                add_paths(input_path_graph, mutable_output_graph, ref_samples, drop_haplotypes);
+                add_and_adjust_paths(input_path_graph, mutable_output_graph, ref_samples, drop_haplotypes);
             }
             // HandleGraph output.
             else {
@@ -391,7 +395,7 @@ int main_convert(int argc, char** argv) {
                         }
                     }
                 });
-            graph_to_gfa(graph_to_write, std::cout, rgfa_paths, rgfa_pline, wline_sep);
+            graph_to_gfa(graph_to_write, std::cout, rgfa_paths, rgfa_pline, !wline_sep.empty());
         }
     }
     // Serialize the output graph.
@@ -444,13 +448,17 @@ void no_multiple_inputs(input_type input) {
 
 //------------------------------------------------------------------------------
 
-/// Check to make sure the haplotype paths with sample names in the given set have no more than one phase block per sample/haplotype/contig combination.
-/// Also return a map from sample name to set of observed haplotype numbers (so we can include them in reference-sense paths only if needed).
+/// Check to make sure the haplotype paths with sample names in the given set
+/// have no more than one phase block per sample/haplotype/contig combination.
+/// Also return a map from sample name to set of observed haplotype numbers (so
+/// we can include them in reference-sense paths only if needed).
 std::unordered_map<std::string, std::unordered_set<int64_t>> check_duplicate_path_names(const PathHandleGraph* input, const std::unordered_set<std::string>& ref_samples) {
     // Check to make sure no ref samples have fragmented haplotypes. If they
     // do, we can't drop the phase block and can't change the sense to
-    // reference. Store count of phase blocks by sample, haplotype, contig.
-    std::unordered_map<std::tuple<std::string, int64_t, std::string>, size_t> phase_block_counts;
+    // reference. Store set of phase blocks by sample, haplotype, contig.
+    // If we stored just counts, we couldn't handle multiple subranges on the
+    // same phase block properly.
+    std::unordered_map<std::tuple<std::string, int64_t, std::string>, std::unordered_set<int64_t>> phase_block_sets;
     // Also determine whether to strip the haplotype numbers; if there are
     // multiple haplotypes stored for a sample (and the stored set exceeds size
     // 1) we will keep them.
@@ -462,14 +470,15 @@ std::unordered_map<std::string, std::unordered_set<int64_t>> check_duplicate_pat
             auto sample = input->get_sample_name(path);
             auto haplotype = input->get_haplotype(path);
             auto contig = input->get_contig_name(path);
+            auto phase_block = input->get_phase_block(path);
             
-            // Find the place to count phase blocks for it
-            auto& phase_block_count = phase_block_counts[std::make_tuple<std::string, int64_t, std::string>(sample, haplotype, contig)];
+            // Find the place to remember phase blocks for it
+            auto& phase_block_set = phase_block_sets[std::make_tuple<std::string, int64_t, std::string>(sample, haplotype, contig)];
             
-            // Increment it, since each time we see it must be a different phase block
-            phase_block_count++;
+            // Insert the phase block
+            phase_block_set.insert(phase_block);
             
-            if (phase_block_count > 1) {
+            if (phase_block_set.size() > 1) {
                 // We can't resolve these.
                 std::cerr << "error [vg convert]: multiple phase blocks on sample " << sample
                           << " haplotype " << haplotype
@@ -486,8 +495,15 @@ std::unordered_map<std::string, std::unordered_set<int64_t>> check_duplicate_pat
     return sample_to_haplotypes;
 }
 
-void gbwtgraph_to_xg(const gbwtgraph::GBWTGraph* input, xg::XG* output, const std::unordered_set<std::string>& ref_samples) {
-    check_duplicate_path_names(input, ref_samples);
+void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output, const std::unordered_set<std::string>& ref_samples, bool drop_haplotypes) {
+    // Building an XG uses a slightly different interface, so we duplicate some
+    // code from the normal MutablePathMutableHandleGraph build.
+    // TODO: FInd a way to unify the duplicated code?
+    
+    // Make sure we can safely promote any haplotypes to reference, and get the
+    // information we need to determine if we need to keep haplotype numbers
+    // when doing so.
+    auto sample_to_haplotypes = check_duplicate_path_names(input, ref_samples);
 
     // Enumerate nodes.
     auto for_each_sequence = [&](const std::function<void(const std::string& seq, const nid_t& node_id)>& lambda) {
@@ -509,14 +525,64 @@ void gbwtgraph_to_xg(const gbwtgraph::GBWTGraph* input, xg::XG* output, const st
     auto for_each_path_element = [&](const std::function<void(const std::string& path_name,
                                                               const nid_t& node_id, const bool& is_rev,
                                                               const std::string& cigar, const bool& is_empty, const bool& is_circular)>& lambda) {
-        for (gbwt::size_type thread_id : thread_ids) {
-            std::string path_name = index.metadata.contig(index.metadata.path(thread_id).contig);
-            gbwt::edge_type pos = index.start(gbwt::Path::encode(thread_id, false));
-            while (pos.first != gbwt::ENDMARKER) {
-                handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(pos.first);
-                lambda(path_name, input->get_id(handle), input->get_is_reverse(handle), "", false, false);
-                pos = index.LF(pos);
+        
+        // Define a function to copy over a path.
+        // XG constructuon relies on name-encoded path metadata.
+        auto copy_path = [&](const path_handle_t& path, const std::string new_name) {
+            bool is_circular = input->get_is_circular(path);
+            for (handle_t handle : input->scan_path(path)) {
+                lambda(path_name, input->get_id(handle), input->get_is_reverse(handle), "", false, is_circular);
             }
+            // TODO: Should we preserve empty paths here?
+        };
+        
+        // Copy over the generic and existing reference paths
+        input->for_each_path_matching(&{PathMetadata::SENSE_GENERIC, PathMetadata::SENSE_REFERENCE}, nullptr, nullptr, [&](const path_handle_t& path) {
+            copy_path(path, input->get_path_name(path));
+        });
+        
+        if (!ref_samples.empty()) {
+            // Copy all haplotype paths matching the ref samples as reference
+            input->for_each_path_matching(&{PathMetadata::SENSE_HAPLOTYPE}, &ref_samples, nullptr, [&](const path_handle_t& path) {
+                
+                // Compose the new reference-ified metadata
+                std::string sample = input->get_sample_name(path);
+                std::string locus = input->get_locus_name(path);
+                int64_t haplotype;
+                if (sample_to_haplotypes[sample].size() > 1) {
+                    // We should preserve the haplotype because we have multiple
+                    // haplotype phases of this sample.
+                    haplotype = input->get_haplotype(path);
+                } else {
+                    // We should drop the haplotype number because this sample has only
+                    // one haplotype phase.
+                    haplotype = PathMetadata::NO_HAPLOTYPE;
+                }
+                auto subrange = input->get_subrange(path);
+                
+                // Make a new name with reference-ified metadata.
+                // Phase block is safe to discard because we checked for duplicates without it.
+                auto new_name = PathMetadata::create_path_name(PathMetadata::SENSE_REFERENCE,
+                                                               sample,
+                                                               locus,
+                                                               haplotype,
+                                                               PathMetadata::NO_PHASE_BLOCK,
+                                                               subrange);
+                
+                // Copy out to the xg
+                copy_path(path, new_name);
+            });
+        }
+        
+        if (!drop_haplotypes) {
+            // Copy across any other haplotypes.
+            input->for_each_path_matching(&{PathMetadata::SENSE_HAPLOTYPE}, nullptr, nullptr, [&](const path_handle_t& path) {
+                if (ref_samples.count(input->get_sample_name(path))) {
+                    // Skip those we already promoted to reference sense
+                    return;
+                }
+                copy_path(path, input->get_path_name(path));
+            });
         }
     };
 
@@ -524,7 +590,7 @@ void gbwtgraph_to_xg(const gbwtgraph::GBWTGraph* input, xg::XG* output, const st
     output->from_enumerators(for_each_sequence, for_each_edge, for_each_path_element, false);
 }
 
-void add_paths(const PathHandleGraph* input, MutablePathHandleGraph* output, const std::unordered_set<std::string>& ref_samples, bool drop_haplotypes) {
+void add_and_adjust_paths(const PathHandleGraph* input, MutablePathHandleGraph* output, const std::unordered_set<std::string>& ref_samples, bool drop_haplotypes) {
     
     // Make sure we aren't working with fragmented haplotypes that can't convert to reference sense.
     auto sample_to_haplotypes = check_duplicate_path_names(input, ref_samples);
@@ -543,7 +609,7 @@ void add_paths(const PathHandleGraph* input, MutablePathHandleGraph* output, con
             std::string locus = input->get_locus_name(path);
             int64_t haplotype;
             if (sample_to_haplotypes[sample].size() > 1) {
-                // We hsould preserve the haplotype because we have multiple
+                // We should preserve the haplotype because we have multiple
                 // haplotype phases of this sample.
                 haplotype = input->get_haplotype(path);
             } else {
