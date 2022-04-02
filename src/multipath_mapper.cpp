@@ -997,6 +997,10 @@ namespace vg {
         bool reset_strip_bonuses = strip_bonuses;
         strip_bonuses = false;
         
+        // we want to avoid returning empty alignments that indicated unmapped reads
+        bool reset_suppress_mismapping_detection = suppress_mismapping_detection;
+        suppress_mismapping_detection = true;
+        
         // and we expect small MEMs, so don't filter them out
         int reset_min_mem_length = min_mem_length;
         size_t reset_min_clustering_mem_length = min_clustering_mem_length;
@@ -1079,6 +1083,7 @@ namespace vg {
         min_mem_length = reset_min_mem_length;
         max_alt_mappings = reset_max_alt_mappings;
         suppress_p_value_memoization = false;
+        suppress_mismapping_detection = reset_suppress_mismapping_detection;
     }
 
     void MultipathMapper::determine_distance_correlation() {

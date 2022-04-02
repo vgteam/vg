@@ -216,6 +216,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_REPORT_ALLELIC_MAPQ 1034
     #define OPT_RESEED_LENGTH 1035
     #define OPT_MAX_MOTIF_PAIRS 1036
+    #define OPT_SUPPRESS_MISMAPPING_DETECTION 1037
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -415,6 +416,7 @@ int main_mpmap(int argc, char** argv) {
             {"agglomerate-alns", no_argument, 0, 'a'},
             {"report-group-mapq", no_argument, 0, 'U'},
             {"report-allelic-mapq", no_argument, 0, OPT_REPORT_ALLELIC_MAPQ},
+            {"suppress-mismapping", no_argument, 0, OPT_SUPPRESS_MISMAPPING_DETECTION},
             {"padding-mult", required_argument, 0, OPT_BAND_PADDING_MULTIPLIER},
             {"map-attempts", required_argument, 0, 'u'},
             {"max-paths", required_argument, 0, OPT_MAX_PATHS},
@@ -610,6 +612,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_SUPPRESS_SUPPRESSION:
                 suppress_suppression = true;
+                break;
+                
+            case OPT_SUPPRESS_MISMAPPING_DETECTION:
+                suppress_mismapping_detection = true;
                 break;
                 
             case 'v':
