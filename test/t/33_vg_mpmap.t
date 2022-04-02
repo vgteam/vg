@@ -16,8 +16,8 @@ vg index -x xy2.xg -g xy2.gcsa -v small/xy2.vcf.gz --gbwt-name xy2.gbwt -k 16 xy
 # We turn off the background model calibration with -B and ignore it with -P 1
 
 # This read is part ref and part alt which matches a haplotype on X, but is possible on Y as well.
-is "$(vg mpmap -B -P 1 -n dna -x xy2.xg -g xy2.gcsa -f reads/xy2.match.fq -F GAM | vg view -aj - | jq '.mapping_quality')" "3" "MAPQ is 50% without haplotype info"
-is "$(vg mpmap -B -P 1 -n dna -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -f reads/xy2.match.fq -F GAM | vg view -aj - | jq '.mapping_quality')" "4" "haplotype match can disambiguate"
+is "$(vg mpmap --suppress-mismapping -B -P 1 -n dna -x xy2.xg -g xy2.gcsa -f reads/xy2.match.fq -F GAM | vg view -aj - | jq '.mapping_quality')" "3" "MAPQ is 50% without haplotype info"
+is "$(vg mpmap --suppress-mismapping -B -P 1 -n dna -x xy2.xg -g xy2.gcsa --gbwt-name xy2.gbwt -f reads/xy2.match.fq -F GAM | vg view -aj - | jq '.mapping_quality')" "4" "haplotype match can disambiguate"
 
 # For paired end, don't do any fragment length estimation
 

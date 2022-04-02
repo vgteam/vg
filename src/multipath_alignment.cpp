@@ -518,6 +518,12 @@ namespace vg {
             }
         }
     }
+
+    void clear_alignment(multipath_alignment_t& multipath_aln) {
+        multipath_aln.set_mapping_quality(0);
+        multipath_aln.clear_subpath();
+        multipath_aln.clear_start();
+    }
     
     /// We define this struct for holding the dynamic programming problem for a
     /// multipath alignment, which we use for finding the optimal alignment,

@@ -415,6 +415,15 @@ namespace vg {
                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                          vector<double>& multiplicities) const;
         
+        /// Before returning, remove alignments that are likely noise and add a placeholder
+        /// for an unmapped read if necessary
+        void purge_unmapped_alignments(vector<multipath_alignment_t>& multipath_alns_out);
+        
+        /// Before returning, remove alignments that are likely noise and add placeholders
+        /// for unmapped reads if necessary
+        void purge_unmapped_alignments(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
+                                       bool proper_paired);
+        
         /// The internal agglomeration procedure
         void agglomerate(size_t idx, multipath_alignment_t& agglomerating, const multipath_alignment_t& multipath_aln,
                          vector<size_t>& agglomerated_group, unordered_set<pos_t>& agg_start_positions,
