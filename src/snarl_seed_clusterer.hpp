@@ -21,10 +21,16 @@ class NewSnarlSeedClusterer {
             pos_t  pos;
             size_t source; // Source minimizer.
 
+
             //Cached values from the minimizer
             //node length, root component, prefix sum, chain component, is_reversed
             tuple<size_t, size_t, size_t, size_t, bool> minimizer_cache  = 
                 make_tuple(MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
+
+            //The distances to the left and right of whichever cluster this seed represents
+            //This gets updated as clustering proceeds
+            size_t distance_left = std::numeric_limits<size_t>::max();
+            size_t distance_right = std::numeric_limits<size_t>::max();
 
         };
 
@@ -46,7 +52,7 @@ class NewSnarlSeedClusterer {
         //between them (including both of the positions) is less than
         // the distance limit are in the same cluster
 
-        vector<Cluster> cluster_seeds ( const vector<Seed>& seeds, size_t read_distance_limit) const;
+        vector<Cluster> cluster_seeds ( vector<Seed>& seeds, size_t read_distance_limit) const;
         
         ///The same thing, but for paired end reads.
         //Given seeds from multiple reads of a fragment, cluster each read
@@ -60,14 +66,14 @@ class NewSnarlSeedClusterer {
         // Returns: For each read, a vector of clusters.
 
         vector<vector<Cluster>> cluster_seeds ( 
-                const vector<vector<Seed>>& all_seeds, size_t read_distance_limit, size_t fragment_distance_limit=0) const;
+                vector<vector<Seed>>& all_seeds, size_t read_distance_limit, size_t fragment_distance_limit=0) const;
 
     private:
 
 
         //Actual clustering function that takes a vector of pointers to seeds
         tuple<vector<structures::UnionFind>, structures::UnionFind> cluster_seeds_internal ( 
-                const vector<const vector<Seed>*>& all_seeds,
+                vector<vector<Seed>*>& all_seeds,
                 size_t read_distance_limit, size_t fragment_distance_limit=0) const;
 
         const SnarlDistanceIndex& distance_index;
@@ -235,7 +241,7 @@ class NewSnarlSeedClusterer {
             //is updated to know about its children
 
             //Vector of all the seeds for each read
-            const vector<const vector<Seed>*>* all_seeds; 
+            vector<vector<Seed>*>* all_seeds; 
 
             //prefix sum vector of the number of seeds per read
             //To get the index of a seed for the fragment clusters
@@ -256,11 +262,6 @@ class NewSnarlSeedClusterer {
             vector<structures::UnionFind> read_union_find;
             structures::UnionFind fragment_union_find;
 
-            //For each seed, store the distances to the left and right ends
-            //of the netgraph node of the cluster it belongs to
-            //These values are only relevant for seeds that represent a cluster
-            //in union_find_reads
-            vector<pair<size_t,size_t>> read_cluster_heads_to_distances;
 
 
             //////////Data structures to hold snarl tree relationships
@@ -310,7 +311,7 @@ class NewSnarlSeedClusterer {
 
             //Constructor takes in a pointer to the seeds, the distance limits, and 
             //the total number of seeds in all_seeds
-            TreeState (const vector<const vector<Seed>*>* all_seeds, size_t read_distance_limit, 
+            TreeState (vector<vector<Seed>*>* all_seeds, size_t read_distance_limit, 
                        size_t fragment_distance_limit, size_t seed_count) :
                 all_seeds(all_seeds),
                 read_distance_limit(read_distance_limit),
@@ -326,8 +327,6 @@ class NewSnarlSeedClusterer {
 
                 }
 
-                read_cluster_heads_to_distances.assign(seed_count_prefix_sum.back(), 
-                    make_pair(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()));
                 all_node_clusters.reserve(5*seed_count);
                 net_handle_to_index.reserve(5*seed_count);
                 root_children.reserve(seed_count);
