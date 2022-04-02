@@ -515,6 +515,10 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a7cf395f183ab78a5b7527c9270500850"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0a012f0a4ac155ff5800eca6ccbd0dd7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a0a012f0a4ac155ff5800eca6ccbd0dd7">agglomerate_alignment_pairs</a> (vector&lt; pair&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, vector&lt; double &gt; &amp;multiplicities) const</td></tr>
 <tr class="separator:a0a012f0a4ac155ff5800eca6ccbd0dd7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a009000ee2da67a965a4f627be468d976"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a009000ee2da67a965a4f627be468d976">purge_unmapped_alignments</a> (vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;multipath_alns_out)</td></tr>
+<tr class="separator:a009000ee2da67a965a4f627be468d976"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab1c9f02cbadcd8df05b691e4ff5294f2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ab1c9f02cbadcd8df05b691e4ff5294f2">purge_unmapped_alignments</a> (vector&lt; pair&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt;&gt; &amp;multipath_aln_pairs_out, bool proper_paired)</td></tr>
+<tr class="separator:ab1c9f02cbadcd8df05b691e4ff5294f2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af4abb58766f7ac58e418406e0e6398e2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#af4abb58766f7ac58e418406e0e6398e2">agglomerate</a> (size_t idx, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;agglomerating, const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, vector&lt; size_t &gt; &amp;agglomerated_group, unordered_set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; &amp;agg_start_positions, unordered_set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; &amp;agg_end_positions) const</td></tr>
 <tr class="memdesc:af4abb58766f7ac58e418406e0e6398e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">The internal agglomeration procedure.  <a href="classvg_1_1MultipathMapper.html#af4abb58766f7ac58e418406e0e6398e2">More...</a><br /></td></tr>
 <tr class="separator:af4abb58766f7ac58e418406e0e6398e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -3428,6 +3432,70 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>A scaling of a score so that it approximately follows the distribution of the longest match in p-value test. </p>
+
+</div>
+</div>
+<a id="a009000ee2da67a965a4f627be468d976"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a009000ee2da67a965a4f627be468d976">&#9670;&nbsp;</a></span>purge_unmapped_alignments() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MultipathMapper::purge_unmapped_alignments </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>multipath_alns_out</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Before returning, remove alignments that are likely noise and add a placeholder for an unmapped read if necessary </p>
+
+</div>
+</div>
+<a id="ab1c9f02cbadcd8df05b691e4ff5294f2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab1c9f02cbadcd8df05b691e4ff5294f2">&#9670;&nbsp;</a></span>purge_unmapped_alignments() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MultipathMapper::purge_unmapped_alignments </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; pair&lt; <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a>, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>multipath_aln_pairs_out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>proper_paired</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Before returning, remove alignments that are likely noise and add placeholders for unmapped reads if necessary </p>
 
 </div>
 </div>
