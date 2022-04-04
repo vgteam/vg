@@ -3,6 +3,7 @@
 #include "../utility.hpp"
 #include "xg.hpp"
 #include "../algorithms/gfa_to_handle.hpp"
+#include "../algorithms/find_gbwtgraph.hpp"
 #include "../io/save_handle_graph.hpp"
 #include "../gfa.hpp"
 #include "../gbwt_helper.hpp"
@@ -344,7 +345,7 @@ int main_convert(int argc, char** argv) {
                 xg::XG* xg_graph = dynamic_cast<xg::XG*>(output_graph.get());
                 if (input_path_graph != nullptr) {
                     // We can convert to XG with paths, which we might adjust
-                    graph_to_xg_adjusting_paths(input_graph.get(), xg_graph, ref_samples);
+                    graph_to_xg_adjusting_paths(input_path_graph, xg_graph, ref_samples);
                 } else {
                     // No paths, just convert to xg without paths
                     xg_graph->from_handle_graph(*input_graph);
@@ -387,7 +388,7 @@ int main_convert(int argc, char** argv) {
             
             gbwtgraph::GFAExtractionParameters parameters;
             parameters.num_threads = num_threads;
-            gbwtgraph::gbwt_to_gfa(gbwt_graph, std::cout, parameters);
+            gbwtgraph::gbwt_to_gfa(*gbwt_graph, std::cout, parameters);
         }
         else {
             // Use HandleGraph GFA conversion code
@@ -404,7 +405,7 @@ int main_convert(int argc, char** argv) {
                 }
             }
             if (!rgfa_prefixes.empty()) {
-                graph_to_write->for_each_path_matching(nullptr, nullptr, nullptr, [&](path_handle_t path_handle) {
+                graph_to_write->for_each_path_matching({}, {}, {}, [&](path_handle_t path_handle) {
                     // Scan for any paths of any sense matching an rGFA prefix.
                     string path_name = graph_to_write->get_path_name(path_handle);
                     for (const string& prefix : rgfa_prefixes) {
@@ -483,7 +484,7 @@ std::unordered_map<std::string, std::unordered_set<int64_t>> check_duplicate_pat
     // 1) we will keep them.
     std::unordered_map<std::string, std::unordered_set<int64_t>> sample_to_haplotypes;
     if (!ref_samples.empty()) {
-        input->for_each_path_matching(&{PathMetadata::SENSE_HAPLOTYPE}, &ref_samples, nullptr, [&](const path_handle_t& path) {
+        input->for_each_path_matching({PathMetadata::SENSE_HAPLOTYPE}, ref_samples, {}, [&](const path_handle_t& path) {
             // For each path in these samples' haplotypes...
             
             auto sample = input->get_sample_name(path);
@@ -556,13 +557,13 @@ void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output, c
         };
         
         // Copy over the generic and existing reference paths
-        input->for_each_path_matching(&{PathMetadata::SENSE_GENERIC, PathMetadata::SENSE_REFERENCE}, nullptr, nullptr, [&](const path_handle_t& path) {
+        input->for_each_path_matching({PathMetadata::SENSE_GENERIC, PathMetadata::SENSE_REFERENCE}, {}, {}, [&](const path_handle_t& path) {
             copy_path(path, input->get_path_name(path));
         });
         
         if (!ref_samples.empty()) {
             // Copy all haplotype paths matching the ref samples as reference
-            input->for_each_path_matching(&{PathMetadata::SENSE_HAPLOTYPE}, &ref_samples, nullptr, [&](const path_handle_t& path) {
+            input->for_each_path_matching({PathMetadata::SENSE_HAPLOTYPE}, ref_samples, {}, [&](const path_handle_t& path) {
                 
                 // Compose the new reference-ified metadata
                 std::string sample = input->get_sample_name(path);
@@ -595,7 +596,7 @@ void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output, c
         
         if (!drop_haplotypes) {
             // Copy across any other haplotypes.
-            input->for_each_path_matching(&{PathMetadata::SENSE_HAPLOTYPE}, nullptr, nullptr, [&](const path_handle_t& path) {
+            input->for_each_path_matching({PathMetadata::SENSE_HAPLOTYPE}, {}, {}, [&](const path_handle_t& path) {
                 if (ref_samples.count(input->get_sample_name(path))) {
                     // Skip those we already promoted to reference sense
                     return;
@@ -615,13 +616,13 @@ void add_and_adjust_paths(const PathHandleGraph* input, MutablePathHandleGraph* 
     auto sample_to_haplotypes = check_duplicate_path_names(input, ref_samples);
     
     // Copy all generic and reference paths that exist already
-    input->for_each_path_matching(&{PathMetadata::SENSE_GENERIC, PathMetadata::SENSE_REFERENCE}, nullptr, nullptr, [&](const path_handle_t& path) {
+    input->for_each_path_matching({PathMetadata::SENSE_GENERIC, PathMetadata::SENSE_REFERENCE}, {}, {}, [&](const path_handle_t& path) {
         handlegraph::algorithms::copy_path(input, path, output);
     });
     
     if (!ref_samples.empty()) {
         // Copy all haplotype paths matching the ref samples as reference
-        input->for_each_path_matching(&{PathMetadata::SENSE_HAPLOTYPE}, &ref_samples, nullptr, [&](const path_handle_t& path) {
+        input->for_each_path_matching({PathMetadata::SENSE_HAPLOTYPE}, ref_samples, {}, [&](const path_handle_t& path) {
             
             // Compose the new reference-ified metadata
             std::string sample = input->get_sample_name(path);
@@ -656,7 +657,7 @@ void add_and_adjust_paths(const PathHandleGraph* input, MutablePathHandleGraph* 
     
     if (!drop_haplotypes) {
         // Copy across any other haplotypes.
-        input->for_each_path_matching(&{PathMetadata::SENSE_HAPLOTYPE}, nullptr, nullptr, [&](const path_handle_t& path) {
+        input->for_each_path_matching({PathMetadata::SENSE_HAPLOTYPE}, {}, {}, [&](const path_handle_t& path) {
             if (ref_samples.count(input->get_sample_name(path))) {
                 // Skip those we already promoted to reference sense
                 return;

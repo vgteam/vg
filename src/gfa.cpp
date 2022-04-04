@@ -73,7 +73,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     
     // Sort the paths by name, making sure to treat subpath coordinates numerically
     vector<path_handle_t> path_handles;
-    graph->for_each_path_handle([&](const path_handle_t& h) {
+    graph->for_each_path_matching({}, {}, {}, [&](const path_handle_t& h) {
             path_handles.push_back(h);
         });
     std::sort(path_handles.begin(), path_handles.end(), [&](const path_handle_t& p1, const path_handle_t& p2) {
@@ -207,12 +207,12 @@ void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path
         });
 
     if (end_offset != 0 && start_offset + path_length != end_offset) {
-        cerr << "[gfa] warning: incorrect end offset (" << end_offset << ") extracted from from path name " << path_name
+        cerr << "[gfa] warning: incorrect end offset (" << end_offset << ") extracted from from path name " << graph->get_path_name(path_handle)
              << ", using " << (start_offset + path_length) << " instead" << endl;
     }
     
     // See if we need to bump along the start offset to avoid collisions of phase blocks
-    auto key = std::make_tuple<string, int64_t, string>(sample, hap_index, contig);
+    auto key = std::tuple<string, int64_t, string>(sample, hap_index, contig);
     auto& phase_block_end_cursor = last_phase_block_end[key];
     if (phase_block_end_cursor != 0) {
         if (start_offset != 0) {

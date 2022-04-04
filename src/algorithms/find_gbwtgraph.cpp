@@ -14,9 +14,9 @@ const gbwtgraph::GBWTGraph* find_gbwtgraph(const HandleGraph* graph) {
         // No graph means no translation.
         return nullptr;
     }
-    if (dynamic_cast<const gbwt::GBWTGraph*>(graph)) {
+    if (dynamic_cast<const gbwtgraph::GBWTGraph*>(graph)) {
         // If it already is one, return it
-        return &dynamic_cast<const gbwt::GBWTGraph*>(graph);
+        return dynamic_cast<const gbwtgraph::GBWTGraph*>(graph);
     }
     if (dynamic_cast<const GBZGraph*>(graph)) {
         // If it's a GBZGraph, go get the GBWTGraph and return that.
