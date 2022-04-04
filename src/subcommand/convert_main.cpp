@@ -27,7 +27,8 @@ using namespace vg::io;
 
 //------------------------------------------------------------------------------
 
-enum input_type { input_default, input_gam, input_gaf, input_gfa, input_gbwtgraph, input_gbz };
+enum input_type { input_handlegraph, input_gam, input_gaf, input_gfa, input_gbwtgraph };
+const input_type INPUT_DEFAULT = input_handlegraph;
 
 void help_convert(char** argv);
 void no_multiple_inputs(input_type input);
@@ -46,7 +47,7 @@ void add_and_adjust_paths(const PathHandleGraph* input, MutablePathHandleGraph* 
 int main_convert(int argc, char** argv) {
 
     string output_format;
-    input_type input = input_default;
+    input_type input = INPUT_DEFAULT;
     int64_t input_rgfa_rank = 0;
     string gfa_trans_path;
     string input_aln;
@@ -56,7 +57,8 @@ int main_convert(int argc, char** argv) {
     set<string> rgfa_paths;
     vector<string> rgfa_prefixes;
     bool rgfa_pline = false;
-    string wline_sep;
+    bool wline = false;
+    bool gbwtgraph_algorithm = false;
     int num_threads = omp_get_max_threads(); // For GBWTGraph to GFA.
 
     if (argc == 2) {
@@ -65,6 +67,7 @@ int main_convert(int argc, char** argv) {
     }
 
     constexpr int OPT_REF_SAMPLE = 1000;
+    constexpr int OPT_GBWTGRAPH_ALGORITHM = 1001;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -75,7 +78,6 @@ int main_convert(int argc, char** argv) {
             {"gfa-in", no_argument, 0, 'g'},
             {"in-rgfa-rank", required_argument, 0, 'r'},
             {"gbwt-in", required_argument, 0, 'b'},
-            {"gbz-in", no_argument, 0, 'Z'},
             {"ref-sample", required_argument, 0, OPT_REF_SAMPLE},
             {"drop-haplotypes", no_argument, 0, 'H'},
             {"vg-out", no_argument, 0, 'v'},
@@ -88,7 +90,8 @@ int main_convert(int argc, char** argv) {
             {"rgfa-prefix", required_argument, 0, 'Q'},
             {"rgfa-pline", no_argument, 0, 'B'},
             {"gfa-trans", required_argument, 0, 'T'},
-            {"wline-sep", required_argument, 0, 'w'},
+            {"wline", no_argument, 0, 'w'},
+            {"gbwtgraph-algorithm", no_argument, 0, OPT_GBWTGRAPH_ALGORITHM},
             {"gam-to-gaf", required_argument, 0, 'G'},
             {"gaf-to-gam", required_argument, 0, 'F'},
             {"threads", required_argument, 0, 't'},
@@ -121,10 +124,6 @@ int main_convert(int argc, char** argv) {
             no_multiple_inputs(input);
             input = input_gbwtgraph;
             gbwt_name = optarg;
-            break;
-        case 'Z':
-            no_multiple_inputs(input);
-            input = input_gbz;
             break;
         case OPT_REF_SAMPLE:
             ref_samples.insert(optarg);
@@ -163,7 +162,10 @@ int main_convert(int argc, char** argv) {
             gfa_trans_path = optarg;
             break;
         case 'w':
-            wline_sep = optarg;
+            wline = true;
+            break;
+        case OPT_GBWTGRAPH_ALGORITHM:
+            gbwtgraph_algorithm = true;
             break;
         case 'G':
             no_multiple_inputs(input);
@@ -194,15 +196,27 @@ int main_convert(int argc, char** argv) {
         cerr << "error [vg convert]: -T can only be used with -g" << endl;
         return 1;
     }
-    if (output_format != "gfa" && (!rgfa_paths.empty() || !rgfa_prefixes.empty() || !wline_sep.empty())) {
+    if (output_format != "gfa" && (!rgfa_paths.empty() || !rgfa_prefixes.empty() || wline)) {
         cerr << "error [vg convert]: -P, -Q, and -w can only be used with -f" << endl;
         return 1;
     }
-    if (input == input_gbwtgraph || input == input_gbz) {
-        if (output_format == "gfa" && !(rgfa_paths.empty() && rgfa_prefixes.empty() && wline_sep.empty())) {
-            cerr << "error [vg convert]: GFA output options (-P, -Q, -w) cannot be used with a GBWTGraph" << endl;
+    if (gbwtgraph_algorithm) {
+        if (output_format != "gfa") {
+             cerr << "error [vg convert]: Only GFA output format can be used with the GBWTGraph library GFA conversion algorithm" << endl;
+             return 1;
+        }
+        if (input == input_gfa) {
+             cerr << "error [vg convert]: GFA input cannot be used with the GBWTGraph library GFA conversion algorithm" << endl;
+             return 1;
+        }
+        if (!(rgfa_paths.empty() && rgfa_prefixes.empty() && !wline)) {
+            cerr << "error [vg convert]: GFA output options (-P, -Q, -w) cannot be used with the GBWTGraph library GFA conversion algorithm" << endl;
             return 1;
         }
+    }
+    if (output_format == "gfa" && !ref_samples.empty()) {
+        cerr << "error [vg convert]: paths cannot be converted to reference sense when writing GFA output" << endl;
+        return 1;
     }
 
     // with -F or -G we convert an alignment and not a graph
@@ -253,11 +267,11 @@ int main_convert(int argc, char** argv) {
         // we need an intermediary for going gfa to gfa, use packed graph
         output_graph = unique_ptr<HandleGraph>(new bdsg::PackedGraph());
     }
+    PathHandleGraph* output_path_graph = dynamic_cast<PathHandleGraph*>(output_graph.get());
 
     unique_ptr<HandleGraph> input_graph;
     unique_ptr<gbwt::GBWT> input_gbwt;
-    PathHandleGraph* output_path_graph = dynamic_cast<PathHandleGraph*>(output_graph.get());
-
+    
     if (input == input_gfa) {
         // we have to check this manually since we're not using the istream-based loading
         // functions in order to be able to use the disk-backed loading algorithm
@@ -303,6 +317,7 @@ int main_convert(int argc, char** argv) {
     }
     else {
         if (input == input_gbwtgraph) {
+            // We need to read the input as a GBWTGraph file and attach it to a GBWT.
             get_input_file(optind, argc, argv, [&](istream& in) {
                 input_graph = vg::io::VPKG::load_one<gbwtgraph::GBWTGraph>(in);
             });
@@ -313,17 +328,11 @@ int main_convert(int argc, char** argv) {
             }
             input_gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
             gbwt_graph->set_gbwt(*input_gbwt);
-        } else if (input == input_gbz) {
-            std::unique_ptr<gbwtgraph::GBZ> gbz;
-            get_input_file(optind, argc, argv, [&](istream& in) {
-                gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(in);
-            });
-            input_gbwt = std::make_unique<gbwt::GBWT>(std::move(gbz->index));
-            gbz->graph.set_gbwt(*input_gbwt); // The GBWT pointer will get moved to the input graph.
-            input_graph = std::make_unique<gbwtgraph::GBWTGraph>(std::move(gbz->graph));
-        } else {
+        } else if (input == input_handlegraph) {
             string input_graph_filename = get_input_file_name(optind, argc, argv);
             input_graph = vg::io::VPKG::load_one<HandleGraph>(input_graph_filename);
+        } else {
+            throw std::runtime_error("Unimplemented input type");
         }
         
         PathHandleGraph* input_path_graph = dynamic_cast<PathHandleGraph*>(input_graph.get());
@@ -368,12 +377,20 @@ int main_convert(int argc, char** argv) {
 
     // GFA output.
     if (output_format == "gfa") {
-        if (input == input_gbwtgraph || input == input_gbz) {
+        if (gbwtgraph_algorithm) {
+            // We need to find a GBWTGraph to use for this
+            gbwtgraph::GBWTGraph* gbwt_graph = vg::algorithms::find_gbwtgraph(input_graph.get());
+            if (gbwt_graph == nullptr) {
+                cerr << "error [vg convert]: input graph does not have a GBWTGraph, so GBWTGraph library GFA conversion algorithm cannot be used." << endl;
+                return 1;
+            }
+            
             gbwtgraph::GFAExtractionParameters parameters;
             parameters.num_threads = num_threads;
-            gbwtgraph::gbwt_to_gfa(*dynamic_cast<const gbwtgraph::GBWTGraph*>(input_graph.get()), std::cout, parameters);
+            gbwtgraph::gbwt_to_gfa(gbwt_graph, std::cout, parameters);
         }
         else {
+            // Use HandleGraph GFA conversion code
             const PathHandleGraph* graph_to_write;
             if (input == input_gfa) {
                 graph_to_write = dynamic_cast<const PathHandleGraph*>(output_graph.get());
@@ -386,7 +403,9 @@ int main_convert(int argc, char** argv) {
                     return 1;
                 }
             }
-            graph_to_write->for_each_path_handle([&](path_handle_t path_handle) {
+            if (!rgfa_prefixes.empty()) {
+                graph_to_write->for_each_path_matching(nullptr, nullptr, nullptr, [&](path_handle_t path_handle) {
+                    // Scan for any paths of any sense matching an rGFA prefix.
                     string path_name = graph_to_write->get_path_name(path_handle);
                     for (const string& prefix : rgfa_prefixes) {
                         if (path_name.substr(0, prefix.length()) == prefix) {
@@ -395,7 +414,8 @@ int main_convert(int argc, char** argv) {
                         }
                     }
                 });
-            graph_to_gfa(graph_to_write, std::cout, rgfa_paths, rgfa_pline, !wline_sep.empty());
+            }
+            graph_to_gfa(graph_to_write, std::cout, rgfa_paths, rgfa_pline, wline);
         }
     }
     // Serialize the output graph.
@@ -414,8 +434,9 @@ void help_convert(char** argv) {
          << "    -g, --gfa-in           input in GFA format" << endl
          << "    -r, --in-rgfa-rank N   import rgfa tags with rank <= N as paths [default=0]" << endl
          << "    -b, --gbwt-in FILE     input graph is a GBWTGraph using the GBWT in FILE" << endl
-         << "    -Z, --gbz-in           input graph is in GBZ format (use GBWTGraph-specific algorithms)" << endl
          << "        --ref-sample STR   change haplotypes for this sample to reference paths (may repeat)" << endl
+         << "gfa input options (use with -g):" << endl
+         << "    -T, --gfa-trans FILE   write gfa id conversions to FILE" << endl
          << "output options:" << endl
          << "    -v, --vg-out           output in VG format" << endl
          << "    -a, --hash-out         output in HashGraph format [default]" << endl
@@ -423,15 +444,13 @@ void help_convert(char** argv) {
          << "    -x, --xg-out           output in XG format" << endl
          << "    -o, --odgi-out         output in ODGI format" << endl
          << "    -f, --gfa-out          output in GFA format" << endl
-         << "gfa options:" << endl
-         << "    -P, --rgfa-path STR    write given path as rGFA tags instead of P-line (use with -f, multiple allowed, only rank-0 supported)" << endl
-         << "    -Q, --rgfa-prefix STR  write paths with given prefix as rGFA tags instead of P-lines (use with -f, multiple allowed, only rank-0 supported)" << endl
+         << "gfa output options (use with -f):" << endl
+         << "    -P, --rgfa-path STR    write given path as rGFA tags instead of P-line (multiple allowed, only rank-0 supported)" << endl
+         << "    -Q, --rgfa-prefix STR  write paths with given prefix as rGFA tags instead of P-lines (multiple allowed, only rank-0 supported)" << endl
          << "    -B, --rgfa-pline       paths written as rGFA tags also written as P-lines (or W-lines if selected by -w)" << endl
-         << "    -T, --gfa-trans FILE   write gfa id conversions to FILE (use with -g)" << endl
-         << "    -w, --wline-sep SEP    write paths with names that can be parsed as <sample><SEP><hap><SEP><contig> as GFA W-lines. (use with -f)" << endl
-         << "                           suffixes of the form [start] or [start-end] will be converted into start and end coordinates if found." << endl
-         << "                           ex: using \"-w .\" will convert path HG00735.1.chr1[10000-20000] to \"W HG00735 1 chr1 10000 20000\"" << endl
-         << "                           multiple characters allowed (they will all be treated as separators)" << endl
+         << "    -w, --wline            write paths as GFA W-lines instead of P-lines. Multiple phase blocks will be converted to non-overlapping ranges." << endl
+         << "                           If subranges of phase blocks exist, converison will fail." << endl
+         << "    --gbwtgraph-algorithm Use the GBWTGraph library GFA algorithm. Not compatible with other GBWT output options or non-GBWT graphs." << endl
          << "alignment options:" << endl
          << "    -G, --gam-to-gaf FILE  convert GAM FILE to GAF" << endl
          << "    -F, --gaf-to-gam FILE  convert GAF FILE to GAM" << endl
@@ -440,7 +459,7 @@ void help_convert(char** argv) {
 }
 
 void no_multiple_inputs(input_type input) {
-    if (input != input_default) {
+    if (input != INPUT_DEFAULT) {
         std::cerr << "error [vg convert]: cannot combine input types (GFA, GBWTGraph, GBZ, GAM, GAF)" << std::endl;
         std::exit(EXIT_FAILURE);
     }

@@ -192,8 +192,10 @@ void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path
     
     if (hap_index == PathMetadata::NO_HAPLOTYPE) {
         // No haplotype is actually assigned here.
-        // We really shouldn't have paths with it assigned and not assigned, so assign it 0 and make the sample haploid.
-        // TODO: check for collisions somehoe?
+        // We probably won't have paths with it assigned and not assigned but
+        // the same sample and contig, so assign it 0 and make the sample
+        // haploid.
+        // TODO: check for collisions somehow?
         hap_index = 0;
     }
      
@@ -214,14 +216,16 @@ void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path
     auto& phase_block_end_cursor = last_phase_block_end[key];
     if (phase_block_end_cursor != 0) {
         if (start_offset != 0) {
+            // TODO: Work out a way to support phase blocks and subranges at the same time.
             cerr << "[gfa] error: cannot write multiple phase blocks on a sample, haplotyope, and contig in GFA format"
                  << " when paths already have subranges. Fix path " << graph->get_path_name(path_handle) << endl;
             exit(1);
         }
-        // Budge us to after the last thing and budge the cursor to after us, plus a gigabase.
-        // TODO: How are we ever going to round-trip this back to phase blocks?
-        // Encode some very high bits in the offsets even for the first path?
-        start_offset += phase_block_end_cursor + 1000000000;
+        // Budge us to after the last thing and budge the cursor to after us.
+        // TODO: GBWTGraph algorithm just uses phase block number as start
+        // position so it can roudn trip. Settle on a way to round trip the
+        // small phase block numbers somehow?
+        start_offset += phase_block_end_cursor;
         phase_block_end_cursor += path_length;
     }
 
