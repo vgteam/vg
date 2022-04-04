@@ -230,20 +230,20 @@ is $? 0 "GFA -> GBWTGraph -> HashGraph -> GFA conversion maintains segments"
 
 # GFA to GBZ to HashGraph to GFA
 vg gbwt -g components.gbz --gbz-format -G graphs/components_walks.gfa
-vg convert -Z -a components.gbz > components.hg 2> /dev/null
+vg convert -a components.gbz > components.hg 2> /dev/null
 is $? 0 "GBZ to HashGraph conversion"
 vg view components.hg | grep "^S" | sort > converted.gfa
 cmp sorted.gfa converted.gfa
 is $? 0 "GFA -> GBZ -> HashGraph -> GFA conversion maintains segments"
 
 # GBWTGraph to GFA with walks (needs 1 thread)
-vg convert -b components.gbwt -f -t 1 components.gg > extracted.gfa
+vg convert --gbwtgraph-algorithm -b components.gbwt -f -t 1 components.gg > extracted.gfa
 is $? 0 "GBWTGraph to GFA conversion with walks"
 cmp extracted.gfa graphs/components_walks.gfa
 is $? 0 "GBWTGraph to GFA conversion creates the correct normalized GFA file"
 
 # GBZ to GFA with walks (needs 1 thread)
-vg convert -Z -f -t 1 components.gbz > extracted.gfa
+vg convert --gbwtgraph-algorithm -f -t 1 components.gbz > extracted.gfa
 is $? 0 "GBZ to GFA conversion with walks"
 cmp extracted.gfa graphs/components_walks.gfa
 is $? 0 "GBZ to GFA conversion creates the correct normalized GFA file"
@@ -258,50 +258,50 @@ rm -f extracted.gfa
 vg gbwt -o components.gbwt -g components.gg -G graphs/components_paths_walks.gfa
 vg gbwt -g components.gbz --gbz-format -G graphs/components_paths_walks.gfa
 vg convert -g -a graphs/components_paths_walks.gfa > direct.hg
-vg paths -v direct.hg -A > correct_paths.gaf
+vg paths --generic-paths -v direct.hg -A > correct_paths.gaf
 
 # GBWTGraph to HashGraph with paths and walks
 vg convert -b components.gbwt -a components.gg > components.hg
 is $? 0 "GBWTGraph to HashGraph conversion with reference paths"
-vg paths -A -v components.hg > hg_paths.gaf
+vg paths --generic-paths -A -v components.hg > hg_paths.gaf
 cmp hg_paths.gaf correct_paths.gaf
-is $? 0 "GBWTGraph to HashGraph conversion creates the correct reference paths"
+is $? 0 "GBWTGraph to HashGraph conversion creates the correct generic paths"
 
 # GBZ to HashGraph with paths and walks
-vg convert -Z -a components.gbz > components.hg
+vg convert -a components.gbz > components.hg
 is $? 0 "GBZ to HashGraph conversion with reference paths"
-vg paths -A -v components.hg > gbz_hg_paths.gaf
+vg paths --generic-paths -A -v components.hg > gbz_hg_paths.gaf
 cmp gbz_hg_paths.gaf correct_paths.gaf
-is $? 0 "GBZ to HashGraph conversion creates the correct reference paths"
+is $? 0 "GBZ to HashGraph conversion creates the correct generic paths"
 
 # GBWTGraph to XG with paths and walks
 vg convert -b components.gbwt -x components.gg > components.xg
 is $? 0 "GBWTGraph to XG conversion with reference paths"
-vg paths -A -v components.xg > xg_paths.gaf
+vg paths --generic-paths -A -v components.xg > xg_paths.gaf
 cmp xg_paths.gaf correct_paths.gaf
-is $? 0 "GBWTGraph to XG conversion creates the correct reference paths"
+is $? 0 "GBWTGraph to XG conversion creates the correct generic paths"
 
 # GBZ to XG with paths and walks
-vg convert -Z -x components.gbz > components.xg
+vg convert -x components.gbz > components.xg
 is $? 0 "GBZ to XG conversion with reference paths"
-vg paths -A -v components.xg > gbz_xg_paths.gaf
+vg paths --generic-paths -A -v components.xg > gbz_xg_paths.gaf
 cmp gbz_xg_paths.gaf correct_paths.gaf
-is $? 0 "GBZ to XG conversion creates the correct reference paths"
+is $? 0 "GBZ to XG conversion creates the correct generic paths"
 
 # GBWTGraph to GFA with paths and walks (needs 1 thread)
-vg convert -b components.gbwt -f -t 1 components.gg > extracted.gfa
+vg convert --gbwtgraph-algorithm -b components.gbwt -f -t 1 components.gg > extracted.gfa
 is $? 0 "GBWTGraph to GFA conversion with paths and walks"
 cmp extracted.gfa graphs/components_paths_walks.gfa
 is $? 0 "GBWTGraph to GFA conversion creates the correct normalized GFA file"
 
 # GBZ to GFA with paths and walks (needs 1 thread)
-vg convert -Z -f -t 1 components.gbz > gbz.gfa
+vg convert --gbwtgraph-algorithm  -f -t 1 components.gbz > gbz.gfa
 is $? 0 "GBZ to GFA conversion with paths and walks"
 cmp gbz.gfa graphs/components_paths_walks.gfa
 is $? 0 "GBZ to GFA conversion creates the correct normalized GFA file"
 
 # Multithreaded GBZ to GFA with paths and walks
-vg convert -Z -f components.gbz | sort > sorted.gfa
+vg convert --gbwtgraph-algorithm  -f components.gbz | sort > sorted.gfa
 sort graphs/components_paths_walks.gfa > correct.gfa
 cmp sorted.gfa correct.gfa
 is $? 0 "GBZ to GFA conversion works with multiple threads"

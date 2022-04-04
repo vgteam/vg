@@ -49,7 +49,8 @@ void help_paths(char** argv) {
          << "    -p, --paths-file FILE    select the paths named in a file (one per line)" << endl
          << "    -Q, --paths-by STR       select the paths with the given name prefix" << endl
          << "    -S, --sample STR         select the haplotypes or reference paths for this sample" << endl
-         << "    -a, --variant-paths      select the variant paths added by 'vg construct -a'" << endl;
+         << "    -a, --variant-paths      select the variant paths added by 'vg construct -a'" << endl
+         << "    -G, --generic-paths      select the generic, non-reference, non-haplotype paths" << endl;
 }
 
 /// Chunk a path and emit it in Graph messages.
@@ -140,6 +141,7 @@ int main_paths(int argc, char** argv) {
             {"paths-by", required_argument, 0, 'Q'},
             {"sample", required_argument, 0, 'S'},
             {"variant-paths", no_argument, 0, 'a'},
+            {"generic-paths", no_argument, 0, 'G'},
             {"coverage", no_argument, 0, 'c'},            
 
             // Hidden options for backward compatibility.
@@ -150,7 +152,7 @@ int main_paths(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:drap:c",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VEMCFAS:Tq:draGp:c",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -245,6 +247,12 @@ int main_paths(int argc, char** argv) {
             select_alt_paths = true;
             selection_criteria++;
             break;
+            
+        case 'G':
+            // We only care about generic paths now.
+            path_senses = {handlegraph::PathMetadata::SENSE_GENERIC};
+            selection_criteria++;
+            break;
 
         case 'c':
             coverage = true;
@@ -294,7 +302,7 @@ int main_paths(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
     if (selection_criteria > 1) {
-        std::cerr << "error: [vg paths] multiple selection criteria (-Q, -S, -a, -p) cannot be used" << std::endl;
+        std::cerr << "error: [vg paths] multiple selection criteria (-Q, -S, -a, -G, -p) cannot be used" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     if (select_alt_paths && !gbwt_file.empty()) {
