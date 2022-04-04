@@ -36,7 +36,7 @@ void no_multiple_inputs(input_type input);
 // Generate an XG with nodes, edges, and paths from input.
 // Promote haplotype-sense paths for the samples in ref_samples to reference sense.
 // Copy across other haplotype-sense paths if unless drop_haplotypes is true.
-void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output, const std::unordered_set<std::string>& ref_samples, bool drop_haplotypes);
+void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output, const std::unordered_set<std::string>& ref_samples, bool drop_haplotypes = false);
 // Copy paths from input to output.
 // Promote haplotype-sense paths for the samples in ref_samples to reference sense.
 // Copy across other haplotype-sense paths if unless drop_haplotypes is true.
@@ -380,7 +380,7 @@ int main_convert(int argc, char** argv) {
     if (output_format == "gfa") {
         if (gbwtgraph_algorithm) {
             // We need to find a GBWTGraph to use for this
-            gbwtgraph::GBWTGraph* gbwt_graph = vg::algorithms::find_gbwtgraph(input_graph.get());
+            const gbwtgraph::GBWTGraph* gbwt_graph = vg::algorithms::find_gbwtgraph(input_graph.get());
             if (gbwt_graph == nullptr) {
                 cerr << "error [vg convert]: input graph does not have a GBWTGraph, so GBWTGraph library GFA conversion algorithm cannot be used." << endl;
                 return 1;
@@ -489,11 +489,11 @@ std::unordered_map<std::string, std::unordered_set<int64_t>> check_duplicate_pat
             
             auto sample = input->get_sample_name(path);
             auto haplotype = input->get_haplotype(path);
-            auto contig = input->get_contig_name(path);
+            auto contig = input->get_locus_name(path);
             auto phase_block = input->get_phase_block(path);
             
             // Find the place to remember phase blocks for it
-            auto& phase_block_set = phase_block_sets[std::make_tuple<std::string, int64_t, std::string>(sample, haplotype, contig)];
+            auto& phase_block_set = phase_block_sets[std::tuple<std::string, int64_t, std::string>(sample, haplotype, contig)];
             
             // Insert the phase block
             phase_block_set.insert(phase_block);
@@ -518,7 +518,7 @@ std::unordered_map<std::string, std::unordered_set<int64_t>> check_duplicate_pat
 void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output, const std::unordered_set<std::string>& ref_samples, bool drop_haplotypes) {
     // Building an XG uses a slightly different interface, so we duplicate some
     // code from the normal MutablePathMutableHandleGraph build.
-    // TODO: FInd a way to unify the duplicated code?
+    // TODO: Find a way to unify the duplicated code?
     
     // Make sure we can safely promote any haplotypes to reference, and get the
     // information we need to determine if we need to keep haplotype numbers
@@ -551,7 +551,7 @@ void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output, c
         auto copy_path = [&](const path_handle_t& path, const std::string new_name) {
             bool is_circular = input->get_is_circular(path);
             for (handle_t handle : input->scan_path(path)) {
-                lambda(path_name, input->get_id(handle), input->get_is_reverse(handle), "", false, is_circular);
+                lambda(new_name, input->get_id(handle), input->get_is_reverse(handle), "", false, is_circular);
             }
             // TODO: Should we preserve empty paths here?
         };
