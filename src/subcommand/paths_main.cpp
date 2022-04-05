@@ -700,7 +700,7 @@ int main_paths(int argc, char** argv) {
                         auto locus = graph->get_locus_name(path_handle);
                         cout << "\t" << (locus == handlegraph::PathMetadata::NO_LOCUS_NAME ? "NO_LOCUS_NAME" : locus);
                         auto phase_block = graph->get_phase_block(path_handle);
-                        cout << "\t" << (phase_block == handlegraph::PathMetadata::NO_PHASE_BLOCK ? "NO_PAHSE_BLOCK" : std::to_string(phase_block));
+                        cout << "\t" << (phase_block == handlegraph::PathMetadata::NO_PHASE_BLOCK ? "NO_PHASE_BLOCK" : std::to_string(phase_block));
                         auto subrange = graph->get_subrange(path_handle);
                         cout << "\t";
                         if (subrange == handlegraph::PathMetadata::NO_SUBRANGE) {
