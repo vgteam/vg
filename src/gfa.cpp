@@ -18,8 +18,12 @@ static void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle
 
 void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>& rgfa_paths,
                   bool rgfa_pline, bool use_w_lines) {
+    
+    // TODO: Support sorting nodes, paths, and/or edges for canonical output
+    // TODO: Use a NamedNodeBackTranslation (or forward translation?) to properly round-trip GFA that has had to be chopped.
+    
     GFAKluge gg;
-    gg.set_version(1.0);
+    gg.set_version(1.1);
     for (auto h : gg.get_header()){
         out << h.second.to_string();
     }

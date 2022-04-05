@@ -28,8 +28,13 @@ using namespace vg::io;
 
 //------------------------------------------------------------------------------
 
+// We need a type for describing what kind of input to parse.
 enum input_type { input_handlegraph, input_gam, input_gaf, input_gfa, input_gbwtgraph };
 const input_type INPUT_DEFAULT = input_handlegraph;
+
+// We also need a type for a tri-state for deciding what kind of GFA output algorithm to use.
+enum algorithm_type { algorithm_auto, algorithm_vg, algorithm_gbwtgraph };
+const algorithm_type ALGORITHM_DEFAULT = algorithm_auto;
 
 void help_convert(char** argv);
 void no_multiple_inputs(input_type input);
@@ -59,7 +64,7 @@ int main_convert(int argc, char** argv) {
     vector<string> rgfa_prefixes;
     bool rgfa_pline = false;
     bool wline = false;
-    bool gbwtgraph_algorithm = false;
+    algorithm_type gfa_output_algorithm = ALGORITHM_DEFAULT;
     int num_threads = omp_get_max_threads(); // For GBWTGraph to GFA.
 
     if (argc == 2) {
@@ -69,6 +74,7 @@ int main_convert(int argc, char** argv) {
 
     constexpr int OPT_REF_SAMPLE = 1000;
     constexpr int OPT_GBWTGRAPH_ALGORITHM = 1001;
+    constexpr int OPT_VG_ALGORITHM = 1001;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -93,6 +99,7 @@ int main_convert(int argc, char** argv) {
             {"gfa-trans", required_argument, 0, 'T'},
             {"wline", no_argument, 0, 'w'},
             {"gbwtgraph-algorithm", no_argument, 0, OPT_GBWTGRAPH_ALGORITHM},
+            {"vg-algorithm", no_argument, 0, OPT_VG_ALGORITHM},
             {"gam-to-gaf", required_argument, 0, 'G'},
             {"gaf-to-gam", required_argument, 0, 'F'},
             {"threads", required_argument, 0, 't'},
@@ -166,7 +173,10 @@ int main_convert(int argc, char** argv) {
             wline = true;
             break;
         case OPT_GBWTGRAPH_ALGORITHM:
-            gbwtgraph_algorithm = true;
+            gfa_output_algorithm = algorithm_gbwtgraph;
+            break;
+        case OPT_VG_ALGORITHM:
+            gfa_output_algorithm = algorithm_vg;
             break;
         case 'G':
             no_multiple_inputs(input);
@@ -201,7 +211,7 @@ int main_convert(int argc, char** argv) {
         cerr << "error [vg convert]: -P, -Q, and -w can only be used with -f" << endl;
         return 1;
     }
-    if (gbwtgraph_algorithm) {
+    if (gfa_output_algorithm == algorithm_gbwtgraph) {
         if (output_format != "gfa") {
              cerr << "error [vg convert]: Only GFA output format can be used with the GBWTGraph library GFA conversion algorithm" << endl;
              return 1;
@@ -219,7 +229,7 @@ int main_convert(int argc, char** argv) {
         cerr << "error [vg convert]: paths cannot be converted to reference sense when writing GFA output" << endl;
         return 1;
     }
-
+    
     // with -F or -G we convert an alignment and not a graph
     if (input == input_gam || input == input_gaf) {
         if (!output_format.empty()) {
@@ -378,7 +388,21 @@ int main_convert(int argc, char** argv) {
 
     // GFA output.
     if (output_format == "gfa") {
-        if (gbwtgraph_algorithm) {
+        if (gfa_output_algorithm == algorithm_auto) {
+            // Determine algorithm to use.
+            if (!rgfa_paths.empty() || !rgfa_prefixes.empty() || rgfa_pline || wline) {
+                // We've asked for special conversion options that only the vg algorithm supports.
+                // TODO: wline ought to be default probably because the GBWTGraph algorithm does it.
+                gfa_output_algorithm = algorithm_vg;
+            } else if (vg::algorithms::find_gbwtgraph(input_graph.get())) {
+                // There's a GBWTGraph available so use that algorithm.
+                gfa_output_algorithm = algorithm_gbwtgraph;
+            } else {
+                // No GBWTGraph is available so use the VG algorithm.
+                gfa_output_algorithm = algorithm_vg;
+            }
+        }
+        if (gfa_output_algorithm == gbwtgraph_algorithm) {
             // We need to find a GBWTGraph to use for this
             const gbwtgraph::GBWTGraph* gbwt_graph = vg::algorithms::find_gbwtgraph(input_graph.get());
             if (gbwt_graph == nullptr) {
@@ -389,8 +413,7 @@ int main_convert(int argc, char** argv) {
             gbwtgraph::GFAExtractionParameters parameters;
             parameters.num_threads = num_threads;
             gbwtgraph::gbwt_to_gfa(*gbwt_graph, std::cout, parameters);
-        }
-        else {
+        } else if (gfa_output_algorithm == vg_algorithm) {
             // Use HandleGraph GFA conversion code
             const PathHandleGraph* graph_to_write;
             if (input == input_gfa) {
@@ -417,6 +440,8 @@ int main_convert(int argc, char** argv) {
                 });
             }
             graph_to_gfa(graph_to_write, std::cout, rgfa_paths, rgfa_pline, wline);
+        } else {
+            throw std::runtime_error("Unimplemented GFA output algorithm");
         }
     }
     // Serialize the output graph.
@@ -451,7 +476,8 @@ void help_convert(char** argv) {
          << "    -B, --rgfa-pline       paths written as rGFA tags also written as P-lines (or W-lines if selected by -w)" << endl
          << "    -w, --wline            write paths as GFA W-lines instead of P-lines. Multiple phase blocks will be converted to non-overlapping ranges." << endl
          << "                           If subranges of phase blocks exist, converison will fail." << endl
-         << "    --gbwtgraph-algorithm Use the GBWTGraph library GFA algorithm. Not compatible with other GBWT output options or non-GBWT graphs." << endl
+         << "    --gbwtgraph-algorithm  Always use the GBWTGraph library GFA algorithm. Not compatible with other GBWT output options or non-GBWT graphs." << endl
+         << "    --vg-algorithm         Always use the VG GFA algorithm. Works with all options and graph types, but can't preserve original GFA coordinates." << endl
          << "alignment options:" << endl
          << "    -G, --gam-to-gaf FILE  convert GAM FILE to GAF" << endl
          << "    -F, --gaf-to-gam FILE  convert GAF FILE to GAM" << endl
