@@ -63,7 +63,7 @@ int main_convert(int argc, char** argv) {
     set<string> rgfa_paths;
     vector<string> rgfa_prefixes;
     bool rgfa_pline = false;
-    bool wline = false;
+    bool wline = true;
     algorithm_type gfa_output_algorithm = ALGORITHM_DEFAULT;
     int num_threads = omp_get_max_threads(); // For GBWTGraph to GFA.
 
@@ -74,7 +74,7 @@ int main_convert(int argc, char** argv) {
 
     constexpr int OPT_REF_SAMPLE = 1000;
     constexpr int OPT_GBWTGRAPH_ALGORITHM = 1001;
-    constexpr int OPT_VG_ALGORITHM = 1001;
+    constexpr int OPT_VG_ALGORITHM = 1002;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -97,7 +97,7 @@ int main_convert(int argc, char** argv) {
             {"rgfa-prefix", required_argument, 0, 'Q'},
             {"rgfa-pline", no_argument, 0, 'B'},
             {"gfa-trans", required_argument, 0, 'T'},
-            {"wline", no_argument, 0, 'w'},
+            {"no-wline", no_argument, 0, 'W'},
             {"gbwtgraph-algorithm", no_argument, 0, OPT_GBWTGRAPH_ALGORITHM},
             {"vg-algorithm", no_argument, 0, OPT_VG_ALGORITHM},
             {"gam-to-gaf", required_argument, 0, 'G'},
@@ -169,8 +169,8 @@ int main_convert(int argc, char** argv) {
         case 'T':
             gfa_trans_path = optarg;
             break;
-        case 'w':
-            wline = true;
+        case 'W':
+            wline = false;
             break;
         case OPT_GBWTGRAPH_ALGORITHM:
             gfa_output_algorithm = algorithm_gbwtgraph;
@@ -207,8 +207,8 @@ int main_convert(int argc, char** argv) {
         cerr << "error [vg convert]: -T can only be used with -g" << endl;
         return 1;
     }
-    if (output_format != "gfa" && (!rgfa_paths.empty() || !rgfa_prefixes.empty() || wline)) {
-        cerr << "error [vg convert]: -P, -Q, and -w can only be used with -f" << endl;
+    if (output_format != "gfa" && (!rgfa_paths.empty() || !rgfa_prefixes.empty() || !wline)) {
+        cerr << "error [vg convert]: -P, -Q, and -W can only be used with -f" << endl;
         return 1;
     }
     if (gfa_output_algorithm == algorithm_gbwtgraph) {
@@ -220,8 +220,8 @@ int main_convert(int argc, char** argv) {
              cerr << "error [vg convert]: GFA input cannot be used with the GBWTGraph library GFA conversion algorithm" << endl;
              return 1;
         }
-        if (!(rgfa_paths.empty() && rgfa_prefixes.empty() && !wline)) {
-            cerr << "error [vg convert]: GFA output options (-P, -Q, -w) cannot be used with the GBWTGraph library GFA conversion algorithm" << endl;
+        if (!(rgfa_paths.empty() && rgfa_prefixes.empty() && wline)) {
+            cerr << "error [vg convert]: GFA output options (-P, -Q, -W) cannot be used with the GBWTGraph library GFA conversion algorithm" << endl;
             return 1;
         }
     }
@@ -390,9 +390,8 @@ int main_convert(int argc, char** argv) {
     if (output_format == "gfa") {
         if (gfa_output_algorithm == algorithm_auto) {
             // Determine algorithm to use.
-            if (!rgfa_paths.empty() || !rgfa_prefixes.empty() || rgfa_pline || wline) {
+            if (!rgfa_paths.empty() || !rgfa_prefixes.empty() || rgfa_pline || !wline) {
                 // We've asked for special conversion options that only the vg algorithm supports.
-                // TODO: wline ought to be default probably because the GBWTGraph algorithm does it.
                 gfa_output_algorithm = algorithm_vg;
             } else if (vg::algorithms::find_gbwtgraph(input_graph.get())) {
                 // There's a GBWTGraph available so use that algorithm.
@@ -402,7 +401,7 @@ int main_convert(int argc, char** argv) {
                 gfa_output_algorithm = algorithm_vg;
             }
         }
-        if (gfa_output_algorithm == gbwtgraph_algorithm) {
+        if (gfa_output_algorithm == algorithm_gbwtgraph) {
             // We need to find a GBWTGraph to use for this
             const gbwtgraph::GBWTGraph* gbwt_graph = vg::algorithms::find_gbwtgraph(input_graph.get());
             if (gbwt_graph == nullptr) {
@@ -413,7 +412,7 @@ int main_convert(int argc, char** argv) {
             gbwtgraph::GFAExtractionParameters parameters;
             parameters.num_threads = num_threads;
             gbwtgraph::gbwt_to_gfa(*gbwt_graph, std::cout, parameters);
-        } else if (gfa_output_algorithm == vg_algorithm) {
+        } else if (gfa_output_algorithm == algorithm_vg) {
             // Use HandleGraph GFA conversion code
             const PathHandleGraph* graph_to_write;
             if (input == input_gfa) {
@@ -471,11 +470,10 @@ void help_convert(char** argv) {
          << "    -o, --odgi-out         output in ODGI format" << endl
          << "    -f, --gfa-out          output in GFA format" << endl
          << "gfa output options (use with -f):" << endl
-         << "    -P, --rgfa-path STR    write given path as rGFA tags instead of P-line (multiple allowed, only rank-0 supported)" << endl
-         << "    -Q, --rgfa-prefix STR  write paths with given prefix as rGFA tags instead of P-lines (multiple allowed, only rank-0 supported)" << endl
-         << "    -B, --rgfa-pline       paths written as rGFA tags also written as P-lines (or W-lines if selected by -w)" << endl
-         << "    -w, --wline            write paths as GFA W-lines instead of P-lines. Multiple phase blocks will be converted to non-overlapping ranges." << endl
-         << "                           If subranges of phase blocks exist, converison will fail." << endl
+         << "    -P, --rgfa-path STR    write given path as rGFA tags instead of lines (multiple allowed, only rank-0 supported)" << endl
+         << "    -Q, --rgfa-prefix STR  write paths with given prefix as rGFA tags instead of lines (multiple allowed, only rank-0 supported)" << endl
+         << "    -B, --rgfa-pline       paths written as rGFA tags also written as lines" << endl
+         << "    -W, --no-wline         write all paths as GFA P-lines instead of W-lines. Allows handling multiple phase blocks and subranges used together." << endl
          << "    --gbwtgraph-algorithm  Always use the GBWTGraph library GFA algorithm. Not compatible with other GBWT output options or non-GBWT graphs." << endl
          << "    --vg-algorithm         Always use the VG GFA algorithm. Works with all options and graph types, but can't preserve original GFA coordinates." << endl
          << "alignment options:" << endl
