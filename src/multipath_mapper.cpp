@@ -744,7 +744,7 @@ namespace vg {
 #ifdef debug_multipath_mapper_alignment
             cerr << "graph contains directed cycles, performing dagification" << endl;
 #endif
-            dagified = unique_ptr<DagifiedGraph>(new DagifiedGraph(&align_digraph, target_length));
+            dagified = unique_ptr<DagifiedGraph>(new DagifiedGraph(&align_digraph, target_length, max_dagify_duplications));
             align_dag = dagified.get();
         }
         
@@ -6096,7 +6096,7 @@ namespace vg {
 #endif
             
 #ifdef debug_multipath_mapper_alignment
-            cerr << "initial alignment graph:" << endl;
+            cerr << "initial alignment graph with " << graph->get_node_count() << " nodes and " << graph->get_edge_count() << ":" << endl;
             graph->for_each_handle([&](const handle_t& h) {
                 cerr << graph->get_id(h) << " " << graph->get_sequence(h) << endl;
                 graph->follow_edges(h, false, [&](const handle_t& n) {
@@ -6139,7 +6139,7 @@ namespace vg {
 #ifdef debug_multipath_mapper_alignment
                 cerr << "graph contains directed cycles, performing dagification" << endl;
 #endif
-                dagified = unique_ptr<DagifiedGraph>(new DagifiedGraph(align_digraph, target_length));
+                dagified = unique_ptr<DagifiedGraph>(new DagifiedGraph(align_digraph, target_length, max_dagify_duplications));
                 align_dag = dagified.get();
             }
             
@@ -6150,7 +6150,7 @@ namespace vg {
             };
             
 #ifdef debug_multipath_mapper_alignment
-            cerr << "final alignment graph:" << endl;
+            cerr << "final alignment graph of size " << align_dag->get_node_count() << " nodes and " << align_dag->get_edge_count() << ":" << endl;
             align_dag->for_each_handle([&](const handle_t& h) {
                 auto tr = translator(align_dag->get_id(h));
                 cerr << align_dag->get_id(h) << " (" << tr.first << (tr.second ? "-" : "+") << ") " << align_dag->get_sequence(h) << endl;

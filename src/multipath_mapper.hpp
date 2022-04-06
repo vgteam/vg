@@ -127,6 +127,7 @@ namespace vg {
         bool restrained_graph_extraction = false;
         size_t max_expected_dist_approx_error = 8;
         int32_t num_alt_alns = 4;
+        size_t max_dagify_duplications = 10;
         double mem_coverage_min_ratio = 0.5;
         double truncation_multiplicity_mq_limit = 7.0;
         double max_suboptimal_path_score_ratio = 2.0;
