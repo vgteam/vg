@@ -128,9 +128,10 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
     alignment.Clear();
     bool is_fasta = false;
     // handle name
+    string name;
     if (0!=gzgets(fp,buffer,len)) {
         buffer[strlen(buffer)-1] = '\0';
-        string name = buffer;
+        name = buffer;
         if (name[0] == '@') {
             is_fasta = false;
         } else if (name[0] == '>') {
@@ -147,13 +148,13 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
         buffer[strlen(buffer)-1] = '\0';
         alignment.set_sequence(buffer);
     } else {
-        cerr << "[vg::alignment.cpp] error: incomplete fastq record" << endl; exit(1);
+        cerr << "[vg::alignment.cpp] error: incomplete fastq/fasta record " << name << endl; exit(1);
     }
     // handle "+" sep
     if (!is_fasta) {
         if (0!=gzgets(fp,buffer,len)) {
         } else {
-            cerr << "[vg::alignment.cpp] error: incomplete fastq record" << endl; exit(1);
+            cerr << "[vg::alignment.cpp] error: incomplete fastq record " << name << endl; exit(1);
         }
         // handle quality
         if (0!=gzgets(fp,buffer,len)) {
@@ -162,7 +163,7 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
             //cerr << string_quality_short_to_char(quality) << endl;
             alignment.set_quality(quality);
         } else {
-            cerr << "[vg::alignment.cpp] error: incomplete fastq record" << endl; exit(1);
+            cerr << "[vg::alignment.cpp] error: fastq record missing base quality " << name << endl; exit(1);
         }
     }
 

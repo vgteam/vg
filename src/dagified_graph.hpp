@@ -18,8 +18,10 @@ using namespace std;
     class DagifiedGraph : public ExpandingOverlayGraph {
     public:
         
-        /// Expand a single-stranded graph into a DAG, preserving alll walks up to the minimum length.
-        DagifiedGraph(const HandleGraph* graph, size_t min_preserved_path_length);
+        /// Expand a single-stranded graph into a DAG, preserving all walks up to the minimum length.
+        /// If max duplications is provided, limits the number of times any node is copied.
+        DagifiedGraph(const HandleGraph* graph, size_t min_preserved_path_length, 
+                      size_t max_num_duplications = std::numeric_limits<size_t>::max());
         
         /// Default constructor -- not actually functional
         DagifiedGraph() = default;
