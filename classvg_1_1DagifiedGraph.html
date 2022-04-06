@@ -90,9 +90,8 @@ Inheritance diagram for vg::DagifiedGraph:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a39a79b11b4cfea62302e826ec357acf3"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DagifiedGraph.html#a39a79b11b4cfea62302e826ec357acf3">DagifiedGraph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *<a class="el" href="classvg_1_1DagifiedGraph.html#a5b2dd0d18c17b2e10aa1b6b6280018ee">graph</a>, size_t min_preserved_path_length)</td></tr>
-<tr class="memdesc:a39a79b11b4cfea62302e826ec357acf3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Expand a single-stranded graph into a DAG, preserving alll walks up to the minimum length.  <a href="classvg_1_1DagifiedGraph.html#a39a79b11b4cfea62302e826ec357acf3">More...</a><br /></td></tr>
-<tr class="separator:a39a79b11b4cfea62302e826ec357acf3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a39faa4602acdc54d568410dda0d1ae35"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DagifiedGraph.html#a39faa4602acdc54d568410dda0d1ae35">DagifiedGraph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *<a class="el" href="classvg_1_1DagifiedGraph.html#a5b2dd0d18c17b2e10aa1b6b6280018ee">graph</a>, size_t min_preserved_path_length, size_t max_num_duplications=std::numeric_limits&lt; size_t &gt;::max())</td></tr>
+<tr class="separator:a39faa4602acdc54d568410dda0d1ae35"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ada562ce53bd2fc9a59aeef495eafa6c8"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DagifiedGraph.html#ada562ce53bd2fc9a59aeef495eafa6c8">DagifiedGraph</a> ()=default</td></tr>
 <tr class="memdesc:ada562ce53bd2fc9a59aeef495eafa6c8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Default constructor &ndash; not actually functional.  <a href="classvg_1_1DagifiedGraph.html#ada562ce53bd2fc9a59aeef495eafa6c8">More...</a><br /></td></tr>
 <tr class="separator:ada562ce53bd2fc9a59aeef495eafa6c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -218,8 +217,8 @@ Protected Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>A HandleGraph implementation that wraps some other handle graph and converts it into a DAG, preserving all paths up a a minimum length. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a id="a39a79b11b4cfea62302e826ec357acf3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a39a79b11b4cfea62302e826ec357acf3">&#9670;&nbsp;</a></span>DagifiedGraph() <span class="overload">[1/2]</span></h2>
+<a id="a39faa4602acdc54d568410dda0d1ae35"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a39faa4602acdc54d568410dda0d1ae35">&#9670;&nbsp;</a></span>DagifiedGraph() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -234,7 +233,13 @@ Protected Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>min_preserved_path_length</em>&#160;</td>
+          <td class="paramname"><em>min_preserved_path_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_num_duplications</em> = <code>std::numeric_limits&lt;size_t&gt;::max()</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -243,8 +248,7 @@ Protected Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Expand a single-stranded graph into a DAG, preserving alll walks up to the minimum length. </p>
+<p>Expand a single-stranded graph into a DAG, preserving all walks up to the minimum length. If max duplications is provided, limits the number of times any node is copied. </p>
 
 </div>
 </div>

@@ -2,7 +2,7 @@ var searchData=
 [
   ['dagified_5fgraph_2ecpp_876',['dagified_graph.cpp',['../dagified__graph_8cpp.html',1,'']]],
   ['dagified_5fgraph_2ehpp_877',['dagified_graph.hpp',['../dagified__graph_8hpp.html',1,'']]],
-  ['dagifiedgraph_878',['DagifiedGraph',['../classvg_1_1DagifiedGraph.html',1,'vg::DagifiedGraph'],['../classvg_1_1DagifiedGraph.html#a39a79b11b4cfea62302e826ec357acf3',1,'vg::DagifiedGraph::DagifiedGraph(const HandleGraph *graph, size_t min_preserved_path_length)'],['../classvg_1_1DagifiedGraph.html#ada562ce53bd2fc9a59aeef495eafa6c8',1,'vg::DagifiedGraph::DagifiedGraph()=default']]],
+  ['dagifiedgraph_878',['DagifiedGraph',['../classvg_1_1DagifiedGraph.html',1,'vg::DagifiedGraph'],['../classvg_1_1DagifiedGraph.html#a39faa4602acdc54d568410dda0d1ae35',1,'vg::DagifiedGraph::DagifiedGraph(const HandleGraph *graph, size_t min_preserved_path_length, size_t max_num_duplications=std::numeric_limits&lt; size_t &gt;::max())'],['../classvg_1_1DagifiedGraph.html#ada562ce53bd2fc9a59aeef495eafa6c8',1,'vg::DagifiedGraph::DagifiedGraph()=default']]],
   ['dagify_879',['dagify',['../classvg_1_1VG.html#a2c8890bbc32c99bba8ca17f24a11d343',1,'vg::VG::dagify()'],['../namespacehandlegraph_1_1algorithms.html#a64feaa655343996c7d233d938a5f35d8',1,'handlegraph::algorithms::dagify()']]],
   ['dagify_2ecpp_880',['dagify.cpp',['../dagify_8cpp.html',1,'']]],
   ['dagify_5fsteps_881',['dagify_steps',['../classvg_1_1Genotyper.html#a384f22f52c2a1f78b7ca613468e2e186',1,'vg::Genotyper']]],
