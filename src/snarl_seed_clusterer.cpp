@@ -1903,8 +1903,8 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
     std::tuple<bool, size_t, size_t>& last_child = children_in_chain.front();
     net_handle_t last_child_handle = std::get<0>(last_child) 
                 ? tree_state.all_node_clusters[std::get<1>(last_child)].containing_net_handle
-                : distance_index.get_node_net_handle(get_id(tree_state.all_seeds->at(
-                        std::get<1>(last_child))->at(std::get<2>(last_child)).pos));
+                : tree_state.all_seeds->at(
+                        std::get<1>(last_child))->at(std::get<2>(last_child)).node_handle;
     //And values we need to save from the last child
     //If the last child is a snarl, get it from the NodeClusters otherwise from the seed's cache
     size_t last_prefix_sum = std::get<0>(last_child) ? tree_state.all_node_clusters[std::get<1>(last_child)].prefix_sum_value
@@ -1929,8 +1929,8 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
         tuple<bool, size_t, size_t>& child_clusters_i = children_in_chain[i];
         net_handle_t child_handle = std::get<0>(child_clusters_i) 
                 ? tree_state.all_node_clusters[std::get<1>(child_clusters_i)].containing_net_handle
-                : distance_index.get_node_net_handle(get_id(tree_state.all_seeds->at(
-                        std::get<1>(child_clusters_i))->at(std::get<2>(child_clusters_i)).pos));
+                : tree_state.all_seeds->at(
+                        std::get<1>(child_clusters_i))->at(std::get<2>(child_clusters_i)).node_handle;
 
         //If this is a snarl, then cluster the children here
         if (std::get<0>(child_clusters_i)){
