@@ -292,7 +292,14 @@ int main_convert(int argc, char** argv) {
         }
         string input_stream_name = argv[optind];
         if (output_format == "xg") {
-            cerr << "error [vg convert]: currently cannot convert GFA directly to XG, try converting through another format" << endl;
+            xg::XG* xg_graph = dynamic_cast<xg::XG*>(output_graph.get());
+            
+            // Need to go through a handle graph
+            bdsg::HashGraph intermediate;
+            cerr << "warning [vg convert]: currently cannot convert GFA directly to XG; converting through another format" << endl;
+            algorithms::gfa_to_path_handle_graph(input_stream_name, &intermediate,
+                                                 input_rgfa_rank, gfa_trans_path);
+            graph_to_xg_adjusting_paths(&intermediate, xg_graph, ref_samples);
         }
         else {
             if (input_stream_name == "-") {
