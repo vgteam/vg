@@ -312,6 +312,16 @@ class NewSnarlSeedClusterer {
         //Cluster in the root 
         void cluster_root(TreeState& tree_state) const;
 
+        //Cluster a list of seeds (SeedIndexes) that are on a single structure (node or chain)
+        //The list of seeds is everything in the list between range_start and range_end
+        //This can be called on a chain if there are no nested seeds on the chain
+        //get_offset_from_seed_index returns a tuple of <read_num, seed_num, left offset> indices into all_seeds from whatever
+        //SeedIndex is used to store the seeds
+        //left offset is the distance from the left side of the structure
+        template <typename SeedIndex>
+        void cluster_seeds_on_linear_structure(TreeState& tree_state, NodeClusters& node_clusters, vector<SeedIndex>& seed_indices, 
+                size_t structure_length, std::function<std::tuple<size_t, size_t, size_t>(const SeedIndex&)>& get_offset_from_seed_index) const;
+
         //Compare two children of the parent and combine their clusters, to create clusters in the parent
         //This assumes that the first node hasn't been seen before but the second one has, so all of the
         //first node's clusters get added to the parent but assume that all of the second ones are already
