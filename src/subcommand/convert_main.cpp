@@ -292,11 +292,7 @@ int main_convert(int argc, char** argv) {
         }
         string input_stream_name = argv[optind];
         if (output_format == "xg") {
-            if (input_stream_name == "-") {
-                cerr << "error [vg convert]: currently cannot convert GFA from stdin to XG, try loading from disk instead" << endl;
-                return 1;
-            }
-            dynamic_cast<xg::XG*>(output_graph.get())->from_gfa(input_stream_name);
+            cerr << "error [vg convert]: currently cannot convert GFA directly to XG, try converting through another format" << endl;
         }
         else {
             if (input_stream_name == "-") {
