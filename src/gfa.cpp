@@ -1,5 +1,4 @@
 #include "gfa.hpp"
-#include <gfakluge.hpp>
 #include "utility.hpp"
 #include "path.hpp"
 #include <sstream>
@@ -22,15 +21,9 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     // TODO: Support sorting nodes, paths, and/or edges for canonical output
     // TODO: Use a NamedNodeBackTranslation (or forward translation?) to properly round-trip GFA that has had to be chopped.
     
-    GFAKluge gg;
-    gg.set_version(1.1);
-    for (auto h : gg.get_header()){
-        out << h.second.to_string();
-    }
+    // Start with the header for a GFA1.1 file.
+    out << "H\tVN:Z:1.1\n";
 
-    // TODO moving to GFAKluge
-    // problem: protobuf longs don't easily go to strings....
-    
     //Compute the rGFA tags of given paths (todo: support non-zero ranks)
     unordered_map<nid_t, pair<path_handle_t, size_t>> node_offsets;
     for (const string& path_name : rgfa_paths) {
@@ -63,7 +56,6 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
         s_elem.name = to_string(node_id);
         s_elem.sequence = graph->get_sequence(h);
         out << s_elem.to_string_1();
-        //gg.add_sequence(s_elem);
         auto it = node_offsets.find(node_id);
         if (it != node_offsets.end()) {
             // add rGFA tags
@@ -118,7 +110,6 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
                     return true;
                 });
                 p_elem.overlaps.push_back("*");
-                //gg.add_path(p_elem.name, p_elem);
                 out << p_elem.to_string_1() << "\n";
             }
         }
@@ -133,42 +124,30 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     }
 
     graph->for_each_edge([&](const edge_t& h) {
-        edge_elem ee;
-        ee.type = 1;
-        //TODO: I'm guessing this is what it wants? 
-        ee.source_name = to_string(graph->get_id(h.first));
-        ee.sink_name = to_string(graph->get_id(h.second));
-        ee.source_orientation_forward = ! graph->get_is_reverse(h.first);
-        ee.sink_orientation_forward =  ! graph->get_is_reverse(h.second);
-
-        ee.alignment = "*";
         
-        if (graph->get_is_reverse(h.first) && (graph->get_is_reverse(h.second) || graph->get_id(h.second) < graph->get_id(h.first))) {
+        nid_t from_id = graph->get_id(h.first);
+        bool from_is_reverse = graph->get_is_reverse(h.first);
+        nid_t from_id = graph->get_id(h.second);
+        bool to_is_reverse = graph->get_is_reverse(h.second);
+    
+        if (from_is_reverse && (to_is_reverse || to_id < from_id)) {
             // Canonicalize edges to be + orientation first if possible, and
             // then low-ID to high-ID if possible, for testability. This edge
             // needs to flip.
             
             // Swap the nodes
-            std::swap(ee.source_name, ee.sink_name);
+            std::swap(from_id, to_id);
             // Swap the orientations
-            std::swap(ee.source_orientation_forward, ee.sink_orientation_forward);
+            std::swap(from_is_reverse, to_is_reverse);
             // Reverse the orientations
-            ee.source_orientation_forward = !ee.source_orientation_forward;
-            ee.sink_orientation_forward = !ee.sink_orientation_forward;
+            from_is_reverse = !from_is_reverse;
+            to_is_reverse = !to_is_reverse;
         }
         
-        out << ee.to_string_1() << "\n"; // Writing `std::endl` would flush the buffer.
+        out << "L\t" << from_id << "\t" << (from_is_reverse ? '-' : '+')
+            << "\t" << to_id << (to_is_reverse ? '-' : '+') << "\n"; // Writing `std::endl` would flush the buffer.
         return true;
-        //gg.add_edge(ee.source_name, ee);
-        //link_elem l;
-        //l.source_name = to_string(e->from());
-        //l.sink_name = to_string(e->to());
-        //l.source_orientation_forward = ! e->from_start();
-        //l.sink_orientation_forward =  ! e->to_end();
-        //l.cigar = std::to_string(e->overlap()) + "M";
-        //gg.add_link(l.source_name, l);
     }, false);
-    //gg.output_to_stream(cout);
 }
 
 bool should_write_as_w_line(const PathHandleGraph* graph, path_handle_t path_handle) {
