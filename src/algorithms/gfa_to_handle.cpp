@@ -33,47 +33,6 @@ std::string GFAIDMapInfo::get_back_graph_node_name(const nid_t& back_node_id) co
     return *id_to_name->at(back_node_id);
 }
 
-// parse a GFA name into a numeric id
-// if all ids are numeric, they will be converted directly with stol
-// if all ids are non-numeric, they will get incrementing ids beginning with 1, in order they are visited
-// if they are a mix of numeric and non-numeric, the numberic ones will be converted with stol until
-// the first non-numeric one is found, then it will revert to using max-id.  this could lead to cases
-//
-// since non-numeric ids are dependent on the order the nodes are scanned, there is the unfortunate side
-// effect that they will be different if read from memory (lex order) or file (file order)
-static nid_t parse_gfa_sequence_id(const string& str, GFAIDMapInfo& id_map_info) {
-    
-    auto found = id_map_info.name_to_id->find(str);
-    if (found != id_map_info.name_to_id->end()) {
-        // already in map, just return
-        return found->second;
-    }
-    
-    nid_t node_id = -1;
-    if (id_map_info.numeric_mode) {
-        if (any_of(str.begin(), str.end(), [](char c) { return !isdigit(c); })) {
-            // non-numeric: use max id and add to map
-            id_map_info.numeric_mode = false;
-        } else {
-            node_id = stoll(str);
-            if (node_id <= 0) {
-                // treat <= 0 as non-numeric
-                id_map_info.numeric_mode = false;
-            }
-        }
-    }
-
-    // if numeric, the id was set to stoll above, otherwise we take it from current max
-    if (!id_map_info.numeric_mode) {
-        node_id = id_map_info.max_id + 1;
-    }
-    
-    id_map_info.max_id = std::max(node_id, id_map_info.max_id);
-    id_map_info.name_to_id->emplace(str, node_id);
-
-    return node_id;
-}
-
 static void write_gfa_translation(const GFAIDMapInfo& id_map_info, const string& translation_filename) {
     // don't write anything unless we have both an output file and at least one non-trivial mapping
     if (!translation_filename.empty() && !id_map_info.numeric_mode) {
@@ -154,7 +113,7 @@ static bool gfa_to_handle_graph_in_memory(istream& in, MutableHandleGraph* graph
     // create nodes
     bool has_rgfa_tags = false;
     for (const auto& seq_record : gg.get_name_to_seq()) {
-        graph->create_handle(seq_record.second.sequence, parse_gfa_sequence_id(seq_record.first, id_map_info));
+        graph->create_handle(seq_record.second.sequence, GFAParser::parse_sequence_id(seq_record.first, id_map_info));
         has_rgfa_tags = has_rgfa_tags || gfa_sequence_parse_rgfa_tags(seq_record.second);
     }
     
@@ -162,11 +121,11 @@ static bool gfa_to_handle_graph_in_memory(istream& in, MutableHandleGraph* graph
     for (const auto& links_record : gg.get_seq_to_edges()) {
         for (const auto& edge : links_record.second) {
             validate_gfa_edge(edge);
-            nid_t a_id = parse_gfa_sequence_id(edge.source_name, id_map_info);
+            nid_t a_id = GFAParser::parse_sequence_id(edge.source_name, id_map_info);
             if (!graph->has_node(a_id)) {
                 throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge starts at nonexistent GFA node \"" + edge.source_name + "\"");
             }
-            nid_t b_id = parse_gfa_sequence_id(edge.sink_name, id_map_info);
+            nid_t b_id = GFAParser::parse_sequence_id(edge.sink_name, id_map_info);
             if (!graph->has_node(b_id)) {
                 throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge ends at nonexistent GFA node \"" + edge.sink_name + "\"");
             }
@@ -192,7 +151,7 @@ static bool gfa_to_handle_graph_on_disk(const string& filename, MutableHandleGra
         // find the minimum ID
         nid_t min_id = numeric_limits<nid_t>::max();
         gg.for_each_sequence_line_in_file(filename.c_str(), [&](gfak::sequence_elem s) {
-                min_id = std::min(min_id, parse_gfa_sequence_id(s.name, id_map_info));
+                min_id = std::min(min_id, GFAParser::parse_sequence_id(s.name, id_map_info));
             });
         
         if (min_id != numeric_limits<nid_t>::max()) {
@@ -204,18 +163,18 @@ static bool gfa_to_handle_graph_on_disk(const string& filename, MutableHandleGra
     // add in all nodes
     bool has_rgfa_tags = false;
     gg.for_each_sequence_line_in_file(filename.c_str(), [&](gfak::sequence_elem s) {        
-            graph->create_handle(s.sequence, parse_gfa_sequence_id(s.name, id_map_info));
+            graph->create_handle(s.sequence, GFAParser::parse_sequence_id(s.name, id_map_info));
             has_rgfa_tags = has_rgfa_tags || gfa_sequence_parse_rgfa_tags(s);
     });
     
     // add in all edges
     gg.for_each_edge_line_in_file(filename.c_str(), [&](gfak::edge_elem e) {
         validate_gfa_edge(e);
-        nid_t a_id = parse_gfa_sequence_id(e.source_name, id_map_info);
+        nid_t a_id = GFAParser::parse_sequence_id(e.source_name, id_map_info);
         if (!graph->has_node(a_id)) {
             throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge starts at nonexistent GFA node \"" + e.source_name + "\"");
         }
-        nid_t b_id = parse_gfa_sequence_id(e.sink_name, id_map_info);
+        nid_t b_id = GFAParser::parse_sequence_id(e.sink_name, id_map_info);
         if (!graph->has_node(b_id)) {
             throw GFAFormatError("error:[gfa_to_handle_graph] GFA edge ends at nonexistent GFA node \"" + e.sink_name + "\"");
         }
@@ -286,7 +245,7 @@ static void gfa_to_handle_graph_add_paths(const string& filename, istream* unsee
             }
             
             // add the step
-            nid_t target_node_id = parse_gfa_sequence_id(node_id, id_map_info);
+            nid_t target_node_id = GFAParser::parse_sequence_id(node_id, id_map_info);
             if (!graph->has_node(target_node_id)) {
                 // We need to make sure the GFA isn't lying about the nodes
                 // that exist or we will fail with weird errors in get_handle
@@ -311,7 +270,7 @@ static void gfa_to_handle_graph_add_paths(const string& filename, istream* unsee
             
             for (size_t i = 0; i < path_record.second.segment_names.size(); ++i) {
                 const string& node_id = path_record.second.segment_names.at(i);
-                nid_t target_node_id = parse_gfa_sequence_id(node_id, id_map_info);
+                nid_t target_node_id = GFAParser::parse_sequence_id(node_id, id_map_info);
                 if (!graph->has_node(target_node_id)) {
                     // The GFA wants to go somewhere that doesn't exist
                     throw GFAFormatError("error:[gfa_to_handle_graph] GFA path " + path_record.first + " visits nonexistent GFA node \"" + node_id + "\"");
@@ -353,7 +312,7 @@ static void gfa_to_handle_graph_add_rgfa_paths(const string filename, istream* u
             } else {
                 val.first = rgfa_rank;
             }
-            nid_t seq_id = parse_gfa_sequence_id(s.name, id_map_info);
+            nid_t seq_id = GFAParser::parse_sequence_id(s.name, id_map_info);
             // We can assume the nodes exist because we're looking at sequence lines already here.
             val.second.push_back(make_pair(seq_id, rgfa_offset));
         }
@@ -446,8 +405,8 @@ static vector<gfak::sequence_elem> gfa_to_path_handle_graph_stream(istream& in, 
         if (!line_buffer.empty()) {
             // We mimic gfakluge behaviour by silently ignoring lines we don't parse
             if (line_buffer[0] == 'S') {
-                tuple<string, string, vector<string>> s_parse = parse_gfa_s_line(line_buffer);
-                graph->create_handle(get<1>(s_parse), parse_gfa_sequence_id(get<0>(s_parse), id_map_info));
+                tuple<string, string, vector<string>> s_parse = GFAParser::parse_s(line_buffer);
+                graph->create_handle(get<1>(s_parse), GFAParser::parse_sequence_id(get<0>(s_parse), id_map_info));
                 if (get<2>(s_parse).size() >= 3) {
                     // We'll check for the 3 rGFA optional tags.  For now that means
                     // re-using some code based on gfakluge structures, unfortunately
@@ -472,9 +431,9 @@ static vector<gfak::sequence_elem> gfa_to_path_handle_graph_stream(istream& in, 
                     }
                 }                    
             } else if (line_buffer[0] == 'L') {
-                tuple<string, bool, string, bool, vector<string>> l_parse = parse_gfa_l_line(line_buffer);
-                nid_t n1 = parse_gfa_sequence_id(get<0>(l_parse), id_map_info);
-                nid_t n2 = parse_gfa_sequence_id(get<2>(l_parse), id_map_info);
+                tuple<string, bool, string, bool, vector<string>> l_parse = GFAParser::parse_l(line_buffer);
+                nid_t n1 = GFAParser::parse_sequence_id(get<0>(l_parse), id_map_info);
+                nid_t n2 = GFAParser::parse_sequence_id(get<2>(l_parse), id_map_info);
                 if (!graph->has_node(n1) || !graph->has_node(n2)) {
                     fall_back_to_disk();
                     break;
@@ -484,38 +443,38 @@ static vector<gfak::sequence_elem> gfa_to_path_handle_graph_stream(istream& in, 
             } else if (line_buffer[0] == 'P') {
                 bool missing = false;
                 // pass 1: make sure we have all the nodes in the graph
-                parse_gfa_p_line(line_buffer, [&](const string& path_name,
+                GFAParser::parse_p(line_buffer, [&](const string& path_name,
                                                   int64_t step_rank,
                                                   const string& step_id,
                                                   bool step_is_reverse) {
-                                     if (step_rank >= 0) {
-                                         nid_t n = parse_gfa_sequence_id(step_id, id_map_info);
-                                         if (!graph->has_node(n)) {
-                                             missing = true;
-                                             return false;
-                                         }
-                                     }
-                                     return true;
-                                 });
+                     if (step_rank >= 0) {
+                         nid_t n = GFAParser::parse_sequence_id(step_id, id_map_info);
+                         if (!graph->has_node(n)) {
+                             missing = true;
+                             return false;
+                         }
+                     }
+                     return true;
+                 });
                 if (missing) {
                     fall_back_to_disk();
                     break;
                 }
                 path_handle_t path_handle;
                 // pass 2: make the path
-                parse_gfa_p_line(line_buffer, [&](const string& path_name,
+                GFAParser::parse_p(line_buffer, [&](const string& path_name,
                                                   int64_t step_rank,
                                                   const string& step_id,
                                                   bool step_is_reverse) {
-                                     if (step_rank <= 0) {
-                                         path_handle = graph->create_path_handle(path_name);
-                                     }
-                                     if (step_rank >= 0) {
-                                         nid_t n = parse_gfa_sequence_id(step_id, id_map_info);
-                                         graph->append_step(path_handle, graph->get_handle(n, step_is_reverse));
-                                     }
-                                     return true;
-                                 });
+                     if (step_rank <= 0) {
+                         path_handle = graph->create_path_handle(path_name);
+                     }
+                     if (step_rank >= 0) {
+                         nid_t n = GFAParser::parse_sequence_id(step_id, id_map_info);
+                         graph->append_step(path_handle, graph->get_handle(n, step_is_reverse));
+                     }
+                     return true;
+                 });
                 
             }
         }
@@ -614,7 +573,7 @@ void gfa_to_path_handle_graph(istream& in,
     }        
 }
 
-tuple<string, string, vector<string>> parse_gfa_s_line(const string& s_line) {
+tuple<string, string, vector<string>> GFAParser::parse_s(const string& s_line) {
     assert(s_line[0] == 'S');
     vector<string> toks = split_delims(s_line, "\t");
     if (toks.size() < 3 || toks[0] != "S") {
@@ -627,7 +586,7 @@ tuple<string, string, vector<string>> parse_gfa_s_line(const string& s_line) {
     return make_tuple(std::move(toks[1]), std::move(toks[2]), opt_tags);
 }
 
-tuple<string, bool, string, bool, vector<string>> parse_gfa_l_line(const string& l_line) {
+tuple<string, bool, string, bool, vector<string>> GFAParser::parse_l(const string& l_line) {
     assert(l_line[0] == 'L');
     vector<string> toks = split_delims(l_line, "\t");
     if (toks.size() < 6 || toks[0] != "L" || (toks[2] != "+" && toks[2] != "-") ||
@@ -641,8 +600,8 @@ tuple<string, bool, string, bool, vector<string>> parse_gfa_l_line(const string&
     return make_tuple(std::move(toks[1]), toks[2] == "-", std::move(toks[3]), toks[4] == "-", opt_tags);    
 }
 
-void parse_gfa_p_line(const string& p_line,
-                      function<bool(const string&, int64_t, const string&, bool)> visit_step) {
+void GFAParser::parse_p(const string& p_line,
+                        function<bool(const string&, int64_t, const string&, bool)> visit_step) {
     assert(p_line[0] == 'P');
 
     size_t i = 0;
@@ -690,6 +649,39 @@ void parse_gfa_p_line(const string& p_line,
     if (rank == 0) {
         visit_step(path_name, -1, "", false);
     }
+}
+
+nid_t GFAParser::parse_sequence_id(const string& str, GFAIDMapInfo& id_map_info) {
+    
+    auto found = id_map_info.name_to_id->find(str);
+    if (found != id_map_info.name_to_id->end()) {
+        // already in map, just return
+        return found->second;
+    }
+    
+    nid_t node_id = -1;
+    if (id_map_info.numeric_mode) {
+        if (any_of(str.begin(), str.end(), [](char c) { return !isdigit(c); })) {
+            // non-numeric: use max id and add to map
+            id_map_info.numeric_mode = false;
+        } else {
+            node_id = stoll(str);
+            if (node_id <= 0) {
+                // treat <= 0 as non-numeric
+                id_map_info.numeric_mode = false;
+            }
+        }
+    }
+
+    // if numeric, the id was set to stoll above, otherwise we take it from current max
+    if (!id_map_info.numeric_mode) {
+        node_id = id_map_info.max_id + 1;
+    }
+    
+    id_map_info.max_id = std::max(node_id, id_map_info.max_id);
+    id_map_info.name_to_id->emplace(str, node_id);
+
+    return node_id;
 }
 
 

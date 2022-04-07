@@ -93,17 +93,53 @@ void gfa_to_path_handle_graph(istream& in,
                               GFAIDMapInfo* translation = nullptr,
                               int64_t max_rgfa_rank = numeric_limits<int64_t>::max());
 
-/// gfakluge can't parse line by line, which we need for streaming
-/// ideally, it needs to be entirely replaced.  here's a bare minimum for parsing lines
-/// in the meantime.  they return the fields as strings, don't support overlaps, and
-/// optional tags get read as strings in the vectors. 
-tuple<string, string, vector<string>> parse_gfa_s_line(const string& s_line);
-tuple<string, bool, string, bool, vector<string>> parse_gfa_l_line(const string& l_line);
-/// visit_step takes {path-name, rank (-1 if path empty), step id, step reversed}
-/// and returns true if it wants to keep iterating (false means stop)
-void parse_gfa_p_line(const string& p_line,
-                      function<bool(const string&, int64_t, const string&, bool)> visit_step);
+/**
+ * Lower-level tools for parsing GFA elements.
+ *
+ * Parsing functions return the fields as strings, and don't support overlaps.
+ * Optional tags get read as strings in the vectors. 
+ */
+class GFAParser {
+public:
 
+    /**
+     * Parse an S line to name, sequence, and tags
+     */
+    static tuple<string, string, vector<string>> parse_s(const string& s_line);
+    
+    /**
+     * Parse an L line to name, is_reverse, name, is_reverse, and tags
+     */
+    static tuple<string, bool, string, bool, vector<string>> parse_l(const string& l_line);
+    
+    /**
+     * Parse a P line.
+     * Calls a callback with all the steps.
+     * visit_step takes {path-name, rank (-1 if path empty), step id, step reversed}
+     * and returns true if it wants to keep iterating (false means stop).
+     */
+    static void parse_p(const string& p_line,
+                        function<bool(const string&, int64_t, const string&, bool)> visit_step);
+   
+    /**
+     * Parse a GFA name into a numeric id.
+     *
+     * If all ids are numeric, they will be converted directly with stol.
+     *
+     * If all ids are non-numeric, they will get incrementing ids beginning
+     * with 1, in order they are visited.
+     *
+     * If they are a mix of numeric and non-numeric, the numberic ones will be
+     * converted with stol until the first non-numeric one is found, then it
+     * will revert to using max-id.
+     *
+     * Since non-numeric ids are dependent on the order the nodes are scanned,
+     * there is the unfortunate side effect that they will be different
+     * sepending on whether the GFA is processed in lexicographic order or file
+     * order.
+     */
+    static nid_t parse_sequence_id(const string& str, GFAIDMapInfo& id_map_info);
+};
 
 }
 }
