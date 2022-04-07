@@ -1622,8 +1622,28 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
     //Children are a tuple of <is_snarl, (snarl index in all_node_clusters, inf) or (seed read num, seed index)
     vector<tuple<bool, size_t, size_t>> children_in_chain;
     children_in_chain.reserve(tree_state.chain_to_children->count(chain_clusters_index));
+    //Does the chain contain only seeds and no snarls?
+    bool only_seeds = true;
     for (auto iter = child_range.first ; iter != child_range.second ; ++iter) {
         children_in_chain.emplace_back(iter->second);
+        if (std::get<0>(iter->second)) {
+            only_seeds = false;
+        }
+    }
+    assert (!distance_index.is_trivial_chain(chain_handle));
+    if (only_seeds && !chain_clusters.is_looping_chain) {
+        //If there are only seeds in the chain, then cluster by walking through the seeds
+
+        std::function<std::tuple<size_t, size_t, size_t>(const tuple<bool, size_t, size_t>&)> get_offset_from_indices = 
+            [&](const std::tuple<bool, size_t, size_t>& seed_index){
+                //This function returns a tuple of <read num, seed num, left offset>
+                const Seed& seed = tree_state.all_seeds->at(std::get<1>(seed_index))->at(std::get<2>(seed_index));
+                size_t offset = std::get<2>(seed.minimizer_cache) + seed.distance_left;
+                return std::make_tuple(std::get<1>(seed_index), std::get<2>(seed_index), offset); 
+        };
+        cluster_seeds_on_linear_structure(tree_state, chain_clusters, children_in_chain, distance_index.minimum_length(chain_handle), get_offset_from_indices);
+        return;
+
     }
     //Sort the children by their order in the chain
     std::sort(children_in_chain.begin(), children_in_chain.end(), 
