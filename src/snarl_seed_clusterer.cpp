@@ -1842,6 +1842,18 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
                 //Order by their offset in the node. Left and right distances are oriented relative to the chain
                 return tree_state.all_seeds->at(std::get<1>(a))->at(std::get<2>(a)).distance_left <
                        tree_state.all_seeds->at(std::get<1>(b))->at(std::get<2>(b)).distance_left;
+            } else if (!std::get<0>(a) && !std::get<0>(b)) {
+                //If both a and b are seed on nodes and they are on different nodes, then sort by their prefix sum value
+                if (std::get<3>(tree_state.all_seeds->at(std::get<1>(a))->at(std::get<2>(a)).minimizer_cache) ==
+                    std::get<3>(tree_state.all_seeds->at(std::get<1>(b))->at(std::get<2>(b)).minimizer_cache)){
+
+                    return std::get<2>(tree_state.all_seeds->at(std::get<1>(a))->at(std::get<2>(a)).minimizer_cache) <
+                           std::get<2>(tree_state.all_seeds->at(std::get<1>(b))->at(std::get<2>(b)).minimizer_cache);
+                } else {                    
+                    return std::get<3>(tree_state.all_seeds->at(std::get<1>(a))->at(std::get<2>(a)).minimizer_cache) <
+                           std::get<3>(tree_state.all_seeds->at(std::get<1>(b))->at(std::get<2>(b)).minimizer_cache);
+                }
+
             } else {
                 //Otherwise, if the containing net handles are different, order by the order in the chain
                 return distance_index.is_ordered_in_chain(net_handle_a, net_handle_b);
