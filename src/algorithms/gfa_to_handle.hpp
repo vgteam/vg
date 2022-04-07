@@ -8,7 +8,6 @@
  */
 
 #include <iostream>
-#include <gfakluge.hpp>
 #include <cctype>
 #include <vector>
 
@@ -87,19 +86,12 @@ void gfa_to_path_handle_graph(const string& filename,
                               int64_t max_rgfa_rank,
                               const string& translation_filename);
                               
-/// Same as above but operating on a stream. Assumed to be non-seekable; all conversion happens in memory.
-/// Always streaming. Doesn't support ID increment hints.
-void gfa_to_path_handle_graph_in_memory(istream& in,
-                                        MutablePathMutableHandleGraph* graph,
-                                        int64_t max_rgfa_rank = numeric_limits<int64_t>::max());
-
-/// Operate on a stream line by line.  This can only work if the GFA is sorted.  If the GFA isn't
-/// sorted, dump it to a temp file, and fall back on gfa_to_path_handle_graph()
-void gfa_to_path_handle_graph_stream(istream& in,
-                                     MutablePathMutableHandleGraph* graph,
-                                     GFAIDMapInfo* translation = nullptr,
-                                     int64_t max_rgfa_rank = numeric_limits<int64_t>::max());
-
+/// Load a GFA from a stream (assumed not to be seekable or reopenable) into a PathHandleGraph.
+/// Does not give max ID hints, and so might be very slow when loading into an ODGI graph.
+void gfa_to_path_handle_graph(istream& in,
+                              MutablePathMutableHandleGraph* graph,
+                              GFAIDMapInfo* translation = nullptr,
+                              int64_t max_rgfa_rank = numeric_limits<int64_t>::max());
 
 /// gfakluge can't parse line by line, which we need for streaming
 /// ideally, it needs to be entirely replaced.  here's a bare minimum for parsing lines

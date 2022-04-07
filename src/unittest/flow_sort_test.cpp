@@ -40,7 +40,7 @@ P	3	path2	5	+	1M)";
         
         VG vg;
         stringstream in(graph_gfa);
-        algorithms::gfa_to_path_handle_graph_in_memory(in, &vg);
+        algorithms::gfa_to_path_handle_graph(in, &vg);
         REQUIRE(vg.length() == 6);
         
         FlowSort flow_sort(vg);
@@ -120,7 +120,7 @@ P	13	path4	5	+	1M)";
         
         VG vg;
         stringstream in(graph_gfa);
-        algorithms::gfa_to_path_handle_graph_in_memory(in, &vg);
+        algorithms::gfa_to_path_handle_graph(in, &vg);
         REQUIRE(vg.length() == 17);
         
         FlowSort flow_sort(vg);
@@ -273,7 +273,7 @@ P	21	path12	3	+	1M)";
         
         VG vg;
         stringstream in(graph_gfa);
-        algorithms::gfa_to_path_handle_graph_in_memory(in, &vg); 
+        algorithms::gfa_to_path_handle_graph(in, &vg); 
         REQUIRE(vg.length() == 35);
         
         FlowSort flow_sort(vg);

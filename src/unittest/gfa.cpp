@@ -41,7 +41,7 @@ P	3	path2	5	+	1M)";
         
     VG vg;
     stringstream in(graph_gfa);
-    algorithms::gfa_to_path_handle_graph_in_memory(in, &vg);
+    algorithms::gfa_to_path_handle_graph(in, &vg);
     REQUIRE(vg.is_valid());
     REQUIRE(vg.length() == 6);
 }
@@ -109,7 +109,7 @@ P	13	path4	5	+	1M)";
         
     VG vg;
     stringstream in(graph_gfa);
-    algorithms::gfa_to_path_handle_graph_in_memory(in, &vg);
+    algorithms::gfa_to_path_handle_graph(in, &vg);
     REQUIRE(vg.is_valid());
     REQUIRE(vg.length() == 17);
 }
@@ -251,7 +251,7 @@ P	21	path12	3	+	1M)";
         
     VG vg;
     stringstream in(graph_gfa);
-    algorithms::gfa_to_path_handle_graph_in_memory(in, &vg);
+    algorithms::gfa_to_path_handle_graph(in, &vg);
     REQUIRE(vg.is_valid());
     REQUIRE(vg.length() == 35);
 }
@@ -281,7 +281,7 @@ L	1	+	3	+	0M)";
 
         VG vg;
         stringstream in(graph_gfa);
-        algorithms::gfa_to_path_handle_graph_in_memory(in, &vg);
+        algorithms::gfa_to_path_handle_graph(in, &vg);
         
         REQUIRE(vg.is_valid());
         
@@ -314,7 +314,7 @@ L	1	+	2	+	0M)";
         
         bdsg::HashGraph graph;
         stringstream in(graph_gfa);
-        algorithms::gfa_to_path_handle_graph_in_memory(in, &graph);
+        algorithms::gfa_to_path_handle_graph(in, &graph);
         
         REQUIRE(graph.get_node_count() == 2);
     }
@@ -328,7 +328,7 @@ L	1	+	2	+	5M)";
         
         bdsg::HashGraph graph;
         stringstream in(graph_gfa);
-        REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph_in_memory(in, &graph), algorithms::GFAFormatError);
+        REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph(in, &graph), algorithms::GFAFormatError);
     }
     
     SECTION("A graph that uses a non-numerical identifier is OK") {
@@ -340,7 +340,7 @@ L	1	+	Chana	+	0M)";
         
         bdsg::HashGraph graph;
         stringstream in(graph_gfa);
-        algorithms::gfa_to_path_handle_graph_in_memory(in, &graph);
+        algorithms::gfa_to_path_handle_graph(in, &graph);
         REQUIRE(graph.get_node_count() == 2);
         // Note: gfakluge will visit the nodes in lex. order when loading from memory
         REQUIRE(graph.get_sequence(graph.get_handle(1)) == "GATT");
@@ -357,7 +357,7 @@ L	1	+	-2	+	0M)";
         
         bdsg::HashGraph graph;
         stringstream in(graph_gfa);
-        algorithms::gfa_to_path_handle_graph_in_memory(in, &graph);
+        algorithms::gfa_to_path_handle_graph(in, &graph);
         REQUIRE(graph.get_node_count() == 2);
         // Note: gfakluge will visit the nodes in lex. order when loading from memory
         REQUIRE(graph.get_sequence(graph.get_handle(2)) == "GATT");
@@ -374,7 +374,7 @@ L	1	+	0	+	0M)";
         
         bdsg::HashGraph graph;
         stringstream in(graph_gfa);
-        algorithms::gfa_to_path_handle_graph_in_memory(in, &graph);
+        algorithms::gfa_to_path_handle_graph(in, &graph);
         REQUIRE(graph.get_node_count() == 2);
         // Note: gfakluge will visit the nodes in lex. order when loading from memory
         REQUIRE(graph.get_sequence(graph.get_handle(2)) == "GATT");

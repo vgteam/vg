@@ -408,8 +408,8 @@ static void gfa_to_handle_graph_add_rgfa_paths(const string filename, istream* u
 }
 
 static vector<gfak::sequence_elem> gfa_to_path_handle_graph_stream(istream& in, MutablePathMutableHandleGraph* graph,
-                                                              GFAIDMapInfo& id_map_info,
-                                                              int64_t max_rank) {
+                                                                   GFAIDMapInfo& id_map_info,
+                                                                   int64_t max_rank) {
     if (!in) {
         throw std::ios_base::failure("error:[gfa_to_handle_graph] Couldn't open input stream");
     }
@@ -594,23 +594,10 @@ void gfa_to_path_handle_graph(const string& filename, MutablePathMutableHandleGr
 
 }
 
-void gfa_to_path_handle_graph_in_memory(istream& in,
-                                        MutablePathMutableHandleGraph* graph,
-                                        int64_t max_rgfa_rank) {
-    gfak::GFAKluge gg;
-    GFAIDMapInfo id_map_info;
-    bool has_rgfa_tags = gfa_to_handle_graph_load_graph("", &in, graph, gg, id_map_info);
-    gfa_to_handle_graph_add_paths("", &in, graph, gg, id_map_info);
-    if (has_rgfa_tags) {
-        gfa_to_handle_graph_add_rgfa_paths("", &in, nullptr, graph, gg, id_map_info, max_rgfa_rank);
-    }
-    
-}
-
-void gfa_to_path_handle_graph_stream(istream& in,
-                                     MutablePathMutableHandleGraph* graph,
-                                     GFAIDMapInfo* translation,
-                                     int64_t max_rgfa_rank) {
+void gfa_to_path_handle_graph(istream& in,
+                              MutablePathMutableHandleGraph* graph,
+                              GFAIDMapInfo* translation,
+                              int64_t max_rgfa_rank) {
     gfak::GFAKluge gg;
     
     // We may not have an external translation to write to so we may nee dto make our own.
