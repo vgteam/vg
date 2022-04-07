@@ -101,26 +101,55 @@ void gfa_to_path_handle_graph(istream& in,
  */
 class GFAParser {
 public:
-
+    
+    // We are going to split up existing line buffers.
+    // So we need a cursor into one.
+    using cursor_t = string::const_iterator;
+    // And a range in one
+    using range_t = pair<cursor_t, cursor_t>;
+    // And a way to get the string value for one
+    inline static string extract(const range_t& range) {
+        return string(range.first, range.second);
+    }
+    // And a way to get the length of one
+    inline static size_t length(const range_t& range) {
+        return range.second - range.first;
+    }
+    
     /**
      * Parse an S line to name, sequence, and tags
      */
-    static tuple<string, string, vector<string>> parse_s(const string& s_line);
+    static tuple<string, range_t, vector<string>> parse_s(const string& s_line);
     
     /**
-     * Parse an L line to name, is_reverse, name, is_reverse, and tags
+     * Parse an L line to name, is_reverse, name, is_reverse, overlap, and tags
      */
-    static tuple<string, bool, string, bool, vector<string>> parse_l(const string& l_line);
+    static tuple<string, bool, string, bool, string, vector<string>> parse_l(const string& l_line);
     
     /**
-     * Parse a P line.
+     * Parse a P line into name, visits, overlaps, and tags.
+     */
+    static tuple<string, range_t, range_t, vector<string>> parse_p(const string& p_line);
+    
+    /**
+     * Scan visits in a P line.
      * Calls a callback with all the steps.
      * visit_step takes {path-name, rank (-1 if path empty), step id, step reversed}
      * and returns true if it wants to keep iterating (false means stop).
      */
-    static void parse_p(const string& p_line,
-                        function<bool(const string&, int64_t, const string&, bool)> visit_step);
+    static void scan_p(const string& p_line,
+                       function<bool(const string&, int64_t, const string&, bool)> visit_step);
    
+    /**
+     * Decode rGFA tags from the given list of tags from an S line.
+     * Stores rGFA parameters at the given locations if set.
+     * Returns true if a complete set of tags was found.
+     */
+    static bool decode_rgfa_tags(const vector<string>& tags,
+                                 string* out_name = nullptr,
+                                 int64_t* out_offset = nullptr,
+                                 int64_t* out_rank = nullptr);
+    
     /**
      * Parse a GFA name into a numeric id.
      *
@@ -139,6 +168,30 @@ public:
      * order.
      */
     static nid_t parse_sequence_id(const string& str, GFAIDMapInfo& id_map_info);
+    
+    /**
+     * Find the existing sequence ID for the given node name, or 0 if it has not been seen yet.
+     */
+    static nid_t find_existing_sequence_id(const string& str, GFAIDMapInfo& id_map_info);
+    
+    // To actually parse GFA, we stick event listeners on here and then we go
+    // through the GFA. It is the parser's job to make sure events aren't fired
+    // before events they depend on (so a path is delayed until all the nodes
+    // in it are parsed).
+    
+    GFAIDMapInfo id_map;
+    vector<std::function<void(nid_t id, const range_t& sequence, const vector<string>& tags)>> node_listeners;
+    vector<std::function<void(nid_t from, bool from_is_reverse, nid_t to, bool to_is_reverse, const string& overlap, const vector<string>& tags)>> edge_listeners;
+    vector<std::function<void(const string& name, const range_t& visits, const range_t& overlaps, const vector<string>& tags)>> path_listeners;
+    
+    /// Include paths from rGFA tags at this rank or lower. Set to -1 to ignore rGFA tags.
+    int64_t max_rgfa_rank = -1;
+    
+    /**
+     * Parse GFA from the given stream.
+     */
+    void parse(istream& in);
+    
 };
 
 }
