@@ -309,8 +309,10 @@ cerr << "Add all seeds to nodes: " << endl;
                                       ? distance_index.get_parent(node_net_handle)
                                       : distance_index.get_handle_from_connected_component(std::get<1>(seed.minimizer_cache));
             seed.node_handle = node_net_handle;
+            bool is_trivial_chain = distance_index.get_record_offset(node_net_handle) ==
+                                    distance_index.get_record_offset(parent);
             
-            if (!distance_index.is_trivial_chain(parent) && !distance_index.is_root(parent)) {
+            if (!is_trivial_chain && !distance_index.is_root(parent)) {
 #ifdef DEBUG_CLUSTER
                 cerr << "\tchild of a chain " << distance_index.net_handle_as_string(parent) << endl;
 #endif
@@ -1628,7 +1630,6 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
     
     /**Now actually start the work of clustering **/
 
-    assert (!distance_index.is_trivial_chain(chain_handle));
     if (only_seeds && !chain_clusters.is_looping_chain) {
         //If there are only seeds in the chain, then cluster by walking through the seeds
 
