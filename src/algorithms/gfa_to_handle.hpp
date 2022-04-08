@@ -65,6 +65,7 @@ struct GFAIDMapInfo : public NamedNodeBackTranslation {
 /// Throws GFAFormatError if the GFA file is not acceptable, and
 /// std::ios_base::failure if an IO operation fails. Throws invalid_argument if
 /// otherwise misused.
+/// Does not give max ID hints, and so might be very slow when loading into an ODGI graph.
 void gfa_to_handle_graph(const string& filename,
                          MutableHandleGraph* graph,
                          GFAIDMapInfo* translation = nullptr);
@@ -74,7 +75,12 @@ void gfa_to_handle_graph(const string& filename,
                          MutableHandleGraph* graph,
                          const string& translation_filename);
 
-/// Same as gfa_to_handle_graph but also adds path elements from the GFA to the graph
+/// Load a GFA from a stream (assumed not to be seekable or reopenable) into a HandleGraph.
+void gfa_to_handle_graph(istream& in,
+                         MutableHandleGraph* graph,
+                         GFAIDMapInfo* translation = nullptr);
+
+/// Same as gfa_to_handle_graph but also adds path elements from the GFA to the graph.
 void gfa_to_path_handle_graph(const string& filename,
                               MutablePathMutableHandleGraph* graph,
                               GFAIDMapInfo* translation = nullptr,
@@ -87,7 +93,6 @@ void gfa_to_path_handle_graph(const string& filename,
                               const string& translation_filename);
                               
 /// Load a GFA from a stream (assumed not to be seekable or reopenable) into a PathHandleGraph.
-/// Does not give max ID hints, and so might be very slow when loading into an ODGI graph.
 void gfa_to_path_handle_graph(istream& in,
                               MutablePathMutableHandleGraph* graph,
                               GFAIDMapInfo* translation = nullptr,
@@ -115,21 +120,33 @@ public:
     inline static size_t length(const range_t& range) {
         return range.second - range.first;
     }
+    // And a way to tell if one is empty
+    inline static bool empty(const range_t& range) {
+        return range.second == range.first;
+    }
+    // And a type for a collection of GFA tags.
+    // This could become a range or list of ranges if we wanted to copy less.
+    using tag_list_t = vector<string>;
+    
+    /**
+     * Parse tags out from a possibly empty range to a vector of tag strings.
+     */
+    static tag_list_t parse_tags(const range_t& tag_range);
     
     /**
      * Parse an S line to name, sequence, and tags
      */
-    static tuple<string, range_t, vector<string>> parse_s(const string& s_line);
+    static tuple<string, range_t, tag_list_t> parse_s(const string& s_line);
     
     /**
      * Parse an L line to name, is_reverse, name, is_reverse, overlap, and tags
      */
-    static tuple<string, bool, string, bool, string, vector<string>> parse_l(const string& l_line);
+    static tuple<string, bool, string, bool, range_t, tag_list_t> parse_l(const string& l_line);
     
     /**
      * Parse a P line into name, visits, overlaps, and tags.
      */
-    static tuple<string, range_t, range_t, vector<string>> parse_p(const string& p_line);
+    static tuple<string, range_t, range_t, tag_list_t> parse_p(const string& p_line);
     
     /**
      * Scan visits in a P line.
@@ -138,14 +155,23 @@ public:
      * and returns true if it wants to keep iterating (false means stop).
      */
     static void scan_p(const string& p_line,
-                       function<bool(const string&, int64_t, const string&, bool)> visit_step);
+                       function<bool(const string& path_name, int64_t rank, const range_t& node_name, bool is_reverse)> visit_step);
+                       
+    /**
+     * Scan visits extracted from a P line.
+     * Calls a callback with all the steps.
+     * visit_step takes {rank (-1 if path empty), step node name, step reversed}
+     * and returns true if it wants to keep iterating (false means stop).
+     */
+    static void scan_p_visits(const range_t& visit_range,
+                              function<bool(int64_t rank, const range_t& node_name, bool is_reverse)> visit_step);
    
     /**
      * Decode rGFA tags from the given list of tags from an S line.
      * Stores rGFA parameters at the given locations if set.
      * Returns true if a complete set of tags was found.
      */
-    static bool decode_rgfa_tags(const vector<string>& tags,
+    static bool decode_rgfa_tags(const tag_list_t& tags,
                                  string* out_name = nullptr,
                                  int64_t* out_offset = nullptr,
                                  int64_t* out_rank = nullptr);
@@ -187,9 +213,20 @@ public:
     /// Get the ID map we should be using for parsing.
     inline GFAIDMapInfo& id_map();
     
-    vector<std::function<void(nid_t id, const range_t& sequence, const vector<string>& tags)>> node_listeners;
-    vector<std::function<void(nid_t from, bool from_is_reverse, nid_t to, bool to_is_reverse, const string& overlap, const vector<string>& tags)>> edge_listeners;
-    vector<std::function<void(const string& name, const range_t& visits, const range_t& overlaps, const vector<string>& tags)>> path_listeners;
+    /// These listeners will be called with information for all nodes.
+    vector<std::function<void(nid_t id, const range_t& sequence, const tag_list_t& tags)>> node_listeners;
+    /// These listeners will be called with information for all edges, after
+    /// the node listeners for the involved nodes.
+    vector<std::function<void(nid_t from, bool from_is_reverse, nid_t to, bool to_is_reverse, const range_t& overlap, const tag_list_t& tags)>> edge_listeners;
+    /// These listeners will be called with information for all P line paths,
+    /// after the listeners for all involved nodes.
+    vector<std::function<void(const string& name, const range_t& visits, const range_t& overlaps, const tag_list_t& tags)>> path_listeners;
+    /// These listeners will be called with each visit of an rGFA path to a
+    /// node, after the node listeners for the involved node. They will be
+    /// called in order along each path. The listener is responsible for
+    /// detecting any gaps in the offset space and producing multiple subpaths
+    /// if necessary.
+    vector<std::function<void(nid_t id, int64_t offset, const string& path_name, int64_t path_rank)>> rgfa_listeners;
     
     /// Include paths from rGFA tags at this rank or lower. Set to -1 to ignore rGFA tags.
     int64_t max_rgfa_rank = -1;
