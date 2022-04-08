@@ -349,7 +349,7 @@ cerr << "Add all seeds to nodes: " << endl;
                     //If we didn't store information in the seed, then get it from the distance index
 
                     //prefix sum
-                    prefix_sum = distance_index.is_trivial_chain(parent) 
+                    prefix_sum = is_trivial_chain 
                             ? std::numeric_limits<size_t>::max() 
                             : distance_index.get_prefix_sum_value(node_net_handle);
                     std::get<2>(seed.minimizer_cache) = prefix_sum;
@@ -388,7 +388,7 @@ cerr << "Add all seeds to nodes: " << endl;
                 if (prefix_sum == MIPayload::NO_VALUE) {
                     //If we didn't store information in the seed, then get it from the distance index
 
-                   prefix_sum = distance_index.is_trivial_chain(parent) 
+                   prefix_sum = is_trivial_chain 
                            ? std::numeric_limits<size_t>::max() 
                            : distance_index.get_prefix_sum_value(node_net_handle);
                    component = distance_index.is_multicomponent_chain(parent) 
@@ -1430,8 +1430,8 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, size_t snar
 
     //Chain component of the start and end nodes of the snarl
     if (distance_index.is_multicomponent_chain(distance_index.get_parent(snarl_clusters.containing_net_handle))) {
-        snarl_clusters.chain_component_start = distance_index.get_chain_component(distance_index.get_node_from_sentinel(distance_index.get_bound(snarl_clusters.containing_net_handle, false, false)));
-        snarl_clusters.chain_component_end = distance_index.get_chain_component(distance_index.get_node_from_sentinel(distance_index.get_bound(snarl_clusters.containing_net_handle, true, false)));
+        snarl_clusters.chain_component_start = distance_index.get_chain_component(distance_index.get_node_from_sentinel(snarl_clusters.start_in));
+        snarl_clusters.chain_component_end = distance_index.get_chain_component(distance_index.get_node_from_sentinel(snarl_clusters.end_in));
     }
 #ifdef DEBUG_CLUSTER
     cerr << "\tFound clusters on " << distance_index.net_handle_as_string(snarl_handle) << endl;
@@ -2275,7 +2275,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
 
 
     //If the chain loops, then we also have to compare the first thing we saw to the last things
-    bool is_looping_chain = distance_index.get_record_offset(distance_index.get_bound(chain_handle, false, true)) == distance_index.get_record_offset(distance_index.get_bound(chain_handle, true, true)); 
+    bool is_looping_chain = distance_index.get_record_offset(chain_clusters.start_in) == distance_index.get_record_offset(chain_clusters.end_in); 
 
     if (is_looping_chain){
 #ifdef DEBUG_CLUSTER
