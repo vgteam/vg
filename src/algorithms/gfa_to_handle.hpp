@@ -105,17 +105,17 @@ public:
     // So we need a cursor into one.
     using cursor_t = string::const_iterator;
     // And a range in one
-    using range_t = pair<cursor_t, cursor_t>;
+    using chars_t = pair<cursor_t, cursor_t>;
     // And a way to get the string value for one
-    inline static string extract(const range_t& range) {
+    inline static string extract(const chars_t& range) {
         return string(range.first, range.second);
     }
     // And a way to get the length of one
-    inline static size_t length(const range_t& range) {
+    inline static size_t length(const chars_t& range) {
         return range.second - range.first;
     }
     // And a way to tell if one is empty
-    inline static bool empty(const range_t& range) {
+    inline static bool empty(const chars_t& range) {
         return range.second == range.first;
     }
     // And a type for a collection of GFA tags.
@@ -125,22 +125,22 @@ public:
     /**
      * Parse tags out from a possibly empty range to a vector of tag strings.
      */
-    static tag_list_t parse_tags(const range_t& tag_range);
+    static tag_list_t parse_tags(const chars_t& tag_range);
     
     /**
      * Parse an S line to name, sequence, and tags
      */
-    static tuple<string, range_t, tag_list_t> parse_s(const string& s_line);
+    static tuple<string, chars_t, tag_list_t> parse_s(const string& s_line);
     
     /**
      * Parse an L line to name, is_reverse, name, is_reverse, overlap, and tags
      */
-    static tuple<string, bool, string, bool, range_t, tag_list_t> parse_l(const string& l_line);
+    static tuple<string, bool, string, bool, chars_t, tag_list_t> parse_l(const string& l_line);
     
     /**
      * Parse a P line into name, visits, overlaps, and tags.
      */
-    static tuple<string, range_t, range_t, tag_list_t> parse_p(const string& p_line);
+    static tuple<string, chars_t, chars_t, tag_list_t> parse_p(const string& p_line);
     
     /**
      * Scan visits in a P line.
@@ -149,7 +149,7 @@ public:
      * and returns true if it wants to keep iterating (false means stop).
      */
     static void scan_p(const string& p_line,
-                       function<bool(const string& path_name, int64_t rank, const range_t& node_name, bool is_reverse)> visit_step);
+                       function<bool(const string& path_name, int64_t rank, const chars_t& node_name, bool is_reverse)> visit_step);
                        
     /**
      * Scan visits extracted from a P line.
@@ -157,8 +157,8 @@ public:
      * visit_step takes {rank (-1 if path empty), step node name, step reversed}
      * and returns true if it wants to keep iterating (false means stop).
      */
-    static void scan_p_visits(const range_t& visit_range,
-                              function<bool(int64_t rank, const range_t& node_name, bool is_reverse)> visit_step);
+    static void scan_p_visits(const chars_t& visit_range,
+                              function<bool(int64_t rank, const chars_t& node_name, bool is_reverse)> visit_step);
    
     /**
      * Decode rGFA tags from the given list of tags from an S line.
@@ -208,13 +208,13 @@ public:
     inline GFAIDMapInfo& id_map();
     
     /// These listeners will be called with information for all nodes.
-    vector<std::function<void(nid_t id, const range_t& sequence, const tag_list_t& tags)>> node_listeners;
+    vector<std::function<void(nid_t id, const chars_t& sequence, const tag_list_t& tags)>> node_listeners;
     /// These listeners will be called with information for all edges, after
     /// the node listeners for the involved nodes.
-    vector<std::function<void(nid_t from, bool from_is_reverse, nid_t to, bool to_is_reverse, const range_t& overlap, const tag_list_t& tags)>> edge_listeners;
+    vector<std::function<void(nid_t from, bool from_is_reverse, nid_t to, bool to_is_reverse, const chars_t& overlap, const tag_list_t& tags)>> edge_listeners;
     /// These listeners will be called with information for all P line paths,
     /// after the listeners for all involved nodes.
-    vector<std::function<void(const string& name, const range_t& visits, const range_t& overlaps, const tag_list_t& tags)>> path_listeners;
+    vector<std::function<void(const string& name, const chars_t& visits, const chars_t& overlaps, const tag_list_t& tags)>> path_listeners;
     /// These listeners will be called with each visit of an rGFA path to a
     /// node, after the node listeners for the involved node. They will be
     /// called in order along each path. The listener is responsible for
@@ -237,11 +237,11 @@ struct GFAFormatError : std::runtime_error {
     /// We can make one from a message
     GFAFormatError(const string& message);
     /// We can also make one with a position and a possibly null parsing state
-    GFAFormatError(const GFAParser::cursor_t& position, const string& message, const char* parsing_state);
+    GFAFormatError(const string& message, const GFAParser::cursor_t& position, const char* parsing_state);
     
     // The error may or may not have a position in a buffer attached.
     bool has_position = false;
-    GFAParser::cursor_t& position;
+    GFAParser::cursor_t position;
     
     // The error also can be annotated file location information when it makes
     // it up the stack to where those things are known.
@@ -249,7 +249,7 @@ struct GFAFormatError : std::runtime_error {
     size_t pass_number = 0;
     size_t line_number = 0;
     size_t column_number = 0;
-    string filename = "";
+    string file_name = "";
     
     // For making what() messages we need our own message buffer.
     mutable string message_buffer;

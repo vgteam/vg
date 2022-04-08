@@ -6,7 +6,6 @@
 namespace vg {
 
 using namespace std;
-using namespace gfak;
 
 /// Determine if a path should be written as a GFA W line or a GFA P line.
 static bool should_write_as_w_line(const PathHandleGraph* graph, path_handle_t path_handle);
@@ -50,12 +49,10 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
   
     //Go through each node in the graph
     graph->for_each_handle([&](const handle_t& h) {
-        sequence_elem s_elem;
-        // Fill seq element for a node
+        out << "S\t";
         nid_t node_id = graph->get_id(h);
-        s_elem.name = to_string(node_id);
-        s_elem.sequence = graph->get_sequence(h);
-        out << s_elem.to_string_1();
+        out << node_id << "\t";
+        out << graph->get_sequence(h);
         auto it = node_offsets.find(node_id);
         if (it != node_offsets.end()) {
             // add rGFA tags
@@ -95,22 +92,28 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
 
     // Paths as P-lines
     for (const path_handle_t& h : path_handles) {
-        path_elem p_elem;
-        p_elem.name = graph->get_path_name(h);
-        if (rgfa_pline || !rgfa_paths.count(p_elem.name)) {
+        auto path_name = graph->get_path_name(h);
+        if (rgfa_pline || !rgfa_paths.count(path_name)) {
             if (use_w_lines && should_write_as_w_line(graph, h)) {
                 w_line_paths.push_back(h);
             } else {
+                out << "P\t";
+                out << path_name << "\t";
+                
+                bool first = true;
                 graph->for_each_step_in_path(h, [&](const step_handle_t& ph) {
-            
                     handle_t step_handle = graph->get_handle_of_step(ph);
-
-                    p_elem.segment_names.push_back( std::to_string(graph->get_id(step_handle)) );
-                    p_elem.orientations.push_back( !graph->get_is_reverse(step_handle) );
+                    
+                    if (!first) {
+                        out << ',';
+                    }
+                    out << graph->get_id(step_handle);
+                    out << graph->get_is_reverse(step_handle) ? '-' : '+';
+                    first = false;
                     return true;
                 });
-                p_elem.overlaps.push_back("*");
-                out << p_elem.to_string_1() << "\n";
+                
+                out << "\t*" << "\n";
             }
         }
     }
@@ -127,7 +130,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
         
         nid_t from_id = graph->get_id(h.first);
         bool from_is_reverse = graph->get_is_reverse(h.first);
-        nid_t from_id = graph->get_id(h.second);
+        nid_t to_id = graph->get_id(h.second);
         bool to_is_reverse = graph->get_is_reverse(h.second);
     
         if (from_is_reverse && (to_is_reverse || to_id < from_id)) {
