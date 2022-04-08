@@ -585,25 +585,25 @@ void gfa_to_path_handle_graph(istream& in,
 
 /// Read a range, stopping before any end character in the given null-terminated string.
 /// Throws if the range would be empty or none of the characters are encountered.
-static GFAParser::range_t take_range_until(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, const char* end_chars) {
+static GFAParser::range_t take_range_until(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, const char* end_chars, const char* parsing_state = nullptr) {
     auto start = cursor;
     while (cursor != end) {
         for (const char* stop_char = end_chars; *stop_char; ++stop_char) {
             if (*cursor == *stop_char) {
                 // We found a stop character
                 if (cursor == start) {
-                     throw GFAFormatError("Expected nonempty value");
+                     throw GFAFormatError("Expected nonempty value", cursor, parsing_state);
                 }
                 return range_t(start, cursor);
             }
         }
         ++cursor;
     }
-    throw GFAFormatError("Expected terminator in " + std::string(end_chars));
+    throw GFAFormatError("Expected terminator in " + std::string(end_chars), cursor, parsing_state);
 }
 
 /// Read a range, stopping at tab or end of line.
-static GFAParser::range_t take_optional_range(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end) {
+static GFAParser::range_t take_optional_range(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, const char* parsing_state = nullptr) {
     auto start = cursor;
     while (cursor != end && *cursor != '\t') {
         ++cursor;
@@ -613,16 +613,16 @@ static GFAParser::range_t take_optional_range(GFAParser::cursor_t& cursor, const
 
 /// Read a range, stopping at tab or end of line.
 /// Throw if it is empty.
-static GFAParser::range_t take_range(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end) {
+static GFAParser::range_t take_range(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, const char* parsing_state = nullptr) {
     GFAParser::range_t value = take_optional_range(cursor, end);
     if (GFAParser::empty(value)) {
-        throw GFAFormatError("Expected nonempty value");
+        throw GFAFormatError("Expected nonempty value", cursor, parsing_state);
     }
     return value;
 }
 
 /// Read a string, stopping at tab or end of line.
-static string take_optional_string(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end) {
+static string take_optional_string(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, const char* parsing_state = nullptr) {
     string value;
     while (cursor != end && *cursor != '\t') {
         value.push_back(*cursor);
@@ -633,31 +633,31 @@ static string take_optional_string(GFAParser::cursor_t& cursor, const GFAParser:
 
 /// Read a string, stopping at tab or end of line.
 /// Throw if it is empty.
-static string take_string(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end) {
+static string take_string(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, const char* parsing_state = nullptr) {
     string value = take_optional_string(cursor, end);
     if (value.empty()) {
-        throw GFAFormatError("Expected nonempty value");
+        throw GFAFormatError("Expected nonempty value", cursor, parsing_state);
     }
     return value;
 }
 
 /// Advance past a tab character. If it's not there, return false. If something
 /// else is there, return GFAFormatError.
-static bool take_optional_tab(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end) {
+static bool take_optional_tab(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, const char* parsing_state = nullptr) {
     if (cursor == end) {
         return false;
     }
     if (*cursor != '\t') {
-        throw GFAFormatError("Expected tab"); 
+        throw GFAFormatError("Expected tab", cursor, parsing_state); 
     }
     ++cursor;
     return true;
 }
 
 /// Take the given character. Throw an error if it isn't there.
-static void take_character(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, char value) {
+static void take_character(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, char value, const char* parsing_state = nullptr) {
     if (cursor == end || *cursor != value) {
-        throw GFAFormatError("Expected " + value); 
+        throw GFAFormatError("Expected " + value, cursor, parsing_state); 
     }
     ++cursor;
 }
@@ -665,7 +665,7 @@ static void take_character(GFAParser::cursor_t& cursor, const GFAParser::cursor_
 /// Take one character of two options. Return true if it is the first one,
 /// false if it is the second, and throw an error if it is absent or something
 /// else.
-static bool take_flag_character(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, char true_value, char false_value) {
+static bool take_flag_character(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, char true_value, char false_value, const char* parsing_state = nullptr) {
     if (cursor != end) {
         if (*cursor == true_value) {
             ++cursor;
@@ -676,13 +676,13 @@ static bool take_flag_character(GFAParser::cursor_t& cursor, const GFAParser::cu
             return false;
         }
     }
-    throw GFAFormatError("Expected " + true_value + " or " + false_value);
+    throw GFAFormatError("Expected " + true_value + " or " + false_value, cursor, parsing_state);
 }
 
 /// Advance past a tab character that must exist.
-static void take_tab(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end) {
+static void take_tab(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, const char* parsing_state = nullptr) {
     if (!take_optional_tab(cursor, end)) {
-        throw GFAFormatError("Expected tab");
+        throw GFAFormatError("Expected tab", cursor, parsing_state);
     }
 }
 
@@ -693,12 +693,12 @@ GFAParser::tag_list_t GFAParser::parse_tags(const range_t& tag_range) {
     
     while (cursor != end) {
         // Scan out a tag of non-tab characters
-        string tag = take_string(cursor, end);
+        string tag = take_string(cursor, end, "parsing tags");
         if (!tag.empty()) {
             // We found a tag. Save it.
             tags.emplace_back(std::move(tag));
         }
-        take_optional_tab(cursor, end);
+        take_optional_tab(cursor, end, "parsing tags");
     }
     
     return tags;
@@ -709,16 +709,16 @@ tuple<string, range_t, tag_list_t> GFAParser::parse_s(const string& s_line) {
     auto end = s_line.end();
     
     // Make sure we start with S
-    take_character(cursor, end, 'S');
-    take_tab(cursor, end);
+    take_character(cursor, end, 'S', "parsing S line start");
+    take_tab(cursor, end "parsing S line");
     
     // Parse out the name
-    string name = take_string(cursor, end);
-    take_tab(cursor, end);
+    string name = take_string(cursor, end, "parsing sequence name");
+    take_tab(cursor, end "parsing end of sequence name");
     
     // Parse out the sequence
-    range_t sequence = take_range(cursor, end);
-    take_optional_tab(cursor, end);
+    range_t sequence = take_range(cursor, end, "parsing sequence");
+    take_optional_tab(cursor, end, "parsing end of sequence");
     
     // Now we're either at the end or at the tab before the tags. Parse the tags.
     auto tags = GFAParser::parse_tags(range_t(cursor, end));
@@ -731,24 +731,28 @@ tuple<string, bool, string, bool, range_t, tag_list_t> GFAParser::parse_l(const 
     auto end = l_line.end();
     
     // Make sure we start with L
-    take_character(cursor, end, 'L');
-    take_tab(cursor, end);
+    take_character(cursor, end, 'L', "parsing L line start");
+    take_tab(cursor, end, "parsing L line");
     
     // Parse out the first node name
-    string n1 = take_string(cursor, end);
-    take_tab(cursor, end);
+    string n1 = take_string(cursor, end, "parsing first node name");
+    take_tab(cursor, end, "parsing end of first node name");
     
     // Parse the first orientation
-    bool n1_reverse = take_flag_character(cursor, end, '-', '+');
-    take_tab(cursor, end);
+    bool n1_reverse = take_flag_character(cursor, end, '-', '+', "parsing first node orientation");
+    take_tab(cursor, end, "parsing end of first node orientation");
     
     // Parse out the second node name
-    string n2 = take_string(cursor, end);
-    take_tab(cursor, end);
+    string n2 = take_string(cursor, end, "parsing second node name");
+    take_tab(cursor, end, "parsing end of sencod node name");
+    
+    // Parse the second orientation
+    bool n2_reverse = take_flag_character(cursor, end, '-', '+', "parsing second node orientation");
+    take_tab(cursor, end, "parsing end of second node orientation");
     
     // Parse out the overlaps
-    range_t overlaps = take_range(cursor, end);
-    take_optional_tab(cursor, end);
+    range_t overlaps = take_range(cursor, end, "parsing overlaps");
+    take_optional_tab(cursor, end, "parsing end of overlaps");
     
     // Now we're either at the end or at the tab before the tags. Parse the tags.
     auto tags = GFAParser::parse_tags(range_t(cursor, end));
@@ -761,20 +765,20 @@ tuple<string, range_t, range_t, tag_list_t> GFAParser::parse_p(const string& p_l
     auto end = p_line.end();
     
     // Make sure we start with P
-    take_character(cursor, end, 'P');
-    take_tab(cursor, end);
+    take_character(cursor, end, 'P', "parsing P line start");
+    take_tab(cursor, end, "parsing P line");
     
     // Grab the path name
-    string path_name = take_string(cursor, end);
-    take_tab(cursor, end);
+    string path_name = take_string(cursor, end, "parsing path name");
+    take_tab(cursor, end, "parsing end of path name");
     
     // Parse out the visits
-    range_t visits = take_range(cursor, end);
-    take_tab(cursor, end);
+    range_t visits = take_range(cursor, end, "parsing path visits");
+    take_tab(cursor, end, "parsing end of path visits");
     
     // Parse out the overlaps
-    range_t overlaps = take_range(cursor, end);
-    take_optional_tab(cursor, end);
+    range_t overlaps = take_range(cursor, end, "parsing overlaps");
+    take_optional_tab(cursor, end, "parsing end of overlaps");
     
     // Now we're either at the end or at the tab before the tags. Parse the tags.
     auto tags = GFAParser::parse_tags(range_t(cursor, end));
@@ -793,8 +797,8 @@ void GFAParser::scan_p_visits(const range_t& visit_range,
         // Until we run out of visit list range
         
         // Make a range for the visit node name
-        range_t name_range = take_range_until(cursor, end, "+-");
-        bool is_reverse = take_flag_character(cursor, end, '-', '+');
+        range_t name_range = take_range_until(cursor, end, "+-", "parsing name of visited node");
+        bool is_reverse = take_flag_character(cursor, end, '-', '+', "parsing orientation of visited node");
         
         if (!visit_step(rank, name_range, is_reverse)) {
             // We should stop looping
@@ -803,7 +807,7 @@ void GFAParser::scan_p_visits(const range_t& visit_range,
         
         if (cursor != visit_range.end) {
             // Go past the comma separator
-            take_character(cursor, end, ',');
+            take_character(cursor, end, ',', "parsing visit separator");
         }
         // And advance the rank for the next visit
         ++rank;
@@ -1164,6 +1168,15 @@ GFAIDMapInfo& GFAParser::id_map() {
     }
     return *internal_id_map;
 };
+
+
+GFAFormatError::GFAFormatError(const string& message) : std::runtime_error(message) {
+    // Nothing to do!
+}
+
+GFAFormatError::GFAFormatError(const GFAParser::cursor_t& position, const string& message, const char* parsing_state) : GFAFormatError(message + (parsing_state ? (" while " + std::string(parsing_state)) : "")), has_position(true), position(position) {
+    // Nothing to do!
+}
 
 
 }

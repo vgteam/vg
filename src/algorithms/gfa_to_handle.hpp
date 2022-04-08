@@ -17,12 +17,6 @@ namespace vg {
 namespace algorithms {
 using namespace std;
 
-/// This exception will be thrown if the GFA data is not acceptable.
-struct GFAFormatError : std::runtime_error {
-    // Keep the constructor from a message
-    using std::runtime_error::runtime_error;
-};
-
 /**
  * Stores ID information for a graph imported from a GFA.
  * Either all IDs are numerically equivalent to their GFA string IDs, or they
@@ -236,6 +230,17 @@ public:
      */
     void parse(istream& in);
     
+};
+
+/// This exception will be thrown if the GFA data is not acceptable.
+struct GFAFormatError : std::runtime_error {
+    /// We can make one from a message
+    GFAFormatError(const string& message);
+    /// We can also make one with a position and a possibly null parsing state
+    GFAFormatError(const GFAParser::cursor_t& position, const string& message, const char* parsing_state);
+    
+    bool has_position = false;
+    GFAParser::cursor_t& position;
 };
 
 }
