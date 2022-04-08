@@ -476,10 +476,23 @@ cerr << "Add all seeds to nodes: " << endl;
                         tree_state.snarl_to_children.emplace(grandparent_index, child_index);
                     }
                 }
+                seed.distance_left = is_rev(pos) ? node_length- get_offset(pos) : get_offset(pos) + 1;
+                seed.distance_right = is_rev(pos) ? get_offset(pos) + 1 : node_length- get_offset(pos);
             }
         }
     }
-    std::sort(tree_state.node_to_seeds.begin(), tree_state.node_to_seeds.end());
+
+    //Sort node_to_seeds by the node and the seeds by their offset
+    std::sort(tree_state.node_to_seeds.begin(), tree_state.node_to_seeds.end(), 
+        [&](const auto& a, const auto b) -> bool {
+            if (std::get<0>(a) == std::get<0>(b) ) { 
+
+                return  tree_state.all_seeds->at(std::get<1>(a))->at(std::get<2>(a)).distance_left <
+                        tree_state.all_seeds->at(std::get<1>(b))->at(std::get<2>(b)).distance_left;
+            } else {
+                return std::get<0>(a) < std::get<0>(b);
+            }
+        });
 #ifdef DEBUG_CLUSTER
     cerr << endl;
 #endif
@@ -718,13 +731,6 @@ void NewSnarlSeedClusterer::cluster_one_node(
         //Go through each seed on this node and add it to the list of seeds
         seeds.emplace_back(std::get<1>(*iter), std::get<2>(*iter));
     }
-    std::sort(seeds.begin(), seeds.end(), [&](const auto& a, const auto b) -> bool {
-            pos_t seed_a = tree_state.all_seeds->at(a.first)->at(a.second).pos;
-            size_t offset_a = is_rev(seed_a) ? node_length- get_offset(seed_a) : get_offset(seed_a) + 1;
-            pos_t seed_b = tree_state.all_seeds->at(b.first)->at(b.second).pos;
-            size_t offset_b = is_rev(seed_b) ? node_length- get_offset(seed_b) : get_offset(seed_b) + 1;
-            return  offset_a < offset_b;
-        });
     std::function<std::tuple<size_t, size_t, size_t>(const pair<size_t, size_t>&)> get_offset_from_indices = 
         [&](const std::pair<size_t, size_t>& seed_index){
             //This function returns a tuple of <read num, seed num, left offset>
