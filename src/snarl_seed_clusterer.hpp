@@ -381,7 +381,8 @@ class NewSnarlSeedClusterer {
         //Cluster in the root 
         void cluster_root(TreeState& tree_state) const;
 
-        //Cluster a list of seeds (SeedIndexes) that are on a single structure (node or chain)
+        //Cluster a list of seeds (SeedIndexes) that are on a single linear structure (node or chain)
+        //Requires that the list of seeds are sorted relative to their position on the structure
         //The list of seeds is everything in the list between range_start and range_end
         //This can be called on a chain if there are no nested seeds on the chain
         //get_offset_from_seed_index returns a tuple of <read_num, seed_num, left offset> indices into all_seeds from whatever

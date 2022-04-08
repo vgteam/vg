@@ -611,14 +611,13 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
     }
 
 
-    //The index into all_node_clusters of the current chain being clustered
+    //Go through the list of children, where the children are represented as a tuple of parent, child
+    //Keep a list of all children of the current chain, and cluster a chain when we find its last child
     vector<tuple<bool, size_t, size_t>> current_chain_children;
     bool only_seeds=true;
 
     for (size_t chain_child_i = 0 ; chain_child_i < chain_to_children.size() ; chain_child_i++) {
 
-        //For each chain at this level that has relevant child snarls in it,
-        //find the clusters.
         const std::tuple<size_t, bool, size_t, size_t>& parent_to_child_tuple = chain_to_children.at(chain_child_i);
 
         //Add the current chain
@@ -634,11 +633,11 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
 
 
         if (chain_child_i == chain_to_children.size() -1 || std::get<0>(chain_to_children[chain_child_i+1]) != chain_index) {
+            //If this is the last child of the current chain, then cluster it
 
 #ifdef DEBUG_CLUSTER
             cerr << "Cluster one chain " <<  distance_index.net_handle_as_string(chain_handle) << endl;
 #endif
-            //If this is the last child of the current chain
 
 
             // Compute the clusters for the chain (the previous chain)
@@ -719,6 +718,13 @@ void NewSnarlSeedClusterer::cluster_one_node(
         //Go through each seed on this node and add it to the list of seeds
         seeds.emplace_back(std::get<1>(*iter), std::get<2>(*iter));
     }
+    std::sort(seeds.begin(), seeds.end(), [&](const auto& a, const auto b) -> bool {
+            pos_t seed_a = tree_state.all_seeds->at(a.first)->at(a.second).pos;
+            size_t offset_a = is_rev(seed_a) ? node_length- get_offset(seed_a) : get_offset(seed_a) + 1;
+            pos_t seed_b = tree_state.all_seeds->at(b.first)->at(b.second).pos;
+            size_t offset_b = is_rev(seed_b) ? node_length- get_offset(seed_b) : get_offset(seed_b) + 1;
+            return  offset_a < offset_b;
+        });
     std::function<std::tuple<size_t, size_t, size_t>(const pair<size_t, size_t>&)> get_offset_from_indices = 
         [&](const std::pair<size_t, size_t>& seed_index){
             //This function returns a tuple of <read num, seed num, left offset>
@@ -2589,12 +2595,6 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
 
     }
     
-    //Sort seeds by their position in the node
-    std::sort(seed_offsets.begin(), seed_offsets.end(),
-                 [&](const auto a, const auto b) -> bool {
-                      return  std::get<2>(a) < std::get<2>(b);
-                  } );
-
     //Offset of the first seed for the cluster we're building
     //One for each read
     vector<size_t> read_first_offset (tree_state.all_seeds->size(), std::numeric_limits<size_t>::max());
