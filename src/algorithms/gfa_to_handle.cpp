@@ -73,8 +73,15 @@ static void add_graph_listeners(GFAParser& parser, MutableHandleGraph* graph) {
 /// Add listeners which let a GFA parser fill in a path handle graph with paths.
 static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph* graph) {
     parser.path_listeners.push_back([&parser, graph](const string& name, const GFAParser::chars_t& visits, const GFAParser::chars_t& overlaps, const GFAParser::tag_list_t& tags) {
+        if (graph->has_path(name)) {
+            // Prohibit duplicates
+            throw GFAFormatError("Duplicate path name: " + name);
+        }
+        
         auto path_handle = graph->create_path_handle(name);
-        // TODO: Make sure overlaps has nothing important
+        
+        // Overlaps are pre-checked in scan_p
+        // TODO: Do it in a better place.
         
         GFAParser::scan_p_visits(visits, [&](int64_t step_rank,
                                              const GFAParser::chars_t& step_name,
@@ -507,12 +514,12 @@ bool GFAParser::decode_rgfa_tags(const tag_list_t& tags,
     return has_sn && has_so && has_sr;
 }
 
-nid_t GFAParser::parse_sequence_id(const string& str, GFAIDMapInfo& id_map_info) {
+nid_t GFAParser::assign_new_sequence_id(const string& str, GFAIDMapInfo& id_map_info) {
     
     auto found = id_map_info.name_to_id->find(str);
     if (found != id_map_info.name_to_id->end()) {
-        // already in map, just return
-        return found->second;
+        // already in map, so bail out
+        return 0;
     }
     
     nid_t node_id = -1;
@@ -535,7 +542,7 @@ nid_t GFAParser::parse_sequence_id(const string& str, GFAIDMapInfo& id_map_info)
     }
     
     id_map_info.max_id = std::max(node_id, id_map_info.max_id);
-    id_map_info.name_to_id->emplace(str, node_id);
+    id_map_info.name_to_id->emplace_hint(found, str, node_id);
 
     return node_id;
 }
@@ -607,6 +614,7 @@ void GFAParser::parse(istream& in) {
             switch(line_buffer[0]) {
             case 'H':
                 // Header lines don't need anything done
+                // TODO: Warn if we see version 0.1; it may have non-standard split P lines.
                 break;
             case 'S':
                 // Sequence lines can always be handled right now
@@ -615,8 +623,11 @@ void GFAParser::parse(istream& in) {
                     auto& node_name = get<0>(s_parse);
                     auto& sequence_range = get<1>(s_parse);
                     auto& tags = get<2>(s_parse);
-                    // TODO: enforce ID uniqueness here
-                    nid_t assigned_id = GFAParser::parse_sequence_id(node_name, this->id_map());
+                    nid_t assigned_id = GFAParser::assign_new_sequence_id(node_name, this->id_map());
+                    if (assigned_id == 0) {
+                        // This name has been used already!
+                        throw GFAFormatError("Duplicate sequence name: " + node_name);
+                    }
                     for (auto& listener : this->node_listeners) {
                         // Tell all the listener functions
                         listener(assigned_id, sequence_range, tags);
@@ -700,7 +711,11 @@ void GFAParser::parse(istream& in) {
                 {
                     bool missing = false;
                     string missing_name;
-                    // pass 1: make sure we have all the nodes in the graph
+                    
+                    // TODO: we don't check for duplicate path lines here.
+                    // Listeners might.
+                    
+                    // Pass 1: Make sure we have all the nodes in the graph
                     GFAParser::scan_p(line_buffer, [&](const string& path_name,
                                                        int64_t step_rank,
                                                        const GFAParser::chars_t& step_id,
@@ -721,7 +736,7 @@ void GFAParser::parse(istream& in) {
                         break;
                     }
                     
-                    // Re-parse the pieces of the line.
+                    // Pass 2: Re-parse the pieces of the line.
                     // TODO: Deduplicate with scan
                     tuple<string, chars_t, chars_t, tag_list_t> p_parse = GFAParser::parse_p(line_buffer);
                     for (auto& listener : this->path_listeners) {

@@ -186,8 +186,10 @@ public:
      * there is the unfortunate side effect that they will be different
      * sepending on whether the GFA is processed in lexicographic order or file
      * order.
+     *
+     * If the string ID has been seen before, returns 0.
      */
-    static nid_t parse_sequence_id(const string& str, GFAIDMapInfo& id_map_info);
+    static nid_t assign_new_sequence_id(const string& str, GFAIDMapInfo& id_map_info);
     
     /**
      * Find the existing sequence ID for the given node name, or 0 if it has not been seen yet.
@@ -208,18 +210,23 @@ public:
     inline GFAIDMapInfo& id_map();
     
     /// These listeners will be called with information for all nodes.
+    /// Listeners are protected from duplicate node IDs. 
     vector<std::function<void(nid_t id, const chars_t& sequence, const tag_list_t& tags)>> node_listeners;
     /// These listeners will be called with information for all edges, after
     /// the node listeners for the involved nodes.
+    /// Listeners are not protected from duplicate edges.
     vector<std::function<void(nid_t from, bool from_is_reverse, nid_t to, bool to_is_reverse, const chars_t& overlap, const tag_list_t& tags)>> edge_listeners;
     /// These listeners will be called with information for all P line paths,
     /// after the listeners for all involved nodes.
+    /// Listeners are not protected from duplicate path names.
     vector<std::function<void(const string& name, const chars_t& visits, const chars_t& overlaps, const tag_list_t& tags)>> path_listeners;
     /// These listeners will be called with each visit of an rGFA path to a
     /// node, after the node listeners for the involved node. They will be
     /// called in order along each path. The listener is responsible for
     /// detecting any gaps in the offset space and producing multiple subpaths
     /// if necessary.
+    /// Listeners are protected from duplicate paths with the same name and
+    /// different ranks, but not from overlaps of nodes in path offset space.
     vector<std::function<void(nid_t id, int64_t offset, size_t length, const string& path_name, int64_t path_rank)>> rgfa_listeners;
     
     /// Include paths from rGFA tags at this rank or lower. Set to -1 to ignore rGFA tags.

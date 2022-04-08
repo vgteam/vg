@@ -12,7 +12,7 @@ namespace unittest {
 using namespace std;
 
 TEST_CASE("Can import a simple graph from GFA", "[gfa]") {
-    const string graph_gfa = R"(H	VN:Z:0.1
+    const string graph_gfa = R"(H	VN:Z:1.0
 S	1	G
 L	1	+	2	+	0M
 L	1	+	4	+	0M
@@ -26,18 +26,35 @@ L	5	+	2	+	0M
 L	5	+	6	+	0M
 S	6	T
 L	6	+	3	+	0M
-P	1	ref	1	+	1M
-P	2	ref	2	+	1M
-P	3	ref	3	+	1M
-P	1	path1	1	+	1M
-P	4	path1	2	+	1M
-P	5	path1	3	+	1M
-P	2	path1	4	+	1M
-P	1	path2	1	+	1M
-P	4	path2	2	+	1M
-P	5	path2	3	+	1M
-P	6	path2	4	+	1M
-P	3	path2	5	+	1M)";
+P	ref	1+,2+,3+	1M,1M,1M
+P	path1	1+,4+,5+,2+	1M,1M,1M,1M
+P	path2	1+,4+,5+,6+,3+	1M,1M,1M,1M,1M)";
+        
+    VG vg;
+    stringstream in(graph_gfa);
+    algorithms::gfa_to_path_handle_graph(in, &vg);
+    REQUIRE(vg.is_valid());
+    REQUIRE(vg.length() == 6);
+}
+
+TEST_CASE("Can import a simple graph from GFA with out of order lines and elided fields", "[gfa]") {
+    const string graph_gfa = R"(H	VN:Z:1.0
+S	1	G
+L	5	+	6	+	0M
+L	1	+	2	+	0M
+P	path1	1+,4+,5+,2+	1M,1M,1M,1M
+L	1	+	4	+	0M
+L	2	+	3	+	0M
+S	3	G
+S	4	C
+L	4	+	5	+	*
+S	5	C
+L	5	+	2	+	0M
+S	6	T
+L	6	+	3	+	0M
+P	ref	1+,2+,3+	*
+S	2	T
+P	path2	1+,4+,5+,6+,3+	1M,1M,1M,1M,1M)";
         
     VG vg;
     stringstream in(graph_gfa);
@@ -85,27 +102,10 @@ L	17	+	12	+	0M
 S	16	G
 L	16	+	11	+	0M
 L	16	+	17	+	0M
-P	1	ref	1	+	1M
-P	2	ref	2	+	1M
-P	3	ref	3	+	1M
-P	6	path1	1	+	1M
-P	5	path1	2	+	1M
-P	4	path1	3	+	1M
-P	2	path1	4	+	1M
-P	6	path2	1	+	1M
-P	5	path2	2	+	1M
-P	4	path2	3	+	1M
-P	2	path2	4	+	1M
-P	3	path2	5	+	1M
-P	2	path3	1	+	1M
-P	11	path3	2	+	1M
-P	12	path3	3	+	1M
-P	13	path3	4	+	1M
-P	1	path4	1	+	1M
-P	2	path4	2	+	1M
-P	11	path4	3	+	1M
-P	12	path4	4	+	1M
-P	13	path4	5	+	1M)";
+P	ref	1+,2+,3+	1M,1M,1M
+P	path1	6+,5+,4+,2+	1M,1M,1M,1M
+P	path2	6+,5+,4+,2+,3+	1M,1M,1M,1M,1M
+P	path3	2+,11+,12+,13+	1M,1M,1M,1M)";
         
     VG vg;
     stringstream in(graph_gfa);
@@ -193,61 +193,7 @@ L	35	+	34	+	0M
 S	32	T
 L	32	+	33	+	0M
 S	33	G
-P	1	ref	1	+	1M
-P	2	ref	2	+	1M
-P	3	ref	3	+	1M
-P	1	path1	1	+	1M
-P	2	path1	2	+	1M
-P	20	path1	3	+	1M
-P	21	path1	4	+	1M
-P	5	path2	1	+	1M
-P	4	path2	2	+	1M
-P	13	path2	3	+	1M
-P	14	path2	4	+	1M
-P	15	path2	5	+	1M
-P	20	path3	1	+	1M
-P	29	path3	2	+	1M
-P	30	path3	3	+	1M
-P	31	path3	4	+	1M
-P	4	path4	1	+	1M
-P	13	path4	2	+	1M
-P	14	path4	3	+	1M
-P	15	path4	4	+	1M
-P	5	path5	1	+	1M
-P	4	path5	2	+	1M
-P	2	path5	3	+	1M
-P	3	path5	4	+	1M
-P	6	path6	1	+	1M
-P	7	path6	2	+	1M
-P	8	path6	3	+	1M
-P	4	path6	4	+	1M
-P	2	path6	5	+	1M
-P	2	path7	1	+	1M
-P	20	path7	2	+	1M
-P	29	path7	3	+	1M
-P	30	path7	4	+	1M
-P	31	path7	5	+	1M
-P	22	path8	1	+	1M
-P	23	path8	2	+	1M
-P	24	path8	3	+	1M
-P	20	path8	4	+	1M
-P	21	path8	5	+	1M
-P	6	path9	1	+	1M
-P	7	path9	2	+	1M
-P	8	path9	3	+	1M
-P	4	path9	4	+	1M
-P	2	path9	5	+	1M
-P	3	path9	6	+	1M
-P	22	path10	1	+	1M
-P	23	path10	2	+	1M
-P	24	path10	3	+	1M
-P	20	path10	4	+	1M
-P	5	path11	1	+	1M
-P	4	path11	2	+	1M
-P	2	path11	3	+	1M
-P	2	path12	1	+	1M
-P	20	path12	2	+	1M
-P	21	path12	3	+	1M)";
+P	ref	1+,2+,3+	1M,1M,1M)";
         
     VG vg;
     stringstream in(graph_gfa);
@@ -257,9 +203,13 @@ P	21	path12	3	+	1M)";
 }
 
 
-TEST_CASE("Can import paths in GFA 0.1 and in GFA 1.0", "[gfa]") {
+TEST_CASE("Can import paths in GFA 1.0 but rejects GFA 0.1 multiline paths", "[gfa]") {
 
-    const string graph_gfa_oneline = R"(H	VN:Z:1.0
+    // Both these GFA files say the same thing.
+
+    SECTION("Single-line paths work") {
+
+    const string graph_gfa = R"(H	VN:Z:1.0
 S	1	CAAATAAG
 S	2	A
 S	3	G
@@ -267,7 +217,33 @@ P	x	1+,3+	8M,1M
 L	1	+	2	+	0M
 L	1	+	3	+	0M)";
 
-    const string graph_gfa_multiline = R"(H	VN:Z:0.1
+
+        VG vg;
+        stringstream in(graph_gfa);
+        algorithms::gfa_to_path_handle_graph(in, &vg);
+
+        REQUIRE(vg.is_valid());
+
+        REQUIRE(vg.node_count() == 3);
+        REQUIRE(vg.edge_count() == 2);
+
+        REQUIRE(vg.paths.has_path("x"));
+        auto path = vg.paths.path("x");
+        REQUIRE(path.mapping_size() == 2);
+
+        REQUIRE(mapping_from_length(path.mapping(0)) == 8);
+        REQUIRE(mapping_is_match(path.mapping(0)));
+        REQUIRE(path.mapping(0).position().is_reverse() == false);
+
+        REQUIRE(mapping_from_length(path.mapping(1)) == 1);
+        REQUIRE(mapping_is_match(path.mapping(1)));
+        REQUIRE(path.mapping(1).position().is_reverse() == false);
+
+    }
+
+    SECTION("Multi-line paths are rejected") {
+
+    const string graph_gfa = R"(H	VN:Z:0.1
 S	1	CAAATAAG
 S	2	A
 S	3	G
@@ -276,38 +252,65 @@ P	3	x	2	+	1M
 L	1	+	2	+	0M
 L	1	+	3	+	0M)";
 
-    // Both these GFA files say the same thing.
-    for (auto& graph_gfa : {graph_gfa_oneline, graph_gfa_multiline}) {
-
-        VG vg;
+        bdsg::HashGraph graph;
         stringstream in(graph_gfa);
-        algorithms::gfa_to_path_handle_graph(in, &vg);
-        
-        REQUIRE(vg.is_valid());
-        
-        REQUIRE(vg.node_count() == 3);
-        REQUIRE(vg.edge_count() == 2);
-        
-        REQUIRE(vg.paths.has_path("x"));
-        auto path = vg.paths.path("x");
-        REQUIRE(path.mapping_size() == 2);
-        
-        REQUIRE(mapping_from_length(path.mapping(0)) == 8);
-        REQUIRE(mapping_is_match(path.mapping(0)));
-        REQUIRE(path.mapping(0).position().is_reverse() == false);
-        
-        REQUIRE(mapping_from_length(path.mapping(1)) == 1);
-        REQUIRE(mapping_is_match(path.mapping(1)));
-        REQUIRE(path.mapping(1).position().is_reverse() == false);
-        
+        REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph(in, &graph), algorithms::GFAFormatError);
     }
+   
 }
 
-TEST_CASE("Can reject GFAs using unsupported features", "[gfa]") {
+TEST_CASE("Can reject graphs that are missing nodes", "[gfa]") {
+
+    const string graph_gfa = R"(H	VN:Z:1.0
+S	1	CAAATAAG
+S	3	G
+L	1	+	2	+	0M
+L	1	+	3	+	0M)";
+
+    bdsg::HashGraph graph;
+    stringstream in(graph_gfa);
+    REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph(in, &graph), algorithms::GFAFormatError);
+
+}
+
+TEST_CASE("Can reject graphs that have duplicate nodes", "[gfa]") {
+
+    const string graph_gfa = R"(H	VN:Z:1.0
+S	1	CAAATAAG
+S	2	A
+S	3	G
+L	1	+	2	+	0M
+L	1	+	3	+	0M
+S	1	GATTACA)";
+
+    bdsg::HashGraph graph;
+    stringstream in(graph_gfa);
+    REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph(in, &graph), algorithms::GFAFormatError);
+
+}
+
+TEST_CASE("Can reject graphs that have duplicate paths", "[gfa]") {
+
+    const string graph_gfa = R"(H	VN:Z:1.0
+P	x	1+,3+	8M,1M
+S	1	CAAATAAG
+S	2	A
+S	3	G
+P	x	1+,3+	8M,1M
+L	1	+	2	+	0M
+L	1	+	3	+	0M)";
+
+    bdsg::HashGraph graph;
+    stringstream in(graph_gfa);
+    REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph(in, &graph), algorithms::GFAFormatError);
+
+}
+
+TEST_CASE("Can tolerate interesting GFA node IDs", "[gfa]") {
 
     SECTION("An inoffensive graph is accepted") {
 
-        const string graph_gfa = R"(H	VN:Z:0.1
+        const string graph_gfa = R"(H	VN:Z:1.0
 S	1	GATT
 S	2	ACA
 L	1	+	2	+	0M)";
@@ -317,11 +320,17 @@ L	1	+	2	+	0M)";
         algorithms::gfa_to_path_handle_graph(in, &graph);
         
         REQUIRE(graph.get_node_count() == 2);
+        // We assume IDs are assigned in file order
+        handle_t h1 = graph.get_handle(1);
+        handle_t h2 = graph.get_handle(2);
+        REQUIRE(graph.get_sequence(h1) == "GATT");
+        REQUIRE(graph.get_sequence(h2) == "ACA");
+        REQUIRE(graph.has_edge(h1, h2));
     }
 
     SECTION("A graph that merges the ends of two nodes is rejected with GFAFormatError") {
 
-        const string graph_gfa = R"(H	VN:Z:0.1
+        const string graph_gfa = R"(H	VN:Z:1.0
 S	1	GATTAC
 S	2	ATTACA
 L	1	+	2	+	5M)";
@@ -333,7 +342,7 @@ L	1	+	2	+	5M)";
     
     SECTION("A graph that uses a non-numerical identifier is OK") {
 
-        const string graph_gfa = R"(H	VN:Z:0.1
+        const string graph_gfa = R"(H	VN:Z:1.0
 S	1	GATT
 S	Chana	ACA
 L	1	+	Chana	+	0M)";
@@ -342,15 +351,17 @@ L	1	+	Chana	+	0M)";
         stringstream in(graph_gfa);
         algorithms::gfa_to_path_handle_graph(in, &graph);
         REQUIRE(graph.get_node_count() == 2);
-        // Note: gfakluge will visit the nodes in lex. order when loading from memory
-        REQUIRE(graph.get_sequence(graph.get_handle(1)) == "GATT");
-        REQUIRE(graph.get_sequence(graph.get_handle(2)) == "ACA");
-        REQUIRE(graph.has_edge(graph.get_handle(1), graph.get_handle(2)));
+        // We assume IDs are assigned in file order
+        handle_t h1 = graph.get_handle(1);
+        handle_t h2 = graph.get_handle(2);
+        REQUIRE(graph.get_sequence(h1) == "GATT");
+        REQUIRE(graph.get_sequence(h2) == "ACA");
+        REQUIRE(graph.has_edge(h1, h2));
     }
     
     SECTION("A graph that uses a negative identifier is OK") {
 
-        const string graph_gfa = R"(H	VN:Z:0.1
+        const string graph_gfa = R"(H	VN:Z:1.0
 S	1	GATT
 S	-2	ACA
 L	1	+	-2	+	0M)";
@@ -359,15 +370,17 @@ L	1	+	-2	+	0M)";
         stringstream in(graph_gfa);
         algorithms::gfa_to_path_handle_graph(in, &graph);
         REQUIRE(graph.get_node_count() == 2);
-        // Note: gfakluge will visit the nodes in lex. order when loading from memory
-        REQUIRE(graph.get_sequence(graph.get_handle(2)) == "GATT");
-        REQUIRE(graph.get_sequence(graph.get_handle(1)) == "ACA");
-        REQUIRE(graph.has_edge(graph.get_handle(2), graph.get_handle(1)));
+        // We assume IDs are assigned in file order
+        handle_t h1 = graph.get_handle(1);
+        handle_t h2 = graph.get_handle(2);
+        REQUIRE(graph.get_sequence(h1) == "GATT");
+        REQUIRE(graph.get_sequence(h2) == "ACA");
+        REQUIRE(graph.has_edge(h1, h2));
     }
     
     SECTION("A graph that uses a zero identifier is OK") {
 
-        const string graph_gfa = R"(H	VN:Z:0.1
+        const string graph_gfa = R"(H	VN:Z:1.0
 S	1	GATT
 S	0	ACA
 L	1	+	0	+	0M)";
@@ -376,10 +389,12 @@ L	1	+	0	+	0M)";
         stringstream in(graph_gfa);
         algorithms::gfa_to_path_handle_graph(in, &graph);
         REQUIRE(graph.get_node_count() == 2);
-        // Note: gfakluge will visit the nodes in lex. order when loading from memory
-        REQUIRE(graph.get_sequence(graph.get_handle(2)) == "GATT");
-        REQUIRE(graph.get_sequence(graph.get_handle(1)) == "ACA");
-        REQUIRE(graph.has_edge(graph.get_handle(2), graph.get_handle(1)));
+        // We assume IDs are assigned in file order
+        handle_t h1 = graph.get_handle(1);
+        handle_t h2 = graph.get_handle(2);
+        REQUIRE(graph.get_sequence(h1) == "GATT");
+        REQUIRE(graph.get_sequence(h2) == "ACA");
+        REQUIRE(graph.has_edge(h1, h2));
     }
 
 }
