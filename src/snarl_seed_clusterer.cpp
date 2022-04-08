@@ -281,7 +281,7 @@ cerr << "Add all seeds to nodes: " << endl;
     //All nodes we've already created node_clusters for
     hash_set<id_t> seen_nodes;
     //A vector of indices into all_node_clusters of nodes that need to be clustered
-    vector<size_t> to_cluster; 
+    vector<pair<size_t, net_handle_t>> to_cluster; 
     seen_nodes.reserve(tree_state.seed_count_prefix_sum.back());
     for (size_t read_num = 0 ; read_num < tree_state.all_seeds->size() ; read_num++){ 
         vector<Seed>* seeds = tree_state.all_seeds->at(read_num);
@@ -423,7 +423,7 @@ cerr << "Add all seeds to nodes: " << endl;
                                     NodeClusters(std::move(node_net_handle), tree_state.all_seeds->size(),
                                                  is_reversed_in_parent, id, node_length, prefix_sum, component));
                         //Remember to cluster it later
-                        to_cluster.emplace_back(child_index);
+                        to_cluster.emplace_back(child_index, parent);
                     }
 
 
@@ -444,7 +444,7 @@ cerr << "Add all seeds to nodes: " << endl;
                         tree_state.all_node_clusters.emplace_back(
                                     NodeClusters(std::move(parent), tree_state.all_seeds->size(),
                                                  is_reversed_in_parent, id, node_length, prefix_sum, component)); 
-                        to_cluster.emplace_back(child_index);
+                        to_cluster.emplace_back(child_index, parent);
                                             
                         net_handle_t grandparent_snarl = distance_index.get_parent(parent);
                         size_t grandparent_index;
@@ -500,9 +500,10 @@ cerr << "Add all seeds to nodes: " << endl;
 #endif
 
     //Go through and cluster nodes that are trivial snarls or children of the root
-    for(size_t cluster_index : to_cluster) {
+    for(pair<size_t, net_handle_t> cluster_index_parent : to_cluster) {
+        size_t cluster_index = cluster_index_parent.first;
         NodeClusters& node_clusters = tree_state.all_node_clusters[cluster_index];
-        net_handle_t parent = distance_index.get_parent(node_clusters.containing_net_handle);
+        net_handle_t parent = cluster_index_parent.second;
 
         cluster_one_node(tree_state, node_clusters);
         if (!distance_index.is_root(parent) && distance_index.is_root(distance_index.get_parent(parent))) {
