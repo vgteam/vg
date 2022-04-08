@@ -450,8 +450,8 @@ void GFAParser::scan_p(const string& p_line,
     auto& overlaps = get<2>(p_parse);
     
     for(auto it = overlaps.first; it != overlaps.second; ++it) {
-        if (*it != '*' && *it != ',') {
-            // This overlap isn't just * or a list of *.
+        if (*it != '*' && *it != ',' && *it != 'M' && (*it < '0' || *it > '9')) {
+            // This overlap isn't just * or a list of * or a list of matches with numbers.
             // We can't handle it
             throw GFAFormatError("Path " + path_name + " has nontrivial overlaps and can't be handled");
         }
@@ -830,6 +830,7 @@ const char* GFAFormatError::what() const noexcept {
     if (message_buffer.empty()) {
         // We need to generate the message
         stringstream ss;
+        ss << "GFA format error: ";
         
         if (pass_number != 0) {
             // We do the pass first because we might need to report a buffer

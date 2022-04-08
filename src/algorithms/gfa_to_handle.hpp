@@ -202,7 +202,7 @@ public:
     // We can either use an internal ID map here
     unique_ptr<GFAIDMapInfo> internal_id_map;
     // Or have this pointed at an external one before we start parsing.
-    GFAIDMapInfo* external_id_map;
+    GFAIDMapInfo* external_id_map = nullptr;
     
     /// Get the ID map we should be using for parsing.
     inline GFAIDMapInfo& id_map();
