@@ -791,7 +791,7 @@ void GFAParser::parse(istream& in) {
                 {
                     tuple<string, GFAParser::range_t, vector<string>> s_parse = GFAParser::parse_s(line_buffer);
                     // TODO: enforce ID uniqueness here
-                    nid_t assigned_id = GFAParser::parse_sequence_id(get<0>(s_parse), this->id_map);
+                    nid_t assigned_id = GFAParser::parse_sequence_id(get<0>(s_parse), this->id_map());
                     for (auto& listener : this->node_listeners) {
                         // Tell all the listener functions
                         listener(assigned_id, get<1>(s_parse), get<2>(s_parse));
@@ -827,12 +827,12 @@ void GFAParser::parse(istream& in) {
                     tuple<string, bool, string, bool, string, vector<string>> l_parse = GFAParser::parse_l(line_buffer);
                     
                     // We only get these IDs if they have been seen already as nodes
-                    nid_t n1 = GFAParser::find_existing_sequence_id(get<0>(l_parse), this->id_map);
+                    nid_t n1 = GFAParser::find_existing_sequence_id(get<0>(l_parse), this->id_map());
                     if (!n1) {
                         save_line_until_node(get<0>(l_parse));
                         break;
                     }
-                    nid_t n2 = GFAParser::find_existing_sequence_id(get<2>(l_parse), this->id_map);
+                    nid_t n2 = GFAParser::find_existing_sequence_id(get<2>(l_parse), this->id_map());
                     if (!n2) {
                         save_line_until_node(get<2>(l_parse));
                         break;
@@ -855,7 +855,7 @@ void GFAParser::parse(istream& in) {
                                                        const string& step_id,
                                                        bool step_is_reverse) {
                          if (step_rank >= 0) {
-                             nid_t n = GFAParser::find_existing_sequence_id(step_id, this->id_map);
+                             nid_t n = GFAParser::find_existing_sequence_id(step_id, this->id_map());
                              if (!n) {
                                 missing = true;
                                 missing_name = step_id;
@@ -914,6 +914,16 @@ void GFAParser::parse(istream& in) {
         unlink(buffer_name);
     }
 }
+
+GFAIDMapInfo& GFAParser::id_map() {
+    if (external_id_map) {
+        return *external_id_map;
+    }
+    if (!internal_id_map) {
+        internal_id_map = make_unique<GFAIDMapInfo>();
+    }
+    return *internal_id_map;
+};
 
 
 }

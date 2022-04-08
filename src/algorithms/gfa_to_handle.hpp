@@ -179,7 +179,14 @@ public:
     // before events they depend on (so a path is delayed until all the nodes
     // in it are parsed).
     
-    GFAIDMapInfo id_map;
+    // We can either use an internal ID map here
+    unique_ptr<GFAIDMapInfo> internal_id_map;
+    // Or have this pointed at an external one before we start parsing.
+    GFAIDMapInfo* external_id_map;
+    
+    /// Get the ID map we should be using for parsing.
+    inline GFAIDMapInfo& id_map();
+    
     vector<std::function<void(nid_t id, const range_t& sequence, const vector<string>& tags)>> node_listeners;
     vector<std::function<void(nid_t from, bool from_is_reverse, nid_t to, bool to_is_reverse, const string& overlap, const vector<string>& tags)>> edge_listeners;
     vector<std::function<void(const string& name, const range_t& visits, const range_t& overlaps, const vector<string>& tags)>> path_listeners;
