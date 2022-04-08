@@ -509,9 +509,63 @@ static void add_graph_listeners(GFAParser& parser, MutableHandleGraph* graph) {
 /// Add listeners which let a GFA parser fill in a path handle graph with paths.
 static void add_path_listeners(GFAParser& parser, MutableHandleGraph* graph) {
     parser.path_listeners.push_back([&parser, graph](const string& name, const range_t& visits, const range_t& overlaps, const GFAParser::tag_list_t& tags) {
-         path_handle = graph->create_path_handle(name);
-         // TODO: Make sure overlaps has nothing important
-         
+        auto path_handle = graph->create_path_handle(name);
+        // TODO: Make sure overlaps has nothing important
+        
+        GFAParser::scan_p_visits(visits, [&](int64_t step_rank,
+                                             const range_t& step_name,
+                                             bool step_is_reverse) {
+            if (step_rank >= 0) {
+                // Not an empty path sentinel.
+                // Find the node ID to visit.
+                nid_t n = GFAParser::find_existing_sequence_id(GFAParser::extract(step_name), parser.id_map());
+                // And add the step.
+                graph->append_step(path_handle, graph->get_handle(n, step_is_reverse));
+            }
+            // Don't stop.
+            return true;
+        });
+    });
+    
+    // For rGFA we need to have some state. Use a smart pointer to smuggle it
+    // into the closure.
+    // For each path name, we remember handle and expected next starting
+    // position. If we aren't at the expected next starting position, there's a
+    // gap and we need to make a new path.
+    // TODO: This duplicates some work with the parser, which also caches rGFA path expected offsets.
+    // TODO: Come up with a better listener interface that announces breaks and lets you keep the path handy?
+    using rgfa_cache_t = unordered_map<string, pair<path_handle_t, int64_t>>;
+    std::shared_ptr<rgfa_cache_t> rgfa_cache = std::make_shared<rgfa_cache_t>();
+    
+    parser.rgfa_listeners.push_back([&parser, graph, rgfa_cache](nid_t id, int64_t offset, size_t length, const string& path_name, int64_t path_rank) {
+        auto found = rgfa_cache->find(path_name);
+        if (found != rgfa_cache->end() && found->second.second != offset) {
+            // This path already exists, but there's a gap. We need to drop it
+            // from the cache and make a new one with the right subpath info.
+            rgfa_cache->erase(found);
+            found = rgfa_cache->end();
+        }
+        if (found == rgfa_cache->end()) {
+            // Need to make a new path, with subrange start info.
+            path_handle_t path = graph->create_path(PathMetadata::SENSE_GENERIC,
+                                                    PathMetadata::NO_SAMPLE,
+                                                    path_name, 
+                                                    PathMetadata::NO_HAPLOTYOE,
+                                                    PathMetadata::NO_PHASE_BLOCK,
+                                                    std::make_pair<int64_t, int64_t>(offset, PathMetadata::NO_END_POSITION));
+            // Then cache it
+            found = rgfa_cache->emplace_hint(found, path_name, std::make_pair(path, offset));
+        }
+        
+        // Add the step to the path
+        auto& path = found->second.first;
+        // rGFA paths always visit sequences forward.
+        handle_t step = graph->get_handle(id, false);
+        graph->append_step(path, step); 
+        
+        // Increment the expected next offset
+        auto& next_offset = found->second.second;
+        next_offset += length;
     });
 }
 
@@ -938,13 +992,16 @@ void GFAParser::parse(istream& in) {
     
     // We should be able to parse in 2 passes. One to make all the nodes, and
     // one to make all the things that reference nodes.
-    int pass_number = 0;
+    // We track pass number 1-based.
+    size_t pass_number = 1;
+    // And within a pass we remember the line number. Also 1-based.
+    size_t line_number = 1;
     
     // We buffer lines we can't actually handle right now into this temporary file.
     string buffer_name;
     ofstream buffer_out_stream;
     auto save_line_until_node = [&](const string& missing_node_name) {
-        if (pass_number > 0) {
+        if (pass_number > 1) {
             // We should only hit this on the first pass. If we hit it later we are missing a node.
             throw GFAFormatError("GFA file references missing node " + missing_node_name);
         }
@@ -1015,24 +1072,24 @@ void GFAParser::parse(istream& in) {
                                     throw GFAFormatError("rGFA path " + rgfa_path_name + " has conflicting ranks " + std::to_string(rgfa_path_rank) + " and " + std::to_string(get<0>(found->second)));
                                 }
                             }
-                            // Buffer this visit.
                             auto& visit_queue = get<2>(found->second);
                             auto& next_offset = get<1>(found->second);
+                            auto node_length = GFAParser::length(sequence_range);
                             if (next_offset == rgfa_offset_on_path) {
                                 // It's safe to dispatch this visit right now since it's the next one expected along the path.
                                 for (auto& rgfa_listeners : this->path_listeners) {
                                     // Tell all the listener functions about this visit
-                                    listener(assigned_id, rgfa_offset_on_path, rgfa_path_name, rgfa_path_rank);
+                                    listener(assigned_id, rgfa_offset_on_path, node_length, rgfa_path_name, rgfa_path_rank);
                                 }
                                 // Advance the offset by the sequence length;
-                                next_offset += GFAParser::length(sequence_range);
+                                next_offset += node_length;
                                 while (!visit_queue.empty() && next_offset == get<0>(visit_queue.top())) {
                                     // The lowest-offset queued visit can be handled now because it abuts what we just did.
                                     // Grab the visit.
                                     auto& visit = visit_queue.top();
                                     for (auto& rgfa_listeners : this->path_listeners) {
                                         // Tell all the listener functions about this visit
-                                        listener(get<1>(visit), get<0>(visit), rgfa_path_name, rgfa_path_rank);
+                                        listener(get<1>(visit), get<0>(visit), get<2>(visit), rgfa_path_name, rgfa_path_rank);
                                     }
                                     // Advance the offset by the sequence length;
                                     next_offset += get<2>(visit);
@@ -1041,7 +1098,7 @@ void GFAParser::parse(istream& in) {
                                 }
                             } else {
                                 // Add this visit to the heap so we can handle it when we find the missing visits.
-                                visit_buffer.emplace(rgfa_offset_on_path, assigned_id, GFAParser::length(sequence_range));
+                                visit_buffer.emplace(rgfa_offset_on_path, assigned_id, node_length);
                             }
                         }
                     }
@@ -1116,46 +1173,68 @@ void GFAParser::parse(istream& in) {
     
     // We have a function to do a pass over a file of lines.
     auto process_lines_in_stream = [&](istream& in_stream) {
+        line_number = 0;
         while (getline(in, line_buffer)) {
+            ++line_number;
             // For each line in the input file
             if (!line_buffer.empty()) {
                 // Handle all lines in the stream that we can handle now.
                 handle_line_if_ready(line_buffer); 
             }
         }
-    }
-    
-    process_lines_in_stream(in);
-    
-    if (!buffer_name.empty()) {
-        // We also have lines in the buffer to handle.
-        buffer_out_stream.close();
         pass_number++;
-        ifstream buffer_in_stream(buffer_name);
-        process_lines_in_stream(buffer_in_stream);
-        
-        // Clean up buffer before returning
-        // TODO: Who takes care of this on GFA format error?
-        buffer_in_stream.close();
-        unlink(buffer_name);
     }
     
-    // Run through any rGFA paths that don't start at 0 or have gaps. 
-    for (auto& kv : rgfa_path_cache) {
-        auto& rgfa_path_name = kv.first;
-        auto& rgfa_path_rank = get<0>(kv.second);
-        auto& visit_queue = get<2>(kv.second);
+    try {
+    
+        process_lines_in_stream(in);
         
-        while (!visit_queue.empty()) {
-            // Grab the visit.
-            auto& visit = visit_queue.top();
-            for (auto& rgfa_listeners : this->path_listeners) {
-                // Tell all the listener functions about this visit
-                listener(get<1>(visit), get<0>(visit), rgfa_path_name, rgfa_path_rank);
-            }
-            // And pop the visit off
-            visit_queue.pop();
+        if (!buffer_name.empty()) {
+            // We also have lines in the buffer to handle.
+            buffer_out_stream.close();
+            ifstream buffer_in_stream(buffer_name);
+            process_lines_in_stream(buffer_in_stream);
+            
+            // Clean up buffer before returning
+            // TODO: Who takes care of this on GFA format error?
+            buffer_in_stream.close();
+            unlink(buffer_name);
         }
+        
+        // Run through any rGFA paths that don't start at 0 or have gaps. 
+        for (auto& kv : rgfa_path_cache) {
+            auto& rgfa_path_name = kv.first;
+            auto& rgfa_path_rank = get<0>(kv.second);
+            auto& visit_queue = get<2>(kv.second);
+            
+            while (!visit_queue.empty()) {
+                // Grab the visit.
+                auto& visit = visit_queue.top();
+                for (auto& rgfa_listeners : this->path_listeners) {
+                    // Tell all the listener functions about this visit
+                    listener(get<1>(visit), get<0>(visit), rgfa_path_name, rgfa_path_rank);
+                }
+                // And pop the visit off
+                visit_queue.pop();
+            }
+        }
+    } catch (GFAFormatError& e) {
+        // Inform the error of where exactly it is.
+        // We have line buffer in scope and positions are relative to the line buffer.
+        
+        e.pass_number = pass_number;
+        if (pass_number > 1) {
+            // We're working on this temp file. Report it so line numbers make sense.
+            e.file_name = buffer_name;
+        }
+        e.line_number = line_number;
+        if (e.has_position) {
+            // We can find the column we were at within the line.
+            e.column_number = 1 + (e.position - line_buffer.begin())
+        }
+        
+        // Re-throw the new and improved error
+        throw e;
     }
 }
 
@@ -1176,6 +1255,35 @@ GFAFormatError::GFAFormatError(const string& message) : std::runtime_error(messa
 
 GFAFormatError::GFAFormatError(const GFAParser::cursor_t& position, const string& message, const char* parsing_state) : GFAFormatError(message + (parsing_state ? (" while " + std::string(parsing_state)) : "")), has_position(true), position(position) {
     // Nothing to do!
+}
+
+const char* GFAFormatError::what() const noexcept {
+    if (message_buffer.empty()) {
+        // We need to generate the message
+        stringstream ss;
+        
+        if (pass_number != 0) {
+            // We do the pass first because we might need to report a buffer
+            // line number instead of an original line number.
+            ss << "On pass " << pass_number << ": ";
+        }
+        if (!filename.empty()) {
+            ss << "In file " << filename << ": ";
+        }
+        if (line_number != 0) {
+            ss << "On line " << line_number << ": ";
+        }
+        if (column_number != 0) {
+            ss << "At column " << column_number << ": ";
+        }
+        
+        // Add on the message from the base class
+        ss << std::runtime_error::what();
+        
+        // Save the composed message
+        message_buffer = ss.str();
+    }
+    return message_buffer.c_str();
 }
 
 

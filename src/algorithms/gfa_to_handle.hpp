@@ -220,7 +220,7 @@ public:
     /// called in order along each path. The listener is responsible for
     /// detecting any gaps in the offset space and producing multiple subpaths
     /// if necessary.
-    vector<std::function<void(nid_t id, int64_t offset, const string& path_name, int64_t path_rank)>> rgfa_listeners;
+    vector<std::function<void(nid_t id, int64_t offset, size_t length, const string& path_name, int64_t path_rank)>> rgfa_listeners;
     
     /// Include paths from rGFA tags at this rank or lower. Set to -1 to ignore rGFA tags.
     int64_t max_rgfa_rank = -1;
@@ -239,8 +239,24 @@ struct GFAFormatError : std::runtime_error {
     /// We can also make one with a position and a possibly null parsing state
     GFAFormatError(const GFAParser::cursor_t& position, const string& message, const char* parsing_state);
     
+    // The error may or may not have a position in a buffer attached.
     bool has_position = false;
     GFAParser::cursor_t& position;
+    
+    // The error also can be annotated file location information when it makes
+    // it up the stack to where those things are known.
+    // These are all 1-based
+    size_t pass_number = 0;
+    size_t line_number = 0;
+    size_t column_number = 0;
+    string filename = "";
+    
+    // For making what() messages we need our own message buffer.
+    mutable string message_buffer;
+    
+    /// Return a pointer to a string describing this exception.
+    /// Not thread safe.
+    virtual const char* what() const noexcept;
 };
 
 }
