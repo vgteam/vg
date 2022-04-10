@@ -605,6 +605,9 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
                                             const tuple<size_t, bool, size_t, size_t>& b)-> bool {
         //Sort the contents of parent_to_children vector in chain_to_children
         //The elements have the format <parent index, is_snarl, (child index, inf) or (seed read num, seed index)
+        if (std::get<0>(a) != std::get<0>(b)) {
+            return std::get<0>(a) < std::get<0>(b);
+        }
         net_handle_t net_handle_a = std::get<1>(a)
                 ? tree_state.all_node_clusters[std::get<2>(a)].containing_net_handle
                 : tree_state.all_seeds->at(std::get<2>(a))->at(std::get<3>(a)).node_handle;
@@ -2428,7 +2431,10 @@ void NewSnarlSeedClusterer::cluster_root(TreeState& tree_state) const {
 
  
     //Sort the root children by parent, the order of the children doesn't matter
-    std::sort(tree_state.root_children.begin(), tree_state.root_children.end());   
+    std::sort(tree_state.root_children.begin(), tree_state.root_children.end(), 
+        [&](const auto& a, const auto b) -> bool {
+            return a.first < b.first;
+        });   
 
     //Go through the list of parent child pairs. Once we reach a new parent, cluster all children found up to this point
     net_handle_t current_parent = distance_index.get_root();
