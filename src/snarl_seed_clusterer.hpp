@@ -117,7 +117,6 @@ class NewSnarlSeedClusterer {
 
             //Only set this one for a chain
             bool is_looping_chain = false;
-            size_t chain_length = std::numeric_limits<size_t>::max();
             size_t chain_last_component = std::numeric_limits<size_t>::max();
             size_t chain_last_child_offset = std::numeric_limits<size_t>::max();
 
@@ -155,11 +154,12 @@ class NewSnarlSeedClusterer {
                 read_best_right(read_count, std::numeric_limits<size_t>::max()){
                 if (distance_index.is_chain(containing_net_handle) && !distance_index.is_trivial_chain(containing_net_handle)) {
                     is_looping_chain = distance_index.is_looping_chain(containing_net_handle);
-                    chain_length = distance_index.minimum_length(containing_net_handle);
+                    node_length = distance_index.minimum_length(containing_net_handle);
                     start_in = distance_index.get_bound(containing_net_handle, false, true);
                     end_in = distance_index.get_bound(containing_net_handle, true, true);
                     chain_last_component = distance_index.get_chain_component(end_in);
                 } else if (distance_index.is_snarl(containing_net_handle)) {
+                    node_length = distance_index.minimum_length(containing_net_handle);
                     start_in = distance_index.get_bound(containing_net_handle, false, true);
                     end_in =   distance_index.get_bound(containing_net_handle, true, true);
                 }
