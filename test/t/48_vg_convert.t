@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 79
+plan tests 86
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -228,11 +228,16 @@ grep "^S" graphs/components_walks.gfa | sort > sorted.gfa
 vg view components.hg | grep "^S" | sort > converted.gfa
 cmp sorted.gfa converted.gfa
 is $? 0 "GFA -> GBWTGraph -> HashGraph -> GFA conversion maintains segments"
+grep "^W" graphs/components_walks.gfa | sort > sorted.gfa
+vg view components.hg | grep "^W" | sort > converted.gfa
+cmp sorted.gfa converted.gfa
+is $? 0 "GFA -> GBWTGraph -> HashGraph -> GFA conversion maintains walks"
 
 # GFA to GBZ to HashGraph to GFA
 vg gbwt -g components.gbz --gbz-format -G graphs/components_walks.gfa
 vg convert -a components.gbz > components.hg 2> /dev/null
 is $? 0 "GBZ to HashGraph conversion"
+grep "^S" graphs/components_walks.gfa | sort > sorted.gfa
 vg view components.hg | grep "^S" | sort > converted.gfa
 cmp sorted.gfa converted.gfa
 is $? 0 "GFA -> GBZ -> HashGraph -> GFA conversion maintains segments"
@@ -253,6 +258,14 @@ is $? 0 "GBZ to GFA conversion with walks, GBWTGraph algorithm"
 cmp extracted.gfa graphs/components_walks.gfa
 is $? 0 "GBZ to GFA conversion with GBWTGraph algorithm creates the correct normalized GFA file"
 
+# GFA to HashGraph to GFA with walks and paths
+vg convert -g graphs/components_paths_walks.gfa -a > components.hg
+is $? 0 "GFA to HashGraph conversion"
+sort graphs/components_paths_walks.gfa > correct.gfa
+vg view components.hg | sort > converted.gfa
+cmp correct.gfa converted.gfa
+is $? 0 "GFA -> HashGraph -> GFA conversion maintains segments, links, walks, and paths"
+
 rm -f components.gbwt components.gg components.gbz
 rm -f components.hg
 rm -f sorted.gfa converted.gfa correct.gfa
@@ -263,36 +276,49 @@ rm -f extracted.gfa
 vg gbwt -o components.gbwt -g components.gg -G graphs/components_paths_walks.gfa
 vg gbwt -g components.gbz --gbz-format -G graphs/components_paths_walks.gfa
 vg convert -g -a graphs/components_paths_walks.gfa > direct.hg
-vg paths --generic-paths -v direct.hg -A > correct_paths.gaf
+vg paths --generic-paths -v direct.hg -A | sort > correct_paths.gaf
+vg paths --sample "sample" -v direct.hg -A | sort > correct_haplotypes.gaf
 sort graphs/components_paths_walks.gfa > correct.gfa
 
 # GBWTGraph to HashGraph with paths and walks
 vg convert -b components.gbwt -a components.gg > components.hg
 is $? 0 "GBWTGraph to HashGraph conversion with generic paths"
-vg paths --generic-paths -A -v components.hg > hg_paths.gaf
+vg paths --generic-paths -A -v components.hg | sort > hg_paths.gaf
 cmp hg_paths.gaf correct_paths.gaf
 is $? 0 "GBWTGraph to HashGraph conversion creates the correct generic paths"
+vg paths --sample "sample" -v components.hg -A | sort > hg_haplotypes.gaf
+cmp hg_haplotypes.gaf correct_haplotypes.gaf
+is $? 0 "GBWTGraph to HashGraph conversion creates the correct haplotype paths"
 
 # GBZ to HashGraph with paths and walks
 vg convert -a components.gbz > components.hg
 is $? 0 "GBZ to HashGraph conversion with generic paths"
-vg paths --generic-paths -A -v components.hg > gbz_hg_paths.gaf
+vg paths --generic-paths -A -v components.hg | sort > gbz_hg_paths.gaf
 cmp gbz_hg_paths.gaf correct_paths.gaf
 is $? 0 "GBZ to HashGraph conversion creates the correct generic paths"
+vg paths --sample "sample" -v components.hg -A | sort > gbz_hg_haplotypes.gaf
+cmp gbz_hg_haplotypes.gaf correct_haplotypes.gaf
+is $? 0 "GBZ to HashGraph conversion creates the correct haplotype paths"
 
 # GBWTGraph to XG with paths and walks
 vg convert -b components.gbwt -x components.gg > components.xg
 is $? 0 "GBWTGraph to XG conversion with generic paths"
-vg paths --generic-paths -A -v components.xg > xg_paths.gaf
+vg paths --generic-paths -A -v components.xg | sort > xg_paths.gaf
 cmp xg_paths.gaf correct_paths.gaf
 is $? 0 "GBWTGraph to XG conversion creates the correct generic paths"
+vg paths --sample "sample" -v components.xg -A | sort > xg_haplotypes.gaf
+cmp xg_haplotypes.gaf correct_haplotypes.gaf
+is $? 0 "GBWTGraph to XG conversion creates the correct haplotype paths"
 
 # GBZ to XG with paths and walks
 vg convert -x components.gbz > components.xg
 is $? 0 "GBZ to XG conversion with generic paths"
-vg paths --generic-paths -A -v components.xg > gbz_xg_paths.gaf
+vg paths --generic-paths -A -v components.xg | sort > gbz_xg_paths.gaf
 cmp gbz_xg_paths.gaf correct_paths.gaf
 is $? 0 "GBZ to XG conversion creates the correct generic paths"
+vg paths --sample "sample" -v components.xg -A | sort > gbz_xg_haplotypes.gaf
+cmp gbz_xg_haplotypes.gaf correct_haplotypes.gaf
+is $? 0 "GBZ to XG conversion creates the correct haplotype paths"
 
 # GBWTGraph to GFA with paths and walks (needs 1 thread)
 vg convert -b components.gbwt -f -t 1 components.gg > extracted.gfa
@@ -328,9 +354,9 @@ cmp sorted.gfa correct.gfa
 is $? 0 "GBZ to GFA conversion works with multiple threads"
 
 rm -f components.gbwt components.gg components.gbz
-rm -f direct.hg correct_paths.gaf
-rm -f components.hg hg_paths.gaf gbz_hg_paths.gaf
-rm -f components.xg xg_paths.gaf gbz_xg_paths.gaf
+rm -f direct.hg correct_paths.gaf correct_haplotypes.gaf
+rm -f components.hg hg_paths.gaf hg_haplotypes.gaf gbz_hg_paths.gaf gbz_hg_haplotypes.gaf
+rm -f components.xg xg_paths.gaf xg_haplotypes.gaf gbz_xg_paths.gaf gbz_xg_haplotypes.gaf
 rm -f extracted.gfa gbz.gfa extracted.hg
 rm -f sorted.gfa correct.gfa
 
