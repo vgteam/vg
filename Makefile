@@ -363,7 +363,6 @@ DEPS += $(INC_DIR)/lru_cache.h
 DEPS += $(INC_DIR)/dynamic/dynamic.hpp
 DEPS += $(INC_DIR)/sparsehash/sparse_hash_map
 DEPS += $(INC_DIR)/sparsepp/spp.h
-DEPS += $(INC_DIR)/gfakluge.hpp
 DEPS += $(INC_DIR)/sha1.hpp
 DEPS += $(INC_DIR)/progress_bar.hpp
 DEPS += $(INC_DIR)/backward.hpp
@@ -613,9 +612,6 @@ $(INC_DIR)/sparsepp/spp.h: $(wildcard $(SPARSEHASH_DIR)/sparsepp/*.h)
 $(LIB_DIR)/libvcfh.a: $(DEP_DIR)/libVCFH/*.cpp $(DEP_DIR)/libVCFH/*.hpp 
 	+. ./source_me.sh && cd $(DEP_DIR)/libVCFH && $(MAKE) $(FILTER) && cp libvcfh.a $(CWD)/$(LIB_DIR)/ && cp vcfheader.hpp $(CWD)/$(INC_DIR)/
 
-$(INC_DIR)/gfakluge.hpp: $(DEP_DIR)/gfakluge/src/gfakluge.hpp
-	+cp $(DEP_DIR)/gfakluge/src/*.hpp $(CWD)/$(INC_DIR)/ && cp $(DEP_DIR)/gfakluge/src/tinyFA/*.hpp $(CWD)/$(INC_DIR)/
-
 $(LIB_DIR)/libsonlib.a: $(CWD)/$(DEP_DIR)/sonLib/C/inc/*.h $(CWD)/$(DEP_DIR)/sonLib/C/impl/*.c
 	+. ./source_me.sh && cd $(DEP_DIR)/sonLib && kyotoTycoonLib="" $(MAKE) $(FILTER) && cp lib/sonLib.a $(CWD)/$(LIB_DIR)/libsonlib.a && mkdir -p $(CWD)/$(INC_DIR)/sonLib && cp lib/*.h $(CWD)/$(INC_DIR)/sonLib
 
@@ -708,7 +704,7 @@ $(INC_DIR)/ips4o.hpp: $(IPS4O_DIR)/ips4o.hpp $(IPS4O_DIR)/ips4o/*
 # The xg repo has a cmake build system based all around external projects, and
 # we need it to use our installed versions of everything instead.
 # We also need to not build against GFAKluge
-$(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp $(INC_DIR)/mmmultimap.hpp $(INC_DIR)/ips4o.hpp $(INC_DIR)/gfakluge.hpp $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(INC_DIR)/mio/mmap.hpp $(INC_DIR)/atomic_queue.h
+$(LIB_DIR)/libxg.a: $(XG_DIR)/src/*.hpp $(XG_DIR)/src/*.cpp $(INC_DIR)/mmmultimap.hpp $(INC_DIR)/ips4o.hpp $(LIB_DIR)/libhandlegraph.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libdivsufsort.a $(LIB_DIR)/libdivsufsort64.a $(INC_DIR)/mio/mmap.hpp $(INC_DIR)/atomic_queue.h
 	+rm -f $@
 	+cp -r $(XG_DIR)/src/*.hpp $(CWD)/$(INC_DIR)
 	+. ./source_me.sh && $(CXX) $(INCLUDE_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -DNO_GFAKLUGE -c -o $(XG_DIR)/xg.o $(XG_DIR)/src/xg.cpp $(FILTER)
@@ -888,7 +884,6 @@ clean: clean-vcflib
 	cd $(DEP_DIR) && cd sdsl-lite && ./uninstall.sh || true
 	cd $(DEP_DIR) && cd libVCFH && $(MAKE) clean
 	cd $(DEP_DIR) && cd vcflib && $(MAKE) clean
-	cd $(DEP_DIR) && cd gfakluge && $(MAKE) clean
 	cd $(DEP_DIR) && cd sha1 && $(MAKE) clean
 	cd $(DEP_DIR) && cd structures && $(MAKE) clean
 	cd $(DEP_DIR) && cd jemalloc && $(MAKE) clean || true

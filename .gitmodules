@@ -31,9 +31,6 @@
 [submodule "deps/sparsehash"]
 	path = deps/sparsehash
 	url = https://github.com/sparsehash/sparsehash.git
-[submodule "gfakluge"]
-    path = deps/gfakluge
-    url = https://github.com/vgteam/gfakluge.git
 [submodule "deps/DYNAMIC"]
 	path = deps/DYNAMIC
 	url = https://github.com/vgteam/DYNAMIC
