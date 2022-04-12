@@ -454,6 +454,13 @@ cerr << "Add all seeds to nodes: " << endl;
                             grandparent_index = tree_state.all_node_clusters.size();
                             tree_state.net_handle_to_index[grandparent_snarl] = grandparent_index;
                             tree_state.all_node_clusters.emplace_back(grandparent_snarl, tree_state.all_seeds->size(), distance_index);
+                            if (prefix_sum == std::numeric_limits<size_t>::max()) {
+                                //The prefix sum value for a simple snar
+                                net_handle_t start_node = distance_index.get_node_from_sentinel(tree_state.all_node_clusters.back().start_in);
+                                prefix_sum = SnarlDistanceIndex::sum({distance_index.get_prefix_sum_value(start_node),
+                                                                      distance_index.minimum_length(start_node)});
+                            }
+                            tree_state.all_node_clusters.back().prefix_sum_value = prefix_sum;
 
 
                             //Also add the grandparent snarl to the greatgrandparent chain
@@ -1448,9 +1455,11 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, size_t snar
     }
     //Get the values needed for clustering a chain
     //Prefix sum up to the start of the snarl
-    snarl_clusters.prefix_sum_value = SnarlDistanceIndex::sum({
-            distance_index.get_prefix_sum_value(distance_index.get_node_from_sentinel(snarl_clusters.start_in)),
-            distance_index.minimum_length(distance_index.get_node_from_sentinel(snarl_clusters.start_in))});
+    if (snarl_clusters.prefix_sum_value = std::numeric_limits<size_t>::max()) {
+        snarl_clusters.prefix_sum_value = SnarlDistanceIndex::sum({
+                distance_index.get_prefix_sum_value(distance_index.get_node_from_sentinel(snarl_clusters.start_in)),
+                distance_index.minimum_length(distance_index.get_node_from_sentinel(snarl_clusters.start_in))});
+    }
 
     //Chain component of the start and end nodes of the snarl
     if (parent_clusters.chain_last_component != std::numeric_limits<size_t>::max()) {

@@ -1665,6 +1665,17 @@ tuple<size_t, size_t, size_t, size_t, bool> get_minimizer_distances (const Snarl
     bool is_reversed_in_parent = distance_index.is_trivial_chain(parent_handle) 
                                  ? distance_index.is_reversed_in_parent(parent_handle)
                                  : distance_index.is_reversed_in_parent(node_handle);
+    if (distance_index.is_trivial_chain(parent_handle) && distance_index.is_simple_snarl(distance_index.get_parent(parent_handle))) {
+        //If the grandparent of the node is a simple snarl, then remember the prefix sum value as being the distance to the start 
+        //of the snarl - the prefix sum of the start node plus the length of the start node
+
+        //The start node of the simple snarl
+        net_handle_t snarl_start= distance_index.get_node_from_sentinel(distance_index.get_bound(distance_index.get_parent(parent_handle), false, false));
+        prefix_sum = SnarlDistanceIndex::sum({
+                    distance_index.get_prefix_sum_value(snarl_start), 
+                    distance_index.minimum_length(snarl_start)});
+
+    }
 
     return make_tuple(distance_index.minimum_length(node_handle),
                       in_top_level_chain 
