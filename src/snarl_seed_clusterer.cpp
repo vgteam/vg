@@ -722,7 +722,7 @@ void NewSnarlSeedClusterer::cluster_one_node(
     cerr << "Finding clusters on node " << distance_index.net_handle_as_string(node_clusters.containing_net_handle) << endl;
 #endif
 
-    size_t node_length = node_clusters.node_length;//TODO:distance_index.minimum_length(node_clusters.containing_net_handle);
+    size_t node_length = node_clusters.node_length;
     nid_t node_id = node_clusters.node_id;
 
     //Iterator to the first occurrence of this node in node_to_seeds
@@ -1516,8 +1516,8 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
             size_t old_left =  tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left;
             size_t old_right = tree_state.all_seeds->at(read_num)->at(cluster_num).distance_right;
             //Get the new best distances for the cluster considering chain loops
-            size_t updated_left = std::min(old_left, SnarlDistanceIndex::sum({old_right, loop_right, distance_index.minimum_length(child_clusters.containing_net_handle)}));
-            size_t updated_right = std::min(old_right, SnarlDistanceIndex::sum({old_left, loop_left, distance_index.minimum_length(child_clusters.containing_net_handle)}));
+            size_t updated_left = std::min(old_left, SnarlDistanceIndex::sum({old_right, loop_right, child_clusters.node_length}));
+            size_t updated_right = std::min(old_right, SnarlDistanceIndex::sum({old_left, loop_left, child_clusters.node_length}));
 
 
 
@@ -1637,7 +1637,7 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
                 size_t offset = std::get<2>(seed.minimizer_cache) + seed.distance_left;
                 return std::make_tuple(std::get<1>(seed_index), std::get<2>(seed_index), offset); 
         };
-        cluster_seeds_on_linear_structure(tree_state, chain_clusters, children_in_chain, distance_index.minimum_length(chain_handle), get_offset_from_indices);
+        cluster_seeds_on_linear_structure(tree_state, chain_clusters, children_in_chain, chain_clusters.node_length, get_offset_from_indices);
         return;
 
     }
@@ -1824,8 +1824,15 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
             //If they aren't in the same component
             distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
         } else {
+            size_t node_length = std::get<0>(child_clusters_i) 
+                ? tree_state.all_node_clusters[std::get<1>(child_clusters_i)].node_length
+                : std::get<0>(tree_state.all_seeds->at(
+                        std::get<1>(child_clusters_i))->at(std::get<2>(child_clusters_i)).minimizer_cache);
+#ifdef DEBUG_CLUSTER
+                assert(node_length != std::numeric_limits<size_t>::max());
+#endif
             distance_from_current_end_to_end_of_chain = SnarlDistanceIndex::minus(chain_clusters.node_length, 
-                            SnarlDistanceIndex::sum({distance_from_chain_start_to_current_node, distance_index.minimum_length(child_handle)}));
+                            SnarlDistanceIndex::sum({distance_from_chain_start_to_current_node, node_length}));
         }
 
 #ifdef DEBUG_CLUSTER
