@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#define DEBUG_CLUSTER
+//#define DEBUG_CLUSTER
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
@@ -1663,8 +1663,11 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
     
     /**Now actually start the work of clustering **/
 
-    if (only_seeds && !chain_clusters.is_looping_chain) {
-        //If there are only seeds in the chain, then cluster by walking through the seeds
+    if (only_seeds && !chain_clusters.is_looping_chain && 
+        (chain_clusters.chain_last_component == 0 
+           || chain_clusters.chain_last_component == std::numeric_limits<size_t>::max())) {
+        //If there are only seeds in the chain (and the chain doesn't loop and isn't a multicomponent chain), 
+        //then cluster by walking through the seeds
 
         std::function<std::tuple<size_t, size_t, size_t>(const tuple<bool, size_t, size_t>&)> get_offset_from_indices = 
             [&](const std::tuple<bool, size_t, size_t>& seed_index){

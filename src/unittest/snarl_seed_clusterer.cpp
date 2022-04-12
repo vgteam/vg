@@ -191,6 +191,72 @@ namespace unittest {
             REQUIRE(clusters[1].size() == 1);
         }
     }
+    TEST_CASE( "Cluster looping, multicomponent",
+                   "[cluster][bug]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GCA");
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("T");
+        Node* n8 = graph.create_node("CTGA");
+        Node* n9 = graph.create_node("GCA");
+        Node* n10 = graph.create_node("T");
+        Node* n11 = graph.create_node("T");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n10);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n2, n4);
+        Edge* e5 = graph.create_edge(n3, n4);
+        Edge* e6 = graph.create_edge(n4, n5);
+        Edge* e7 = graph.create_edge(n4, n6);
+        Edge* e8 = graph.create_edge(n5, n6);
+        Edge* e9 = graph.create_edge(n6, n7);
+        Edge* e10 = graph.create_edge(n6, n8);
+        Edge* e11 = graph.create_edge(n7, n8);
+        Edge* e12 = graph.create_edge(n8, n9);
+        Edge* e13 = graph.create_edge(n8, n10);
+        Edge* e14 = graph.create_edge(n9, n11);
+        Edge* e15 = graph.create_edge(n10, n11);
+
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex dist_index;
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
+        
+        //graph.to_dot(cerr);
+
+        SECTION( "Two clusters" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(1, false, 0));
+            positions.emplace_back(make_pos_t(3, false, 0));
+            positions.emplace_back(make_pos_t(9, false, 0));
+            positions.emplace_back(make_pos_t(10, false, 0));
+            //all are in the same cluster
+            vector<NewSnarlSeedClusterer::Seed> seeds;
+            for (bool use_minimizers : {true, false} ) {
+                for (pos_t pos : positions) {
+                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 5); 
+                REQUIRE(clusters.size() == 2); 
+            }
+
+
+        }
+
+    }
     TEST_CASE( "looping chain of nested unary snarls",
                    "[cluster]" ) {
         VG graph;
@@ -1209,7 +1275,7 @@ namespace unittest {
             REQUIRE( clusters.size() == 1);
         }
     }//end test case
-    TEST_CASE("Top level root", "[cluster][bug]") {
+    TEST_CASE("Top level root", "[cluster]") {
         VG graph;
 
         Node* n1 = graph.create_node("GTGCACA");//8
