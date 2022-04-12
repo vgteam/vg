@@ -1657,17 +1657,22 @@ tuple<size_t, size_t, size_t, size_t, bool> get_minimizer_distances (const Snarl
     bool in_top_level_chain = distance_index.is_chain(parent_handle) &&
                               distance_index.is_root(distance_index.get_parent(parent_handle)) &&
                               !distance_index.is_root_snarl(distance_index.get_parent(parent_handle));
+    size_t prefix_sum = distance_index.is_chain(parent_handle) ? distance_index.get_prefix_sum_value(node_handle)
+                                                               : std::numeric_limits<size_t>::max();
+    size_t component = distance_index.is_chain(parent_handle) 
+                            ? (distance_index.is_multicomponent_chain(parent_handle) ? distance_index.get_chain_component(node_handle) : 0)
+                            : std::numeric_limits<size_t>::max();
+    bool is_reversed_in_parent = distance_index.is_trivial_chain(parent_handle) 
+                                 ? distance_index.is_reversed_in_parent(parent_handle)
+                                 : distance_index.is_reversed_in_parent(node_handle);
 
     return make_tuple(distance_index.minimum_length(node_handle),
                       in_top_level_chain 
                        ?  distance_index.get_connected_component_number(node_handle)
                        : std::numeric_limits<size_t>::max(),
-                      distance_index.is_chain(parent_handle) ? distance_index.get_prefix_sum_value(node_handle)
-                                                                     : std::numeric_limits<size_t>::max(),
-                      distance_index.is_chain(parent_handle) 
-                            ? (distance_index.is_multicomponent_chain(parent_handle) ? distance_index.get_chain_component(node_handle) : 0)
-                            : std::numeric_limits<size_t>::max(),
-                      distance_index.is_reversed_in_parent(node_handle));
+                      prefix_sum,
+                      component,
+                      is_reversed_in_parent);
 
 
 

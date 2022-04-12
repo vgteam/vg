@@ -396,7 +396,7 @@ cerr << "Add all seeds to nodes: " << endl;
                            : 0;
                    if (node_length == MIPayload::NO_VALUE) {
                        node_length = distance_index.minimum_length(node_net_handle);
-                       is_reversed_in_parent = distance_index.is_reversed_in_parent(node_net_handle);
+                       is_reversed_in_parent = distance_index.is_reversed_in_parent(parent);
                    }
                 }
                 //Make sure we have enough space to add the chain/snarl
@@ -421,7 +421,7 @@ cerr << "Add all seeds to nodes: " << endl;
                         tree_state.net_handle_to_index[node_net_handle] = child_index;
                         tree_state.all_node_clusters.emplace_back(
                                     NodeClusters(std::move(node_net_handle), tree_state.all_seeds->size(),
-                                                 is_reversed_in_parent, id, node_length, prefix_sum, component));
+                                                 false, id, node_length, std::numeric_limits<size_t>::max(), component));
                         //Remember to cluster it later
                         to_cluster.emplace_back(child_index, parent);
                     }
@@ -443,7 +443,7 @@ cerr << "Add all seeds to nodes: " << endl;
                         tree_state.net_handle_to_index[parent] = child_index;
                         tree_state.all_node_clusters.emplace_back(
                                     NodeClusters(std::move(parent), tree_state.all_seeds->size(),
-                                                 is_reversed_in_parent, id, node_length, prefix_sum, component)); 
+                                                 false, id, node_length, std::numeric_limits<size_t>::max(), component)); 
                         to_cluster.emplace_back(child_index, parent);
                                             
                         net_handle_t grandparent_snarl = distance_index.get_parent(parent);
