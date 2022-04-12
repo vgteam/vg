@@ -737,9 +737,8 @@ void NewSnarlSeedClusterer::cluster_one_node(
     std::function<std::tuple<size_t, size_t, size_t>(const pair<size_t, size_t>&)> get_offset_from_indices = 
         [&](const std::pair<size_t, size_t>& seed_index){
             //This function returns a tuple of <read num, seed num, left offset>
-            pos_t seed = tree_state.all_seeds->at(seed_index.first)->at(seed_index.second).pos;
-            size_t offset = is_rev(seed) ? node_length- get_offset(seed) : get_offset(seed) + 1;
-            return std::make_tuple(seed_index.first, seed_index.second,offset); 
+            return std::make_tuple(seed_index.first, seed_index.second,
+                    tree_state.all_seeds->at(seed_index.first)->at(seed_index.second).distance_left); 
     };
     cluster_seeds_on_linear_structure(tree_state, node_clusters, seeds, node_length, get_offset_from_indices);
 
