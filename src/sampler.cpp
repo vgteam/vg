@@ -997,7 +997,7 @@ Alignment NGSSimulator::sample_read() {
                 if (failures_due_to_n_bases >= max_tries) {
                     // We have hit Ns too many times in a row and need to bail out or give up.
                     stringstream ss;
-                    ss << "Failed to sample a " << std::to_string(aln.quality().size()) << " bp sequence without Ns"
+                    ss << "Failed to sample a " << std::to_string(aln.quality().size()) << " bp sequence without Ns";
                     if (source_path_idx != numeric_limits<size_t>::max()) {
                         ss << " from path " << source_path;
                     }
