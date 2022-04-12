@@ -573,39 +573,89 @@ void GFAParser::parse(istream& in) {
     if (!in) {
         throw std::ios_base::failure("error:[GFAParser] Couldn't open input stream");
     }
-
+    
+    // Check if stream is seekable
+    in.clear();
+    // This tracks the position of the current line
+    std::streampos in_pos = in.tellg();
+    // And this is what we use when we want to say to read to the end of the file.
+    // We will fill it in with a real EOF position if the stream is seekable.
+    std::streampos eof_pos = -1;
+    bool stream_is_seekable = false;
+    if (in_pos >= 0 && in.good()) {
+        // Input stream is seekable.
+        stream_is_seekable = true;
+        // Find EOF
+        in.seekg(0, std::ios_base::end);
+        eof_pos = in.tellg();
+        in.seekg(in_pos);
+        if (!in.good()) {
+            throw std::runtime_error("Could not get end of GFA file");
+        }
+    }
+    // Reset error flags
+    in.clear();
+    
+#ifdef debug
+    std::cerr << "Stream seekable? " << stream_is_seekable << std::endl;
+#endif
+    
     bool has_rgfa_tags = false;
     string line_buffer; // can be quite big
     
     // We should be able to parse in 2 passes. One to make all the nodes, and
-    // one to make all the things that reference nodes.
+    // one to make all the things that reference nodes we hadn't seen yet.
     // We track pass number 1-based.
     size_t pass_number = 1;
     // And within a pass we remember the line number. Also 1-based.
     size_t line_number = 1;
     
-    // We buffer lines we can't actually handle right now into this temporary file.
+    // We buffer lines we can't actually handle right now.
+    
+    // If we can seek back to them, we keep this collection of ranges of
+    // unprocessed lines. If the second field is the max value, it extends to EOF.
+    // Third field is starting line number.
+    vector<tuple<std::streampos, std::streampos, size_t>> unprocessed_ranges;
+    // And we keep this flag for knowing when we need to close a range.
+    bool last_line_handled = true;
+    
+    // If we can't seek to them, we put them into this temporary file.
     string buffer_name;
     ofstream buffer_out_stream;
+    
+    // We call this to save a line either in the buffer or the collection of unprocessed ranges,
+    // until some time after the given node is observed.
     auto save_line_until_node = [&](const string& missing_node_name) {
         if (pass_number > 1) {
             // We should only hit this on the first pass. If we hit it later we are missing a node.
             throw GFAFormatError("GFA file references missing node " + missing_node_name);
         }
-        if (buffer_name.empty()) {
-            // Make sure the buffer is available
-            buffer_name = temp_file::create();
-            buffer_out_stream.open(buffer_name);
-            if (!buffer_out_stream) {
-                throw runtime_error("error:[GFAParser] Could not open fallback gfa temp file: " + buffer_name);
+        if (stream_is_seekable) {
+            // We should be able to get back here.
+            if (unprocessed_ranges.empty() || get<1>(unprocessed_ranges.back()) != eof_pos) {
+                // There's not currently a run of unprocessed lines that we are a part of. We need to start a new run.
+                unprocessed_ranges.emplace_back(in_pos, eof_pos, line_number);
+#ifdef debug
+                std::cerr << "Started new unprocessed range at " << in_pos << std::endl;
+#endif
+                // Run will be closed when a line is handled.
             }
-            // Tell the user that we're having to use a buffer; the tests want us to.
-            std::cerr << "warning:[GFAParser] GFA file references node " << missing_node_name << " before it is defined. "
-                      << "Buffering lines in " << buffer_name << " until we are ready for them." << std::endl;
+        } else {
+            if (buffer_name.empty()) {
+                // Make sure the buffer is available
+                buffer_name = temp_file::create();
+                buffer_out_stream.open(buffer_name);
+                if (!buffer_out_stream) {
+                    throw runtime_error("error:[GFAParser] Could not open fallback gfa temp file: " + buffer_name);
+                }
+                // Tell the user that we're having to use a buffer; the tests want us to.
+                std::cerr << "warning:[GFAParser] Streaming GFA file references node " << missing_node_name << " before it is defined. "
+                          << "Buffering lines in " << buffer_name << " until we are ready for them." << std::endl;
+            }
+            
+            // Store the line into it so we can move on to the next line
+            buffer_out_stream << line_buffer << "\n";
         }
-        
-        // Store the line into it so we can move on to the next line
-        buffer_out_stream << line_buffer << "\n";
     };
     
     // We want to warn about unrecognized line types, but each only once.
@@ -623,7 +673,8 @@ void GFAParser::parse(istream& in) {
     unordered_map<string, tuple<int64_t, size_t, visit_queue_t>> rgfa_path_cache;
     
     // We call this to handle the current line if it is ready to be handled, or
-    // buffer it if it can't.
+    // buffer it if it can't. Return false if we are not ready for the line right
+    // now and we saved it, and true otherwise.
     auto handle_line_if_ready = [&]() {
         if (!line_buffer.empty()) {
             switch(line_buffer[0]) {
@@ -696,6 +747,7 @@ void GFAParser::parse(istream& in) {
                             }
                         }
                     }
+                    return true;
                 }
                 break;
             case 'L':
@@ -707,12 +759,12 @@ void GFAParser::parse(istream& in) {
                     nid_t n1 = GFAParser::find_existing_sequence_id(get<0>(l_parse), this->id_map());
                     if (!n1) {
                         save_line_until_node(get<0>(l_parse));
-                        break;
+                        return false;
                     }
                     nid_t n2 = GFAParser::find_existing_sequence_id(get<2>(l_parse), this->id_map());
                     if (!n2) {
                         save_line_until_node(get<2>(l_parse));
-                        break;
+                        return false;
                     }
                     
                     for (auto& listener : this->edge_listeners) {
@@ -748,7 +800,7 @@ void GFAParser::parse(istream& in) {
                     });
                     if (missing) {
                         save_line_until_node(missing_name);
-                        break;
+                        return false;
                     }
                     
                     // Pass 2: Re-parse the pieces of the line.
@@ -768,37 +820,79 @@ void GFAParser::parse(istream& in) {
                 }
             }
         }
+        return true;
     };
     
-    // We have a function to do a pass over a file of lines.
-    auto process_lines_in_stream = [&](istream& in_stream) {
-        line_number = 0;
-        while (getline(in_stream, line_buffer)) {
-            ++line_number;
-            // For each line in the input file
+    // We have a function to do a pass over a file of lines. It stops at the
+    // given max offset, if set.
+    auto process_lines_in_stream = [&](istream& in_stream, std::streampos max_offset) {
+        if (stream_is_seekable) {
+            // Keep our position in the input stream up to date.
+            in_pos = in_stream.tellg();
+        }
+        while ((!stream_is_seekable || in_pos < max_offset) && getline(in_stream, line_buffer)) {
+            // For each line in the input file, before the max offset
             if (!line_buffer.empty()) {
                 // Handle all lines in the stream that we can handle now.
-                handle_line_if_ready(); 
+                if (handle_line_if_ready()) {
+                    // If we handled the line, we need to mark the end of any unhandled range that might be running.
+                    if (pass_number== 1 && stream_is_seekable && !unprocessed_ranges.empty() &&
+                        get<1>(unprocessed_ranges.back()) == eof_pos) {
+                        // the unprocessed range ends where this line started.
+                        get<1>(unprocessed_ranges.back()) = in_pos;
+#ifdef debug
+                        std::cerr << "Ended unprocessed range at " << in_pos << std::endl;
+#endif
+                    }
+                }
             }
+            if (stream_is_seekable) {
+                // Keep our position in the original input stream up to date.
+                in_pos = in_stream.tellg();
+            }
+            line_number++;
         }
-        pass_number++;
+#ifdef debug
+        std::cerr << "Stop processing run at " << in_pos << "/" << max_offset << std::endl;
+#endif
     };
     
     try {
-    
-        process_lines_in_stream(in);
         
-        if (!buffer_name.empty()) {
-            // We also have lines in the buffer to handle.
-            buffer_out_stream.close();
-            ifstream buffer_in_stream(buffer_name);
-            process_lines_in_stream(buffer_in_stream);
-            
-            // Clean up buffer before returning
-            // TODO: Who takes care of this on GFA format error?
-            buffer_in_stream.close();
-            unlink(buffer_name.c_str());
+        pass_number = 1;
+        line_number = 1;
+        process_lines_in_stream(in, eof_pos);
+        
+        if (stream_is_seekable) {
+            if (!unprocessed_ranges.empty()) {
+                // Handle unprocessed ranges of the file by seeking back to them.
+                pass_number = 2;
+                for (auto& range : unprocessed_ranges) {
+                    in.seekg(get<0>(range));
+                    if (!in.good()) {
+                        throw std::runtime_error("Unable to seek in GFA stream that should be seekable");
+                    }
+                    line_number = get<2>(range);
+                    process_lines_in_stream(in, get<1>(range));
+                }
+            }
+        } else {
+            if (!buffer_name.empty()) {
+                // We also have lines in the buffer to handle.
+                buffer_out_stream.close();
+                ifstream buffer_in_stream(buffer_name);
+                pass_number = 2;
+                // We forget the original line numbers and restart.
+                line_number = 1;
+                process_lines_in_stream(buffer_in_stream, eof_pos);
+                
+                // Clean up buffer before returning
+                // TODO: Who takes care of this on GFA format error?
+                buffer_in_stream.close();
+                unlink(buffer_name.c_str());
+            }
         }
+        
         
         // Run through any rGFA paths that don't start at 0 or have gaps. 
         for (auto& kv : rgfa_path_cache) {
@@ -822,7 +916,7 @@ void GFAParser::parse(istream& in) {
         // We have line buffer in scope and positions are relative to the line buffer.
         
         e.pass_number = pass_number;
-        if (pass_number > 1) {
+        if (!stream_is_seekable && pass_number > 1) {
             // We're working on this temp file. Report it so line numbers make sense.
             e.file_name = buffer_name;
         }
