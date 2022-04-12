@@ -143,14 +143,12 @@ public:
     static tuple<string, chars_t, chars_t, tag_list_t> parse_p(const string& p_line);
     
     /**
-     * Scan visits in a P line.
-     * Calls a callback with all the steps.
-     * visit_step takes {path-name, rank (-1 if path empty), step id, step reversed}
-     * and returns true if it wants to keep iterating (false means stop).
+     * Parse a W line into sample, haplotype, sequence, range (start and end), walk, and tags.
+     * If some or all of the range is missing, uses NO_SUBRANGE and NO_END_POSITION form PathMetadata.
+     * Doesn't include an end position if a start position isn't set.
      */
-    static void scan_p(const string& p_line,
-                       function<bool(const string& path_name, int64_t rank, const chars_t& node_name, bool is_reverse)> visit_step);
-                       
+    static tuple<string, size_t, string, pair<int64_t, int64_t>, chars_t, tag_list_t> parse_w(const string& p_line);
+    
     /**
      * Scan visits extracted from a P line.
      * Calls a callback with all the steps.
@@ -159,6 +157,25 @@ public:
      */
     static void scan_p_visits(const chars_t& visit_range,
                               function<bool(int64_t rank, const chars_t& node_name, bool is_reverse)> visit_step);
+                              
+    /**
+     * Scan visits extracted from a W line.
+     * Calls a callback with all the steps.
+     * visit_step takes {rank (-1 if path empty), step node name, step reversed}
+     * and returns true if it wants to keep iterating (false means stop).
+     */
+    static void scan_w_visits(const chars_t& visit_range,
+                              function<bool(int64_t rank, const chars_t& node_name, bool is_reverse)> visit_step);
+                              
+    
+    /**
+     * Scan visits extracted from a P or W line, as specified in line_type.
+     * Calls a callback with all the steps.
+     * visit_step takes {rank (-1 if path empty), step node name, step reversed}
+     * and returns true if it wants to keep iterating (false means stop).
+     */
+    static void scan_visits(const chars_t& visit_range, char line_type,
+                            function<bool(int64_t rank, const chars_t& node_name, bool is_reverse)> visit_step);
    
     /**
      * Decode rGFA tags from the given list of tags from an S line.
@@ -220,6 +237,10 @@ public:
     /// after the listeners for all involved nodes.
     /// Listeners are not protected from duplicate path names.
     vector<std::function<void(const string& name, const chars_t& visits, const chars_t& overlaps, const tag_list_t& tags)>> path_listeners;
+    /// These listeners will be called with information for all W line paths,
+    /// after the listeners for all involved nodes.
+    /// Listeners are not protected from duplicate path metadata.
+    vector<std::function<void(const string& sample_name, int64_t haplotype, const string& contig_name, const pair<int64_t, int64_t>& subrange, const chars_t& visits, const tag_list_t& tags)>> walk_listeners;
     /// These listeners will be called with each visit of an rGFA path to a
     /// node, after the node listeners for the involved node. They will be
     /// called in order along each path. The listener is responsible for
@@ -244,7 +265,7 @@ struct GFAFormatError : std::runtime_error {
     /// We can make one from a message
     GFAFormatError(const string& message);
     /// We can also make one with a position and a possibly null parsing state
-    GFAFormatError(const string& message, const GFAParser::cursor_t& position, const char* parsing_state);
+    GFAFormatError(const string& message, const GFAParser::cursor_t& position, const char* parsing_state = nullptr);
     
     // The error may or may not have a position in a buffer attached.
     bool has_position = false;

@@ -420,16 +420,16 @@ W	NA19239	2	chr1	*	*	>1>2<3
     bdsg::HashGraph graph;
     stringstream in(graph_gfa);
     algorithms::gfa_to_path_handle_graph(in, &graph);
-    
-    REQUIRE(graph.has_path("GRCh38#chr1"));
-	REQUIRE(graph.has_path("GRCh38#chr2"));
-	REQUIRE(graph.has_path("GRCh38#chr3[0-6]"));
-	REQUIRE(graph.has_path("GRCh38#chr4[5-6]"));
-	REQUIRE(graph.has_path("GRCh38#chr5[99]"));
+	
+	// It should currently interpret all of these as haplotypes, and use the range start as a phase block.
+    REQUIRE(graph.has_path("GRCh38#0#chr1#0"));
+	REQUIRE(graph.has_path("GRCh38#0#chr2#0"));
+	REQUIRE(graph.has_path("GRCh38#0#chr3#0"));
+	REQUIRE(graph.has_path("GRCh38#0#chr4#5"));
+	REQUIRE(graph.has_path("GRCh38#0#chr5#99"));
 	REQUIRE(graph.has_path("NA19239#1#chr1#0"));
 	REQUIRE(graph.has_path("NA19239#1#chr1#14"));
-	REQUIRE(graph.has_path("NA19239#2#chr1"));
-
+	REQUIRE(graph.has_path("NA19239#2#chr1#0"));
 }
 
 

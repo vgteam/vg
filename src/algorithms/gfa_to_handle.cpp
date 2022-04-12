@@ -73,6 +73,8 @@ static void add_graph_listeners(GFAParser& parser, MutableHandleGraph* graph) {
 /// Add listeners which let a GFA parser fill in a path handle graph with paths.
 static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph* graph) {
     parser.path_listeners.push_back([&parser, graph](const string& name, const GFAParser::chars_t& visits, const GFAParser::chars_t& overlaps, const GFAParser::tag_list_t& tags) {
+        // For P lines, we add the path.
+        
         if (graph->has_path(name)) {
             // Prohibit duplicates
             throw GFAFormatError("Duplicate path name: " + name);
@@ -84,6 +86,50 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
         // TODO: Do it in a better place.
         
         GFAParser::scan_p_visits(visits, [&](int64_t step_rank,
+                                             const GFAParser::chars_t& step_name,
+                                             bool step_is_reverse) {
+            if (step_rank >= 0) {
+                // Not an empty path sentinel.
+                // Find the node ID to visit.
+                nid_t n = GFAParser::find_existing_sequence_id(GFAParser::extract(step_name), parser.id_map());
+                // And add the step.
+                graph->append_step(path_handle, graph->get_handle(n, step_is_reverse));
+            }
+            // Don't stop.
+            return true;
+        });
+    });
+    
+    parser.walk_listeners.push_back([&parser, graph](const string& sample_name,
+                                                     int64_t haplotype,
+                                                     const string& contig_name,
+                                                     const pair<int64_t, int64_t>& subrange,
+                                                     const GFAParser::chars_t& visits,
+                                                     const GFAParser::tag_list_t& tags) {
+        // For W lines, we add the path with a bit more metadata.
+        
+        // We need to determine a phase block
+        auto phase_block = PathMetadata::NO_PHASE_BLOCK;
+        if (subrange == PathMetadata::NO_SUBRANGE) {
+            // Call it pahse block 0
+            phase_block = 0;
+        } else {
+            // Use the subrange start as the phase block
+            phase_block = subrange.first;
+        }
+        
+        // Create the path.
+        // TODO: Detect and avoid collisions somehow!
+        // TODO: Actually support subranges.
+        // TODO: Support reference sense paths.
+        auto path_handle = graph->create_path(PathMetadata::SENSE_HAPLOTYPE,
+                                              sample_name,
+                                              contig_name,
+                                              haplotype,
+                                              phase_block,
+                                              PathMetadata::NO_SUBRANGE);
+        
+        GFAParser::scan_w_visits(visits, [&](int64_t step_rank,
                                              const GFAParser::chars_t& step_name,
                                              bool step_is_reverse) {
             if (step_rank >= 0) {
@@ -219,9 +265,10 @@ void gfa_to_path_handle_graph(istream& in,
     parser.parse(in);
 }
 
-/// Read a range, stopping before any end character in the given null-terminated string.
-/// Throws if the range would be empty or none of the characters are encountered.
-static GFAParser::chars_t take_range_until(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, const char* end_chars, const char* parsing_state = nullptr) {
+/// Read a range, stopping before any end character in the given null-terminated string,
+/// or at the end of the input.
+/// Throws if the range would be empty.
+static GFAParser::chars_t take_range_until_optional(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, const char* end_chars, const char* parsing_state = nullptr) {
     auto start = cursor;
     while (cursor != end) {
         for (const char* stop_char = end_chars; *stop_char; ++stop_char) {
@@ -235,7 +282,18 @@ static GFAParser::chars_t take_range_until(GFAParser::cursor_t& cursor, const GF
         }
         ++cursor;
     }
-    throw GFAFormatError("Expected terminator in " + std::string(end_chars), cursor, parsing_state);
+    return GFAParser::chars_t(start, cursor);
+}
+
+/// Read a range, stopping before any end character in the given null-terminated string.
+/// Throws if the range would be empty or none of the characters are encountered.
+static GFAParser::chars_t take_range_until(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, const char* end_chars, const char* parsing_state = nullptr) {
+    GFAParser::chars_t range = take_range_until_optional(cursor, end, end_chars, parsing_state);
+    if (cursor == end) {
+        // We didn't find any of the terminators to stop before
+        throw GFAFormatError("Expected terminator in " + std::string(end_chars), cursor, parsing_state);
+    }
+    return range;
 }
 
 /// Read a range, stopping at tab or end of line.
@@ -273,6 +331,32 @@ static string take_string(GFAParser::cursor_t& cursor, const GFAParser::cursor_t
     string value = take_optional_string(cursor, end);
     if (value.empty()) {
         throw GFAFormatError("Expected nonempty value", cursor, parsing_state);
+    }
+    return value;
+}
+
+/// Read a non-negative integer, stopping at tab or end of line.
+/// Throw if it is empty. If it is '*', return the given default value.
+static int64_t take_number(GFAParser::cursor_t& cursor, const GFAParser::cursor_t& end, int64_t default_value, const char* parsing_state = nullptr) {
+    int64_t value = 0;
+    if (cursor == end || !((*cursor >= '0' && *cursor <= '9') || *cursor == '*')) {
+        // Number is empty and not properly elided
+        throw GFAFormatError("Expected natural number", cursor, parsing_state);
+    }
+    if (*cursor == '*') {
+        // Take the * and use the default value
+        ++cursor;
+        value = default_value;
+    } else {
+        while (cursor != end && *cursor >= '0' && *cursor <= '9') {
+            // Read the base 10 number digit by digit
+            value *= 10;
+            value += (*cursor - '0');
+            ++cursor;
+        }
+    }
+    if (cursor != end && *cursor != '\t' && *cursor != '\n') {
+        throw GFAFormatError("Unexpected data at end of number", cursor, parsing_state);
     }
     return value;
 }
@@ -425,8 +509,70 @@ tuple<string, GFAParser::chars_t, GFAParser::chars_t, GFAParser::tag_list_t> GFA
     return make_tuple(std::move(path_name), std::move(visits), std::move(overlaps), std::move(tags));
 }
 
+tuple<string, size_t, string, pair<int64_t, int64_t>, GFAParser::chars_t, GFAParser::tag_list_t> GFAParser::parse_w(const string& w_line) {
+    auto cursor = w_line.begin();
+    auto end = w_line.end();
+    
+    // Make sure we start with W
+    take_character(cursor, end, 'W', "parsing W line start");
+    take_tab(cursor, end, "parsing W line");
+    
+    // Grab the sample name
+    string sample_name = take_string(cursor, end, "parsing sample name");
+    take_tab(cursor, end, "parsing end of sample name");
+    
+    // Grab the haplotype number
+    int64_t haplotype_number = take_number(cursor, end, -1, "parsing haplotype number");
+    if (haplotype_number == -1) {
+        // This field is required
+        throw GFAFormatError("Missing haplotype number in W line", cursor);
+    }
+    take_tab(cursor, end, "parsing end of haplotype number");
+    
+    // Grab the sequence/contig/locus name
+    string sequence_name = take_string(cursor, end, "parsing sequence name");
+    take_tab(cursor, end, "parsing end of sequence name");
+    
+    // Grab the start and end positions
+    int64_t range_start = take_number(cursor, end, -1, "parsing subrange start");
+    take_tab(cursor, end, "parsing end of subrange start");
+    int64_t range_end = take_number(cursor, end, -1, "parsing subrange end");
+    take_tab(cursor, end, "parsing end of subrange end");
+    
+    // Parse out the visits
+    chars_t visits = take_range(cursor, end, "parsing walk visits");
+    take_optional_tab(cursor, end, "parsing end of walk visits");
+    
+    // Now we're either at the end or at the tab before the tags. Parse the tags.
+    auto tags = GFAParser::parse_tags(chars_t(cursor, end));
+    
+    // Process the path subrange a bit. Compose it into the sort of subrange
+    // PathMetadata uses.
+    pair<int64_t, int64_t> range = PathMetadata::NO_SUBRANGE;
+    if (range_start != -1) {
+        range.first = range_start;
+        if (range_end != -1) {
+            range.second = range_end;
+        }
+    }
+    
+    return make_tuple(std::move(sample_name), std::move(haplotype_number), std::move(sequence_name), std::move(range), std::move(visits), std::move(tags));
+}
+
 void GFAParser::scan_p_visits(const chars_t& visit_range,
                               function<bool(int64_t rank, const chars_t& node_name, bool is_reverse)> visit_step) {
+    
+    return GFAParser::scan_visits(visit_range, 'P', visit_step);
+}
+
+void GFAParser::scan_w_visits(const chars_t& visit_range,
+                              function<bool(int64_t rank, const chars_t& node_name, bool is_reverse)> visit_step) {
+    
+    return GFAParser::scan_visits(visit_range, 'W', visit_step);
+}
+
+void GFAParser::scan_visits(const chars_t& visit_range, char line_type,
+                            function<bool(int64_t rank, const chars_t& node_name, bool is_reverse)> visit_step) {
     
     auto cursor = visit_range.first;
     auto& end = visit_range.second;
@@ -435,18 +581,34 @@ void GFAParser::scan_p_visits(const chars_t& visit_range,
     while (cursor != end) {
         // Until we run out of visit list range
         
-        // Make a range for the visit node name
-        chars_t name_range = take_range_until(cursor, end, "+-", "parsing name of visited node");
-        bool is_reverse = take_flag_character(cursor, end, '-', '+', "parsing orientation of visited node");
+        bool is_reverse;
+        chars_t name_range;
+        
+        // Parse name and orientation as appropriate for line type
+        if (line_type == 'P') {
+            // Parse like a path line
+            name_range = take_range_until(cursor, end, "+-", "parsing name of visited node");
+            is_reverse = take_flag_character(cursor, end, '-', '+', "parsing orientation of visited node");
+        } else if (line_type == 'W') {
+            // Parse like a walk line
+            is_reverse = take_flag_character(cursor, end, '<', '>', "parsing orientation of visited node");
+            name_range = take_range_until_optional(cursor, end, "><\t\n", "parsing name of visited node");
+        } else {
+            throw std::runtime_error("Unimplemented line type for scanning visits");
+        }
+        
         
         if (!visit_step(rank, name_range, is_reverse)) {
             // We should stop looping
             return;
         }
         
-        if (cursor != visit_range.second) {
-            // Go past the comma separator
-            take_character(cursor, end, ',', "parsing visit separator");
+        if (line_type == 'P') {
+            // P lines might have comma separators
+            if (cursor != visit_range.second) {
+                // Go past the comma separator
+                take_character(cursor, end, ',', "parsing visit separator");
+            }
         }
         // And advance the rank for the next visit
         ++rank;
@@ -456,28 +618,6 @@ void GFAParser::scan_p_visits(const chars_t& visit_range,
         // Nothing was visited. Show an empty path.
         visit_step(-1, chars_t(visit_range.second, visit_range.second), false);
     }
-}
-
-void GFAParser::scan_p(const string& p_line,
-                       function<bool(const string& path_name, int64_t rank, const chars_t& node_name, bool is_reverse)> visit_step) {
-    
-    tuple<string, chars_t, chars_t, tag_list_t> p_parse = GFAParser::parse_p(p_line);
-    auto& path_name = get<0>(p_parse);
-    auto& path_visits = get<1>(p_parse);
-    auto& overlaps = get<2>(p_parse);
-    
-    for(auto it = overlaps.first; it != overlaps.second; ++it) {
-        if (*it != '*' && *it != ',' && *it != 'M' && (*it < '0' || *it > '9')) {
-            // This overlap isn't just * or a list of * or a list of matches with numbers.
-            // We can't handle it
-            throw GFAFormatError("Path " + path_name + " has nontrivial overlaps and can't be handled");
-        }
-    }
-    
-    scan_p_visits(path_visits, [&](int64_t rank, const chars_t& node_name, bool is_reverse) {
-        return visit_step(path_name, rank, node_name, is_reverse);
-    });
-    
 }
 
 bool GFAParser::decode_rgfa_tags(const tag_list_t& tags,
@@ -782,11 +922,30 @@ void GFAParser::parse(istream& in) {
                     // TODO: we don't check for duplicate path lines here.
                     // Listeners might.
                     
-                    // Pass 1: Make sure we have all the nodes in the graph
-                    GFAParser::scan_p(line_buffer, [&](const string& path_name,
-                                                       int64_t step_rank,
-                                                       const GFAParser::chars_t& step_id,
-                                                       bool step_is_reverse) {
+                    // Parse out the path pieces: name, visits, overlaps, tags
+                    tuple<string, chars_t, chars_t, tag_list_t> p_parse = GFAParser::parse_p(line_buffer);
+                    auto& path_name = get<0>(p_parse);
+                    auto& visits = get<1>(p_parse);
+                    auto& overlaps = get<2>(p_parse);
+                    auto& tags = get<3>(p_parse);
+                    
+                    for(auto it = overlaps.first; it != overlaps.second; ++it) {
+                        if (*it != '*' && *it != ',' && *it != 'M' && (*it < '0' || *it > '9')) {
+                            // This overlap isn't just * or a list of * or a list of matches with numbers.
+                            // We can't handle it
+                            throw GFAFormatError("Path " + path_name + " has nontrivial overlaps and can't be handled", it);
+                        }
+                    }
+                    
+                    // Make sure we have all the nodes in the graph
+                    GFAParser::scan_p_visits(visits, [&](int64_t step_rank,
+                                                         const GFAParser::chars_t& step_id,
+                                                         bool step_is_reverse) {
+                         if (step_rank == -1) {
+                            // Nothing to do for empty paths
+                            return true;
+                        }
+                         
                          if (step_rank >= 0) {
                             string step_string = GFAParser::extract(step_id);
                             nid_t n = GFAParser::find_existing_sequence_id(step_string, this->id_map());
@@ -803,12 +962,54 @@ void GFAParser::parse(istream& in) {
                         return false;
                     }
                     
-                    // Pass 2: Re-parse the pieces of the line.
-                    // TODO: Deduplicate with scan
-                    tuple<string, chars_t, chars_t, tag_list_t> p_parse = GFAParser::parse_p(line_buffer);
                     for (auto& listener : this->path_listeners) {
                         // Tell all the listener functions
-                        listener(get<0>(p_parse), get<1>(p_parse), get<2>(p_parse), get<3>(p_parse));
+                        listener(path_name, visits, overlaps, tags);
+                    }
+                }
+                break;
+            case 'W':
+                // Walks can be handled if all their nodes have been seen
+                {
+                    bool missing = false;
+                    string missing_name;
+                    
+                    // Fins the pieces of the walk line
+                    tuple<string, size_t, string, pair<int64_t, int64_t>, chars_t, tag_list_t> w_parse = GFAParser::parse_w(line_buffer);
+                    auto& sample_name = get<0>(w_parse);
+                    auto& haplotype = get<1>(w_parse);
+                    auto& contig_name = get<2>(w_parse);
+                    auto& subrange = get<3>(w_parse);
+                    auto& visits = get<4>(w_parse);
+                    auto& tags = get<5>(w_parse);
+                    
+                    GFAParser::scan_w_visits(visits, [&](int64_t step_rank,
+                                                         const GFAParser::chars_t& step_id,
+                                                         bool step_is_reverse) {
+                        if (step_rank == -1) {
+                            // Nothing to do for empty paths
+                            return true;
+                        }
+                        
+                        // For every node the walk visits, make sure we have seen it.
+                        string step_string = GFAParser::extract(step_id);
+                        nid_t n = GFAParser::find_existing_sequence_id(step_string, this->id_map());
+                        if (!n) {
+                            missing = true;
+                            missing_name = std::move(step_string);
+                            return false;
+                        }
+                        return true;
+                    });
+                    
+                    if (missing) {
+                        save_line_until_node(missing_name);
+                        return false;
+                    }
+                    
+                    for (auto& listener : this->walk_listeners) {
+                        // Tell all the listener functions
+                        listener(sample_name, haplotype, contig_name, subrange, visits, tags);
                     }
                 }
                 break;
