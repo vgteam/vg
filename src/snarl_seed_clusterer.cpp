@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-//#define DEBUG_CLUSTER
+#define DEBUG_CLUSTER
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
@@ -1462,7 +1462,7 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, size_t snar
     }
 
     //Chain component of the start and end nodes of the snarl
-    if (parent_clusters.chain_last_component != std::numeric_limits<size_t>::max()) {
+    if (parent_clusters.chain_last_component != 0 && parent_clusters.chain_last_component != std::numeric_limits<size_t>::max()) {
         snarl_clusters.chain_component_start = distance_index.get_chain_component(distance_index.get_node_from_sentinel(snarl_clusters.start_in));
         snarl_clusters.chain_component_end = distance_index.get_chain_component(distance_index.get_node_from_sentinel(snarl_clusters.end_in));
     }
@@ -1499,7 +1499,7 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, size_t snar
                 if (dists.first == snarl_clusters.read_best_left[read_num]) {got_read_left = true;}
                 if (dists.second == snarl_clusters.read_best_right[read_num]) {got_read_right = true;}
                 cerr << endl;
-                assert(has_seeds);
+                //assert(has_seeds);
             }
         }
         //assert(!any_clusters ||got_read_left ||  snarl_clusters.read_best_left[read_num] == std::numeric_limits<size_t>::max());
@@ -1864,9 +1864,6 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
                 ? tree_state.all_node_clusters[std::get<1>(child_clusters_i)].node_length
                 : std::get<0>(tree_state.all_seeds->at(
                         std::get<1>(child_clusters_i))->at(std::get<2>(child_clusters_i)).minimizer_cache);
-#ifdef DEBUG_CLUSTER
-                assert(node_length != std::numeric_limits<size_t>::max());
-#endif
             distance_from_current_end_to_end_of_chain = SnarlDistanceIndex::minus(chain_clusters.node_length, 
                             SnarlDistanceIndex::sum({distance_from_chain_start_to_current_node, node_length}));
         }
