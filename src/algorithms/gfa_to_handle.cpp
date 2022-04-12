@@ -117,14 +117,24 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
             found = rgfa_cache->end();
         }
         if (found == rgfa_cache->end()) {
-            // Need to make a new path, with subrange start info.
+            // Need to make a new path, possibly with subrange start info.
+            
+            std::pair<int64_t, int64_t> subrange;
+            if (offset == 0) {
+                // Don't send a subrange
+                subrange = PathMetadata::NO_SUBRANGE;
+            } else {
+                // Start later than 0
+                subrange = std::pair<int64_t, int64_t>(offset, PathMetadata::NO_END_POSITION);
+            }
+            
             // TODO: See if we can split up the path name into a sample/haplotype/etc. to give it a ref sense.
             path_handle_t path = graph->create_path(PathMetadata::SENSE_GENERIC,
                                                     PathMetadata::NO_SAMPLE_NAME,
                                                     path_name, 
                                                     PathMetadata::NO_HAPLOTYPE,
                                                     PathMetadata::NO_PHASE_BLOCK,
-                                                    std::pair<int64_t, int64_t>(offset, PathMetadata::NO_END_POSITION));
+                                                    subrange);
             // Then cache it
             found = rgfa_cache->emplace_hint(found, path_name, std::make_pair(path, offset));
         }
@@ -485,24 +495,26 @@ bool GFAParser::decode_rgfa_tags(const tag_list_t& tags,
             string tag_name = tag.substr(0, sep1);
             if (tag_name == "SN" || tag_name == "SO" || tag_name == "SR") {
                 size_t sep2 = tag.find(':', sep1 + 1);
-                string tag_type = tag_name.substr(sep1 + 1, sep2);
-                if (tag_name == "SN" && tag_type == "Z") {
-                    // We found a string name
-                    has_sn = true;
-                    if (out_name) {
-                        *out_name = tag.substr(sep2 + 1);
-                    }
-                } else if (tag_name == "SO" && tag_type == "i") {
-                    // We found an integer offset along the path
-                    has_so = true;
-                    if (out_offset) {
-                        *out_offset = stoll(tag.substr(sep2 + 1));
-                    }
-                } else if (tag_name == "SR" && tag_type == "i") {
-                    // We found an integer rank for the path
-                    has_sr = true;
-                    if (out_rank) {
-                        *out_rank = stoll(tag.substr(sep2 + 1));
+                if (sep2 != string::npos) {
+                    string tag_type = tag.substr(sep1 + 1, sep2 - sep1 - 1);
+                    if (tag_name == "SN" && tag_type == "Z") {
+                        // We found a string name
+                        has_sn = true;
+                        if (out_name) {
+                            *out_name = tag.substr(sep2 + 1);
+                        }
+                    } else if (tag_name == "SO" && tag_type == "i") {
+                        // We found an integer offset along the path
+                        has_so = true;
+                        if (out_offset) {
+                            *out_offset = stoll(tag.substr(sep2 + 1));
+                        }
+                    } else if (tag_name == "SR" && tag_type == "i") {
+                        // We found an integer rank for the path
+                        has_sr = true;
+                        if (out_rank) {
+                            *out_rank = stoll(tag.substr(sep2 + 1));
+                        }
                     }
                 }
             }
@@ -587,6 +599,9 @@ void GFAParser::parse(istream& in) {
             if (!buffer_out_stream) {
                 throw runtime_error("error:[GFAParser] Could not open fallback gfa temp file: " + buffer_name);
             }
+            // Tell the user that we're having to use a buffer; the tests want us to.
+            std::cerr << "warning:[GFAParser] GFA file references node " << missing_node_name << " before it is defined. "
+                      << "Buffering lines in " << buffer_name << " until we are ready for them." << std::endl;
         }
         
         // Store the line into it so we can move on to the next line

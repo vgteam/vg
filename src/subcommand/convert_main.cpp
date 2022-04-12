@@ -302,9 +302,9 @@ int main_convert(int argc, char** argv) {
             graph_to_xg_adjusting_paths(&intermediate, xg_graph, ref_samples);
         }
         else {
-            if (input_stream_name == "-") {
-                cerr << "warning [vg convert]: Converting a GFA to an indexed sequence graph from piped input can be memory intensive because the entire GFA must be loaded into memory. If memory usage is too high, consider serializing the GFA to disk to allow multiple passes over the file." << endl;
-            }
+            // If the GFA doesn't have forward references, we can handle it
+            // efficiently even if we are streaming it, so we shouldn't warn about
+            // "-" input here.
             try {
                 if (output_path_graph != nullptr) {
                     MutablePathMutableHandleGraph* mutable_output_graph = dynamic_cast<MutablePathMutableHandleGraph*>(output_path_graph);
