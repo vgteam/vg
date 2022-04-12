@@ -108,7 +108,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
                         out << ',';
                     }
                     out << graph->get_id(step_handle);
-                    out << graph->get_is_reverse(step_handle) ? '-' : '+';
+                    out << (graph->get_is_reverse(step_handle) ? '-' : '+');
                     first = false;
                     return true;
                 });
@@ -148,7 +148,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
         }
         
         out << "L\t" << from_id << "\t" << (from_is_reverse ? '-' : '+')
-            << "\t" << to_id << (to_is_reverse ? '-' : '+') << "\n"; // Writing `std::endl` would flush the buffer.
+            << "\t" << to_id << "\t" << (to_is_reverse ? '-' : '+') << "\t*\n"; // Writing `std::endl` would flush the buffer.
         return true;
     }, false);
 }
