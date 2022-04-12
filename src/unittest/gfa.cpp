@@ -399,6 +399,39 @@ L	1	+	0	+	0M)";
 
 }
 
+TEST_CASE("Can import W lines from a GFA", "[gfa]") {
+
+    const string graph_gfa = R"(H	VN:Z:1.0
+W	GRCh38	0	chr2	*	*	>3<2<1
+S	1	CAAATAAG
+S	2	ATTACA
+S	3	G
+L	1	+	2	+	0M
+L	1	+	3	-	0M
+W	GRCh38	0	chr1	*	*	>1>2<3
+W	GRCh38	0	chr3	0	6	>1>2<3
+W	GRCh38	0	chr4	5	6	>3
+W	GRCh38	0	chr5	99	*	>1>2<3
+W	NA19239	1	chr1	0	8	>1
+W	NA19239	1	chr1	14	15	<3
+W	NA19239	2	chr1	*	*	>1>2<3
+)";
+
+    bdsg::HashGraph graph;
+    stringstream in(graph_gfa);
+    algorithms::gfa_to_path_handle_graph(in, &graph);
+    
+    REQUIRE(graph.has_path("GRCh38#chr1"));
+	REQUIRE(graph.has_path("GRCh38#chr2"));
+	REQUIRE(graph.has_path("GRCh38#chr3[0-6]"));
+	REQUIRE(graph.has_path("GRCh38#chr4[5-6]"));
+	REQUIRE(graph.has_path("GRCh38#chr5[99]"));
+	REQUIRE(graph.has_path("NA19239#1#chr1#0"));
+	REQUIRE(graph.has_path("NA19239#1#chr1#14"));
+	REQUIRE(graph.has_path("NA19239#2#chr1"));
+
+}
+
 
         
 }
