@@ -866,6 +866,10 @@ void GFAParser::parse(istream& in) {
         if (stream_is_seekable) {
             if (!unprocessed_ranges.empty()) {
                 // Handle unprocessed ranges of the file by seeking back to them.
+                
+                // Make sure to clear out EOF.
+                in.clear();
+                
                 pass_number = 2;
                 for (auto& range : unprocessed_ranges) {
                     in.seekg(get<0>(range));
