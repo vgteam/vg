@@ -462,10 +462,6 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
                     //Update the maximum distance
                     temp_index.max_distance = std::max(temp_index.max_distance, temp_chain_record.prefix_sum.back());
 
-                    //If this is the second component of the multicomponent chain, then remember the minimum length
-                    if (curr_component == 1) {
-                        temp_chain_record.min_length = temp_chain_record.prefix_sum.back();
-                    }
                     temp_chain_record.prefix_sum.emplace_back(0);
                     temp_chain_record.backward_loops.emplace_back(temp_snarl_record.loop_end);
                     //If the chain is disconnected, the max length is infinite
@@ -527,7 +523,7 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
 
         }
         temp_chain_record.min_length = !temp_chain_record.is_trivial && temp_chain_record.start_node_id == temp_chain_record.end_node_id
-                        ? SnarlDistanceIndex::sum({temp_chain_record.prefix_sum.back(), temp_chain_record.min_length})
+                        ? temp_chain_record.prefix_sum.back()
                         : SnarlDistanceIndex::sum({temp_chain_record.prefix_sum.back() , temp_chain_record.end_node_length});
 
         assert(temp_chain_record.prefix_sum.size() == temp_chain_record.backward_loops.size());
@@ -1657,8 +1653,9 @@ tuple<size_t, size_t, size_t, size_t, bool> get_minimizer_distances (const Snarl
     bool in_top_level_chain = distance_index.is_chain(parent_handle) &&
                               distance_index.is_root(distance_index.get_parent(parent_handle)) &&
                               !distance_index.is_root_snarl(distance_index.get_parent(parent_handle));
-    size_t prefix_sum = distance_index.is_chain(parent_handle) ? distance_index.get_prefix_sum_value(node_handle)
-                                                               : std::numeric_limits<size_t>::max();
+    size_t prefix_sum = distance_index.is_chain(parent_handle) && !distance_index.is_trivial_chain(parent_handle)
+                            ? distance_index.get_prefix_sum_value(node_handle)
+                            : std::numeric_limits<size_t>::max();
     size_t component = distance_index.is_chain(parent_handle) 
                             ? (distance_index.is_multicomponent_chain(parent_handle) ? distance_index.get_chain_component(node_handle) : 0)
                             : std::numeric_limits<size_t>::max();
