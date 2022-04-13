@@ -57,8 +57,47 @@ namespace unittest {
 
         }
     }
-    TEST_CASE( "cluster simple chain",
+    TEST_CASE( "cluster one node with loop",
                    "[cluster][bug]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCAATGGACA");
+
+        Edge* e1 = graph.create_edge(n1, n1);
+
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex dist_index;
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
+        
+        //graph.to_dot(cerr);
+
+        SECTION( "One cluster" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(1, false, 0));
+            positions.emplace_back(make_pos_t(1, true, 0));
+            //all are in the same cluster
+            vector<NewSnarlSeedClusterer::Seed> seeds;
+            for (bool use_minimizers : {true, false} ) {
+                for (auto& pos : positions) {
+                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 5); 
+                REQUIRE(clusters.size() == 1); 
+            }
+
+
+        }
+    }
+    TEST_CASE( "cluster simple chain",
+                   "[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -192,7 +231,7 @@ namespace unittest {
         }
     }
     TEST_CASE( "Cluster looping, multicomponent",
-                   "[cluster][bug]" ) {
+                   "[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");

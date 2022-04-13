@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-//#define DEBUG_CLUSTER
+#define DEBUG_CLUSTER
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
@@ -1374,6 +1374,12 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_one_child(TreeState& 
         //Check if the left of 1 can connect with the right of 2
         compare_and_combine_clusters (read_num, cluster_num, 
             SnarlDistanceIndex::sum({distances.first,distance_left_right, child_clusters.read_best_right[read_num]}), 
+            SnarlDistanceIndex::sum({distances.first,distance_left_right, child_clusters.fragment_best_right}), 
+             new_cluster_left_right_by_read[read_num], new_cluster_left_right_fragment);
+
+        //Check if the right of 1 can connect with the left of 2
+        compare_and_combine_clusters (read_num, cluster_num, 
+            SnarlDistanceIndex::sum({distances.second,distance_left_right, child_clusters.read_best_left[read_num]}), 
             SnarlDistanceIndex::sum({distances.first,distance_left_right, child_clusters.fragment_best_right}), 
              new_cluster_left_right_by_read[read_num], new_cluster_left_right_fragment);
 
