@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['childnodetype_11436',['ChildNodeType',['../classvg_1_1SnarlSeedClusterer.html#a835e4f3125a877f2baebd11886750225',1,'vg::SnarlSeedClusterer']]],
-  ['commandcategory_11437',['CommandCategory',['../namespacevg_1_1subcommand.html#a98d12492502a2d7f7c46386d2faed838',1,'vg::subcommand']]]
+  ['childnodetype_11439',['ChildNodeType',['../classvg_1_1SnarlSeedClusterer.html#a835e4f3125a877f2baebd11886750225',1,'vg::SnarlSeedClusterer']]],
+  ['commandcategory_11440',['CommandCategory',['../namespacevg_1_1subcommand.html#a98d12492502a2d7f7c46386d2faed838',1,'vg::subcommand']]]
 ];
