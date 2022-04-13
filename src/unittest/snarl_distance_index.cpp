@@ -5172,7 +5172,7 @@ namespace vg {
 
             }
         }
-        TEST_CASE( "Looping, multicomponent chain", "[snarl_distance]" ) {
+        TEST_CASE( "Looping, multicomponent chain", "[snarl_distance][bug]" ) {
 
             //Intuitively, snarl from 1 to 10 with chain 2-5-7-9
             //Actually looping chain starting and ending 5fd
@@ -5251,6 +5251,12 @@ namespace vg {
                 REQUIRE(distance_index.distance_in_parent(top_chain_handle, node_2, distance_index.flip(node_2)) == std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.distance_in_parent(top_chain_handle, distance_index.flip(node_2),node_2) ==  std::numeric_limits<size_t>::max());
                 REQUIRE(distance_index.distance_in_parent(top_chain_handle, node_2,node_2) ==  10);
+
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, node_5, distance_index.flip(node_7)) ==  1);
+
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, distance_index.flip(node_2), node_5) ==  std::numeric_limits<size_t>::max());
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, node_2, distance_index.flip(node_5)) ==  1);
+                REQUIRE(distance_index.distance_in_parent(top_chain_handle, distance_index.flip(node_5), node_2) ==  1);
 
             }
             SECTION("Minimum distances") {
