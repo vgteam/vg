@@ -107,6 +107,7 @@ void help_sim(char** argv) {
          << "    -p, --frag-len N            make paired end reads with given fragment length N" << endl
          << "    -v, --frag-std-dev FLOAT    use this standard deviation for fragment length estimation" << endl
          << "    -N, --allow-Ns              allow reads to be sampled from the graph with Ns in them" << endl
+         << "    --max-tries N               attempt sampling operations up to N times before giving up [100]" << endl
          << "    -t, --threads               number of compute threads (only when using FASTQ with -F) [1]" << endl
          << "simulate from paths:" << endl
          << "    -P, --path PATH             simulate from this path (may repeat; cannot also give -T)" << endl
@@ -130,6 +131,7 @@ int main_sim(int argc, char** argv) {
     }
 
     #define OPT_MULTI_POSITION 1000
+    #define OPT_MAX_TRIES 1001
 
     string xg_name;
     int num_reads = 1;
@@ -147,6 +149,7 @@ int main_sim(int argc, char** argv) {
     int fragment_length = 0;
     double fragment_std_dev = 0;
     bool reads_may_contain_Ns = false;
+    size_t max_tries = 100;
     bool strip_bonuses = false;
     bool interleaved = false;
     bool unsheared_fragments = false;
@@ -204,6 +207,7 @@ int main_sim(int argc, char** argv) {
             {"json-out", no_argument, 0, 'J'},
             {"multi-position", no_argument, 0, OPT_MULTI_POSITION},
             {"allow-Ns", no_argument, 0, 'N'},
+            {"max-tries", required_argument, 0, OPT_MAX_TRIES},
             {"unsheared", no_argument, 0, 'u'},
             {"sub-rate", required_argument, 0, 'e'},
             {"indel-rate", required_argument, 0, 'i'},
@@ -350,6 +354,10 @@ int main_sim(int argc, char** argv) {
 
         case 'N':
             reads_may_contain_Ns = true;
+            break;
+            
+        case OPT_MAX_TRIES:
+            max_tries = parse<size_t>(optarg);
             break;
                 
         case 'u':
@@ -718,6 +726,9 @@ int main_sim(int argc, char** argv) {
         if (reads_may_contain_Ns) {
             std::cerr << "--allow-Ns" << std::endl;
         }
+        if (max_tries != 100) {
+            std::cerr << "--max-tries" << max_tries << std::endl;
+        }
     }
     
     unique_ptr<AbstractReadSampler> sampler;
@@ -752,6 +763,7 @@ int main_sim(int argc, char** argv) {
     
     // Do common configuration
     sampler->multi_position_annotations = multi_position_annotations;
+    sampler->max_tries = max_tries;
     if (!inserted_path_handles.empty()) {
         // Skip paths that we have added ourselves when annotating, so we search
         // further for base-graph path.
