@@ -110,8 +110,12 @@ class NewSnarlSeedClusterer {
             //Only set these for nodes or snarls in chains
             nid_t node_id = 0;
             bool is_reversed_in_parent = false;
-            size_t node_length = std::numeric_limits<size_t>::max(); //of node or snarl
-            size_t prefix_sum_value = std::numeric_limits<size_t>::max(); //of node or first node in snarl
+
+            //Minimum length of a node or snarl
+            //If it is a chain, then it is distance_index.chain_minimum_length(), which is
+            //the expected length for a normal chain, and the length of the 
+            //last component for a multicomponent chain 
+            size_t node_length = std::numeric_limits<size_t>::max();             size_t prefix_sum_value = std::numeric_limits<size_t>::max(); //of node or first node in snarl
             size_t chain_component_start = 0; //of node or start of snarl
             size_t chain_component_end = 0; //of node or end of snarl
 
@@ -154,7 +158,7 @@ class NewSnarlSeedClusterer {
                 read_best_right(read_count, std::numeric_limits<size_t>::max()){
                 if (distance_index.is_chain(containing_net_handle) && !distance_index.is_trivial_chain(containing_net_handle)) {
                     is_looping_chain = distance_index.is_looping_chain(containing_net_handle);
-                    node_length = distance_index.minimum_length(containing_net_handle);
+                    node_length = distance_index.chain_minimum_length(containing_net_handle);
                     start_in = distance_index.get_bound(containing_net_handle, false, true);
                     end_in = distance_index.get_bound(containing_net_handle, true, true);
                     chain_last_component = distance_index.get_chain_component(end_in, true);

@@ -58,7 +58,7 @@ namespace unittest {
         }
     }
     TEST_CASE( "cluster one node with loop",
-                   "[cluster][bug]" ) {
+                   "[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCAATGGACA");
@@ -231,7 +231,7 @@ namespace unittest {
         }
     }
     TEST_CASE( "Cluster looping, multicomponent",
-                   "[cluster]" ) {
+                   "[cluster][bug]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -239,7 +239,7 @@ namespace unittest {
         Node* n3 = graph.create_node("G");
         Node* n4 = graph.create_node("CTGA");
         Node* n5 = graph.create_node("GCA");
-        Node* n6 = graph.create_node("T");
+        Node* n6 = graph.create_node("TGCAGT");
         Node* n7 = graph.create_node("T");
         Node* n8 = graph.create_node("CTGA");
         Node* n9 = graph.create_node("GCA");
@@ -293,6 +293,93 @@ namespace unittest {
             }
 
 
+        }
+        SECTION( "Two clusters" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(2, false, 0));
+            positions.emplace_back(make_pos_t(8, false, 0));
+            //all are in the same cluster
+            vector<NewSnarlSeedClusterer::Seed> seeds;
+            for (bool use_minimizers : {true, false} ) {
+                for (pos_t pos : positions) {
+                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 5); 
+                REQUIRE(clusters.size() == 2); 
+            }
+
+
+        }
+        SECTION( "One cluster" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(5, false, 0));
+            positions.emplace_back(make_pos_t(7, false, 0));
+            //all are in the same cluster
+            vector<NewSnarlSeedClusterer::Seed> seeds;
+            for (bool use_minimizers : {true, false} ) {
+                seeds.clear();
+                for (pos_t pos : positions) {
+                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 9); 
+                REQUIRE(clusters.size() == 1); 
+            }
+        }
+        SECTION( "Two clusters" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(3, false, 0));
+            positions.emplace_back(make_pos_t(7, false, 0));
+            positions.emplace_back(make_pos_t(11, false, 0));
+            //all are in the same cluster
+            vector<NewSnarlSeedClusterer::Seed> seeds;
+            for (bool use_minimizers : {true, false} ) {
+                seeds.clear();
+                for (pos_t pos : positions) {
+                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 10); 
+                REQUIRE(clusters.size() == 2); 
+            }
+        }
+        SECTION( "One cluster" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(3, false, 0));
+            positions.emplace_back(make_pos_t(7, false, 0));
+            positions.emplace_back(make_pos_t(11, false, 0));
+            //all are in the same cluster
+            vector<NewSnarlSeedClusterer::Seed> seeds;
+            for (bool use_minimizers : {true, false} ) {
+                seeds.clear();
+                for (pos_t pos : positions) {
+                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 11); 
+                REQUIRE(clusters.size() == 1); 
+            }
         }
 
     }
