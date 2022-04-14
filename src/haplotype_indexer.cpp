@@ -361,11 +361,13 @@ std::unique_ptr<gbwt::DynamicGBWT> HaplotypeIndexer::build_gbwt(const std::vecto
             // Each counts as a haplotype when we visit it.
         }
         else {
-            // Paths in the graph all become path-named contigs visited by the
+            // Generic paths in the graph all become path-named contigs visited by the
             // magic reference sample defined by libgbwtgraph.
-            sample_names.push_back(gbwtgraph::REFERENCE_PATH_SAMPLE_NAME);
+            sample_names.push_back(gbwtgraph::NAMED_PATH_SAMPLE_PREFIX);
             // They all count as one haplotype now.
             haplotype_count++;
+            
+            // TODO: Handle copying over reference and haplotype paths!
             
             // And we're going to need to deduplicate contigs with those
             // already added by the VCF data.

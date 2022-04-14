@@ -515,7 +515,7 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id, bool s
     if (short_name) {
         // We want a name with just sample and contig.
         // Spit out a name in reference sense format, which should suffice.
-        return PathMetadata::create_path_name(PathMetadata::SENSE_REFERENCE,
+        return PathMetadata::create_path_name(PathSense::REFERENCE,
                                               metadata.hasSampleNames() ? metadata.sample(path.sample) : std::to_string(path.sample),
                                               metadata.hasContigNames() ? metadata.contig(path.contig) : std::to_string(path.contig),
                                               PathMetadata::NO_HAPLOTYPE,
@@ -526,18 +526,35 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id, bool s
     // Try and work out the sense of the path just from the GBWT.
     // TODO: needs to be kept in sync with GBWTGraph.
     PathMetadata::Sense path_sense;
-    if (metadata.hasSampleNames() && metadata.sample(path.sample) == gbwtgraph::REFERENCE_PATH_SAMPLE_NAME) {
-        // If we assign the path to the special reference sample it's a generic
-        // path with just the one locus name.
-        path_sense = PathMetadata::SENSE_GENERIC;
+    if (metadata.hasSampleNames()) {
+        auto sample_name = metadata.sample(path.sample);
+        if (sample_name.size() < gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.size() &&
+            std::equal(gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.begin(), gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.end(), sample_name.begin)) {
+            // It starts with the right prefix
+            
+            if (sample_name.size() == gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.size()) {
+                // Actually only the prefix is there
+        
+                // If we assign the path to the special reference sample it's a generic
+                // path with just the one locus name.
+                path_sense = PathSense::GENERIC;
+            } else {
+                    // If we assign it to some other sample that starts with that string, it's a
+                    // reference path and not a generic one.
+                    path_sense = PathSense::REFERENCE;
+            }
+        } else {
+            // Otherwise it's a haplotype thread.
+            path_sense = PathSense::HAPLOTYPE;
+        }
     } else {
         // Otherwise it's a haplotype thread.
-        path_sense = PathMetadata::SENSE_HAPLOTYPE;
+        path_sense = PathSense::HAPLOTYPE;
     }
     
     // Compose a name based on the sense.
     switch(path_sense) {
-    case PathMetadata::SENSE_GENERIC:
+    case PathSense::GENERIC:
         if (metadata.hasContigNames()) {
             // The contig name is the exposed path name.
             return metadata.contig(path.contig);
@@ -547,14 +564,15 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id, bool s
             return std::to_string(path.contig);
         }
         break;
-    case PathMetadata::SENSE_HAPLOTYPE:
+    case PathSense::REFERENCE: // Fall-through
+    case PathSense::HAPLOTYPE:
         // The path name must be composed.
-        // If contig or sample names are missing, make them up.
+        // If contig names are missing, make them up.
         return PathMetadata::create_path_name(path_sense,
-                                              metadata.hasSampleNames() ? metadata.sample(path.sample) : std::to_string(path.sample),
+                                              metadata.sample(path.sample),
                                               metadata.hasContigNames() ? metadata.contig(path.contig) : std::to_string(path.contig),
                                               path.phase,
-                                              path.count,
+                                              path_sense == PathSense::HAPLOTYPE ? path.count : PathMetadata::NO_PHASE_BLOCK,
                                               PathMetadata::NO_SUBRANGE);
         break;
     default:

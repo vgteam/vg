@@ -415,9 +415,13 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
         pair<vector<SnarlTraversal>, vector<gbwt::size_type>> thread_travs = gbwt_trav_finder->find_path_traversals(*snarl);
         for (int i = 0; i < thread_travs.first.size(); ++i) {
             string gbwt_sample_name = thread_sample(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(thread_travs.second[i]));
-            // we count on convention of reference as embedded path above, so ignore it here
+            // we count on convention of reference as embedded path above, so ignore any reference/generic paths here.
+            // TODO: Use path metadata API.
             // todo: would be nice to be more flexible...
-            if (gbwt_sample_name != gbwtgraph::REFERENCE_PATH_SAMPLE_NAME) {
+            // TODO: Keep in sync with GBGWTGraph
+            if (gbwt_sample_name.size() < gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.size() ||
+                !std::equal(gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.begin(), gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.end(), gbwt_sample_name.begin())) {
+                
                 string name = thread_name(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(thread_travs.second[i]), true);
                 
                 path_trav_names.push_back(name);
@@ -744,7 +748,8 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         // add in sample names from the gbwt
         for (size_t i = 0; i < gbwt->metadata.paths(); i++) {
             string sample_name = thread_sample(*gbwt, i);
-            if (sample_name != gbwtgraph::REFERENCE_PATH_SAMPLE_NAME &&
+            if ((sample_name.size() < gbwtgraph::NAMED_PATH_SAMPLE_PREFIX ||
+                !std::equal(gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.begin(), gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.end(), sample_name.begin())) &&
                 (path_to_sample_phase == nullptr || path_to_sample_phase->count(sample_name))) {
                 sample_names.insert(thread_sample(*gbwt, i));
                 int phase = thread_phase(*gbwt, i);
