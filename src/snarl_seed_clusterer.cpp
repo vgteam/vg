@@ -326,7 +326,6 @@ cerr << "Add all seeds to nodes: " << endl;
                     parent_index = tree_state.all_node_clusters.size();
                     tree_state.net_handle_to_index[parent] = parent_index;
                     tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(), distance_index);
-                    tree_state.all_node_clusters.back().node_length = distance_index.minimum_length(parent);
                 } else {
                     parent_index = tree_state.net_handle_to_index[parent];
                 }
@@ -1873,8 +1872,19 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
                 ? tree_state.all_node_clusters[std::get<1>(child_clusters_i)].node_length
                 : std::get<0>(tree_state.all_seeds->at(
                         std::get<1>(child_clusters_i))->at(std::get<2>(child_clusters_i)).minimizer_cache);
-            distance_from_current_end_to_end_of_chain = SnarlDistanceIndex::minus(chain_clusters.node_length, 
+            if (node_length == std::numeric_limits<size_t>::max() ) {
+                //If the node length is infinite, then it is a snarl that isn't start-end connected, so the start
+                //and end of the snarl are in different components of the chain. Since it reached here, the end
+                //node of the snarl is in the same component as the end of the chain, so the distance to the
+                //end of the chain is just the length of the last component of the chain, which is
+                //chain_clusters.node_length
+                distance_from_current_end_to_end_of_chain = chain_clusters.node_length;
+
+            } else {
+                distance_from_current_end_to_end_of_chain = SnarlDistanceIndex::minus(chain_clusters.node_length, 
                             SnarlDistanceIndex::sum({distance_from_chain_start_to_current_node, node_length}));
+            }
+
         }
 
 #ifdef DEBUG_CLUSTER
