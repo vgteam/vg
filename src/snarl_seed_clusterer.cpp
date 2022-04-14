@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-//#define DEBUG_CLUSTER
+#define DEBUG_CLUSTER
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
@@ -454,7 +454,7 @@ cerr << "Add all seeds to nodes: " << endl;
                             tree_state.net_handle_to_index[grandparent_snarl] = grandparent_index;
                             tree_state.all_node_clusters.emplace_back(grandparent_snarl, tree_state.all_seeds->size(), distance_index);
                             if (prefix_sum == std::numeric_limits<size_t>::max()) {
-                                //The prefix sum value for a simple snar
+                                //The prefix sum value for a simple snarl
                                 net_handle_t start_node = distance_index.get_node_from_sentinel(tree_state.all_node_clusters.back().start_in);
                                 prefix_sum = SnarlDistanceIndex::sum({distance_index.get_prefix_sum_value(start_node),
                                                                       distance_index.minimum_length(start_node)});
@@ -481,6 +481,8 @@ cerr << "Add all seeds to nodes: " << endl;
                         }
                         //Still in "if we haven't seen the trivial chain before", add the trivial
                         //chain to the grandparent snarl
+                        cerr << "Add child " << distance_index.net_handle_as_string(tree_state.all_node_clusters[child_index].containing_net_handle) << " to " << distance_index.net_handle_as_string(tree_state.all_node_clusters[grandparent_index].containing_net_handle) << endl;
+                        cerr << "\tat indexes " << grandparent_index << " and " << child_index << endl;
                         tree_state.snarl_to_children.emplace(grandparent_index, child_index);
                     }
                 }
@@ -1394,6 +1396,7 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_one_child(TreeState& 
 
 void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, size_t snarl_clusters_index, size_t parent_clusters_index) const { 
     //Get the clusters on this snarl, assumes that all of the snarls children have been clustered already.
+    cerr << "Cluster snarl at index " << snarl_clusters_index << endl;
     
 
     NodeClusters& snarl_clusters = tree_state.all_node_clusters[snarl_clusters_index]; 
@@ -1827,12 +1830,16 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
                         (distance_index.is_reversed_in_parent(child_handle) 
                                 ? child_handle 
                                 : distance_index.flip(child_handle)));
-            } else {
-                distance_from_last_child_to_current_child = last_chain_component_end == 
-                        current_chain_component_start_i
-                    ? SnarlDistanceIndex::minus(distance_from_chain_start_to_current_node, 
-                                                distance_from_chain_start_to_last_node) 
-                    : std::numeric_limits<size_t>::max();
+            } else if ( last_chain_component_end == current_chain_component_start_i) {
+                //If this child is in the same component as the last one
+                if (last_length == std::numeric_limits<size_t>::max() && last_chain_component_end ) {
+                    //If the last length is infinite, then is must be a snarl that is not start-end reachable, so the distance
+                    //from the last child is the same as the distance from the start of the chain (the start of this compnent)
+                    distance_from_last_child_to_current_child = distance_from_chain_start_to_current_node;
+                } else {
+                    distance_from_last_child_to_current_child = SnarlDistanceIndex::minus(distance_from_chain_start_to_current_node, 
+                                                    distance_from_chain_start_to_last_node); 
+                }
             }
         }
             
