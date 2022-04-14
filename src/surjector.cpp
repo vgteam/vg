@@ -3,6 +3,8 @@
  * surjector.cpp: implements a class that surjects alignments onto paths
  */
 
+#include "algorithms/extract_connecting_graph.hpp"
+
 #include "surjector.hpp"
 
 //#define debug_spliced_surject
@@ -742,7 +744,9 @@ using namespace std;
 
     vector<pair<vector<size_t>, vector<size_t>>> Surjector::find_constriction_bicliques(const vector<vector<size_t>>& adj,
                                                                                         const string& src_sequence,
-                                                                                        const vector<path_chunk_t>& path_chunks,
+                                                                                        const string& src_quality,
+                                                                                        vector<path_chunk_t>& path_chunks,
+                                                                                        vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                                                                         const vector<tuple<size_t, size_t, int32_t>>& connections) const {
         
         auto connected_by_edge = [&](size_t i, size_t j) {
@@ -760,7 +764,7 @@ using namespace std;
                 return false;
             }
         };
-        
+
         auto rev_adj = reverse_adjacencies(adj);
         
         size_t num_comps = 0;
@@ -809,14 +813,49 @@ using namespace std;
         }
 #endif
         
-        // divide up chunks by their component and their begin/end position on the read
-        unordered_map<pair<size_t, int64_t>, vector<size_t>> chunks_by_begin, chunks_by_end;
-        for (size_t i = 0; i < path_chunks.size(); ++i) {
-            pair<size_t, int64_t> key_begin(comps[i], path_chunks[i].first.first - src_sequence.begin());
-            pair<size_t, int64_t> key_end(comps[i], path_chunks[i].first.second - src_sequence.begin());
-            chunks_by_begin[key_begin].push_back(i);
-            chunks_by_end[key_end].push_back(i);
+        unordered_set<pair<size_t, bool>> enqueued;
+        vector<vector<pair<size_t, bool>>> adjacency_components;
+        for (size_t i = 0; i < adj.size(); ++i) {
+            for (bool left : {true, false}) {
+                if (!enqueued.count(make_pair(i, left))) {
+                    
+                    // start new adjacency component
+                    adjacency_components.emplace_back();
+                    auto& adj_component = adjacency_components.back();
+                    
+                    // init queue
+                    vector<pair<size_t, bool>> queue;
+                    queue.emplace_back(i, left);
+                    enqueued.emplace(i, left);
+                    
+                    // DFS bouncing back and forth across the sides
+                    while (!queue.empty()) {
+                        auto side = queue.back();
+                        queue.pop_back();
+                        adj_component.emplace_back(side);
+                        
+                        const auto& edges = side.second ? rev_adj[side.first] : adj[side.first];
+                        for (size_t j : edges) {
+                            if (!enqueued.count(make_pair(j, !side.second))) {
+                                enqueued.emplace(j, !side.second);
+                                queue.emplace_back(j, !side.second);
+                            }
+                        }
+                    }
+                    
+                }
+            }
         }
+        
+#ifdef debug_constrictions
+        cerr << "adjacency components" << endl;
+        for (size_t i = 0; i < fwd.size(); ++i) {
+            cerr << "component " << i << ":" << endl;
+            for (auto side : adjacency_components[i]) {
+                cerr << "\t" << side.first << " " << "RL"[side.second] << endl;
+            }
+        }
+#endif
         
         // reorganize the connections into an adjacency list
         unordered_map<size_t, unordered_set<size_t>> connection_adj;
@@ -827,93 +866,514 @@ using namespace std;
         // init return value
         vector<pair<vector<size_t>, vector<size_t>>> return_val;
         
-        // subroutine to check if a candidate partition is a biclique deletion constriction
-        auto test_candidate_biclique = [&](const unordered_set<size_t>& left_side,
-                                           const unordered_set<size_t>& right_side,
-                                           size_t comp_idx) {
-            // record which pairs have a connection
-            bool incompatible = false;
-            unordered_set<size_t> left_connected, right_connected;
-            for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
-                auto adj_it = connection_adj.find(*left_it);
-                if (adj_it != connection_adj.end()) {
-                    for (auto right_it = adj_it->second.begin(); right_it != adj_it->second.end() && !incompatible; ++right_it) {
-                        
+        for (auto& adj_component : adjacency_components) {
+            if (adj_component.size() == 1) {
+                // trivial component (probably at start or end)
+                continue;
+            }
+            
 #ifdef debug_constrictions
-                        cerr << "looking at connection between " << *left_it << " and " << *right_it << endl;
+            cerr << "checking adjacency component containing" << endl;
+            for (auto side : adj_component) {
+                cerr << "\t" << side.first << " " << "RL"[side.second] << endl;
+            }
 #endif
-                        if (right_side.count(*right_it)) {
-                            left_connected.insert(*left_it);
-                            right_connected.insert(*right_it);
+            
+            // record if there are any deletions
+            vector<size_t> deletion_chunks;
+            for (auto chunk_side : adj_component) {
+                if (path_chunks[chunk_side.first].first.first == path_chunks[chunk_side.first].first.second) {
+                    deletion_chunks.push_back(chunk_side.first);
+                }
+            }
+            
+            // iterate over choices of left/right side for deletion chunks
+            for (size_t iter = 0, end = (1 << min<size_t>(deletion_chunks.size(), 16)); iter < end; ++iter) {
+                                
+                // we will fill out the left and right side of this potential splice biclique
+                unordered_set<size_t> left_side, right_side;
+                
+                size_t deletion_chunk_idx = 0;
+                for (auto chunk_side : adj_component) {
+                    if (deletion_chunk_idx < deletion_chunks.size() && chunk_side.first == deletion_chunks[deletion_chunk_idx]) {
+                        // deletions can go on either side,
+                        if (iter & (1 << deletion_chunk_idx)) {
+                            left_side.insert(chunk_side.first);
                         }
                         else {
-                            // the direction of this connection are not consistent with the left and right
-                            // side of this iteration
+                            right_side.insert(chunk_side.first);
+                        }
+                    }
+                    else if (chunk_side.second) {
+                        left_side.insert(chunk_side.first);
+                    }
+                    else {
+                        right_side.insert(chunk_side.first);
+                    }
+                }
+                
+                // record which pairs have a connection
+                bool incompatible = false;
+                unordered_set<size_t> left_connected, right_connected;
+                for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
+                    auto adj_it = connection_adj.find(*left_it);
+                    if (adj_it != connection_adj.end()) {
+                        for (auto right_it = adj_it->second.begin(); right_it != adj_it->second.end() && !incompatible; ++right_it) {
+                            
 #ifdef debug_constrictions
-                            cerr << "connection is incompatible" << endl;
+                            cerr << "looking at connection between " << *left_it << " and " << *right_it << endl;
+#endif
+                            if (right_side.count(*right_it)) {
+                                left_connected.insert(*left_it);
+                                right_connected.insert(*right_it);
+                            }
+                            else {
+                                // the direction of this connection are not consistent with the left and right
+                                // side of this iteration
+#ifdef debug_constrictions
+                                cerr << "connection is incompatible" << endl;
+#endif
+                                incompatible = true;
+                            }
+                        }
+                    }
+                }
+                
+                if (incompatible) {
+                    // the division of deletions to the left and right side is not compatible with the
+                    // connections
+                    continue;
+                }
+                
+                // do the non-connected edges form a biclique?
+                for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
+                    if (left_connected.count(*left_it)) {
+                        continue;
+                    }
+                    size_t num_clique_edges = 0;
+                    for (auto i : adj[*left_it]) {
+                        if (right_connected.count(i)) {
+                            // we don't worry about it if the node has a connection, because it will lose
+                            // all of its edges anyway
+                            continue;
+                        }
+                        if (right_side.count(i)) {
+                            // this looks like it could be a splice junction
+                            ++num_clique_edges;
+                        }
+                        else {
+#ifdef debug_constrictions
+                            cerr << "adjacency " << *left_it << " -> " << i << " is " << (right_side.count(i) ? "not connected by a graph edge" : "missing") << endl;
 #endif
                             incompatible = true;
                         }
                     }
+                    incompatible = incompatible || (num_clique_edges != right_side.size() - right_connected.size());
                 }
-            }
-            
-            if (incompatible) {
-                // the division of deletions to the left and right side is not compatible with the
-                // connections
-                return;
-            }
-            
-            // do the non-connected edges form a biclique?
-            for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
-                if (left_connected.count(*left_it)) {
+                
+                if (incompatible) {
+                    // we have edges going to outside the biclique, or we have edges missing
+                    // from the biclique
+#ifdef debug_constrictions
+                    cerr << "this left-right combination is incompatible" << endl;
+#endif
                     continue;
                 }
-                size_t num_clique_edges = 0;
-                for (auto i : adj[*left_it]) {
-                    if (right_connected.count(i)) {
-                        // we don't worry about it if the node has a connection, because it will lose
-                        // all of its edges anyway
+                
+                // count up the walks through this biclique
+                size_t walk_total = 0;
+                for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
+                    for (auto j : adj[*left_it]) {
+                        walk_total += fwd[*left_it] * bwd[j];
+                    }
+                }
+                
+#ifdef debug_constrictions
+                cerr << "biclique has a walk total of " << walk_total << " compared to component total " << total_comp_paths[comp_idx] << endl;
+#endif
+                
+                if (walk_total != total_comp_paths[comps[adj_component.front().first]]) {
+                    // not a constriction
+                    continue;
+                }
+                
+                for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
+                    if (left_connected.count(*left_it)) {
                         continue;
                     }
-                    if (right_side.count(i) && connected_by_edge(*left_it, i)) {
-                        // this looks like it could be a splice junction
-                        ++num_clique_edges;
-                    }
-                    else {
-#ifdef debug_constrictions
-                        cerr << "adjacency " << *left_it << " -> " << i << " is " << (right_side.count(i) ? "not connected by a graph edge" : "missing") << endl;
-#endif
-                        incompatible = true;
+                    size_t num_clique_edges = 0;
+                    for (auto i : adj[*left_it]) {
+                        if (right_connected.count(i)) {
+                            // we don't worry about it if the node has a connection, because it will lose
+                            // all of its edges anyway
+                            continue;
+                        }
+                        if (path_chunks[*left_it].first.second != path_chunks[i].first.first || !connected_by_edge(*left_it, i)) {
+                            incompatible = true;
+                            break;
+                        }
                     }
                 }
-                incompatible = incompatible || (num_clique_edges != right_side.size() - right_connected.size());
-            }
-            
-            if (incompatible) {
-                // we have edges going to outside the biclique, or we have edges missing
-                // from the biclique
-#ifdef debug_constrictions
-                cerr << "this left-right combination is incompatible" << endl;
-#endif
-                return;
-            }
-            
-            // count up the walks through this biclique
-            size_t walk_total = 0;
-            for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
-                for (auto j : adj[*left_it]) {
-                    walk_total += fwd[*left_it] * bwd[j];
-                }
-            }
-            
-#ifdef debug_constrictions
-            cerr << "biclique has a walk total of " << walk_total << " compared to component total " << total_comp_paths[comp_idx] << endl;
-#endif
-            
-            if (walk_total == total_comp_paths[comp_idx]) {
-                // all of the walks in this component go through this biclique, we've found a splice
                 
+                if (incompatible) {
+                    // it's a constriction biclique, but it doesn't have a pure deletion or pure adjacency
+                    // we'll try to see if we can recover a splice junction here by
+                    incompatible = false;
+                    
+                    for (auto i : left_side) {
+                        if (!left_connected.count(i) && path_chunks[i].first.second != path_chunks[*left_side.begin()].first.second) {
+                            // there's more than one read position among the lefts
+                            incompatible = true;
+                            break;
+                        }
+                    }
+                    if (incompatible) {
+                        continue;
+                    }
+                    for (auto i : right_side) {
+                        if (!right_connected.count(i) && path_chunks[i].first.first != path_chunks[*right_side.begin()].first.first) {
+                            // there's more than one read position among the rights
+                            incompatible = true;
+                            break;
+                        }
+                    }
+                    if (incompatible) {
+                        continue;
+                    }
+                    
+                    // are we on the reverse or forward strand of the path
+                    bool path_rev = (graph->get_is_reverse(graph->get_handle_of_step(ref_chunks[0].first))
+                                     != path_chunks[0].second.mapping(0).position().is_reverse());
+                    
+                    int64_t max_dist = 0;
+                    for (auto i : left_side) {
+                        if (left_connected.count(i)) {
+                            continue;
+                        }
+                        const auto& final_mapping = *path_chunks[i].second.mapping().rbegin();
+                        for (auto j : right_side) {
+                            if (right_connected.count(j)) {
+                                continue;
+                            }
+                            const auto& initial_mapping = *path_chunks[j].second.mapping().begin();
+                            bool path_rev = (graph->get_is_reverse(graph->get_handle_of_step(ref_chunks[j].first))
+                                             != initial_mapping.position().is_reverse());
+                            int64_t path_dist = 0;
+                            if (path_rev) {
+                                path_dist = (graph->get_position_of_step(ref_chunks[i].second)
+                                             + graph->get_length(graph->get_handle_of_step(ref_chunks[i].second))
+                                             - final_mapping.position().offset()
+                                             - mapping_from_length(final_mapping)
+                                             - graph->get_position_of_step(ref_chunks[j].first)
+                                             - graph->get_length(graph->get_handle_of_step(ref_chunks[j].first))
+                                             + initial_mapping.position().offset());
+                            }
+                            else {
+                                path_dist = (graph->get_position_of_step(ref_chunks[j].first)
+                                             + initial_mapping.position().offset()
+                                             - graph->get_position_of_step(ref_chunks[i].second)
+                                             - final_mapping.position().offset()
+                                             - mapping_from_length(final_mapping));
+                            }
+                            max_dist = max(max_dist, path_dist);
+                        }
+                    }
+                    
+                    if (max_dist < min_splice_repair_length) {
+                        // all of the sides are close together on the path, so it's likely to be just variation
+                        // and even if not then it won't be too terrible to just align it
+                        continue;
+                    }
+                    
+                    // make alignmments to the connecting graph across all of these edges
+                    
+                    vector<vector<Alignment>> repair_alns;
+                    repair_alns.reserve(left_side.size());
+                    
+                    
+                    int64_t max_aln_length = (get_aligner()->longest_detectable_gap(src_sequence.size())
+                                              + (path_chunks[*right_side.begin()].first.first
+                                                 - path_chunks[*left_side.begin()].first.second));
+                    for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
+                        if (left_connected.count(*left_it)) {
+                            continue;
+                        }
+                        repair_alns.emplace_back();
+                        repair_alns.back().reserve(right_side.size());
+                        auto left_pos = final_position(path_chunks[*left_it].second);
+                        for (auto i : adj[*left_it]) {
+                            if (right_connected.count(i)) {
+                                // we don't worry about it if the node has a connection, because it will lose
+                                // all of its edges anyway
+                                continue;
+                            }
+                            
+                            auto right_pos = initial_position(path_chunks[i].second);
+                            
+                            bdsg::HashGraph connecting;
+                            auto id_trans = algorithms::extract_connecting_graph(graph, &connecting, max_aln_length,
+                                                                                 left_pos, right_pos, true);
+                            
+                            // TODO: we could probably dagify, but i don't want to worry about it yet
+                            if (connecting.get_node_count() == 0 || handlealgs::is_directed_acyclic(&connecting)) {
+                                incompatible = true;
+                                break;
+                            }
+                            
+                            // TODO: remove everything except the path?
+                            
+                            repair_alns.back().emplace_back();
+                            auto& aln = repair_alns.back().back();
+                            aln.set_sequence(string(path_chunks[*left_side.begin()].first.second,
+                                                    path_chunks[*right_side.begin()].first.first));
+                            if (!src_quality.empty()) {
+                                auto qual_begin = src_quality.begin() + (path_chunks[*left_side.begin()].first.second - src_sequence.begin());
+                                aln.set_quality(string(qual_begin, qual_begin + aln.sequence().size()));
+                            }
+                            
+                            get_aligner(!src_quality.empty())->align_global_banded(aln, connecting);
+                            auto first_pos = aln.mutable_path()->mutable_mapping(0)->mutable_position();
+                            first_pos->set_offset(offset(left_pos));
+                            
+                            if (mapping_from_length(aln.path().mapping(aln.path().mapping_size() - 1)) == 0
+                                && mapping_to_length(aln.path().mapping(aln.path().mapping_size() - 1)) == 0) {
+                                // the last mapping is to an empty node
+                                aln.mutable_path()->mutable_mapping()->DeleteSubrange(aln.path().mapping_size() - 1, 1);
+                            }
+                            
+                            if (aln.path().mapping_size() != 0 && mapping_from_length(aln.path().mapping(0)) == 0
+                                && mapping_to_length(aln.path().mapping(0)) == 0) {
+                                // the first mapping is to an empty node
+                                aln.mutable_path()->mutable_mapping()->DeleteSubrange(0, 1);
+                            }
+                            
+                            translate_node_ids(*aln.mutable_path(), id_trans);
+                        }
+                    }
+                    
+                    if (incompatible) {
+                        // we couldn't make a short connecting graph for at least one of the edges
+                        continue;
+                    }
+                    
+                    // we'll record where along the alignment it gets divided into before/after the splice
+                    vector<vector<tuple<size_t, step_handle_t, step_handle_t>>> divisions(repair_alns.size());
+                    
+                    // TODO: we might not find the same break point if one of the adjacencies is just direct
+                    // across the path
+                    
+                    size_t left_idx = 0;
+                    for (auto left_it = left_side.begin(); left_it != left_side.end() && !incompatible; ++left_it) {
+                        if (left_connected.count(*left_it)) {
+                            continue;
+                        }
+                        
+                        size_t right_idx = 0;
+                        for (auto i : adj[*left_it]) {
+                            if (right_connected.count(i)) {
+                                // we don't worry about it if the node has a connection, because it will lose
+                                // all of its edges anyway
+                                continue;
+                            }
+                            
+                            
+                            auto& aln = repair_alns[left_idx][right_idx];
+                            
+                            step_handle_t fwd_step = ref_chunks[left_idx].second;
+                            step_handle_t rev_step = ref_chunks[right_idx].first;
+                            bool shared_fwd_node = true;
+                            if (aln.path().mapping_size() != 0 && aln.path().mapping(0).position().offset() == 0) {
+                                // the start of the alignment is on a new node
+                                shared_fwd_node = false;
+                                fwd_step = path_rev ? graph->get_previous_step(fwd_step) : graph->get_next_step(fwd_step);
+                            }
+                            bool shared_rev_node = true;
+                            if (path_chunks[right_idx].second.mapping(0).position().offset() == 0) {
+                                // the end of the alignment is on a new node
+                                shared_rev_node = false;
+                                rev_step = path_rev ? graph->get_next_step(rev_step) : graph->get_previous_step(rev_step);
+                            }
+                            
+                            // walk out the prefix of the alignment along the reference
+                            int64_t fwd_idx = 0;
+                            while (fwd_idx < aln.path().mapping_size()) {
+                                handle_t handle = graph->get_handle_of_step(fwd_step);
+                                const auto& pos = aln.path().mapping(fwd_idx).position();
+                                if (graph->get_id(handle) != pos.node_id() || graph->get_is_reverse(handle) != pos.is_reverse()) {
+                                    break;
+                                }
+                                fwd_step = path_rev ? graph->get_previous_step(fwd_step) : graph->get_next_step(fwd_step);
+                                ++fwd_idx;
+                            }
+                            
+                            // walk the suffix of the alignment along the reference
+                            int64_t rev_idx = aln.path().mapping_size() - 1;
+                            while (rev_idx >= fwd_idx) {
+                                handle_t handle = graph->get_handle_of_step(rev_step);
+                                const auto& pos = aln.path().mapping(rev_idx).position();
+                                if (graph->get_id(handle) != pos.node_id() || graph->get_is_reverse(handle) != pos.is_reverse()) {
+                                    break;
+                                }
+                                rev_step = path_rev ? graph->get_next_step(rev_step) : graph->get_previous_step(rev_step);
+                                --rev_idx;
+                            }
+                            
+                            if (fwd_idx <= rev_idx) {
+                                // you can't walk out the whole alignment along the path
+                                incompatible = true;
+                                break;
+                            }
+                            
+                            if (fwd_idx != 0 || !shared_fwd_node) {
+                                // nudge back the forward step to the last match
+                                fwd_step = path_rev ? graph->get_next_step(fwd_step) : graph->get_previous_step(fwd_step);
+                            }
+                            if (rev_idx != aln.path().mapping_size() - 1 || !shared_rev_node) {
+                                // nudge back the reverse step to the last match
+                            }
+                            
+                            // record the break in the alignment
+                            divisions[left_idx].emplace_back(fwd_idx, fwd_step, rev_step);
+                            
+                            ++right_idx;
+                        }
+                        ++left_idx;
+                    }
+                    
+                    if (incompatible) {
+                        continue;
+                    }
+                    
+                    // now check to make sure that all prefixes are identical
+                    
+                    for (size_t i = 0; i < divisions.size() && !incompatible; ++i) {
+                        for (size_t j = 1, n = get<0>(divisions[i][0]); j < divisions[0].size() && !incompatible; ++j) {
+                            if (get<0>(divisions[i][j]) != n) {
+                                // they don't have the same number of mappings
+                                incompatible = true;
+                                break;
+                            }
+                            // check for equivalence of the mappings
+                            for (size_t k = 0; k < n && !incompatible; ++k) {
+                                if (!mappings_equivalent(repair_alns[i][j].path().mapping(k),
+                                                         repair_alns[i][0].path().mapping(k))) {
+                                    incompatible = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (incompatible) {
+                        continue;
+                    }
+                    
+                    // and also check to make sure that all suffixes are identical
+                    
+                    for (size_t j = 0; j < divisions[0].size() && !incompatible; ++j) {
+                        int64_t n = repair_alns[0][j].path().mapping_size() - get<0>(divisions[0][j]);
+                        for (size_t i = 1; i < divisions.size() && !incompatible; ++i) {
+                            if (repair_alns[i][j].path().mapping_size() - get<0>(divisions[i][j]) != n) {
+                                // they don't have the same number of mappings
+                                incompatible = true;
+                                break;
+                            }
+                            for (size_t k = 0; k < n && !incompatible; ++k) {
+                                if (!mappings_equivalent(repair_alns[i][j].path().mapping(get<0>(divisions[i][j]) + k),
+                                                         repair_alns[i][0].path().mapping(get<0>(divisions[0][j]) + k))) {
+                                    // the mappings aren't equivalent
+                                    // TODO: a better condition would be equal scoring, same length
+                                    incompatible = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (incompatible) {
+                        continue;
+                    }
+                    
+                    // we've finally guaranteed that we can repair a missed splice edge alignment
+                    // and can now update the chunks accordingly
+                    
+                    size_t left = 0, right = 0;
+                    for (auto i : left_side) {
+                        if (left_connected.count(i)) {
+                            continue;
+                        }
+                        ref_chunks[i].second = get<1>(divisions[left][0]);
+                        
+                        // check if we need to merge the first and last mappings
+                        size_t k = 0;
+                        auto final_mapping = path_chunks[i].second.mutable_mapping(path_chunks[i].second.mapping_size() - 1);
+                        const auto& final_position = final_mapping->position();
+                        const auto& aln = repair_alns[left][0];
+                        const auto& first_mapping = aln.path().mapping(0);
+                        const auto& first_position = first_mapping.position();
+                        if (final_position.node_id() == first_position.node_id() &&
+                            final_position.is_reverse() == first_position.is_reverse() &&
+                            final_position.offset() + mapping_from_length(*final_mapping) == first_position.offset()) {
+                            
+                            for (const auto& edit : first_mapping.edit()) {
+                                *final_mapping->add_edit() = edit;
+                            }
+                            ++k;
+                        }
+                        // copy over the rest of the mappings
+                        for (size_t n = get<0>(divisions[left][0]); k < n; ++k) {
+                            auto mapping = path_chunks[i].second.add_mapping();
+                            *mapping = aln.path().mapping(k);
+                            mapping->set_rank(path_chunks[i].second.mapping_size());
+                        }
+                        ++left;
+                    }
+                    for (auto i : right_side) {
+                        if (right_connected.count(i)) {
+                            continue;
+                        }
+                        ref_chunks[i].first = get<1>(divisions[0][right]);
+                        
+                        const auto& aln = repair_alns[left][0];
+                        
+                        // copy the repair alignment
+                        Path concat_path;
+                        for (size_t k = get<0>(divisions[left][0]); k < aln.path().mapping_size(); ++k) {
+                            auto mapping = concat_path.add_mapping();
+                            *mapping = aln.path().mapping(k);
+                            mapping->set_rank(concat_path.mapping_size());
+                        }
+                        
+                        // check if we need to merge the first and last mappings
+                        auto final_mapping = concat_path.mutable_mapping(concat_path.mapping_size() - 1);
+                        const auto& final_position = final_mapping->position();
+                        const auto& first_mapping = path_chunks[i].second.mapping(0);
+                        const auto& first_position = first_mapping.position();
+                        size_t k = 0;
+                        if (final_position.node_id() == first_position.node_id() &&
+                            final_position.is_reverse() == first_position.is_reverse() &&
+                            final_position.offset() + mapping_from_length(*final_mapping) == first_position.offset()) {
+                            for (const auto& edit : first_mapping.edit()) {
+                                *final_mapping->add_edit() = edit;
+                            }
+                            ++k;
+                        }
+                        
+                        // copy over the rest of the original path chunk
+                        for (; k < path_chunks[i].second.mapping_size(); ++k) {
+                            auto mapping = concat_path.add_mapping();
+                            *mapping = path_chunks[i].second.mapping(k);
+                            mapping->set_rank(concat_path.mapping_size());
+                        }
+                        
+                        // replace the original path
+                        path_chunks[i].second = concat_path;
+                        
+                        ++right;
+                    }
+                }
+                
+                // we found a pure deletion constriction biclique
 #ifdef debug_constrictions
                 cerr << "recording a constriction biclique" << endl;
 #endif
@@ -924,208 +1384,8 @@ using namespace std;
                 auto& biclique = return_val.back();
                 sort(biclique.first.begin(), biclique.first.end());
                 sort(biclique.second.begin(), biclique.second.end());
+
             }
-        };
-        
-        bool found_deletion_bicliques = false;
-        
-        for (const auto& end_record : chunks_by_end) {
-            
-            if (!chunks_by_begin.count(end_record.first)) {
-                // there are no chunks starting at the same read position
-                continue;
-            }
-            
-            
-#ifdef debug_constrictions
-            cerr << "looking for a constriction at position " <<  end_record.first.second << " among lefts:" << endl;
-            for (auto i : end_record.second) {
-                cerr << "\t" << i << endl;
-            }
-            cerr << "and rights:" << endl;
-            for (auto i : chunks_by_begin[end_record.first]) {
-                cerr << "\t" << i << endl;
-            }
-#endif
-            
-            // collect all of the path chunks that have no aligned read sequence
-            vector<size_t> deletion_chunks;
-            for (auto i : end_record.second) {
-                if (path_chunks[i].first.first == path_chunks[i].first.second) {
-                    deletion_chunks.push_back(i);
-                }
-            }
-            
-            // deletion chunks can go on either end, so we try all combinations
-            // TODO: magic number to prevent explosion
-            for (size_t iter = 0, end = (1 << min<size_t>(deletion_chunks.size(), 16)); iter < end; ++iter) {
-                
-                
-#ifdef debug_constrictions
-                cerr << "deletion combination iteration " << iter << " out of " << end << endl;
-#endif
-                
-                // we will fill out the left and right side of this potential splice biclique
-                unordered_set<size_t> left_side, right_side;
-                
-                // fill left side, handling pure deletions according to the iteration
-                size_t deletion_chunk_idx = 0;
-                for (auto i : end_record.second) {
-                    if (deletion_chunk_idx < deletion_chunks.size() && i == deletion_chunks[deletion_chunk_idx]) {
-                        if (iter & (1 << deletion_chunk_idx)) {
-                            left_side.insert(i);
-                        }
-                        else {
-                            right_side.insert(i);
-                        }
-                    }
-                    else {
-                        left_side.insert(i);
-                    }
-                }
-                // fill right side
-                for (auto i : chunks_by_begin[end_record.first]) {
-                    if (!left_side.count(i)) {
-                        right_side.insert(i);
-                    }
-                }
-                
-                if (!deletion_chunks.empty()) {
-                    // TODO: this solution will catch any bicliques that have a chance to be a constriction
-                    // (which requires that there is only one adjacent to either side) as long as there is only
-                    // one total to either side. in theory, it is possible to have further constrictions between
-                    // layers of deletion chunks
-                    
-                    // collect the left neighbors of left deletions and the right neighbors
-                    // of right deletions, as well as which of these are also in the left
-                    // or right partition
-                    unordered_set<size_t> left_neighbors, right_neighbors, lefter_side, righter_side;
-                    for (auto i : deletion_chunks) {
-                        if (left_side.count(i)) {
-                            for (auto j : rev_adj[i]) {
-                                left_neighbors.insert(j);
-                                if (left_side.count(j)) {
-                                    lefter_side.insert(j);
-                                }
-                            }
-                        }
-                        else {
-                            for (auto j : adj[i]) {
-                                right_neighbors.insert(j);
-                                if (right_side.count(j)) {
-                                    righter_side.insert(j);
-                                }
-                            }
-                        }
-                    }
-                    
-                    if (!lefter_side.empty()) {
-                        // there's a group of nodes to the left of the left-side deletions that
-                        // are still within the partition
-                        
-                        // check if these nodes connect *ONLY* through left side deletions
-                        bool all_fully_to_left = true;
-                        for (auto i : lefter_side) {
-                            bool fully_to_left = true;
-                            for (auto j : adj[i]) {
-                                if (!left_side.count(j) || path_chunks[j].first.first != path_chunks[j].first.second) {
-                                    fully_to_left = false;
-                                    break;
-                                }
-                            }
-                            if (fully_to_left) {
-                                // this node is cut off from the rest of the graph by the left-side
-                                // deletions, we shouldn't look for it in the main biclique
-                                left_side.erase(i);
-                            }
-                            all_fully_to_left = all_fully_to_left && fully_to_left;
-                        }
-                        
-                        if (all_fully_to_left && lefter_side.size() == left_neighbors.size()) {
-                            // it looks like the left neighbors could even be their own biclique
-                            
-                            found_deletion_bicliques = true;
-                            
-#ifdef debug_constrictions
-                            cerr << "left-er of left deletions" << endl;
-                            for (auto i : lefter_side) {
-                                cerr << "\t" << i << endl;
-                            }
-                            cerr << "iter lefts:" << endl;
-                            for (auto i : left_side) {
-                                cerr << "\t" << i << endl;
-                            }
-#endif
-                            // and test the potential biclique to the left
-                            test_candidate_biclique(lefter_side, left_side, end_record.first.first);
-                        }
-                    }
-                    
-                    // TODO: repetitive (but not structured well to re-use code...)
-                    if (!righter_side.empty()) {
-                        // there's a group of nodes to the right of the right-side deletions that
-                        // are still within the partition
-                        
-                        // check if these nodes connect *ONLY* through right side deletions
-                        bool all_fully_to_right = true;
-                        for (auto i : righter_side) {
-                            bool fully_to_right = true;
-                            for (auto j : rev_adj[i]) {
-                                if (!right_side.count(j) || path_chunks[j].first.first != path_chunks[j].first.second) {
-                                    fully_to_right = false;
-                                    break;
-                                }
-                            }
-                            if (fully_to_right) {
-                                // this node is cut off from the rest of the graph by the right-side
-                                // deletions, we shouldn't look for it in the main biclique
-                                right_side.erase(i);
-                            }
-                            all_fully_to_right = all_fully_to_right && fully_to_right;
-                        }
-                        
-                        if (all_fully_to_right && righter_side.size() == right_neighbors.size()) {
-                            // it looks like the right neighbors could even be their own biclique
-                            
-                            found_deletion_bicliques = true;
-                            
-#ifdef debug_constrictions
-                            cerr << "iter rights:" << endl;
-                            for (auto i : right_side) {
-                                cerr << "\t" << i << endl;
-                            }
-                            cerr << "right-er of right deletions" << endl;
-                            for (auto i : righter_side) {
-                                cerr << "\t" << i << endl;
-                            }
-#endif
-                            // and test the potential biclique to the right
-                            test_candidate_biclique(right_side, righter_side, end_record.first.first);
-                        }
-                    }
-                }
-                
-#ifdef debug_constrictions
-                cerr << "iter left:" << endl;
-                for (auto i : left_side) {
-                    cerr << "\t" << i << endl;
-                }
-                cerr << "iter rights:" << endl;
-                for (auto i : right_side) {
-                    cerr << "\t" << i << endl;
-                }
-#endif
-                test_candidate_biclique(left_side, right_side, end_record.first.first);
-            }
-        }
-        
-        if (found_deletion_bicliques) {
-            // it's possible with all the deletion iterations to re-discover bicliques
-            // multiple times. if we did, get rid of them
-            
-            sort(return_val.begin(), return_val.end());
-            auto new_end = unique(return_val.begin(), return_val.end());
-            return_val.resize(new_end - return_val.begin());
         }
         
         return return_val;
@@ -1581,7 +1841,8 @@ using namespace std;
                 
                 // find bicliques that constrict the colinearity graph
                 auto constrictions = find_constriction_bicliques(colinear_adj_red, src_sequence,
-                                                                 path_chunks, connections);
+                                                                 src_quality, path_chunks,
+                                                                 ref_chunks, connections);
                 
 #ifdef debug_spliced_surject
                 cerr << "found " << constrictions.size() << " constriction bicliques:" << endl;

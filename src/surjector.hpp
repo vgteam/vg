@@ -87,6 +87,9 @@ using namespace std;
         int64_t min_splice_length = 20;
         
         int64_t dominated_path_chunk_diff = 10;
+
+        /// the minimum length apparent intron that we will try to repair
+        int64_t min_splice_repair_length = 1000;
         
         /// How big of a graph in bp should we ever try to align against for realigning surjection?
         size_t max_subgraph_bases = 100 * 1024;
@@ -201,7 +204,9 @@ using namespace std;
         /// connected (i.e. form a biclique)
         vector<pair<vector<size_t>, vector<size_t>>> find_constriction_bicliques(const vector<vector<size_t>>& adj,
                                                                                  const string& src_sequence,
-                                                                                 const vector<path_chunk_t>& path_chunks,
+                                                                                 const string& src_quality,
+                                                                                 vector<path_chunk_t>& path_chunks,
+                                                                                 vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                                                                  const vector<tuple<size_t, size_t, int32_t>>& connections) const;
         
         void prune_unconnectable(vector<vector<size_t>>& adj,
