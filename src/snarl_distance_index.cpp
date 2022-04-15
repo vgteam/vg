@@ -1,6 +1,6 @@
 //#define debug_distance_indexing
 //#define debug_snarl_traversal
-#define debug_distances
+//#define debug_distances
 //#define debug_subgraph
 
 #include "snarl_distance_index.hpp"
@@ -166,7 +166,6 @@ SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(
                     }
                 } else {
                     //If this chain isn't connected to anything else, then it is a single component of the root
-                    cerr << "ADD SINGLE NODE COMPONENT OF THE ROOT" << endl;
                     temp_node_record.rank_in_parent = temp_index.components.size();
                     temp_index.components.emplace_back(SnarlDistanceIndex::TEMP_NODE, node_id);
                 }
