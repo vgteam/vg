@@ -83,6 +83,17 @@ void traverse_components(const HandleGraph& graph,
     });
 }
 
+size_t num_components(const HandleGraph& graph) {
+    size_t num_comps = 0;
+    function<void(void)> on_new_comp = [&]() {
+        ++num_comps;
+    };
+    function<void(handle_t)> on_node = [&](const handle_t here) { };
+    traverse_components(graph, on_new_comp, on_node);
+    return num_comps;
+}
+
+
 vector<size_t> component_sizes(const HandleGraph& graph) {
     
     vector<size_t> comp_sizes;
@@ -92,7 +103,6 @@ vector<size_t> component_sizes(const HandleGraph& graph) {
         comp_sizes.push_back(0);
     };
     
-    // add the paths of the new node
     function<void(handle_t)> on_node = [&](const handle_t here) {
         comp_sizes.back()++;
     };

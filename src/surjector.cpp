@@ -4,6 +4,7 @@
  */
 
 #include "algorithms/extract_connecting_graph.hpp"
+#include "algorithms/component.hpp"
 
 #include "surjector.hpp"
 
@@ -849,7 +850,7 @@ using namespace std;
         
 #ifdef debug_constrictions
         cerr << "adjacency components" << endl;
-        for (size_t i = 0; i < fwd.size(); ++i) {
+        for (size_t i = 0; i < adjacency_components.size(); ++i) {
             cerr << "component " << i << ":" << endl;
             for (auto side : adjacency_components[i]) {
                 cerr << "\t" << side.first << " " << "RL"[side.second] << endl;
@@ -889,7 +890,11 @@ using namespace std;
             
             // iterate over choices of left/right side for deletion chunks
             for (size_t iter = 0, end = (1 << min<size_t>(deletion_chunks.size(), 16)); iter < end; ++iter) {
-                                
+                          
+#ifdef debug_constrictions
+                cerr << "checking left-right combination " << iter << " of " << end << endl;
+#endif
+                
                 // we will fill out the left and right side of this potential splice biclique
                 unordered_set<size_t> left_side, right_side;
                 
@@ -903,12 +908,13 @@ using namespace std;
                         else {
                             right_side.insert(chunk_side.first);
                         }
+                        ++deletion_chunk_idx;
                     }
                     else if (chunk_side.second) {
-                        left_side.insert(chunk_side.first);
+                        right_side.insert(chunk_side.first);
                     }
                     else {
-                        right_side.insert(chunk_side.first);
+                        left_side.insert(chunk_side.first);
                     }
                 }
                 
@@ -966,8 +972,12 @@ using namespace std;
                             cerr << "adjacency " << *left_it << " -> " << i << " is " << (right_side.count(i) ? "not connected by a graph edge" : "missing") << endl;
 #endif
                             incompatible = true;
+                            break;
                         }
                     }
+#ifdef debug_constrictions
+                    cerr << "found " << num_clique_edges << " out of expected " << (right_side.size() - right_connected.size()) << " on " << *left_it << "L" << endl;
+#endif
                     incompatible = incompatible || (num_clique_edges != right_side.size() - right_connected.size());
                 }
                 
@@ -975,7 +985,7 @@ using namespace std;
                     // we have edges going to outside the biclique, or we have edges missing
                     // from the biclique
 #ifdef debug_constrictions
-                    cerr << "this left-right combination is incompatible" << endl;
+                    cerr << "this left-right combination (" << iter << " of " << end << ") is incompatible" << endl;
 #endif
                     continue;
                 }
@@ -989,7 +999,7 @@ using namespace std;
                 }
                 
 #ifdef debug_constrictions
-                cerr << "biclique has a walk total of " << walk_total << " compared to component total " << total_comp_paths[comp_idx] << endl;
+                cerr << "biclique has a walk total of " << walk_total << " compared to component total " << total_comp_paths[comps[adj_component.front().first]] << endl;
 #endif
                 
                 if (walk_total != total_comp_paths[comps[adj_component.front().first]]) {
@@ -1016,30 +1026,13 @@ using namespace std;
                 }
                 
                 if (incompatible) {
+
+#ifdef debug_constrictions
+                    cerr << "not all adjacencies in constriction are pure deletions on edges, attempting to repair the splice site"<< endl;
+#endif
                     // it's a constriction biclique, but it doesn't have a pure deletion or pure adjacency
                     // we'll try to see if we can recover a splice junction here by
                     incompatible = false;
-                    
-                    for (auto i : left_side) {
-                        if (!left_connected.count(i) && path_chunks[i].first.second != path_chunks[*left_side.begin()].first.second) {
-                            // there's more than one read position among the lefts
-                            incompatible = true;
-                            break;
-                        }
-                    }
-                    if (incompatible) {
-                        continue;
-                    }
-                    for (auto i : right_side) {
-                        if (!right_connected.count(i) && path_chunks[i].first.first != path_chunks[*right_side.begin()].first.first) {
-                            // there's more than one read position among the rights
-                            incompatible = true;
-                            break;
-                        }
-                    }
-                    if (incompatible) {
-                        continue;
-                    }
                     
                     // are we on the reverse or forward strand of the path
                     bool path_rev = (graph->get_is_reverse(graph->get_handle_of_step(ref_chunks[0].first))
@@ -1079,6 +1072,10 @@ using namespace std;
                         }
                     }
                     
+#ifdef debug_constrictions
+                    cerr << "max path distance is " << max_dist << ", compared to minimum for repair " << min_splice_repair_length << endl;
+#endif
+                    
                     if (max_dist < min_splice_repair_length) {
                         // all of the sides are close together on the path, so it's likely to be just variation
                         // and even if not then it won't be too terrible to just align it
@@ -1089,7 +1086,6 @@ using namespace std;
                     
                     vector<vector<Alignment>> repair_alns;
                     repair_alns.reserve(left_side.size());
-                    
                     
                     int64_t max_aln_length = (get_aligner()->longest_detectable_gap(src_sequence.size())
                                               + (path_chunks[*right_side.begin()].first.first
@@ -1107,6 +1103,9 @@ using namespace std;
                                 // all of its edges anyway
                                 continue;
                             }
+#ifdef debug_constrictions
+                            cerr << "attempting to repair splice adjacency from " << *left_it << " to " << i << endl;
+#endif
                             
                             auto right_pos = initial_position(path_chunks[i].second);
                             
@@ -1114,14 +1113,89 @@ using namespace std;
                             auto id_trans = algorithms::extract_connecting_graph(graph, &connecting, max_aln_length,
                                                                                  left_pos, right_pos, true);
                             
+                            
+#ifdef debug_constrictions
+                            cerr << "connecting graph:" << endl;
+                            connecting.for_each_handle([&](const handle_t& handle) {
+                                cerr << connecting.get_id(handle) << " " << connecting.get_sequence(handle) << endl;
+                                connecting.follow_edges(handle, true, [&](const handle_t& prev) {
+                                    cerr << "\t" << connecting.get_id(prev) << " <-" << endl;
+                                });
+                                connecting.follow_edges(handle, false, [&](const handle_t& next) {
+                                    cerr << "\t-> " << connecting.get_id(next) << endl;
+                                });
+                            });
+#endif
+                            
+                            // remove any handles in the connecting graph that aren't on the path
+                            path_handle_t path_handle = graph->get_path_handle_of_step(ref_chunks.front().first);
+                            vector<handle_t> off_path_handles;
+                            connecting.for_each_handle([&](const handle_t& handle) {
+                                bool found = false;
+                                graph->for_each_step_on_handle(graph->get_handle(connecting.get_id(handle)),
+                                                               [&](const step_handle_t& step) {
+                                    found = graph->get_path_handle_of_step(step) == path_handle;
+                                    return !found;
+                                });
+                                if (!found) {
+                                    off_path_handles.push_back(handle);
+                                }
+                            });
+                            for (handle_t handle : off_path_handles) {
+                                connecting.destroy_handle(handle);
+                            }
+                            
+#ifdef debug_constrictions
+                            cerr << "connecting graph after pruning to the path:" << endl;
+                            connecting.for_each_handle([&](const handle_t& handle) {
+                                cerr << connecting.get_id(handle) << " " << connecting.get_sequence(handle) << endl;
+                                connecting.follow_edges(handle, true, [&](const handle_t& prev) {
+                                    cerr << "\t" << connecting.get_id(prev) << " <-" << endl;
+                                });
+                                connecting.follow_edges(handle, false, [&](const handle_t& next) {
+                                    cerr << "\t-> " << connecting.get_id(next) << endl;
+                                });
+                            });
+#endif
+                            
                             // TODO: we could probably dagify, but i don't want to worry about it yet
-                            if (connecting.get_node_count() == 0 || handlealgs::is_directed_acyclic(&connecting)) {
+                            // TODO: banded aligner actually assumes single stranded too
+                            if (connecting.get_node_count() == 0 || !handlealgs::is_directed_acyclic(&connecting)
+                                || algorithms::num_components(connecting) != 1) {
+#ifdef debug_constrictions
+                                cerr << "did not get well-behaved intervening graph: " << connecting.get_node_count() << " nodes, acyclic? " << handlealgs::is_directed_acyclic(&connecting) << ", components " << algorithms::num_components(connecting) << endl;
+#endif
                                 incompatible = true;
                                 break;
                             }
                             
-                            // TODO: remove everything except the path?
-                            
+                            // make the graph single stranded
+                            auto orientation = handlealgs::single_stranded_orientation(&connecting);
+                            if (orientation.empty()) {
+#ifdef debug_constrictions
+                                cerr << "graph does not have a single stranded orientation" << endl;
+#endif
+                                incompatible = true;
+                                break;
+                            }
+                            for (auto handle : orientation) {
+                                if (id_trans[connecting.get_id(handle)] == id(left_pos)) {
+                                    if (connecting.get_is_reverse(handle) != is_rev(left_pos)) {
+                                        // the orientation we got doesn't match our bounding positions, flip it
+                                        for (auto& handle : orientation) {
+                                            handle = connecting.flip(handle);
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+                            unordered_map<id_t, pair<id_t, bool>> oriented_trans;
+                            for (auto& handle : orientation) {
+                                oriented_trans[connecting.get_id(handle)] = make_pair(id_trans[connecting.get_id(handle)],
+                                                                                      connecting.get_is_reverse(handle));
+                                handle = connecting.apply_orientation(handle);
+                            }
+                                                        
                             repair_alns.back().emplace_back();
                             auto& aln = repair_alns.back().back();
                             aln.set_sequence(string(path_chunks[*left_side.begin()].first.second,
@@ -1131,10 +1205,16 @@ using namespace std;
                                 aln.set_quality(string(qual_begin, qual_begin + aln.sequence().size()));
                             }
                             
-                            get_aligner(!src_quality.empty())->align_global_banded(aln, connecting);
+                            // do the alignment
+                            get_aligner(!src_quality.empty())->align_global_banded(aln, connecting, 1, true);
+                            
                             auto first_pos = aln.mutable_path()->mutable_mapping(0)->mutable_position();
                             first_pos->set_offset(offset(left_pos));
-                            
+#ifdef debug_constrictions
+                            cerr << "raw connecting alignment" << endl;
+                            cerr << pb2json(aln) << endl;
+#endif
+                                                        
                             if (mapping_from_length(aln.path().mapping(aln.path().mapping_size() - 1)) == 0
                                 && mapping_to_length(aln.path().mapping(aln.path().mapping_size() - 1)) == 0) {
                                 // the last mapping is to an empty node
@@ -1147,7 +1227,11 @@ using namespace std;
                                 aln.mutable_path()->mutable_mapping()->DeleteSubrange(0, 1);
                             }
                             
-                            translate_node_ids(*aln.mutable_path(), id_trans);
+                            translate_oriented_node_ids(*aln.mutable_path(), oriented_trans);
+#ifdef debug_constrictions
+                            cerr << "processed connecting alignment" << endl;
+                            cerr << pb2json(aln) << endl;
+#endif
                         }
                     }
                     
@@ -1157,7 +1241,8 @@ using namespace std;
                     }
                     
                     // we'll record where along the alignment it gets divided into before/after the splice
-                    vector<vector<tuple<size_t, step_handle_t, step_handle_t>>> divisions(repair_alns.size());
+                    // records of (mapping index, final fwd step, final rev step, prefix end, suffix start)
+                    vector<vector<tuple<size_t, step_handle_t, step_handle_t, string::const_iterator, string::const_iterator>>> divisions(repair_alns.size());
                     
                     // TODO: we might not find the same break point if one of the adjacencies is just direct
                     // across the path
@@ -1175,12 +1260,14 @@ using namespace std;
                                 // all of its edges anyway
                                 continue;
                             }
-                            
+#ifdef debug_constrictions
+                            cerr << "checking divisibility from " << *left_it << " to " << i << endl;
+#endif
                             
                             auto& aln = repair_alns[left_idx][right_idx];
                             
-                            step_handle_t fwd_step = ref_chunks[left_idx].second;
-                            step_handle_t rev_step = ref_chunks[right_idx].first;
+                            step_handle_t fwd_step = ref_chunks[*left_it].second;
+                            step_handle_t rev_step = ref_chunks[i].first;
                             bool shared_fwd_node = true;
                             if (aln.path().mapping_size() != 0 && aln.path().mapping(0).position().offset() == 0) {
                                 // the start of the alignment is on a new node
@@ -1188,38 +1275,47 @@ using namespace std;
                                 fwd_step = path_rev ? graph->get_previous_step(fwd_step) : graph->get_next_step(fwd_step);
                             }
                             bool shared_rev_node = true;
-                            if (path_chunks[right_idx].second.mapping(0).position().offset() == 0) {
+                            if (aln.path().mapping_size() != 0 && path_chunks[i].second.mapping(0).position().offset() == 0) {
                                 // the end of the alignment is on a new node
                                 shared_rev_node = false;
                                 rev_step = path_rev ? graph->get_next_step(rev_step) : graph->get_previous_step(rev_step);
                             }
                             
                             // walk out the prefix of the alignment along the reference
+                            int64_t fwd_to_length = 0;
                             int64_t fwd_idx = 0;
                             while (fwd_idx < aln.path().mapping_size()) {
                                 handle_t handle = graph->get_handle_of_step(fwd_step);
                                 const auto& pos = aln.path().mapping(fwd_idx).position();
-                                if (graph->get_id(handle) != pos.node_id() || graph->get_is_reverse(handle) != pos.is_reverse()) {
+                                if (graph->get_id(handle) != pos.node_id() ||
+                                    graph->get_is_reverse(handle) != (path_rev != pos.is_reverse())) {
                                     break;
                                 }
+                                fwd_to_length += mapping_to_length(aln.path().mapping(fwd_idx));
                                 fwd_step = path_rev ? graph->get_previous_step(fwd_step) : graph->get_next_step(fwd_step);
                                 ++fwd_idx;
                             }
                             
                             // walk the suffix of the alignment along the reference
+                            int64_t rev_to_length = 0;
                             int64_t rev_idx = aln.path().mapping_size() - 1;
                             while (rev_idx >= fwd_idx) {
                                 handle_t handle = graph->get_handle_of_step(rev_step);
                                 const auto& pos = aln.path().mapping(rev_idx).position();
-                                if (graph->get_id(handle) != pos.node_id() || graph->get_is_reverse(handle) != pos.is_reverse()) {
+                                if (graph->get_id(handle) != pos.node_id() ||
+                                    graph->get_is_reverse(handle) != (path_rev != pos.is_reverse())) {
                                     break;
                                 }
+                                rev_to_length += mapping_to_length(aln.path().mapping(rev_idx));
                                 rev_step = path_rev ? graph->get_next_step(rev_step) : graph->get_previous_step(rev_step);
                                 --rev_idx;
                             }
                             
                             if (fwd_idx <= rev_idx) {
                                 // you can't walk out the whole alignment along the path
+#ifdef debug_constrictions
+                                cerr << "could not walk out alignment along the path" << endl;
+#endif
                                 incompatible = true;
                                 break;
                             }
@@ -1230,10 +1326,16 @@ using namespace std;
                             }
                             if (rev_idx != aln.path().mapping_size() - 1 || !shared_rev_node) {
                                 // nudge back the reverse step to the last match
+                                rev_step = path_rev ? graph->get_previous_step(rev_step) : graph->get_next_step(rev_step);
                             }
+#ifdef debug_constrictions
+                            cerr << "divided at mapping index " << fwd_idx << ", steps at " << graph->get_position_of_step(fwd_step) << ", " << graph->get_position_of_step(rev_step) << endl;
+#endif
                             
                             // record the break in the alignment
-                            divisions[left_idx].emplace_back(fwd_idx, fwd_step, rev_step);
+                            divisions[left_idx].emplace_back(fwd_idx, fwd_step, rev_step,
+                                                             path_chunks[*left_it].first.second + fwd_to_length,
+                                                             path_chunks[i].first.first - rev_to_length);
                             
                             ++right_idx;
                         }
@@ -1247,7 +1349,15 @@ using namespace std;
                     // now check to make sure that all prefixes are identical
                     
                     for (size_t i = 0; i < divisions.size() && !incompatible; ++i) {
-                        for (size_t j = 1, n = get<0>(divisions[i][0]); j < divisions[0].size() && !incompatible; ++j) {
+                        for (size_t j = 1, n = get<0>(divisions[i].front()); j < divisions.front().size() && !incompatible; ++j) {
+                            if (get<3>(divisions[i][j]) != get<3>(divisions[i].front())) {
+                                // they don't end at the same read position
+#ifdef debug_constrictions
+                                cerr << "after alignment, not all left adjacencies are at same read position" << endl;
+#endif
+                                incompatible = true;
+                                break;
+                            }
                             if (get<0>(divisions[i][j]) != n) {
                                 // they don't have the same number of mappings
                                 incompatible = true;
@@ -1265,6 +1375,9 @@ using namespace std;
                     }
                     
                     if (incompatible) {
+#ifdef debug_constrictions
+                        cerr << "not all alignment prefixes match" << endl;
+#endif
                         continue;
                     }
                     
@@ -1273,6 +1386,15 @@ using namespace std;
                     for (size_t j = 0; j < divisions[0].size() && !incompatible; ++j) {
                         int64_t n = repair_alns[0][j].path().mapping_size() - get<0>(divisions[0][j]);
                         for (size_t i = 1; i < divisions.size() && !incompatible; ++i) {
+                            
+                            if (get<4>(divisions[i][j]) != get<4>(divisions[0][j])) {
+                                // they don't end at the same read position
+#ifdef debug_constrictions
+                                cerr << "after alignment, not all right adjacencies are at same read position" << endl;
+#endif
+                                incompatible = true;
+                                break;
+                            }
                             if (repair_alns[i][j].path().mapping_size() - get<0>(divisions[i][j]) != n) {
                                 // they don't have the same number of mappings
                                 incompatible = true;
@@ -1280,7 +1402,7 @@ using namespace std;
                             }
                             for (size_t k = 0; k < n && !incompatible; ++k) {
                                 if (!mappings_equivalent(repair_alns[i][j].path().mapping(get<0>(divisions[i][j]) + k),
-                                                         repair_alns[i][0].path().mapping(get<0>(divisions[0][j]) + k))) {
+                                                         repair_alns[0][j].path().mapping(get<0>(divisions[0][j]) + k))) {
                                     // the mappings aren't equivalent
                                     // TODO: a better condition would be equal scoring, same length
                                     incompatible = true;
@@ -1291,8 +1413,15 @@ using namespace std;
                     }
                     
                     if (incompatible) {
+#ifdef debug_constrictions
+                        cerr << "not all alignment suffixes match" << endl;
+#endif
                         continue;
                     }
+
+#ifdef debug_constrictions
+                    cerr << "splice adjacency is repairable, filling in paths" << endl;
+#endif
                     
                     // we've finally guaranteed that we can repair a missed splice edge alignment
                     // and can now update the chunks accordingly
@@ -1302,7 +1431,12 @@ using namespace std;
                         if (left_connected.count(i)) {
                             continue;
                         }
+                        size_t n = get<0>(divisions[left][0]);
+                        if (n == 0) {
+                            continue;
+                        }
                         ref_chunks[i].second = get<1>(divisions[left][0]);
+                        path_chunks[i].first.second = get<3>(divisions[left][0]);
                         
                         // check if we need to merge the first and last mappings
                         size_t k = 0;
@@ -1321,24 +1455,32 @@ using namespace std;
                             ++k;
                         }
                         // copy over the rest of the mappings
-                        for (size_t n = get<0>(divisions[left][0]); k < n; ++k) {
+                        for (; k < n; ++k) {
                             auto mapping = path_chunks[i].second.add_mapping();
                             *mapping = aln.path().mapping(k);
                             mapping->set_rank(path_chunks[i].second.mapping_size());
                         }
+                        
+#ifdef debug_constrictions
+                        cerr << "extended left path " << i << " to " << pb2json(path_chunks[i].second) << endl;
+#endif
                         ++left;
                     }
                     for (auto i : right_side) {
                         if (right_connected.count(i)) {
                             continue;
                         }
+                        size_t n = get<0>(divisions[0][right]);
+                        const auto& aln = repair_alns[0][right];
+                        if (n == aln.path().mapping_size()) {
+                            continue;
+                        }
                         ref_chunks[i].first = get<1>(divisions[0][right]);
-                        
-                        const auto& aln = repair_alns[left][0];
+                        path_chunks[i].first.first = get<4>(divisions[0][right]);
                         
                         // copy the repair alignment
                         Path concat_path;
-                        for (size_t k = get<0>(divisions[left][0]); k < aln.path().mapping_size(); ++k) {
+                        for (size_t k = n; k < aln.path().mapping_size(); ++k) {
                             auto mapping = concat_path.add_mapping();
                             *mapping = aln.path().mapping(k);
                             mapping->set_rank(concat_path.mapping_size());
@@ -1369,6 +1511,9 @@ using namespace std;
                         // replace the original path
                         path_chunks[i].second = concat_path;
                         
+#ifdef debug_constrictions
+                        cerr << "extended right path " << i << " to " << pb2json(path_chunks[i].second) << endl;
+#endif
                         ++right;
                     }
                 }
@@ -1677,6 +1822,42 @@ using namespace std;
         
 #ifdef debug_spliced_surject
         cerr << "removed " << insertions_removed.back() << " chunks" << endl;
+#endif
+        
+        if (path_chunks.size() == 1
+            && path_chunks.front().first.first == src_sequence.begin()
+            && path_chunks.front().first.second == src_sequence.end()) {
+            
+            // this is an unambiguous surjection, we can skip the hole process
+            
+            // ugly: we can save a little work by skipping these, since they get copied
+            // over in the calling environment anyway
+            //surjected.set_sequence(src_sequence);
+            //surjected.set_quality(src_quality);
+            surjected.set_mapping_quality(src_mapping_quality);
+            
+            auto surj_subpath = surjected.add_subpath();
+            from_proto_path(path_chunks.front().second, *surj_subpath->mutable_path());
+            
+            Alignment aln;
+            aln.set_sequence(src_sequence);
+            aln.set_quality(src_quality);
+            *aln.mutable_path() = move(path_chunks.front().second);
+            surj_subpath->set_score(get_aligner(!src_quality.empty())->score_contiguous_alignment(aln));
+            
+            surjected.add_start(0);
+            
+            path_range_out = ref_chunks.front();
+            
+#ifdef debug_spliced_surject
+            cerr << "surjection is unambiguous, skipping algorithm:" << endl;
+            cerr << debug_string(surjected) << endl;
+#endif
+            
+            return surjected;
+        }
+        
+#ifdef debug_spliced_surject
         cerr << "checking for need to cut anchors" << endl;
 #endif
         
