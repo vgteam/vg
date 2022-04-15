@@ -3437,7 +3437,7 @@ namespace vg {
                 }
                 
                 if (next_pos && next_pos->node_id() == pos.node_id() && next_pos->is_reverse() == pos.is_reverse()
-                    && next_pos->offset() == pos.offset() + from_length) {
+                    && next_pos->offset() == pos.offset() + from_length && !curr_runs.empty()) {
                     // we only care about transitions that are between nodes, this one is within a node
                     
 #ifdef debug_cigar

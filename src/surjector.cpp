@@ -1019,6 +1019,9 @@ using namespace std;
                             continue;
                         }
                         if (path_chunks[*left_it].first.second != path_chunks[i].first.first || !connected_by_edge(*left_it, i)) {
+#ifdef debug_constrictions
+                            cerr << "fail deletion along edge condition in adjacency from " << *left_it << " to " << i << " with read positions " << (path_chunks[*left_it].first.second - src_sequence.begin()) << " and " << (path_chunks[i].first.first - src_sequence.begin()) << ", connected by edge? " << connected_by_edge(*left_it, i) << endl;
+#endif
                             incompatible = true;
                             break;
                         }
@@ -1115,7 +1118,7 @@ using namespace std;
                             
                             
 #ifdef debug_constrictions
-                            cerr << "connecting graph:" << endl;
+                            cerr << "connecting graph between " << left_pos << " and " << right_pos << ":" << endl;
                             connecting.for_each_handle([&](const handle_t& handle) {
                                 cerr << connecting.get_id(handle) << " " << connecting.get_sequence(handle) << endl;
                                 connecting.follow_edges(handle, true, [&](const handle_t& prev) {
@@ -1145,21 +1148,7 @@ using namespace std;
                                 connecting.destroy_handle(handle);
                             }
                             
-#ifdef debug_constrictions
-                            cerr << "connecting graph after pruning to the path:" << endl;
-                            connecting.for_each_handle([&](const handle_t& handle) {
-                                cerr << connecting.get_id(handle) << " " << connecting.get_sequence(handle) << endl;
-                                connecting.follow_edges(handle, true, [&](const handle_t& prev) {
-                                    cerr << "\t" << connecting.get_id(prev) << " <-" << endl;
-                                });
-                                connecting.follow_edges(handle, false, [&](const handle_t& next) {
-                                    cerr << "\t-> " << connecting.get_id(next) << endl;
-                                });
-                            });
-#endif
-                            
                             // TODO: we could probably dagify, but i don't want to worry about it yet
-                            // TODO: banded aligner actually assumes single stranded too
                             if (connecting.get_node_count() == 0 || !handlealgs::is_directed_acyclic(&connecting)
                                 || algorithms::num_components(connecting) != 1) {
 #ifdef debug_constrictions
@@ -1195,6 +1184,19 @@ using namespace std;
                                                                                       connecting.get_is_reverse(handle));
                                 handle = connecting.apply_orientation(handle);
                             }
+
+#ifdef debug_constrictions
+                            cerr << "connecting graph after pruning to the path and orienting:" << endl;
+                            connecting.for_each_handle([&](const handle_t& handle) {
+                                cerr << connecting.get_id(handle) << " " << connecting.get_sequence(handle) << endl;
+                                connecting.follow_edges(handle, true, [&](const handle_t& prev) {
+                                    cerr << "\t" << connecting.get_id(prev) << " <-" << endl;
+                                });
+                                connecting.follow_edges(handle, false, [&](const handle_t& next) {
+                                    cerr << "\t-> " << connecting.get_id(next) << endl;
+                                });
+                            });
+#endif
                                                         
                             repair_alns.back().emplace_back();
                             auto& aln = repair_alns.back().back();
