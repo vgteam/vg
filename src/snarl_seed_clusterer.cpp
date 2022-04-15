@@ -481,8 +481,6 @@ cerr << "Add all seeds to nodes: " << endl;
                         }
                         //Still in "if we haven't seen the trivial chain before", add the trivial
                         //chain to the grandparent snarl
-                        cerr << "Add child " << distance_index.net_handle_as_string(tree_state.all_node_clusters[child_index].containing_net_handle) << " to " << distance_index.net_handle_as_string(tree_state.all_node_clusters[grandparent_index].containing_net_handle) << endl;
-                        cerr << "\tat indexes " << grandparent_index << " and " << child_index << endl;
                         tree_state.snarl_to_children.emplace(grandparent_index, child_index);
                     }
                 }
@@ -1396,7 +1394,6 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_one_child(TreeState& 
 
 void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, size_t snarl_clusters_index, size_t parent_clusters_index) const { 
     //Get the clusters on this snarl, assumes that all of the snarls children have been clustered already.
-    cerr << "Cluster snarl at index " << snarl_clusters_index << endl;
     
 
     NodeClusters& snarl_clusters = tree_state.all_node_clusters[snarl_clusters_index]; 
