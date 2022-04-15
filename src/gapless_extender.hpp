@@ -184,20 +184,6 @@ public:
      */
     static bool full_length_extensions(const std::vector<GaplessExtension>& result, size_t max_mismatches = MAX_MISMATCHES);
 
-    /**
-     * Find the distinct local haplotypes in the given subgraph and return the corresponding paths.
-     * For each path haplotype_paths[i], the output graph will contain node 2i + 1 with sequence
-     * corresponding to the path and node 2i + 2 with the reverse complement of the sequence.
-     * Use the provided CachedGBWTGraph or allocate a new one.
-     */
-    void unfold_haplotypes(const std::unordered_set<nid_t>& subgraph, std::vector<std::vector<handle_t>>& haplotype_paths,  bdsg::HashGraph& unfolded, const gbwtgraph::CachedGBWTGraph* cache = nullptr) const;
-
-    /**
-     * Transform an alignment to a single node in the unfold_haplotypes() graph to an
-     * alignment to the corresponding path in the original graph.
-     */
-    void transform_alignment(Alignment& aln, const std::vector<std::vector<handle_t>>& haplotype_paths) const;
-
     const gbwtgraph::GBWTGraph* graph;
     const Aligner*   aligner;
 

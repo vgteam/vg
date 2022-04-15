@@ -177,8 +177,8 @@ public:
     ///What is the maximum fragment length that we accept as valid for paired-end reads?
     size_t max_fragment_length = 2000;
 
-    /// Implemented rescue algorithms: no rescue, dozeu, GSSW, dozeu on local haplotypes.
-    enum RescueAlgorithm { rescue_none, rescue_dozeu, rescue_gssw, rescue_haplotypes };
+    /// Implemented rescue algorithms: no rescue, dozeu, GSSW.
+    enum RescueAlgorithm { rescue_none, rescue_dozeu, rescue_gssw };
 
     /// The algorithm used for rescue.
     RescueAlgorithm rescue_algorithm = rescue_dozeu;
