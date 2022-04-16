@@ -94,10 +94,14 @@ using namespace std;
         /// How big of a graph in bp should we ever try to align against for realigning surjection?
         size_t max_subgraph_bases = 100 * 1024;
         
+        /// in spliced surject, downsample if the base-wise average coverage by chunks is this high
+        int64_t min_fold_coverage_for_downsample = 8;
+        /// while downsampling, try to get down to this coverage on each base
+        int64_t downsample_coverage = 16;
+        
         /// And have we complained about hitting it?
         mutable atomic_flag warned_about_subgraph_size = ATOMIC_FLAG_INIT;
         
-        ///
         bool prune_suspicious_anchors = false;
         int64_t max_tail_anchor_prune = 4;
         double low_complexity_p_value = .001;
@@ -197,6 +201,12 @@ using namespace std;
         void cut_anchors(bool rev_strand, vector<path_chunk_t>& path_chunks,
                          vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                          vector<tuple<size_t, size_t, int32_t>>& connections) const;
+        
+        /// if there are too many chunks, downsample to a given level
+        void downsample_chunks(const string& src_sequence,
+                               vector<path_chunk_t>& path_chunks,
+                               vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
+                               vector<tuple<size_t, size_t, int32_t>>& connections) const;
         
         /// returns all sets of chunks such that 1) all of chunks on the left set abut all of the chunks on the right
         /// set on the read, 2) all source-to-sink paths in the connected component go through an edge between

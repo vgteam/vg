@@ -1735,6 +1735,100 @@ using namespace std;
         }
     }
 
+    void Surjector::downsample_chunks(const string& src_sequence,
+                                      vector<path_chunk_t>& path_chunks,
+                                      vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
+                                      vector<tuple<size_t, size_t, int32_t>>& connections) const {
+        int64_t total_cov = 0;
+        for (const auto& chunk : path_chunks) {
+            total_cov += chunk.first.second - chunk.first.first;
+        }
+        
+        if (total_cov < min_fold_coverage_for_downsample * src_sequence.size()) {
+#ifdef debug_spliced_surject
+            cerr << "average chunk coverage of " << double(total_cov) / src_sequence.size() << " is lower than downsample limit " << min_fold_coverage_for_downsample << endl;
+#endif
+            return;
+        }
+        
+#ifdef debug_spliced_surject
+        cerr << "attempt to downsample chunks to reduce coverage to " << downsample_coverage << endl;
+#endif
+        
+        // there might be a cleverer sweep line algorithm for this, but we'd still need
+        // something like a dynamic range max query for the removal stage...
+        vector<int> coverage(src_sequence.size(), 0);
+        for (auto& chunk : path_chunks) {
+            for (int64_t i = chunk.first.first - src_sequence.begin(), n = chunk.first.second - src_sequence.begin(); i < n; ++i) {
+                ++coverage[i];
+            }
+        }
+        unordered_set<size_t> connected;
+        for (const auto& connection : connections) {
+            connected.insert(get<0>(connection));
+            connected.insert(get<1>(connection));
+        }
+        
+        // sort so that we remove short anchors first
+        auto index = range_vector(path_chunks.size());
+        stable_sort(index.begin(), index.end(),
+                    [&](size_t i, size_t j) {
+            const auto& range1 = path_chunks[i].first;
+            const auto& range2 = path_chunks[j].first;
+            return range1.second - range1.first < range2.second - range2.first;
+        });
+        
+        unordered_set<size_t> to_remove;
+        for (auto i : index) {
+            auto& range = path_chunks[i].first;
+            if (connected.count(i) || range.second == range.first) {
+                // we want to preserve connections, and pure deletions are sometimes important
+                // for anchoring
+                continue;
+            }
+            int min_cov = std::numeric_limits<int>::max();
+            for (int64_t j = range.first - src_sequence.begin(), n = range.second - src_sequence.begin(); j < n; ++j) {
+                min_cov = min(min_cov, coverage[j]);
+            }
+            if (min_cov > downsample_coverage) {
+                // we can remove this one without blowing our target coverage
+                to_remove.insert(i);
+                for (int64_t j = range.first - src_sequence.begin(), n = range.second - src_sequence.begin(); j < n; ++j) {
+                    --coverage[j];
+                }
+            }
+        }
+        if (!to_remove.empty()) {
+#ifdef debug_spliced_surject
+            cerr << "removing " << to_remove.size() << " chunks" << endl;
+#endif
+            
+            vector<size_t> removed_so_far(path_chunks.size() + 1, 0);
+            for (size_t i = 0; i < path_chunks.size(); ++i) {
+                if (to_remove.count(i)) {
+#ifdef debug_spliced_surject
+                    cerr << "removing chunk " << i << ": " << string(path_chunks[i].first.first, path_chunks[i].first.second) << endl;
+#endif
+                    removed_so_far[i + 1] = removed_so_far[i] + 1;
+                }
+                else {
+                    if (removed_so_far[i]) {
+                        path_chunks[i - removed_so_far[i]] = move(path_chunks[i]);
+                        ref_chunks[i - removed_so_far[i]] = move(ref_chunks[i]);
+                    }
+                    removed_so_far[i + 1] = removed_so_far[i];
+                }
+            }
+            path_chunks.resize(path_chunks.size() - to_remove.size());
+            ref_chunks.resize(ref_chunks.size() - to_remove.size());
+            
+            for (auto& connection : connections) {
+                get<0>(connection) -= removed_so_far[get<0>(connection)];
+                get<1>(connection) -= removed_so_far[get<1>(connection)];
+            }
+        }
+    }
+
     multipath_alignment_t Surjector::spliced_surject(const PathPositionHandleGraph* path_position_graph,
                                                      const string& src_sequence, const string& src_quality,
                                                      const int32_t src_mapping_quality,
@@ -1860,10 +1954,17 @@ using namespace std;
         }
         
 #ifdef debug_spliced_surject
+        cerr << "checking for need to downsample chunks" << endl;
+#endif
+        
+        downsample_chunks(src_sequence, path_chunks, ref_chunks, connections);
+        
+#ifdef debug_spliced_surject
         cerr << "checking for need to cut anchors" << endl;
 #endif
         
         cut_anchors(rev_strand, path_chunks, ref_chunks, connections);
+        
         
 #ifdef debug_spliced_surject
         cerr << "making colinearity graph for " << path_chunks.size() << " path chunks" << endl;
@@ -2540,6 +2641,10 @@ using namespace std;
             // compute the connectivity between the path chunks
             MultipathAlignmentGraph mp_aln_graph(split_path_graph, path_chunks, source, node_trans, !preserve_N_alignments,
                                                  preserve_tail_indel_anchors);
+            
+#ifdef debug_anchored_surject
+            cerr << "constructed reachability graph" << endl;
+#endif
             
             // we don't overlap this reference path at all or we filtered out all of the path chunks, so just make a sentinel
             if (mp_aln_graph.empty()) {
