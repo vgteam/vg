@@ -1107,7 +1107,7 @@ using namespace std;
                                 continue;
                             }
 #ifdef debug_constrictions
-                            cerr << "attempting to repair splice adjacency from " << *left_it << " to " << i << endl;
+                            cerr << "attempting to repair splice adjacency from " << *left_it << " to " << i << " with read initerval " << (path_chunks[*left_it].first.second - src_sequence.begin()) << ":" << (path_chunks[i].first.first - src_sequence.begin()) << endl;
 #endif
                             
                             auto right_pos = initial_position(path_chunks[i].second);
@@ -1200,8 +1200,8 @@ using namespace std;
                                                         
                             repair_alns.back().emplace_back();
                             auto& aln = repair_alns.back().back();
-                            aln.set_sequence(string(path_chunks[*left_side.begin()].first.second,
-                                                    path_chunks[*right_side.begin()].first.first));
+                            aln.set_sequence(string(path_chunks[*left_it].first.second,
+                                                    path_chunks[i].first.first));
                             if (!src_quality.empty()) {
                                 auto qual_begin = src_quality.begin() + (path_chunks[*left_side.begin()].first.second - src_sequence.begin());
                                 aln.set_quality(string(qual_begin, qual_begin + aln.sequence().size()));
@@ -1437,8 +1437,16 @@ using namespace std;
                         if (n == 0) {
                             continue;
                         }
+#ifdef debug_constrictions
+                        cerr << "extend left sequence " << i << " from " << string(path_chunks[i].first.first, path_chunks[i].first.second);
+#endif
+                        
                         ref_chunks[i].second = get<1>(divisions[left][0]);
                         path_chunks[i].first.second = get<3>(divisions[left][0]);
+                        
+#ifdef debug_constrictions
+                        cerr << " to " << string(path_chunks[i].first.first, path_chunks[i].first.second) << endl;
+#endif
                         
                         // check if we need to merge the first and last mappings
                         size_t k = 0;
@@ -1477,8 +1485,16 @@ using namespace std;
                         if (n == aln.path().mapping_size()) {
                             continue;
                         }
+#ifdef debug_constrictions
+                        cerr << "extend right sequence " << i << " from " << string(path_chunks[i].first.first, path_chunks[i].first.second);
+#endif
+                        
                         ref_chunks[i].first = get<1>(divisions[0][right]);
                         path_chunks[i].first.first = get<4>(divisions[0][right]);
+                        
+#ifdef debug_constrictions
+                        cerr << "to " << string(path_chunks[i].first.first, path_chunks[i].first.second) << endl;
+#endif
                         
                         // copy the repair alignment
                         Path concat_path;
