@@ -1614,6 +1614,11 @@ Functions</h2></td></tr>
 <tr class="separator:ad6476e86221a660dda1fa85254e9436d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a86fd22ae591c4923588d20b9b5c52e43"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a86fd22ae591c4923588d20b9b5c52e43">merge_non_branching_subpaths</a> (<a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const unordered_set&lt; size_t &gt; *prohibited_merges)</td></tr>
 <tr class="separator:a86fd22ae591c4923588d20b9b5c52e43"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a37c256d47f5d50349766d6f8085b017f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a37c256d47f5d50349766d6f8085b017f">connected_comps_do</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, function&lt; void(void)&gt; &amp;on_new_component, function&lt; void(size_t)&gt; &amp;on_new_node)</td></tr>
+<tr class="separator:a37c256d47f5d50349766d6f8085b017f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1ac45a06bc04f88ba6c2321d7af304c6"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1ac45a06bc04f88ba6c2321d7af304c6">num_connected_components</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln)</td></tr>
+<tr class="memdesc:a1ac45a06bc04f88ba6c2321d7af304c6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the number of connected components in the multipath alignment.  <a href="namespacevg.html#a1ac45a06bc04f88ba6c2321d7af304c6">More...</a><br /></td></tr>
+<tr class="separator:a1ac45a06bc04f88ba6c2321d7af304c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a68859b86cb7465d17ca9cb68553a8e4c"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a68859b86cb7465d17ca9cb68553a8e4c">connected_components</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln)</td></tr>
 <tr class="separator:a68859b86cb7465d17ca9cb68553a8e4c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2b9703408d4c7160e8d9e83303c4d1c7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2b9703408d4c7160e8d9e83303c4d1c7">extract_sub_multipath_alignment</a> (const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;multipath_aln, const vector&lt; int64_t &gt; &amp;subpath_indexes, <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;sub_multipath_aln)</td></tr>
@@ -6368,7 +6373,41 @@ template&lt;typename Annotated &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Returns a vector whose elements are vectors with the indexes of the Subpaths in each connected component. An unmapped <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> with no subpaths produces an empty vector. </p>
+<p>Returns a vector whose elements are vectors with the indexes of the <a class="el" href="classvg_1_1subpath__t.html">subpath_t</a>'s in each connected component. An unmapped <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> with no subpaths produces an empty vector. </p>
+
+</div>
+</div>
+<a id="a37c256d47f5d50349766d6f8085b017f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a37c256d47f5d50349766d6f8085b017f">&#9670;&nbsp;</a></span>connected_comps_do()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::connected_comps_do </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>multipath_aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">function&lt; void(void)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>on_new_component</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">function&lt; void(size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>on_new_node</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -14659,6 +14698,26 @@ template&lt;typename T &gt; </div>
 </div><div class="memdoc">
 
 <p>Merge adjacent edits of the same type and convert all N matches to mismatches. </p>
+
+</div>
+</div>
+<a id="a1ac45a06bc04f88ba6c2321d7af304c6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1ac45a06bc04f88ba6c2321d7af304c6">&#9670;&nbsp;</a></span>num_connected_components()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::num_connected_components </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1multipath__alignment__t.html">multipath_alignment_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>multipath_aln</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns the number of connected components in the multipath alignment. </p>
 
 </div>
 </div>
