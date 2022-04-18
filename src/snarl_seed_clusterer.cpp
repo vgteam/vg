@@ -2535,6 +2535,9 @@ void NewSnarlSeedClusterer::cluster_root(TreeState& tree_state) const {
 #ifdef DEBUG_CLUSTER
     cerr << "Finding clusters on the root with " << tree_state.root_children.size() << " children" << endl;
 #endif
+    if (tree_state.root_children.size() == 0) {
+        return;
+    }
 
     //Keep track of all clusters on the root
     NodeClusters root_clusters(distance_index.get_root(), tree_state.all_seeds->size(), distance_index);
