@@ -511,7 +511,7 @@ std::unordered_map<std::string, std::unordered_set<int64_t>> check_duplicate_pat
     // 1) we will keep them.
     std::unordered_map<std::string, std::unordered_set<int64_t>> sample_to_haplotypes;
     if (!ref_samples.empty()) {
-        input->for_each_path_matching({PathMetadata::SENSE_HAPLOTYPE}, ref_samples, {}, [&](const path_handle_t& path) {
+        input->for_each_path_matching({PathSense::HAPLOTYPE}, ref_samples, {}, [&](const path_handle_t& path) {
             // For each path in these samples' haplotypes...
             
             auto sample = input->get_sample_name(path);
@@ -584,13 +584,13 @@ void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output, c
         };
         
         // Copy over the generic and existing reference paths
-        input->for_each_path_matching({PathMetadata::SENSE_GENERIC, PathMetadata::SENSE_REFERENCE}, {}, {}, [&](const path_handle_t& path) {
+        input->for_each_path_matching({PathSense::GENERIC, PathSense::REFERENCE}, {}, {}, [&](const path_handle_t& path) {
             copy_path(path, input->get_path_name(path));
         });
         
         if (!ref_samples.empty()) {
             // Copy all haplotype paths matching the ref samples as reference
-            input->for_each_path_matching({PathMetadata::SENSE_HAPLOTYPE}, ref_samples, {}, [&](const path_handle_t& path) {
+            input->for_each_path_matching({PathSense::HAPLOTYPE}, ref_samples, {}, [&](const path_handle_t& path) {
                 
                 // Compose the new reference-ified metadata
                 std::string sample = input->get_sample_name(path);
@@ -609,7 +609,7 @@ void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output, c
                 
                 // Make a new name with reference-ified metadata.
                 // Phase block is safe to discard because we checked for duplicates without it.
-                auto new_name = PathMetadata::create_path_name(PathMetadata::SENSE_REFERENCE,
+                auto new_name = PathMetadata::create_path_name(PathSense::REFERENCE,
                                                                sample,
                                                                locus,
                                                                haplotype,
@@ -623,7 +623,7 @@ void graph_to_xg_adjusting_paths(const PathHandleGraph* input, xg::XG* output, c
         
         if (!drop_haplotypes) {
             // Copy across any other haplotypes.
-            input->for_each_path_matching({PathMetadata::SENSE_HAPLOTYPE}, {}, {}, [&](const path_handle_t& path) {
+            input->for_each_path_matching({PathSense::HAPLOTYPE}, {}, {}, [&](const path_handle_t& path) {
                 if (ref_samples.count(input->get_sample_name(path))) {
                     // Skip those we already promoted to reference sense
                     return;
@@ -643,13 +643,13 @@ void add_and_adjust_paths(const PathHandleGraph* input, MutablePathHandleGraph* 
     auto sample_to_haplotypes = check_duplicate_path_names(input, ref_samples);
     
     // Copy all generic and reference paths that exist already
-    input->for_each_path_matching({PathMetadata::SENSE_GENERIC, PathMetadata::SENSE_REFERENCE}, {}, {}, [&](const path_handle_t& path) {
+    input->for_each_path_matching({PathSense::GENERIC, PathSense::REFERENCE}, {}, {}, [&](const path_handle_t& path) {
         handlegraph::algorithms::copy_path(input, path, output);
     });
     
     if (!ref_samples.empty()) {
         // Copy all haplotype paths matching the ref samples as reference
-        input->for_each_path_matching({PathMetadata::SENSE_HAPLOTYPE}, ref_samples, {}, [&](const path_handle_t& path) {
+        input->for_each_path_matching({PathSense::HAPLOTYPE}, ref_samples, {}, [&](const path_handle_t& path) {
             
             // Compose the new reference-ified metadata
             std::string sample = input->get_sample_name(path);
@@ -669,7 +669,7 @@ void add_and_adjust_paths(const PathHandleGraph* input, MutablePathHandleGraph* 
             
             // Make a new path with reference-ified metadata.
             // Phase block is safe to discard because we checked for duplicates without it.
-            path_handle_t into_path = output->create_path(PathMetadata::SENSE_REFERENCE,
+            path_handle_t into_path = output->create_path(PathSense::REFERENCE,
                                                           sample,
                                                           locus,
                                                           haplotype,
@@ -684,7 +684,7 @@ void add_and_adjust_paths(const PathHandleGraph* input, MutablePathHandleGraph* 
     
     if (!drop_haplotypes) {
         // Copy across any other haplotypes.
-        input->for_each_path_matching({PathMetadata::SENSE_HAPLOTYPE}, {}, {}, [&](const path_handle_t& path) {
+        input->for_each_path_matching({PathSense::HAPLOTYPE}, {}, {}, [&](const path_handle_t& path) {
             if (ref_samples.count(input->get_sample_name(path))) {
                 // Skip those we already promoted to reference sense
                 return;

@@ -157,7 +157,7 @@ bool should_write_as_w_line(const PathHandleGraph* graph, path_handle_t path_han
     auto sense = graph->get_sense(path_handle);
     // Haplotype and reference sense paths both have good W line descriptions.
     // TODO: how to tell them apart?
-    return sense == PathMetadata::SENSE_HAPLOTYPE || sense == PathMetadata::SENSE_REFERENCE;
+    return sense == PathSense::HAPLOTYPE || sense == PathSense::REFERENCE;
 }
 
 void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path_handle, unordered_map<tuple<string, int64_t, string>, size_t>& last_phase_block_end) {

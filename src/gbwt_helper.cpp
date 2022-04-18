@@ -525,11 +525,11 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id, bool s
     
     // Try and work out the sense of the path just from the GBWT.
     // TODO: needs to be kept in sync with GBWTGraph.
-    PathMetadata::Sense path_sense;
+    PathSense path_sense;
     if (metadata.hasSampleNames()) {
         auto sample_name = metadata.sample(path.sample);
-        if (sample_name.size() < gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.size() &&
-            std::equal(gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.begin(), gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.end(), sample_name.begin)) {
+        if (sample_name.size() <= gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.size() &&
+            std::equal(gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.begin(), gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.end(), sample_name.begin())) {
             // It starts with the right prefix
             
             if (sample_name.size() == gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.size()) {
@@ -539,9 +539,9 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id, bool s
                 // path with just the one locus name.
                 path_sense = PathSense::GENERIC;
             } else {
-                    // If we assign it to some other sample that starts with that string, it's a
-                    // reference path and not a generic one.
-                    path_sense = PathSense::REFERENCE;
+                // If we assign it to some other sample that starts with that string, it's a
+                // reference path and not a generic one.
+                path_sense = PathSense::REFERENCE;
             }
         } else {
             // Otherwise it's a haplotype thread.

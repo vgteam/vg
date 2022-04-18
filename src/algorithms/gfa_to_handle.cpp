@@ -103,7 +103,7 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
     parser.walk_listeners.push_back([&parser, graph](const string& sample_name,
                                                      int64_t haplotype,
                                                      const string& contig_name,
-                                                     const pair<int64_t, int64_t>& subrange,
+                                                     const subrange_t& subrange,
                                                      const GFAParser::chars_t& visits,
                                                      const GFAParser::tag_list_t& tags) {
         // For W lines, we add the path with a bit more metadata.
@@ -122,7 +122,7 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
         // TODO: Detect and avoid collisions somehow!
         // TODO: Actually support subranges.
         // TODO: Support reference sense paths.
-        auto path_handle = graph->create_path(PathMetadata::SENSE_HAPLOTYPE,
+        auto path_handle = graph->create_path(PathSense::HAPLOTYPE,
                                               sample_name,
                                               contig_name,
                                               haplotype,
@@ -175,7 +175,7 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
             }
             
             // TODO: See if we can split up the path name into a sample/haplotype/etc. to give it a ref sense.
-            path_handle_t path = graph->create_path(PathMetadata::SENSE_GENERIC,
+            path_handle_t path = graph->create_path(PathSense::GENERIC,
                                                     PathMetadata::NO_SAMPLE_NAME,
                                                     path_name, 
                                                     PathMetadata::NO_HAPLOTYPE,

@@ -53,7 +53,10 @@ namespace handlealgs = handlegraph::algorithms;
 // Import all the handle stuff into the vg namespace for transition purposes.
 using handle_t = handlegraph::handle_t;
 using nid_t = handlegraph::nid_t;
+using offset_t = handlegraph::offset_t;
+using subrange_t = handlegraph::subrange_t;
 using path_handle_t = handlegraph::path_handle_t;
+using PathSense = handlegraph::PathSense;
 using step_handle_t = handlegraph::step_handle_t;
 using edge_t = handlegraph::edge_t;
 using oriented_node_range_t = handlegraph::oriented_node_range_t;

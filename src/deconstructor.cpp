@@ -748,7 +748,7 @@ void Deconstructor::deconstruct(vector<string> ref_paths, const PathPositionHand
         // add in sample names from the gbwt
         for (size_t i = 0; i < gbwt->metadata.paths(); i++) {
             string sample_name = thread_sample(*gbwt, i);
-            if ((sample_name.size() < gbwtgraph::NAMED_PATH_SAMPLE_PREFIX ||
+            if ((sample_name.size() < gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.size() ||
                 !std::equal(gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.begin(), gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.end(), sample_name.begin())) &&
                 (path_to_sample_phase == nullptr || path_to_sample_phase->count(sample_name))) {
                 sample_names.insert(thread_sample(*gbwt, i));

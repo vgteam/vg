@@ -78,10 +78,10 @@ void chunk_to_emitter(const Path& path, vg::io::ProtobufEmitter<Graph>& graph_em
 }
 
 // TODO: promote this to libhandlegraph
-unordered_map<handlegraph::PathMetadata::Sense, string> SENSE_TO_STRING {
-    {handlegraph::PathMetadata::SENSE_REFERENCE, "SENSE_REFERENCE"},
-    {handlegraph::PathMetadata::SENSE_GENERIC, "SENSE_GENERIC"},
-    {handlegraph::PathMetadata::SENSE_HAPLOTYPE, "SENSE_HAPLOTYPE"}
+unordered_map<PathSense, string> SENSE_TO_STRING {
+    {PathSense::REFERENCE, "REFERENCE"},
+    {PathSense::GENERIC, "GENERIC"},
+    {PathSense::HAPLOTYPE, "HAPLOTYPE"}
 };
 
 int main_paths(int argc, char** argv) {
@@ -105,10 +105,10 @@ int main_paths(int argc, char** argv) {
     string path_file;
     bool select_alt_paths = false;
     // What kinds of paths are we interested in?
-    unordered_set<handlegraph::PathMetadata::Sense> path_senses {
-        handlegraph::PathMetadata::SENSE_REFERENCE,
-        handlegraph::PathMetadata::SENSE_GENERIC,
-        handlegraph::PathMetadata::SENSE_HAPLOTYPE
+    unordered_set<PathSense> path_senses {
+        PathSense::REFERENCE,
+        PathSense::GENERIC,
+        PathSense::HAPLOTYPE
     };
     bool list_lengths = false;
     bool list_metadata = false;
@@ -239,7 +239,7 @@ int main_paths(int argc, char** argv) {
         case 'S':
             sample_name = optarg;
             // We only care about things with references now.
-            path_senses = {handlegraph::PathMetadata::SENSE_REFERENCE, handlegraph::PathMetadata::SENSE_HAPLOTYPE};
+            path_senses = {PathSense::REFERENCE, PathSense::HAPLOTYPE};
             selection_criteria++;
             break;
                 
@@ -250,7 +250,7 @@ int main_paths(int argc, char** argv) {
             
         case 'G':
             // We only care about generic paths now.
-            path_senses = {handlegraph::PathMetadata::SENSE_GENERIC};
+            path_senses = {PathSense::GENERIC};
             selection_criteria++;
             break;
 
@@ -326,7 +326,7 @@ int main_paths(int argc, char** argv) {
         // alt paths all have a specific prefix
         path_prefix = "_alt_";
         // And are all generic sense.
-        path_senses = {handlegraph::PathMetadata::SENSE_GENERIC};
+        path_senses = {PathSense::GENERIC};
     }
     
     // Load whatever indexes we were given
@@ -521,10 +521,10 @@ int main_paths(int argc, char** argv) {
                 selected.insert(path_handle);
             });
             
-            unordered_set<handlegraph::PathMetadata::Sense> all_senses {
-                handlegraph::PathMetadata::SENSE_REFERENCE,
-                handlegraph::PathMetadata::SENSE_GENERIC,
-                handlegraph::PathMetadata::SENSE_HAPLOTYPE
+            unordered_set<PathSense> all_senses {
+                PathSense::REFERENCE,
+                PathSense::GENERIC,
+                PathSense::HAPLOTYPE
             };
             
             graph->for_each_path_matching(&all_senses, nullptr, nullptr, [&](const path_handle_t& path_handle) {
@@ -694,18 +694,18 @@ int main_paths(int argc, char** argv) {
                         // Dump fields for all the metadata
                         cout << "\t" << SENSE_TO_STRING.at(graph->get_sense(path_handle));
                         auto sample = graph->get_sample_name(path_handle);
-                        cout << "\t" << (sample == handlegraph::PathMetadata::NO_SAMPLE_NAME ? "NO_SAMPLE_NAME" : sample);
+                        cout << "\t" << (sample == PathMetadata::NO_SAMPLE_NAME ? "NO_SAMPLE_NAME" : sample);
                         auto haplotype = graph->get_haplotype(path_handle);
-                        cout << "\t" << (haplotype == handlegraph::PathMetadata::NO_HAPLOTYPE ? "NO_HAPLOTYPE" : std::to_string(haplotype));
+                        cout << "\t" << (haplotype == PathMetadata::NO_HAPLOTYPE ? "NO_HAPLOTYPE" : std::to_string(haplotype));
                         auto locus = graph->get_locus_name(path_handle);
-                        cout << "\t" << (locus == handlegraph::PathMetadata::NO_LOCUS_NAME ? "NO_LOCUS_NAME" : locus);
+                        cout << "\t" << (locus == PathMetadata::NO_LOCUS_NAME ? "NO_LOCUS_NAME" : locus);
                         auto phase_block = graph->get_phase_block(path_handle);
-                        cout << "\t" << (phase_block == handlegraph::PathMetadata::NO_PHASE_BLOCK ? "NO_PHASE_BLOCK" : std::to_string(phase_block));
+                        cout << "\t" << (phase_block == PathMetadata::NO_PHASE_BLOCK ? "NO_PHASE_BLOCK" : std::to_string(phase_block));
                         auto subrange = graph->get_subrange(path_handle);
                         cout << "\t";
-                        if (subrange == handlegraph::PathMetadata::NO_SUBRANGE) {
+                        if (subrange == PathMetadata::NO_SUBRANGE) {
                             cout << "NO_SUBRANGE";
-                        } else if (subrange.second == handlegraph::PathMetadata::NO_END_POSITION) {
+                        } else if (subrange.second == PathMetadata::NO_END_POSITION) {
                             cout << subrange.first;
                         } else {
                             cout << subrange.first << "-" << subrange.second;
