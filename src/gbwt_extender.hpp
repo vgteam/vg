@@ -1,8 +1,8 @@
-#ifndef VG_GAPLESS_EXTENDER_HPP_INCLUDED
-#define VG_GAPLESS_EXTENDER_HPP_INCLUDED
+#ifndef VG_GBWT_EXTENDER_HPP_INCLUDED
+#define VG_GBWT_EXTENDER_HPP_INCLUDED
 
 /** \file 
- * Haplotype-consistent gapless seed extension.
+ * Haplotype-consistent seed extension in GBWTGraph.
  */
 
 #include <functional>
@@ -10,7 +10,6 @@
 
 #include "aligner.hpp"
 
-#include <bdsg/hash_graph.hpp>
 #include <gbwtgraph/cached_gbwtgraph.h>
 
 namespace vg {
@@ -198,4 +197,4 @@ private:
 
 } // namespace vg
 
-#endif // VG_GAPLESS_EXTENDER_HPP_INCLUDED
+#endif // VG_GBWT_EXTENDER_HPP_INCLUDED

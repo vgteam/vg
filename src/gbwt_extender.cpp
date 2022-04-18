@@ -1,4 +1,4 @@
-#include "gapless_extender.hpp"
+#include "gbwt_extender.hpp"
 
 #include <algorithm>
 #include <cstring>

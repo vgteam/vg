@@ -3,11 +3,13 @@
  * Unit tests for gapless_extender.cpp, which implements haplotype-aware gapless seed extension.
  */
 
-#include "../gapless_extender.hpp"
+#include "../gbwt_extender.hpp"
 #include "../gbwt_helper.hpp"
 #include "vg/io/json2pb.h"
 #include "../utility.hpp"
 #include "../vg.hpp"
+
+#include <bdsg/hash_graph.hpp>
 
 #include "catch.hpp"
 
