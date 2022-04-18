@@ -23,7 +23,6 @@
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 #include "../hts_alignment_emitter.hpp"
-#include "../gapless_extender.hpp"
 #include "../minimizer_mapper.hpp"
 #include "../index_registry.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
