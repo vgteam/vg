@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 86
+plan tests 90
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -218,6 +218,9 @@ is "$?" 0 "rgfa export roundtrips back to normal P-lines"
 
 rm -f tiny.gfa.rgfa tiny.gfa.gfa tiny.gfa.rgfa.gfa
 
+#####
+# Walk conversion
+#####
 
 # GFA to GBWTGraph to HashGraph to GFA
 vg gbwt -o components.gbwt -g components.gg -G graphs/components_walks.gfa
@@ -258,6 +261,10 @@ is $? 0 "GBZ to GFA conversion with walks, GBWTGraph algorithm"
 cmp extracted.gfa graphs/components_walks.gfa
 is $? 0 "GBZ to GFA conversion with GBWTGraph algorithm creates the correct normalized GFA file"
 
+#####
+# Path and walk conversion
+#####
+
 # GFA to HashGraph to GFA with walks and paths
 vg convert -g graphs/components_paths_walks.gfa -a > components.hg
 is $? 0 "GFA to HashGraph conversion"
@@ -270,7 +277,6 @@ rm -f components.gbwt components.gg components.gbz
 rm -f components.hg
 rm -f sorted.gfa converted.gfa correct.gfa
 rm -f extracted.gfa
-
 
 # GFA to GBWTGraph and GBZ with paths and walks
 vg gbwt -o components.gbwt -g components.gg -G graphs/components_paths_walks.gfa
@@ -360,8 +366,40 @@ rm -f components.xg xg_paths.gaf xg_haplotypes.gaf gbz_xg_paths.gaf gbz_xg_haplo
 rm -f extracted.gfa gbz.gfa extracted.hg
 rm -f sorted.gfa correct.gfa
 
+#####
+# Reference path conversion
+#####
 
+# GFA to GBZ to GFA with reference paths
+vg paths -M -x graphs/gfa_with_reference.gfa >paths.truth.txt
+vg gbwt -G graphs/gfa_with_reference.gfa --gbz-format -g gfa_with_reference.gbz
+vg paths -M -x gfa_with_reference.gbz >paths.gbz.txt
+cmp paths.gbz.txt paths.truth.txt
+is "${?}" "0" "GFA -> GBZ conversion preserves path metadata"
+vg convert -f gfa_with_reference.gbz >extracted.gfa
+vg paths -M -x extracted.gfa >paths.gfa.txt
+cmp paths.gfa.txt paths.truth.txt
+is "${?}" "0" "GFA -> GBZ -> GFA conversion preserves path metadata"
+
+
+# rGFA to GBZ to GFA
+vg paths -M -x graphs/rgfa_with_reference.rgfa >paths.truth.txt
+vg gbwt -G graphs/rgfa_with_reference.rgfa --gbz-format -g rgfa_with_reference.gbz
+vg paths -M -x rgfa_with_reference.gbz >paths.gbz.txt
+cmp paths.gbz.txt paths.truth.txt
+is "${?}" "0" "rGFA -> GBZ conversion preserves path metadata"
+vg convert -f rgfa_with_reference.gbz >extracted.gfa
+vg paths -M -x extracted.gfa >paths.gfa.txt
+cmp paths.gfa.txt paths.truth.txt
+is "${?}" "0" "rGFA -> GBZ -> GFA conversion preserves path metadata"
+
+rm -f paths.truth.txt paths.gbz.txt paths.gfa.txt
+rm -f gfa_with_reference.gbz rgfa_with_reference.gbz extracted.gfa
+
+#####
 # GFA Streaming
+#####
+
 vg convert -g tiny/tiny.gfa -p | vg convert -f - | sort > tiny.roundtrip.gfa
 vg convert tiny/tiny.gfa -p | vg convert -f - | sort > tiny.roundtrip2.gfa
 diff tiny.roundtrip.gfa tiny.roundtrip2.gfa
@@ -405,8 +443,8 @@ rm -f tiny.unsort.gfa
 rm -f tiny.chop3.gfa tiny.chop3.1.gfa  tiny.chop3.2.gfa  tiny.chop3.3.gfa tiny.chop3.4.gfa
 rm -f tiny.chop3.3.stderr tiny.chop3.4.stderr
 
-vg view tiny/tiny.gfa | sort > tiny.rgfa.1
-cat tiny/tiny.gfa | vg view - | sort > tiny.rgfa.2
+vg view tiny/tiny.rgfa | sort > tiny.rgfa.1
+cat tiny/tiny.rgfa | vg view - | sort > tiny.rgfa.2
 diff tiny.rgfa.1 tiny.rgfa.2
 is $? 0 "rGFA handled consistently when streaming as when loaded from file"
 
