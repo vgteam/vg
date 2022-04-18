@@ -1435,17 +1435,23 @@ using namespace std;
                         }
                         size_t n = get<0>(divisions[left][0]);
                         if (n == 0) {
+                            ++left;
                             continue;
                         }
 #ifdef debug_constrictions
                         cerr << "extend left sequence " << i << " from " << string(path_chunks[i].first.first, path_chunks[i].first.second);
 #endif
                         
-                        ref_chunks[i].second = get<1>(divisions[left][0]);
                         path_chunks[i].first.second = get<3>(divisions[left][0]);
                         
 #ifdef debug_constrictions
                         cerr << " to " << string(path_chunks[i].first.first, path_chunks[i].first.second) << endl;
+                        cerr << "move left step from position " << graph->get_position_of_step(ref_chunks[i].second);
+#endif
+                        
+                        ref_chunks[i].second = get<1>(divisions[left][0]);
+#ifdef debug_constrictions
+                        cerr << " to " << graph->get_position_of_step(ref_chunks[i].second) << endl;
 #endif
                         
                         // check if we need to merge the first and last mappings
@@ -1483,17 +1489,22 @@ using namespace std;
                         size_t n = get<0>(divisions[0][right]);
                         const auto& aln = repair_alns[0][right];
                         if (n == aln.path().mapping_size()) {
+                            ++right;
                             continue;
                         }
 #ifdef debug_constrictions
                         cerr << "extend right sequence " << i << " from " << string(path_chunks[i].first.first, path_chunks[i].first.second);
 #endif
                         
-                        ref_chunks[i].first = get<1>(divisions[0][right]);
                         path_chunks[i].first.first = get<4>(divisions[0][right]);
                         
 #ifdef debug_constrictions
-                        cerr << "to " << string(path_chunks[i].first.first, path_chunks[i].first.second) << endl;
+                        cerr << " to " << string(path_chunks[i].first.first, path_chunks[i].first.second) << endl;
+                        cerr << "move right step from position " << graph->get_position_of_step(ref_chunks[i].first);
+#endif
+                        ref_chunks[i].first = get<2>(divisions[0][right]);
+#ifdef debug_constrictions
+                        cerr << " to " << graph->get_position_of_step(ref_chunks[i].first) << endl;
 #endif
                         
                         // copy the repair alignment
