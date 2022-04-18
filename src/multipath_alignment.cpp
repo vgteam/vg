@@ -2504,11 +2504,11 @@ namespace vg {
             }
         }
     }
-    
-    vector<vector<int64_t>> connected_components(const multipath_alignment_t& multipath_aln) {
-        
-        int64_t comps = 0;
-        
+
+    void connected_comps_do(const multipath_alignment_t& multipath_aln,
+                            function<void(void)>& on_new_component,
+                            function<void(size_t)>& on_new_node) {
+                
         vector<vector<int64_t>> reverse_edge_lists(multipath_aln.subpath_size());
         
         for (int64_t i = 0; i < multipath_aln.subpath_size(); i++) {
@@ -2524,14 +2524,13 @@ namespace vg {
         
         vector<bool> collected(multipath_aln.subpath_size(), false);
         
-        vector<vector<int64_t>> components;
-        
         for (int64_t i = 0; i < multipath_aln.subpath_size(); i++) {
             if (collected[i]) {
                 continue;
             }
             
-            components.emplace_back();
+            // start traversing a new component
+            on_new_component();
             
             vector<int64_t> stack{i};
             collected[i] = true;
@@ -2539,7 +2538,8 @@ namespace vg {
                 int64_t at = stack.back();
                 stack.pop_back();
                 
-                components.back().push_back(at);
+                // traverse a new node in the component
+                on_new_node(at);
                 
                 const subpath_t& subpath = multipath_aln.subpath(at);
                 for (int64_t j = 0; j < subpath.next_size(); j++) {
@@ -2564,8 +2564,31 @@ namespace vg {
                 }
             }
         }
+    }
+
+    size_t num_connected_components(const multipath_alignment_t& multipath_aln) {
+        size_t num_comps = 0;
+        function<void(void)> on_new_component = [&](void) {
+            ++num_comps;
+        };
+        function<void(size_t)> on_new_node = [](size_t i) {
+            // nothing to do
+        };
+        connected_comps_do(multipath_aln, on_new_component, on_new_node);
+        return num_comps;
+    }
+    
+    vector<vector<int64_t>> connected_components(const multipath_alignment_t& multipath_aln) {
         
-        return std::move(components);
+        vector<vector<int64_t>> components;
+        function<void(void)> on_new_component = [&](void) {
+            components.emplace_back();
+        };
+        function<void(size_t)> on_new_node = [&](size_t i) {
+            components.back().push_back(i);
+        };
+        connected_comps_do(multipath_aln, on_new_component, on_new_node);
+        return components;
     }
     
     void extract_sub_multipath_alignment(const multipath_alignment_t& multipath_aln,
