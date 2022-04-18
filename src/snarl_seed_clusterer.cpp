@@ -996,7 +996,7 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
 
         bool combined = false;
         size_t read_num = child_cluster_head.first;
-        size_t cluster_num = child_cluster_head.second;
+        size_t cluster_num = tree_state.read_union_find[read_num].find_group(child_cluster_head.second);
 
         //Distances to the ends of the child
         pair<size_t, size_t> distances = child_distances[child_cluster_head.second + tree_state.seed_count_prefix_sum[read_num]];
@@ -1061,7 +1061,7 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
     for (auto& child_cluster_head : child_clusters2.read_cluster_heads) {
 
         size_t read_num = child_cluster_head.first;
-        size_t cluster_num = child_cluster_head.second;
+        size_t cluster_num = tree_state.read_union_find[read_num].find_group(child_cluster_head.second);
         pair<size_t, size_t> distances = child_distances[child_cluster_head.second + tree_state.seed_count_prefix_sum[read_num]];
         size_t new_dist_left = std::min(SnarlDistanceIndex::sum({distances.first,child_clusters2.distance_start_left}), 
                                         SnarlDistanceIndex::sum({distances.second,child_clusters2.distance_start_right}));
