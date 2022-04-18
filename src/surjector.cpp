@@ -885,6 +885,9 @@ using namespace std;
             for (auto chunk_side : adj_component) {
                 if (path_chunks[chunk_side.first].first.first == path_chunks[chunk_side.first].first.second) {
                     deletion_chunks.push_back(chunk_side.first);
+#ifdef debug_constrictions
+                    cerr << "chunk " << chunk_side.first << " is a deletion" << endl;
+#endif
                 }
             }
             
@@ -903,9 +906,15 @@ using namespace std;
                     if (deletion_chunk_idx < deletion_chunks.size() && chunk_side.first == deletion_chunks[deletion_chunk_idx]) {
                         // deletions can go on either side,
                         if (iter & (1 << deletion_chunk_idx)) {
+#ifdef debug_constrictions
+                            cerr << "deletion chunk " << chunk_side.first << " goes to left side" << endl;
+#endif
                             left_side.insert(chunk_side.first);
                         }
                         else {
+#ifdef debug_constrictions
+                            cerr << "deletion chunk " << chunk_side.first << " goes to right side" << endl;
+#endif
                             right_side.insert(chunk_side.first);
                         }
                         ++deletion_chunk_idx;
@@ -940,6 +949,7 @@ using namespace std;
                                 cerr << "connection is incompatible" << endl;
 #endif
                                 incompatible = true;
+                                break;
                             }
                         }
                     }
@@ -1100,14 +1110,14 @@ using namespace std;
                         repair_alns.emplace_back();
                         repair_alns.back().reserve(right_side.size());
                         auto left_pos = final_position(path_chunks[*left_it].second);
-                        for (auto i : adj[*left_it]) {
+                        for (auto i : right_side) {
                             if (right_connected.count(i)) {
                                 // we don't worry about it if the node has a connection, because it will lose
                                 // all of its edges anyway
                                 continue;
                             }
 #ifdef debug_constrictions
-                            cerr << "attempting to repair splice adjacency from " << *left_it << " to " << i << " with read initerval " << (path_chunks[*left_it].first.second - src_sequence.begin()) << ":" << (path_chunks[i].first.first - src_sequence.begin()) << endl;
+                            cerr << "attempting to repair splice adjacency from " << *left_it << " to " << i << " with read interval " << (path_chunks[*left_it].first.second - src_sequence.begin()) << ":" << (path_chunks[i].first.first - src_sequence.begin()) << endl;
 #endif
                             
                             auto right_pos = initial_position(path_chunks[i].second);
@@ -1256,7 +1266,7 @@ using namespace std;
                         }
                         
                         size_t right_idx = 0;
-                        for (auto i : adj[*left_it]) {
+                        for (auto i : right_side) {
                             if (right_connected.count(i)) {
                                 // we don't worry about it if the node has a connection, because it will lose
                                 // all of its edges anyway
@@ -1431,10 +1441,16 @@ using namespace std;
                     size_t left = 0, right = 0;
                     for (auto i : left_side) {
                         if (left_connected.count(i)) {
+#ifdef debug_constrictions
+                            cerr << "skipping left side " << i << ", which has a connection" << endl;
+#endif
                             continue;
                         }
                         size_t n = get<0>(divisions[left][0]);
                         if (n == 0) {
+#ifdef debug_constrictions
+                            cerr << "left side " << i << " does not need to be extended" << endl;
+#endif
                             ++left;
                             continue;
                         }
@@ -1484,11 +1500,17 @@ using namespace std;
                     }
                     for (auto i : right_side) {
                         if (right_connected.count(i)) {
+#ifdef debug_constrictions
+                            cerr << "skipping right side " << i << ", which has a connection" << endl;
+#endif
                             continue;
                         }
                         size_t n = get<0>(divisions[0][right]);
                         const auto& aln = repair_alns[0][right];
                         if (n == aln.path().mapping_size()) {
+#ifdef debug_constrictions
+                            cerr << "right side " << i << " does not need to be extended" << endl;
+#endif
                             ++right;
                             continue;
                         }
@@ -2344,7 +2366,7 @@ using namespace std;
                 *section_source.mutable_quality() = string(src_quality.begin() + (read_range.first - src_sequence.begin()),
                                                            src_quality.begin() + (read_range.second - src_sequence.begin()));
             }
-#ifdef debug_always_warn_on_too_long
+#if defined(debug_always_warn_on_too_long) || defined(debug_validate_anchored_multipath_alignment)
             // give it the full sequence as a name so we can see it later
             section_source.set_name(src_sequence);
 #endif
@@ -2721,7 +2743,7 @@ using namespace std;
             
 #ifdef debug_validate_anchored_multipath_alignment
             if (!validate_multipath_alignment(mp_aln, *graph)) {
-                cerr << "WARNING: multipath alignment for surjection of " << source.name() << " failed to validate" << endl;
+                cerr << "WARNING: multipath alignment for surjection of " << source.name() << " with sequence " << " failed to validate" << endl;
             }
 #endif
             // concatenate the subpaths either locally or globally, depending on whether we're
