@@ -87,14 +87,21 @@ using namespace std;
         int64_t min_splice_length = 20;
         
         int64_t dominated_path_chunk_diff = 10;
+
+        /// the minimum length apparent intron that we will try to repair
+        int64_t min_splice_repair_length = 250;
         
         /// How big of a graph in bp should we ever try to align against for realigning surjection?
         size_t max_subgraph_bases = 100 * 1024;
         
+        /// in spliced surject, downsample if the base-wise average coverage by chunks is this high
+        int64_t min_fold_coverage_for_downsample = 8;
+        /// while downsampling, try to get down to this coverage on each base
+        int64_t downsample_coverage = 16;
+        
         /// And have we complained about hitting it?
         mutable atomic_flag warned_about_subgraph_size = ATOMIC_FLAG_INIT;
         
-        ///
         bool prune_suspicious_anchors = false;
         int64_t max_tail_anchor_prune = 4;
         double low_complexity_p_value = .001;
@@ -195,13 +202,21 @@ using namespace std;
                          vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                          vector<tuple<size_t, size_t, int32_t>>& connections) const;
         
+        /// if there are too many chunks, downsample to a given level
+        void downsample_chunks(const string& src_sequence,
+                               vector<path_chunk_t>& path_chunks,
+                               vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
+                               vector<tuple<size_t, size_t, int32_t>>& connections) const;
+        
         /// returns all sets of chunks such that 1) all of chunks on the left set abut all of the chunks on the right
         /// set on the read, 2) all source-to-sink paths in the connected component go through an edge between
         /// the left and right sides, 3) all of the chunks that do not have a connection between them are fully
         /// connected (i.e. form a biclique)
         vector<pair<vector<size_t>, vector<size_t>>> find_constriction_bicliques(const vector<vector<size_t>>& adj,
                                                                                  const string& src_sequence,
-                                                                                 const vector<path_chunk_t>& path_chunks,
+                                                                                 const string& src_quality,
+                                                                                 vector<path_chunk_t>& path_chunks,
+                                                                                 vector<pair<step_handle_t, step_handle_t>>& ref_chunks,
                                                                                  const vector<tuple<size_t, size_t, int32_t>>& connections) const;
         
         void prune_unconnectable(vector<vector<size_t>>& adj,

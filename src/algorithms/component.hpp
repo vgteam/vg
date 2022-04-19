@@ -14,6 +14,9 @@ namespace algorithms {
 
 using namespace std;
 
+// returns the number of weakly connected components
+size_t num_components(const HandleGraph& graph);
+
 // returns the size in number of nodes of each component
 vector<size_t> component_sizes(const HandleGraph& graph);
 

@@ -1659,6 +1659,21 @@ Path trim_hanging_ends(const Path& p) {
     return r;
 }
 
+bool mappings_equivalent(const Mapping& m1, const Mapping& m2) {
+    bool equivalent = (m1.position().node_id() == m2.position().node_id()
+                       && m1.position().is_reverse() == m2.position().is_reverse()
+                       && m1.position().offset() == m2.position().offset()
+                       && m1.edit_size() == m2.edit_size());
+    for (size_t i = 0; i < m1.edit_size() && equivalent; ++i) {
+        const auto& e1 = m1.edit(i);
+        const auto& e2 = m2.edit(i);
+        equivalent = (e1.from_length() == e2.from_length()
+                      && e1.to_length() == e2.to_length()
+                      && e1.sequence() == e2.sequence());
+    }
+    return equivalent;
+}
+
 bool mapping_ends_in_deletion(const Mapping& m){
     return m.edit_size() >= 1 && edit_is_deletion(m.edit(m.edit_size()-1));
 }
