@@ -4032,7 +4032,7 @@ namespace vg {
         
         // do the paths represent valid alignments of the associated read string and graph path?
         
-        auto validate_mapping_edits = [&](const path_mapping_t& mapping, const string& subseq) {
+        auto validate_mapping_edits = [&](const path_mapping_t& mapping, const string& subseq, size_t s, size_t m) {
             handle_t handle = handle_graph.get_handle(mapping.position().node_id(), mapping.position().is_reverse());
             size_t node_idx = mapping.position().offset();
             size_t seq_idx = 0;
@@ -4042,7 +4042,7 @@ namespace vg {
                     for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
                         if (handle_graph.get_base(handle, node_idx) != subseq[seq_idx]) {
 #ifdef debug_verbose_validation
-                            cerr << "validation failure on match that does not match on node " << handle_graph.get_id(handle) << (handle_graph.get_is_reverse(handle) ? "-" : "+") << endl;
+                            cerr << "validation failure on match that does not match on node " << handle_graph.get_id(handle) << (handle_graph.get_is_reverse(handle) ? "-" : "+") << " on subpath " << s << ", mapping " << m << endl;
                             cerr << "node sequence: " << handle_graph.get_sequence(handle) << ", offset: " << node_idx << endl;
                             cerr << "read subsequence: " << subseq << ", offset: " << seq_idx << endl;
                             
@@ -4117,7 +4117,7 @@ namespace vg {
             size_t read_start = subpath_read_interval[i].first;
             for (size_t j = 0; j < path.mapping_size(); j++) {
                 size_t read_mapping_len = mapping_to_length(path.mapping(j));
-                if (!validate_mapping_edits(path.mapping(j), multipath_aln.sequence().substr(read_start, read_mapping_len))) {
+                if (!validate_mapping_edits(path.mapping(j), multipath_aln.sequence().substr(read_start, read_mapping_len), i, j)) {
                     return false;
                 }
                 read_start += read_mapping_len;
