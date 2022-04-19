@@ -2523,7 +2523,27 @@ TEST_CASE("Mutable handle graphs with mutable paths work", "[handle][packed][has
     }
     
 }
+
+TEST_CASE("handlegraph PathMetadata name format preserves ranges on generic paths", "[handle]") {
+
+    std::string path_name = PathMetadata::create_path_name(
+        PathSense::GENERIC,
+        PathMetadata::NO_SAMPLE_NAME,
+        "randompath",
+        PathMetadata::NO_HAPLOTYPE,
+        PathMetadata::NO_PHASE_BLOCK,
+        {10, PathMetadata::NO_END_POSITION}
+    );
     
+    REQUIRE(PathMetadata::parse_sense(path_name) == PathSense::GENERIC);
+    REQUIRE(PathMetadata::parse_sample_name(path_name) == PathMetadata::NO_SAMPLE_NAME);
+    REQUIRE(PathMetadata::parse_locus_name(path_name) == "randompath");
+    REQUIRE(PathMetadata::parse_haplotype(path_name) == PathMetadata::NO_HAPLOTYPE);
+    REQUIRE(PathMetadata::parse_phase_block(path_name) == PathMetadata::NO_PHASE_BLOCK);
+    auto subrange = PathMetadata::parse_subrange(path_name);
+    REQUIRE(subrange.first == 10);
+    REQUIRE(subrange.second == PathMetadata::NO_END_POSITION);
+}
 
 }
 }
