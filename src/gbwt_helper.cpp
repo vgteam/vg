@@ -508,10 +508,10 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id, bool s
     if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
         return "";
     }
-    
+
     auto& metadata = gbwt_index.metadata;
     const gbwt::PathName& path = metadata.path(id);
-    
+
     if (short_name) {
         // We want a name with just sample and contig.
         // Spit out a name in reference sense format, which should suffice.
@@ -522,7 +522,7 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id, bool s
                                               PathMetadata::NO_PHASE_BLOCK,
                                               PathMetadata::NO_SUBRANGE);
     }
-    
+
     // Try and work out the sense of the path just from the GBWT.
     // TODO: needs to be kept in sync with GBWTGraph.
     PathSense path_sense;
@@ -531,10 +531,10 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id, bool s
         if (sample_name.size() <= gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.size() &&
             std::equal(gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.begin(), gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.end(), sample_name.begin())) {
             // It starts with the right prefix
-            
+
             if (sample_name.size() == gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.size()) {
                 // Actually only the prefix is there
-        
+
                 // If we assign the path to the special reference sample it's a generic
                 // path with just the one locus name.
                 path_sense = PathSense::GENERIC;
@@ -551,7 +551,7 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id, bool s
         // Otherwise it's a haplotype thread.
         path_sense = PathSense::HAPLOTYPE;
     }
-    
+
     // Compose a name based on the sense.
     switch(path_sense) {
     case PathSense::GENERIC:
@@ -584,7 +584,7 @@ std::string thread_sample(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
     if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
         return "";
     }
-    
+
     const gbwt::PathName& path = gbwt_index.metadata.path(id);
     std::stringstream stream;
     if (gbwt_index.metadata.hasSampleNames()) {
@@ -599,7 +599,7 @@ int thread_phase(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
     if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
         return -1;
     }
-    
+
     const gbwt::PathName& path = gbwt_index.metadata.path(id);
     return path.phase;
 }
@@ -608,7 +608,7 @@ gbwt::size_type thread_count(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
     if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
         return 0;
     }
-    
+
     const gbwt::PathName& path = gbwt_index.metadata.path(id);
     return path.count;
 }
