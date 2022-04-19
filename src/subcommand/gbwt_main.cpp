@@ -266,7 +266,6 @@ void help_gbwt(char** argv) {
     std::cerr << "    -Z, --gbz-input         extract GBWT and GBWTGraph from GBZ input (one input arg)" << std::endl;
     std::cerr << "        --translation FILE  write the segment to node translation table to FILE" << std::endl;
     std::cerr << "    -E, --index-paths       index the embedded non-alt paths in the graph (requires -x, no input args)" << std::endl;
-    std::cerr << "        --paths-as-samples  each path becomes a sample instead of a contig in the metadata" << std::endl;
     std::cerr << "    -A, --alignment-input   index the alignments in the GAF files specified in input args (requires -x)" << std::endl;
     std::cerr << "        --gam-format        the input files are in GAM format instead of GAF format" << std::endl;
     std::cerr << std::endl;
@@ -372,8 +371,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     constexpr int OPT_PATH_REGEX = 1115;
     constexpr int OPT_PATH_FIELDS = 1116;
     constexpr int OPT_TRANSLATION = 1117;
-    constexpr int OPT_PATHS_AS_SAMPLES = 1118;
-    constexpr int OPT_GAM_FORMAT = 1119;
+    constexpr int OPT_GAM_FORMAT = 1118;
     constexpr int OPT_CHUNK_SIZE = 1200;
     constexpr int OPT_POS_BUFFER = 1201;
     constexpr int OPT_THREAD_BUFFER = 1202;
@@ -426,7 +424,6 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
 
         // Input GBWT construction: paths
         { "index-paths", no_argument, 0, 'E' },
-        { "paths-as-samples", no_argument, 0, OPT_PATHS_AS_SAMPLES },
 
         // Input GBWT construction: GAF/GAM
         { "alignment-input", no_argument, 0, 'A' },
@@ -645,9 +642,6 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             no_multiple_input_types(config);
             config.build = GBWTConfig::build_paths;
             config.produces_one_gbwt = true;
-            break;
-        case OPT_PATHS_AS_SAMPLES:
-            config.haplotype_indexer.paths_as_samples = true;
             break;
 
         // Input GBWT construction: GAF/GAM
@@ -950,25 +944,32 @@ void validate_gbwt_config(GBWTConfig& config) {
         switch(format.sense) {
         case PathSense::GENERIC:
             if (format.fields.find("C") == std::string::npos && format.fields.find("c") == std::string::npos) {
-                std::cerr << "error: [vg gbwt] path name fields do not set required contig" << std::endl;
+                std::cerr << "error: [vg gbwt] path name fields do not set required contig for regex "
+                    << format.regex << " and fields " << format.fields << std::endl;
                 std::exit(EXIT_FAILURE);
             }
             if (format.fields.find("S") != std::string::npos || format.fields.find("s") != std::string::npos) {
-                std::cerr << "error: [vg gbwt] path name fields set unusable sample" << std::endl;
+                std::cerr << "error: [vg gbwt] path name fields set unusable sample for regex "
+                    << format.regex << " and fields " << format.fields << std::endl;
                 std::exit(EXIT_FAILURE);
             }
             if (format.fields.find("H") != std::string::npos || format.fields.find("h") != std::string::npos) {
-                std::cerr << "error: [vg gbwt] path name fields set unusable haplotype number" << std::endl;
+                std::cerr << "error: [vg gbwt] path name fields set unusable haplotype number for regex "
+                    << format.regex << " and fields " << format.fields << std::endl;
                 std::exit(EXIT_FAILURE);
             }
-        case PathSense::REFERENCE: // Fall-through
+            break;
         case PathSense::HAPLOTYPE:
-            if (format.fields.find("C") == std::string::npos && format.fields.find("c") == std::string::npos) {
-                std::cerr << "error: [vg gbwt] path name fields do not set required contig" << std::endl;
+            if (format.fields.find("S") == std::string::npos && format.fields.find("s") == std::string::npos) {
+                std::cerr << "error: [vg gbwt] path name fields do not set required sample for regex "
+                    << format.regex << " and fields " << format.fields << std::endl;
                 std::exit(EXIT_FAILURE);
             }
-            if (format.fields.find("S") == std::string::npos && format.fields.find("s") == std::string::npos) {
-                std::cerr << "error: [vg gbwt] path name fields do not set required sample" << std::endl;
+            // Fall-through because haplotypes also need contigs.
+        case PathSense::REFERENCE: 
+            if (format.fields.find("C") == std::string::npos && format.fields.find("c") == std::string::npos) {
+                std::cerr << "error: [vg gbwt] path name fields do not set required contig for regex "
+                    << format.regex << " and fields " << format.fields << std::endl;
                 std::exit(EXIT_FAILURE);
             }
             break;

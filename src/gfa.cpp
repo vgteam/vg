@@ -156,8 +156,9 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
 bool should_write_as_w_line(const PathHandleGraph* graph, path_handle_t path_handle) {
     auto sense = graph->get_sense(path_handle);
     // Haplotype and reference sense paths both have good W line descriptions.
-    // TODO: how to tell them apart?
-    return sense == PathSense::HAPLOTYPE || sense == PathSense::REFERENCE;
+    // But telling them apart is impossible without tags.
+    // So send only haplotypes as W lines and send references as P lines.
+    return sense == PathSense::HAPLOTYPE;
 }
 
 void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path_handle, unordered_map<tuple<string, int64_t, string>, size_t>& last_phase_block_end) {

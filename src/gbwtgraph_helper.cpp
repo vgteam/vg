@@ -31,7 +31,8 @@ gbwtgraph::GFAParsingParameters get_best_gbwtgraph_gfa_parsing_parameters() {
         gbwtgraph::GFAParsingParameters::PAN_SN_FIELDS,
         gbwtgraph::GFAParsingParameters::PAN_SN_SENSE
     );
-    // Parse paths with just a name and a range as generic paths with a contig and a fragment
+    // Parse paths with just a name and a range as generic paths with a contig
+    // and a fragment. Sample for generic paths gets provided automatically.
     parameters.path_name_formats.emplace_back(
         "(.*)\\[([0-9][0-9]*)(-[0-9]*)?\\]",
         "XCF",

@@ -31,11 +31,6 @@ using namespace std;
  */
 class HaplotypeIndexer : public Progressive {
 public:
-
-    /// Treat the embedded paths in the graph as samples. By default,
-    /// the paths are interpreted as contigs.
-    bool paths_as_samples = false;
-    
     /// Print a warning if variants in the VCF can't be found in the graph
     bool warn_on_missing_variants = true;
 
@@ -117,12 +112,11 @@ public:
      * There may be no parse files.
      *
      * If graph is provided and is not null, also includes embedded non-alt
-     * paths from the graph. Use paths_as_samples to choose whether we treat
-     * the paths as contigs or samples.
+     * paths from the graph.
      *
      * If paths is provided and is not null, include only those specified paths
-     * from the graph. If skip_unvisited_paths is set, paths not visited as
-     * contigs by VCF parse files will be skipped.
+     * from the graph. If skip_unvisited_paths is set, paths whose contigs are
+     * not visited by VCF parse files will be skipped.
      */
     std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(const std::vector<std::string>& vcf_parse_files,
                                                   const std::string& job_name = "GBWT",
@@ -131,9 +125,7 @@ public:
                                                   bool skip_unvisited_paths = false) const;
 
     /**
-     * Build a GBWT from the embedded non-alt paths in the graph. Use
-     * paths_as_samples to choose whether we treat the paths as contigs or
-     * samples.
+     * Build a GBWT from the embedded non-alt paths in the graph. 
      */
     std::unique_ptr<gbwt::DynamicGBWT> build_gbwt(const PathHandleGraph& graph) const;
 

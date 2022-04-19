@@ -5,6 +5,8 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
+export LC_ALL="C" # force a consistent sort order
+
 plan tests 90
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
@@ -371,30 +373,31 @@ rm -f sorted.gfa correct.gfa
 #####
 
 # GFA to GBZ to GFA with reference paths
-vg paths -M -x graphs/gfa_with_reference.gfa >paths.truth.txt
+vg paths -M -x graphs/gfa_with_reference.gfa | sort >paths.truth.txt
 vg gbwt -G graphs/gfa_with_reference.gfa --gbz-format -g gfa_with_reference.gbz
-vg paths -M -x gfa_with_reference.gbz >paths.gbz.txt
+vg paths -M -x gfa_with_reference.gbz | sort >paths.gbz.txt
 cmp paths.gbz.txt paths.truth.txt
 is "${?}" "0" "GFA -> GBZ conversion preserves path metadata"
 vg convert -f gfa_with_reference.gbz >extracted.gfa
-vg paths -M -x extracted.gfa >paths.gfa.txt
+vg paths -M -x extracted.gfa | sort >paths.gfa.txt
 cmp paths.gfa.txt paths.truth.txt
 is "${?}" "0" "GFA -> GBZ -> GFA conversion preserves path metadata"
 
-
-# rGFA to GBZ to GFA
-vg paths -M -x graphs/rgfa_with_reference.rgfa >paths.truth.txt
-vg gbwt -G graphs/rgfa_with_reference.rgfa --gbz-format -g rgfa_with_reference.gbz
-vg paths -M -x rgfa_with_reference.gbz >paths.gbz.txt
+# We can't do rGFA to GBZ directly until the GBWTGraph GFA parser learns to read tags
+# rGFA to HashGraph to GBZ to GFA
+vg paths -M -x graphs/rgfa_with_reference.rgfa | sort >paths.truth.txt
+vg convert -a graphs/rgfa_with_reference.rgfa > rgfa_with_reference.hg
+vg gbwt -x rgfa_with_reference.hg -E --gbz-format -g rgfa_with_reference.gbz
+vg paths -M -x rgfa_with_reference.gbz | sort >paths.gbz.txt
 cmp paths.gbz.txt paths.truth.txt
-is "${?}" "0" "rGFA -> GBZ conversion preserves path metadata"
+is "${?}" "0" "rGFA -> HashGraph -> GBZ conversion preserves path metadata"
 vg convert -f rgfa_with_reference.gbz >extracted.gfa
-vg paths -M -x extracted.gfa >paths.gfa.txt
+vg paths -M -x extracted.gfa | sort >paths.gfa.txt
 cmp paths.gfa.txt paths.truth.txt
-is "${?}" "0" "rGFA -> GBZ -> GFA conversion preserves path metadata"
+is "${?}" "0" "rGFA -> HashGraph -> GBZ -> GFA conversion preserves path metadata"
 
 rm -f paths.truth.txt paths.gbz.txt paths.gfa.txt
-rm -f gfa_with_reference.gbz rgfa_with_reference.gbz extracted.gfa
+rm -f gfa_with_reference.gbz rgfa_with_reference.gbz rgfa_with_reference.hg extracted.gfa
 
 #####
 # GFA Streaming
