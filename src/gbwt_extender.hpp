@@ -102,6 +102,25 @@ struct GaplessExtension
 //------------------------------------------------------------------------------
 
 /**
+ * An utility class that masks all characters except the specified ones with X,
+ * which is assumed to not exist in the alignment target.
+ */
+class ReadMasker {
+public:
+    /// Creates a new ReadMasker that masks all characters except the specified
+    /// ones.
+    explicit ReadMasker(const std::string& valid_chars);
+
+    /// Applies the mask to the given sequence.
+    void operator()(std::string& sequence) const;
+
+private:
+    std::vector<char> mask;
+};
+
+//------------------------------------------------------------------------------
+
+/**
  * A class that supports haplotype-consistent seed extension using GBWTGraph. Each seed
  * is a pair of matching read/graph positions and each extension is a gapless alignment
  * of an interval of the read to a haplotype.
@@ -125,7 +144,7 @@ public:
     GaplessExtender();
 
     /// Create a GaplessExtender using the given GBWTGraph and Aligner objects.
-    explicit GaplessExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner);
+    GaplessExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner);
 
     /// Convert (graph position, read offset) to a seed.
     static seed_type to_seed(pos_t pos, size_t read_offset) {
@@ -184,13 +203,41 @@ public:
     static bool full_length_extensions(const std::vector<GaplessExtension>& result, size_t max_mismatches = MAX_MISMATCHES);
 
     const gbwtgraph::GBWTGraph* graph;
-    const Aligner*   aligner;
+    const Aligner*              aligner;
+    ReadMasker                  mask;
+};
 
-    std::vector<char> mask;
+//------------------------------------------------------------------------------
 
-private:
-    void init_mask();
-    void mask_sequence(std::string& sequence) const;
+/**
+ * A class that supports haplotype-consistent seed extension using GBWTGraph using the
+ * WFA algorithm. The algorithm either tries to connect two seeds or extends a seed to
+ * the start/end of the read.
+ * WFAExtender also needs an Aligner object for scoring the extension candidates.
+ */
+class WFAExtender {
+public:
+    /// Create an empty WFAExtender.
+    WFAExtender();
+
+    /// Create a WFAExtender using the given GBWTGraph and Aligner objects.
+    WFAExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner);
+
+    // FIXME document
+    // FIXME return value
+    // FIXME special case: cannot reach the destination, must extend from both seeds
+    void extend(std::string sequence, pos_t from, pos_t to) const;
+
+    // FIXME special case: prefix
+    // FIXME special case: suffix
+
+    const gbwtgraph::GBWTGraph* graph;
+    ReadMasker                  mask;
+
+    // WFA scoring parameters derived from the aligner object.
+    int32_t mismatch;
+    int32_t gap_open;
+    int32_t gap_extend;
 };
 
 //------------------------------------------------------------------------------

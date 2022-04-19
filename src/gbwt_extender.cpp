@@ -142,16 +142,28 @@ Path GaplessExtension::to_path(const HandleGraph& graph, const std::string& sequ
 
 //------------------------------------------------------------------------------
 
+ReadMasker::ReadMasker(const std::string& valid_chars) : mask(256, 'X') {
+    for (char c : valid_chars) {
+        this->mask[static_cast<size_t>(c)] = c;
+    }
+}
+
+void ReadMasker::operator()(std::string& sequence) const {
+    for (char& c : sequence) {
+        c = this->mask[static_cast<size_t>(c)];
+    }
+}
+
+//------------------------------------------------------------------------------
+
 GaplessExtender::GaplessExtender() :
-    graph(nullptr), aligner(nullptr)
+    graph(nullptr), aligner(nullptr), mask("ACGT")
 {
-    this->init_mask();
 }
 
 GaplessExtender::GaplessExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner) :
-    graph(&graph), aligner(&aligner)
+    graph(&graph), aligner(&aligner), mask("ACGT")
 {
-    this->init_mask();
 }
 
 //------------------------------------------------------------------------------
@@ -510,7 +522,7 @@ std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, std
         return result;
     }
     result.reserve(cluster.size());
-    this->mask_sequence(sequence);
+    this->mask(sequence);
 
     // Allocate a cache if we were not provided with one.
     bool free_cache = (cache == nullptr);
@@ -720,18 +732,85 @@ struct state_hash {
 
 //------------------------------------------------------------------------------
 
-void GaplessExtender::init_mask() {
-    this->mask = std::vector<char>(256, 'X');
-    this->mask[static_cast<size_t>('A')] = 'A';
-    this->mask[static_cast<size_t>('C')] = 'C';
-    this->mask[static_cast<size_t>('G')] = 'G';
-    this->mask[static_cast<size_t>('T')] = 'T';
+WFAExtender::WFAExtender() :
+    graph(nullptr), mask("ACGT"),
+    mismatch(1), gap_open(1), gap_extend(1)
+{
 }
 
-void GaplessExtender::mask_sequence(std::string& sequence) const {
-    for (char& c : sequence) {
-        c = this->mask[static_cast<size_t>(c)];
+// Scoring parameters are from:
+//   Eizenga, Paten:
+//   Improving the time and space complexity of the WFA algorithm and generalizing its scoring.
+//   bioRxiv, 2022.
+WFAExtender::WFAExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner) :
+    graph(&graph), mask("ACGT"),
+    mismatch(2 * (aligner.match + aligner.mismatch)),
+    gap_open(2 * aligner.gap_open),
+    gap_extend(2 * aligner.gap_extension + aligner.match)
+{
+}
+
+//------------------------------------------------------------------------------
+
+struct WFAPoint {
+    int32_t  score;
+    int32_t  diagonal;
+    uint32_t seq_offset;
+    uint32_t node_offset;
+
+    bool operator<(const WFAPoint& another) const {
+        return (this->score < another.score || (this->score == another.score && this->diagonal < another.diagonal));
     }
+};
+
+struct WFANode {
+    gbwt::SearchState state;
+
+    // Offsets in the vector of nodes.
+    size_t parent;
+    std::vector<size_t> children;
+
+    // All haplotypes end here.
+    bool dead_end;
+
+    // The end position has been reached.
+    // FIXME or maybe we should just take the gap to the end and report it as the best alignment so far.
+    bool at_end;
+
+    // Wavefronts sorted by (score, diagonal).
+    std::vector<WFAPoint> matches;
+    std::vector<WFAPoint> insertions;
+    std::vector<WFAPoint> deletions;
+};
+
+void
+WFAExtender::extend(std::string sequence, pos_t from, pos_t to) const {
+    if (this->graph == nullptr || sequence.empty()) {
+        return;
+    }
+    this->mask(sequence);
+
+    std::vector<WFANode> tree;
+    // For M, I, and D with each score: maintain the min and max diagonal
+    // We may want to maintain a vector of possible scores.
+
+    // while true:
+    //   wf_extend()
+    //   if found: break
+    //   advance s
+    //   wf_next()
+
+    // Both wf_extend() and wf_next() iterate over all leaves of the tree.
+    // If the (diagonal, score) does not exist in this node, try parent.
+    // A node where all haplotypes end also counts as a leaf.
+
+    // If we reach the end position, we fork. One option is to take a gap
+    // until the end of the read. Another is continue on the haplotypes
+    // in case there is a loop and we reach the end again.
+
+    // FIXME stop condition?
+
+    // Finally we have to backtrace the actual alignment.
 }
 
 //------------------------------------------------------------------------------
