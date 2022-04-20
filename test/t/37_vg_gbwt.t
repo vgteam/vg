@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 145
+plan tests 139
 
 
 # Build vg graphs for two chromosomes
@@ -136,18 +136,7 @@ is $(vg gbwt -C xy.contigs.gbwt) 2 "paths as contigs: 2 contigs"
 is $(vg gbwt -H xy.contigs.gbwt) 1 "paths as contigs: 1 haplotype"
 is $(vg gbwt -S xy.contigs.gbwt) 1 "paths as contigs: 1 sample"
 
-# Multiple chromosomes: paths as samples
-vg gbwt -E --paths-as-samples -o xy.samples.gbwt -x xy.xg
-is $? 0 "paths as samples with vg gbwt"
-vg index -G xy2.samples.gbwt -T --paths-as-samples xy.xg
-is $? 0 "paths as samples with vg index"
-cmp xy.samples.gbwt xy2.samples.gbwt
-is $(vg gbwt -c xy.samples.gbwt) 2 "paths as samples: 2 threads"
-is $(vg gbwt -C xy.samples.gbwt) 1 "paths as samples: 1 contig"
-is $(vg gbwt -H xy.samples.gbwt) 2 "paths as samples: 2 haplotypes"
-is $(vg gbwt -S xy.samples.gbwt) 2 "paths as samples: 2 samples"
-
-rm -f xy.contigs.gbwt xy2.contigs.gbwt xy.samples.gbwt xy2.samples.gbwt
+rm -f xy.contigs.gbwt xy2.contigs.gbwt 
 
 
 # Build an r-index
