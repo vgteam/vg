@@ -13,13 +13,14 @@ namespace algorithms {
 
 using namespace std;
 
-unordered_map<path_handle_t, vector<pair<size_t, bool>>> nearest_offsets_in_paths(const PathPositionHandleGraph* graph,
-                                                                                  const pos_t& pos,
-                                                                                  int64_t max_search,
-                                                                                  const std::function<bool(const path_handle_t&)>* path_filter) {
+path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph* graph,
+                                                  const pos_t& pos,
+                                                  int64_t max_search,
+                                                  const std::function<bool(const path_handle_t&)>* path_filter) {
     
     // init the return value
-    unordered_map<path_handle_t, vector<pair<size_t, bool>>> return_val;
+    // This is a map from path handle, to vector of offset and orientation pairs
+    path_offset_collection_t return_val;
     
     // use greater so that we traverse in ascending order of distance
     structures::RankPairingHeap<pair<handle_t, bool>, int64_t, greater<int64_t>> queue;
@@ -123,8 +124,8 @@ map<string, vector<pair<size_t, bool>>> offsets_in_paths(const PathPositionHandl
     return named_offsets;
 }
 
-unordered_map<path_handle_t, vector<pair<size_t, bool>>> simple_offsets_in_paths(const PathPositionHandleGraph* graph, pos_t pos) {
-    unordered_map<path_handle_t, vector<pair<size_t, bool>>> positions;
+path_offset_collection_t simple_offsets_in_paths(const PathPositionHandleGraph* graph, pos_t pos) {
+    path_offset_collection_t positions;
     handle_t handle = graph->get_handle(id(pos), is_rev(pos));
     size_t handle_length = graph->get_length(handle);
     for (const step_handle_t& step : graph->steps_of_handle(handle)) {

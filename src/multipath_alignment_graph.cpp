@@ -346,18 +346,28 @@ namespace vg {
                              path_node.end == alignment.sequence().end());
         
         // if indicated, we may want to preserve the location of tail anchors in spite of deletions
-        bool ignore_deletion_start = (path.mapping(0).edit(0).from_length() > 0 &&
-                                      path.mapping(0).edit(0).to_length() == 0 &&
-                                      path_node.begin == alignment.sequence().begin() &&
-                                      preserve_tail_anchors);
-        bool ignore_deletion_end = (path.mapping(mapping_last_idx).edit(edit_last_idx).from_length() > 0 &&
-                                    path.mapping(mapping_last_idx).edit(edit_last_idx).to_length() == 0 &&
-                                    path_node.end == alignment.sequence().end() &&
-                                    preserve_tail_anchors);
+        bool ignore_deletion_start = false;
+        bool ignore_deletion_end = false;
+        bool ignore_insertion_start = false;
+        bool ignore_insertion_end = false;
+        if (preserve_tail_anchors) {
+            if (path_node.begin == alignment.sequence().begin()) {
+                const auto& first_edit = path.mapping(0).edit(0);
+                ignore_deletion_start = (first_edit.from_length() != 0 && first_edit.to_length() == 0);
+                ignore_insertion_start = (first_edit.from_length() == 0 && first_edit.to_length() != 0);
+            }
+            if (path_node.end == alignment.sequence().end()) {
+                const auto& last_edit = path.mapping(mapping_last_idx).edit(edit_last_idx);
+                ignore_deletion_end = (last_edit.from_length() != 0 && last_edit.to_length() == 0);
+                ignore_insertion_end = (last_edit.from_length() == 0 && last_edit.to_length() != 0);
+            }
+        }
+        
         
 #ifdef debug_multipath_alignment
         cerr << "preserving softclips: begin? " << softclip_start << ", end? " << softclip_end << endl;
         cerr << "preserving deletion anchors: begin? " << ignore_deletion_start << ", end? " << ignore_deletion_end << endl;
+        cerr << "preserving insertion anchors: begin? " << ignore_insertion_start << ", end? " << ignore_insertion_end << endl;
 #endif
         
         // Track how much we trim off each end
@@ -373,7 +383,7 @@ namespace vg {
         int64_t removed_start_mapping_from_length = 0;
         
         // find the first aligned, non-N bases from the start of the path
-        if (!softclip_start && !ignore_deletion_start) {
+        if (!softclip_start && !ignore_deletion_start && !ignore_insertion_start) {
             bool found_start = false;
             for (; mapping_start_idx < path.mapping_size(); mapping_start_idx++) {
                 const path_mapping_t& mapping = path.mapping(mapping_start_idx);
@@ -402,7 +412,7 @@ namespace vg {
         }
         
         // find the first aligned bases from the end of the path
-        if (!softclip_end && !ignore_deletion_end) {
+        if (!softclip_end && !ignore_deletion_end && !ignore_insertion_end) {
             bool found_last = false;
             for (; mapping_last_idx >= 0; mapping_last_idx--) {
                 const path_mapping_t& mapping = path.mapping(mapping_last_idx);
@@ -499,7 +509,7 @@ namespace vg {
                 cerr << "preserving end deletion path read[" << (path_node.begin - alignment.sequence().begin()) << "] " << debug_string(path_node.path) << endl;
 #endif
             }
-            else {
+            else if (!ignore_insertion_start & !ignore_insertion_end) {
 #ifdef debug_multipath_alignment
                 cerr << "entire path node is trimmed" << endl;
 #endif

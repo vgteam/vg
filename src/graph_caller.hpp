@@ -13,6 +13,7 @@
 #include "traversal_finder.hpp"
 #include "snarl_caller.hpp"
 #include "region.hpp"
+#include "zstdutil.hpp"
 #include "vg/io/alignment_emitter.hpp"
 
 namespace vg {

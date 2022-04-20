@@ -214,9 +214,11 @@ void VCFOutputCaller::add_variant(vcflib::Variant& var) const {
     var.setVariantCallFile(output_vcf);
     stringstream ss;
     ss << var;
+    string dest;
+    zstdutil::CompressString(ss.str(), dest);
     // the Variant object is too big to keep in memory when there are many genotypes, so we
-    // store it in string
-    output_variants[omp_get_thread_num()].push_back(make_pair(make_pair(var.sequenceName, var.position), ss.str()));
+    // store it in a zstd-compressed string
+    output_variants[omp_get_thread_num()].push_back(make_pair(make_pair(var.sequenceName, var.position), dest));
 }
 
 void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* snarl_manager) {
@@ -234,7 +236,9 @@ void VCFOutputCaller::write_variants(ostream& out_stream, const SnarlManager* sn
             return v1.first.first < v2.first.first || (v1.first.first == v2.first.first && v1.first.second < v2.first.second);
         });
     for (auto v : all_variants) {
-        out_stream << v.second << endl;
+        string dest;
+        zstdutil::DecompressString(v.second, dest);
+        out_stream << dest << endl;
     }
 }
 
@@ -374,7 +378,7 @@ void VCFOutputCaller::add_allele_path_to_info(vcflib::Variant& v, int allele, co
             trav_info[allele] += std::to_string(node_id);
         }
         prev_visit = &visit;
-    }    
+    }
 }
 
 string VCFOutputCaller::trav_string(const HandleGraph& graph, const SnarlTraversal& trav) const {
@@ -952,7 +956,8 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
     unordered_set<string> names_in_vcf;
     for (auto& thread_buf : output_variants) {
         for (auto& output_variant_record : thread_buf) {
-            string& output_variant_string = output_variant_record.second;
+            string output_variant_string;
+            zstdutil::DecompressString(output_variant_record.second, output_variant_string);
             vector<string> toks = split_delims(output_variant_string, "\t", 4);
             names_in_vcf.insert(toks[2]);
         }
@@ -980,9 +985,13 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
     };
     
     // pass 2) add the LV and PS tags
-    for (auto& thread_buf : output_variants) {
+#pragma omp parallel for
+    for (uint64_t i = 0; i < output_variants.size(); ++i) {
+        auto& thread_buf = output_variants[i];
         for (auto& output_variant_record : thread_buf) {
-            string& output_variant_string = output_variant_record.second;
+            string output_variant_string;
+            zstdutil::DecompressString(output_variant_record.second, output_variant_string);
+            //string& output_variant_string = output_variant_record.second;
             vector<string> toks = split_delims(output_variant_string, "\t", 9);
             const string& name = toks[2];
             
@@ -1004,6 +1013,8 @@ void VCFOutputCaller::update_nesting_info_tags(const SnarlManager* snarl_manager
                     output_variant_string += "\t";
                 }
             }
+            output_variant_record.second.clear();
+            zstdutil::CompressString(output_variant_string, output_variant_record.second);
         }
     }
 }

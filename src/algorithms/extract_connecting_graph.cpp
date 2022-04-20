@@ -95,9 +95,8 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
     // keep track of whether we find a path or not
     bool found_target = false;
     
-    unordered_set<handle_t> skip_handles{source_handle_1};
     // mark final position for skipping so that we won't look for additional traversals
-    skip_handles.insert(source_handle_2);
+    unordered_set<handle_t> skip_handles{source_handle_1, source_handle_2};
     
     // initialize the queue
     UpdateablePriorityQueue<Traversal, handle_t> queue([](const Traversal& item) {
@@ -195,7 +194,8 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
     
     // add the edges we saw
     for (const edge_t& edge : observed_edges) {
-        into->create_edge(edge);
+        into->create_edge(into->get_handle(source->get_id(edge.first), source->get_is_reverse(edge.first)),
+                          into->get_handle(source->get_id(edge.second), source->get_is_reverse(edge.second)));
     }
     
 #ifdef debug_vg_algorithms

@@ -129,10 +129,10 @@ void help_mpmap(char** argv) {
     //<< "  -a, --alt-paths INT          align to (up to) this many alternate paths in snarls [10]" << endl
     //<< "      --suppress-tail-anchors  don't produce extra anchors when aligning to alternate paths in snarls" << endl
     //<< "  -T, --same-strand            read pairs are from the same strand of the DNA/RNA molecule" << endl
-    << "  -a, --agglomerate-alns    combine separate multipath alignments into one (possibly disconnected) alignment" << endl
     << "  -X, --not-spliced         do not form spliced alignments, even if aligning with --nt-type 'rna'" << endl
-    << "  -r, --intron-distr FILE   intron length distribution (from scripts/intron_length_distribution.py)" << endl
     << "  -M, --max-multimaps INT   report (up to) this many mappings per read [1]" << endl
+    << "  -a, --agglomerate-alns    combine separate multipath alignments into one (possibly disconnected) alignment" << endl
+    << "  -r, --intron-distr FILE   intron length distribution (from scripts/intron_length_distribution.py)" << endl
     << "  -Q, --mq-max INT          cap mapping quality estimates at this much [60]" << endl
     << "  -b, --frag-sample INT     look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
     << "  -I, --frag-mean FLOAT     mean for a pre-determined fragment length distribution (also requires -D)" << endl
@@ -140,7 +140,7 @@ void help_mpmap(char** argv) {
     //<< "  -B, --no-calibrate           do not auto-calibrate mismapping dectection" << endl
     << "  -G, --gam-input FILE      input GAM (for stdin, use -)" << endl
     //<< "  -P, --max-p-val FLOAT        background model p-value must be less than this to avoid mismapping detection [0.0001]" << endl
-    << "  -U, --report-group-mapq   add an annotation for the collective mapping quality of all reported alignments" << endl
+    //<< "  -U, --report-group-mapq   add an annotation for the collective mapping quality of all reported alignments" << endl
     //<< "      --padding-mult FLOAT     pad dynamic programming bands in inter-MEM alignment FLOAT * sqrt(read length) [1.0]" << endl
     << "  -u, --map-attempts INT    perform (up to) this many mappings per read (0 for no limit) [24 paired / 64 unpaired]" << endl
     //<< "      --max-paths INT          consider (up to) this many paths per alignment for population consistency scoring, 0 to disable [10]" << endl
@@ -216,6 +216,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_REPORT_ALLELIC_MAPQ 1034
     #define OPT_RESEED_LENGTH 1035
     #define OPT_MAX_MOTIF_PAIRS 1036
+    #define OPT_SUPPRESS_MISMAPPING_DETECTION 1037
     string matrix_file_name;
     string graph_name;
     string gcsa_name;
@@ -415,6 +416,7 @@ int main_mpmap(int argc, char** argv) {
             {"agglomerate-alns", no_argument, 0, 'a'},
             {"report-group-mapq", no_argument, 0, 'U'},
             {"report-allelic-mapq", no_argument, 0, OPT_REPORT_ALLELIC_MAPQ},
+            {"suppress-mismapping", no_argument, 0, OPT_SUPPRESS_MISMAPPING_DETECTION},
             {"padding-mult", required_argument, 0, OPT_BAND_PADDING_MULTIPLIER},
             {"map-attempts", required_argument, 0, 'u'},
             {"max-paths", required_argument, 0, OPT_MAX_PATHS},
@@ -610,6 +612,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_SUPPRESS_SUPPRESSION:
                 suppress_suppression = true;
+                break;
+                
+            case OPT_SUPPRESS_MISMAPPING_DETECTION:
+                suppress_mismapping_detection = true;
                 break;
                 
             case 'v':
@@ -1931,7 +1937,8 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.mapping_quality_method = mapq_method;
     multipath_mapper.max_mapping_quality = max_mapq;
     multipath_mapper.mapq_scaling_factor = mapq_scaling_factor;
-    multipath_mapper.report_group_mapq = report_group_mapq;
+    // always report group MAPQ when we're reporting multimapped reads
+    multipath_mapper.report_group_mapq = report_group_mapq || (max_num_mappings > 1 && !agglomerate_multipath_alns);
     multipath_mapper.report_allelic_mapq = report_allelic_mapq;
     // Use population MAPQs when we have the right option combination to make that sensible.
     multipath_mapper.use_population_mapqs = (haplo_score_provider != nullptr && population_max_paths > 0);

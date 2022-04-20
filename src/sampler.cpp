@@ -9,6 +9,8 @@
 #include "algorithms/alignment_path_offsets.hpp"
 #include "algorithms/next_pos_chars.hpp"
 
+#include <sstream>
+
 //#define debug_ngs_sim
 
 using namespace vg::io;
@@ -534,12 +536,11 @@ Alignment Sampler::alignment_to_graph(size_t length) {
 Alignment Sampler::alignment_with_error(size_t length,
                                         double base_error,
                                         double indel_error) {
-    size_t maxiter = 100;
     Alignment aln;
     size_t iter = 0;
     if (base_error > 0 || indel_error > 0) {
         // sample a longer-than necessary alignment, then trim
-        while (iter++ < maxiter) {
+        while (iter++ < max_tries) {
             aln = mutate(
                 alignment(length + 2 * ((double) length * indel_error)),
                 base_error, indel_error);
@@ -554,7 +555,7 @@ Alignment Sampler::alignment_with_error(size_t length,
         }
     } else {
         size_t iter = 0;
-        while (iter++ < maxiter) {
+        while (iter++ < max_tries) {
             aln = alignment(length);
             if (aln.sequence().size() == length
                 && !(no_Ns && aln.sequence().find('N') != string::npos)) {
@@ -562,9 +563,9 @@ Alignment Sampler::alignment_with_error(size_t length,
             }
         }
     }
-    if (iter == maxiter) {
-        cerr << "[vg::Sampler] Warning: could not generate alignment of sufficient length. "
-             << "Graph may be too small, or indel rate too high." << endl;
+    if (iter == max_tries) {
+        cerr << "[vg::Sampler] Warning: could not generate alignment of sufficient length in "
+             << max_tries << " tries. Graph may be too small, or indel rate too high." << endl;
     }
     aln.set_identity(identity(aln.path()));
     
@@ -958,6 +959,9 @@ Alignment NGSSimulator::sample_read() {
     
     aln.set_quality(qual_and_masks.first);
     
+    // We won't try indefinitely to find a place between Ns
+    size_t failures_due_to_n_bases = 0;
+
     // Sample our path (if dealing with source_paths)
     size_t source_path_idx = sample_path();
     string source_path;
@@ -988,6 +992,18 @@ Alignment NGSSimulator::sample_read() {
             if (aln.sequence().find('N') != string::npos) {
                 aln.clear_path();
                 aln.clear_sequence();
+                failures_due_to_n_bases++;
+                
+                if (failures_due_to_n_bases >= max_tries) {
+                    // We have hit Ns too many times in a row and need to bail out or give up.
+                    stringstream ss;
+                    ss << "Failed to sample a " << std::to_string(aln.quality().size()) << " bp sequence without Ns";
+                    if (source_path_idx != numeric_limits<size_t>::max()) {
+                        ss << " from path " << source_path;
+                    }
+                    ss << " for our maximum of " << max_tries << " tries. Is there such a sequence available?";
+                    throw std::runtime_error(ss.str());
+                }
             }
         }
     }

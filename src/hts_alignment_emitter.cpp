@@ -436,14 +436,17 @@ void HTSWriter::save_records(bam_hdr_t* header, vector<bam1_t*>& records, size_t
 void HTSWriter::initialize_sam_file(bam_hdr_t* header, size_t thread_number, bool keep_header) {
     if (sam_files[thread_number] != nullptr) {
         // A samFile* has been created already. Clear it out.
-        // Closing the samFile* flushes and destroys the BGZF and hFILE* backing it.
+        // Closing the samFile* flushes and destroys the BGZF (if any) and
+        // hFILE* backing it.
         sam_close(sam_files[thread_number]);
         
-        // Now we know there's a closing empty BGZF block that htslib puts to
-        // mark EOF. We don't want that in the middle of our stream because it
-        // is weird and we aren't actually at EOF.
-        // We know how long it is, so we will trim it off.
-        multiplexer.discard_bytes(thread_number, BGZF_FOOTER_LENGTH);
+        if (output_is_bgzf) {
+            // Now we know there's a closing empty BGZF block that htslib puts to
+            // mark EOF. We don't want that in the middle of our stream because it
+            // is weird and we aren't actually at EOF.
+            // We know how long it is, so we will trim it off.
+            multiplexer.discard_bytes(thread_number, BGZF_FOOTER_LENGTH);
+        }
         
         // Now place a breakpoint right where we were before that empty block.
         multiplexer.register_breakpoint(thread_number);

@@ -53,6 +53,9 @@ public:
     /// reference paths.
     bool multi_position_annotations = false;
     
+    /// What limit should we use for retry loops before giving up or failing?
+    size_t max_tries = 100;
+    
     /// Set to a filter function that returns true if a given path in the graph
     /// is allowed to be used as an annotation path.
     std::unique_ptr<std::function<bool(const path_handle_t&)>> annotation_path_filter; 
@@ -382,6 +385,7 @@ private:
     size_t sample_counter = 0;
     uint64_t seed;
     
+    /// Should we try again for a read without Ns of we get Ns?
     const bool retry_on_Ns;
     const bool sample_unsheared_paths;
     
