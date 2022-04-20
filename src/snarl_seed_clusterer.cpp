@@ -2324,6 +2324,10 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
                 }
             }
         } else {
+#ifdef DEBUG_CLUSTER
+            cerr << "The snarl was too big to combine with anything, so go through the current clusters of the chain and add distances" << endl;
+            cerr << distance_from_last_child_to_current_end << " and " << distance_from_current_end_to_end_of_chain <<  " to the distances right" << endl;
+#endif
             //If this was a snarl that we skipped because the distances were too big, then we need to update the distances
             chain_clusters.fragment_best_left = old_best_left;
             chain_clusters.fragment_best_right = SnarlDistanceIndex::sum({old_best_right,
@@ -2334,6 +2338,12 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
                 chain_clusters.read_best_right[i] = SnarlDistanceIndex::sum({old_best_right_by_read[i],
                                                                           distance_from_last_child_to_current_end,
                                                                           distance_from_current_end_to_end_of_chain});
+            }
+            for (pair<size_t, size_t> cluster_head : chain_clusters.read_cluster_heads) {
+                tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_right = SnarlDistanceIndex::sum({
+                                                            tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_right,
+                                                            distance_from_last_child_to_current_end,
+                                                            distance_from_current_end_to_end_of_chain});
             }
         }
         
