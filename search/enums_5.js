@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['graph_5ftype_11459',['graph_type',['../structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50',1,'GraphHandler']]]
+  ['graph_5ftype_11553',['graph_type',['../structGraphHandler.html#a745df84ccf4f5a446e8f4b7c2aa1ea50',1,'GraphHandler']]]
 ];

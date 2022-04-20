@@ -109,8 +109,10 @@ Functions</h2></td></tr>
 <tr class="separator:a3031a57a4bd2e9e4f65a1130fe4eb148"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1a253b430ffee65ce08f3a7508306550"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a1a253b430ffee65ce08f3a7508306550">copy_path_handle_graph</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *from, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *into)</td></tr>
 <tr class="separator:a1a253b430ffee65ce08f3a7508306550"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a076f8f66511653b34cd99beffa568acf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a076f8f66511653b34cd99beffa568acf">copy_path</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *from, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, <a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">MutablePathHandleGraph</a> *into)</td></tr>
-<tr class="separator:a076f8f66511653b34cd99beffa568acf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a57d9936f8b98983f3121d074c62583bd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a57d9936f8b98983f3121d074c62583bd">copy_path</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *from, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;from_path, <a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">MutablePathHandleGraph</a> *into)</td></tr>
+<tr class="separator:a57d9936f8b98983f3121d074c62583bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8ec649327e4580fc65bad976f04f6e1c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a8ec649327e4580fc65bad976f04f6e1c">copy_path</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *from, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;from_path, <a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">MutablePathHandleGraph</a> *into, const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;into_path)</td></tr>
+<tr class="separator:a8ec649327e4580fc65bad976f04f6e1c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a873fe0ce03bbac9de36e28618799031d"><td class="memItemLeft" align="right" valign="top">tuple&lt; vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;, unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt;, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a873fe0ce03bbac9de36e28618799031d">count_walks_through_nodes</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
 <tr class="separator:a873fe0ce03bbac9de36e28618799031d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a735c13fd9a1fb84b477ac45d6d81f005"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph_1_1algorithms.html#a735c13fd9a1fb84b477ac45d6d81f005">count_walks</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
@@ -478,8 +480,8 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a076f8f66511653b34cd99beffa568acf"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a076f8f66511653b34cd99beffa568acf">&#9670;&nbsp;</a></span>copy_path()</h2>
+<a id="a57d9936f8b98983f3121d074c62583bd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a57d9936f8b98983f3121d074c62583bd">&#9670;&nbsp;</a></span>copy_path() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -494,13 +496,53 @@ Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>path</em>, </td>
+          <td class="paramname"><em>from_path</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">MutablePathHandleGraph</a> *&#160;</td>
           <td class="paramname"><em>into</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a8ec649327e4580fc65bad976f04f6e1c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8ec649327e4580fc65bad976f04f6e1c">&#9670;&nbsp;</a></span>copy_path() <span class="overload">[2/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void handlegraph::algorithms::copy_path </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>from</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>from_path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">MutablePathHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>into</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>into_path</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
