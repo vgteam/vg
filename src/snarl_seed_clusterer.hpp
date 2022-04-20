@@ -404,7 +404,7 @@ class NewSnarlSeedClusterer {
         //since the distances in tree_state.read_cluster_heads_to_distances will get updated
         void compare_and_combine_cluster_on_child_structures(TreeState& tree_state, NodeClusters& child_clusters1,
                 NodeClusters& child_clusters2, NodeClusters& parent_clusters, 
-                const vector<pair<size_t, size_t>>& child_distances, bool is_root = false) const;
+                const vector<pair<size_t, size_t>>& child_distances, bool is_root, bool get_distances_to_parent) const;
 
         //The same as above, but compare clusters on a single child
         //This assumes that the child is the child of the root and not a root snarl
