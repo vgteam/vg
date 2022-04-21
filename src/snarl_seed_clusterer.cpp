@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#define DEBUG_CLUSTER
+//#define DEBUG_CLUSTER
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
@@ -1867,9 +1867,13 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
         //distance needed to update the clusters in the child to the start of the chain
 
         //The prefix sum of either the snarl's NodeClusters or the minimizer cache of the seed
-        size_t distance_from_chain_start_to_current_node = 
+        size_t current_prefix_sum_value  = 
             std::get<0>(child_clusters_i) ? tree_state.all_node_clusters[std::get<1>(child_clusters_i)].prefix_sum_value
                                           : std::get<2>(tree_state.all_seeds->at(std::get<1>(child_clusters_i))->at(std::get<2>(child_clusters_i)).minimizer_cache);
+            
+        //If the chain is a multicomponent chain and this child isn't in the first component, then the distance from the start
+        //of the chain is infinite
+        size_t distance_from_chain_start_to_current_node = current_chain_component_start_i != 0 ? std::numeric_limits<size_t>::max() : current_prefix_sum_value;
 
 
         //The distance from the right side of the last child to the left side of this child 
@@ -1894,19 +1898,13 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
                 if (last_length == std::numeric_limits<size_t>::max() && last_chain_component_end ) {
                     //If the last length is infinite, then is must be a snarl that is not start-end reachable, so the distance
                     //from the last child is the same as the distance from the start of the chain (the start of this compnent)
-                    distance_from_last_child_to_current_child = distance_from_chain_start_to_current_node;
+                    distance_from_last_child_to_current_child = current_prefix_sum_value;
                 } else {
                     size_t distance_from_chain_start_to_last_node = SnarlDistanceIndex::sum({last_prefix_sum,last_length});
-                    distance_from_last_child_to_current_child = SnarlDistanceIndex::minus(distance_from_chain_start_to_current_node, 
+                    distance_from_last_child_to_current_child = SnarlDistanceIndex::minus(current_prefix_sum_value, 
                                                     distance_from_chain_start_to_last_node); 
                 }
             }
-        }
-            
-        //If the chain is a multicomponent chain and this child isn't in the first component, then the distance from the start
-        //of the chain is infinite. Set this here so that it can be used to find distance_form_last_child_to_current_child above
-        if (current_chain_component_start_i != 0) {
-            distance_from_chain_start_to_current_node = std::numeric_limits<size_t>::max();
         }
 
 
@@ -1951,7 +1949,7 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
 
             } else {
                 distance_from_current_end_to_end_of_chain = SnarlDistanceIndex::minus(chain_clusters.node_length, 
-                            SnarlDistanceIndex::sum({distance_from_chain_start_to_current_node, node_length}));
+                            SnarlDistanceIndex::sum({current_prefix_sum_value, node_length}));
             }
 
         }
