@@ -758,6 +758,15 @@ struct WFAPoint {
     uint32_t seq_offset;
     uint32_t node_offset;
 
+    constexpr static std::pair<uint32_t, uint32_t> NO_OFFSET {
+        std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()
+    };
+
+    // Returns (seq_offset, node_offset).
+    std::pair<uint32_t, uint32_t> offset() const {
+        return std::make_pair(this->seq_offset, this->node_offset);
+    }
+
     bool operator<(const WFAPoint& another) const {
         return (this->score < another.score || (this->score == another.score && this->diagonal < another.diagonal));
     }
@@ -773,25 +782,136 @@ struct WFANode {
     // All haplotypes end here.
     bool dead_end;
 
-    // The end position has been reached.
-    // FIXME or maybe we should just take the gap to the end and report it as the best alignment so far.
-    bool at_end;
-
-    // Wavefronts sorted by (score, diagonal).
+    // Points on the wavefronts sorted by (score, diagonal).
     std::vector<WFAPoint> matches;
     std::vector<WFAPoint> insertions;
     std::vector<WFAPoint> deletions;
+
+    WFANode(const gbwt::SearchState& state, size_t parent) :
+        state(state),
+        parent(parent), children(),
+        dead_end(false),
+        matches(), insertions(), deletions() {
+
+    }
+
+    // Returns (seq_offset, node_offset).
+    static std::pair<uint32_t, uint32_t> max_offset(const std::vector<WFAPoint>& points, int32_t score, int32_t diagonal) {
+        WFAPoint key { score, diagonal, 0, 0 };
+        auto iter = std::lower_bound(points.begin(), points.end(), key);
+        if (iter == points.end() || key < *iter) {
+            return WFAPoint::NO_OFFSET;
+        }
+        return iter->offset();
+    }
+
+    // Returns (seq_offset, node_offset) at the first non-match after offset.
+    std::pair<uint32_t, uint32_t> match_forward(const std::string& sequence, const gbwtgraph::GBWTGraph& graph, std::pair<uint32_t, uint32_t> offset) const {
+        handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(this->state.node);
+        gbwtgraph::view_type node_seq = graph.get_sequence_view(handle);
+        while (offset.first < sequence.length() && offset.second < node_seq.second && sequence[offset.first] == node_seq.first[offset.second]) {
+            offset.first++; offset.second++;
+        }
+        return offset;
+    }
+
+    // Returns (seq_offset, node_offset) at the start of the run of matches before offset.
+    std::pair<uint32_t, uint32_t> match_backward(const std::string& sequence, const gbwtgraph::GBWTGraph& graph, std::pair<uint32_t, uint32_t> offset) const {
+        handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(this->state.node);
+        gbwtgraph::view_type node_seq = graph.get_sequence_view(handle);
+        while (offset.first > 0 && offset.second > 0 && sequence[offset.first - 1] == node_seq.first[offset.second - 1]) {
+            offset.first--; offset.second--;
+        }
+        return offset;
+    }
 };
 
-void
-WFAExtender::extend(std::string sequence, pos_t from, pos_t to) const {
+struct WFATree {
+    std::vector<WFANode> nodes;
+
+    WFATree(const gbwt::SearchState& root) {
+        this->nodes.emplace_back(root, 0);
+    }
+
+    size_t size() const { return this->nodes.size(); }
+    static bool is_root(size_t node) { return (node == 0); }
+    size_t parent(size_t node) { return this->nodes[node].parent; }
+
+    // Expands the children of the given node, assuming that they have not been expanded yet.
+    void expand(size_t node, const gbwtgraph::GBWTGraph& graph) {
+        bool found = false;
+        graph.follow_paths(this->nodes[node].state, [&](const gbwt::SearchState& child) -> bool {
+            this->nodes[node].children.push_back(this->size());
+            this->nodes.emplace_back(child, node);
+            found = true;
+            return true;
+        });
+        if (!found) {
+            this->nodes[node].dead_end = true;
+        }
+    }
+
+    // Returns the max offset in M for (score, diagonal) or NO_OFFSET if not found in the
+    // given node or its ancestors.
+    std::pair<uint32_t, uint32_t> match_offset(size_t node, int32_t score, int32_t diagonal) {
+        while(true) {
+            std::pair<uint32_t, uint32_t> offset = WFANode::max_offset(this->nodes[node].matches, score, diagonal);
+            if (offset != WFAPoint::NO_OFFSET) {
+                return offset;
+            }
+            if (is_root(node)) { break; }
+            node = this->parent(node);
+        }
+        return WFAPoint::NO_OFFSET;
+    }
+
+    // Returns the max offset in I for (score, diagonal) or NO_OFFSET if not found in the
+    // given node or its ancestors.
+    std::pair<uint32_t, uint32_t> insertion_offset(size_t node, int32_t score, int32_t diagonal) {
+        while(true) {
+            std::pair<uint32_t, uint32_t> offset = WFANode::max_offset(this->nodes[node].insertions, score, diagonal);
+            if (offset != WFAPoint::NO_OFFSET) {
+                return offset;
+            }
+            if (is_root(node)) { break; }
+            node = this->parent(node);
+        }
+        return WFAPoint::NO_OFFSET;
+    }
+
+    // Returns the max offset in D for (score, diagonal) or NO_OFFSET if not found in the
+    // given node or its ancestors.
+    std::pair<uint32_t, uint32_t> deletion_offset(size_t node, int32_t score, int32_t diagonal) {
+        while(true) {
+            std::pair<uint32_t, uint32_t> offset = WFANode::max_offset(this->nodes[node].deletions, score, diagonal);
+            if (offset != WFAPoint::NO_OFFSET) {
+                return offset;
+            }
+            if (is_root(node)) { break; }
+            node = this->parent(node);
+        }
+        return WFAPoint::NO_OFFSET;
+    }
+};
+
+void WFAExtender::extend(std::string sequence, pos_t from, pos_t to) const {
     if (this->graph == nullptr || sequence.empty()) {
+        return;
+    }
+    gbwt::SearchState root_state = this->graph->get_state(this->graph->get_handle(id(from), is_rev(from)));
+    if (root_state.empty()) {
         return;
     }
     this->mask(sequence);
 
-    std::vector<WFANode> tree;
-    // For M, I, and D with each score: maintain the min and max diagonal
+    WFATree tree(root_state);
+
+    // Closed ranges of diagonals reached with each score.
+    // The paper is kind of confusing here, as it uses separate ranges for
+    // M, I, and D but says that the ranges are identical.
+    std::vector<std::pair<int32_t, int32_t>> diagonals { { 0, 0 } };
+    std::pair<int32_t, int32_t> max_diagonals(0, 0);
+
     // We may want to maintain a vector of possible scores.
 
     // while true:
@@ -801,12 +921,15 @@ WFAExtender::extend(std::string sequence, pos_t from, pos_t to) const {
     //   wf_next()
 
     // Both wf_extend() and wf_next() iterate over all leaves of the tree.
-    // If the (diagonal, score) does not exist in this node, try parent.
+    // wf_extend() adds new leaves and handles them as well, while wf_next()
+    // may add new leaves but will not process them.
     // A node where all haplotypes end also counts as a leaf.
 
     // If we reach the end position, we fork. One option is to take a gap
     // until the end of the read. Another is continue on the haplotypes
     // in case there is a loop and we reach the end again.
+
+    // Remember to update the diagonal ranges.
 
     // FIXME stop condition?
 
