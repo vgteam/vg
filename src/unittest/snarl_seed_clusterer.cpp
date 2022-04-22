@@ -57,6 +57,53 @@ namespace unittest {
 
         }
     }
+    TEST_CASE( "Looping chain", "[cluster][bug]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("ACACGTTGC");
+        Node* n2 = graph.create_node("TCTCCACCGGCAAGTTTCACTTCACTT");
+        Node* n3 = graph.create_node("A");
+        Node* n4 = graph.create_node("AT");
+        Node* n5 = graph.create_node("CGTGGGG");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n5);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n2, n4);
+        Edge* e5 = graph.create_edge(n3, n4);
+        Edge* e6 = graph.create_edge(n4, n5);
+
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex dist_index;
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
+        
+        //graph.to_dot(cerr);
+
+        SECTION( "Two cluster" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(2, false, 1));
+            positions.emplace_back(make_pos_t(2, true, 7));
+            //all are in the same cluster
+            for (bool use_minimizers : {true, false} ) {
+                vector<NewSnarlSeedClusterer::Seed> seeds;
+                for (auto& pos : positions) {
+                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 15); 
+                REQUIRE(clusters.size() == 2); 
+            }
+
+
+        }
+    }
     TEST_CASE( "cluster one node with loop",
                    "[cluster]" ) {
         VG graph;
@@ -79,8 +126,8 @@ namespace unittest {
             positions.emplace_back(make_pos_t(1, false, 0));
             positions.emplace_back(make_pos_t(1, true, 0));
             //all are in the same cluster
-            vector<NewSnarlSeedClusterer::Seed> seeds;
             for (bool use_minimizers : {true, false} ) {
+                vector<NewSnarlSeedClusterer::Seed> seeds;
                 for (auto& pos : positions) {
                     auto chain_info = get_minimizer_distances(dist_index, pos);
                     if (use_minimizers) {
@@ -442,7 +489,7 @@ namespace unittest {
         }
     }
     TEST_CASE( "Weird loop with three components of the root",
-                   "[cluster][bug]" ) {
+                   "[cluster]" ) {
         //THis is a symmetrical graph with two weird loopy things on the ends of a chain from 4 to 15
         VG graph;
 
@@ -489,7 +536,11 @@ namespace unittest {
         Edge* e23 = graph.create_edge(n14, n16);
         Edge* e24 = graph.create_edge(n16, n15);
         Edge* e25 = graph.create_edge(n15, n14);
+        ofstream out;
+        out.open("testGraph.hg");
 
+            graph.serialize(out);
+            out.close();
         IntegratedSnarlFinder snarl_finder(graph);
         SnarlDistanceIndex dist_index;
         fill_in_distance_index(&dist_index, &graph, &snarl_finder);
@@ -497,7 +548,7 @@ namespace unittest {
         
         //graph.to_dot(cerr);
 
-        SECTION( "Three clusters including snarl" ) {
+        SECTION( "Three clusters going across snarl" ) {
  
             vector<pos_t> positions;
             positions.emplace_back(make_pos_t(2, false, 0));
@@ -519,6 +570,60 @@ namespace unittest {
             }
 
 
+        }
+        SECTION( "A bunch of nodes in the snarl" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(6, true, 0));
+            positions.emplace_back(make_pos_t(8, false, 0));
+            positions.emplace_back(make_pos_t(8, false, 2));
+            positions.emplace_back(make_pos_t(10, false, 0));
+            positions.emplace_back(make_pos_t(10, false, 2));
+            positions.emplace_back(make_pos_t(8, false, 2));
+            positions.emplace_back(make_pos_t(7, false, 2));
+            positions.emplace_back(make_pos_t(9, false, 0));
+            positions.emplace_back(make_pos_t(13, false, 0));
+            positions.emplace_back(make_pos_t(7, false, 0));
+            //all are in the same cluster
+            for (bool use_minimizers : {true, false} ) {
+                vector<NewSnarlSeedClusterer::Seed> seeds;
+                for (pos_t pos : positions) {
+                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+                REQUIRE(clusters.size() == 2); 
+            }
+        }
+        SECTION( "A bunch of nodes in the snarl on the other side" ) {
+ 
+            vector<pos_t> positions;
+            positions.emplace_back(make_pos_t(6, true, 0));
+            positions.emplace_back(make_pos_t(9, false, 0));
+            positions.emplace_back(make_pos_t(9, false, 2));
+            positions.emplace_back(make_pos_t(8, false, 0));
+            positions.emplace_back(make_pos_t(8, false, 2));
+            positions.emplace_back(make_pos_t(8, false, 2));
+            positions.emplace_back(make_pos_t(10, false, 2));
+            positions.emplace_back(make_pos_t(13, false, 0));
+            //all are in the same cluster
+            for (bool use_minimizers : {true, false} ) {
+                vector<NewSnarlSeedClusterer::Seed> seeds;
+                for (pos_t pos : positions) {
+                    auto chain_info = get_minimizer_distances(dist_index, pos);
+                    if (use_minimizers) {
+                        seeds.push_back({ pos, 0, chain_info});
+                    } else {
+                        seeds.push_back({ pos, 0});
+                    }
+                }
+                vector<NewSnarlSeedClusterer::Cluster> clusters = clusterer.cluster_seeds(seeds, 3); 
+                REQUIRE(clusters.size() == 2); 
+            }
         }
     }
     TEST_CASE( "Cluster looping, multicomponent",
@@ -2688,10 +2793,8 @@ namespace unittest {
 
 
         vector<vector<pos_t>> pos_ts(2);
-        pos_ts[0].emplace_back(2, true, 1);
-        pos_ts[0].emplace_back(3, true, 4);
-        pos_ts[0].emplace_back(12, true, 0);
-        pos_ts[0].emplace_back(10, false, 1);
+        pos_ts[0].emplace_back(47, true, 7);
+        pos_ts[0].emplace_back(47, false, 1);
         
 
         for (bool use_minimizers : {true, false}) {
@@ -2709,7 +2812,7 @@ namespace unittest {
                     }
             }
 
-            vector<vector<NewSnarlSeedClusterer::Cluster>> clusters =  clusterer.cluster_seeds(seeds, 10, 15); 
+            vector<vector<NewSnarlSeedClusterer::Cluster>> clusters =  clusterer.cluster_seeds(seeds, 15, 35); 
 
             REQUIRE(clusters.size() == 1);
         }
@@ -2722,12 +2825,12 @@ namespace unittest {
             // For each random graph
             
             default_random_engine generator(time(NULL));
-            uniform_int_distribution<int> variant_count(10, 20);
-            uniform_int_distribution<int> chrom_len(10, 150);
+            uniform_int_distribution<int> variant_count(10, 50);
+            uniform_int_distribution<int> chrom_len(10, 200);
 
             //Make a random graph with three chromosomes of random lengths
             HashGraph graph;
-            random_graph({chrom_len(generator),chrom_len(generator)}, 20, variant_count(generator), &graph);
+            random_graph({chrom_len(generator),chrom_len(generator)}, 30, variant_count(generator), &graph);
             graph.serialize("testGraph.hg");
 
 
@@ -2756,10 +2859,10 @@ namespace unittest {
                     vector<vector<NewSnarlSeedClusterer::Seed>> all_seeds;
                     all_seeds.emplace_back();
                     all_seeds.emplace_back();
-                    size_t read_lim = 10;// Distance between read clusters
-                    size_t fragment_lim = 15;// Distance between fragment clusters
+                    size_t read_lim = 15;// Distance between read clusters
+                    size_t fragment_lim = 35;// Distance between fragment clusters
                     for (size_t read = 0 ; read < 2 ; read ++) {
-                        uniform_int_distribution<int> randPosCount(3, 20);
+                        uniform_int_distribution<int> randPosCount(3, 50);
                         for (int j = 0; j < randPosCount(generator); j++) {
                             //Check clusters of j random positions 
  

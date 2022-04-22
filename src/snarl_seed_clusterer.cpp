@@ -1923,10 +1923,18 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
         //so we can't rely on distance_in_parent to know when the distance should be 0
 
         size_t distance_from_current_end_to_end_of_chain;
-        if (i != children_in_chain.size() - 1 || 
-                     SnarlDistanceIndex::get_record_offset(child_handle) == SnarlDistanceIndex::get_record_offset(chain_clusters.end_in)) {
-            //If this is the last node in the chain
+        if (i != children_in_chain.size() - 1) {
+            //If this isn't the last child in the chain, then we only want the distance to the end of the current child
+
             distance_from_current_end_to_end_of_chain = 0;
+        } else if (SnarlDistanceIndex::get_record_offset(child_handle) == SnarlDistanceIndex::get_record_offset(chain_clusters.end_in)) {
+            //If this is the last node in the chain
+            if (SnarlDistanceIndex::get_record_offset(child_handle) == SnarlDistanceIndex::get_record_offset(chain_clusters.end_in) && chain_clusters.chain_last_component != current_chain_component_end_i) { 
+                //If they aren't in the same component
+                distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
+            } else {
+                distance_from_current_end_to_end_of_chain = 0;
+            }
         } else if (chain_clusters.is_looping_chain) {
             //If it's a looping chain then use the distance index
             distance_from_current_end_to_end_of_chain = distance_index.distance_in_parent(chain_handle, chain_clusters.end_in, 
