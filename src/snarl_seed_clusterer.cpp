@@ -2362,7 +2362,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
         //Update the last node we saw to this one
         last_child = child_clusters_i;
         last_child_handle = child_handle;
-        last_prefix_sum = distance_from_chain_start_to_current_node;
+        last_prefix_sum = current_prefix_sum_value;
         last_length = current_length_i;
         last_chain_component_end = current_chain_component_end_i;
 
