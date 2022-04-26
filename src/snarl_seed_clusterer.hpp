@@ -126,9 +126,7 @@ class NewSnarlSeedClusterer {
 
             //This one gets set for a (nontrivial) chain or snarl
             net_handle_t start_in;
-            size_t start_length = std::numeric_limits<size_t>::max();
             net_handle_t end_in;
-            size_t end_length = std::numeric_limits<size_t>::max();
             
 
             //set of the indices of heads of clusters (group ids in the 
@@ -168,8 +166,6 @@ class NewSnarlSeedClusterer {
                     node_length = distance_index.minimum_length(containing_net_handle);
                     start_in = distance_index.get_bound(containing_net_handle, false, true);
                     end_in =   distance_index.get_bound(containing_net_handle, true, true);
-                    start_length = distance_index.minimum_length(distance_index.get_node_from_sentinel(start_in));
-                    end_length = distance_index.minimum_length(distance_index.get_node_from_sentinel(end_in));
                 }
             }
             NodeClusters( net_handle_t net, size_t read_count, bool is_reversed_in_parent, nid_t node_id, size_t node_length, size_t prefix_sum, size_t component) :

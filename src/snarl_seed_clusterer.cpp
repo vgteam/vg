@@ -1552,10 +1552,10 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
      auto update_distances_on_same_child = [&] (NodeClusters& child_clusters) {
          //Distance to go forward (relative to the child) in the chain and back
          size_t loop_right = SnarlDistanceIndex::sum({distance_index.get_forward_loop_value(distance_index.get_node_from_sentinel(child_clusters.end_in)),
-                                                      2*child_clusters.end_length});
+                                                      2*distance_index.minimum_length(distance_index.get_node_from_sentinel(child_clusters.end_in))});
          //Distance to go backward in the chain and back
          size_t loop_left = SnarlDistanceIndex::sum({distance_index.get_reverse_loop_value(distance_index.get_node_from_sentinel(child_clusters.start_in)),
-                                                     2*child_clusters.start_length}); 
+                                                     2*distance_index.minimum_length(distance_index.get_node_from_sentinel(child_clusters.start_in))}); 
          if (loop_left == std::numeric_limits<size_t>::max() && loop_right == std::numeric_limits<size_t>::max()) {
              return;
          }
