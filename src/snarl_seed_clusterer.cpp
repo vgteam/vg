@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-//#define DEBUG_CLUSTER
+#define DEBUG_CLUSTER
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
@@ -1556,6 +1556,9 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
          //Distance to go backward in the chain and back
          size_t loop_left = distance_index.distance_in_parent(chain_handle, distance_index.flip(child_clusters.containing_net_handle), 
                                   distance_index.flip(child_clusters.containing_net_handle));
+         if (loop_left == std::numeric_limits<size_t>::max() && loop_right == std::numeric_limits<size_t>::max()) {
+             return;
+         }
 
 
          //Combined clusters in case we can combine anything
