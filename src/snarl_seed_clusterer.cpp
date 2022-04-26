@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-//#define DEBUG_CLUSTER
+#define DEBUG_CLUSTER
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
@@ -325,7 +325,8 @@ cerr << "Add all seeds to nodes: " << endl;
                     //If we haven't seen the parent chain before, add it
                     parent_index = tree_state.all_node_clusters.size();
                     tree_state.net_handle_to_index[parent] = parent_index;
-                    tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(), distance_index);
+                    tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(),
+                                                              tree_state.seed_count_prefix_sum.back(), distance_index);
                 } else {
                     parent_index = tree_state.net_handle_to_index[parent];
                 }
@@ -420,6 +421,7 @@ cerr << "Add all seeds to nodes: " << endl;
                         tree_state.net_handle_to_index[node_net_handle] = child_index;
                         tree_state.all_node_clusters.emplace_back(
                                     NodeClusters(std::move(node_net_handle), tree_state.all_seeds->size(),
+                                                 tree_state.seed_count_prefix_sum.back(),
                                                  false, id, node_length, std::numeric_limits<size_t>::max(), component));
                         //Remember to cluster it later
                         to_cluster.emplace_back(child_index, parent);
@@ -442,6 +444,7 @@ cerr << "Add all seeds to nodes: " << endl;
                         tree_state.net_handle_to_index[parent] = child_index;
                         tree_state.all_node_clusters.emplace_back(
                                     NodeClusters(std::move(parent), tree_state.all_seeds->size(),
+                                                 tree_state.seed_count_prefix_sum.back(),
                                                  false, id, node_length, std::numeric_limits<size_t>::max(), component)); 
                                             
                         net_handle_t grandparent_snarl = distance_index.get_parent(parent);
@@ -452,7 +455,8 @@ cerr << "Add all seeds to nodes: " << endl;
 
                             grandparent_index = tree_state.all_node_clusters.size();
                             tree_state.net_handle_to_index[grandparent_snarl] = grandparent_index;
-                            tree_state.all_node_clusters.emplace_back(grandparent_snarl, tree_state.all_seeds->size(), distance_index);
+                            tree_state.all_node_clusters.emplace_back(grandparent_snarl, tree_state.all_seeds->size(),
+                                                              tree_state.seed_count_prefix_sum.back(), distance_index);
                             if (prefix_sum == std::numeric_limits<size_t>::max()) {
                                 //The prefix sum value for a simple snarl
                                 net_handle_t start_node = distance_index.get_node_from_sentinel(tree_state.all_node_clusters.back().start_in);
@@ -469,7 +473,8 @@ cerr << "Add all seeds to nodes: " << endl;
                                 //If we haven't seen the greatgrandparent chain before, add it
                                 greatgrandparent_index = tree_state.all_node_clusters.size();
                                 tree_state.net_handle_to_index[greatgrandparent_chain] = greatgrandparent_index;
-                                tree_state.all_node_clusters.emplace_back(greatgrandparent_chain, tree_state.all_seeds->size(), distance_index);
+                                tree_state.all_node_clusters.emplace_back(greatgrandparent_chain, tree_state.all_seeds->size(),
+                                                              tree_state.seed_count_prefix_sum.back(), distance_index);
                             } else {
                                 greatgrandparent_index = tree_state.net_handle_to_index[greatgrandparent_chain];
                             }
@@ -526,7 +531,8 @@ cerr << "Add all seeds to nodes: " << endl;
                 if (tree_state.net_handle_to_index.count(parent) == 0) {
                     parent_index = tree_state.all_node_clusters.size();
                     tree_state.net_handle_to_index[parent] = parent_index;
-                    tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(), distance_index);
+                    tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(),
+                                                              tree_state.seed_count_prefix_sum.back(), distance_index);
                 } else {
                     parent_index = tree_state.net_handle_to_index[parent];
                 }
@@ -698,7 +704,8 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
                     if (tree_state.net_handle_to_index.count(parent) == 0) {
                         parent_index = tree_state.all_node_clusters.size();
                         tree_state.net_handle_to_index[parent] = parent_index;
-                        tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(), distance_index);
+                        tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(),
+                                                              tree_state.seed_count_prefix_sum.back(), distance_index);
                     } else {
                         parent_index = tree_state.net_handle_to_index[parent];
                     }
@@ -714,7 +721,8 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
                 if (tree_state.net_handle_to_index.count(parent) == 0) {
                     parent_index = tree_state.all_node_clusters.size();
                     tree_state.net_handle_to_index[parent] = parent_index;
-                    tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(), distance_index);
+                    tree_state.all_node_clusters.emplace_back(parent, tree_state.all_seeds->size(),
+                                                              tree_state.seed_count_prefix_sum.back(), distance_index);
                     tree_state.all_node_clusters.back().prefix_sum_value = 
                     add_to_grandparent=true;
                 } else {
@@ -730,7 +738,8 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
                     if (tree_state.net_handle_to_index.count(grandparent_chain) == 0) {
                         grandparent_index = tree_state.all_node_clusters.size();
                         tree_state.net_handle_to_index[grandparent_chain] = grandparent_index;
-                        tree_state.all_node_clusters.emplace_back(grandparent_chain, tree_state.all_seeds->size(), distance_index);
+                        tree_state.all_node_clusters.emplace_back(grandparent_chain, tree_state.all_seeds->size(),
+                                                              tree_state.seed_count_prefix_sum.back(), distance_index);
                     } else {
                         grandparent_index = tree_state.net_handle_to_index[grandparent_chain];
                     }
@@ -2571,7 +2580,8 @@ void NewSnarlSeedClusterer::cluster_root(TreeState& tree_state) const {
     }
 
     //Keep track of all clusters on the root
-    NodeClusters root_clusters(distance_index.get_root(), tree_state.all_seeds->size(), distance_index);
+    NodeClusters root_clusters(distance_index.get_root(), tree_state.all_seeds->size(),
+                               tree_state.seed_count_prefix_sum.back(), distance_index);
 
     //Remember old distances
     vector<pair<size_t, size_t>> child_distances (tree_state.seed_count_prefix_sum.back(), 
