@@ -668,15 +668,15 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
     if (gbwt_trav_finder.get() != nullptr) {
         pair<vector<SnarlTraversal>, vector<gbwt::size_type>> thread_travs = gbwt_trav_finder->find_path_traversals(*snarl);
         for (int i = 0; i < thread_travs.first.size(); ++i) {
-            string gbwt_sample_name = thread_sample(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(thread_travs.second[i]));
-            // we count on convention of reference as embedded path above, so ignore any reference/generic paths here.
-            // TODO: Use path metadata API.
-            // todo: would be nice to be more flexible...
-            // TODO: Keep in sync with GBGWTGraph
-            if (gbwt_sample_name.size() < gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.size() ||
-                !std::equal(gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.begin(), gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.end(), gbwt_sample_name.begin())) {
-                
-                string name = thread_name(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(thread_travs.second[i]), true);
+            // We need to get a bunch of metadata about the path, but the GBWT
+            // we have might not even have structured path names stored.
+            gbwt::size_type path_id = gbwt::Path::id(thread_travs.second[i]);
+            PathSense sense = gbwtgraph::get_path_sense(gbwt_trav_finder->get_gbwt(), path_id);
+            
+            if (sense == PathSense::HAPLOTYPE)
+                // we count on convention of reference as embedded path above, so only use haplotype paths here.
+                // todo: would be nice to be more flexible...
+                string name = thread_name(gbwt_trav_finder->get_gbwt(), path_id, true);
                 
                 path_trav_names.push_back(name);
                 path_travs.first.push_back(thread_travs.first[i]);
@@ -685,7 +685,8 @@ bool Deconstructor::deconstruct_site(const Snarl* snarl) const {
                 // but we keep the thread id for later
                 trav_thread_ids.push_back(thread_travs.second[i]);
                 // keep the offset (which is stored in the contig field)
-                gbwt_trav_offsets.push_back(thread_count(gbwt_trav_finder->get_gbwt(), gbwt::Path::id(thread_travs.second[i])));
+                // TODO: this is never anything!
+                gbwt_trav_offsets.push_back(thread_count(gbwt_trav_finder->get_gbwt(), path_id));
             }
         }
     }

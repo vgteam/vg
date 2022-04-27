@@ -239,18 +239,6 @@ Path extract_gbwt_path(const HandleGraph& graph, const gbwt::GBWT& gbwt_index, g
 /// NOTE: id is a gbwt path id, not a gbwt sequence id.
 std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id, bool short_name = false);
 
-/// Get a sample name of a thread stored in GBWT metadata.
-/// NOTE: id is a gbwt path id, not a gbwt sequence id.
-std::string thread_sample(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
-
-/// Get phase of a thread stored in GBWT metadata.
-/// NOTE: id is a gbwt path id, not a gbwt sequence id.
-int thread_phase(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
-
-/// Get count of a thread stored in GBWT metadata.
-/// NOTE: id is a gbwt path id, not a gbwt sequence id.
-gbwt::size_type thread_count(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
-
 //------------------------------------------------------------------------------
 
 /// Transform the paths into a GBWT index. Primarily for testing.

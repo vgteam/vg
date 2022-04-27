@@ -505,112 +505,27 @@ Path extract_gbwt_path(const HandleGraph& graph, const gbwt::GBWT& gbwt_index, g
 }
 
 std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id, bool short_name) {
-    if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
-        return "";
-    }
-
-    auto& metadata = gbwt_index.metadata;
-    const gbwt::PathName& path = metadata.path(id);
+    
 
     if (short_name) {
+        if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
+            return "";
+        }
+
+        auto& metadata = gbwt_index.metadata;
+        const gbwt::PathName& path = metadata.path(id);
+    
         // We want a name with just sample and contig.
         // Spit out a name in reference sense format, which should suffice.
         return PathMetadata::create_path_name(PathSense::REFERENCE,
-                                              metadata.hasSampleNames() ? metadata.sample(path.sample) : std::to_string(path.sample),
-                                              metadata.hasContigNames() ? metadata.contig(path.contig) : std::to_string(path.contig),
+                                              gbwtgraph::get_path_sample_name(metadata, path, PathSense::REFERENCE);
+                                              gbwtgraph::get_path_contig_name(metadata, path, PathSense::REFERENCE);
                                               PathMetadata::NO_HAPLOTYPE,
                                               PathMetadata::NO_PHASE_BLOCK,
                                               PathMetadata::NO_SUBRANGE);
     }
-
-    // Try and work out the sense of the path just from the GBWT.
-    // TODO: needs to be kept in sync with GBWTGraph.
-    PathSense path_sense;
-    if (metadata.hasSampleNames()) {
-        auto sample_name = metadata.sample(path.sample);
-        if (sample_name.size() <= gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.size() &&
-            std::equal(gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.begin(), gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.end(), sample_name.begin())) {
-            // It starts with the right prefix
-
-            if (sample_name.size() == gbwtgraph::NAMED_PATH_SAMPLE_PREFIX.size()) {
-                // Actually only the prefix is there
-
-                // If we assign the path to the special reference sample it's a generic
-                // path with just the one locus name.
-                path_sense = PathSense::GENERIC;
-            } else {
-                // If we assign it to some other sample that starts with that string, it's a
-                // reference path and not a generic one.
-                path_sense = PathSense::REFERENCE;
-            }
-        } else {
-            // Otherwise it's a haplotype thread.
-            path_sense = PathSense::HAPLOTYPE;
-        }
-    } else {
-        // Otherwise it's a haplotype thread.
-        path_sense = PathSense::HAPLOTYPE;
-    }
-
-    // Compose a name based on the sense.
-    switch(path_sense) {
-    case PathSense::GENERIC:
-        if (metadata.hasContigNames()) {
-            // The contig name is the exposed path name.
-            return metadata.contig(path.contig);
-        } else {
-            // We must have sample names but no contig names. This probably shouldn't happen.
-            // Just use the contig number.
-            return std::to_string(path.contig);
-        }
-        break;
-    case PathSense::REFERENCE: // Fall-through
-    case PathSense::HAPLOTYPE:
-        // The path name must be composed.
-        // If contig names are missing, make them up.
-        return PathMetadata::create_path_name(path_sense,
-                                              metadata.sample(path.sample),
-                                              metadata.hasContigNames() ? metadata.contig(path.contig) : std::to_string(path.contig),
-                                              path.phase,
-                                              path_sense == PathSense::HAPLOTYPE ? path.count : PathMetadata::NO_PHASE_BLOCK,
-                                              PathMetadata::NO_SUBRANGE);
-        break;
-    default:
-        throw std::runtime_error("Unimplemented sense!");
-    }
-}
-
-std::string thread_sample(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
-    if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
-        return "";
-    }
-
-    const gbwt::PathName& path = gbwt_index.metadata.path(id);
-    std::stringstream stream;
-    if (gbwt_index.metadata.hasSampleNames()) {
-        stream << gbwt_index.metadata.sample(path.sample);
-    } else {
-        stream << path.sample;
-    }
-    return stream.str();
-}
-
-int thread_phase(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
-    if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
-        return -1;
-    }
-
-    const gbwt::PathName& path = gbwt_index.metadata.path(id);
-    return path.phase;
-}
-
-gbwt::size_type thread_count(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
-    if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
-        return 0;
-    }
-
-    const gbwt::PathName& path = gbwt_index.metadata.path(id);
-    return path.count;
+    
+    return gbwtgraph::compose_path_name(gbwt_index, id);
 }
 
 //------------------------------------------------------------------------------
