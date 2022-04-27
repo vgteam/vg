@@ -138,7 +138,7 @@ int main_index(int argc, char** argv) {
     // Include alt paths in xg
     bool xg_alts = false;
 
-    size_t snarl_limit = 500;
+    size_t snarl_limit = 3000;
 
     int c;
     optind = 2; // force optind past command positional argument
