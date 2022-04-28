@@ -1594,7 +1594,7 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
          for (auto& child_cluster_head : child_clusters.read_cluster_heads) {
             //Go through each of the clusters on this child
             size_t read_num = child_cluster_head.first;
-            size_t cluster_num = tree_state.read_union_find[read_num].find_group(child_cluster_head.second);
+            size_t cluster_num = child_cluster_head.second;
             size_t old_left =  tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left;
             size_t old_right = tree_state.all_seeds->at(read_num)->at(cluster_num).distance_right;
             //Get the new best distances for the cluster considering chain loops
@@ -1651,8 +1651,7 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
                     to_erase.emplace_back(combined_left[read_num].first);
                     tree_state.read_union_find.at(read_num).union_groups(cluster_num, combined_left[read_num].first.second);
                     combined_left[read_num] = make_pair(
-                         make_pair(read_num, 
-                            tree_state.read_union_find.at(read_num).find_group(cluster_num)), 
+                         make_pair(read_num, cluster_num), 
                          make_pair(std::min(updated_left, combined_left[read_num].second.first), 
                                    std::min(updated_right, combined_left[read_num].second.second))); 
                     
@@ -1667,8 +1666,7 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
                     to_erase.emplace_back(combined_right[read_num].first);
                     tree_state.read_union_find.at(read_num).union_groups(cluster_num, combined_right[read_num].first.second);
                     combined_right[read_num] =make_pair(
-                         make_pair(read_num, 
-                            tree_state.read_union_find.at(read_num).find_group(cluster_num)), 
+                         make_pair(read_num, cluster_num), 
                          make_pair(std::min(updated_left, combined_right[read_num].second.first), 
                                    std::min(updated_right, combined_right[read_num].second.second))); 
                     
@@ -2171,7 +2169,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
                 for (auto& child_cluster_head : child_clusters.read_cluster_heads) {
                     //Go through all clusters of the current child and see if they can be combined with anything on the chain
                     const size_t read_num = child_cluster_head.first;
-                    const size_t cluster_num = tree_state.read_union_find[read_num].find_group(child_cluster_head.second);
+                    const size_t cluster_num = child_cluster_head.second;
                     pair<size_t, size_t> dists (tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left,
                                                tree_state.all_seeds->at(read_num)->at(cluster_num).distance_right);
                     const size_t distance_left = child_is_reversed ? dists.second : dists.first;
@@ -2255,7 +2253,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
                 //Each has distances up to the previous node
 
                 const size_t read_num = chain_cluster_head.first;
-                const size_t cluster_num = tree_state.read_union_find[read_num].find_group(chain_cluster_head.second);
+                const size_t cluster_num = chain_cluster_head.second;
                 pair<size_t, size_t> dists (tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left,
                                             tree_state.all_seeds->at(read_num)->at(cluster_num).distance_right);
 
