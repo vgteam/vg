@@ -35,7 +35,8 @@ public:
     Deconstructor();
     ~Deconstructor();
 
-    // deconstruct the entire graph to cout
+    // deconstruct the entire graph to cout.
+    // Not even a little bit thread safe.
     void deconstruct(vector<string> refpaths, const PathPositionHandleGraph* grpah, SnarlManager* snarl_manager,
                      bool path_restricted_traversals,
                      int ploidy,
@@ -124,6 +125,8 @@ private:
     unique_ptr<TraversalFinder> trav_finder;
     // we can also use a gbwt for traversals
     unique_ptr<GBWTTraversalFinder> gbwt_trav_finder;
+    // When using the gbwt we need some precomputed information to ask about stored paths.
+    unordered_set<string> gbwt_reference_samples;
     // hacky path position index for alts in the gbwt
     // we map from gbwt path id -> { map of handle -> offset } for every handle in the path
     // because child snarls are done in series, we often hit the same non-ref path consecutively

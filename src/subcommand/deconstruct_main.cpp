@@ -18,6 +18,7 @@
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>
 #include <bdsg/overlays/overlay_helper.hpp>
+#include <gbwtgraph/utils.h>
 
 using namespace std;
 using namespace vg;
@@ -182,19 +183,32 @@ int main_deconstruct(int argc, char** argv){
     unique_ptr<gbwt::GBWT> gbwt_index;
     if (!gbwt_file_name.empty()) {
         gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file_name);
-        if (gbwt_index.get() == nullptr) {
+        if (!gbwt_index) {
             cerr << "Error [vg deconstruct]: Unable to load gbwt index file: " << gbwt_file_name << endl;
             return 1;
         }
     }
 
+    // Pre-parse some GBWT metadata
+    unordered_set<string> gbwt_reference_samples;
+    if (gbwt_index) {
+        gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(*gbwt_index);
+    }
+
     if (!refpaths.empty()) {
+        // We need to inventory all the GBWT paths.
+        // So we need this precomputed to access them.
         unordered_set<string> gbwt_paths;
-        if (gbwt_index.get()) {
+        if (gbwt_index) {
             for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
-                gbwt_paths.insert(thread_name(*gbwt_index, i));
+                // Get the name of this path and put it in our set.
+                PathSense sense = gbwtgraph::get_path_sense(*gbwt_index, i, gbwt_reference_samples);
+                gbwt_paths.insert(gbwtgraph::compose_path_name(*gbwt_index, i, sense));
             }
         }
+        
+        // TODO: Should we just make a GBWTGraph?
+        
         // Check our paths
         for (const string& ref_path : refpaths) {
             if (!graph->has_path(ref_path) && !gbwt_paths.count(ref_path)) {
@@ -213,9 +227,9 @@ int main_deconstruct(int argc, char** argv){
                 }
             });
         // Add GBWT threads if no reference paths found or we're running with -a
-        if (gbwt_index.get() && (all_snarls || refpaths.empty())) {
+        if (gbwt_index && (all_snarls || refpaths.empty())) {
             for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
-                refpaths.push_back(thread_name(*gbwt_index, i, true));
+                refpaths.push_back(compose_short_path_name(*gbwt_index, i));
             }            
         }
     }
@@ -325,9 +339,9 @@ int main_deconstruct(int argc, char** argv){
                     sample_phases[sample_name].insert(phase);
                 }
             });
-        if (gbwt_index.get()) {
+        if (gbwt_index) {
             for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
-                std::string path_name = thread_name(*gbwt_index, i, true);
+                std::string path_name = compose_short_path_name(*gbwt_index, i);
                 for (auto& prefix : refpath_prefixes) {
                     if (path_name.compare(0, prefix.size(), prefix) == 0) {
                         refpaths.push_back(path_name);
@@ -339,11 +353,16 @@ int main_deconstruct(int argc, char** argv){
         for (auto& sp : sample_phases) {
             sample_ploidy[sp.first] = sp.second.size();
         }
-        if (gbwt_index.get()) {
+        if (gbwt_index) {
             for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
-                string sample_name = thread_sample(*gbwt_index.get(), i);
-                int phase = thread_phase(*gbwt_index.get(), i);
-                alt_path_to_sample_phase[sample_name] = make_pair(sample_name, phase);
+                PathSense sense = gbwtgraph::get_path_sense(*gbwt_index, i, gbwt_reference_samples);
+                string sample_name = gbwtgraph::get_path_sample_name(*gbwt_index, i, sense);
+                auto phase = gbwtgraph::get_path_haplotype(*gbwt_index, i, sense);
+                if (phase == PathMetadata::NO_HAPLOTYPE) {
+                    // The Deconstructor defaults this to 0 so we should too.
+                    phase = 0;
+                }
+                alt_path_to_sample_phase[sample_name] = make_pair(sample_name, (int) phase);
             }
         }
     }

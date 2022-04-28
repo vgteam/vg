@@ -453,7 +453,12 @@ std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gb
 
     // If the path name was not specified, try first using the default name generated from GBWT metadata.
     // If that fails, simply use the id.
-    if (path_name.empty()) { path_name = thread_name(gbwt_index, id); }
+    if (path_name.empty()) {
+        // TODO: Pass this down for efficiency
+        auto parse = gbwtgraph::parse_reference_samples_tag(gbwt_index);
+        auto sense = gbwtgraph::get_path_sense(gbwt_index, id, parse);
+        path_name = gbwtgraph::compose_path_name(gbwt_index, id, sense);
+    }
     if (path_name.empty()) { path_name = std::to_string(id); }
     if (graph.has_path(path_name)) {
         std::cerr << "error: [insert_gbwt_path()] path name already exists: " << path_name << std::endl;
@@ -478,8 +483,11 @@ Path extract_gbwt_path(const HandleGraph& graph, const gbwt::GBWT& gbwt_index, g
         std::cerr << "error: [insert_gbwt_path()] invalid path id: " << id << std::endl;
         return result;
     }
-
-    std::string path_name = thread_name(gbwt_index, id);
+    
+    // TODO: Pass this down for efficiency
+    auto parse = gbwtgraph::parse_reference_samples_tag(gbwt_index);
+    auto sense = gbwtgraph::get_path_sense(gbwt_index, id, parse);
+    std::string path_name = gbwtgraph::compose_path_name(gbwt_index, id, sense);
     if (path_name.empty()) {
         path_name = std::to_string(id);
     }
@@ -504,28 +512,22 @@ Path extract_gbwt_path(const HandleGraph& graph, const gbwt::GBWT& gbwt_index, g
     return result;
 }
 
-std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id, bool short_name) {
-    
-
-    if (short_name) {
-        if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
-            return "";
-        }
-
-        auto& metadata = gbwt_index.metadata;
-        const gbwt::PathName& path = metadata.path(id);
-    
-        // We want a name with just sample and contig.
-        // Spit out a name in reference sense format, which should suffice.
-        return PathMetadata::create_path_name(PathSense::REFERENCE,
-                                              gbwtgraph::get_path_sample_name(metadata, path, PathSense::REFERENCE);
-                                              gbwtgraph::get_path_contig_name(metadata, path, PathSense::REFERENCE);
-                                              PathMetadata::NO_HAPLOTYPE,
-                                              PathMetadata::NO_PHASE_BLOCK,
-                                              PathMetadata::NO_SUBRANGE);
+std::string compose_short_path_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id) {
+    if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || id >= gbwt_index.metadata.paths()) {
+        return "";
     }
-    
-    return gbwtgraph::compose_path_name(gbwt_index, id);
+
+    auto& metadata = gbwt_index.metadata;
+    const gbwt::PathName& path = metadata.path(id);
+
+    // We want a name with just sample and contig.
+    // Spit out a name in reference sense format, which should suffice.
+    return PathMetadata::create_path_name(PathSense::REFERENCE,
+                                          gbwtgraph::get_path_sample_name(metadata, path, PathSense::REFERENCE),
+                                          gbwtgraph::get_path_locus_name(metadata, path, PathSense::REFERENCE),
+                                          PathMetadata::NO_HAPLOTYPE,
+                                          PathMetadata::NO_PHASE_BLOCK,
+                                          PathMetadata::NO_SUBRANGE);
 }
 
 //------------------------------------------------------------------------------

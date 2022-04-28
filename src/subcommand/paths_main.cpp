@@ -19,6 +19,7 @@
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 #include <vg/io/alignment_emitter.hpp>
+#include <gbwtgraph/utils.h>
 
 using namespace std;
 using namespace vg;
@@ -387,6 +388,9 @@ int main_paths(int argc, char** argv) {
             std::cerr << "warning: [vg paths] the GBWT index does not contain thread names" << std::endl;
             std::exit(EXIT_SUCCESS);
         }
+        
+        // Pre-parse some metadata
+        auto gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(*gbwt_index);
 
         // Select the threads we are interested in.
         std::vector<gbwt::size_type> thread_ids;
@@ -394,7 +398,8 @@ int main_paths(int argc, char** argv) {
             thread_ids = threads_for_sample(*gbwt_index, sample_name);
         } else if(!path_prefix.empty()) {
             for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
-                std::string name = thread_name(*gbwt_index, i);
+                PathSense sense = gbwtgraph::get_path_sense(*gbwt_index, i, gbwt_reference_samples);
+                std::string name = gbwtgraph::compose_path_name(*gbwt_index, i, sense);
                 if (name.length() >= path_prefix.length() && std::equal(path_prefix.begin(), path_prefix.end(), name.begin())) {
                     thread_ids.push_back(i);
                 }
@@ -403,7 +408,8 @@ int main_paths(int argc, char** argv) {
             // TODO: there doesn't seem to be a look-up by name in the GBWT, so we check all of them
             thread_ids.reserve(path_names.size());
             for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
-                std::string name = thread_name(*gbwt_index, i);
+                PathSense sense = gbwtgraph::get_path_sense(*gbwt_index, i, gbwt_reference_samples);
+                std::string name = gbwtgraph::compose_path_name(*gbwt_index, i, sense);
                 if (path_names.count(name)) {
                     thread_ids.push_back(i);
                 }
@@ -421,7 +427,8 @@ int main_paths(int argc, char** argv) {
         
         // Process the threads.
         for (gbwt::size_type id : thread_ids) {
-            std::string name = thread_name(*gbwt_index, id);        
+            PathSense sense = gbwtgraph::get_path_sense(*gbwt_index, id, gbwt_reference_samples);
+            std::string name = gbwtgraph::compose_path_name(*gbwt_index, id, sense);        
 
             // We are only interested in the name
             // TODO: do we need to consult list_cyclicity or list_metadata here?

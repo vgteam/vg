@@ -1488,8 +1488,11 @@ void step_7_metadata(GBWTHandler& gbwts, GBWTConfig& config) {
 
     if (config.thread_names) {
         if (gbwts.compressed.metadata.hasPathNames()) {
+            // Precompute some metadata
+            auto gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(gbwts.compressed);
             for (size_t i = 0; i < gbwts.compressed.metadata.paths(); i++) {
-                std::cout << thread_name(gbwts.compressed, i) << std::endl;
+                PathSense sense = gbwtgraph::get_path_sense(gbwts.compressed, i, gbwt_reference_samples);
+                std::cout << gbwtgraph::compose_path_name(gbwts.compressed, i, sense) << std::endl;
             }
         } else {
             std::cerr << "error: [vg gbwt] the metadata does not contain thread names" << std::endl;
