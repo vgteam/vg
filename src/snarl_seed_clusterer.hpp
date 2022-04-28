@@ -191,11 +191,12 @@ class NewSnarlSeedClusterer {
 
             //The actual data that gets stored
             //The first size_t is the parent, as an index into all_clusters
-            //The bool is true if the child is a snarl and false if it is a single seed on a node
-            //The second size_t is for the child; If it is a snarl, then an index into all_seeds
+            //The net_handle_t is the containing net handle
+            //The second/third size_t is for the child; If it is a snarl, then an index into all_seeds
             // if it is a seed, then the two indies into all_seeds
+            //The fourth size_t is the left offset of the
             //This stores every child as a separate pair
-            vector<tuple<size_t, bool, size_t, size_t>> parent_to_children;
+            vector<tuple<size_t, net_handle_t, size_t, size_t>> parent_to_children;
 
             //is parent_to_children sorted?
             //Each time we look up the children of a parent, sort and look it up
@@ -204,8 +205,8 @@ class NewSnarlSeedClusterer {
             bool is_sorted = false;
             bool is_sorted_children = false;
 
-            void add_child(size_t parent_index, bool is_snarl, size_t child_index, size_t child_index2) {
-                parent_to_children.emplace_back(parent_index, is_snarl, child_index, child_index2);
+            void add_child(size_t parent_index, net_handle_t handle, size_t child_index, size_t child_index2) {
+                parent_to_children.emplace_back(parent_index, handle, child_index, child_index2);
                 is_sorted=false;
             }
             void reserve(size_t size) {
@@ -214,12 +215,12 @@ class NewSnarlSeedClusterer {
 
             //Sort the parent_to_children vector first by parent, and second by the order
             //of the children determined by comparator
-            void sort(const std::function<bool(const tuple<size_t, bool, size_t, size_t>&,
-                                               const tuple<size_t, bool, size_t, size_t>&)>& comparator) {
+            void sort(const std::function<bool(const tuple<size_t, net_handle_t, size_t, size_t>&,
+                                               const tuple<size_t, net_handle_t, size_t, size_t>&)>& comparator) {
                 if (!is_sorted) {
                     std::sort(parent_to_children.begin(), parent_to_children.end(),
-                    [&] (const tuple<size_t, bool, size_t, size_t>& a,
-                         const tuple<size_t, bool, size_t, size_t>& b)->bool {
+                    [&] (const tuple<size_t, net_handle_t, size_t, size_t>& a,
+                         const tuple<size_t, net_handle_t, size_t, size_t>& b)->bool {
                         if (std::get<0>(a) == std::get<0>(b)) {
                             return comparator(a, b);
                         } else {
@@ -236,16 +237,16 @@ class NewSnarlSeedClusterer {
             //and then finding the first occurrence of the parent using std::lower_bound and walking
             //through the vector
             //The vector of children will not be sorted
-            vector<tuple<bool, size_t, size_t>> get_children(const size_t& parent,
-                    const std::function<bool(const tuple<size_t, bool, size_t, size_t>&,
-                                             const tuple<size_t, bool, size_t, size_t>&)>& comparator) {
+            vector<tuple<net_handle_t, size_t, size_t>> get_children(const size_t& parent,
+                    const std::function<bool(const tuple<size_t, net_handle_t, size_t, size_t>&,
+                                             const tuple<size_t, net_handle_t, size_t, size_t>&)>& comparator) {
                 //We need to sort the vector first to find everything with the right parent
                 if (!is_sorted) {
                     sort(comparator);
                 }
-                vector<tuple<bool, size_t, size_t>> children;
+                vector<tuple<net_handle_t, size_t, size_t>> children;
                 auto iter_start = std::lower_bound(parent_to_children.begin(), parent_to_children.end(),
-                        std::tuple<size_t, bool, size_t, size_t>(parent, (size_t)0, (size_t)0, (size_t)0));
+                        std::tuple<size_t, net_handle_t, size_t, size_t>(parent, as_net_handle(0), (size_t)0, (size_t)0));
                 for (auto iter = iter_start ; iter != parent_to_children.end() && std::get<0>(*iter) == parent ; ++iter) {
                     children.emplace_back(std::get<1>(*iter), std::get<2>(*iter), std::get<3>(*iter));
                 }
@@ -382,9 +383,9 @@ class NewSnarlSeedClusterer {
         //Cluster the seeds in a chain given by chain_index_i, an index into
         //distance_index.chain_indexes
         //If the depth is 0, also incorporate the top-level seeds from tree_state.top_level_seed_clusters
-        //Chain children are tuples<is_snarl, (child index, inf) or (seed read num, seed index)>
+        //Chain children are tuples<net_handle, (child index, inf) or (seed read num, seed index)>
         //If the children of the chain are only seeds on nodes, then cluster as if it is a node
-        void cluster_one_chain(TreeState& tree_state, size_t chain_clusters_index, vector<tuple<bool, size_t, size_t>>& children_in_chain, bool only_seeds) const;
+        void cluster_one_chain(TreeState& tree_state, size_t chain_clusters_index, vector<tuple<net_handle_t, size_t, size_t>>& children_in_chain, bool only_seeds) const;
 
         //Cluster in the root 
         void cluster_root(TreeState& tree_state) const;
