@@ -334,7 +334,6 @@ cerr << "Add all seeds to nodes: " << endl;
                     chain_to_children_by_level.resize(depth+1);
                     chain_to_children_by_level.back().reserve(tree_state.seed_count_prefix_sum.back());
                 }
-                chain_to_children_by_level[depth].add_child(parent_index, node_net_handle, read_num, i);
 
 
                 //Now we want to update the cached values of the seed
@@ -370,6 +369,7 @@ cerr << "Add all seeds to nodes: " << endl;
                 }
                 seed.distance_left = is_reversed_in_parent != is_rev(pos) ? node_length- get_offset(pos) : get_offset(pos) + 1;
                 seed.distance_right = is_reversed_in_parent != is_rev(pos) ? get_offset(pos) + 1 : node_length- get_offset(pos);
+                chain_to_children_by_level[depth].add_child(parent_index, node_net_handle, read_num, i, seed.distance_left);
 
 
             } else {//if (seen_nodes.count(id) < 1){
@@ -480,7 +480,7 @@ cerr << "Add all seeds to nodes: " << endl;
                             }
                             //In "if we haven't seen the greatgrandparent chain before, add the parent
                             //snarl to it the grandparent chain
-                            chain_to_children_by_level[depth-1].add_child(greatgrandparent_index, grandparent_snarl, grandparent_index, std::numeric_limits<size_t>::max());
+                            chain_to_children_by_level[depth-1].add_child(greatgrandparent_index, grandparent_snarl, grandparent_index, std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
                         } else {
                             grandparent_index = tree_state.net_handle_to_index[grandparent_snarl];
                         }
@@ -636,24 +636,8 @@ cerr << "Add all seeds to nodes: " << endl;
 void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
 
     //Go through chain_to_children, which is a vector of chain, child pairs. Start by sorting by parent chain
-    tree_state.chain_to_children->sort([&] (const tuple<size_t, net_handle_t, size_t, size_t>& a,
-                                            const tuple<size_t, net_handle_t, size_t, size_t>& b)-> bool {
-        //Sort the contents of parent_to_children vector in chain_to_children
-        //The elements have the format <parent index, is_snarl, (child index, inf) or (seed read num, seed index)
-        net_handle_t net_handle_a = std::get<1>(a);
-        net_handle_t net_handle_b = std::get<1>(b);
-        if (net_handle_a == net_handle_b) {
-#ifdef DEBUG_CLUSTER 
-            assert(distance_index.is_node(a));
-            assert(distance_index.is_node(b));
-#endif
-            return tree_state.all_seeds->at(std::get<2>(a))->at(std::get<3>(a)).distance_left <
-                   tree_state.all_seeds->at(std::get<2>(b))->at(std::get<3>(b)).distance_left;
-        } else {
-            return distance_index.is_ordered_in_chain(net_handle_a, net_handle_b);
-        }
-    });
-    vector<tuple<size_t, net_handle_t, size_t, size_t>>& chain_to_children = tree_state.chain_to_children->parent_to_children;
+    tree_state.chain_to_children->sort(distance_index);
+    vector<tuple<size_t, net_handle_t, size_t, size_t, size_t>>& chain_to_children = tree_state.chain_to_children->parent_to_children;
 
     if (chain_to_children.empty()) {
         return;
@@ -667,7 +651,7 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
 
     for (size_t chain_child_i = 0 ; chain_child_i < chain_to_children.size() ; chain_child_i++) {
 
-        const std::tuple<size_t, net_handle_t, size_t, size_t>& parent_to_child_tuple = chain_to_children.at(chain_child_i);
+        const std::tuple<size_t, net_handle_t, size_t, size_t, size_t>& parent_to_child_tuple = chain_to_children.at(chain_child_i);
 
         //Add the current chain
         size_t chain_index = std::get<0>(parent_to_child_tuple);
@@ -742,7 +726,7 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state) const {
                         grandparent_index = tree_state.net_handle_to_index[grandparent_chain];
                     }
                     tree_state.parent_chain_to_children->add_child(grandparent_index, parent, 
-                            parent_index, std::numeric_limits<size_t>::max());
+                            parent_index, std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
                 }
             }
             current_chain_children.clear();

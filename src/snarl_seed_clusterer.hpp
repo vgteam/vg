@@ -194,9 +194,10 @@ class NewSnarlSeedClusterer {
             //The net_handle_t is the containing net handle
             //The second/third size_t is for the child; If it is a snarl, then an index into all_seeds
             // if it is a seed, then the two indies into all_seeds
-            //The fourth size_t is the left offset of the
+            //The fourth size_t is the left offset of the seed or inf if it is a snarl 
+            //(this is used for sorting children, which doesn't matter for a snarl)
             //This stores every child as a separate pair
-            vector<tuple<size_t, net_handle_t, size_t, size_t>> parent_to_children;
+            vector<tuple<size_t, net_handle_t, size_t, size_t, size_t>> parent_to_children;
 
             //is parent_to_children sorted?
             //Each time we look up the children of a parent, sort and look it up
@@ -205,8 +206,8 @@ class NewSnarlSeedClusterer {
             bool is_sorted = false;
             bool is_sorted_children = false;
 
-            void add_child(size_t parent_index, net_handle_t handle, size_t child_index, size_t child_index2) {
-                parent_to_children.emplace_back(parent_index, handle, child_index, child_index2);
+            void add_child(size_t parent_index, net_handle_t handle, size_t child_index, size_t child_index2, size_t offset) {
+                parent_to_children.emplace_back(parent_index, handle, child_index, child_index2, offset);
                 is_sorted=false;
             }
             void reserve(size_t size) {
@@ -215,14 +216,24 @@ class NewSnarlSeedClusterer {
 
             //Sort the parent_to_children vector first by parent, and second by the order
             //of the children determined by comparator
-            void sort(const std::function<bool(const tuple<size_t, net_handle_t, size_t, size_t>&,
-                                               const tuple<size_t, net_handle_t, size_t, size_t>&)>& comparator) {
+            void sort(const SnarlDistanceIndex& distance_index) {
                 if (!is_sorted) {
                     std::sort(parent_to_children.begin(), parent_to_children.end(),
-                    [&] (const tuple<size_t, net_handle_t, size_t, size_t>& a,
-                         const tuple<size_t, net_handle_t, size_t, size_t>& b)->bool {
+                    [&] (const tuple<size_t, net_handle_t, size_t, size_t, size_t>& a,
+                         const tuple<size_t, net_handle_t, size_t, size_t, size_t>& b)->bool {
                         if (std::get<0>(a) == std::get<0>(b)) {
-                            return comparator(a, b);
+                            //If they are children of the same parent
+                            if (std::get<1>(a) == std::get<1>(b)) {
+                                //If the children are both on the same net handle, then they must be seeds on a node
+                                //Sort by the left offset
+                                return std::get<4>(a) < std::get<4>(b);
+                            } else if (!distance_index.is_chain(std::get<1>(a)) && !distance_index.is_chain(std::get<1>(b))) {
+                                //If the parent is a chain (if the children aren't chains)
+                                return distance_index.is_ordered_in_chain(std::get<1>(a), std::get<1>(b)); 
+                            } else {
+                                //Otherwise, the parent is a snarl and the order doesn't matter
+                                return true;
+                            }
                         } else {
                             return std::get<0>(a) < std::get<0>(b);
                         }
@@ -237,16 +248,14 @@ class NewSnarlSeedClusterer {
             //and then finding the first occurrence of the parent using std::lower_bound and walking
             //through the vector
             //The vector of children will not be sorted
-            vector<tuple<net_handle_t, size_t, size_t>> get_children(const size_t& parent,
-                    const std::function<bool(const tuple<size_t, net_handle_t, size_t, size_t>&,
-                                             const tuple<size_t, net_handle_t, size_t, size_t>&)>& comparator) {
+            vector<tuple<net_handle_t, size_t, size_t>> get_children(const size_t& parent, const SnarlDistanceIndex& distance_index) {
                 //We need to sort the vector first to find everything with the right parent
                 if (!is_sorted) {
-                    sort(comparator);
+                    sort(distance_index);
                 }
                 vector<tuple<net_handle_t, size_t, size_t>> children;
                 auto iter_start = std::lower_bound(parent_to_children.begin(), parent_to_children.end(),
-                        std::tuple<size_t, net_handle_t, size_t, size_t>(parent, as_net_handle(0), (size_t)0, (size_t)0));
+                        std::tuple<size_t, net_handle_t, size_t, size_t, size_t>(parent, as_net_handle(0), (size_t)0, (size_t)0, (size_t)0));
                 for (auto iter = iter_start ; iter != parent_to_children.end() && std::get<0>(*iter) == parent ; ++iter) {
                     children.emplace_back(std::get<1>(*iter), std::get<2>(*iter), std::get<3>(*iter));
                 }
