@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#define DEBUG_CLUSTER
+//#define DEBUG_CLUSTER
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
@@ -1549,6 +1549,19 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, size_t snar
 void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chain_clusters_index, vector<tuple<bool, size_t, size_t>>& children_in_chain, bool only_seeds) const {
 #ifdef DBUG_CLUSTERS
     assert(distance_index.is_chain(chain_clusters.containing_net_handle));
+    if (only_seeds) {
+        for (auto child : children_in_chain) {
+            assert(!std::get<0>(child));
+        }
+    } else {
+        bool is_only_seeds = true;
+        for (auto child : children_in_chain) {
+            if (std::get<0>(child)) {
+                is_only_seeds=false;
+            }
+        }
+        assert(!is_only_seeds);
+    }
 #endif
 
     NodeClusters& chain_clusters = tree_state.all_node_clusters[chain_clusters_index];
@@ -2693,14 +2706,13 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
             size_t dist_right = structure_length + 1 - dist_left;
 
             //Find the new best distances for anything in this cluster
-            node_clusters.read_best_left[read_num] = std::min(dist_left,
-                                                  node_clusters.read_best_left[read_num]);
-            node_clusters.read_best_right[read_num] = std::min(dist_right,
-                                                  node_clusters.read_best_right[read_num]);
-            node_clusters.fragment_best_left = std::min(dist_left,
-                                                  node_clusters.fragment_best_left);
-            node_clusters.fragment_best_right = std::min(dist_right,
-                                                  node_clusters.fragment_best_right);
+            //Since we're traversing the seeds in order, the best left and right will be the first and last 
+            //ones we see
+            if (node_clusters.read_best_left[read_num] == std::numeric_limits<size_t>::max()) {
+                //Only update the best left if it hasn't been set yet
+                node_clusters.read_best_left[read_num] = dist_left;
+            }
+            node_clusters.read_best_right[read_num] = dist_right;
 
             //Put this seed in the cluster for the node
             if (group_ids[read_num] == std::numeric_limits<size_t>::max()) {
@@ -2715,6 +2727,8 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
                         fragment_group_id, seed_i + tree_state.seed_count_prefix_sum[read_num]);
             }
         }
+        node_clusters.fragment_best_left = std::get<2>(get_offset_from_seed_index(seed_indices.front()));
+        node_clusters.fragment_best_right = structure_length + 1 - std::get<2>(get_offset_from_seed_index(seed_indices.back()));
 
 
         //Record the new cluster
@@ -2740,29 +2754,8 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
 
 
     //The seeds may form multiple clusters on the node
-    //Sort the seeds by their offset in the node and split into clusters
+    //Walk through a sorted list of seeds and split into clusters
         
-    //<index of read, index of seed, offset of seed> for all seeds
-    vector<tuple<size_t,size_t, size_t>> seed_offsets;
-    for (const SeedIndex& seed_index_template : seed_indices) {
-        //Go through all seeds
-
-        //For each seed on this node, add it to the cluster
-
-        //Get the index of the seed 
-        tuple<size_t, size_t, size_t> seed_index = get_offset_from_seed_index(seed_index_template);
-        //For each seed, find its offset
-        size_t read_num = std::get<0>(seed_index);
-        size_t offset = std::get<2>(seed_index);
-
-        node_clusters.fragment_best_left = std::min(offset, node_clusters.fragment_best_left);
-        node_clusters.fragment_best_right = std::min(structure_length-offset+1, node_clusters.fragment_best_right);
-        node_clusters.read_best_left[read_num] = std::min(offset, node_clusters.read_best_left[read_num]);
-        node_clusters.read_best_right[read_num] = std::min(structure_length-offset+1, node_clusters.read_best_right[read_num]);
-
-        seed_offsets.emplace_back(seed_index);
-
-    }
     
     //Offset of the first seed for the cluster we're building
     //One for each read
@@ -2774,16 +2767,26 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
     size_t fragment_last_cluster = std::numeric_limits<size_t>::max();
     vector<size_t> read_last_cluster (tree_state.all_seeds->size(), std::numeric_limits<size_t>::max());
 
-    //Each s is <index of read, index of seed, offset of seed>
-    for ( tuple<size_t, size_t, size_t> s : seed_offsets) {
+    //Get the best left and right values of the node from the first and last seeds
+    node_clusters.fragment_best_left = std::get<2>(get_offset_from_seed_index(seed_indices.front()));
+    node_clusters.fragment_best_right = structure_length-std::get<2>(get_offset_from_seed_index(seed_indices.back()))+1;
+
+    for (const SeedIndex& seed_index_template : seed_indices) {
+
+        //<index of read, index of seed, offset of seed>
+        tuple<size_t, size_t, size_t> s = get_offset_from_seed_index(seed_index_template);
+
         //For each seed, in order of position in the node,
         //see if it belongs to a new read/fragment cluster - if it is
         //close enough to the previous seed
         size_t read_num = std::get<0>(s);
         size_t seed_num = std::get<1>(s);
         size_t offset = std::get<2>(s);
+
         if (read_first_offset[read_num] == std::numeric_limits<size_t>::max()) {
+            //If this is the first seed we've seen of this read
             read_first_offset[read_num] = offset;
+            node_clusters.read_best_left[read_num] = offset;
         }
 
         if (read_last_offset[read_num] != std::numeric_limits<size_t>::max() &&
@@ -2832,6 +2835,7 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
             node_clusters.read_cluster_heads.emplace(i, read_last_cluster[i]);
             tree_state.all_seeds->at(i)->at(read_last_cluster[i]).distance_left = read_first_offset[i];
             tree_state.all_seeds->at(i)->at(read_last_cluster[i]).distance_right = structure_length-read_last_offset[i]+1;
+            node_clusters.read_best_right[i] = structure_length-read_last_offset[i]+1;
         }
     }
     return;
