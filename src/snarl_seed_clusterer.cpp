@@ -459,7 +459,7 @@ cerr << "Add all seeds to nodes: " << endl;
                                                               tree_state.seed_count_prefix_sum.back(), distance_index);
                             if (prefix_sum == std::numeric_limits<size_t>::max()) {
                                 //The prefix sum value for a simple snarl
-                                net_handle_t start_node = distance_index.get_node_from_sentinel(tree_state.all_node_clusters.back().start_in);
+                                net_handle_t start_node = tree_state.all_node_clusters.back().start_in;
                                 prefix_sum = SnarlDistanceIndex::sum({distance_index.get_prefix_sum_value(start_node),
                                                                       distance_index.minimum_length(start_node)});
                             }
@@ -878,16 +878,16 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
 
     } else if (get_distances_to_parent) {
         child_clusters1.distance_start_left = 
-            distance_index.distance_in_parent(parent_handle, parent_clusters.start_in, distance_index.flip(child_handle1));
+            distance_index.distance_in_parent(parent_handle, distance_index.get_bound(parent_handle, false, true), distance_index.flip(child_handle1));
 
         child_clusters1.distance_start_right = 
-            distance_index.distance_in_parent(parent_handle, parent_clusters.start_in, child_handle1);
+            distance_index.distance_in_parent(parent_handle, distance_index.get_bound(parent_handle, false, true), child_handle1);
 
         child_clusters1.distance_end_left =
-            distance_index.distance_in_parent(parent_handle, parent_clusters.end_in, distance_index.flip(child_handle1));
+            distance_index.distance_in_parent(parent_handle, distance_index.get_bound(parent_handle, true, true), distance_index.flip(child_handle1));
 
         child_clusters1.distance_end_right = 
-            distance_index.distance_in_parent(parent_handle, parent_clusters.end_in, child_handle1);
+            distance_index.distance_in_parent(parent_handle, distance_index.get_bound(parent_handle, true, true), child_handle1);
 
     }
    
@@ -1480,14 +1480,14 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, size_t snar
     //Prefix sum up to the start of the snarl
     if (snarl_clusters.prefix_sum_value = std::numeric_limits<size_t>::max()) {
         snarl_clusters.prefix_sum_value = SnarlDistanceIndex::sum({
-                distance_index.get_prefix_sum_value(distance_index.get_node_from_sentinel(snarl_clusters.start_in)),
-                distance_index.minimum_length(distance_index.get_node_from_sentinel(snarl_clusters.start_in))});
+                distance_index.get_prefix_sum_value(snarl_clusters.start_in),
+                distance_index.minimum_length(snarl_clusters.start_in)});
     }
 
     //Chain component of the start and end nodes of the snarl
     if (parent_clusters.chain_last_component != 0 && parent_clusters.chain_last_component != std::numeric_limits<size_t>::max()) {
-        snarl_clusters.chain_component_start = distance_index.get_chain_component(distance_index.get_node_from_sentinel(snarl_clusters.start_in));
-        snarl_clusters.chain_component_end = distance_index.get_chain_component(distance_index.get_node_from_sentinel(snarl_clusters.end_in));
+        snarl_clusters.chain_component_start = distance_index.get_chain_component(snarl_clusters.start_in);
+        snarl_clusters.chain_component_end = distance_index.get_chain_component(snarl_clusters.end_in);
     }
 #ifdef DEBUG_CLUSTER
     cerr << "\tFound clusters on " << distance_index.net_handle_as_string(snarl_handle) << endl;
@@ -1566,11 +1566,11 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
 
      auto update_distances_on_same_child = [&] (NodeClusters& child_clusters) {
          //Distance to go forward (relative to the child) in the chain and back
-         size_t loop_right = SnarlDistanceIndex::sum({distance_index.get_forward_loop_value(distance_index.get_node_from_sentinel(child_clusters.end_in)),
-                                                      2*distance_index.minimum_length(distance_index.get_node_from_sentinel(child_clusters.end_in))});
+         size_t loop_right = SnarlDistanceIndex::sum({distance_index.get_forward_loop_value(child_clusters.end_in),
+                                                      2*distance_index.minimum_length(child_clusters.end_in)});
          //Distance to go backward in the chain and back
-         size_t loop_left = SnarlDistanceIndex::sum({distance_index.get_reverse_loop_value(distance_index.get_node_from_sentinel(child_clusters.start_in)),
-                                                     2*distance_index.minimum_length(distance_index.get_node_from_sentinel(child_clusters.start_in))}); 
+         size_t loop_left = SnarlDistanceIndex::sum({distance_index.get_reverse_loop_value(child_clusters.start_in),
+                                                     2*distance_index.minimum_length(child_clusters.start_in)}); 
          if (loop_left == std::numeric_limits<size_t>::max() && loop_right == std::numeric_limits<size_t>::max()) {
              return;
          }

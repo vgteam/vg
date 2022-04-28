@@ -165,8 +165,8 @@ class NewSnarlSeedClusterer {
                     chain_last_component = distance_index.get_chain_component(end_in, true);
                 } else if (distance_index.is_snarl(containing_net_handle)) {
                     node_length = distance_index.minimum_length(containing_net_handle);
-                    start_in = distance_index.get_bound(containing_net_handle, false, true);
-                    end_in =   distance_index.get_bound(containing_net_handle, true, true);
+                    start_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, false, true));
+                    end_in =   distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, true, true));
                 }
             }
             NodeClusters( net_handle_t net, size_t read_count, size_t seed_count, bool is_reversed_in_parent, nid_t node_id, size_t node_length, size_t prefix_sum, size_t component) :
