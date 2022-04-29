@@ -754,22 +754,32 @@ WFAExtender::WFAExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& align
 
 // A position in an alignment between a sequence and a graph.
 struct MatchPos {
-    uint32_t node; // Offset in the tree of search states. FIXME this will become unnecessary
     uint32_t seq_offset;
     uint32_t node_offset;
+    std::stack<uint32_t> path; // Sequence of tree offsets from a leaf to the relevant node.
 
     // Creates an empty position.
-    MatchPos() : node(std::numeric_limits<uint32_t>::max()), seq_offset(0), node_offset(0) {}
+    MatchPos() : seq_offset(0), node_offset(0) {}
 
-    MatchPos(uint32_t node, uint32_t seq_offset, uint32_t node_offset) : node(node), seq_offset(seq_offset), node_offset(node_offset) {}
+    // Creates a position with the given offsets and path.
+    MatchPos(uint32_t seq_offset, uint32_t node_offset, const std::stack<uint32_t>& path) : seq_offset(seq_offset), node_offset(node_offset), path(path) {}
 
-    bool empty() const { return (this->node == std::numeric_limits<uint32_t>::max()); }
+    bool empty() const { return this->path.empty(); }
+    uint32_t node() const { return this->path.top(); }
+    void pop() { this->path.pop(); }
+
+    // Returns the non-empty position further on the diagonal (on the sequence).
+    static const MatchPos& max(const MatchPos& a, const MatchPos& b) {
+        if (a.empty()) { return b; }
+        if (b.empty()) { return a; }
+        return (a.seq_offset > b.seq_offset ? a : b);
+    }
 };
 
 // A point in an WFA score matrix (for a specific node).
 struct WFAPoint {
     int32_t  score;
-    int32_t  diagonal;
+    int32_t  diagonal; // seq_offset - target offset
     uint32_t seq_offset;
     uint32_t node_offset;
 
@@ -777,9 +787,9 @@ struct WFAPoint {
         std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()
     };
 
-    // Converts the point to an alignment position in the given node.
-    MatchPos pos(uint32_t node) const {
-        return MatchPos(node, this->seq_offset, this->node_offset);
+    // Converts the point to an alignment position with the given path.
+    MatchPos pos(const std::stack<uint32_t>& path) const {
+        return MatchPos(this->seq_offset, this->node_offset, path);
     }
 
     bool operator<(const WFAPoint& another) const {
@@ -801,8 +811,8 @@ struct WFANode {
 
     // Points on the wavefronts sorted by (score, diagonal).
     std::vector<WFAPoint> matches;
-    std::vector<WFAPoint> insertions;
-    std::vector<WFAPoint> deletions;
+    std::vector<WFAPoint> insertions; // characters in the sequence but not in the graph
+    std::vector<WFAPoint> deletions;  // characters in the graph but not in the sequence
 
     WFANode(const gbwt::SearchState& state, uint32_t parent) :
         state(state),
@@ -820,19 +830,24 @@ struct WFANode {
         return graph.get_length(gbwtgraph::GBWTGraph::node_to_handle(this->state.node));
     }
 
-    // Returns the position for the given score and diagonal at the given node, or an empty position if it does not exist.
-    static MatchPos find_pos(const std::vector<WFAPoint>& points, int32_t score, int32_t diagonal, uint32_t node) {
+    // Returns the position for the given score and diagonal with the given path, or an empty position if it does not exist.
+    static MatchPos find_pos(const std::vector<WFAPoint>& points, int32_t score, int32_t diagonal, std::stack<uint32_t>& path) {
         WFAPoint key { score, diagonal, 0, 0 };
         auto iter = std::lower_bound(points.begin(), points.end(), key);
         if (iter == points.end() || key < *iter) {
             return MatchPos();
         }
-        return iter->pos(node);
+        return iter->pos(path);
     }
 
     // Update the WFA matrix with the given alignment position.
     static void update(std::vector<WFAPoint>& points, int32_t score, int32_t diagonal, const MatchPos& pos) {
-        WFAPoint key { score, diagonal, pos.seq_offset, pos.node_offset };
+        update(points, score, diagonal, pos.seq_offset, pos.node_offset);
+    }
+
+    // Update the WFA matrix with the given offsets.
+    static void update(std::vector<WFAPoint>& points, int32_t score, int32_t diagonal, uint32_t seq_offset, uint32_t node_offset) {
+        WFAPoint key { score, diagonal, seq_offset, node_offset };
         auto iter = std::lower_bound(points.begin(), points.end(), key);
         if (iter == points.end() || key < *iter) {
             points.insert(iter, key);
@@ -842,23 +857,21 @@ struct WFANode {
     }
 
     // Returns a position at the first non-match after the given position.
-    MatchPos match_forward(const std::string& sequence, const gbwtgraph::GBWTGraph& graph, MatchPos pos) const {
+    void match_forward(const std::string& sequence, const gbwtgraph::GBWTGraph& graph, MatchPos& pos) const {
         handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(this->state.node);
         gbwtgraph::view_type node_seq = graph.get_sequence_view(handle);
         while (pos.seq_offset < sequence.length() && pos.node_offset < node_seq.second && sequence[pos.seq_offset] == node_seq.first[pos.node_offset]) {
             pos.seq_offset++; pos.node_offset++;
         }
-        return pos;
     }
 
     // Returns a position at the start of the run of matches before the given position.
-    MatchPos match_backward(const std::string& sequence, const gbwtgraph::GBWTGraph& graph, MatchPos pos) const {
+    void match_backward(const std::string& sequence, const gbwtgraph::GBWTGraph& graph, MatchPos& pos) const {
         handle_t handle = gbwtgraph::GBWTGraph::node_to_handle(this->state.node);
         gbwtgraph::view_type node_seq = graph.get_sequence_view(handle);
         while (pos.seq_offset > 0 && pos.node_offset > 0 && sequence[pos.seq_offset - 1] == node_seq.first[pos.node_offset - 1]) {
             pos.seq_offset--; pos.node_offset--;
         }
-        return pos;
     }
 };
 
@@ -903,14 +916,39 @@ public:
     void next(const std::string& sequence, const gbwtgraph::GBWTGraph& graph, int32_t score, pos_t to) {
         std::pair<int32_t, int32_t> diagonal_range = this->get_diagonals(score);
         for (int32_t diagonal = diagonal_range.first; diagonal <= diagonal_range.second; diagonal++) {
-            // FIXME replace with a traversal similar to extend()
-            for (uint32_t node = 0; node < this->size(); node++) {
-                if (!this->nodes[node].is_leaf()) {
-                    continue;
+            std::vector<uint32_t> leaves = this->get_leaves();
+            for (uint32_t leaf : leaves) {
+                MatchPos ins_open = this->match_pos(leaf, score - this->gap_open - this->gap_extend, diagonal - 1);
+                MatchPos ins_extend = this->insertion_pos(leaf, score - this->gap_extend, diagonal - 1);
+                MatchPos ins = MatchPos::max(ins_open, ins_extend);
+                if (!ins.empty()) {
+                    ins.seq_offset++;
+                    // Note that we may do the same update from multiple leaves.
+                    WFANode::update(this->nodes[ins.node()].insertions, score, diagonal, ins);
                 }
-                // FIXME update I, D, M for this score, diagonal
-                // FIXME update in the leaf, even though the pos may be in an ancestor
-                // FIXME but this may force us to repeat the work for multiple nodes
+
+                MatchPos del_open = this->match_pos(leaf, score - this->gap_open - this->gap_extend, diagonal + 1);
+                MatchPos del_extend = this->deletion_pos(leaf, score - this->gap_extend, diagonal + 1);
+                MatchPos del = MatchPos::max(del_open, del_extend);
+                if (!del.empty()) {
+                    del.node_offset++;
+                    // Note that we may do the same update from multiple leaves.
+                    // FIXME if we deleted the last character of the node, we must update the children as well
+                    WFANode::update(this->nodes[del.node()].insertions, score, diagonal, del);
+                }
+
+                MatchPos subst = this->match_pos(leaf, score - this->mismatch, diagonal);
+                if (!subst.empty()) {
+                    subst.seq_offset++;
+                    subst.node_offset++;
+                }
+                subst = MatchPos::max(subst, ins);
+                subst = MatchPos::max(subst, del);
+                if (!subst.empty()) {
+                    // Note that we may do the same update from multiple leaves.
+                    // FIXME if we deleted the last character of the node, we must update the children as well
+                    WFANode::update(this->nodes[subst.node()].matches, score, diagonal, subst);
+                }
             }
         }
     }
@@ -924,30 +962,28 @@ private:
     // FIXME and also in the graph and the sequence at the same time
     void extend_over(const std::string& sequence, const gbwtgraph::GBWTGraph& graph, int32_t score, int32_t diagonal, pos_t to, const std::vector<uint32_t>& leaves) {
         for (uint32_t leaf : leaves) {
-            std::stack<uint32_t> path;
-            MatchPos pos = this->match_pos(leaf, score, diagonal, path);
+            MatchPos pos = this->match_pos(leaf, score, diagonal);
             if (pos.empty()) {
                 continue; // This should never happen.
             }
-            while (!path.empty()) {
-                uint32_t node = path.top(); path.pop();
-                pos = this->nodes[node].match_forward(sequence, graph, pos);
+            while (!pos.empty()) {
+                uint32_t node = pos.node(); pos.pop();
+                // If we have already done this when coming from another leaf,
+                // we cannot match anything and the update will not change anything.
+                this->nodes[node].match_forward(sequence, graph, pos);
                 WFANode::update(this->nodes[node].matches, score, diagonal, pos);
                 if (pos.node_offset < this->nodes[node].length(graph)) {
                     break;
                 }
-                if (!path.empty()) {
-                    // FIXME simplify this
-                    pos = MatchPos(path.top(), pos.seq_offset, 0);
-                    WFANode::update(this->nodes[path.top()].matches, score, diagonal, pos);
+                if (!pos.empty()) {
+                    pos.node_offset = 0;
                 }
             }
             // If the match reached the end of the leaf, we expand its children and continue recursively.
-            if (path.empty() && pos.node_offset >= this->nodes[leaf].length(graph) && !this->nodes[leaf].dead_end) {
+            if (pos.empty() && pos.node_offset >= this->nodes[leaf].length(graph) && !this->nodes[leaf].dead_end) {
                 this->expand(leaf, graph);
                 for (uint32_t child : this->nodes[leaf].children) {
-                    MatchPos child_pos(child, pos.seq_offset, 0);
-                    WFANode::update(this->nodes[child].matches, score, diagonal, child_pos);
+                    WFANode::update(this->nodes[child].matches, score, diagonal, pos.seq_offset, 0);
                 }
                 this->extend_over(sequence, graph, score, diagonal, to, this->nodes[leaf].children);
             }
@@ -983,7 +1019,7 @@ private:
 
         this->max_diagonals.first = std::min(this->max_diagonals.first, range.first);
         this->max_diagonals.second = std::max(this->max_diagonals.second, range.second);
-        this->diagonals.resize(score + 1, std::pair<uint32_t, uint32_t>(0, 0));
+        this->diagonals.resize(score + 1, std::pair<int32_t, int32_t>(0, 0));
         this->diagonals.back() = range;
 
         return range;
@@ -1005,24 +1041,35 @@ private:
 
     // Returns the furthest position in M for (score, diagonal) at the given node or its
     // ancestors, or an empty position if it does not exist.
-    MatchPos match_pos(uint32_t node, int32_t score, int32_t diagonal, std::stack<uint32_t>& path) {
+    // The path from the initial node to the ancestor with the stored position is stored
+    // in the given stack.
+    MatchPos match_pos(uint32_t node, int32_t score, int32_t diagonal) {
+        if (score < 0) {
+            return MatchPos();
+        }
+        std::stack<uint32_t> path;
         while(true) {
             path.push(node);
-            MatchPos pos = WFANode::find_pos(this->nodes[node].matches, score, diagonal, node);
+            MatchPos pos = WFANode::find_pos(this->nodes[node].matches, score, diagonal, path);
             if (!pos.empty()) {
                 return pos;
             }
             if (is_root(node)) { break; }
             node = this->parent(node);
         }
-        return MatchPos(); // This should never happen.
+        return MatchPos();
     }
 
     // Returns the furthest position in I for (score, diagonal) at the given node or its
     // ancestors, or an empty position if it does not exist.
     MatchPos insertion_pos(uint32_t node, int32_t score, int32_t diagonal) {
+        if (score < 0) {
+            return MatchPos();
+        }
+        std::stack<uint32_t> path;
         while(true) {
-            MatchPos pos = WFANode::find_pos(this->nodes[node].insertions, score, diagonal, node);
+            path.push(node);
+            MatchPos pos = WFANode::find_pos(this->nodes[node].insertions, score, diagonal, path);
             if (!pos.empty()) {
                 return pos;
             }
@@ -1035,8 +1082,13 @@ private:
     // Returns the furthest position in D for (score, diagonal) at the given node or its
     // ancestors, or an empty position if it does not exist.
     MatchPos deletion_pos(uint32_t node, int32_t score, int32_t diagonal) {
+        if (score < 0) {
+            return MatchPos();
+        }
+        std::stack<uint32_t> path;
         while(true) {
-            MatchPos pos = WFANode::find_pos(this->nodes[node].deletions, score, diagonal, node);
+            path.push(node);
+            MatchPos pos = WFANode::find_pos(this->nodes[node].deletions, score, diagonal, path);
             if (!pos.empty()) {
                 return pos;
             }
@@ -1071,6 +1123,7 @@ void WFAExtender::extend(std::string sequence, pos_t from, pos_t to) const {
     }
 
     // FIXME Finally we have to backtrace the actual alignment.
+    // FIXME note that we may have edits in a node where we do not match anything
 }
 
 //------------------------------------------------------------------------------
