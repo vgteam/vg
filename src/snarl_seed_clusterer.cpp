@@ -2138,14 +2138,16 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
 
 
                 //Update the best distances
+                //Only update the left distances if we haven't seen a node in the chain yet
                 if (!found_first_node) {
                     chain_clusters.fragment_best_left = std::min(chain_clusters.fragment_best_left, new_distances.first);
                 }
                 if (!found_first_node_by_read[read_num]){
                     chain_clusters.read_best_left[read_num] = std::min(chain_clusters.read_best_left[read_num], new_distances.first);
                 }
-                chain_clusters.fragment_best_right = std::min(chain_clusters.fragment_best_right, new_distances.second); 
-                chain_clusters.read_best_right[read_num] = std::min(chain_clusters.read_best_right[read_num], new_distances.second);
+                //Since this is a node, the best right distance will be this distance
+                chain_clusters.fragment_best_right = new_distances.second; 
+                chain_clusters.read_best_right[read_num] = new_distances.second;
                 found_first_node = true;
                 found_first_node_by_read[read_num] = true;
             } else {
