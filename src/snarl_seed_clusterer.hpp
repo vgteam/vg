@@ -204,7 +204,6 @@ class NewSnarlSeedClusterer {
             //If it's already sorted, skip sorting
             //Also set this to false any time something gets added
             bool is_sorted = false;
-            bool is_sorted_children = false;
 
             void add_child(size_t parent_index, net_handle_t handle, size_t child_index, size_t child_index2, size_t offset) {
                 parent_to_children.emplace_back(parent_index, handle, child_index, child_index2, offset);
