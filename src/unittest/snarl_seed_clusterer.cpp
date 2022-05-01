@@ -57,7 +57,7 @@ namespace unittest {
 
         }
     }
-    TEST_CASE( "Looping chain", "[cluster][bug]" ) {
+    TEST_CASE( "Looping chain", "[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("ACACGTTGC");
@@ -2262,6 +2262,127 @@ namespace unittest {
 
         }
     }
+    TEST_CASE("Simple nested chain", "[cluster][bug]") {
+        VG graph;
+ 
+        Node* n1 = graph.create_node("GAC");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GCA");
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("G");
+        Node* n8 = graph.create_node("GCAA");
+        Node* n9 = graph.create_node("GTGACTAAGA");//10
+        Node* n10 = graph.create_node("GTGACTAAGA");//10
+ 
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n10);
+        Edge* e3 = graph.create_edge(n10, n8);
+        Edge* e4 = graph.create_edge(n2, n3);
+        Edge* e5 = graph.create_edge(n2, n4);
+        Edge* e6 = graph.create_edge(n3, n4);
+        Edge* e7 = graph.create_edge(n4, n5);
+        Edge* e8 = graph.create_edge(n4, n6);
+        Edge* e9 = graph.create_edge(n5, n6);
+        Edge* e10 = graph.create_edge(n6, n7);
+        Edge* e11 = graph.create_edge(n7, n8);
+        Edge* e12 = graph.create_edge(n8, n9);
+
+        IntegratedSnarlFinder snarl_finder(graph);
+        SnarlDistanceIndex dist_index;
+        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
+
+
+        NewSnarlSeedClusterer clusterer(dist_index, &graph);
+
+        SECTION("Only seeds on nodes in inner chain one cluster") {
+            vector<NewSnarlSeedClusterer::Seed> seeds;
+            vector<pos_t> pos_ts;
+            pos_ts.emplace_back(2, false, 0);
+            pos_ts.emplace_back(4, false, 0);
+            pos_ts.emplace_back(7, false, 0);
+
+            for (pos_t pos : pos_ts){
+                seeds.push_back({ pos, 0});
+            }
+            vector<NewSnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 7); 
+
+
+            REQUIRE( clusters.size() == 1);
+
+        }
+        SECTION("Only seeds on nodes in inner chain two clusters") {
+            vector<NewSnarlSeedClusterer::Seed> seeds;
+            vector<pos_t> pos_ts;
+            pos_ts.emplace_back(2, false, 0);
+            pos_ts.emplace_back(4, false, 0);
+            pos_ts.emplace_back(7, false, 0);
+
+            for (pos_t pos : pos_ts){
+                seeds.push_back({ pos, 0});
+            }
+            vector<NewSnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 4); 
+
+
+            REQUIRE( clusters.size() == 2);
+
+        }
+        SECTION("Only seeds on nodes in inner chain two clusters with outer nodes") {
+            vector<NewSnarlSeedClusterer::Seed> seeds;
+            vector<pos_t> pos_ts;
+            pos_ts.emplace_back(1, false, 0);
+            pos_ts.emplace_back(2, false, 0);
+            pos_ts.emplace_back(4, false, 0);
+            pos_ts.emplace_back(7, false, 0);
+            pos_ts.emplace_back(8, true, 0);
+
+            for (pos_t pos : pos_ts){
+                seeds.push_back({ pos, 0});
+            }
+            vector<NewSnarlSeedClusterer::Cluster> clusters =  clusterer.cluster_seeds(seeds, 4); 
+
+
+            REQUIRE( clusters.size() == 2);
+            REQUIRE((clusters[0].seeds.size() == 3 || clusters[0].seeds.size() == 2));
+            REQUIRE((clusters[1].seeds.size() == 3 || clusters[1].seeds.size() == 2));
+
+        }
+        SECTION("One fragment cluster") {
+            vector<vector<pos_t>> pos_ts;
+            pos_ts.emplace_back();
+            pos_ts.emplace_back();
+            pos_ts[0].emplace_back(1, false, 0);
+            pos_ts[0].emplace_back(2, false, 0);
+            pos_ts[0].emplace_back(4, false, 0);
+            pos_ts[1].emplace_back(7, false, 0);
+            pos_ts[1].emplace_back(8, true, 0);
+
+            for (bool use_minimizers : {true, false}) {
+                vector<vector<NewSnarlSeedClusterer::Seed>> seeds(2);
+                for (size_t read_num = 0 ; read_num < pos_ts.size() ; read_num ++) {
+                    for (pos_t pos : pos_ts[read_num]){
+                        if (use_minimizers) {
+                            auto chain_info = get_minimizer_distances(dist_index, pos);
+                            seeds[read_num].push_back({ pos, 0, chain_info});
+                        } else {
+                            seeds[read_num].push_back({ pos, 0});
+                        }
+                    }
+                }
+                
+                vector<vector<NewSnarlSeedClusterer::Cluster>> clusters =  clusterer.cluster_seeds(seeds, 4, 10); 
+
+                REQUIRE( clusters.size() == 2);
+                REQUIRE(clusters[0].size() == 1);
+                REQUIRE(clusters[1].size() == 1);
+                REQUIRE(clusters[0][0].fragment == clusters[1][0].fragment);
+            }
+
+
+        }
+    }//End test case
+
     TEST_CASE("Top level loop creates looping chain", "[cluster]") {
         VG graph;
  
@@ -2793,8 +2914,11 @@ namespace unittest {
 
 
         vector<vector<pos_t>> pos_ts(2);
-        pos_ts[0].emplace_back(47, true, 7);
-        pos_ts[0].emplace_back(47, false, 1);
+        pos_ts[0].emplace_back(40, true, 0);
+        pos_ts[0].emplace_back(42, false, 0);
+        pos_ts[0].emplace_back(42, false, 0);
+        pos_ts[0].emplace_back(43, false, 0);
+        pos_ts[0].emplace_back(46, false, 0);
         
 
         for (bool use_minimizers : {true, false}) {
@@ -2825,12 +2949,12 @@ namespace unittest {
             // For each random graph
             
             default_random_engine generator(time(NULL));
-            uniform_int_distribution<int> variant_count(10, 50);
+            uniform_int_distribution<int> variant_count(10, 70);
             uniform_int_distribution<int> chrom_len(10, 200);
 
             //Make a random graph with three chromosomes of random lengths
             HashGraph graph;
-            random_graph({chrom_len(generator),chrom_len(generator)}, 30, variant_count(generator), &graph);
+            random_graph({chrom_len(generator),chrom_len(generator),chrom_len(generator)}, 30, variant_count(generator), &graph);
             graph.serialize("testGraph.hg");
 
 
@@ -2862,7 +2986,7 @@ namespace unittest {
                     size_t read_lim = 15;// Distance between read clusters
                     size_t fragment_lim = 35;// Distance between fragment clusters
                     for (size_t read = 0 ; read < 2 ; read ++) {
-                        uniform_int_distribution<int> randPosCount(3, 50);
+                        uniform_int_distribution<int> randPosCount(3, 70);
                         for (int j = 0; j < randPosCount(generator); j++) {
                             //Check clusters of j random positions 
  
