@@ -1950,6 +1950,7 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
 #endif
 
             //Clusters to remove from the chain because they got combined
+            vector<pair<size_t, size_t>> to_erase;
             //And new clusters to add
             vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>> to_add;
 
@@ -2179,6 +2180,8 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
                                     make_pair(read_num, new_cluster_num),
                                    make_pair(new_best_left, new_best_right)); 
                         }
+                        //Remember to erase the combined cluster. The new cluster head will be added later
+                        to_erase.emplace_back(read_num, cluster_num);
                     } else {
                         to_add.emplace_back(make_pair(read_num, cluster_num), new_distances);
                     }
@@ -2195,7 +2198,9 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
                 }
 
                 //Remove clusters that got combined
-                chain_clusters.read_cluster_heads.clear();
+                for (pair<size_t, size_t>& cluster_head : to_erase) {
+                    chain_clusters.read_cluster_heads.erase(cluster_head);
+                }
                 //Add new clusters that weren't combined
                 for (pair<pair<size_t, size_t>, pair<size_t, size_t>>& cluster : to_add) {
                     chain_clusters.read_cluster_heads.emplace(cluster.first);
@@ -2393,14 +2398,16 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
                 //Add the cluster to the chain
                 chain_clusters.read_cluster_heads.emplace(read_num, cluster_num);
 
+                //Update the best distances on the chain
                 if (!found_first_node) {
                     chain_clusters.fragment_best_left = std::min(chain_clusters.fragment_best_left, current_child_seed.distance_left);
                 }
                 if (!found_first_node_by_read[read_num]) {
                     chain_clusters.read_best_left[read_num] = std::min(chain_clusters.read_best_left[read_num], current_child_seed.distance_left);
                 }
-                chain_clusters.fragment_best_right = std::min(chain_clusters.fragment_best_right, current_child_seed.distance_right);
-                chain_clusters.read_best_right[read_num] = std::min(chain_clusters.read_best_right[read_num], current_child_seed.distance_right);
+                //Since this child is a seed on a node, it's right distance will be the best one for the chain so far
+                chain_clusters.fragment_best_right = current_child_seed.distance_right;
+                chain_clusters.read_best_right[read_num] = current_child_seed.distance_right;
 
                 //Also update the best right distances to the end of this node
                 for (size_t chain_read_num = 0 ; chain_read_num < chain_clusters.read_best_right.size() ; chain_read_num++) {
