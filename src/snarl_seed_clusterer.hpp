@@ -395,6 +395,14 @@ class NewSnarlSeedClusterer {
         //If the children of the chain are only seeds on nodes, then cluster as if it is a node
         void cluster_one_chain(TreeState& tree_state, size_t chain_clusters_index, vector<tuple<net_handle_t, size_t, size_t>>& children_in_chain, bool only_seeds) const;
 
+        //Helper function for adding the next seed to the chain clusters
+        void add_seed_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
+                                        std::tuple<net_handle_t, size_t, size_t>& last_child, net_handle_t& last_child_handle, 
+                                        size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, 
+                                        vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>& cluster_heads_to_add_again,
+                                        bool& found_first_node, vector<bool>& found_first_node_by_read,
+                                        tuple<net_handle_t, size_t, size_t>& current_child_indices, bool is_first_child, bool is_last_child) const;
+
         //Cluster in the root 
         void cluster_root(TreeState& tree_state) const;
 

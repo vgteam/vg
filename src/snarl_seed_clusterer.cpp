@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#define DEBUG_CLUSTER
+//#define DEBUG_CLUSTER
 namespace vg {
 
 NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance_index, const HandleGraph* graph) :
@@ -852,11 +852,6 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
             distance_right_left == std::numeric_limits<size_t>::max()) {
             return;
         }
-
-        child_clusters1.distance_start_left = std::numeric_limits<size_t>::max();
-        child_clusters1.distance_start_right = std::numeric_limits<size_t>::max();
-        child_clusters1.distance_end_left = std::numeric_limits<size_t>::max();
-        child_clusters1.distance_end_right = std::numeric_limits<size_t>::max();
 
     } else if (get_distances_to_parent) {
         child_clusters1.distance_start_left = 
@@ -1784,7 +1779,7 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
     //Get a vector of all the children in the chain
     
     //The last node we saw is initialized to the first node in the chain
-    std::tuple<net_handle_t, size_t, size_t>& last_child = children_in_chain.front();
+    std::tuple<net_handle_t, size_t, size_t> last_child = children_in_chain.front();
     net_handle_t last_child_handle = std::get<0>(last_child);
     //And values we need to save from the last child
     //If the last child is a snarl, get it from the NodeClusters otherwise from the seed's cache
@@ -2224,288 +2219,9 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
 #ifdef DEBUG_CLUSTER
             cerr << "At child seed " << tree_state.all_seeds->at(std::get<1>(child_clusters_i))->at(std::get<2>(child_clusters_i)).pos << endl;
 #endif
-            size_t read_num = std::get<1>(child_clusters_i);
-            size_t cluster_num = std::get<2>(child_clusters_i);
-            Seed& current_child_seed = tree_state.all_seeds->at(read_num)->at(cluster_num);
-            /*
-            Get a bunch of distances from the current child that will be used to calculate distance
-            from the last child
-            */
-
-            //The distance from the right side of the last child to the left side of this child 
-            //(relative to the orientation of the chain
-            //If this is a looping chain, then find the distance normally. Otherwise use the prefix sums
-            size_t distance_from_last_child_to_current_child = std::numeric_limits<size_t>::max();
-            if (i!=0) {
-                //If this isn't the first child we're looking at
-                if (last_child_handle == child_handle) {
-                    distance_from_last_child_to_current_child = 0; 
-                } else if (chain_clusters.is_looping_chain ) {
-                    distance_from_last_child_to_current_child = 
-                        distance_index.distance_in_parent(chain_handle, 
-                            (distance_index.is_reversed_in_parent(last_child_handle) 
-                                    ? distance_index.flip(last_child_handle) 
-                                    : last_child_handle),
-                            (distance_index.is_reversed_in_parent(child_handle) 
-                                    ? child_handle 
-                                    : distance_index.flip(child_handle)));
-                } else if ( last_chain_component_end == std::get<3>(current_child_seed.minimizer_cache)) {
-                    //If this child is in the same component as the last one
-                    if (last_length == std::numeric_limits<size_t>::max() && last_chain_component_end ) {
-                        //If the last length is infinite, then is must be a snarl that is not start-end reachable, so the distance
-                        //from the last child is the same as the distance from the start of the chain (the start of this compnent)
-                        distance_from_last_child_to_current_child = std::get<2>(current_child_seed.minimizer_cache);//prefix sum value
-                    } else {
-                        size_t distance_from_chain_start_to_last_node = SnarlDistanceIndex::sum({last_prefix_sum,last_length});
-
-                        //Distance is the current node's prefix sum minus the distance from the start of the chain to the last node
-                        distance_from_last_child_to_current_child = SnarlDistanceIndex::minus(std::get<2>(current_child_seed.minimizer_cache), 
-                                                        distance_from_chain_start_to_last_node); 
-                    }
-                }
-            }
-
-
-            //The distance from the right side of the last child to the right side of this child, which is
-            //the distance we need to update the chain clusters to the end of this child
-            //This isn't quite right for the first thing in the chain but it doesn't matter because it only
-            //gets added to chain clusters
-            //IF it gets calculated, then it's the distance from the last child to this node + the length
-            //of this node (the first value in the cache)
-            size_t distance_from_last_child_to_current_end = 
-                    distance_from_last_child_to_current_child == std::numeric_limits<size_t>::max() 
-                            ? std::numeric_limits<size_t>::max() : 
-                    (last_child_handle == child_handle ? 0 
-                        : SnarlDistanceIndex::sum({distance_from_last_child_to_current_child, std::get<0>(current_child_seed.minimizer_cache)}));
-
-            //The distance to add to get to the end of the chain. Only matters if this is the last thing in the chain
-            //The distances will include the distance to the end of a trivial chain,
-            //so we can't rely on distance_in_parent to know when the distance should be 0
-
-            size_t distance_from_current_end_to_end_of_chain;
-            if (i != children_in_chain.size() - 1) {
-                //If this isn't the last child in the chain, then we only want the distance to the end of the current child
-
-                distance_from_current_end_to_end_of_chain = 0;
-            } else if (SnarlDistanceIndex::get_record_offset(child_handle) == SnarlDistanceIndex::get_record_offset(chain_clusters.end_in)) {
-                //If this is the last node in the chain
-                if (SnarlDistanceIndex::get_record_offset(child_handle) == SnarlDistanceIndex::get_record_offset(chain_clusters.end_in) && 
-                        chain_clusters.chain_last_component != std::get<3>(current_child_seed.minimizer_cache)) { 
-                    //If they aren't in the same component
-                    distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
-                } else {
-                    distance_from_current_end_to_end_of_chain = 0;
-                }
-            } else if (chain_clusters.is_looping_chain) {
-                //If it's a looping chain then use the distance index
-                distance_from_current_end_to_end_of_chain = distance_index.distance_in_parent(chain_handle, chain_clusters.end_in, 
-                        (distance_index.is_reversed_in_parent(child_handle) ? distance_index.flip(child_handle) : child_handle));
-            } else if (chain_clusters.chain_last_component != std::get<3>(current_child_seed.minimizer_cache)) { 
-                //If they aren't in the same component
-                distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
-            } else {
-
-                //Length of the chain - (prefix sum + node length of the current node)
-                distance_from_current_end_to_end_of_chain = SnarlDistanceIndex::minus(chain_clusters.node_length, 
-                            SnarlDistanceIndex::sum({std::get<2>(current_child_seed.minimizer_cache), 
-                                                                 std::get<0>(current_child_seed.minimizer_cache)}));
-
-            }
-
-#ifdef DEBUG_CLUSTER
-cerr << "\tDistance from last child to this one: " << distance_from_last_child_to_current_child << endl;
-cerr << "\tDistance from start of chain to the left side of this one: " << (std::get<3>(current_child_seed.minimizer_cache) != 0 ? std::numeric_limits<size_t>::max() : std::get<2>(current_child_seed.minimizer_cache)) << endl;
-cerr << "\tDistance from the last child to the right side of this one: " << distance_from_last_child_to_current_end << endl;
-cerr << "\tDistance to get to the end of the chain: " << distance_from_current_end_to_end_of_chain << endl;
-#endif
-
-
-            if (last_child_handle != child_handle &&
-                SnarlDistanceIndex::sum({distance_from_last_child_to_current_child, chain_clusters.fragment_best_right}) 
-                  > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)) {
-#ifdef DEBUG_CLUSTER
-                cerr << "This child is too far away from the last one to cluster anything" << endl;
-#endif
-                //If the distance from the last cluster is too far to cluster anything
-                for (auto& cluster_head : chain_clusters.read_cluster_heads) {
-                    //For each of the chain clusters, remember the ones that are still reachable from the left side of the chain
-                    pair<size_t, size_t> dists (tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_left,
-                                                tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_right);
-                    if (dists.first <= (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)) {
-                        //If this cluster can be clustered outside of the chain, remember to add it back
-                        cluster_heads_to_add_again.emplace_back(cluster_head, 
-                                    make_pair(dists.first, std::numeric_limits<size_t>::max()));
-                    }
-                }
-
-                //Now clear the chain's list of clusters
-                chain_clusters.read_cluster_heads.clear();
-                
-
-                //Update the distances stored in the seed to reach the ends of the chain
-                //The distance left and right of the seed are currently oriented relative to the chain
-
-                //The current left distance is infinite if it is not in the first component of a multicomponent chain
-                if (std::get<3>(current_child_seed.minimizer_cache) != 0) {
-                    //If this node isn't in the first component of the chain
-                    current_child_seed.distance_left = std::numeric_limits<size_t>::max();
-                } else {
-                    //Prefix sum + offset of the seed in the node
-                    current_child_seed.distance_left = SnarlDistanceIndex::sum({current_child_seed.distance_left, 
-                                                                                std::get<2>(current_child_seed.minimizer_cache)});
-                }
-                current_child_seed.distance_right = SnarlDistanceIndex::sum({current_child_seed.distance_right, 
-                                                               distance_from_current_end_to_end_of_chain});
-
-                //Add the cluster to the chain
-                chain_clusters.read_cluster_heads.emplace(read_num, cluster_num);
-
-                //Update the best distances on the chain
-                if (!found_first_node) {
-                    chain_clusters.fragment_best_left = std::min(chain_clusters.fragment_best_left, current_child_seed.distance_left);
-                }
-                if (!found_first_node_by_read[read_num]) {
-                    chain_clusters.read_best_left[read_num] = std::min(chain_clusters.read_best_left[read_num], current_child_seed.distance_left);
-                }
-                //Since this child is a seed on a node, it's right distance will be the best one for the chain so far
-                chain_clusters.fragment_best_right = current_child_seed.distance_right;
-                chain_clusters.read_best_right[read_num] = current_child_seed.distance_right;
-
-                //Also update the best right distances to the end of this node
-                for (size_t chain_read_num = 0 ; chain_read_num < chain_clusters.read_best_right.size() ; chain_read_num++) {
-                    if (chain_read_num != read_num) {
-                        chain_clusters.read_best_right[chain_read_num] = SnarlDistanceIndex::sum({chain_clusters.read_best_right[chain_read_num],
-                                                                                                 distance_from_last_child_to_current_end,
-                                                                                                  distance_from_current_end_to_end_of_chain});
-                    }
-                }
-
-            } else {
-                //Otherwise, check to see if anything on the current child can be combined with 
-                //anything in the chain thus far
-
-                //The new distances from this child to the start of the chain and the end of this child (or the end of the chain if it's the last child)
-                //Left distance is the prefix sum (or inf if the node isn't in the first component of the chain) + offset of seed in node
-                //Right distance is the right offst of the seed in the node + the distance from the end of the node to the end of the chain 
-                // (or 0 if it isn't the last thing in the chain)
-                pair<size_t, size_t> new_distances = make_pair(
-                        SnarlDistanceIndex::sum({current_child_seed.distance_left, 
-                                std::get<3>(current_child_seed.minimizer_cache) != 0 ? std::numeric_limits<size_t>::max() 
-                                                                                     : std::get<2>(current_child_seed.minimizer_cache)}),
-                        SnarlDistanceIndex::sum({current_child_seed.distance_right, distance_from_current_end_to_end_of_chain})); 
-
-
-                //Cluster heads to remove because they got combined with the current seed
-                vector<pair<size_t, size_t>> to_remove;
-                //And the new cluster containing the current seed, and possibly anything that gets combined with it
-                pair<pair<size_t, size_t>, pair<size_t, size_t>> new_cluster (make_pair(read_num, cluster_num), new_distances);
-
-                /**Go through the clusters on the chain up to this point and see if anything can
-                be combined with the clusters on the child
-                Also update the distances of the chain clusters to reach the end of this node
-                */
-                for (auto& chain_cluster_head : chain_clusters.read_cluster_heads) {
-                    //Each has distances up to the previous node
-
-                    const size_t chain_cluster_read_num = chain_cluster_head.first;
-                    const size_t chain_cluster_cluster_num = chain_cluster_head.second;
-
-                    //The distances of the chain cluster
-                    pair<size_t, size_t> chain_cluster_distances (tree_state.all_seeds->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_left,
-                                                tree_state.all_seeds->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_right);
-
-
-                    //The distance between the current seed and the current chain cluster
-                    size_t distance_between = SnarlDistanceIndex::minus(
-                            SnarlDistanceIndex::sum({chain_cluster_distances.second, 
-                                                     distance_from_last_child_to_current_child, 
-                                                     current_child_seed.distance_left}),
-                            1);
-                    if (i!=0 && last_child_handle == child_handle) {
-                        //If the last child was the same as this child (seeds on the same node), 
-                        //then the distances right are including the current node, so subtract
-                        //the length of this node
-                        distance_between -= std::get<0>(current_child_seed.minimizer_cache);
-                    }
-                    //The new distances for the chain cluster, reaching the end of this node
-                    pair<size_t, size_t> new_chain_cluster_distances = make_pair(
-                        chain_cluster_distances.first,
-                        SnarlDistanceIndex::sum({chain_cluster_distances.second, 
-                                                 distance_from_last_child_to_current_end,
-                                                 distance_from_current_end_to_end_of_chain}));
-
-#ifdef DEBUG_CLUSTER
-                    cerr << "\t\tCombine this seed " << read_num << ":" << cluster_num << endl;
-#endif
-
-                             
-                    if (chain_cluster_read_num == read_num && distance_between <= tree_state.read_distance_limit) {
-#ifdef DEBUG_CLUSTER
-                        cerr << "\t\tCombine chain cluster " << read_num << ":" << chain_cluster_cluster_num << endl;
-#endif
-                        //Union the two clusters
-                        size_t new_cluster_num = tree_state.read_union_find.at(read_num).union_groups(chain_cluster_cluster_num, cluster_num);
-                        //Find the best distances of the two. The best right distance will always be the current seed's distance
-                        size_t new_best_left= std::min(new_cluster.second.first, new_chain_cluster_distances.first);
-                        //And remember the new combined cluster head
-                        new_cluster = make_pair(make_pair(read_num, new_cluster_num),
-                                                       make_pair(new_best_left, new_cluster.second.second)); 
-                        to_remove.emplace_back(chain_cluster_read_num, chain_cluster_cluster_num);
-
-                    } else {
-                        //If this chain cluster doesn't get combined, then we keep it in the chain clusters but update its right distances
-                        tree_state.all_seeds->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_right = new_chain_cluster_distances.second;
-                    }
-                        
-                    if (tree_state.fragment_distance_limit != 0 && distance_between <= tree_state.fragment_distance_limit) {
-                        //If we can union the fragments
-                        tree_state.fragment_union_find.union_groups(cluster_num + tree_state.seed_count_prefix_sum[read_num], 
-                                    chain_cluster_cluster_num + tree_state.seed_count_prefix_sum[chain_cluster_read_num]);
-                    }
-                }
-
-                //Remove all chain clusters that got combined with the current seed
-                for (pair<size_t, size_t>& cluster_head : to_remove) {
-                    chain_clusters.read_cluster_heads.erase(cluster_head);
-                }
-
-                //Add the cluster of the current seed which may or may not have been combined
-                chain_clusters.read_cluster_heads.emplace(new_cluster.first);
-                tree_state.all_seeds->at(new_cluster.first.first)->at(new_cluster.first.second).distance_left = new_cluster.second.first;
-                tree_state.all_seeds->at(new_cluster.first.first)->at(new_cluster.first.second).distance_right = new_cluster.second.second;
-
-
-                //Update the best distances
-                //Only update the left distances if we haven't seen a node in the chain yet
-                if (!found_first_node) {
-                    chain_clusters.fragment_best_left = std::min(chain_clusters.fragment_best_left, new_distances.first);
-                }
-                if (!found_first_node_by_read[read_num]){
-                    chain_clusters.read_best_left[read_num] = std::min(chain_clusters.read_best_left[read_num], new_distances.first);
-                }
-                //Since this is a node, the best right distance will be this distance
-                chain_clusters.fragment_best_right = new_distances.second; 
-                chain_clusters.read_best_right[read_num] = new_distances.second;
-                //Also update the best right distances to the end of this node
-                for (size_t chain_read_num = 0 ; chain_read_num < chain_clusters.read_best_right.size() ; chain_read_num++) {
-                    if (chain_read_num != read_num) {
-                        chain_clusters.read_best_right[chain_read_num] = SnarlDistanceIndex::sum({chain_clusters.read_best_right[chain_read_num],
-                                                                                                 distance_from_last_child_to_current_end,
-                                                                                                  distance_from_current_end_to_end_of_chain});
-                    }
-                }
-            }
-
-            found_first_node = true;
-            found_first_node_by_read[read_num] = true;
-            
-
-            //Update the last node we saw to this one
-            last_child = child_clusters_i;
-            last_child_handle = child_handle;
-            last_prefix_sum = std::get<2>(current_child_seed.minimizer_cache);//The prefix sum of this node
-            last_length = std::get<0>(current_child_seed.minimizer_cache); //The length of this node
-            last_chain_component_end = std::get<3>(current_child_seed.minimizer_cache);//The chain component of this node
+            add_seed_to_chain_clusters(tree_state, chain_clusters, last_child, last_child_handle, last_prefix_sum, last_length,
+                                       last_chain_component_end, cluster_heads_to_add_again, found_first_node, found_first_node_by_read,
+                                       child_clusters_i, i==0, i == children_in_chain.size()-1);
         }
 
 #ifdef DEBUG_CLUSTER
@@ -2697,6 +2413,298 @@ cerr << "\tDistance to get to the end of the chain: " << distance_from_current_e
         //assert (group_id.first.second == tree_state.read_union_find[group_id.first.first].find_group(group_id.first.second));
     }
 #endif
+}
+void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
+                                std::tuple<net_handle_t, size_t, size_t>& last_child, net_handle_t& last_child_handle, 
+                                size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end,
+                                vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>& cluster_heads_to_add_again,
+                                bool& found_first_node, vector<bool>& found_first_node_by_read,
+                                tuple<net_handle_t, size_t, size_t>& current_child_indices, bool is_first_child, bool is_last_child) const {
+    net_handle_t& child_handle = std::get<0>(current_child_indices);
+    size_t read_num = std::get<1>(current_child_indices);
+    size_t cluster_num = std::get<2>(current_child_indices);
+    net_handle_t& chain_handle = chain_clusters.containing_net_handle;
+    Seed& current_child_seed = tree_state.all_seeds->at(read_num)->at(cluster_num);
+    /*
+    Get a bunch of distances from the current child that will be used to calculate distance
+    from the last child
+    */
+    
+    //The distance from the right side of the last child to the left side of this child 
+    //(relative to the orientation of the chain
+    //If this is a looping chain, then find the distance normally. Otherwise use the prefix sums
+    size_t distance_from_last_child_to_current_child = std::numeric_limits<size_t>::max();
+    if (!is_first_child) {
+        //If this isn't the first child we're looking at
+        if (last_child_handle == child_handle) {
+            distance_from_last_child_to_current_child = 0; 
+        } else if (chain_clusters.is_looping_chain ) {
+            distance_from_last_child_to_current_child = 
+                distance_index.distance_in_parent(chain_handle, 
+                    (distance_index.is_reversed_in_parent(last_child_handle) 
+                            ? distance_index.flip(last_child_handle) 
+                            : last_child_handle),
+                    (distance_index.is_reversed_in_parent(child_handle) 
+                            ? child_handle 
+                            : distance_index.flip(child_handle)));
+        } else if ( last_chain_component_end == std::get<3>(current_child_seed.minimizer_cache)) {
+            //If this child is in the same component as the last one
+            if (last_length == std::numeric_limits<size_t>::max() && last_chain_component_end ) {
+                //If the last length is infinite, then is must be a snarl that is not start-end reachable, so the distance
+                //from the last child is the same as the distance from the start of the chain (the start of this compnent)
+                distance_from_last_child_to_current_child = std::get<2>(current_child_seed.minimizer_cache);//prefix sum value
+            } else {
+                size_t distance_from_chain_start_to_last_node = SnarlDistanceIndex::sum({last_prefix_sum,last_length});
+    
+                //Distance is the current node's prefix sum minus the distance from the start of the chain to the last node
+                distance_from_last_child_to_current_child = SnarlDistanceIndex::minus(std::get<2>(current_child_seed.minimizer_cache), 
+                                                distance_from_chain_start_to_last_node); 
+            }
+        }
+    }
+    
+    
+    //The distance from the right side of the last child to the right side of this child, which is
+    //the distance we need to update the chain clusters to the end of this child
+    //This isn't quite right for the first thing in the chain but it doesn't matter because it only
+    //gets added to chain clusters
+    //IF it gets calculated, then it's the distance from the last child to this node + the length
+    //of this node (the first value in the cache)
+    size_t distance_from_last_child_to_current_end = 
+            distance_from_last_child_to_current_child == std::numeric_limits<size_t>::max() 
+                    ? std::numeric_limits<size_t>::max() : 
+            (last_child_handle == child_handle ? 0 
+                : SnarlDistanceIndex::sum({distance_from_last_child_to_current_child, std::get<0>(current_child_seed.minimizer_cache)}));
+    
+    //The distance to add to get to the end of the chain. Only matters if this is the last thing in the chain
+    //The distances will include the distance to the end of a trivial chain,
+    //so we can't rely on distance_in_parent to know when the distance should be 0
+    
+    size_t distance_from_current_end_to_end_of_chain;
+    if (!is_last_child) {
+        //If this isn't the last child in the chain, then we only want the distance to the end of the current child
+    
+        distance_from_current_end_to_end_of_chain = 0;
+    } else if (SnarlDistanceIndex::get_record_offset(child_handle) == SnarlDistanceIndex::get_record_offset(chain_clusters.end_in)) {
+        //If this is the last node in the chain
+        if (SnarlDistanceIndex::get_record_offset(child_handle) == SnarlDistanceIndex::get_record_offset(chain_clusters.end_in) && 
+                chain_clusters.chain_last_component != std::get<3>(current_child_seed.minimizer_cache)) { 
+            //If they aren't in the same component
+            distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
+        } else {
+            distance_from_current_end_to_end_of_chain = 0;
+        }
+    } else if (chain_clusters.is_looping_chain) {
+        //If it's a looping chain then use the distance index
+        distance_from_current_end_to_end_of_chain = distance_index.distance_in_parent(chain_handle, chain_clusters.end_in, 
+                (distance_index.is_reversed_in_parent(child_handle) ? distance_index.flip(child_handle) : child_handle));
+    } else if (chain_clusters.chain_last_component != std::get<3>(current_child_seed.minimizer_cache)) { 
+        //If they aren't in the same component
+        distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
+    } else {
+    
+        //Length of the chain - (prefix sum + node length of the current node)
+        distance_from_current_end_to_end_of_chain = SnarlDistanceIndex::minus(chain_clusters.node_length, 
+                    SnarlDistanceIndex::sum({std::get<2>(current_child_seed.minimizer_cache), 
+                                                         std::get<0>(current_child_seed.minimizer_cache)}));
+    
+    }
+
+#ifdef DEBUG_CLUSTER
+    cerr << "\tDistance from last child to this one: " << distance_from_last_child_to_current_child << endl;
+    cerr << "\tDistance from start of chain to the left side of this one: " << (std::get<3>(current_child_seed.minimizer_cache) != 0 ? std::numeric_limits<size_t>::max() : std::get<2>(current_child_seed.minimizer_cache)) << endl;
+    cerr << "\tDistance from the last child to the right side of this one: " << distance_from_last_child_to_current_end << endl;
+    cerr << "\tDistance to get to the end of the chain: " << distance_from_current_end_to_end_of_chain << endl;
+#endif
+
+
+    if (last_child_handle != child_handle &&
+        SnarlDistanceIndex::sum({distance_from_last_child_to_current_child, chain_clusters.fragment_best_right}) 
+          > (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)) {
+#ifdef DEBUG_CLUSTER
+            cerr << "This child is too far away from the last one to cluster anything" << endl;
+#endif
+        //If the distance from the last cluster is too far to cluster anything
+        for (auto& cluster_head : chain_clusters.read_cluster_heads) {
+            //For each of the chain clusters, remember the ones that are still reachable from the left side of the chain
+            pair<size_t, size_t> dists (tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_left,
+                                        tree_state.all_seeds->at(cluster_head.first)->at(cluster_head.second).distance_right);
+            if (dists.first <= (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)) {
+                //If this cluster can be clustered outside of the chain, remember to add it back
+                cluster_heads_to_add_again.emplace_back(cluster_head, 
+                            make_pair(dists.first, std::numeric_limits<size_t>::max()));
+            }
+        }
+    
+        //Now clear the chain's list of clusters
+        chain_clusters.read_cluster_heads.clear();
+        
+    
+        //Update the distances stored in the seed to reach the ends of the chain
+        //The distance left and right of the seed are currently oriented relative to the chain
+    
+        //The current left distance is infinite if it is not in the first component of a multicomponent chain
+        if (std::get<3>(current_child_seed.minimizer_cache) != 0) {
+            //If this node isn't in the first component of the chain
+            current_child_seed.distance_left = std::numeric_limits<size_t>::max();
+        } else {
+            //Prefix sum + offset of the seed in the node
+            current_child_seed.distance_left = SnarlDistanceIndex::sum({current_child_seed.distance_left, 
+                                                                        std::get<2>(current_child_seed.minimizer_cache)});
+        }
+        current_child_seed.distance_right = SnarlDistanceIndex::sum({current_child_seed.distance_right, 
+                                                       distance_from_current_end_to_end_of_chain});
+    
+        //Add the cluster to the chain
+        chain_clusters.read_cluster_heads.emplace(read_num, cluster_num);
+    
+        //Update the best distances on the chain
+        if (!found_first_node) {
+            chain_clusters.fragment_best_left = std::min(chain_clusters.fragment_best_left, current_child_seed.distance_left);
+        }
+        if (!found_first_node_by_read[read_num]) {
+            chain_clusters.read_best_left[read_num] = std::min(chain_clusters.read_best_left[read_num], current_child_seed.distance_left);
+        }
+        //Since this child is a seed on a node, it's right distance will be the best one for the chain so far
+        chain_clusters.fragment_best_right = current_child_seed.distance_right;
+        chain_clusters.read_best_right[read_num] = current_child_seed.distance_right;
+    
+        //Also update the best right distances to the end of this node
+        for (size_t chain_read_num = 0 ; chain_read_num < chain_clusters.read_best_right.size() ; chain_read_num++) {
+            if (chain_read_num != read_num) {
+                chain_clusters.read_best_right[chain_read_num] = SnarlDistanceIndex::sum({chain_clusters.read_best_right[chain_read_num],
+                                                                                         distance_from_last_child_to_current_end,
+                                                                                          distance_from_current_end_to_end_of_chain});
+            }
+        }
+    
+    } else {
+        //Otherwise, check to see if anything on the current child can be combined with 
+        //anything in the chain thus far
+    
+        //The new distances from this child to the start of the chain and the end of this child (or the end of the chain if it's the last child)
+        //Left distance is the prefix sum (or inf if the node isn't in the first component of the chain) + offset of seed in node
+        //Right distance is the right offst of the seed in the node + the distance from the end of the node to the end of the chain 
+        // (or 0 if it isn't the last thing in the chain)
+        pair<size_t, size_t> new_distances = make_pair(
+                SnarlDistanceIndex::sum({current_child_seed.distance_left, 
+                        std::get<3>(current_child_seed.minimizer_cache) != 0 ? std::numeric_limits<size_t>::max() 
+                                                                             : std::get<2>(current_child_seed.minimizer_cache)}),
+                SnarlDistanceIndex::sum({current_child_seed.distance_right, distance_from_current_end_to_end_of_chain})); 
+    
+    
+        //Cluster heads to remove because they got combined with the current seed
+        vector<pair<size_t, size_t>> to_remove;
+        //And the new cluster containing the current seed, and possibly anything that gets combined with it
+        pair<pair<size_t, size_t>, pair<size_t, size_t>> new_cluster (make_pair(read_num, cluster_num), new_distances);
+    
+        /**Go through the clusters on the chain up to this point and see if anything can
+        be combined with the clusters on the child
+        Also update the distances of the chain clusters to reach the end of this node
+        */
+        for (auto& chain_cluster_head : chain_clusters.read_cluster_heads) {
+            //Each has distances up to the previous node
+    
+            const size_t chain_cluster_read_num = chain_cluster_head.first;
+            const size_t chain_cluster_cluster_num = chain_cluster_head.second;
+    
+            //The distances of the chain cluster
+            pair<size_t, size_t> chain_cluster_distances (tree_state.all_seeds->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_left,
+                                        tree_state.all_seeds->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_right);
+    
+    
+            //The distance between the current seed and the current chain cluster
+            size_t distance_between = SnarlDistanceIndex::minus(
+                    SnarlDistanceIndex::sum({chain_cluster_distances.second, 
+                                             distance_from_last_child_to_current_child, 
+                                             current_child_seed.distance_left}),
+                    1);
+            if (!is_first_child && last_child_handle == child_handle) {
+                //If the last child was the same as this child (seeds on the same node), 
+                //then the distances right are including the current node, so subtract
+                //the length of this node
+                distance_between -= std::get<0>(current_child_seed.minimizer_cache);
+            }
+            //The new distances for the chain cluster, reaching the end of this node
+            pair<size_t, size_t> new_chain_cluster_distances = make_pair(
+                chain_cluster_distances.first,
+                SnarlDistanceIndex::sum({chain_cluster_distances.second, 
+                                         distance_from_last_child_to_current_end,
+                                         distance_from_current_end_to_end_of_chain}));
+
+#ifdef DEBUG_CLUSTER
+            cerr << "\t\tCombine this seed " << read_num << ":" << cluster_num << endl;
+#endif
+
+                             
+            if (chain_cluster_read_num == read_num && distance_between <= tree_state.read_distance_limit) {
+#ifdef DEBUG_CLUSTER
+                        cerr << "\t\tCombine chain cluster " << read_num << ":" << chain_cluster_cluster_num << endl;
+#endif
+                //Union the two clusters
+                size_t new_cluster_num = tree_state.read_union_find.at(read_num).union_groups(chain_cluster_cluster_num, cluster_num);
+                //Find the best distances of the two. The best right distance will always be the current seed's distance
+                size_t new_best_left= std::min(new_cluster.second.first, new_chain_cluster_distances.first);
+                //And remember the new combined cluster head
+                new_cluster = make_pair(make_pair(read_num, new_cluster_num),
+                                               make_pair(new_best_left, new_cluster.second.second)); 
+                to_remove.emplace_back(chain_cluster_read_num, chain_cluster_cluster_num);
+    
+            } else {
+                //If this chain cluster doesn't get combined, then we keep it in the chain clusters but update its right distances
+                tree_state.all_seeds->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_right = new_chain_cluster_distances.second;
+            }
+                
+            if (tree_state.fragment_distance_limit != 0 && distance_between <= tree_state.fragment_distance_limit) {
+                //If we can union the fragments
+                tree_state.fragment_union_find.union_groups(cluster_num + tree_state.seed_count_prefix_sum[read_num], 
+                            chain_cluster_cluster_num + tree_state.seed_count_prefix_sum[chain_cluster_read_num]);
+            }
+        }
+    
+        //Remove all chain clusters that got combined with the current seed
+        for (pair<size_t, size_t>& cluster_head : to_remove) {
+            chain_clusters.read_cluster_heads.erase(cluster_head);
+        }
+    
+        //Add the cluster of the current seed which may or may not have been combined
+        chain_clusters.read_cluster_heads.emplace(new_cluster.first);
+        tree_state.all_seeds->at(new_cluster.first.first)->at(new_cluster.first.second).distance_left = new_cluster.second.first;
+        tree_state.all_seeds->at(new_cluster.first.first)->at(new_cluster.first.second).distance_right = new_cluster.second.second;
+    
+    
+        //Update the best distances
+        //Only update the left distances if we haven't seen a node in the chain yet
+        if (!found_first_node) {
+            chain_clusters.fragment_best_left = std::min(chain_clusters.fragment_best_left, new_distances.first);
+        }
+        if (!found_first_node_by_read[read_num]){
+            chain_clusters.read_best_left[read_num] = std::min(chain_clusters.read_best_left[read_num], new_distances.first);
+        }
+        //Since this is a node, the best right distance will be this distance
+        chain_clusters.fragment_best_right = new_distances.second; 
+        chain_clusters.read_best_right[read_num] = new_distances.second;
+        //Also update the best right distances to the end of this node
+        for (size_t chain_read_num = 0 ; chain_read_num < chain_clusters.read_best_right.size() ; chain_read_num++) {
+            if (chain_read_num != read_num) {
+                chain_clusters.read_best_right[chain_read_num] = SnarlDistanceIndex::sum({chain_clusters.read_best_right[chain_read_num],
+                                                                                         distance_from_last_child_to_current_end,
+                                                                                          distance_from_current_end_to_end_of_chain});
+            }
+        }
+    }
+    
+    found_first_node = true;
+    found_first_node_by_read[read_num] = true;
+    
+    
+    //Update the last node we saw to this one
+    last_child = current_child_indices;
+    last_child_handle = child_handle;
+    last_prefix_sum = std::get<2>(current_child_seed.minimizer_cache);//The prefix sum of this node
+    last_length = std::get<0>(current_child_seed.minimizer_cache); //The length of this node
+    last_chain_component_end = std::get<3>(current_child_seed.minimizer_cache);//The chain component of this node
+
 }
 
 //Cluster the root
