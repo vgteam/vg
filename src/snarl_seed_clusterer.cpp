@@ -819,7 +819,7 @@ void NewSnarlSeedClusterer::cluster_one_node(
 //TODO: Make sure to add the first child's clusters to the parent before looking at pairs and calling this
 void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(TreeState& tree_state, NodeClusters& child_clusters1, 
     NodeClusters& child_clusters2, NodeClusters& parent_clusters, 
-    const vector<pair<size_t, size_t>> & child_distances, bool is_root, bool get_distances_to_parent) const {
+    const vector<pair<size_t, size_t>> & child_distances, bool is_root, bool first_child) const {
 #ifdef DEBUG_CLUSTER
     cerr << "\tCompare " << distance_index.net_handle_as_string(child_clusters1.containing_net_handle) 
          << " and " << distance_index.net_handle_as_string(child_clusters2.containing_net_handle)
@@ -853,7 +853,9 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
             return;
         }
 
-    } else if (get_distances_to_parent) {
+    } else if (first_child) {
+        //If this is a child of a snarl and the first time we see the first child, then we want to remember the distances
+        //to the bounds of the snarl
         child_clusters1.distance_start_left = 
             distance_index.distance_in_parent(parent_handle, distance_index.get_bound(parent_handle, false, true), distance_index.flip(child_handle1));
 
@@ -1030,8 +1032,7 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
         bool reachable_right = distances_to_parent.second <= 
             (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit);
         //If this cluster wasn't combined and hasn't been seen before and its reachable from other clusters, add it to the parent
-        if (!combined && parent_clusters.read_cluster_heads.count(make_pair(read_num, cluster_num)) == 0 &&
-            (reachable_left || reachable_right)) {
+        if (first_child && !combined && (reachable_left || reachable_right)) {
             parent_clusters.read_cluster_heads.emplace(read_num, cluster_num);
             tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left = distances_to_parent.first;
             tree_state.all_seeds->at(read_num)->at(cluster_num).distance_right = distances_to_parent.second;
