@@ -1024,19 +1024,17 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
             SnarlDistanceIndex::sum({distances.second,distance_right_left, child_clusters2.fragment_best_left}), 
             distances_to_parent, new_cluster_right_left_by_read[read_num], new_cluster_right_left_fragment);
 
-        size_t cluster_head = tree_state.read_union_find[read_num].find_group(cluster_num); 
-
         //Is the distance small enough that we can cluster it with something else?
         bool reachable_left = distances_to_parent.first <= 
             (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit);
         bool reachable_right = distances_to_parent.second <= 
             (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit);
         //If this cluster wasn't combined and hasn't been seen before and its reachable from other clusters, add it to the parent
-        if (!combined && parent_clusters.read_cluster_heads.count(make_pair(read_num, cluster_head)) == 0 &&
+        if (!combined && parent_clusters.read_cluster_heads.count(make_pair(read_num, cluster_num)) == 0 &&
             (reachable_left || reachable_right)) {
-            parent_clusters.read_cluster_heads.emplace(read_num, cluster_head);
-            tree_state.all_seeds->at(read_num)->at(cluster_head).distance_left = distances_to_parent.first;
-            tree_state.all_seeds->at(read_num)->at(cluster_head).distance_right = distances_to_parent.second;
+            parent_clusters.read_cluster_heads.emplace(read_num, cluster_num);
+            tree_state.all_seeds->at(read_num)->at(cluster_num).distance_left = distances_to_parent.first;
+            tree_state.all_seeds->at(read_num)->at(cluster_num).distance_right = distances_to_parent.second;
         }
     }
 
@@ -1090,7 +1088,6 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
     //remove cluster heads that got combined with new ones
     for (pair<size_t, size_t>& cluster_head : to_erase) {
         parent_clusters.read_cluster_heads.erase(cluster_head);
-        //tree_state.read_cluster_heads_to_distances[tree_state.seed_count_prefix_sum[cluster_head.first]+cluster_head.scond] =std::numeric_limits<size_t>::max();
     }
 
     //And add back in the new cluster heads
@@ -1111,13 +1108,12 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
 
             if ((reachable_left || reachable_right) &&
                 new_cluster_left_left_by_read.at(read_num).first.second == 
-                    tree_state.read_union_find[read_num].find_group(new_cluster_left_left_by_read.at(read_num).first.second)) {
+                    new_cluster_left_left_by_read.at(read_num).first.second) {
                 parent_clusters.read_cluster_heads.emplace(new_cluster_left_left_by_read.at(read_num).first);
                 tree_state.all_seeds->at(read_num)->at(new_cluster_left_left_by_read.at(read_num).first.second).distance_left = best_left;
                 tree_state.all_seeds->at(read_num)->at(new_cluster_left_left_by_read.at(read_num).first.second).distance_right = best_right;
             } else {
                 parent_clusters.read_cluster_heads.erase(new_cluster_left_left_by_read.at(read_num).first);
-                //tree_state.read_cluster_heads_to_distances[tree_state.seed_count_prefix_sum[read_num]+new_cluster_left_left_by_read.at(read_num).first] = std::numeric_limits<size_t>::max();
             }
         }
         if (new_cluster_right_right_by_read.at(read_num).first.first != std::numeric_limits<size_t>::max()){
@@ -1135,13 +1131,12 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
 
             if ((reachable_left || reachable_right) &&
                     new_cluster_right_right_by_read.at(read_num).first.second == 
-                        tree_state.read_union_find[read_num].find_group(new_cluster_right_right_by_read.at(read_num).first.second)) {
+                        new_cluster_right_right_by_read.at(read_num).first.second) {
                 parent_clusters.read_cluster_heads.emplace(new_cluster_right_right_by_read.at(read_num).first);
                 tree_state.all_seeds->at(read_num)->at(new_cluster_right_right_by_read.at(read_num).first.second).distance_left = best_left;
                 tree_state.all_seeds->at(read_num)->at(new_cluster_right_right_by_read.at(read_num).first.second).distance_right = best_right;
             } else {
                 parent_clusters.read_cluster_heads.erase(new_cluster_right_right_by_read.at(read_num).first);
-                //tree_state.read_cluster_heads_to_distances.erase(new_cluster_right_right_by_read.at(read_num).first);
             }
         }
 
@@ -1160,13 +1155,12 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
 
             if ((reachable_left || reachable_right) && 
                 new_cluster_left_right_by_read.at(read_num).first.second ==
-                    tree_state.read_union_find[read_num].find_group(new_cluster_left_right_by_read.at(read_num).first.second)) {
+                    new_cluster_left_right_by_read.at(read_num).first.second) {
                 parent_clusters.read_cluster_heads.emplace(new_cluster_left_right_by_read.at(read_num).first);
                 tree_state.all_seeds->at(read_num)->at(new_cluster_left_right_by_read.at(read_num).first.second).distance_left = best_left;
                 tree_state.all_seeds->at(read_num)->at(new_cluster_left_right_by_read.at(read_num).first.second).distance_right = best_right;
             } else {
                 parent_clusters.read_cluster_heads.erase(new_cluster_left_right_by_read.at(read_num).first);
-                //tree_state.read_cluster_heads_to_distances.erase(new_cluster_left_right_by_read.at(read_num).first);
             }
         }
         if (new_cluster_right_left_by_read.at(read_num).first.first != std::numeric_limits<size_t>::max()) {
@@ -1183,13 +1177,12 @@ void NewSnarlSeedClusterer::compare_and_combine_cluster_on_child_structures(Tree
 
             if ((reachable_left || reachable_right) &&
                     new_cluster_right_left_by_read.at(read_num).first.second == 
-                        tree_state.read_union_find[read_num].find_group(new_cluster_right_left_by_read.at(read_num).first.second)){
+                        new_cluster_right_left_by_read.at(read_num).first.second){
                 parent_clusters.read_cluster_heads.emplace(new_cluster_right_left_by_read.at(read_num).first);
                 tree_state.all_seeds->at(read_num)->at(new_cluster_right_left_by_read.at(read_num).first.second).distance_left = best_left;
                 tree_state.all_seeds->at(read_num)->at(new_cluster_right_left_by_read.at(read_num).first.second).distance_right = best_right;
             } else {
                 parent_clusters.read_cluster_heads.erase(new_cluster_right_left_by_read.at(read_num).first);
-                //tree_state.read_cluster_heads_to_distances.erase(new_cluster_right_left_by_read.at(read_num).first);
             }
         }
     }
@@ -2295,7 +2288,6 @@ void NewSnarlSeedClusterer::add_snarl_to_chain_clusters(TreeState& tree_state, N
          }
         for (pair<size_t, size_t>& cluster_head : to_erase) {
             child_clusters.read_cluster_heads.erase(cluster_head);
-            //tree_state.read_cluster_heads_to_distances.erase(cluster_head);
         }
         //Add new clusters that were combined
         for (pair<pair<size_t, size_t>,pair<size_t, size_t>>& cluster : combined_left) {
@@ -2928,15 +2920,13 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
             //If this seed is in the same read cluster as the previous one,
             //union them
 
-            tree_state.read_union_find[read_num].union_groups(seed_num, read_last_cluster[read_num]);
-            read_last_cluster[read_num] = tree_state.read_union_find[read_num].find_group(seed_num);
+            read_last_cluster[read_num] = tree_state.read_union_find[read_num].union_groups(seed_num, read_last_cluster[read_num]);
             read_last_offset[read_num] = offset;
 
             if (tree_state.fragment_distance_limit != 0) {
                 //If we are also clustering paired end reads by fragment distance,
                 //cluster these together
-                tree_state.fragment_union_find.union_groups(seed_num+tree_state.seed_count_prefix_sum[read_num], fragment_last_cluster);
-                fragment_last_cluster = tree_state.fragment_union_find.find_group(seed_num+tree_state.seed_count_prefix_sum[read_num]);
+                fragment_last_cluster = tree_state.fragment_union_find.union_groups(seed_num+tree_state.seed_count_prefix_sum[read_num], fragment_last_cluster);
             }
         } else {
             //This becomes a new read cluster
@@ -2953,8 +2943,7 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
                 if (fragment_last_offset != std::numeric_limits<size_t>::max() &&
                     offset - fragment_last_offset <= tree_state.fragment_distance_limit) {
                     //If this is a new read cluster but the same fragment cluster
-                    tree_state.fragment_union_find.union_groups(seed_num+tree_state.seed_count_prefix_sum[read_num], fragment_last_cluster);
-                    fragment_last_cluster = tree_state.fragment_union_find.find_group(fragment_last_cluster);
+                    fragment_last_cluster = tree_state.fragment_union_find.union_groups(seed_num+tree_state.seed_count_prefix_sum[read_num], fragment_last_cluster);
 
                 } else {
                     //If this is a new fragment cluster as well
