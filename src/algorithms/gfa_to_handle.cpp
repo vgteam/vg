@@ -72,15 +72,80 @@ static void add_graph_listeners(GFAParser& parser, MutableHandleGraph* graph) {
 
 /// Add listeners which let a GFA parser fill in a path handle graph with paths.
 static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph* graph) {
-    parser.path_listeners.push_back([&parser, graph](const string& name, const GFAParser::chars_t& visits, const GFAParser::chars_t& overlaps, const GFAParser::tag_list_t& tags) {
+
+    // For rGFA we need to have some state. Use a smart pointer to smuggle it
+    // into the closure.
+    // For each path name, we remember handle and expected next starting
+    // position. If we aren't at the expected next starting position, there's a
+    // gap and we need to make a new path.
+    // TODO: This duplicates some work with the parser, which also caches rGFA path expected offsets.
+    // TODO: Come up with a better listener interface that announces breaks and lets you keep the path handy?
+    using rgfa_cache_t = unordered_map<string, pair<path_handle_t, int64_t>>;
+    std::shared_ptr<rgfa_cache_t> rgfa_cache = std::make_shared<rgfa_cache_t>();
+    
+    // We also need some shared state for making reference sample (RS) tags on the header apply to P and W lines later
+    std::shared_ptr<unordered_set<string>> reference_samples = std::make_shared<unordered_set<string>>();
+    
+    parser.header_listeners.push_back([&parser, reference_samples](const GFAParser::tag_list_t& tags) {
+        for (const std::string& tag : tags) {
+            if (tag.size() >= 5 &&
+                std::equal(gbwtgraph::REFERENCE_SAMPLE_LIST_GFA_TAG.begin(), gbwtgraph::REFERENCE_SAMPLE_LIST_GFA_TAG.end(), tag.begin()) &&
+                tag[2] == ':' &&
+                tag[3] == 'Z' &&
+                tag[4] == ':') {
+             
+                // This is a reference samples tag like GBWTGraph's GFA parser knows how to parse.
+                // Parse the tag's value
+                *reference_samples = gbwtgraph::parse_reference_samples_tag(tag.substr(5));
+            }
+        }
+    });
+
+    parser.path_listeners.push_back([&parser, graph, reference_samples](const string& name,
+                                                                        const GFAParser::chars_t& visits,
+                                                                        const GFAParser::chars_t& overlaps,
+                                                                        const GFAParser::tag_list_t& tags) {
         // For P lines, we add the path.
         
-        if (graph->has_path(name)) {
-            // Prohibit duplicates
-            throw GFAFormatError("Duplicate path name: " + name);
+        // Parse out the path name's metadata
+        PathSense sense;
+        string sample;
+        string locus;
+        size_t haplotype;
+        size_t phase_block;
+        subrange_t subrange;
+        PathMetadata::parse_path_name(name,
+                                      sense,
+                                      sample,
+                                      locus,
+                                      haplotype,
+                                      phase_block,
+                                      subrange);
+                                      
+        if (sense == PathSense::HAPLOTYPE && reference_samples.count(sample)) {
+            // This P line is about a sample that looks like a haplotype but
+            // actually wants to be a reference.
+            sense = PathSense::REFERENCE;
+        } else if (sense == PathSense::REFERENCE && haplotype != PathMetadata::NO_HAPLOTYPE && !reference_samples.count(sample)) {
+            // Mimic the GBWTGraph behavior of parsing full PanSN names
+            // (sample, haplotype number, contig) as haplotypes by default,
+            // even though we use PanSN names in vg to indicate reference
+            // sense.
+            // TODO: This is super ugly, can we just change the way the
+            // metadata name format works, or use a dedicated PanSN parser here
+            // instead?
+            // TODO: Can we use GBWTGraph's regex priority system?
+            sense = PathSense::HAPLOTYPE;
         }
         
-        auto path_handle = graph->create_path_handle(name);
+        // Create the path.
+        // TODO: check for duplicates.
+        auto path_handle = graph->create_path(sense,
+                                              sample,
+                                              locus,
+                                              haplotype,
+                                              phase_block,
+                                              subrange);
         
         // Overlaps are pre-checked in scan_p
         // TODO: Do it in a better place.
@@ -100,34 +165,51 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
         });
     });
     
-    parser.walk_listeners.push_back([&parser, graph](const string& sample_name,
-                                                     int64_t haplotype,
-                                                     const string& contig_name,
-                                                     const subrange_t& subrange,
-                                                     const GFAParser::chars_t& visits,
-                                                     const GFAParser::tag_list_t& tags) {
+    parser.walk_listeners.push_back([&parser, graph, reference_samples](const string& sample_name,
+                                                                        int64_t haplotype,
+                                                                        const string& contig_name,
+                                                                        const subrange_t& subrange,
+                                                                        const GFAParser::chars_t& visits,
+                                                                        const GFAParser::tag_list_t& tags) {
         // For W lines, we add the path with a bit more metadata.
+        
+        // By default this is interpreted as a haplotype
+        PathSense sense = PathSense::HAPLOTYPE;
         
         // We need to determine a phase block
         auto phase_block = PathMetadata::NO_PHASE_BLOCK;
-        if (subrange == PathMetadata::NO_SUBRANGE) {
-            // Call it pahse block 0
-            phase_block = 0;
+        
+        string real_sample_name;
+        if (sample_name == "*") {
+            // The sample name is elided from the walk.
+            // This walk must be a generic path.
+            sense = PathSense::GENERIC;
+            // We don't send a sample name.
+            real_sample_name = PathMetadata::NO_SAMPLE_NAME;
+            if (haplotype != 0) {
+                // We can't have multiple haplotypes for a generic path
+                throw GFAFormatError("Generic path on omitted (*) sample has nonzero haplotype");
+            }
         } else {
-            // Use the subrange start as the phase block
-            phase_block = subrange.first;
+            // This is probably a sample name we can use
+            
+            if (reference_samples->count(sample_name)) {
+                // This sample is supposed to be reference.
+                sense = PathSense::REFERENCE;
+            }
+            
+            // Keep the sample name
+            real_sample_name = sample_name;
         }
         
         // Create the path.
         // TODO: Detect and avoid collisions somehow!
-        // TODO: Actually support subranges.
-        // TODO: Support reference sense paths.
-        auto path_handle = graph->create_path(PathSense::HAPLOTYPE,
-                                              sample_name,
+        auto path_handle = graph->create_path(sense,
+                                              real_sample_name,
                                               contig_name,
                                               haplotype,
                                               phase_block,
-                                              PathMetadata::NO_SUBRANGE);
+                                              subrange);
         
         GFAParser::scan_w_visits(visits, [&](int64_t step_rank,
                                              const GFAParser::chars_t& step_name,
@@ -144,17 +226,13 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
         });
     });
     
-    // For rGFA we need to have some state. Use a smart pointer to smuggle it
-    // into the closure.
-    // For each path name, we remember handle and expected next starting
-    // position. If we aren't at the expected next starting position, there's a
-    // gap and we need to make a new path.
-    // TODO: This duplicates some work with the parser, which also caches rGFA path expected offsets.
-    // TODO: Come up with a better listener interface that announces breaks and lets you keep the path handy?
-    using rgfa_cache_t = unordered_map<string, pair<path_handle_t, int64_t>>;
-    std::shared_ptr<rgfa_cache_t> rgfa_cache = std::make_shared<rgfa_cache_t>();
     
-    parser.rgfa_listeners.push_back([&parser, graph, rgfa_cache](nid_t id, int64_t offset, size_t length, const string& path_name, int64_t path_rank) {
+    
+    parser.rgfa_listeners.push_back([&parser, graph, rgfa_cache](nid_t id,
+                                                                 int64_t offset,
+                                                                 size_t length,
+                                                                 const string& path_name,
+                                                                 int64_t path_rank) {
         auto found = rgfa_cache->find(path_name);
         if (found != rgfa_cache->end() && found->second.second != offset) {
             // This path already exists, but there's a gap. We need to drop it
@@ -425,6 +503,20 @@ GFAParser::tag_list_t GFAParser::parse_tags(const chars_t& tag_range) {
     }
     
     return tags;
+}
+
+tuple<GFAParser::tag_list_t> GFAParser::parse_h(const string& h_line) {
+    auto cursor = h_line.begin();
+    auto end = h_line.end();
+    
+    // Make sure we start with H
+    take_character(cursor, end, 'H', "parsing H line start");
+    take_tab(cursor, end, "parsing H line");
+    
+    // Now we're either at the end or at the tab before the tags. Parse the tags.
+    auto tags = GFAParser::parse_tags(chars_t(cursor, end));
+    
+    return make_tuple(std::move(tags));
 }
 
 tuple<string, GFAParser::chars_t, GFAParser::tag_list_t> GFAParser::parse_s(const string& s_line) {
@@ -746,9 +838,13 @@ void GFAParser::parse(istream& in) {
     // We should be able to parse in 2 passes. One to make all the nodes, and
     // one to make all the things that reference nodes we hadn't seen yet.
     // We track pass number 1-based.
-    size_t pass_number = 1;
+    size_t pass_number;
     // And within a pass we remember the line number. Also 1-based.
-    size_t line_number = 1;
+    size_t line_number;
+    
+    // We don't want to process any paths until we've seen the header, or we
+    // know there isn't one, because it affects interpretation of path lines.
+    bool awaiting_header;
     
     // We buffer lines we can't actually handle right now.
     
@@ -763,13 +859,9 @@ void GFAParser::parse(istream& in) {
     string buffer_name;
     ofstream buffer_out_stream;
     
-    // We call this to save a line either in the buffer or the collection of unprocessed ranges,
-    // until some time after the given node is observed.
-    auto save_line_until_node = [&](const string& missing_node_name) {
-        if (pass_number > 1) {
-            // We should only hit this on the first pass. If we hit it later we are missing a node.
-            throw GFAFormatError("GFA file references missing node " + missing_node_name);
-        }
+    // We call this to save a line either in the buffer or the collection of
+    // unprocessed ranges, until all lines have been seen once.
+    auto save_line_until_next_pass = [&]() {
         if (stream_is_seekable) {
             // We should be able to get back here.
             if (unprocessed_ranges.empty() || get<1>(unprocessed_ranges.back()) != eof_pos) {
@@ -798,6 +890,18 @@ void GFAParser::parse(istream& in) {
         }
     };
     
+    // We call this to save a line either in the buffer or the collection of unprocessed ranges,
+    // until some time after the given node is observed.
+    auto save_line_until_node = [&](const string& missing_node_name) {
+        if (pass_number > 1) {
+            // We should only hit this on the first pass. If we hit it later we are missing a node.
+            throw GFAFormatError("GFA file references missing node " + missing_node_name);
+        }
+        // TODO: We could be more efficient if we could notice as soon as the node arrives and handle the line.
+        // Sadly we can't yet, so just save it for the next pass.
+        save_line_until_next_pass();
+    };
+    
     // We want to warn about unrecognized line types, but each only once.
     set<char> warned_line_types;
     
@@ -819,8 +923,14 @@ void GFAParser::parse(istream& in) {
         if (!line_buffer.empty()) {
             switch(line_buffer[0]) {
             case 'H':
-                // Header lines don't need anything done
-                // TODO: Warn if we see version 0.1; it may have non-standard split P lines.
+                // Header lines need tags examoned
+                tuple<tag_list_t> h_parse = GFAParser::parse_h(line_buffer);
+                auto& tags = get<0>(h_parse);
+                for (auto& listener : this->header_listeners) {
+                    // Tell all the listener functions
+                    listener(tags);
+                }
+                awaiting_header = false;
                 break;
             case 'S':
                 // Sequence lines can always be handled right now
@@ -914,8 +1024,13 @@ void GFAParser::parse(istream& in) {
                 }
                 break;
             case 'P':
-                // Paths can be handled if all their nodes have been seen
+                // Paths can be handled if all their nodes have been seen, and we know enough about the header. 
                 {
+                    if (awaiting_header) {
+                        save_line_until_next_pass();
+                        return false;
+                    }
+                    
                     bool missing = false;
                     string missing_name;
                     
@@ -969,8 +1084,13 @@ void GFAParser::parse(istream& in) {
                 }
                 break;
             case 'W':
-                // Walks can be handled if all their nodes have been seen
+                // Walks can be handled if all their nodes have been seen, and we know enough about the hneader.
                 {
+                    if (awaiting_header) {
+                        save_line_until_next_pass();
+                        return false;
+                    }
+                
                     bool missing = false;
                     string missing_name;
                     
@@ -1062,6 +1182,7 @@ void GFAParser::parse(istream& in) {
         
         pass_number = 1;
         line_number = 1;
+        awaiting_header = true;
         process_lines_in_stream(in, eof_pos);
         
         if (stream_is_seekable) {
@@ -1072,6 +1193,8 @@ void GFAParser::parse(istream& in) {
                 in.clear();
                 
                 pass_number = 2;
+                // There can't be any new headers.
+                awaiting_header = false;
                 for (auto& range : unprocessed_ranges) {
                     in.seekg(get<0>(range));
                     if (!in.good()) {
@@ -1089,6 +1212,8 @@ void GFAParser::parse(istream& in) {
                 pass_number = 2;
                 // We forget the original line numbers and restart.
                 line_number = 1;
+                // There can't be any new headers.
+                awaiting_header = false;
                 process_lines_in_stream(buffer_in_stream, eof_pos);
                 
                 // Clean up buffer before returning

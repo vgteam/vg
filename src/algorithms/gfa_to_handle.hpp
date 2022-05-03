@@ -128,6 +128,11 @@ public:
     static tag_list_t parse_tags(const chars_t& tag_range);
     
     /**
+     * Parse an H line to tags
+     */
+    static tuple<tag_list_t> parse_h(const string& h_line);
+    
+    /**
      * Parse an S line to name, sequence, and tags
      */
     static tuple<string, chars_t, tag_list_t> parse_s(const string& s_line);
@@ -226,6 +231,8 @@ public:
     /// Get the ID map we should be using for parsing.
     inline GFAIDMapInfo& id_map();
     
+    /// These listeners are called for the header line(s), if any.
+    vector<std::function<void(const tag_list_t& tags)>> header_listeners;
     /// These listeners will be called with information for all nodes.
     /// Listeners are protected from duplicate node IDs. 
     vector<std::function<void(nid_t id, const chars_t& sequence, const tag_list_t& tags)>> node_listeners;
@@ -234,15 +241,16 @@ public:
     /// Listeners are not protected from duplicate edges.
     vector<std::function<void(nid_t from, bool from_is_reverse, nid_t to, bool to_is_reverse, const chars_t& overlap, const tag_list_t& tags)>> edge_listeners;
     /// These listeners will be called with information for all P line paths,
-    /// after the listeners for all involved nodes.
+    /// after the listeners for all involved nodes, and for the first header if any.
     /// Listeners are not protected from duplicate path names.
     vector<std::function<void(const string& name, const chars_t& visits, const chars_t& overlaps, const tag_list_t& tags)>> path_listeners;
     /// These listeners will be called with information for all W line paths,
-    /// after the listeners for all involved nodes.
+    /// after the listeners for all involved nodes, and for the first header if any.
     /// Listeners are not protected from duplicate path metadata.
     vector<std::function<void(const string& sample_name, int64_t haplotype, const string& contig_name, const pair<int64_t, int64_t>& subrange, const chars_t& visits, const tag_list_t& tags)>> walk_listeners;
     /// These listeners will be called with each visit of an rGFA path to a
-    /// node, after the node listeners for the involved node. They will be
+    /// node, after the node listeners for the involved node, but in an
+    /// unspecified order with respect to listeners for headers. They will be
     /// called in order along each path. The listener is responsible for
     /// detecting any gaps in the offset space and producing multiple subpaths
     /// if necessary.
