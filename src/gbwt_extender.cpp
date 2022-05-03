@@ -828,6 +828,10 @@ struct WFANode {
     bool is_leaf() const { return (this->children.empty() || this->dead_end); }
     bool expanded() const { return (!this->children.empty() || this->dead_end); }
 
+    bool same_node(pos_t pos) const {
+        return (gbwt::Node::id(this->state.node) == id(pos) && gbwt::Node::is_reverse(this->state.node) == is_rev(pos));
+    }
+
     size_t length(const gbwtgraph::GBWTGraph& graph) const {
         return graph.get_length(gbwtgraph::GBWTGraph::node_to_handle(this->state.node));
     }
@@ -888,6 +892,11 @@ public:
 
     std::vector<WFANode> nodes;
 
+    // FIXME store sufficient information for tracing back the candidate alignment
+    // FIXME score, diagonal, MatchPos (which implies insertion length)
+    // Best alignment found so far.
+    int32_t candidate;
+
     // Scores copied from the extender.
     int32_t mismatch, gap_open, gap_extend;
 
@@ -900,6 +909,7 @@ public:
     WFATree(const gbwtgraph::GBWTGraph& graph, const std::string& sequence, const gbwt::SearchState& root, int32_t mismatch, int32_t gap_open, int32_t gap_extend) :
         graph(graph), sequence(sequence),
         nodes(),
+        candidate(std::numeric_limits<int32_t>::max()),
         mismatch(mismatch), gap_open(gap_open), gap_extend(gap_extend),
         diagonals({ { 0, 0 } }), max_diagonals(0, 0)
     {
@@ -923,8 +933,6 @@ public:
     // wf_next() in the paper.
     // If we reach the end of a node, we continue to the start of the next node even
     // if we do not use any characters in it.
-    // FIXME we need to handle the case that we reached the end position in the graph
-    // FIXME and also in the graph and the sequence at the same time
     void next(int32_t score, pos_t to) {
         std::pair<int32_t, int32_t> diagonal_range = this->get_diagonals(score);
         for (int32_t diagonal = diagonal_range.first; diagonal <= diagonal_range.second; diagonal++) {
@@ -956,6 +964,21 @@ public:
                 subst = MatchPos::max(subst, ins);
                 subst = MatchPos::max(subst, del);
                 if (!subst.empty()) {
+                    // If we are just past the end position, we get a candidate alignment by
+                    // assuming that the rest of the sequence is an insertion.
+                    // If `subst` is an insertion, we already got a better alignment from the
+                    // match preceding it.
+                    if (this->nodes[subst.node()].same_node(to) && subst.node_offset == offset(to) + 1) {
+                        uint32_t gap_length = this->sequence.length() - subst.seq_offset;
+                        int32_t new_score = score;
+                        if (gap_length > 0) {
+                            new_score += this->gap_open + gap_length * this->gap_extend;
+                        }
+                        if (new_score < this->candidate) {
+                            // FIXME store the information needed for tracing back the alignment
+                            this->candidate = score;
+                        }
+                    }
                     this->nodes[subst.node()].update(WFANode::MATCHES, score, diagonal, subst);
                     this->propagate(subst, score, diagonal, WFANode::MATCHES);
                 }
@@ -967,9 +990,6 @@ private:
 
     // wf_extend() on a specific diagonal for the set of (local) haplotypes corresponding to
     // the given list of leaves in the tree of GBWT search states.
-    // FIXME we need to handle the case that we reached the end position in the graph
-    // FIXME in that case, we record a gap until the end of the sequence, and we also continue normally
-    // FIXME and also in the graph and the sequence at the same time
     void extend_over(int32_t score, int32_t diagonal, pos_t to, const std::vector<uint32_t>& leaves) {
         for (uint32_t leaf : leaves) {
             MatchPos pos = this->find_pos(WFANode::MATCHES, leaf, score, diagonal, false, false);
@@ -977,7 +997,21 @@ private:
                 continue; // This should never happen.
             }
             while (true) {
+                bool may_reach_to = this->nodes[pos.node()].same_node(to) & (pos.node_offset <= offset(to));
                 this->nodes[pos.node()].match_forward(this->sequence, this->graph, pos);
+                // We got a match that covers the end position but may extend past it.
+                // This gives us a candidate where the rest of the sequence is an insertion.
+                if (may_reach_to && pos.node_offset > offset(to)) {
+                    uint32_t gap_length = (this->sequence.length() - pos.seq_offset) + (pos.node_offset - offset(to) - 1);
+                    int32_t new_score = score;
+                    if (gap_length > 0) {
+                        score += this->gap_open + gap_length * this->gap_extend;
+                    }
+                    if (new_score < this->candidate) {
+                        // FIXME store the information needed for tracing back the alignment
+                        this->candidate = new_score;
+                    }
+                }
                 this->nodes[pos.node()].update(WFANode::MATCHES, score, diagonal, pos);
                 if (pos.node_offset < this->nodes[pos.node()].length(this->graph)) {
                     break;
@@ -1091,7 +1125,7 @@ private:
 
 //------------------------------------------------------------------------------
 
-void WFAExtender::extend(std::string sequence, pos_t from, pos_t to) const {
+void WFAExtender::connect(std::string sequence, pos_t from, pos_t to) const {
     if (this->graph == nullptr || sequence.empty()) {
         return;
     }
@@ -1107,13 +1141,31 @@ void WFAExtender::extend(std::string sequence, pos_t from, pos_t to) const {
     // FIXME stop condition?
     while (true) {
         tree.extend(score, to);
-        // FIXME if found: break
+        if (tree.candidate <= score) {
+            break;
+        }
         score++; // FIXME skip impossible scores
         tree.next(score, to);
     }
 
     // FIXME Finally we have to backtrace the actual alignment.
     // FIXME note that we may have edits in a node where we do not match anything
+}
+
+void WFAExtender::suffix(const std::string& sequence, pos_t from) const {
+    this->connect(sequence, from, pos_t(0, false, 0));
+}
+
+void WFAExtender::prefix(const std::string& sequence, pos_t to) const {
+    if (this->graph == nullptr) {
+        return;
+    }
+
+    // Flip the position, extend forward, and reverse the return value.
+    to = reverse_base_pos(to, this->graph->get_length(this->graph->get_handle(id(to), is_rev(to))));
+    this->connect(reverse_complement(sequence), to, pos_t(0, false, 0));
+
+    // FIXME reverse the return value
 }
 
 //------------------------------------------------------------------------------

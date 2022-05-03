@@ -223,13 +223,18 @@ public:
     /// Create a WFAExtender using the given GBWTGraph and Aligner objects.
     WFAExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner);
 
-    // FIXME document
+    // FIXME document. Note that the alignment should include both from and to
     // FIXME return value
     // FIXME special case: cannot reach the destination, must extend from both seeds
-    void extend(std::string sequence, pos_t from, pos_t to) const;
+    void connect(std::string sequence, pos_t from, pos_t to) const;
 
-    // FIXME special case: prefix
-    // FIXME special case: suffix
+    // FIXME document
+    // FIXME return value
+    void suffix(const std::string& sequence, pos_t from) const;
+
+    // FIXME document
+    // FIXME return value
+    void prefix(const std::string& sequence, pos_t to) const;
 
     const gbwtgraph::GBWTGraph* graph;
     ReadMasker                  mask;
@@ -238,6 +243,9 @@ public:
     int32_t mismatch;
     int32_t gap_open;
     int32_t gap_extend;
+
+private:
+    static bool no_pos(pos_t pos) { return (id(pos) == 0); }
 };
 
 //------------------------------------------------------------------------------
