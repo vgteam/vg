@@ -1120,11 +1120,13 @@ Alignment bam_to_alignment(const bam1_t *b,
 
     // get the read group and sample name
     uint8_t *rgptr = bam_aux_get(b, "RG");
-    char* rg = (char*) (rgptr+1);
     string sname;
-    auto found = rg_sample.find(string(rg));
-    if (found != rg_sample.end()) {
-        sname = found->second; 
+    if (rgptr && !rg_sample.empty()) {
+        char* rg = (char*) (rgptr+1);
+        auto found = rg_sample.find(string(rg));
+        if (found != rg_sample.end()) {
+            sname = found->second; 
+        }
     }
 
     // Now name the read after the scaffold
