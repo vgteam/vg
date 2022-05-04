@@ -69,9 +69,12 @@ string mapping_string(const string& source, const Mapping& mapping);
 
 void cigar_mapping(const bam1_t *b, Mapping& mapping);
 
-Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, const bam_hdr_t *bh,
+Alignment bam_to_alignment(const bam1_t *b,
+                           const map<string, string>& rg_sample,
+                           const map<int, path_handle_t>& tid_path_handle,
+                           const bam_hdr_t *bh,
                            const PathPositionHandleGraph* graph);
-Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample);
+Alignment bam_to_alignment(const bam1_t *b, const map<string, string>& rg_sample, const map<int, path_handle_t>& tid_path_handle);
 
 /**
  * Add a CIGAR operation to a vector representing the parsed CIGAR string.
@@ -196,8 +199,11 @@ vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_r
 /// Merge runs of successive I/D operations into a single I and D
 void consolidate_ID_runs(vector<pair<int, char>>& cigar);
 
+/// Translate the CIGAR in the given BAM record into mappings in the given
+/// Alignment against the given path in the given graph.
 void mapping_against_path(Alignment& alignment, const bam1_t *b,
-                          const PathPositionHandleGraph* graph, bool on_reverse_strand);
+                          const path_handle_t& path, const PathPositionHandleGraph* graph,
+                          bool on_reverse_strand);
 
 /// Work out the TLEN values for two reads. The magnitude is the distance
 /// between the outermost aligned bases, and the sign is positive for the
@@ -206,7 +212,12 @@ pair<int32_t, int32_t> compute_template_lengths(const int64_t& pos1, const vecto
     const int64_t& pos2, const vector<pair<int, char>>& cigar2);
 
 int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired);
+/// Populate a mapping from read group to sample name, given the text BAM header.
 void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample);
+/// Populate a mapping from target ID number to path handle in the given graph,
+/// given a parsed BAM header. The graph may be null. Missing target paths in
+/// the graph produce no warning or error and no map entry.
+void parse_tid_path_handle_map(const bam_hdr_t* hts_header, const PathHandleGraph* graph, map<int, path_handle_t>& tid_path_handle);
 int alignment_to_length(const Alignment& a);
 int alignment_from_length(const Alignment& a);
 // Adds a2 onto the end of a1, returns reference to a1
@@ -297,11 +308,11 @@ bool alignment_is_valid(Alignment& aln, const HandleGraph* hgraph);
 /// Positions are 0-based, and pos2 is excluded.
 /// Respects path circularity, so pos2 < pos1 is not a problem.
 /// If pos1 == pos2, returns an empty alignment.
-Alignment target_alignment(const PathPositionHandleGraph* graph, const string& name, size_t pos1, size_t pos2,
+Alignment target_alignment(const PathPositionHandleGraph* graph, const path_handle_t& path, size_t pos1, size_t pos2,
                            const string& feature, bool is_reverse);
 /// Same as above, but uses the given Mapping, translated directly form a CIGAR string, as a source of edits.
 /// The edits are inserted into the generated Alignment, cut as necessary to fit into the Alignment's Mappings.
-Alignment target_alignment(const PathPositionHandleGraph* graph, const string& name, size_t pos1, size_t pos2,
+Alignment target_alignment(const PathPositionHandleGraph* graph, const path_handle_t& path, size_t pos1, size_t pos2,
                            const string& feature, bool is_reverse, Mapping& cigar_mapping);
 
 }
