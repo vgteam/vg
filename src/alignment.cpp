@@ -1120,10 +1120,11 @@ Alignment bam_to_alignment(const bam1_t *b,
 
     // get the read group and sample name
     uint8_t *rgptr = bam_aux_get(b, "RG");
+    string read_group;
     string sname;
     if (rgptr && !rg_sample.empty()) {
-        char* rg = (char*) (rgptr+1);
-        auto found = rg_sample.find(string(rg));
+        read_group = string((char*) (rgptr+1));
+        auto found = rg_sample.find(read_group);
         if (found != rg_sample.end()) {
             sname = found->second; 
         }
@@ -1177,9 +1178,10 @@ Alignment bam_to_alignment(const bam1_t *b,
     
     // TODO: htslib doesn't wrap this flag for some reason.
     alignment.set_is_secondary(b->core.flag & BAM_FSECONDARY);
-    if (sname.size()) {
+    if (!sname.empty()) {
         alignment.set_sample_name(sname);
-        alignment.set_read_group(rg);
+        // We know the sample name came from a read group
+        alignment.set_read_group(read_group);
     }
 
     return alignment;
