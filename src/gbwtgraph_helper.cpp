@@ -12,11 +12,11 @@ gbwtgraph::GFAParsingParameters get_best_gbwtgraph_gfa_parsing_parameters() {
     // Configure GBWTGraph GFA parsing to be as close to the vg GFA parser as we can get.
     // TODO: Make it closer.
     parameters.path_name_formats.clear();
-    // Parse panSN with a fragment after it as a haplotype.
+    // Parse panSN with a fragment after it.
     parameters.path_name_formats.emplace_back(
         gbwtgraph::GFAParsingParameters::PAN_SN_REGEX + "#([0-9][0-9]*)",
         gbwtgraph::GFAParsingParameters::PAN_SN_FIELDS + "F",
-        PathSense::HAPLOTYPE
+        gbwtgraph::GFAParsingParameters::PAN_SN_SENSE
     );
     // Parse panSN with a range after it as a normal but with a fragment based
     // on start position.
@@ -25,7 +25,7 @@ gbwtgraph::GFAParsingParameters get_best_gbwtgraph_gfa_parsing_parameters() {
         gbwtgraph::GFAParsingParameters::PAN_SN_FIELDS + "F",
         gbwtgraph::GFAParsingParameters::PAN_SN_SENSE
     );
-    // Parse standard panSN as what we think that is (reference)
+    // Parse standard panSN as what we think that is
     parameters.path_name_formats.emplace_back(
         gbwtgraph::GFAParsingParameters::PAN_SN_REGEX,
         gbwtgraph::GFAParsingParameters::PAN_SN_FIELDS,

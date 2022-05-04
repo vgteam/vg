@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 90
+plan tests 92
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz > c.vg
 cat <(vg view c.vg | grep ^S | sort) <(vg view c.vg | grep L | uniq | wc -l) <(vg paths -v c.vg -E) > c.info
@@ -197,7 +197,7 @@ is "$?" 0 "converting gfa and equivalent rgfa produces same output"
 
 rm -f tiny.gfa.gfa tiny.rgfa.gfa
 
-is "$(vg convert -g tiny/tiny.rgfa -r 1 | vg view - | grep y | awk '{print $1","$2","$3}')" "P,y[35],2+" "rank-1 rgfa subpath found"
+is "$(vg convert -g tiny/tiny.rgfa -r 1 | vg paths -M --paths-by y -x - | grep -v "^#" | cut -f1)" "y[35]" "rank-1 rgfa subpath found"
 
 vg convert -g tiny/tiny.rgfa -T gfa-id-mapping.tsv > /dev/null
 grep ^S tiny/tiny.rgfa  | awk '{print $2}' | sort > rgfa_nodes
@@ -382,6 +382,14 @@ vg convert -f gfa_with_reference.gbz >extracted.gfa
 vg paths -M -x extracted.gfa | sort >paths.gfa.txt
 cmp paths.gfa.txt paths.truth.txt
 is "${?}" "0" "GFA -> GBZ -> GFA conversion preserves path metadata"
+vg convert -g graphs/gfa_with_reference.gfa -a > gfa_with_reference.hg
+vg paths -M -x gfa_with_reference.hg | sort >paths.hg.txt
+cmp paths.hg.txt paths.truth.txt
+is "${?}" "0" "GFA -> HashGraph conversion preserves path metadata"
+vg convert gfa_with_reference.hg -f > extracted.gfa
+vg paths -M -x extracted.gfa | sort >paths.gfa.txt
+cmp paths.gfa.txt paths.truth.txt
+is "${?}" "0" "GFA -> HashGraph -> GFA conversion preserves path metadata"
 
 # We can't do rGFA to GBZ directly until the GBWTGraph GFA parser learns to read tags
 # rGFA to HashGraph to GBZ to GFA
@@ -396,8 +404,8 @@ vg paths -M -x extracted.gfa | sort >paths.gfa.txt
 cmp paths.gfa.txt paths.truth.txt
 is "${?}" "0" "rGFA -> HashGraph -> GBZ -> GFA conversion preserves path metadata"
 
-rm -f paths.truth.txt paths.gbz.txt paths.gfa.txt
-rm -f gfa_with_reference.gbz rgfa_with_reference.gbz rgfa_with_reference.hg extracted.gfa
+rm -f paths.truth.txt paths.gbz.txt paths.gfa.txt paths.hg.txt
+rm -f gfa_with_reference.gbz rgfa_with_reference.gbz gfa_with_reference.hg rgfa_with_reference.hg extracted.gfa
 
 #####
 # GFA Streaming

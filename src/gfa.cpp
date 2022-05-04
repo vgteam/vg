@@ -3,6 +3,8 @@
 #include "path.hpp"
 #include <sstream>
 
+#include <gbwtgraph/utils.h>
+
 namespace vg {
 
 using namespace std;
@@ -20,8 +22,23 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     // TODO: Support sorting nodes, paths, and/or edges for canonical output
     // TODO: Use a NamedNodeBackTranslation (or forward translation?) to properly round-trip GFA that has had to be chopped.
     
-    // Start with the header for a GFA1.1 file.
-    out << "H\tVN:Z:1.1\n";
+    // Compute reference-sense sample header tags
+    unordered_set<string> reference_samples;
+    graph->for_each_path_matching({PathSense::REFERENCE}, {}, {}, [&](const path_handle_t& h) {
+            if (!rgfa_paths.count(graph->get_path_name(h)) || rgfa_pline) {
+                // If it is going to be something other than an rGFA path,
+                // we'll have to convey its reference-ness another way.
+                reference_samples.insert(graph->get_sample_name(h));
+            }
+        });
+    
+    // Start with the header for a GFA1.1 file
+    out << "H\tVN:Z:1.1";
+    if (!reference_samples.empty()) {
+        // Include a reference sample name tag if we have reference paths.
+        out << "\t" << gbwtgraph::REFERENCE_SAMPLE_LIST_GFA_TAG << ":Z:" << gbwtgraph::compose_reference_samples_tag(reference_samples);
+    }
+    out << "\n";
 
     //Compute the rGFA tags of given paths (todo: support non-zero ranks)
     unordered_map<nid_t, pair<path_handle_t, size_t>> node_offsets;
@@ -66,7 +83,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     
     // Sort the paths by name, making sure to treat subpath coordinates numerically
     vector<path_handle_t> path_handles;
-    graph->for_each_path_matching({}, {}, {}, [&](const path_handle_t& h) {
+    graph->for_each_path_matching(nullptr, nullptr, nullptr, [&](const path_handle_t& h) {
             path_handles.push_back(h);
         });
     std::sort(path_handles.begin(), path_handles.end(), [&](const path_handle_t& p1, const path_handle_t& p2) {
@@ -94,6 +111,12 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     for (const path_handle_t& h : path_handles) {
         auto path_name = graph->get_path_name(h);
         if (rgfa_pline || !rgfa_paths.count(path_name)) {
+            if (graph->get_sense(h) != PathSense::REFERENCE && reference_samples.count(graph->get_sample_name(h))) {
+                // We have a mix of reference and non-reference paths on the same sample which GFA can't handle.
+                cerr << "warning [gfa]: path " << path_name << " will be interpreted as reference sense "
+                     << "because reference paths exist on its sample" << endl;
+            }
+        
             if (use_w_lines && should_write_as_w_line(graph, h)) {
                 w_line_paths.push_back(h);
             } else {
@@ -154,11 +177,9 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
 }
 
 bool should_write_as_w_line(const PathHandleGraph* graph, path_handle_t path_handle) {
-    auto sense = graph->get_sense(path_handle);
-    // Haplotype and reference sense paths both have good W line descriptions.
-    // But telling them apart is impossible without tags.
-    // So send only haplotypes as W lines and send references as P lines.
-    return sense == PathSense::HAPLOTYPE;
+    // Until we can change the tests, default to sending reference and
+    // haplotype paths as W lines, and generic paths as P lines. 
+    return graph->get_sense(path_handle) != PathSense::GENERIC;
 }
 
 void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path_handle, unordered_map<tuple<string, int64_t, string>, size_t>& last_phase_block_end) {
@@ -175,6 +196,11 @@ void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path
         if (subrange.second != PathMetadata::NO_END_POSITION) {
             end_offset = subrange.second;
         }
+    }
+    
+    if (sample == PathMetadata::NO_SAMPLE_NAME) {
+        // Represent an elided sample name with "*";
+        sample = "*";
     }
     
     if (hap_index == PathMetadata::NO_HAPLOTYPE) {
