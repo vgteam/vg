@@ -2021,6 +2021,10 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const string& n
                            const string& feature, bool is_reverse, Mapping& cigar_mapping) {
     Alignment aln;
     
+    if (!graph->has_path(name)) {
+        throw runtime_error("Cannot construct an Alignment against nonexistent path " + name);
+    }
+
     path_handle_t path_handle = graph->get_path_handle(name);
     
     if (pos2 < pos1) {
