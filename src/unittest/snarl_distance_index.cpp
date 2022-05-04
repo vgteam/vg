@@ -6232,7 +6232,7 @@ namespace vg {
             
             default_random_engine generator(test_seed_source());
             
-            for (size_t repeat = 0; repeat < 0; repeat++) {
+            for (size_t repeat = 0; repeat < 100; repeat++) {
             
                 uniform_int_distribution<size_t> bases_dist(100, 2000);
                 size_t bases = bases_dist(generator);
@@ -6241,8 +6241,9 @@ namespace vg {
                 uniform_int_distribution<size_t> variant_count_dist(1, bases/10);
                 size_t variant_count = variant_count_dist(generator);
 
-                uniform_int_distribution<size_t> snarl_size_limit_dist(2, 50);
+                uniform_int_distribution<size_t> snarl_size_limit_dist(2, 1000);
                 size_t size_limit = snarl_size_limit_dist(generator);
+                size_t distance_limit = snarl_size_limit_dist(generator);
                         
 #ifdef debug
                 cerr << repeat << ": Do graph of " << bases << " bp with ~" << variant_bases << " bp large variant length and " << variant_count << " events" << endl;
@@ -6252,8 +6253,7 @@ namespace vg {
                 random_graph(bases, variant_bases, variant_count, &graph);
                 IntegratedSnarlFinder finder(graph); 
                 SnarlDistanceIndex distance_index;
-                cerr << size_limit << endl;
-                fill_in_distance_index(&distance_index, &graph, &finder, size_limit);
+                fill_in_distance_index(&distance_index, &graph, &finder, size_limit, distance_limit);
 
                 //Make sure that the distance index found all the nodes
                 for (id_t id = graph.min_node_id() ; id <= graph.max_node_id() ; id++) {
@@ -6310,7 +6310,11 @@ namespace vg {
                             cerr << "serializing graph to test_graph.vg" << endl;
                             graph.serialize_to_file("test_graph.vg");
                         }
-                        REQUIRE(snarl_distance == dijkstra_distance);
+                        if (dijkstra_distance <= distance_limit) {
+                            REQUIRE(snarl_distance == dijkstra_distance);
+                        } else {
+                            REQUIRE((snarl_distance >= dijkstra_distance || snarl_distance == std::numeric_limits<size_t>::max()));
+                        }
                     } else if (node_id1 == node_id2 ) {
                         //TOOD: The dijkstra algorithm won't visit the start node twice
                     } else {
@@ -6335,7 +6339,11 @@ namespace vg {
                             cerr << "serializing graph to test_graph.vg" << endl;
                             graph.serialize_to_file("test_graph.vg");
                         }
-                        REQUIRE(snarl_distance == dijkstra_distance);
+                        if (dijkstra_distance < distance_limit) {
+                            REQUIRE(snarl_distance == dijkstra_distance);
+                        } else {
+                            REQUIRE((snarl_distance >= dijkstra_distance || snarl_distance == std::numeric_limits<size_t>::max()));
+                        }
                     }
                     
 

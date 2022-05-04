@@ -13,13 +13,15 @@ using namespace sdsl;
 using namespace handlegraph;
 using namespace bdsg;
 //Fill in the index
-void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit = 3000);
+//size_limit is a limit on the number of nodes in a snarl, after which the index won't store pairwise distances
+//distance_limit is a limit on the length of a path after which the index won't continue to traverse a snarl looking for distances
+void fill_in_distance_index(SnarlDistanceIndex* distance_index, const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit = 3000, size_t distance_limit = 2000);
 
 //Fill in the temporary snarl record with distances
 void populate_snarl_index(SnarlDistanceIndex::TemporaryDistanceIndex& temp_index, 
-    pair<SnarlDistanceIndex::temp_record_t, size_t> snarl_index, size_t size_limit, const HandleGraph* graph) ;
+    pair<SnarlDistanceIndex::temp_record_t, size_t> snarl_index, size_t size_limit, size_t distance_limit, const HandleGraph* graph) ;
 
-SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit);
+SnarlDistanceIndex::TemporaryDistanceIndex make_temporary_distance_index(const HandleGraph* graph, const HandleGraphSnarlFinder* snarl_finder, size_t size_limit, size_t distance_limit);
 
 //Define wang_hash for net_handle_t's so that we can use a hash_map
 template<> struct wang_hash<handlegraph::net_handle_t> {
