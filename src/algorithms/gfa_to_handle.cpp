@@ -3,6 +3,8 @@
 
 #include <bdsg/odgi.hpp>
 
+#include <gbwtgraph/utils.h>
+
 namespace vg {
 namespace algorithms {
 
@@ -122,11 +124,11 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
                                       phase_block,
                                       subrange);
                                       
-        if (sense == PathSense::HAPLOTYPE && reference_samples.count(sample)) {
+        if (sense == PathSense::HAPLOTYPE && reference_samples->count(sample)) {
             // This P line is about a sample that looks like a haplotype but
             // actually wants to be a reference.
             sense = PathSense::REFERENCE;
-        } else if (sense == PathSense::REFERENCE && haplotype != PathMetadata::NO_HAPLOTYPE && !reference_samples.count(sample)) {
+        } else if (sense == PathSense::REFERENCE && haplotype != PathMetadata::NO_HAPLOTYPE && !reference_samples->count(sample)) {
             // Mimic the GBWTGraph behavior of parsing full PanSN names
             // (sample, haplotype number, contig) as haplotypes by default,
             // even though we use PanSN names in vg to indicate reference
@@ -136,10 +138,26 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
             // instead?
             // TODO: Can we use GBWTGraph's regex priority system?
             sense = PathSense::HAPLOTYPE;
+            if (phase_block == PathMetadata::NO_PHASE_BLOCK) {
+                // Assign a phase block if none is specified, since haplotypes need one.
+                phase_block = 0;
+            }
+        }
+        
+        // Compose what we think the path ought to be named.
+        // TODO: When we get a has_path that takes fully specified metadata, use that instead.
+        string implied_path_name = PathMetadata::create_path_name(sense,
+                                                                  sample,
+                                                                  locus,
+                                                                  haplotype,
+                                                                  phase_block,
+                                                                  subrange);
+        if (graph->has_path(implied_path_name)) {
+            // This is a duplicate.
+            throw GFAFormatError("Duplicate path " + implied_path_name + " would be created in graph");
         }
         
         // Create the path.
-        // TODO: check for duplicates.
         auto path_handle = graph->create_path(sense,
                                               sample,
                                               locus,
@@ -174,42 +192,70 @@ static void add_path_listeners(GFAParser& parser, MutablePathMutableHandleGraph*
         // For W lines, we add the path with a bit more metadata.
         
         // By default this is interpreted as a haplotype
-        PathSense sense = PathSense::HAPLOTYPE;
+        PathSense sense;
         
         // We need to determine a phase block
-        auto phase_block = PathMetadata::NO_PHASE_BLOCK;
+        size_t phase_block;
+        // And a haplotype.
+        size_t assigned_haplotype = (size_t) haplotype;
         
-        string real_sample_name;
+        string assigned_sample_name;
         if (sample_name == "*") {
             // The sample name is elided from the walk.
             // This walk must be a generic path.
             sense = PathSense::GENERIC;
             // We don't send a sample name.
-            real_sample_name = PathMetadata::NO_SAMPLE_NAME;
-            if (haplotype != 0) {
+            assigned_sample_name = PathMetadata::NO_SAMPLE_NAME;
+            if (assigned_haplotype != 0) {
                 // We can't have multiple haplotypes for a generic path
                 throw GFAFormatError("Generic path on omitted (*) sample has nonzero haplotype");
             }
+            assigned_haplotype = PathMetadata::NO_HAPLOTYPE;
+            phase_block = PathMetadata::NO_PHASE_BLOCK;
         } else {
             // This is probably a sample name we can use
             
             if (reference_samples->count(sample_name)) {
                 // This sample is supposed to be reference.
                 sense = PathSense::REFERENCE;
+                phase_block = PathMetadata::NO_PHASE_BLOCK;
+            } else {
+                // We're a haplotype
+                sense = PathSense::HAPLOTYPE;
+                // GFA doesn't really encode phase blocks. Always use the 0th one.
+                phase_block = 0;
             }
             
             // Keep the sample name
-            real_sample_name = sample_name;
+            assigned_sample_name = sample_name;
+        }
+        
+        // Drop the subrange completely if it starts at 0.
+        // TODO: Detect if there are going to be multiple walks describing
+        // different subranges, and keep the subrange on the first one even if
+        // it starts at 0, because then we know it's really a partial walk.
+        subrange_t assigned_subrange = (subrange.first == 0) ? PathMetadata::NO_SUBRANGE : subrange;
+        
+        // Compose what we think the path ought to be named.
+        // TODO: When we get a has_path that takes fully specified metadata, use that instead.
+        string implied_path_name = PathMetadata::create_path_name(sense,
+                                                                  assigned_sample_name,
+                                                                  contig_name,
+                                                                  assigned_haplotype,
+                                                                  phase_block,
+                                                                  assigned_subrange);
+        if (graph->has_path(implied_path_name)) {
+            // This is a duplicate.
+            throw GFAFormatError("Duplicate path " + implied_path_name + " would be created in graph");
         }
         
         // Create the path.
-        // TODO: Detect and avoid collisions somehow!
         auto path_handle = graph->create_path(sense,
-                                              real_sample_name,
+                                              assigned_sample_name,
                                               contig_name,
-                                              haplotype,
+                                              assigned_haplotype,
                                               phase_block,
-                                              subrange);
+                                              assigned_subrange);
         
         GFAParser::scan_w_visits(visits, [&](int64_t step_rank,
                                              const GFAParser::chars_t& step_name,
@@ -880,9 +926,6 @@ void GFAParser::parse(istream& in) {
                 if (!buffer_out_stream) {
                     throw runtime_error("error:[GFAParser] Could not open fallback gfa temp file: " + buffer_name);
                 }
-                // Tell the user that we're having to use a buffer; the tests want us to.
-                std::cerr << "warning:[GFAParser] Streaming GFA file references node " << missing_node_name << " before it is defined. "
-                          << "Buffering lines in " << buffer_name << " until we are ready for them." << std::endl;
             }
             
             // Store the line into it so we can move on to the next line
@@ -896,6 +939,11 @@ void GFAParser::parse(istream& in) {
         if (pass_number > 1) {
             // We should only hit this on the first pass. If we hit it later we are missing a node.
             throw GFAFormatError("GFA file references missing node " + missing_node_name);
+        }
+        if (!stream_is_seekable && buffer_name.empty()) {
+            // Warn that we are missing this node because it is the first missing node. The tests want us to.
+            std::cerr << "warning:[GFAParser] Streaming GFA file references node " << missing_node_name << " before it is defined. "
+                      << "GFA lines will be buffered in a temporary file." << std::endl;
         }
         // TODO: We could be more efficient if we could notice as soon as the node arrives and handle the line.
         // Sadly we can't yet, so just save it for the next pass.
@@ -924,13 +972,15 @@ void GFAParser::parse(istream& in) {
             switch(line_buffer[0]) {
             case 'H':
                 // Header lines need tags examoned
-                tuple<tag_list_t> h_parse = GFAParser::parse_h(line_buffer);
-                auto& tags = get<0>(h_parse);
-                for (auto& listener : this->header_listeners) {
-                    // Tell all the listener functions
-                    listener(tags);
+                {
+                    tuple<tag_list_t> h_parse = GFAParser::parse_h(line_buffer);
+                    auto& tags = get<0>(h_parse);
+                    for (auto& listener : this->header_listeners) {
+                        // Tell all the listener functions
+                        listener(tags);
+                    }
+                    awaiting_header = false;
                 }
-                awaiting_header = false;
                 break;
             case 'S':
                 // Sequence lines can always be handled right now

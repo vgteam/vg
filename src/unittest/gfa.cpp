@@ -306,6 +306,23 @@ L	1	+	3	+	0M)";
 
 }
 
+TEST_CASE("Can reject graphs that have conflicting paths and walks", "[gfa]") {
+
+    const string graph_gfa = R"(H	VN:Z:1.0
+S	1	CAAATAAG
+S	2	A
+S	3	G
+P	sample1#0#x	1+,3+	8M,1M
+W	sample1	0	x	*	* >1>3
+L	1	+	2	+	0M
+L	1	+	3	+	0M)";
+
+    bdsg::HashGraph graph;
+    stringstream in(graph_gfa);
+    REQUIRE_THROWS_AS(algorithms::gfa_to_path_handle_graph(in, &graph), algorithms::GFAFormatError);
+
+}
+
 TEST_CASE("Can tolerate interesting GFA node IDs", "[gfa]") {
 
     SECTION("An inoffensive graph is accepted") {
@@ -421,15 +438,66 @@ W	NA19239	2	chr1	*	*	>1>2<3
     stringstream in(graph_gfa);
     algorithms::gfa_to_path_handle_graph(in, &graph);
 	
-	// It should currently interpret all of these as haplotypes, and use the range start as a phase block.
+	// It should currently interpret all of these as haplotypes, and apply a
+	// subrange if it is interesting.
     REQUIRE(graph.has_path("GRCh38#0#chr1#0"));
 	REQUIRE(graph.has_path("GRCh38#0#chr2#0"));
 	REQUIRE(graph.has_path("GRCh38#0#chr3#0"));
-	REQUIRE(graph.has_path("GRCh38#0#chr4#5"));
-	REQUIRE(graph.has_path("GRCh38#0#chr5#99"));
+	REQUIRE(graph.has_path("GRCh38#0#chr4#0[5-6]"));
+	REQUIRE(graph.has_path("GRCh38#0#chr5#0[99]"));
 	REQUIRE(graph.has_path("NA19239#1#chr1#0"));
-	REQUIRE(graph.has_path("NA19239#1#chr1#14"));
+	REQUIRE(graph.has_path("NA19239#1#chr1#0[14-15]"));
 	REQUIRE(graph.has_path("NA19239#2#chr1#0"));
+}
+
+TEST_CASE("Can import W lines from a GFA as haplotype, reference, or generic paths", "[gfa]") {
+
+    const string graph_gfa = R"(H	VN:Z:1.0	RS:Z:GRCh38
+S	1	CAAATAAG
+S	2	ATTACA
+S	3	G
+L	1	+	2	+	0M
+L	1	+	3	-	0M
+W	GRCh37	0	chr1	*	*	>1>2<3
+W	GRCh38	0	chr1	*	*	>1>2<3
+W	*	0	chr1	*	*	>1>2<3
+)";
+
+    bdsg::HashGraph graph;
+    stringstream in(graph_gfa);
+    algorithms::gfa_to_path_handle_graph(in, &graph);
+	
+	REQUIRE(graph.has_path("GRCh37#0#chr1#0"));
+	REQUIRE(graph.get_sense(graph.get_path_handle("GRCh37#0#chr1#0")) == PathSense::HAPLOTYPE);
+    REQUIRE(graph.has_path("GRCh38#0#chr1"));
+	REQUIRE(graph.get_sense(graph.get_path_handle("GRCh38#0#chr1")) == PathSense::REFERENCE);
+	REQUIRE(graph.has_path("chr1"));
+	REQUIRE(graph.get_sense(graph.get_path_handle("chr1")) == PathSense::GENERIC);
+}
+
+TEST_CASE("Can import PanSN P lines as haplotype, reference, or generic paths", "[gfa]") {
+
+    const string graph_gfa = R"(H	VN:Z:1.0	RS:Z:GRCh38
+S	1	CAAATAAG
+S	2	ATTACA
+S	3	G
+L	1	+	2	+	0M
+L	1	+	3	-	0M
+P	GRCh37#0#chr1	1+,3+	8M,1M
+P	GRCh38#0#chr1	1+,3+	8M,1M
+P	chr1	1+,3+	8M,1M
+)";
+
+    bdsg::HashGraph graph;
+    stringstream in(graph_gfa);
+    algorithms::gfa_to_path_handle_graph(in, &graph);
+	
+	REQUIRE(graph.has_path("GRCh37#0#chr1#0"));
+	REQUIRE(graph.get_sense(graph.get_path_handle("GRCh37#0#chr1#0")) == PathSense::HAPLOTYPE);
+    REQUIRE(graph.has_path("GRCh38#0#chr1"));
+	REQUIRE(graph.get_sense(graph.get_path_handle("GRCh38#0#chr1")) == PathSense::REFERENCE);
+	REQUIRE(graph.has_path("chr1"));
+	REQUIRE(graph.get_sense(graph.get_path_handle("chr1")) == PathSense::GENERIC);
 }
 
 
