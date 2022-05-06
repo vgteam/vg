@@ -117,8 +117,6 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
-<tr class="memitem:a0ddd9253497e1feaef7a3ff27d7ae2bf"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#a0ddd9253497e1feaef7a3ff27d7ae2bf">paths_as_samples</a> = false</td></tr>
-<tr class="separator:a0ddd9253497e1feaef7a3ff27d7ae2bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afb3592792a7d781cb6e88fe7949b7bfe"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HaplotypeIndexer.html#afb3592792a7d781cb6e88fe7949b7bfe">warn_on_missing_variants</a> = true</td></tr>
 <tr class="memdesc:afb3592792a7d781cb6e88fe7949b7bfe"><td class="mdescLeft">&#160;</td><td class="mdescRight">Print a warning if variants in the VCF can't be found in the graph.  <a href="classvg_1_1HaplotypeIndexer.html#afb3592792a7d781cb6e88fe7949b7bfe">More...</a><br /></td></tr>
 <tr class="separator:afb3592792a7d781cb6e88fe7949b7bfe"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -198,7 +196,7 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Build a GBWT from the embedded non-alt paths in the graph. Use paths_as_samples to choose whether we treat the paths as contigs or samples. </p>
+<p>Build a GBWT from the embedded non-alt paths in the graph. </p>
 
 </div>
 </div>
@@ -285,8 +283,8 @@ Public Attributes</h2></td></tr>
 <p>Respects excluded_samples and does not produce threads for them.</p>
 <p>We expect that all parse files contain sample/contig names and that the sample names are the same in all files.</p>
 <p>There may be no parse files.</p>
-<p>If graph is provided and is not null, also includes embedded non-alt paths from the graph. Use paths_as_samples to choose whether we treat the paths as contigs or samples.</p>
-<p>If paths is provided and is not null, include only those specified paths from the graph. If skip_unvisited_paths is set, paths not visited as contigs by VCF parse files will be skipped. </p>
+<p>If graph is provided and is not null, also includes embedded non-alt paths from the graph.</p>
+<p>If paths is provided and is not null, include only those specified paths from the graph. If skip_unvisited_paths is set, paths whose contigs are not visited by VCF parse files will be skipped. </p>
 
 </div>
 </div>
@@ -491,21 +489,6 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p><a class="el" href="structvg_1_1Path.html">Path</a> names in the graph are mapped to VCF contig names via path_to_vcf, or used as-is if no entry there is found. </p>
-
-</div>
-</div>
-<a id="a0ddd9253497e1feaef7a3ff27d7ae2bf"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0ddd9253497e1feaef7a3ff27d7ae2bf">&#9670;&nbsp;</a></span>paths_as_samples</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool vg::HaplotypeIndexer::paths_as_samples = false</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Treat the embedded paths in the graph as samples. By default, the paths are interpreted as contigs. </p>
 
 </div>
 </div>

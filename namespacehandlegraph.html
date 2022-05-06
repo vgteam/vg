@@ -66,6 +66,7 @@ $(function() {
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#typedef-members">Typedefs</a> &#124;
+<a href="#enum-members">Enumerations</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">handlegraph Namespace Reference</div>  </div>
@@ -156,15 +157,29 @@ Typedefs</h2></td></tr>
 <tr class="separator:a93c2889b752934c4b2488b37cbdd278b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9d001e7b9d625e6b4ef53430e6a0c180"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a9d001e7b9d625e6b4ef53430e6a0c180">id_t</a></td></tr>
 <tr class="separator:a9d001e7b9d625e6b4ef53430e6a0c180"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4ceaa14f55bfa14f49b423fd9d903462"><td class="memItemLeft" align="right" valign="top">typedef std::size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a4ceaa14f55bfa14f49b423fd9d903462">off_t</a></td></tr>
-<tr class="memdesc:a4ceaa14f55bfa14f49b423fd9d903462"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents an offset.  <a href="namespacehandlegraph.html#a4ceaa14f55bfa14f49b423fd9d903462">More...</a><br /></td></tr>
-<tr class="separator:a4ceaa14f55bfa14f49b423fd9d903462"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a84af25c08400967bb3edc0a97914c0e5"><td class="memItemLeft" align="right" valign="top">typedef std::tuple&lt; <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>, bool, <a class="el" href="namespacehandlegraph.html#a4ceaa14f55bfa14f49b423fd9d903462">off_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a></td></tr>
-<tr class="memdesc:a84af25c08400967bb3edc0a97914c0e5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents a position.  <a href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">More...</a><br /></td></tr>
-<tr class="separator:a84af25c08400967bb3edc0a97914c0e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5aba28c40bd7f181cac4e8d73d6edef8"><td class="memItemLeft" align="right" valign="top">typedef std::size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a5aba28c40bd7f181cac4e8d73d6edef8">offset_t</a></td></tr>
+<tr class="memdesc:a5aba28c40bd7f181cac4e8d73d6edef8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents an offset.  <a href="namespacehandlegraph.html#a5aba28c40bd7f181cac4e8d73d6edef8">More...</a><br /></td></tr>
+<tr class="separator:a5aba28c40bd7f181cac4e8d73d6edef8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0dcae34b861ba40c47d177dc06537bf7"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="namespacehandlegraph.html#a5aba28c40bd7f181cac4e8d73d6edef8">offset_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a0dcae34b861ba40c47d177dc06537bf7">off_t</a></td></tr>
+<tr class="separator:a0dcae34b861ba40c47d177dc06537bf7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a097e656b1ffb02a80c0b530b1987984a"><td class="memItemLeft" align="right" valign="top">typedef std::pair&lt; <a class="el" href="namespacehandlegraph.html#a5aba28c40bd7f181cac4e8d73d6edef8">offset_t</a>, <a class="el" href="namespacehandlegraph.html#a5aba28c40bd7f181cac4e8d73d6edef8">offset_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a097e656b1ffb02a80c0b530b1987984a">subrange_t</a></td></tr>
+<tr class="memdesc:a097e656b1ffb02a80c0b530b1987984a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents a range of offsets, 0-based, end-exclusive.  <a href="namespacehandlegraph.html#a097e656b1ffb02a80c0b530b1987984a">More...</a><br /></td></tr>
+<tr class="separator:a097e656b1ffb02a80c0b530b1987984a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0abc3c64da852112ad2bc0fc9dd5afce"><td class="memItemLeft" align="right" valign="top">typedef std::tuple&lt; <a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>, bool, <a class="el" href="namespacehandlegraph.html#a5aba28c40bd7f181cac4e8d73d6edef8">offset_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a></td></tr>
+<tr class="memdesc:a0abc3c64da852112ad2bc0fc9dd5afce"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents a position.  <a href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">More...</a><br /></td></tr>
+<tr class="separator:a0abc3c64da852112ad2bc0fc9dd5afce"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a91452647367df9cfc96454c0cd07ce7b"><td class="memItemLeft" align="right" valign="top">typedef std::pair&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a></td></tr>
 <tr class="memdesc:a91452647367df9cfc96454c0cd07ce7b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents an edge in terms of its endpoints.  <a href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">More...</a><br /></td></tr>
 <tr class="separator:a91452647367df9cfc96454c0cd07ce7b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
+Enumerations</h2></td></tr>
+<tr class="memitem:ab3d3683c53bb48b8af63a6d94497271c"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> { <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271cac942dc2a9f958acddc67e11472d3ca0b">PathSense::GENERIC</a>, 
+<a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271cadcd320d017d7f3c317bc8b234287bc9f">PathSense::REFERENCE</a>, 
+<a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271ca00c31e80a8b69bfe7bd279f2bfa4b3ba">PathSense::HAPLOTYPE</a>
+ }</td></tr>
+<tr class="memdesc:ab3d3683c53bb48b8af63a6d94497271c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents a sense that a path can have.  <a href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">More...</a><br /></td></tr>
+<tr class="separator:ab3d3683c53bb48b8af63a6d94497271c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
@@ -293,14 +308,28 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a4ceaa14f55bfa14f49b423fd9d903462"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4ceaa14f55bfa14f49b423fd9d903462">&#9670;&nbsp;</a></span>off_t</h2>
+<a id="a0dcae34b861ba40c47d177dc06537bf7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0dcae34b861ba40c47d177dc06537bf7">&#9670;&nbsp;</a></span>off_t</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">typedef std::size_t <a class="el" href="namespacehandlegraph.html#a4ceaa14f55bfa14f49b423fd9d903462">handlegraph::off_t</a></td>
+          <td class="memname">typedef <a class="el" href="namespacehandlegraph.html#a5aba28c40bd7f181cac4e8d73d6edef8">offset_t</a> <a class="el" href="namespacehandlegraph.html#a0dcae34b861ba40c47d177dc06537bf7">handlegraph::off_t</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a5aba28c40bd7f181cac4e8d73d6edef8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5aba28c40bd7f181cac4e8d73d6edef8">&#9670;&nbsp;</a></span>offset_t</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef std::size_t <a class="el" href="namespacehandlegraph.html#a5aba28c40bd7f181cac4e8d73d6edef8">handlegraph::offset_t</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -324,19 +353,65 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a84af25c08400967bb3edc0a97914c0e5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a84af25c08400967bb3edc0a97914c0e5">&#9670;&nbsp;</a></span>pos_t</h2>
+<a id="a0abc3c64da852112ad2bc0fc9dd5afce"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0abc3c64da852112ad2bc0fc9dd5afce">&#9670;&nbsp;</a></span>pos_t</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">typedef std::tuple&lt;<a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>, bool, <a class="el" href="namespacehandlegraph.html#a4ceaa14f55bfa14f49b423fd9d903462">off_t</a>&gt; <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">handlegraph::pos_t</a></td>
+          <td class="memname">typedef std::tuple&lt;<a class="el" href="namespacehandlegraph.html#a93c2889b752934c4b2488b37cbdd278b">nid_t</a>, bool, <a class="el" href="namespacehandlegraph.html#a5aba28c40bd7f181cac4e8d73d6edef8">offset_t</a>&gt; <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">handlegraph::pos_t</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
 
 <p>Represents a position. </p>
+
+</div>
+</div>
+<a id="a097e656b1ffb02a80c0b530b1987984a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a097e656b1ffb02a80c0b530b1987984a">&#9670;&nbsp;</a></span>subrange_t</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">typedef std::pair&lt;<a class="el" href="namespacehandlegraph.html#a5aba28c40bd7f181cac4e8d73d6edef8">offset_t</a>, <a class="el" href="namespacehandlegraph.html#a5aba28c40bd7f181cac4e8d73d6edef8">offset_t</a>&gt; <a class="el" href="namespacehandlegraph.html#a097e656b1ffb02a80c0b530b1987984a">handlegraph::subrange_t</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Represents a range of offsets, 0-based, end-exclusive. </p>
+
+</div>
+</div>
+<h2 class="groupheader">Enumeration Type Documentation</h2>
+<a id="ab3d3683c53bb48b8af63a6d94497271c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab3d3683c53bb48b8af63a6d94497271c">&#9670;&nbsp;</a></span>PathSense</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">handlegraph::PathSense</a></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">strong</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Represents a sense that a path can have. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="ab3d3683c53bb48b8af63a6d94497271cac942dc2a9f958acddc67e11472d3ca0b"></a>GENERIC&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="ab3d3683c53bb48b8af63a6d94497271cadcd320d017d7f3c317bc8b234287bc9f"></a>REFERENCE&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="ab3d3683c53bb48b8af63a6d94497271ca00c31e80a8b69bfe7bd279f2bfa4b3ba"></a>HAPLOTYPE&#160;</td><td class="fielddoc"></td></tr>
+</table>
 
 </div>
 </div>

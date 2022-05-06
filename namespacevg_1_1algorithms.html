@@ -85,6 +85,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1algorithms_1_1GFAParser.html">GFAParser</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1algorithms_1_1kmer__t.html">kmer_t</a></td></tr>
@@ -106,7 +108,7 @@ Typedefs</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
 <tr class="memitem:a5af5b6f1083925669832ae59d0e549e7"><td class="memTemplParams" colspan="2">template&lt;class DistHeuristic &gt; </td></tr>
-<tr class="memitem:a5af5b6f1083925669832ae59d0e549e7"><td class="memTemplItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a5af5b6f1083925669832ae59d0e549e7">a_star</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos_1, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos_2, const DistHeuristic &amp;dist_heuristic, bool find_min=true, int64_t extremal_distance=numeric_limits&lt; int64_t &gt;::max(), bool monotonic_heuristic=true)</td></tr>
+<tr class="memitem:a5af5b6f1083925669832ae59d0e549e7"><td class="memTemplItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a5af5b6f1083925669832ae59d0e549e7">a_star</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;pos_1, const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;pos_2, const DistHeuristic &amp;dist_heuristic, bool find_min=true, int64_t extremal_distance=numeric_limits&lt; int64_t &gt;::max(), bool monotonic_heuristic=true)</td></tr>
 <tr class="separator:a5af5b6f1083925669832ae59d0e549e7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad9941053149e9b62a3987e6910aab8f6"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad9941053149e9b62a3987e6910aab8f6">alignment_path_offsets</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, bool just_min, bool nearby, size_t search_limit, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
 <tr class="separator:ad9941053149e9b62a3987e6910aab8f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -120,7 +122,7 @@ Functions</h2></td></tr>
 <tr class="separator:a001d349e7ad0fa290437ca9846decced"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8cf2e0df2e99d24d22fbfac537120cc8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a8cf2e0df2e99d24d22fbfac537120cc8">annotate_with_initial_path_positions</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alns, size_t search_limit, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
 <tr class="separator:a8cf2e0df2e99d24d22fbfac537120cc8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae18b50d29d9accb763b44d6e065dac58"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ae18b50d29d9accb763b44d6e065dac58">min_approx_path_distance</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos1, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos2, uint64_t max_search)</td></tr>
+<tr class="memitem:ae18b50d29d9accb763b44d6e065dac58"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ae18b50d29d9accb763b44d6e065dac58">min_approx_path_distance</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;pos1, const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;pos2, uint64_t max_search)</td></tr>
 <tr class="memdesc:ae18b50d29d9accb763b44d6e065dac58"><td class="mdescLeft">&#160;</td><td class="mdescRight">use the embedded paths to get an estimated minimum distance between the positions  <a href="namespacevg_1_1algorithms.html#ae18b50d29d9accb763b44d6e065dac58">More...</a><br /></td></tr>
 <tr class="separator:ae18b50d29d9accb763b44d6e065dac58"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0d0e29a34fb2e1f712751a8a8fda6f03"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a0d0e29a34fb2e1f712751a8a8fda6f03">back_translate_in_place</a> (const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">NamedNodeBackTranslation</a> *translation, <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path)</td></tr>
@@ -200,16 +202,18 @@ Functions</h2></td></tr>
 <tr class="separator:aec7fcd701af4fdcbb87e83f0ea5b420a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8a0c0c6d333cb438f96e5df6faec3621"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a8a0c0c6d333cb438f96e5df6faec3621">expand_context_with_paths</a> (const <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">PathHandleGraph</a> *source, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *subgraph, int64_t dist, bool use_steps, bool expand_forward, bool expand_backward)</td></tr>
 <tr class="separator:a8a0c0c6d333cb438f96e5df6faec3621"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac0d0446bde00e10bd77816c968ae97b0"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ac0d0446bde00e10bd77816c968ae97b0">extract_connecting_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *source, <a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> *into, int64_t max_len, <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> pos_1, <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> pos_2, bool strict_max_len)</td></tr>
+<tr class="memitem:ac0d0446bde00e10bd77816c968ae97b0"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ac0d0446bde00e10bd77816c968ae97b0">extract_connecting_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *source, <a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> *into, int64_t max_len, <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> pos_1, <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> pos_2, bool strict_max_len)</td></tr>
 <tr class="separator:ac0d0446bde00e10bd77816c968ae97b0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4270da794ad0185dacef1874a1e4d3c2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a4270da794ad0185dacef1874a1e4d3c2">extract_containing_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *source, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *into, const vector&lt; <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &gt; &amp;positions, const vector&lt; size_t &gt; &amp;forward_search_lengths, const vector&lt; size_t &gt; &amp;backward_search_lengths, size_t reversing_walk_length)</td></tr>
+<tr class="memitem:a4270da794ad0185dacef1874a1e4d3c2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a4270da794ad0185dacef1874a1e4d3c2">extract_containing_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *source, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *into, const vector&lt; <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &gt; &amp;positions, const vector&lt; size_t &gt; &amp;forward_search_lengths, const vector&lt; size_t &gt; &amp;backward_search_lengths, size_t reversing_walk_length)</td></tr>
 <tr class="separator:a4270da794ad0185dacef1874a1e4d3c2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0ecd79b7d4b622b583a8e08df594e45c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a0ecd79b7d4b622b583a8e08df594e45c">extract_containing_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *source, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *into, const vector&lt; <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &gt; &amp;positions, size_t max_dist, size_t reversing_walk_length)</td></tr>
+<tr class="memitem:a0ecd79b7d4b622b583a8e08df594e45c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a0ecd79b7d4b622b583a8e08df594e45c">extract_containing_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *source, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *into, const vector&lt; <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &gt; &amp;positions, size_t max_dist, size_t reversing_walk_length)</td></tr>
 <tr class="separator:a0ecd79b7d4b622b583a8e08df594e45c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab31b1b707c93f96d6f013e579c4d8783"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ab31b1b707c93f96d6f013e579c4d8783">extract_containing_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *source, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *into, const vector&lt; <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &gt; &amp;positions, const vector&lt; size_t &gt; &amp;position_max_dist, size_t reversing_walk_length)</td></tr>
+<tr class="memitem:ab31b1b707c93f96d6f013e579c4d8783"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ab31b1b707c93f96d6f013e579c4d8783">extract_containing_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *source, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *into, const vector&lt; <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &gt; &amp;positions, const vector&lt; size_t &gt; &amp;position_max_dist, size_t reversing_walk_length)</td></tr>
 <tr class="separator:ab31b1b707c93f96d6f013e579c4d8783"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1f600eb589d48607c2616bed69ff2e27"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a1f600eb589d48607c2616bed69ff2e27">extract_extending_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *source, <a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> *into, int64_t max_dist, <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> pos, bool backward, bool preserve_cycles_on_src_node)</td></tr>
+<tr class="memitem:a1f600eb589d48607c2616bed69ff2e27"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a1f600eb589d48607c2616bed69ff2e27">extract_extending_graph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *source, <a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> *into, int64_t max_dist, <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> pos, bool backward, bool preserve_cycles_on_src_node)</td></tr>
 <tr class="separator:a1f600eb589d48607c2616bed69ff2e27"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1e8867ea22636dc22aa53bd8fe1d0aaa"><td class="memItemLeft" align="right" valign="top">const gbwtgraph::GBWTGraph *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a1e8867ea22636dc22aa53bd8fe1d0aaa">find_gbwtgraph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
+<tr class="separator:a1e8867ea22636dc22aa53bd8fe1d0aaa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af38c05b9c1e56c79faccfbbf6b3ade95"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1NamedNodeBackTranslation.html">NamedNodeBackTranslation</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#af38c05b9c1e56c79faccfbbf6b3ade95">find_translation</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph)</td></tr>
 <tr class="separator:af38c05b9c1e56c79faccfbbf6b3ade95"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aedfca626dc003dc3fee77c6bbfcde297"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aedfca626dc003dc3fee77c6bbfcde297">gfa_to_handle_graph</a> (const string &amp;filename, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *graph, <a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> *translation)</td></tr>
@@ -217,29 +221,25 @@ Functions</h2></td></tr>
 <tr class="memitem:adca14b7dcba0bb21f3fdb0c98d867c72"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#adca14b7dcba0bb21f3fdb0c98d867c72">gfa_to_handle_graph</a> (const string &amp;filename, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *graph, const string &amp;translation_filename)</td></tr>
 <tr class="memdesc:adca14b7dcba0bb21f3fdb0c98d867c72"><td class="mdescLeft">&#160;</td><td class="mdescRight">Overload which serializes its translation to a file internally.  <a href="namespacevg_1_1algorithms.html#adca14b7dcba0bb21f3fdb0c98d867c72">More...</a><br /></td></tr>
 <tr class="separator:adca14b7dcba0bb21f3fdb0c98d867c72"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a031cb6d0db20a6aaee020c5a6909ba80"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a031cb6d0db20a6aaee020c5a6909ba80">gfa_to_handle_graph</a> (istream &amp;in, <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *graph, <a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> *translation=nullptr)</td></tr>
+<tr class="memdesc:a031cb6d0db20a6aaee020c5a6909ba80"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load a GFA from a stream (assumed not to be seekable or reopenable) into a HandleGraph.  <a href="namespacevg_1_1algorithms.html#a031cb6d0db20a6aaee020c5a6909ba80">More...</a><br /></td></tr>
+<tr class="separator:a031cb6d0db20a6aaee020c5a6909ba80"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a34b0719425313a01aa6449398cc9b59e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a34b0719425313a01aa6449398cc9b59e">gfa_to_path_handle_graph</a> (const string &amp;filename, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, <a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> *translation=nullptr, int64_t max_rgfa_rank=numeric_limits&lt; int64_t &gt;::max())</td></tr>
 <tr class="memdesc:a34b0719425313a01aa6449398cc9b59e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Same as gfa_to_handle_graph but also adds path elements from the GFA to the graph.  <a href="namespacevg_1_1algorithms.html#a34b0719425313a01aa6449398cc9b59e">More...</a><br /></td></tr>
 <tr class="separator:a34b0719425313a01aa6449398cc9b59e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad0a8e69161f6693218d98c50c4af6f6b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad0a8e69161f6693218d98c50c4af6f6b">gfa_to_path_handle_graph</a> (const string &amp;filename, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, int64_t max_rgfa_rank, const string &amp;translation_filename)</td></tr>
 <tr class="memdesc:ad0a8e69161f6693218d98c50c4af6f6b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Overload which serializes its translation to a file internally.  <a href="namespacevg_1_1algorithms.html#ad0a8e69161f6693218d98c50c4af6f6b">More...</a><br /></td></tr>
 <tr class="separator:ad0a8e69161f6693218d98c50c4af6f6b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad53437397e1ccba4504154840e34e6d3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad53437397e1ccba4504154840e34e6d3">gfa_to_path_handle_graph_in_memory</a> (istream &amp;in, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, int64_t max_rgfa_rank)</td></tr>
-<tr class="separator:ad53437397e1ccba4504154840e34e6d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae1b1ade4fd2e6e30342de0f1749fb7e6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ae1b1ade4fd2e6e30342de0f1749fb7e6">gfa_to_path_handle_graph_stream</a> (istream &amp;in, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, <a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> *translation, int64_t max_rgfa_rank)</td></tr>
-<tr class="separator:ae1b1ade4fd2e6e30342de0f1749fb7e6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3cecfd58955c9e344188230416c931d0"><td class="memItemLeft" align="right" valign="top">tuple&lt; string, string, vector&lt; string &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a3cecfd58955c9e344188230416c931d0">parse_gfa_s_line</a> (const string &amp;s_line)</td></tr>
-<tr class="separator:a3cecfd58955c9e344188230416c931d0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab2b4e19a60812ec060d1efed0e8bd687"><td class="memItemLeft" align="right" valign="top">tuple&lt; string, bool, string, bool, vector&lt; string &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ab2b4e19a60812ec060d1efed0e8bd687">parse_gfa_l_line</a> (const string &amp;l_line)</td></tr>
-<tr class="separator:ab2b4e19a60812ec060d1efed0e8bd687"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae08d36e06cd3a86b81cacdf34f50ec08"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ae08d36e06cd3a86b81cacdf34f50ec08">parse_gfa_p_line</a> (const string &amp;p_line, function&lt; bool(const string &amp;, int64_t, const string &amp;, bool)&gt; visit_step)</td></tr>
-<tr class="separator:ae08d36e06cd3a86b81cacdf34f50ec08"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab58dbeff2a046503597e156be872ef47"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ab58dbeff2a046503597e156be872ef47">gfa_to_path_handle_graph</a> (istream &amp;in, <a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, <a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> *translation=nullptr, int64_t max_rgfa_rank=numeric_limits&lt; int64_t &gt;::max())</td></tr>
+<tr class="memdesc:ab58dbeff2a046503597e156be872ef47"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load a GFA from a stream (assumed not to be seekable or reopenable) into a PathHandleGraph.  <a href="namespacevg_1_1algorithms.html#ab58dbeff2a046503597e156be872ef47">More...</a><br /></td></tr>
+<tr class="separator:ab58dbeff2a046503597e156be872ef47"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a54730e9452c2609633da201ba85a8bca"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a54730e9452c2609633da201ba85a8bca">id_order</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g)</td></tr>
 <tr class="separator:a54730e9452c2609633da201ba85a8bca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9ce4dabb6661657c7d72593afc3f41df"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a9ce4dabb6661657c7d72593afc3f41df">intersect_path_offsets</a> (const <a class="el" href="namespacevg_1_1algorithms.html#a6474017f8ab54b0c6e20095206a880a8">path_offset_collection_t</a> &amp;a_offsets, const <a class="el" href="namespacevg_1_1algorithms.html#a6474017f8ab54b0c6e20095206a880a8">path_offset_collection_t</a> &amp;b_offsets, size_t maximum_distance)</td></tr>
 <tr class="separator:a9ce4dabb6661657c7d72593afc3f41df"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad8e5913b682c7c14f119543eca7e7548"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#ad8e5913b682c7c14f119543eca7e7548">sort_path_offsets</a> (<a class="el" href="namespacevg_1_1algorithms.html#a6474017f8ab54b0c6e20095206a880a8">path_offset_collection_t</a> &amp;offsets)</td></tr>
 <tr class="separator:ad8e5913b682c7c14f119543eca7e7548"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a633a1600c6a7e447c040fefb1432e508"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a633a1600c6a7e447c040fefb1432e508">jump_along_closest_path</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos, int64_t jump_dist, size_t max_search_dist)</td></tr>
+<tr class="memitem:a633a1600c6a7e447c040fefb1432e508"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a633a1600c6a7e447c040fefb1432e508">jump_along_closest_path</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;pos, int64_t jump_dist, size_t max_search_dist)</td></tr>
 <tr class="separator:a633a1600c6a7e447c040fefb1432e508"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a08c6d85f2dc09c22c5d14ed81808769e"><td class="memItemLeft" align="right" valign="top">pair&lt; double, vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a08c6d85f2dc09c22c5d14ed81808769e">widest_dijkstra</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *g, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> source, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> sink, function&lt; double(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; node_weight_callback, function&lt; double(const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;)&gt; edge_weight_callback, function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; is_node_ignored_callback, function&lt; bool(const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;)&gt; is_edge_ignored_callback, bool greedy_avg)</td></tr>
 <tr class="separator:a08c6d85f2dc09c22c5d14ed81808769e"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -262,14 +262,14 @@ Functions</h2></td></tr>
 <tr class="separator:a7ae1eba2313c3ce068851c85b8d019e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5cd4d23b1a702613134895c2d5618154"><td class="memItemLeft" align="right" valign="top">vector&lt; unordered_set&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a5cd4d23b1a702613134895c2d5618154">min_cut_decomposition</a> (<a class="el" href="structvg_1_1algorithms_1_1Graph.html">Graph</a> graph, const int seed)</td></tr>
 <tr class="separator:a5cd4d23b1a702613134895c2d5618154"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a477330d3ab29cbd3c48e4830d51b3e0f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg_1_1algorithms.html#a6474017f8ab54b0c6e20095206a880a8">path_offset_collection_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a477330d3ab29cbd3c48e4830d51b3e0f">nearest_offsets_in_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos, int64_t max_search, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
+<tr class="memitem:a477330d3ab29cbd3c48e4830d51b3e0f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg_1_1algorithms.html#a6474017f8ab54b0c6e20095206a880a8">path_offset_collection_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a477330d3ab29cbd3c48e4830d51b3e0f">nearest_offsets_in_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;pos, int64_t max_search, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; *path_filter)</td></tr>
 <tr class="separator:a477330d3ab29cbd3c48e4830d51b3e0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aef24fa77dadb09d5920ec94b88af2128"><td class="memItemLeft" align="right" valign="top">map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aef24fa77dadb09d5920ec94b88af2128">offsets_in_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos)</td></tr>
+<tr class="memitem:aef24fa77dadb09d5920ec94b88af2128"><td class="memItemLeft" align="right" valign="top">map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aef24fa77dadb09d5920ec94b88af2128">offsets_in_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;pos)</td></tr>
 <tr class="separator:aef24fa77dadb09d5920ec94b88af2128"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9ddb73ef3cf5a8891aa82001f272c3c4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg_1_1algorithms.html#a6474017f8ab54b0c6e20095206a880a8">path_offset_collection_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a9ddb73ef3cf5a8891aa82001f272c3c4">simple_offsets_in_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> pos)</td></tr>
+<tr class="memitem:a9ddb73ef3cf5a8891aa82001f272c3c4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg_1_1algorithms.html#a6474017f8ab54b0c6e20095206a880a8">path_offset_collection_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a9ddb73ef3cf5a8891aa82001f272c3c4">simple_offsets_in_paths</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> pos)</td></tr>
 <tr class="memdesc:a9ddb73ef3cf5a8891aa82001f272c3c4"><td class="mdescLeft">&#160;</td><td class="mdescRight">A "simple" model for path position getting for debugging.  <a href="namespacevg_1_1algorithms.html#a9ddb73ef3cf5a8891aa82001f272c3c4">More...</a><br /></td></tr>
 <tr class="separator:a9ddb73ef3cf5a8891aa82001f272c3c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a22d03c4f50c51d0d537811ba88895688"><td class="memItemLeft" align="right" valign="top">map&lt; <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a>, char &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a22d03c4f50c51d0d537811ba88895688">next_pos_chars</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> pos)</td></tr>
+<tr class="memitem:a22d03c4f50c51d0d537811ba88895688"><td class="memItemLeft" align="right" valign="top">map&lt; <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a>, char &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a22d03c4f50c51d0d537811ba88895688">next_pos_chars</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;graph, <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> pos)</td></tr>
 <tr class="separator:a22d03c4f50c51d0d537811ba88895688"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afb6a93eb17739d744908d61ca6650f4c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#afb6a93eb17739d744908d61ca6650f4c">normalize</a> (<a class="el" href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html">handlegraph::MutablePathDeletableHandleGraph</a> *graph, int max_iter, bool debug, function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; can_merge)</td></tr>
 <tr class="separator:afb6a93eb17739d744908d61ca6650f4c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -289,7 +289,7 @@ Functions</h2></td></tr>
 <tr class="separator:a83e87cf3f8a5ca4362776cf1a3050242"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a96020f05a81255adfca3821f538c02b9"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#a96020f05a81255adfca3821f538c02b9">remove_high_degree_nodes</a> (<a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> &amp;g, int max_degree)</td></tr>
 <tr class="separator:a96020f05a81255adfca3821f538c02b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa5e4dc632e98b58b67a99af6749d9e05"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aa5e4dc632e98b58b67a99af6749d9e05">ref_path_distance</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos_1, const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;pos_2, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;ref_paths, int64_t max_search_dist)</td></tr>
+<tr class="memitem:aa5e4dc632e98b58b67a99af6749d9e05"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#aa5e4dc632e98b58b67a99af6749d9e05">ref_path_distance</a> (const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *graph, const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;pos_1, const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;pos_2, const unordered_set&lt; <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &gt; &amp;ref_paths, int64_t max_search_dist)</td></tr>
 <tr class="separator:aa5e4dc632e98b58b67a99af6749d9e05"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af51e5eafc2c18f33dd6a120c753247a3"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1algorithms.html#af51e5eafc2c18f33dd6a120c753247a3">bellman_ford_shortest_cycle_length</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;source, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;layout, const unordered_map&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t &gt; &amp;handle_index, const vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;feedback_edges)</td></tr>
 <tr class="separator:af51e5eafc2c18f33dd6a120c753247a3"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -408,13 +408,13 @@ template&lt;class DistHeuristic &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;&#160;</td>
           <td class="paramname"><em>pos_1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;&#160;</td>
           <td class="paramname"><em>pos_2</em>, </td>
         </tr>
         <tr>
@@ -1969,13 +1969,13 @@ template&lt;typename Collection &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a>&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a>&#160;</td>
           <td class="paramname"><em>pos_1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a>&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a>&#160;</td>
           <td class="paramname"><em>pos_2</em>, </td>
         </tr>
         <tr>
@@ -2019,7 +2019,7 @@ template&lt;typename Collection &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>positions</em>, </td>
         </tr>
         <tr>
@@ -2072,7 +2072,7 @@ template&lt;typename Collection &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>positions</em>, </td>
         </tr>
         <tr>
@@ -2119,7 +2119,7 @@ template&lt;typename Collection &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const vector&lt; <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>positions</em>, </td>
         </tr>
         <tr>
@@ -2233,7 +2233,7 @@ template&lt;typename Collection &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a>&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a>&#160;</td>
           <td class="paramname"><em>pos</em>, </td>
         </tr>
         <tr>
@@ -2383,6 +2383,25 @@ template&lt;typename Collection &gt; </div>
 
 </div>
 </div>
+<a id="a1e8867ea22636dc22aa53bd8fe1d0aaa"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1e8867ea22636dc22aa53bd8fe1d0aaa">&#9670;&nbsp;</a></span>find_gbwtgraph()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const gbwtgraph::GBWTGraph * vg::algorithms::find_gbwtgraph </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Find the GBWTGraph that is part of the given handle graph, if any exists. Works on GBWTGraphs and GBZGraphs. Returns null if no such GBWTGraph exists. </p>
+
+</div>
+</div>
 <a id="af38c05b9c1e56c79faccfbbf6b3ade95"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#af38c05b9c1e56c79faccfbbf6b3ade95">&#9670;&nbsp;</a></span>find_translation()</h2>
 
@@ -2529,7 +2548,7 @@ template&lt;typename Collection &gt; </div>
 </div>
 </div>
 <a id="adca14b7dcba0bb21f3fdb0c98d867c72"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#adca14b7dcba0bb21f3fdb0c98d867c72">&#9670;&nbsp;</a></span>gfa_to_handle_graph() <span class="overload">[1/2]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#adca14b7dcba0bb21f3fdb0c98d867c72">&#9670;&nbsp;</a></span>gfa_to_handle_graph() <span class="overload">[1/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2565,7 +2584,7 @@ template&lt;typename Collection &gt; </div>
 </div>
 </div>
 <a id="aedfca626dc003dc3fee77c6bbfcde297"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aedfca626dc003dc3fee77c6bbfcde297">&#9670;&nbsp;</a></span>gfa_to_handle_graph() <span class="overload">[2/2]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#aedfca626dc003dc3fee77c6bbfcde297">&#9670;&nbsp;</a></span>gfa_to_handle_graph() <span class="overload">[2/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2596,12 +2615,48 @@ template&lt;typename Collection &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Read a GFA file for a blunt-ended graph into a HandleGraph. Give "-" as a filename for stdin.</p>
-<p>Throws <a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html" title="This exception will be thrown if the GFA data is not acceptable.">GFAFormatError</a> if the GFA file is not acceptable, and std::ios_base::failure if an IO operation fails. Throws invalid_argument if otherwise misused. </p>
+<p>Throws <a class="el" href="structvg_1_1algorithms_1_1GFAFormatError.html" title="This exception will be thrown if the GFA data is not acceptable.">GFAFormatError</a> if the GFA file is not acceptable, and std::ios_base::failure if an IO operation fails. Throws invalid_argument if otherwise misused. Does not give max ID hints, and so might be very slow when loading into an ODGI graph. </p>
+
+</div>
+</div>
+<a id="a031cb6d0db20a6aaee020c5a6909ba80"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a031cb6d0db20a6aaee020c5a6909ba80">&#9670;&nbsp;</a></span>gfa_to_handle_graph() <span class="overload">[3/3]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::algorithms::gfa_to_handle_graph </td>
+          <td>(</td>
+          <td class="paramtype">istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> *&#160;</td>
+          <td class="paramname"><em>translation</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Load a GFA from a stream (assumed not to be seekable or reopenable) into a HandleGraph. </p>
 
 </div>
 </div>
 <a id="a34b0719425313a01aa6449398cc9b59e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a34b0719425313a01aa6449398cc9b59e">&#9670;&nbsp;</a></span>gfa_to_path_handle_graph() <span class="overload">[1/2]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a34b0719425313a01aa6449398cc9b59e">&#9670;&nbsp;</a></span>gfa_to_path_handle_graph() <span class="overload">[1/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2643,7 +2698,7 @@ template&lt;typename Collection &gt; </div>
 </div>
 </div>
 <a id="ad0a8e69161f6693218d98c50c4af6f6b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad0a8e69161f6693218d98c50c4af6f6b">&#9670;&nbsp;</a></span>gfa_to_path_handle_graph() <span class="overload">[2/2]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#ad0a8e69161f6693218d98c50c4af6f6b">&#9670;&nbsp;</a></span>gfa_to_path_handle_graph() <span class="overload">[2/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -2684,49 +2739,14 @@ template&lt;typename Collection &gt; </div>
 
 </div>
 </div>
-<a id="ad53437397e1ccba4504154840e34e6d3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad53437397e1ccba4504154840e34e6d3">&#9670;&nbsp;</a></span>gfa_to_path_handle_graph_in_memory()</h2>
+<a id="ab58dbeff2a046503597e156be872ef47"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab58dbeff2a046503597e156be872ef47">&#9670;&nbsp;</a></span>gfa_to_path_handle_graph() <span class="overload">[3/3]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::algorithms::gfa_to_path_handle_graph_in_memory </td>
-          <td>(</td>
-          <td class="paramtype">istream &amp;&#160;</td>
-          <td class="paramname"><em>in</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>graph</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>max_rgfa_rank</em> = <code>numeric_limits&lt;&#160;int64_t&#160;&gt;::max()</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Same as above but operating on a stream. Assumed to be non-seekable; all conversion happens in memory. Always streaming. Doesn't support ID increment hints. </p>
-
-</div>
-</div>
-<a id="ae1b1ade4fd2e6e30342de0f1749fb7e6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae1b1ade4fd2e6e30342de0f1749fb7e6">&#9670;&nbsp;</a></span>gfa_to_path_handle_graph_stream()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::algorithms::gfa_to_path_handle_graph_stream </td>
+          <td class="memname">void vg::algorithms::gfa_to_path_handle_graph </td>
           <td>(</td>
           <td class="paramtype">istream &amp;&#160;</td>
           <td class="paramname"><em>in</em>, </td>
@@ -2741,13 +2761,13 @@ template&lt;typename Collection &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype"><a class="el" href="structvg_1_1algorithms_1_1GFAIDMapInfo.html">GFAIDMapInfo</a> *&#160;</td>
-          <td class="paramname"><em>translation</em> = <code>nullptr</code>, </td>
+          <td class="paramname"><em>translation</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>max_rgfa_rank</em> = <code>numeric_limits&lt;&#160;int64_t&#160;&gt;::max()</code>&#160;</td>
+          <td class="paramname"><em>max_rgfa_rank</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -2756,7 +2776,8 @@ template&lt;typename Collection &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Operate on a stream line by line. This can only work if the GFA is sorted. If the GFA isn't sorted, dump it to a temp file, and fall back on <a class="el" href="namespacevg_1_1algorithms.html#a34b0719425313a01aa6449398cc9b59e" title="Same as gfa_to_handle_graph but also adds path elements from the GFA to the graph.">gfa_to_path_handle_graph()</a> </p>
+
+<p>Load a GFA from a stream (assumed not to be seekable or reopenable) into a PathHandleGraph. </p>
 
 </div>
 </div>
@@ -2881,7 +2902,7 @@ template&lt;typename Collection &gt; </div>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt; <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &gt; vg::algorithms::jump_along_closest_path </td>
+          <td class="memname">vector&lt; <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &gt; vg::algorithms::jump_along_closest_path </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> *&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
@@ -2889,7 +2910,7 @@ template&lt;typename Collection &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;&#160;</td>
           <td class="paramname"><em>pos</em>, </td>
         </tr>
         <tr>
@@ -3034,13 +3055,13 @@ template&lt;typename Collection &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;&#160;</td>
           <td class="paramname"><em>pos1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;&#160;</td>
           <td class="paramname"><em>pos2</em>, </td>
         </tr>
         <tr>
@@ -3140,7 +3161,7 @@ template&lt;typename Collection &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;&#160;</td>
           <td class="paramname"><em>pos</em>, </td>
         </tr>
         <tr>
@@ -3174,7 +3195,7 @@ template&lt;typename Collection &gt; </div>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">map&lt; <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a>, char &gt; vg::algorithms::next_pos_chars </td>
+          <td class="memname">map&lt; <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a>, char &gt; vg::algorithms::next_pos_chars </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathPositionHandleGraph.html">PathPositionHandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
@@ -3182,7 +3203,7 @@ template&lt;typename Collection &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a>&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a>&#160;</td>
           <td class="paramname"><em>pos</em>&#160;</td>
         </tr>
         <tr>
@@ -3270,7 +3291,7 @@ template&lt;typename Collection &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;&#160;</td>
           <td class="paramname"><em>pos</em>&#160;</td>
         </tr>
         <tr>
@@ -3429,73 +3450,6 @@ template&lt;typename Collection &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>print path-name offset base-coverage for every base on a path (just like samtools depth) ignoring things below min_coverage. offsets are 1-based in output stream </p>
-
-</div>
-</div>
-<a id="ab2b4e19a60812ec060d1efed0e8bd687"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab2b4e19a60812ec060d1efed0e8bd687">&#9670;&nbsp;</a></span>parse_gfa_l_line()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">tuple&lt; string, bool, string, bool, vector&lt; string &gt; &gt; vg::algorithms::parse_gfa_l_line </td>
-          <td>(</td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>l_line</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a id="ae08d36e06cd3a86b81cacdf34f50ec08"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ae08d36e06cd3a86b81cacdf34f50ec08">&#9670;&nbsp;</a></span>parse_gfa_p_line()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::algorithms::parse_gfa_p_line </td>
-          <td>(</td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>p_line</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">function&lt; bool(const string &amp;, int64_t, const string &amp;, bool)&gt;&#160;</td>
-          <td class="paramname"><em>visit_step</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>visit_step takes {path-name, rank (-1 if path empty), step id, step reversed} and returns true if it wants to keep iterating (false means stop) </p>
-
-</div>
-</div>
-<a id="a3cecfd58955c9e344188230416c931d0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a3cecfd58955c9e344188230416c931d0">&#9670;&nbsp;</a></span>parse_gfa_s_line()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">tuple&lt; string, string, vector&lt; string &gt; &gt; vg::algorithms::parse_gfa_s_line </td>
-          <td>(</td>
-          <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>s_line</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>gfakluge can't parse line by line, which we need for streaming ideally, it needs to be entirely replaced. here's a bare minimum for parsing lines in the meantime. they return the fields as strings, don't support overlaps, and optional tags get read as strings in the vectors. <br  />
- </p>
 
 </div>
 </div>
@@ -3756,13 +3710,13 @@ template&lt;typename Int1 , typename Int2 &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;&#160;</td>
           <td class="paramname"><em>pos_1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a> &amp;&#160;</td>
           <td class="paramname"><em>pos_2</em>, </td>
         </tr>
         <tr>
@@ -4091,7 +4045,7 @@ template&lt;typename Int1 , typename Int2 &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">pos_t</a>&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">pos_t</a>&#160;</td>
           <td class="paramname"><em>pos</em>&#160;</td>
         </tr>
         <tr>

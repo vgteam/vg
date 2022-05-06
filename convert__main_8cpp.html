@@ -68,7 +68,8 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#enum-members">Enumerations</a> &#124;
-<a href="#func-members">Functions</a>  </div>
+<a href="#func-members">Functions</a> &#124;
+<a href="#var-members">Variables</a>  </div>
   <div class="headertitle">
 <div class="title">convert_main.cpp File Reference</div>  </div>
 </div><!--header-->
@@ -78,6 +79,7 @@ $(function() {
 <code>#include &quot;<a class="el" href="utility_8hpp.html">../utility.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="xg_8hpp.html">xg.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="gfa__to__handle_8hpp.html">../algorithms/gfa_to_handle.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="find__gbwtgraph_8hpp.html">../algorithms/find_gbwtgraph.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="save__handle__graph_8hpp.html">../io/save_handle_graph.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="gfa_8hpp.html">../gfa.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="gbwt__helper_8hpp.html">../gbwt_helper.hpp</a>&quot;</code><br />
@@ -96,16 +98,20 @@ $(function() {
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
 Enumerations</h2></td></tr>
 <tr class="memitem:a0ae208dfa21925e3cb4a7c4ea17ea8ef"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#a0ae208dfa21925e3cb4a7c4ea17ea8ef">input_type</a> { <br />
-&#160;&#160;<a class="el" href="convert__main_8cpp.html#a0ae208dfa21925e3cb4a7c4ea17ea8efa51b609d53bc62ee89aba2c683df2b563">input_default</a>, 
+&#160;&#160;<a class="el" href="convert__main_8cpp.html#a0ae208dfa21925e3cb4a7c4ea17ea8efa6c28171b952beaf1784c655853a0e66c">input_handlegraph</a>, 
 <a class="el" href="convert__main_8cpp.html#a0ae208dfa21925e3cb4a7c4ea17ea8efaa45b4c6e90a30a90deb1183ec3b127a6">input_gam</a>, 
 <a class="el" href="convert__main_8cpp.html#a0ae208dfa21925e3cb4a7c4ea17ea8efa68ce48b22e2cb1ea6edb3f351cff52ed">input_gaf</a>, 
 <a class="el" href="convert__main_8cpp.html#a0ae208dfa21925e3cb4a7c4ea17ea8efaf3349e3c8dbf0909922809cb8776aebd">input_gfa</a>, 
 <br />
-&#160;&#160;<a class="el" href="convert__main_8cpp.html#a0ae208dfa21925e3cb4a7c4ea17ea8efa2cdb682495850f7e3a5dea532a556eb2">input_gbwtgraph</a>, 
-<a class="el" href="convert__main_8cpp.html#a0ae208dfa21925e3cb4a7c4ea17ea8efa2021756fde0d3572fc732d7a2df14c1b">input_gbz</a>
+&#160;&#160;<a class="el" href="convert__main_8cpp.html#a0ae208dfa21925e3cb4a7c4ea17ea8efa2cdb682495850f7e3a5dea532a556eb2">input_gbwtgraph</a>
 <br />
  }</td></tr>
 <tr class="separator:a0ae208dfa21925e3cb4a7c4ea17ea8ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac6768b485302681fa674deef6df58165"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#ac6768b485302681fa674deef6df58165">algorithm_type</a> { <a class="el" href="convert__main_8cpp.html#ac6768b485302681fa674deef6df58165a4ab9b7aa476786439997fe37d2eb0e2a">algorithm_auto</a>, 
+<a class="el" href="convert__main_8cpp.html#ac6768b485302681fa674deef6df58165a2987c27c5c0e7d37f1dede8a94966e86">algorithm_vg</a>, 
+<a class="el" href="convert__main_8cpp.html#ac6768b485302681fa674deef6df58165aec7546f54d00ba7695453b0642db76bb">algorithm_gbwtgraph</a>
+ }</td></tr>
+<tr class="separator:ac6768b485302681fa674deef6df58165"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
@@ -113,16 +119,42 @@ Functions</h2></td></tr>
 <tr class="separator:a61c2208fb6645c58f794c57e1851a194"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aca425ac5df78dde7681385a5341abb1b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#aca425ac5df78dde7681385a5341abb1b">no_multiple_inputs</a> (<a class="el" href="convert__main_8cpp.html#a0ae208dfa21925e3cb4a7c4ea17ea8ef">input_type</a> input)</td></tr>
 <tr class="separator:aca425ac5df78dde7681385a5341abb1b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a70b8ea6a09a848fccb017bb2eb16cc8b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#a70b8ea6a09a848fccb017bb2eb16cc8b">gbwtgraph_to_xg</a> (const gbwtgraph::GBWTGraph *input, <a class="el" href="classxg_1_1XG.html">xg::XG</a> *output, const std::string &amp;ref_sample)</td></tr>
-<tr class="separator:a70b8ea6a09a848fccb017bb2eb16cc8b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a094fbac0ecc5cde5c47dfc030da6c29e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#a094fbac0ecc5cde5c47dfc030da6c29e">add_paths</a> (const gbwtgraph::GBWTGraph *input, <a class="el" href="namespacevg.html#a24350c08e6d69244e6930f41fee00e1f">MutablePathHandleGraph</a> *output, const std::string &amp;ref_sample)</td></tr>
-<tr class="separator:a094fbac0ecc5cde5c47dfc030da6c29e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0333d01ff17db01ff289000d6d292f40"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#a0333d01ff17db01ff289000d6d292f40">graph_to_xg_adjusting_paths</a> (const <a class="el" href="namespacevg.html#abeb2636bd0db3101259ef6803cb4e591">PathHandleGraph</a> *input, <a class="el" href="classxg_1_1XG.html">xg::XG</a> *output, const std::unordered_set&lt; std::string &gt; &amp;ref_samples, bool drop_haplotypes=false)</td></tr>
+<tr class="separator:a0333d01ff17db01ff289000d6d292f40"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a97c9047b1f01a6c50b89cae4249dbdae"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#a97c9047b1f01a6c50b89cae4249dbdae">add_and_adjust_paths</a> (const <a class="el" href="namespacevg.html#abeb2636bd0db3101259ef6803cb4e591">PathHandleGraph</a> *input, <a class="el" href="namespacevg.html#a24350c08e6d69244e6930f41fee00e1f">MutablePathHandleGraph</a> *output, const std::unordered_set&lt; std::string &gt; &amp;ref_samples, bool drop_haplotypes)</td></tr>
+<tr class="separator:a97c9047b1f01a6c50b89cae4249dbdae"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abd9dc3a752930342a8096088f2d4b742"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#abd9dc3a752930342a8096088f2d4b742">main_convert</a> (int argc, char **argv)</td></tr>
 <tr class="separator:abd9dc3a752930342a8096088f2d4b742"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a60e7c2d4e8201cf6bd144531d51e3942"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#a60e7c2d4e8201cf6bd144531d51e3942">check_duplicate_contigs</a> (const gbwt::GBWT &amp;index, const std::vector&lt; gbwt::size_type &gt; &amp;thread_ids, const std::string &amp;ref_sample)</td></tr>
-<tr class="separator:a60e7c2d4e8201cf6bd144531d51e3942"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4355d9c8b84855c02d82983d0cd8eb2f"><td class="memItemLeft" align="right" valign="top">std::unordered_map&lt; std::string, std::unordered_set&lt; int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#a4355d9c8b84855c02d82983d0cd8eb2f">check_duplicate_path_names</a> (const <a class="el" href="namespacevg.html#abeb2636bd0db3101259ef6803cb4e591">PathHandleGraph</a> *input, const std::unordered_set&lt; std::string &gt; &amp;ref_samples)</td></tr>
+<tr class="separator:a4355d9c8b84855c02d82983d0cd8eb2f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
+Variables</h2></td></tr>
+<tr class="memitem:a9427417f4ca764d74efec8fcaf9e2ca8"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="convert__main_8cpp.html#a0ae208dfa21925e3cb4a7c4ea17ea8ef">input_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#a9427417f4ca764d74efec8fcaf9e2ca8">INPUT_DEFAULT</a> = <a class="el" href="convert__main_8cpp.html#a0ae208dfa21925e3cb4a7c4ea17ea8efa6c28171b952beaf1784c655853a0e66c">input_handlegraph</a></td></tr>
+<tr class="separator:a9427417f4ca764d74efec8fcaf9e2ca8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a109b73886515e9f635460704fc5739b4"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="convert__main_8cpp.html#ac6768b485302681fa674deef6df58165">algorithm_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="convert__main_8cpp.html#a109b73886515e9f635460704fc5739b4">ALGORITHM_DEFAULT</a> = <a class="el" href="convert__main_8cpp.html#ac6768b485302681fa674deef6df58165a4ab9b7aa476786439997fe37d2eb0e2a">algorithm_auto</a></td></tr>
+<tr class="separator:a109b73886515e9f635460704fc5739b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Enumeration Type Documentation</h2>
+<a id="ac6768b485302681fa674deef6df58165"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac6768b485302681fa674deef6df58165">&#9670;&nbsp;</a></span>algorithm_type</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="convert__main_8cpp.html#ac6768b485302681fa674deef6df58165">algorithm_type</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="ac6768b485302681fa674deef6df58165a4ab9b7aa476786439997fe37d2eb0e2a"></a>algorithm_auto&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="ac6768b485302681fa674deef6df58165a2987c27c5c0e7d37f1dede8a94966e86"></a>algorithm_vg&#160;</td><td class="fielddoc"></td></tr>
+<tr><td class="fieldname"><a id="ac6768b485302681fa674deef6df58165aec7546f54d00ba7695453b0642db76bb"></a>algorithm_gbwtgraph&#160;</td><td class="fielddoc"></td></tr>
+</table>
+
+</div>
+</div>
 <a id="a0ae208dfa21925e3cb4a7c4ea17ea8ef"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a0ae208dfa21925e3cb4a7c4ea17ea8ef">&#9670;&nbsp;</a></span>input_type</h2>
 
@@ -135,27 +167,26 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a0ae208dfa21925e3cb4a7c4ea17ea8efa51b609d53bc62ee89aba2c683df2b563"></a>input_default&#160;</td><td class="fielddoc"></td></tr>
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a0ae208dfa21925e3cb4a7c4ea17ea8efa6c28171b952beaf1784c655853a0e66c"></a>input_handlegraph&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="a0ae208dfa21925e3cb4a7c4ea17ea8efaa45b4c6e90a30a90deb1183ec3b127a6"></a>input_gam&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="a0ae208dfa21925e3cb4a7c4ea17ea8efa68ce48b22e2cb1ea6edb3f351cff52ed"></a>input_gaf&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="a0ae208dfa21925e3cb4a7c4ea17ea8efaf3349e3c8dbf0909922809cb8776aebd"></a>input_gfa&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="a0ae208dfa21925e3cb4a7c4ea17ea8efa2cdb682495850f7e3a5dea532a556eb2"></a>input_gbwtgraph&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a0ae208dfa21925e3cb4a7c4ea17ea8efa2021756fde0d3572fc732d7a2df14c1b"></a>input_gbz&#160;</td><td class="fielddoc"></td></tr>
 </table>
 
 </div>
 </div>
 <h2 class="groupheader">Function Documentation</h2>
-<a id="a094fbac0ecc5cde5c47dfc030da6c29e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a094fbac0ecc5cde5c47dfc030da6c29e">&#9670;&nbsp;</a></span>add_paths()</h2>
+<a id="a97c9047b1f01a6c50b89cae4249dbdae"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a97c9047b1f01a6c50b89cae4249dbdae">&#9670;&nbsp;</a></span>add_and_adjust_paths()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void add_paths </td>
+          <td class="memname">void add_and_adjust_paths </td>
           <td>(</td>
-          <td class="paramtype">const gbwtgraph::GBWTGraph *&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#abeb2636bd0db3101259ef6803cb4e591">PathHandleGraph</a> *&#160;</td>
           <td class="paramname"><em>input</em>, </td>
         </tr>
         <tr>
@@ -167,8 +198,14 @@ Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>ref_sample</em>&#160;</td>
+          <td class="paramtype">const std::unordered_set&lt; std::string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>ref_samples</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>drop_haplotypes</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -180,29 +217,23 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a60e7c2d4e8201cf6bd144531d51e3942"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a60e7c2d4e8201cf6bd144531d51e3942">&#9670;&nbsp;</a></span>check_duplicate_contigs()</h2>
+<a id="a4355d9c8b84855c02d82983d0cd8eb2f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4355d9c8b84855c02d82983d0cd8eb2f">&#9670;&nbsp;</a></span>check_duplicate_path_names()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void check_duplicate_contigs </td>
+          <td class="memname">std::unordered_map&lt;std::string, std::unordered_set&lt;int64_t&gt; &gt; check_duplicate_path_names </td>
           <td>(</td>
-          <td class="paramtype">const gbwt::GBWT &amp;&#160;</td>
-          <td class="paramname"><em>index</em>, </td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#abeb2636bd0db3101259ef6803cb4e591">PathHandleGraph</a> *&#160;</td>
+          <td class="paramname"><em>input</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::vector&lt; gbwt::size_type &gt; &amp;&#160;</td>
-          <td class="paramname"><em>thread_ids</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>ref_sample</em>&#160;</td>
+          <td class="paramtype">const std::unordered_set&lt; std::string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>ref_samples</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -211,19 +242,20 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Check to make sure the haplotype paths with sample names in the given set have no more than one phase block per sample/haplotype/contig combination. Also return a map from sample name to set of observed haplotype numbers (so we can include them in reference-sense paths only if needed). </p>
 
 </div>
 </div>
-<a id="a70b8ea6a09a848fccb017bb2eb16cc8b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a70b8ea6a09a848fccb017bb2eb16cc8b">&#9670;&nbsp;</a></span>gbwtgraph_to_xg()</h2>
+<a id="a0333d01ff17db01ff289000d6d292f40"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0333d01ff17db01ff289000d6d292f40">&#9670;&nbsp;</a></span>graph_to_xg_adjusting_paths()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void gbwtgraph_to_xg </td>
+          <td class="memname">void graph_to_xg_adjusting_paths </td>
           <td>(</td>
-          <td class="paramtype">const gbwtgraph::GBWTGraph *&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#abeb2636bd0db3101259ef6803cb4e591">PathHandleGraph</a> *&#160;</td>
           <td class="paramname"><em>input</em>, </td>
         </tr>
         <tr>
@@ -235,8 +267,14 @@ Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>ref_sample</em>&#160;</td>
+          <td class="paramtype">const std::unordered_set&lt; std::string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>ref_samples</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>drop_haplotypes</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -306,6 +344,35 @@ Functions</h2></td></tr>
           <td class="paramtype"><a class="el" href="convert__main_8cpp.html#a0ae208dfa21925e3cb4a7c4ea17ea8ef">input_type</a>&#160;</td>
           <td class="paramname"><em>input</em></td><td>)</td>
           <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<h2 class="groupheader">Variable Documentation</h2>
+<a id="a109b73886515e9f635460704fc5739b4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a109b73886515e9f635460704fc5739b4">&#9670;&nbsp;</a></span>ALGORITHM_DEFAULT</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="convert__main_8cpp.html#ac6768b485302681fa674deef6df58165">algorithm_type</a> ALGORITHM_DEFAULT = <a class="el" href="convert__main_8cpp.html#ac6768b485302681fa674deef6df58165a4ab9b7aa476786439997fe37d2eb0e2a">algorithm_auto</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a id="a9427417f4ca764d74efec8fcaf9e2ca8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9427417f4ca764d74efec8fcaf9e2ca8">&#9670;&nbsp;</a></span>INPUT_DEFAULT</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="convert__main_8cpp.html#a0ae208dfa21925e3cb4a7c4ea17ea8ef">input_type</a> INPUT_DEFAULT = <a class="el" href="convert__main_8cpp.html#a0ae208dfa21925e3cb4a7c4ea17ea8efa6c28171b952beaf1784c655853a0e66c">input_handlegraph</a></td>
         </tr>
       </table>
 </div><div class="memdoc">

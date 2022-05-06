@@ -67,7 +67,6 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
-<a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-static-methods">Static Public Member Functions</a> &#124;
 <a href="#pub-static-attribs">Static Public Attributes</a> &#124;
@@ -103,67 +102,58 @@ Inheritance diagram for handlegraph::PathMetadata:</div>
   </map>
 </div></div>
 <table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
-Public Types</h2></td></tr>
-<tr class="memitem:a55d5f006ac51ae68361a1a230b5bcea8"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">Sense</a> { <a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8a95048a60a23cf70a86c3f88c975bfabb">SENSE_GENERIC</a>, 
-<a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8af5ddd6594978ecd300b028eb2362ab3e">SENSE_REFERENCE</a>, 
-<a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8a86118ecb392ad1f8a39885ab4f7326a6">SENSE_HAPLOTYPE</a>
- }</td></tr>
-<tr class="memdesc:a55d5f006ac51ae68361a1a230b5bcea8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Each path always has just one sense.  <a href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">More...</a><br /></td></tr>
-<tr class="separator:a55d5f006ac51ae68361a1a230b5bcea8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:aee403b8c1269b11877df67ff42b759f3"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#aee403b8c1269b11877df67ff42b759f3">~PathMetadata</a> ()=default</td></tr>
 <tr class="separator:aee403b8c1269b11877df67ff42b759f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9f48aa025a3f5fe67a18642b57bedc9c"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">Sense</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a9f48aa025a3f5fe67a18642b57bedc9c">get_sense</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;handle) const</td></tr>
-<tr class="memdesc:a9f48aa025a3f5fe67a18642b57bedc9c"><td class="mdescLeft">&#160;</td><td class="mdescRight">What is the given path meant to be representing?  <a href="classhandlegraph_1_1PathMetadata.html#a9f48aa025a3f5fe67a18642b57bedc9c">More...</a><br /></td></tr>
-<tr class="separator:a9f48aa025a3f5fe67a18642b57bedc9c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6cf06655af059252487f9581cad0dc4a"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a6cf06655af059252487f9581cad0dc4a">get_sense</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;handle) const</td></tr>
+<tr class="memdesc:a6cf06655af059252487f9581cad0dc4a"><td class="mdescLeft">&#160;</td><td class="mdescRight">What is the given path meant to be representing?  <a href="classhandlegraph_1_1PathMetadata.html#a6cf06655af059252487f9581cad0dc4a">More...</a><br /></td></tr>
+<tr class="separator:a6cf06655af059252487f9581cad0dc4a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ada7fda320c3b28c0fb642d7e4a789045"><td class="memItemLeft" align="right" valign="top">virtual std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#ada7fda320c3b28c0fb642d7e4a789045">get_sample_name</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;handle) const</td></tr>
 <tr class="separator:ada7fda320c3b28c0fb642d7e4a789045"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aeea07376b756bc5410dacf86f2c3983d"><td class="memItemLeft" align="right" valign="top">virtual std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#aeea07376b756bc5410dacf86f2c3983d">get_locus_name</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;handle) const</td></tr>
 <tr class="separator:aeea07376b756bc5410dacf86f2c3983d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9868f510b6dad98e4115ec8b267955f4"><td class="memItemLeft" align="right" valign="top">virtual int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a9868f510b6dad98e4115ec8b267955f4">get_haplotype</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;handle) const</td></tr>
-<tr class="separator:a9868f510b6dad98e4115ec8b267955f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a949f7289b392b0afa018a52239062756"><td class="memItemLeft" align="right" valign="top">virtual int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a949f7289b392b0afa018a52239062756">get_phase_block</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;handle) const</td></tr>
-<tr class="separator:a949f7289b392b0afa018a52239062756"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afcfb8f9ebdc8a6109f21efe4e00c6e89"><td class="memItemLeft" align="right" valign="top">virtual std::pair&lt; int64_t, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#afcfb8f9ebdc8a6109f21efe4e00c6e89">get_subrange</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;handle) const</td></tr>
-<tr class="separator:afcfb8f9ebdc8a6109f21efe4e00c6e89"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af8a70bac7762fc72a86bb1c9579d82c7"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
-<tr class="memitem:af8a70bac7762fc72a86bb1c9579d82c7"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#af8a70bac7762fc72a86bb1c9579d82c7">for_each_path_of_sense</a> (const <a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">Sense</a> &amp;sense, const Iteratee &amp;iteratee) const</td></tr>
-<tr class="separator:af8a70bac7762fc72a86bb1c9579d82c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8ea83e700d11830e7eb695b8a11cb17f"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a8ea83e700d11830e7eb695b8a11cb17f">get_haplotype</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;handle) const</td></tr>
+<tr class="separator:a8ea83e700d11830e7eb695b8a11cb17f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aadcc53d7a55b54eb2499b66a02500065"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#aadcc53d7a55b54eb2499b66a02500065">get_phase_block</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;handle) const</td></tr>
+<tr class="separator:aadcc53d7a55b54eb2499b66a02500065"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a80f47deffdb584fa74ea43dad580cce7"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacehandlegraph.html#a097e656b1ffb02a80c0b530b1987984a">subrange_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a80f47deffdb584fa74ea43dad580cce7">get_subrange</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;handle) const</td></tr>
+<tr class="separator:a80f47deffdb584fa74ea43dad580cce7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7afd82569e409e86b4bcdafe8d39cc86"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
+<tr class="memitem:a7afd82569e409e86b4bcdafe8d39cc86"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a7afd82569e409e86b4bcdafe8d39cc86">for_each_path_of_sense</a> (const <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &amp;sense, const Iteratee &amp;iteratee) const</td></tr>
+<tr class="separator:a7afd82569e409e86b4bcdafe8d39cc86"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a01becc6f1373c256aebdb41cab2e1e2a"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
 <tr class="memitem:a01becc6f1373c256aebdb41cab2e1e2a"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a01becc6f1373c256aebdb41cab2e1e2a">for_each_path_of_sample</a> (const std::string &amp;sample, const Iteratee &amp;iteratee) const</td></tr>
 <tr class="separator:a01becc6f1373c256aebdb41cab2e1e2a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a25426a5377c651d841552e0e4c4bd779"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
-<tr class="memitem:a25426a5377c651d841552e0e4c4bd779"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a25426a5377c651d841552e0e4c4bd779">for_each_path_matching</a> (const std::unordered_set&lt; <a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">PathMetadata::Sense</a> &gt; *senses, const std::unordered_set&lt; std::string &gt; *samples, const std::unordered_set&lt; std::string &gt; *loci, const Iteratee &amp;iteratee) const</td></tr>
-<tr class="separator:a25426a5377c651d841552e0e4c4bd779"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2e803fad414f5c6d5754a7588ca9f03f"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
-<tr class="memitem:a2e803fad414f5c6d5754a7588ca9f03f"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a2e803fad414f5c6d5754a7588ca9f03f">for_each_path_matching</a> (const std::unordered_set&lt; <a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">PathMetadata::Sense</a> &gt; &amp;senses, const std::unordered_set&lt; std::string &gt; &amp;samples, const std::unordered_set&lt; std::string &gt; &amp;loci, const Iteratee &amp;iteratee) const</td></tr>
-<tr class="separator:a2e803fad414f5c6d5754a7588ca9f03f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a070e1847b16e83cc55fd8b5fc016f4aa"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
-<tr class="memitem:a070e1847b16e83cc55fd8b5fc016f4aa"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a070e1847b16e83cc55fd8b5fc016f4aa">for_each_step_of_sense</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;visited, const <a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">Sense</a> &amp;sense, const Iteratee &amp;iteratee) const</td></tr>
-<tr class="separator:a070e1847b16e83cc55fd8b5fc016f4aa"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a01967c3713408b24ed6c3c20ff2ddd23"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
+<tr class="memitem:a01967c3713408b24ed6c3c20ff2ddd23"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a01967c3713408b24ed6c3c20ff2ddd23">for_each_path_matching</a> (const std::unordered_set&lt; <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &gt; *senses, const std::unordered_set&lt; std::string &gt; *samples, const std::unordered_set&lt; std::string &gt; *loci, const Iteratee &amp;iteratee) const</td></tr>
+<tr class="separator:a01967c3713408b24ed6c3c20ff2ddd23"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aef274133ea4ac6c96fd5e5330e2c620c"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
+<tr class="memitem:aef274133ea4ac6c96fd5e5330e2c620c"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#aef274133ea4ac6c96fd5e5330e2c620c">for_each_path_matching</a> (const std::unordered_set&lt; <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &gt; &amp;senses, const std::unordered_set&lt; std::string &gt; &amp;samples, const std::unordered_set&lt; std::string &gt; &amp;loci, const Iteratee &amp;iteratee) const</td></tr>
+<tr class="separator:aef274133ea4ac6c96fd5e5330e2c620c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a85b539a3b2ee842030068d7556be10a1"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
+<tr class="memitem:a85b539a3b2ee842030068d7556be10a1"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a85b539a3b2ee842030068d7556be10a1">for_each_step_of_sense</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;visited, const <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &amp;sense, const Iteratee &amp;iteratee) const</td></tr>
+<tr class="separator:a85b539a3b2ee842030068d7556be10a1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
-<tr class="memitem:aa6d0ba71c7a9069cd3e85080affb14c9"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">Sense</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#aa6d0ba71c7a9069cd3e85080affb14c9">parse_sense</a> (const std::string &amp;path_name)</td></tr>
-<tr class="separator:aa6d0ba71c7a9069cd3e85080affb14c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aae6aa5f2738ce962e4e74d46a9c5e3e0"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#aae6aa5f2738ce962e4e74d46a9c5e3e0">parse_sense</a> (const std::string &amp;path_name)</td></tr>
+<tr class="separator:aae6aa5f2738ce962e4e74d46a9c5e3e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acbc675d9d41c36eebb174b4871c42435"><td class="memItemLeft" align="right" valign="top">static std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#acbc675d9d41c36eebb174b4871c42435">parse_sample_name</a> (const std::string &amp;path_name)</td></tr>
 <tr class="separator:acbc675d9d41c36eebb174b4871c42435"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a978b48ca96f8817f7099587dae77b8b4"><td class="memItemLeft" align="right" valign="top">static std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a978b48ca96f8817f7099587dae77b8b4">parse_locus_name</a> (const std::string &amp;path_name)</td></tr>
 <tr class="separator:a978b48ca96f8817f7099587dae77b8b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aca47bddcca3927247cd3ac587ced9dcd"><td class="memItemLeft" align="right" valign="top">static int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#aca47bddcca3927247cd3ac587ced9dcd">parse_haplotype</a> (const std::string &amp;path_name)</td></tr>
-<tr class="separator:aca47bddcca3927247cd3ac587ced9dcd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aca763712de20ff3b4451ffe75915a356"><td class="memItemLeft" align="right" valign="top">static int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#aca763712de20ff3b4451ffe75915a356">parse_phase_block</a> (const std::string &amp;path_name)</td></tr>
-<tr class="separator:aca763712de20ff3b4451ffe75915a356"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab2da77a1c4efb85d520184c4d4ca7f02"><td class="memItemLeft" align="right" valign="top">static std::pair&lt; int64_t, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#ab2da77a1c4efb85d520184c4d4ca7f02">parse_subrange</a> (const std::string &amp;path_name)</td></tr>
-<tr class="separator:ab2da77a1c4efb85d520184c4d4ca7f02"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a091d90f4eccbc743888ae2c3eb4f5d2f"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a091d90f4eccbc743888ae2c3eb4f5d2f">parse_path_name</a> (const std::string &amp;path_name, <a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">PathMetadata::Sense</a> &amp;sense, std::string &amp;sample, std::string &amp;locus, int64_t &amp;haplotype, int64_t &amp;phase_block, std::pair&lt; int64_t, int64_t &gt; &amp;subrange)</td></tr>
-<tr class="memdesc:a091d90f4eccbc743888ae2c3eb4f5d2f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Decompose a formatted path name into metadata.  <a href="classhandlegraph_1_1PathMetadata.html#a091d90f4eccbc743888ae2c3eb4f5d2f">More...</a><br /></td></tr>
-<tr class="separator:a091d90f4eccbc743888ae2c3eb4f5d2f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5632d26d764fce9adbb6e3b52e399dac"><td class="memItemLeft" align="right" valign="top">static std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a5632d26d764fce9adbb6e3b52e399dac">create_path_name</a> (const <a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">PathMetadata::Sense</a> &amp;sense, const std::string &amp;sample, const std::string &amp;locus, const int64_t &amp;haplotype, const int64_t &amp;phase_block, const std::pair&lt; int64_t, int64_t &gt; &amp;subrange)</td></tr>
-<tr class="separator:a5632d26d764fce9adbb6e3b52e399dac"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a69e57ea70c57b01b309cdf39da4eeeb5"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a69e57ea70c57b01b309cdf39da4eeeb5">parse_haplotype</a> (const std::string &amp;path_name)</td></tr>
+<tr class="separator:a69e57ea70c57b01b309cdf39da4eeeb5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3d9a3a974ab62d008104fa7dab849465"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a3d9a3a974ab62d008104fa7dab849465">parse_phase_block</a> (const std::string &amp;path_name)</td></tr>
+<tr class="separator:a3d9a3a974ab62d008104fa7dab849465"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a010d050ee3bf526da9ae45fde6dd1dc6"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="namespacehandlegraph.html#a097e656b1ffb02a80c0b530b1987984a">subrange_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a010d050ee3bf526da9ae45fde6dd1dc6">parse_subrange</a> (const std::string &amp;path_name)</td></tr>
+<tr class="separator:a010d050ee3bf526da9ae45fde6dd1dc6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab6bcceaaedfbb03a4ea3f70499b06ade"><td class="memItemLeft" align="right" valign="top">static void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#ab6bcceaaedfbb03a4ea3f70499b06ade">parse_path_name</a> (const std::string &amp;path_name, <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &amp;sense, std::string &amp;sample, std::string &amp;locus, size_t &amp;haplotype, size_t &amp;phase_block, <a class="el" href="namespacehandlegraph.html#a097e656b1ffb02a80c0b530b1987984a">subrange_t</a> &amp;subrange)</td></tr>
+<tr class="memdesc:ab6bcceaaedfbb03a4ea3f70499b06ade"><td class="mdescLeft">&#160;</td><td class="mdescRight">Decompose a formatted path name into metadata.  <a href="classhandlegraph_1_1PathMetadata.html#ab6bcceaaedfbb03a4ea3f70499b06ade">More...</a><br /></td></tr>
+<tr class="separator:ab6bcceaaedfbb03a4ea3f70499b06ade"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aab22165da25ce2036f708203039760c4"><td class="memItemLeft" align="right" valign="top">static std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#aab22165da25ce2036f708203039760c4">create_path_name</a> (const <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &amp;sense, const std::string &amp;sample, const std::string &amp;locus, const size_t &amp;haplotype, const size_t &amp;phase_block, const <a class="el" href="namespacehandlegraph.html#a097e656b1ffb02a80c0b530b1987984a">subrange_t</a> &amp;subrange)</td></tr>
+<tr class="separator:aab22165da25ce2036f708203039760c4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
 Static Public Attributes</h2></td></tr>
@@ -171,21 +161,21 @@ Static Public Attributes</h2></td></tr>
 <tr class="separator:a9770508967dec07997d8ad31dbbe5a95"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae7ee0795aa13f7ad34189f2982d64c42"><td class="memItemLeft" align="right" valign="top">static const std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#ae7ee0795aa13f7ad34189f2982d64c42">NO_LOCUS_NAME</a> = &quot;&quot;</td></tr>
 <tr class="separator:ae7ee0795aa13f7ad34189f2982d64c42"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a391d1aac1ee4234e7da8dde53aea93a6"><td class="memItemLeft" align="right" valign="top">static const int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a391d1aac1ee4234e7da8dde53aea93a6">NO_HAPLOTYPE</a> = -1</td></tr>
-<tr class="separator:a391d1aac1ee4234e7da8dde53aea93a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4f466c78ef10dc196703a71d8de18df0"><td class="memItemLeft" align="right" valign="top">static const int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a4f466c78ef10dc196703a71d8de18df0">NO_PHASE_BLOCK</a> = -1</td></tr>
-<tr class="separator:a4f466c78ef10dc196703a71d8de18df0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a05262aea39fa1af3fd8fcaf769ca152c"><td class="memItemLeft" align="right" valign="top">static const std::pair&lt; int64_t, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a05262aea39fa1af3fd8fcaf769ca152c">NO_SUBRANGE</a> {-1, <a class="el" href="classhandlegraph_1_1PathMetadata.html#a14624e49419f849b5f33e6ddfb51cf1c">PathMetadata::NO_END_POSITION</a>}</td></tr>
-<tr class="separator:a05262aea39fa1af3fd8fcaf769ca152c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a14624e49419f849b5f33e6ddfb51cf1c"><td class="memItemLeft" align="right" valign="top">static const int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a14624e49419f849b5f33e6ddfb51cf1c">NO_END_POSITION</a> = -1</td></tr>
-<tr class="separator:a14624e49419f849b5f33e6ddfb51cf1c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a22d67bfb9356f42b46aaa6cefc1ee24b"><td class="memItemLeft" align="right" valign="top">static const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a22d67bfb9356f42b46aaa6cefc1ee24b">NO_HAPLOTYPE</a> = std::numeric_limits&lt;size_t&gt;::max()</td></tr>
+<tr class="separator:a22d67bfb9356f42b46aaa6cefc1ee24b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a03fdf276dc586f22039aa3e70dd9bf77"><td class="memItemLeft" align="right" valign="top">static const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a03fdf276dc586f22039aa3e70dd9bf77">NO_PHASE_BLOCK</a> = std::numeric_limits&lt;size_t&gt;::max()</td></tr>
+<tr class="separator:a03fdf276dc586f22039aa3e70dd9bf77"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8524bdffc330d58553459074c57fc889"><td class="memItemLeft" align="right" valign="top">static const <a class="el" href="namespacehandlegraph.html#a097e656b1ffb02a80c0b530b1987984a">subrange_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a8524bdffc330d58553459074c57fc889">NO_SUBRANGE</a> {<a class="el" href="classhandlegraph_1_1PathMetadata.html#a2b966a3af9aac1a11236de902cae6f8b">PathMetadata::NO_END_POSITION</a>, <a class="el" href="classhandlegraph_1_1PathMetadata.html#a2b966a3af9aac1a11236de902cae6f8b">PathMetadata::NO_END_POSITION</a>}</td></tr>
+<tr class="separator:a8524bdffc330d58553459074c57fc889"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2b966a3af9aac1a11236de902cae6f8b"><td class="memItemLeft" align="right" valign="top">static const <a class="el" href="namespacehandlegraph.html#a5aba28c40bd7f181cac4e8d73d6edef8">offset_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a2b966a3af9aac1a11236de902cae6f8b">NO_END_POSITION</a> = std::numeric_limits&lt;<a class="el" href="namespacehandlegraph.html#a5aba28c40bd7f181cac4e8d73d6edef8">offset_t</a>&gt;::max()</td></tr>
+<tr class="separator:a2b966a3af9aac1a11236de902cae6f8b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:a75b258a204f7ae71543f08c27b28d7b2"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a75b258a204f7ae71543f08c27b28d7b2">for_each_path_matching_impl</a> (const std::unordered_set&lt; <a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">PathMetadata::Sense</a> &gt; *senses, const std::unordered_set&lt; std::string &gt; *samples, const std::unordered_set&lt; std::string &gt; *loci, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; &amp;iteratee) const</td></tr>
-<tr class="separator:a75b258a204f7ae71543f08c27b28d7b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad8fc46e6d32a78bb38458a2dbb148992"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#ad8fc46e6d32a78bb38458a2dbb148992">for_each_step_of_sense_impl</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;visited, const <a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">Sense</a> &amp;sense, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;)&gt; &amp;iteratee) const</td></tr>
-<tr class="separator:ad8fc46e6d32a78bb38458a2dbb148992"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af040579085f8d49fcb6733e1f9cc8c27"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#af040579085f8d49fcb6733e1f9cc8c27">for_each_path_matching_impl</a> (const std::unordered_set&lt; <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &gt; *senses, const std::unordered_set&lt; std::string &gt; *samples, const std::unordered_set&lt; std::string &gt; *loci, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; &amp;iteratee) const</td></tr>
+<tr class="separator:af040579085f8d49fcb6733e1f9cc8c27"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a87e4c1bede87504ea011544c3e35651a"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a87e4c1bede87504ea011544c3e35651a">for_each_step_of_sense_impl</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;visited, const <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &amp;sense, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;)&gt; &amp;iteratee) const</td></tr>
+<tr class="separator:a87e4c1bede87504ea011544c3e35651a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acf37917fbe8c308de24264854b535018"><td class="memItemLeft" align="right" valign="top">virtual std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathMetadata.html#acf37917fbe8c308de24264854b535018">get_path_name</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle) const =0</td></tr>
 <tr class="memdesc:acf37917fbe8c308de24264854b535018"><td class="mdescLeft">&#160;</td><td class="mdescRight">Look up the name of a path from a handle to it.  <a href="classhandlegraph_1_1PathMetadata.html#acf37917fbe8c308de24264854b535018">More...</a><br /></td></tr>
 <tr class="separator:acf37917fbe8c308de24264854b535018"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -243,29 +233,7 @@ Static Private Attributes</h2></td></tr>
 <li>Phase block identifier: Distinguishes fragments of a haplotype that are phased but not necessarily part of a single self-consistent scaffold (often due to self-contradictory VCF information). Must be unique within a sample, locus, and haplotype. May be a number or a start coordinate.</li>
 <li>Bounds, for when a path as stored gives only a sub-range of a conceptually longer path. Multiple items can be stored with identical metadata in the other fields if their bounds are non-overlapping. TODO: Interaction with phase block in GBWT??? </li>
 </ul>
-</div><h2 class="groupheader">Member Enumeration Documentation</h2>
-<a id="a55d5f006ac51ae68361a1a230b5bcea8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a55d5f006ac51ae68361a1a230b5bcea8">&#9670;&nbsp;</a></span>Sense</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">enum <a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">handlegraph::PathMetadata::Sense</a></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Each path always has just one sense. </p>
-<table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a55d5f006ac51ae68361a1a230b5bcea8a95048a60a23cf70a86c3f88c975bfabb"></a>SENSE_GENERIC&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a55d5f006ac51ae68361a1a230b5bcea8af5ddd6594978ecd300b028eb2362ab3e"></a>SENSE_REFERENCE&#160;</td><td class="fielddoc"></td></tr>
-<tr><td class="fieldname"><a id="a55d5f006ac51ae68361a1a230b5bcea8a86118ecb392ad1f8a39885ab4f7326a6"></a>SENSE_HAPLOTYPE&#160;</td><td class="fielddoc"></td></tr>
-</table>
-
-</div>
-</div>
-<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+</div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="aee403b8c1269b11877df67ff42b759f3"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aee403b8c1269b11877df67ff42b759f3">&#9670;&nbsp;</a></span>~PathMetadata()</h2>
 
@@ -292,8 +260,8 @@ Static Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a5632d26d764fce9adbb6e3b52e399dac"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5632d26d764fce9adbb6e3b52e399dac">&#9670;&nbsp;</a></span>create_path_name()</h2>
+<a id="aab22165da25ce2036f708203039760c4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aab22165da25ce2036f708203039760c4">&#9670;&nbsp;</a></span>create_path_name()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -304,7 +272,7 @@ Static Private Attributes</h2></td></tr>
         <tr>
           <td class="memname">std::string handlegraph::PathMetadata::create_path_name </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">PathMetadata::Sense</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &amp;&#160;</td>
           <td class="paramname"><em>sense</em>, </td>
         </tr>
         <tr>
@@ -322,19 +290,19 @@ Static Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const int64_t &amp;&#160;</td>
+          <td class="paramtype">const size_t &amp;&#160;</td>
           <td class="paramname"><em>haplotype</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const int64_t &amp;&#160;</td>
+          <td class="paramtype">const size_t &amp;&#160;</td>
           <td class="paramname"><em>phase_block</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::pair&lt; int64_t, int64_t &gt; &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#a097e656b1ffb02a80c0b530b1987984a">subrange_t</a> &amp;&#160;</td>
           <td class="paramname"><em>subrange</em>&#160;</td>
         </tr>
         <tr>
@@ -349,7 +317,7 @@ Static Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Compose a formatted path name for the given metadata. Any item can be the corresponding unset sentinel (<a class="el" href="classhandlegraph_1_1PathMetadata.html#ae7ee0795aa13f7ad34189f2982d64c42">PathMetadata::NO_LOCUS_NAME</a>, <a class="el" href="classhandlegraph_1_1PathMetadata.html#a4f466c78ef10dc196703a71d8de18df0">PathMetadata::NO_PHASE_BLOCK</a>, etc.). </p>
+<p>Compose a formatted path name for the given metadata. Any item can be the corresponding unset sentinel (<a class="el" href="classhandlegraph_1_1PathMetadata.html#ae7ee0795aa13f7ad34189f2982d64c42">PathMetadata::NO_LOCUS_NAME</a>, <a class="el" href="classhandlegraph_1_1PathMetadata.html#a03fdf276dc586f22039aa3e70dd9bf77">PathMetadata::NO_PHASE_BLOCK</a>, etc.). </p>
 
 </div>
 </div>
@@ -383,8 +351,8 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a id="a2e803fad414f5c6d5754a7588ca9f03f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2e803fad414f5c6d5754a7588ca9f03f">&#9670;&nbsp;</a></span>for_each_path_matching() <span class="overload">[1/2]</span></h2>
+<a id="aef274133ea4ac6c96fd5e5330e2c620c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aef274133ea4ac6c96fd5e5330e2c620c">&#9670;&nbsp;</a></span>for_each_path_matching() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -394,7 +362,7 @@ template&lt;typename Iteratee &gt; </div>
         <tr>
           <td class="memname">bool handlegraph::PathMetadata::for_each_path_matching </td>
           <td>(</td>
-          <td class="paramtype">const std::unordered_set&lt; <a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">PathMetadata::Sense</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">const std::unordered_set&lt; <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>senses</em>, </td>
         </tr>
         <tr>
@@ -427,8 +395,8 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
-<a id="a25426a5377c651d841552e0e4c4bd779"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a25426a5377c651d841552e0e4c4bd779">&#9670;&nbsp;</a></span>for_each_path_matching() <span class="overload">[2/2]</span></h2>
+<a id="a01967c3713408b24ed6c3c20ff2ddd23"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a01967c3713408b24ed6c3c20ff2ddd23">&#9670;&nbsp;</a></span>for_each_path_matching() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -438,7 +406,7 @@ template&lt;typename Iteratee &gt; </div>
         <tr>
           <td class="memname">bool handlegraph::PathMetadata::for_each_path_matching </td>
           <td>(</td>
-          <td class="paramtype">const std::unordered_set&lt; <a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">PathMetadata::Sense</a> &gt; *&#160;</td>
+          <td class="paramtype">const std::unordered_set&lt; <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &gt; *&#160;</td>
           <td class="paramname"><em>senses</em>, </td>
         </tr>
         <tr>
@@ -470,8 +438,8 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
-<a id="a75b258a204f7ae71543f08c27b28d7b2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a75b258a204f7ae71543f08c27b28d7b2">&#9670;&nbsp;</a></span>for_each_path_matching_impl()</h2>
+<a id="af040579085f8d49fcb6733e1f9cc8c27"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af040579085f8d49fcb6733e1f9cc8c27">&#9670;&nbsp;</a></span>for_each_path_matching_impl()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -482,7 +450,7 @@ template&lt;typename Iteratee &gt; </div>
         <tr>
           <td class="memname">bool handlegraph::PathMetadata::for_each_path_matching_impl </td>
           <td>(</td>
-          <td class="paramtype">const std::unordered_set&lt; <a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">PathMetadata::Sense</a> &gt; *&#160;</td>
+          <td class="paramtype">const std::unordered_set&lt; <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &gt; *&#160;</td>
           <td class="paramname"><em>senses</em>, </td>
         </tr>
         <tr>
@@ -550,8 +518,8 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
-<a id="af8a70bac7762fc72a86bb1c9579d82c7"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af8a70bac7762fc72a86bb1c9579d82c7">&#9670;&nbsp;</a></span>for_each_path_of_sense()</h2>
+<a id="a7afd82569e409e86b4bcdafe8d39cc86"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7afd82569e409e86b4bcdafe8d39cc86">&#9670;&nbsp;</a></span>for_each_path_of_sense()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -561,7 +529,7 @@ template&lt;typename Iteratee &gt; </div>
         <tr>
           <td class="memname">bool handlegraph::PathMetadata::for_each_path_of_sense </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">Sense</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &amp;&#160;</td>
           <td class="paramname"><em>sense</em>, </td>
         </tr>
         <tr>
@@ -581,8 +549,8 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
-<a id="a070e1847b16e83cc55fd8b5fc016f4aa"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a070e1847b16e83cc55fd8b5fc016f4aa">&#9670;&nbsp;</a></span>for_each_step_of_sense()</h2>
+<a id="a85b539a3b2ee842030068d7556be10a1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a85b539a3b2ee842030068d7556be10a1">&#9670;&nbsp;</a></span>for_each_step_of_sense()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -598,7 +566,7 @@ template&lt;typename Iteratee &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">Sense</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &amp;&#160;</td>
           <td class="paramname"><em>sense</em>, </td>
         </tr>
         <tr>
@@ -618,8 +586,8 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
-<a id="ad8fc46e6d32a78bb38458a2dbb148992"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad8fc46e6d32a78bb38458a2dbb148992">&#9670;&nbsp;</a></span>for_each_step_of_sense_impl()</h2>
+<a id="a87e4c1bede87504ea011544c3e35651a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a87e4c1bede87504ea011544c3e35651a">&#9670;&nbsp;</a></span>for_each_step_of_sense_impl()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -636,7 +604,7 @@ template&lt;typename Iteratee &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">Sense</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &amp;&#160;</td>
           <td class="paramname"><em>sense</em>, </td>
         </tr>
         <tr>
@@ -701,8 +669,8 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
-<a id="a9868f510b6dad98e4115ec8b267955f4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9868f510b6dad98e4115ec8b267955f4">&#9670;&nbsp;</a></span>get_haplotype()</h2>
+<a id="a8ea83e700d11830e7eb695b8a11cb17f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8ea83e700d11830e7eb695b8a11cb17f">&#9670;&nbsp;</a></span>get_haplotype()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -711,7 +679,7 @@ template&lt;typename Iteratee &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int64_t handlegraph::PathMetadata::get_haplotype </td>
+          <td class="memname">size_t handlegraph::PathMetadata::get_haplotype </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em></td><td>)</td>
@@ -815,8 +783,8 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
-<a id="a949f7289b392b0afa018a52239062756"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a949f7289b392b0afa018a52239062756">&#9670;&nbsp;</a></span>get_phase_block()</h2>
+<a id="aadcc53d7a55b54eb2499b66a02500065"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aadcc53d7a55b54eb2499b66a02500065">&#9670;&nbsp;</a></span>get_phase_block()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -825,7 +793,7 @@ template&lt;typename Iteratee &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int64_t handlegraph::PathMetadata::get_phase_block </td>
+          <td class="memname">size_t handlegraph::PathMetadata::get_phase_block </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em></td><td>)</td>
@@ -869,8 +837,8 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
-<a id="a9f48aa025a3f5fe67a18642b57bedc9c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9f48aa025a3f5fe67a18642b57bedc9c">&#9670;&nbsp;</a></span>get_sense()</h2>
+<a id="a6cf06655af059252487f9581cad0dc4a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6cf06655af059252487f9581cad0dc4a">&#9670;&nbsp;</a></span>get_sense()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -879,7 +847,7 @@ template&lt;typename Iteratee &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">PathMetadata::Sense</a> handlegraph::PathMetadata::get_sense </td>
+          <td class="memname"><a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> handlegraph::PathMetadata::get_sense </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em></td><td>)</td>
@@ -897,8 +865,8 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
-<a id="afcfb8f9ebdc8a6109f21efe4e00c6e89"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afcfb8f9ebdc8a6109f21efe4e00c6e89">&#9670;&nbsp;</a></span>get_subrange()</h2>
+<a id="a80f47deffdb584fa74ea43dad580cce7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a80f47deffdb584fa74ea43dad580cce7">&#9670;&nbsp;</a></span>get_subrange()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -907,7 +875,7 @@ template&lt;typename Iteratee &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">std::pair&lt; int64_t, int64_t &gt; handlegraph::PathMetadata::get_subrange </td>
+          <td class="memname"><a class="el" href="namespacehandlegraph.html#a097e656b1ffb02a80c0b530b1987984a">subrange_t</a> handlegraph::PathMetadata::get_subrange </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em></td><td>)</td>
@@ -925,8 +893,8 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
-<a id="aca47bddcca3927247cd3ac587ced9dcd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aca47bddcca3927247cd3ac587ced9dcd">&#9670;&nbsp;</a></span>parse_haplotype()</h2>
+<a id="a69e57ea70c57b01b309cdf39da4eeeb5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a69e57ea70c57b01b309cdf39da4eeeb5">&#9670;&nbsp;</a></span>parse_haplotype()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -935,7 +903,7 @@ template&lt;typename Iteratee &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int64_t handlegraph::PathMetadata::parse_haplotype </td>
+          <td class="memname">size_t handlegraph::PathMetadata::parse_haplotype </td>
           <td>(</td>
           <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>path_name</em></td><td>)</td>
@@ -979,8 +947,8 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
-<a id="a091d90f4eccbc743888ae2c3eb4f5d2f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a091d90f4eccbc743888ae2c3eb4f5d2f">&#9670;&nbsp;</a></span>parse_path_name()</h2>
+<a id="ab6bcceaaedfbb03a4ea3f70499b06ade"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab6bcceaaedfbb03a4ea3f70499b06ade">&#9670;&nbsp;</a></span>parse_path_name()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -997,7 +965,7 @@ template&lt;typename Iteratee &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">PathMetadata::Sense</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> &amp;&#160;</td>
           <td class="paramname"><em>sense</em>, </td>
         </tr>
         <tr>
@@ -1015,19 +983,19 @@ template&lt;typename Iteratee &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramtype">size_t &amp;&#160;</td>
           <td class="paramname"><em>haplotype</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int64_t &amp;&#160;</td>
+          <td class="paramtype">size_t &amp;&#160;</td>
           <td class="paramname"><em>phase_block</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">std::pair&lt; int64_t, int64_t &gt; &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacehandlegraph.html#a097e656b1ffb02a80c0b530b1987984a">subrange_t</a> &amp;&#160;</td>
           <td class="paramname"><em>subrange</em>&#160;</td>
         </tr>
         <tr>
@@ -1047,8 +1015,8 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
-<a id="aca763712de20ff3b4451ffe75915a356"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aca763712de20ff3b4451ffe75915a356">&#9670;&nbsp;</a></span>parse_phase_block()</h2>
+<a id="a3d9a3a974ab62d008104fa7dab849465"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3d9a3a974ab62d008104fa7dab849465">&#9670;&nbsp;</a></span>parse_phase_block()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1057,7 +1025,7 @@ template&lt;typename Iteratee &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int64_t handlegraph::PathMetadata::parse_phase_block </td>
+          <td class="memname">size_t handlegraph::PathMetadata::parse_phase_block </td>
           <td>(</td>
           <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>path_name</em></td><td>)</td>
@@ -1101,8 +1069,8 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
-<a id="aa6d0ba71c7a9069cd3e85080affb14c9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa6d0ba71c7a9069cd3e85080affb14c9">&#9670;&nbsp;</a></span>parse_sense()</h2>
+<a id="aae6aa5f2738ce962e4e74d46a9c5e3e0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aae6aa5f2738ce962e4e74d46a9c5e3e0">&#9670;&nbsp;</a></span>parse_sense()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1111,7 +1079,7 @@ template&lt;typename Iteratee &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classhandlegraph_1_1PathMetadata.html#a55d5f006ac51ae68361a1a230b5bcea8">PathMetadata::Sense</a> handlegraph::PathMetadata::parse_sense </td>
+          <td class="memname"><a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">PathSense</a> handlegraph::PathMetadata::parse_sense </td>
           <td>(</td>
           <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>path_name</em></td><td>)</td>
@@ -1128,8 +1096,8 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
-<a id="ab2da77a1c4efb85d520184c4d4ca7f02"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab2da77a1c4efb85d520184c4d4ca7f02">&#9670;&nbsp;</a></span>parse_subrange()</h2>
+<a id="a010d050ee3bf526da9ae45fde6dd1dc6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a010d050ee3bf526da9ae45fde6dd1dc6">&#9670;&nbsp;</a></span>parse_subrange()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1138,7 +1106,7 @@ template&lt;typename Iteratee &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">std::pair&lt; int64_t, int64_t &gt; handlegraph::PathMetadata::parse_subrange </td>
+          <td class="memname"><a class="el" href="namespacehandlegraph.html#a097e656b1ffb02a80c0b530b1987984a">subrange_t</a> handlegraph::PathMetadata::parse_subrange </td>
           <td>(</td>
           <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>path_name</em></td><td>)</td>
@@ -1266,8 +1234,8 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
-<a id="a14624e49419f849b5f33e6ddfb51cf1c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a14624e49419f849b5f33e6ddfb51cf1c">&#9670;&nbsp;</a></span>NO_END_POSITION</h2>
+<a id="a2b966a3af9aac1a11236de902cae6f8b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2b966a3af9aac1a11236de902cae6f8b">&#9670;&nbsp;</a></span>NO_END_POSITION</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1276,7 +1244,7 @@ template&lt;typename Iteratee &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const int64_t handlegraph::PathMetadata::NO_END_POSITION = -1</td>
+          <td class="memname">const <a class="el" href="namespacehandlegraph.html#a5aba28c40bd7f181cac4e8d73d6edef8">offset_t</a> handlegraph::PathMetadata::NO_END_POSITION = std::numeric_limits&lt;<a class="el" href="namespacehandlegraph.html#a5aba28c40bd7f181cac4e8d73d6edef8">offset_t</a>&gt;::max()</td>
         </tr>
       </table>
   </td>
@@ -1288,8 +1256,8 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
-<a id="a391d1aac1ee4234e7da8dde53aea93a6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a391d1aac1ee4234e7da8dde53aea93a6">&#9670;&nbsp;</a></span>NO_HAPLOTYPE</h2>
+<a id="a22d67bfb9356f42b46aaa6cefc1ee24b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a22d67bfb9356f42b46aaa6cefc1ee24b">&#9670;&nbsp;</a></span>NO_HAPLOTYPE</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1298,7 +1266,7 @@ template&lt;typename Iteratee &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const int64_t handlegraph::PathMetadata::NO_HAPLOTYPE = -1</td>
+          <td class="memname">const size_t handlegraph::PathMetadata::NO_HAPLOTYPE = std::numeric_limits&lt;size_t&gt;::max()</td>
         </tr>
       </table>
   </td>
@@ -1332,8 +1300,8 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
-<a id="a4f466c78ef10dc196703a71d8de18df0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4f466c78ef10dc196703a71d8de18df0">&#9670;&nbsp;</a></span>NO_PHASE_BLOCK</h2>
+<a id="a03fdf276dc586f22039aa3e70dd9bf77"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a03fdf276dc586f22039aa3e70dd9bf77">&#9670;&nbsp;</a></span>NO_PHASE_BLOCK</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1342,7 +1310,7 @@ template&lt;typename Iteratee &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const int64_t handlegraph::PathMetadata::NO_PHASE_BLOCK = -1</td>
+          <td class="memname">const size_t handlegraph::PathMetadata::NO_PHASE_BLOCK = std::numeric_limits&lt;size_t&gt;::max()</td>
         </tr>
       </table>
   </td>
@@ -1376,8 +1344,8 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
-<a id="a05262aea39fa1af3fd8fcaf769ca152c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a05262aea39fa1af3fd8fcaf769ca152c">&#9670;&nbsp;</a></span>NO_SUBRANGE</h2>
+<a id="a8524bdffc330d58553459074c57fc889"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8524bdffc330d58553459074c57fc889">&#9670;&nbsp;</a></span>NO_SUBRANGE</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -1386,7 +1354,7 @@ template&lt;typename Iteratee &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const std::pair&lt; int64_t, int64_t &gt; handlegraph::PathMetadata::NO_SUBRANGE {-1, <a class="el" href="classhandlegraph_1_1PathMetadata.html#a14624e49419f849b5f33e6ddfb51cf1c">PathMetadata::NO_END_POSITION</a>}</td>
+          <td class="memname">const <a class="el" href="namespacehandlegraph.html#a097e656b1ffb02a80c0b530b1987984a">subrange_t</a> handlegraph::PathMetadata::NO_SUBRANGE {<a class="el" href="classhandlegraph_1_1PathMetadata.html#a2b966a3af9aac1a11236de902cae6f8b">PathMetadata::NO_END_POSITION</a>, <a class="el" href="classhandlegraph_1_1PathMetadata.html#a2b966a3af9aac1a11236de902cae6f8b">PathMetadata::NO_END_POSITION</a>}</td>
         </tr>
       </table>
   </td>

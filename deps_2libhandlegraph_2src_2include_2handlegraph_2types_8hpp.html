@@ -70,6 +70,7 @@ $(function() {
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#typedef-members">Typedefs</a> &#124;
+<a href="#enum-members">Enumerations</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">types.hpp File Reference</div>  </div>
@@ -118,15 +119,29 @@ Typedefs</h2></td></tr>
 <tr class="separator:a93c2889b752934c4b2488b37cbdd278b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9d001e7b9d625e6b4ef53430e6a0c180"><td class="memItemLeft" align="right" valign="top">typedef nid_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a9d001e7b9d625e6b4ef53430e6a0c180">handlegraph::id_t</a></td></tr>
 <tr class="separator:a9d001e7b9d625e6b4ef53430e6a0c180"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4ceaa14f55bfa14f49b423fd9d903462"><td class="memItemLeft" align="right" valign="top">typedef std::size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a4ceaa14f55bfa14f49b423fd9d903462">handlegraph::off_t</a></td></tr>
-<tr class="memdesc:a4ceaa14f55bfa14f49b423fd9d903462"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents an offset.  <a href="namespacehandlegraph.html#a4ceaa14f55bfa14f49b423fd9d903462">More...</a><br /></td></tr>
-<tr class="separator:a4ceaa14f55bfa14f49b423fd9d903462"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a84af25c08400967bb3edc0a97914c0e5"><td class="memItemLeft" align="right" valign="top">typedef std::tuple&lt; nid_t, bool, off_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">handlegraph::pos_t</a></td></tr>
-<tr class="memdesc:a84af25c08400967bb3edc0a97914c0e5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents a position.  <a href="namespacehandlegraph.html#a84af25c08400967bb3edc0a97914c0e5">More...</a><br /></td></tr>
-<tr class="separator:a84af25c08400967bb3edc0a97914c0e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5aba28c40bd7f181cac4e8d73d6edef8"><td class="memItemLeft" align="right" valign="top">typedef std::size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a5aba28c40bd7f181cac4e8d73d6edef8">handlegraph::offset_t</a></td></tr>
+<tr class="memdesc:a5aba28c40bd7f181cac4e8d73d6edef8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents an offset.  <a href="namespacehandlegraph.html#a5aba28c40bd7f181cac4e8d73d6edef8">More...</a><br /></td></tr>
+<tr class="separator:a5aba28c40bd7f181cac4e8d73d6edef8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0dcae34b861ba40c47d177dc06537bf7"><td class="memItemLeft" align="right" valign="top">typedef offset_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a0dcae34b861ba40c47d177dc06537bf7">handlegraph::off_t</a></td></tr>
+<tr class="separator:a0dcae34b861ba40c47d177dc06537bf7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a097e656b1ffb02a80c0b530b1987984a"><td class="memItemLeft" align="right" valign="top">typedef std::pair&lt; offset_t, offset_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a097e656b1ffb02a80c0b530b1987984a">handlegraph::subrange_t</a></td></tr>
+<tr class="memdesc:a097e656b1ffb02a80c0b530b1987984a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents a range of offsets, 0-based, end-exclusive.  <a href="namespacehandlegraph.html#a097e656b1ffb02a80c0b530b1987984a">More...</a><br /></td></tr>
+<tr class="separator:a097e656b1ffb02a80c0b530b1987984a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0abc3c64da852112ad2bc0fc9dd5afce"><td class="memItemLeft" align="right" valign="top">typedef std::tuple&lt; nid_t, bool, offset_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">handlegraph::pos_t</a></td></tr>
+<tr class="memdesc:a0abc3c64da852112ad2bc0fc9dd5afce"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents a position.  <a href="namespacehandlegraph.html#a0abc3c64da852112ad2bc0fc9dd5afce">More...</a><br /></td></tr>
+<tr class="separator:a0abc3c64da852112ad2bc0fc9dd5afce"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a91452647367df9cfc96454c0cd07ce7b"><td class="memItemLeft" align="right" valign="top">typedef std::pair&lt; handle_t, handle_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">handlegraph::edge_t</a></td></tr>
 <tr class="memdesc:a91452647367df9cfc96454c0cd07ce7b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents an edge in terms of its endpoints.  <a href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">More...</a><br /></td></tr>
 <tr class="separator:a91452647367df9cfc96454c0cd07ce7b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
+Enumerations</h2></td></tr>
+<tr class="memitem:ab3d3683c53bb48b8af63a6d94497271c"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">handlegraph::PathSense</a> { <a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271cac942dc2a9f958acddc67e11472d3ca0b">handlegraph::PathSense::GENERIC</a>, 
+<a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271cadcd320d017d7f3c317bc8b234287bc9f">handlegraph::PathSense::REFERENCE</a>, 
+<a class="el" href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271ca00c31e80a8b69bfe7bd279f2bfa4b3ba">handlegraph::PathSense::HAPLOTYPE</a>
+ }</td></tr>
+<tr class="memdesc:ab3d3683c53bb48b8af63a6d94497271c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents a sense that a path can have.  <a href="namespacehandlegraph.html#ab3d3683c53bb48b8af63a6d94497271c">More...</a><br /></td></tr>
+<tr class="separator:ab3d3683c53bb48b8af63a6d94497271c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
