@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 139
+plan tests 145
 
 
 # Build vg graphs for two chromosomes
@@ -379,3 +379,15 @@ rm -f gfa2.gbwt gfa2.gg gfa2.trans gfa2.gbz
 rm -f ref_paths.gbwt ref_paths.gg ref_paths.trans
 rm -f chopping.gbwt chopping.gg chopping.trans from_gbz.trans
 
+# Build a GBZ from a graph with a reference
+vg gbwt -g gfa.gbz --gbz-format -G graphs/gfa_with_reference.gfa
+is $? 0 "GBZ construction from GFA with reference"
+vg gbwt -Z gfa.gbz --tags >tags.tsv
+is $? 0 "GBZ GBWT tag extraction works"
+is "$(grep reference_samples tags.tsv | cut -f2 | tr ' ' '\\n' | sort | tr '\\n' ' ')" "GRCh37 GRCh38" "GBWT tags contain the correct reference samples"
+vg gbwt -g gfa2.gbz --gbz-format -Z gfa.gbz --set-tag "reference_samples=GRCh38 CHM13"
+is $? 0 "GBZ GBWT tag modification works"
+is "$(vg paths -M -S GRCh37 -x gfa2.gbz | grep -v "^#" | grep HAPLOTYPE | wc -l)" "1" "Changing reference_samples tag can make a reference a haplotype"
+is "$(vg paths -M -S CHM13 -x gfa2.gbz | grep -v "^#" | grep REFERENCE | wc -l)" "1" "Changing reference_samples tag can make a haplotype a reference"
+
+rm -f gfa.gbz gfa2.gbz tags.tsv
