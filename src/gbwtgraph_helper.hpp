@@ -5,12 +5,19 @@
  * Utility classes and functions for working with GBWTGraph.
  */
 
+#include <gbwtgraph/gfa.h>
 #include <gbwtgraph/gbz.h>
 #include <gbwtgraph/minimizer.h>
 
 namespace vg {
 
 //------------------------------------------------------------------------------
+
+/**
+ * Get the best configuration to use for the GBWTGraph library GFA parser, to
+ * best matcch the behavior of vg's GFA parser.
+ */
+gbwtgraph::GFAParsingParameters get_best_gbwtgraph_gfa_parsing_parameters();
 
 /*
     These are the proper ways of saving and loading GBWTGraph structures.

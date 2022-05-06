@@ -1,6 +1,8 @@
 
 #include <thread>
 
+#include <gbwtgraph/utils.h>
+
 #include "../io/save_handle_graph.hpp"
 
 #include "transcriptome.hpp"
@@ -2508,6 +2510,9 @@ int32_t Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::
 
         *tsv_ostream << "Name\tLength\tTranscript\tHaplotypes" << endl; 
     }
+    
+    // Pre-parse GBWT metadata
+    auto gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(haplotype_index);
 
     int32_t num_written_info = 0;
 
@@ -2543,7 +2548,8 @@ int32_t Transcriptome::write_transcript_info(ostream * tsv_ostream, const gbwt::
             } 
 
             is_first = false;             
-            *tsv_ostream << thread_name(haplotype_index, id);
+            PathSense sense = gbwtgraph::get_path_sense(haplotype_index, id, gbwt_reference_samples);
+            *tsv_ostream << gbwtgraph::compose_path_name(haplotype_index, id, sense);
         }
 
         if (!transcript_path.path_origin_names.empty()) {

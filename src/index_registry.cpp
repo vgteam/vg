@@ -3457,7 +3457,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto gbz_output = *constructing.begin();
         auto& output_names = all_outputs[0];
         
-        gbwtgraph::GFAParsingParameters params;
+        gbwtgraph::GFAParsingParameters params = get_best_gbwtgraph_gfa_parsing_parameters();
         // note: there is a heuristic already in the construction that will probably perform
         // better than a univeral override
         //params.batch_size = IndexingParameters::gbwt_insert_batch_size;

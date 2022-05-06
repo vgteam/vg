@@ -1,30 +1,45 @@
 #include "gfa.hpp"
-#include <gfakluge.hpp>
 #include "utility.hpp"
 #include "path.hpp"
 #include <sstream>
 
+#include <gbwtgraph/utils.h>
+
 namespace vg {
 
 using namespace std;
-using namespace gfak;
 
-static bool is_w_line(const PathHandleGraph* graph, const string& wline_sep,
-                      path_handle_t path_handle);
-static void write_w_line(const PathHandleGraph* graph, ostream& out, const string& wline_sep,
-                         path_handle_t path_handle);
+/// Determine if a path should be written as a GFA W line or a GFA P line.
+static bool should_write_as_w_line(const PathHandleGraph* graph, path_handle_t path_handle);
+/// Write out a W line for a path. Uses a map to keep track of fake offset
+/// ranges used to distinguish multiple phase blocks on a haplotype, since GFA
+/// doesn't support them.
+static void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path_handle, unordered_map<tuple<string, int64_t, string>, size_t>& last_phase_block_end);
 
 void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>& rgfa_paths,
-                  bool rgfa_pline, const string& wline_sep) {
-    GFAKluge gg;
-    gg.set_version(1.0);
-    for (auto h : gg.get_header()){
-        out << h.second.to_string();
-    }
-
-    // TODO moving to GFAKluge
-    // problem: protobuf longs don't easily go to strings....
+                  bool rgfa_pline, bool use_w_lines) {
     
+    // TODO: Support sorting nodes, paths, and/or edges for canonical output
+    // TODO: Use a NamedNodeBackTranslation (or forward translation?) to properly round-trip GFA that has had to be chopped.
+    
+    // Compute reference-sense sample header tags
+    unordered_set<string> reference_samples;
+    graph->for_each_path_matching({PathSense::REFERENCE}, {}, {}, [&](const path_handle_t& h) {
+            if (!rgfa_paths.count(graph->get_path_name(h)) || rgfa_pline) {
+                // If it is going to be something other than an rGFA path,
+                // we'll have to convey its reference-ness another way.
+                reference_samples.insert(graph->get_sample_name(h));
+            }
+        });
+    
+    // Start with the header for a GFA1.1 file
+    out << "H\tVN:Z:1.1";
+    if (!reference_samples.empty()) {
+        // Include a reference sample name tag if we have reference paths.
+        out << "\t" << gbwtgraph::REFERENCE_SAMPLE_LIST_GFA_TAG << ":Z:" << gbwtgraph::compose_reference_samples_tag(reference_samples);
+    }
+    out << "\n";
+
     //Compute the rGFA tags of given paths (todo: support non-zero ranks)
     unordered_map<nid_t, pair<path_handle_t, size_t>> node_offsets;
     for (const string& path_name : rgfa_paths) {
@@ -51,13 +66,10 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
   
     //Go through each node in the graph
     graph->for_each_handle([&](const handle_t& h) {
-        sequence_elem s_elem;
-        // Fill seq element for a node
+        out << "S\t";
         nid_t node_id = graph->get_id(h);
-        s_elem.name = to_string(node_id);
-        s_elem.sequence = graph->get_sequence(h);
-        out << s_elem.to_string_1();
-        //gg.add_sequence(s_elem);
+        out << node_id << "\t";
+        out << graph->get_sequence(h);
         auto it = node_offsets.find(node_id);
         if (it != node_offsets.end()) {
             // add rGFA tags
@@ -71,7 +83,7 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
     
     // Sort the paths by name, making sure to treat subpath coordinates numerically
     vector<path_handle_t> path_handles;
-    graph->for_each_path_handle([&](const path_handle_t& h) {
+    graph->for_each_path_matching(nullptr, nullptr, nullptr, [&](const path_handle_t& h) {
             path_handles.push_back(h);
         });
     std::sort(path_handles.begin(), path_handles.end(), [&](const path_handle_t& p1, const path_handle_t& p2) {
@@ -97,117 +109,137 @@ void graph_to_gfa(const PathHandleGraph* graph, ostream& out, const set<string>&
 
     // Paths as P-lines
     for (const path_handle_t& h : path_handles) {
-        path_elem p_elem;
-        p_elem.name = graph->get_path_name(h);
-        if (rgfa_pline || !rgfa_paths.count(p_elem.name)) {
-            if (is_w_line(graph, wline_sep, h)) {
+        auto path_name = graph->get_path_name(h);
+        if (rgfa_pline || !rgfa_paths.count(path_name)) {
+            if (graph->get_sense(h) != PathSense::REFERENCE && reference_samples.count(graph->get_sample_name(h))) {
+                // We have a mix of reference and non-reference paths on the same sample which GFA can't handle.
+                cerr << "warning [gfa]: path " << path_name << " will be interpreted as reference sense "
+                     << "because reference paths exist on its sample" << endl;
+            }
+        
+            if (use_w_lines && should_write_as_w_line(graph, h)) {
                 w_line_paths.push_back(h);
             } else {
+                out << "P\t";
+                out << path_name << "\t";
+                
+                bool first = true;
                 graph->for_each_step_in_path(h, [&](const step_handle_t& ph) {
-            
                     handle_t step_handle = graph->get_handle_of_step(ph);
-
-                    p_elem.segment_names.push_back( std::to_string(graph->get_id(step_handle)) );
-                    p_elem.orientations.push_back( !graph->get_is_reverse(step_handle) );
+                    
+                    if (!first) {
+                        out << ',';
+                    }
+                    out << graph->get_id(step_handle);
+                    out << (graph->get_is_reverse(step_handle) ? '-' : '+');
+                    first = false;
                     return true;
                 });
-                p_elem.overlaps.push_back("*");
-                //gg.add_path(p_elem.name, p_elem);
-                out << p_elem.to_string_1() << "\n";
+                
+                out << "\t*" << "\n";
             }
         }
     }
     
     // Paths as W-lines
-    for (const path_handle_t& h : w_line_paths) {
-        write_w_line(graph, out, wline_sep, h);
+    {
+        unordered_map<tuple<string, int64_t, string>, size_t> last_phase_block_end;
+        for (const path_handle_t& h : w_line_paths) {
+            write_w_line(graph, out, h, last_phase_block_end);
+        }
     }
 
     graph->for_each_edge([&](const edge_t& h) {
-        edge_elem ee;
-        ee.type = 1;
-        //TODO: I'm guessing this is what it wants? 
-        ee.source_name = to_string(graph->get_id(h.first));
-        ee.sink_name = to_string(graph->get_id(h.second));
-        ee.source_orientation_forward = ! graph->get_is_reverse(h.first);
-        ee.sink_orientation_forward =  ! graph->get_is_reverse(h.second);
-
-        ee.alignment = "*";
         
-        if (graph->get_is_reverse(h.first) && (graph->get_is_reverse(h.second) || graph->get_id(h.second) < graph->get_id(h.first))) {
+        nid_t from_id = graph->get_id(h.first);
+        bool from_is_reverse = graph->get_is_reverse(h.first);
+        nid_t to_id = graph->get_id(h.second);
+        bool to_is_reverse = graph->get_is_reverse(h.second);
+    
+        if (from_is_reverse && (to_is_reverse || to_id < from_id)) {
             // Canonicalize edges to be + orientation first if possible, and
             // then low-ID to high-ID if possible, for testability. This edge
             // needs to flip.
             
             // Swap the nodes
-            std::swap(ee.source_name, ee.sink_name);
+            std::swap(from_id, to_id);
             // Swap the orientations
-            std::swap(ee.source_orientation_forward, ee.sink_orientation_forward);
+            std::swap(from_is_reverse, to_is_reverse);
             // Reverse the orientations
-            ee.source_orientation_forward = !ee.source_orientation_forward;
-            ee.sink_orientation_forward = !ee.sink_orientation_forward;
+            from_is_reverse = !from_is_reverse;
+            to_is_reverse = !to_is_reverse;
         }
         
-        out << ee.to_string_1() << "\n"; // Writing `std::endl` would flush the buffer.
+        out << "L\t" << from_id << "\t" << (from_is_reverse ? '-' : '+')
+            << "\t" << to_id << "\t" << (to_is_reverse ? '-' : '+') << "\t*\n"; // Writing `std::endl` would flush the buffer.
         return true;
-        //gg.add_edge(ee.source_name, ee);
-        //link_elem l;
-        //l.source_name = to_string(e->from());
-        //l.sink_name = to_string(e->to());
-        //l.source_orientation_forward = ! e->from_start();
-        //l.sink_orientation_forward =  ! e->to_end();
-        //l.cigar = std::to_string(e->overlap()) + "M";
-        //gg.add_link(l.source_name, l);
     }, false);
-    //gg.output_to_stream(cout);
 }
 
-bool is_w_line(const PathHandleGraph* graph, const string& wline_sep,
-               path_handle_t path_handle) {
-    if (wline_sep.empty()) {
-        return false;
-    }
-    string path_name = graph->get_path_name(path_handle);
-    vector<string> toks = split_delims(path_name, wline_sep);
-    if (toks.size() < 3) {
-        return false;
-    }
-    string& sample = toks[0];
-    size_t hap_index;
-    try {
-        hap_index = stol(toks[1]);
-    } catch(...) {
-        return false;
-    }
-    return true;
+bool should_write_as_w_line(const PathHandleGraph* graph, path_handle_t path_handle) {
+    // Until we can change the tests, default to sending reference and
+    // haplotype paths as W lines, and generic paths as P lines. 
+    return graph->get_sense(path_handle) != PathSense::GENERIC;
 }
 
-void write_w_line(const PathHandleGraph* graph, ostream& out, const string& wline_sep,
-                  path_handle_t path_handle) {
-    string path_name = graph->get_path_name(path_handle);
-    vector<string> toks = split_delims(path_name, wline_sep, 2);
-    string& sample = toks[0];
-    size_t hap_index = stol(toks[1]);
-    auto subpath_parse = Paths::parse_subpath_name(toks[2]);
-    string contig;
+void write_w_line(const PathHandleGraph* graph, ostream& out, path_handle_t path_handle, unordered_map<tuple<string, int64_t, string>, size_t>& last_phase_block_end) {
+    // Extract the path metadata
+    string sample = graph->get_sample_name(path_handle);
+    string contig = graph->get_locus_name(path_handle);
+    int64_t hap_index = graph->get_haplotype(path_handle);
+    int64_t phase_block = graph->get_phase_block(path_handle);
+    auto subrange = graph->get_subrange(path_handle);
     size_t start_offset = 0;
     size_t end_offset = 0;
-    if (get<0>(subpath_parse) == true) {
-        contig = get<1>(subpath_parse);
-        start_offset = get<2>(subpath_parse);
-        end_offset = get<3>(subpath_parse);
-    } else {
-        contig = toks[2];
+    if (subrange != PathMetadata::NO_SUBRANGE) {
+        start_offset = subrange.first;
+        if (subrange.second != PathMetadata::NO_END_POSITION) {
+            end_offset = subrange.second;
+        }
     }
-
+    
+    if (sample == PathMetadata::NO_SAMPLE_NAME) {
+        // Represent an elided sample name with "*";
+        sample = "*";
+    }
+    
+    if (hap_index == PathMetadata::NO_HAPLOTYPE) {
+        // No haplotype is actually assigned here.
+        // We probably won't have paths with it assigned and not assigned but
+        // the same sample and contig, so assign it 0 and make the sample
+        // haploid.
+        // TODO: check for collisions somehow?
+        hap_index = 0;
+    }
+     
+    // Get the path length.
+    // TODO: sniff if the graph has this cached somehow?
     size_t path_length = 0 ;
     graph->for_each_step_in_path(path_handle, [&](step_handle_t step_handle) {
             path_length += graph->get_length(graph->get_handle_of_step(step_handle));
         });
 
     if (end_offset != 0 && start_offset + path_length != end_offset) {
-        cerr << "[gfa] warning: incorrect end offset (" << end_offset << ") extracted from from path name " << path_name
+        cerr << "[gfa] warning: incorrect end offset (" << end_offset << ") extracted from from path name " << graph->get_path_name(path_handle)
              << ", using " << (start_offset + path_length) << " instead" << endl;
+    }
+    
+    // See if we need to bump along the start offset to avoid collisions of phase blocks
+    auto key = std::tuple<string, int64_t, string>(sample, hap_index, contig);
+    auto& phase_block_end_cursor = last_phase_block_end[key];
+    if (phase_block_end_cursor != 0) {
+        if (start_offset != 0) {
+            // TODO: Work out a way to support phase blocks and subranges at the same time.
+            cerr << "[gfa] error: cannot write multiple phase blocks on a sample, haplotyope, and contig in GFA format"
+                 << " when paths already have subranges. Fix path " << graph->get_path_name(path_handle) << endl;
+            exit(1);
+        }
+        // Budge us to after the last thing and budge the cursor to after us.
+        // TODO: GBWTGraph algorithm just uses phase block number as start
+        // position so it can roudn trip. Settle on a way to round trip the
+        // small phase block numbers somehow?
+        start_offset += phase_block_end_cursor;
+        phase_block_end_cursor += path_length;
     }
 
     out << "W\t" << sample << "\t" << hap_index << "\t" << contig << "\t" << start_offset << "\t" << (start_offset + path_length) << "\t";

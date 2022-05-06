@@ -7,6 +7,46 @@ namespace vg {
 
 //------------------------------------------------------------------------------
 
+gbwtgraph::GFAParsingParameters get_best_gbwtgraph_gfa_parsing_parameters() {
+    gbwtgraph::GFAParsingParameters parameters;
+    // Configure GBWTGraph GFA parsing to be as close to the vg GFA parser as we can get.
+    // TODO: Make it closer.
+    parameters.path_name_formats.clear();
+    // Parse panSN with a fragment after it.
+    parameters.path_name_formats.emplace_back(
+        gbwtgraph::GFAParsingParameters::PAN_SN_REGEX + "#([0-9][0-9]*)",
+        gbwtgraph::GFAParsingParameters::PAN_SN_FIELDS + "F",
+        gbwtgraph::GFAParsingParameters::PAN_SN_SENSE
+    );
+    // Parse panSN with a range after it as a normal but with a fragment based
+    // on start position.
+    parameters.path_name_formats.emplace_back(
+        gbwtgraph::GFAParsingParameters::PAN_SN_REGEX + "\\[([0-9][0-9]*)(-[0-9]*)?\\]",
+        gbwtgraph::GFAParsingParameters::PAN_SN_FIELDS + "F",
+        gbwtgraph::GFAParsingParameters::PAN_SN_SENSE
+    );
+    // Parse standard panSN as what we think that is
+    parameters.path_name_formats.emplace_back(
+        gbwtgraph::GFAParsingParameters::PAN_SN_REGEX,
+        gbwtgraph::GFAParsingParameters::PAN_SN_FIELDS,
+        gbwtgraph::GFAParsingParameters::PAN_SN_SENSE
+    );
+    // Parse paths with just a name and a range as generic paths with a contig
+    // and a fragment. Sample for generic paths gets provided automatically.
+    parameters.path_name_formats.emplace_back(
+        "(.*)\\[([0-9][0-9]*)(-[0-9]*)?\\]",
+        "XCF",
+        PathSense::GENERIC
+    );
+    // Parse paths with nothing to distinguish them the default way (as generic named paths)
+    parameters.path_name_formats.emplace_back(
+        gbwtgraph::GFAParsingParameters::DEFAULT_REGEX,
+        gbwtgraph::GFAParsingParameters::DEFAULT_FIELDS,
+        gbwtgraph::GFAParsingParameters::DEFAULT_SENSE
+    );
+    return parameters;
+}
+
 void load_gbwtgraph(gbwtgraph::GBWTGraph& graph, const std::string& filename, bool show_progress) {
     if (show_progress) {
         std::cerr << "Loading GBWTGraph from " << filename << std::endl;

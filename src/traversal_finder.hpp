@@ -639,7 +639,7 @@ public:
 
     /** Return traversals paired with path identifiers from the GBWT.  The traversals are *not* unique
      * (which is consistent with PathTraversalFinder)
-     * To get the sample name from the path identifier id, use thread_sample(gbwt, gbwt::Path::id(id));
+     * To get the sample name from the path identifier id, use gbwtgraph::get_path_sample_name();
      */
     virtual pair<vector<SnarlTraversal>, vector<gbwt::size_type>> find_path_traversals(const Snarl& site);
 
