@@ -115,7 +115,9 @@ class NewSnarlSeedClusterer {
             //If it is a chain, then it is distance_index.chain_minimum_length(), which is
             //the expected length for a normal chain, and the length of the 
             //last component for a multicomponent chain 
-            size_t node_length = std::numeric_limits<size_t>::max();             size_t prefix_sum_value = std::numeric_limits<size_t>::max(); //of node or first node in snarl
+            size_t node_length = std::numeric_limits<size_t>::max();             
+            size_t prefix_sum_value = std::numeric_limits<size_t>::max(); //of node or first node in snarl
+            bool set_chain_components = false; //Did we set the start and end chain components
             size_t chain_component_start = 0; //of node or start of snarl
             size_t chain_component_end = 0; //of node or end of snarl
 
@@ -169,11 +171,13 @@ class NewSnarlSeedClusterer {
                     end_in =   distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, true, true));
                 }
             }
+            //Constructor for a node or trivial chain
             NodeClusters( net_handle_t net, size_t read_count, size_t seed_count, bool is_reversed_in_parent, nid_t node_id, size_t node_length, size_t prefix_sum, size_t component) :
                 containing_net_handle(net),
                 is_reversed_in_parent(is_reversed_in_parent),
                 node_length(node_length),
                 prefix_sum_value(prefix_sum),
+                set_chain_components(true),
                 chain_component_start(component),
                 chain_component_end(component),
                 node_id(node_id),

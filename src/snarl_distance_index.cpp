@@ -1644,9 +1644,14 @@ void add_descendants_to_subgraph(const SnarlDistanceIndex& distance_index, const
 
 /*Given a position, return distances that can be stored by a minimizer
  *
- * This stores if it's reversed in its parent, the length of the node, 
- * and the offset of the node record
- *
+ * This stores:
+        -(size_t) length of the node,
+        -(size_t) connected component number of the parent of the node, if the parent is a child of the root
+        -(size_t) prefix sum value of the node (or prefix sum to the start of the parent snarl)
+        -(size_t) the chain component of the node
+                  This is set if the node is in a nontrivial chain or in a simple snarl, in which case the component is
+                  the chain component of the start and end nodes of the parent snarl
+        -(bool)   is the node reversed in its parent 
  */
 
 
@@ -1655,27 +1660,41 @@ tuple<size_t, size_t, size_t, size_t, bool> get_minimizer_distances (const Snarl
     net_handle_t node_handle = distance_index.get_node_net_handle(get_id(pos));
     net_handle_t parent_handle = distance_index.get_parent(node_handle);
 
+    //Is the node the direct child a top-level chain
     bool in_top_level_chain = distance_index.is_chain(parent_handle) &&
                               distance_index.is_root(distance_index.get_parent(parent_handle)) &&
                               !distance_index.is_root_snarl(distance_index.get_parent(parent_handle));
+
+    //The prefix sum value of the node in its parent chain, inf if it is in a trivial chain or the child of the root 
     size_t prefix_sum = distance_index.is_chain(parent_handle) && !distance_index.is_trivial_chain(parent_handle)
                             ? distance_index.get_prefix_sum_value(node_handle)
                             : std::numeric_limits<size_t>::max();
-    size_t component = distance_index.is_chain(parent_handle) 
+
+    //Which component in a multicomponent chain is the node in. 0 if it isn't in a multicomponent chain,
+    //inf if it isn't in a chain
+    size_t component = distance_index.is_chain(parent_handle) && !distance_index.is_trivial_chain(parent_handle) 
                             ? (distance_index.is_multicomponent_chain(parent_handle) ? distance_index.get_chain_component(node_handle) : 0)
                             : std::numeric_limits<size_t>::max();
+
+    //Is the node traversed backwards in its parent chain.
+    //If the node is a trivial chain, is its parent traversed backwards in the grandparent
     bool is_reversed_in_parent = distance_index.is_trivial_chain(parent_handle) 
                                  ? distance_index.is_reversed_in_parent(parent_handle)
                                  : distance_index.is_reversed_in_parent(node_handle);
     if (distance_index.is_trivial_chain(parent_handle) && distance_index.is_simple_snarl(distance_index.get_parent(parent_handle))) {
         //If the grandparent of the node is a simple snarl, then remember the prefix sum value as being the distance to the start 
         //of the snarl - the prefix sum of the start node plus the length of the start node
+        //The chain component is also the same for both boundary nodes of the snarl, so remember that too
 
         //The start node of the simple snarl
         net_handle_t snarl_start= distance_index.get_node_from_sentinel(distance_index.get_bound(distance_index.get_parent(parent_handle), false, false));
+        net_handle_t snarl_end= distance_index.get_node_from_sentinel(distance_index.get_bound(distance_index.get_parent(parent_handle), true, false));
         prefix_sum = SnarlDistanceIndex::sum({
                     distance_index.get_prefix_sum_value(snarl_start), 
                     distance_index.minimum_length(snarl_start)});
+        if (distance_index.get_chain_component(snarl_start) == distance_index.get_chain_component(snarl_end)) {
+            component = distance_index.get_chain_component(snarl_start);
+        }
 
     }
 
