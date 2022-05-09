@@ -379,19 +379,14 @@ cerr << "Add all seeds to nodes: " << endl;
                 //Get the values from the seed. Some may be infinite and need to be re-set
                 size_t depth = std::get<1>(seed.minimizer_cache) == MIPayload::NO_VALUE ? distance_index.get_depth(parent) : 1;
                 size_t node_length = std::get<0>(seed.minimizer_cache);
-                size_t prefix_sum = std::get<2>(seed.minimizer_cache);
                 bool is_reversed_in_parent = std::get<4>(seed.minimizer_cache);
 
                 //Seed payload is: node length, root component, prefix sum, chain component, is_reversed 
                 //If there were cached minimizers, then node length and is_reversed are always set
                 //Node length and is_reversed are always set
-                if (prefix_sum == MIPayload::NO_VALUE) {
-                    //If we didn't store information in the seed, then get it from the distance index
-
-                   if (node_length == MIPayload::NO_VALUE) {
+                if (node_length == MIPayload::NO_VALUE) {
                        node_length = distance_index.minimum_length(node_net_handle);
                        is_reversed_in_parent = distance_index.is_reversed_in_parent(parent);
-                   }
                 }
 
                 //Make sure we have enough space to add the chain/snarl
@@ -453,6 +448,7 @@ cerr << "Add all seeds to nodes: " << endl;
                             tree_state.net_handle_to_index[grandparent_snarl] = grandparent_index;
                             tree_state.all_node_clusters.emplace_back(grandparent_snarl, tree_state.all_seeds->size(),
                                                               tree_state.seed_count_prefix_sum.back(), distance_index);
+                            size_t prefix_sum = std::get<2>(seed.minimizer_cache);
                             //Add the prefix sum value from the minimizers, which will be to the beginning of this snarl
                             if (prefix_sum == std::numeric_limits<size_t>::max()) {
                                 //If we didn't store information in the seed, then get it from the distance index
@@ -1483,7 +1479,7 @@ void NewSnarlSeedClusterer::cluster_one_snarl(TreeState& tree_state, size_t snar
     }
     //Get the values needed for clustering a chain
     //Prefix sum up to the start of the snarl
-    if (snarl_clusters.prefix_sum_value = std::numeric_limits<size_t>::max()) {
+    if (snarl_clusters.prefix_sum_value == std::numeric_limits<size_t>::max()) {
         snarl_clusters.prefix_sum_value = SnarlDistanceIndex::sum({
                 distance_index.get_prefix_sum_value(snarl_clusters.start_in),
                 distance_index.minimum_length(snarl_clusters.start_in)});
