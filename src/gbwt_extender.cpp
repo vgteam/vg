@@ -794,6 +794,7 @@ struct WFAPoint {
         return MatchPos(this->seq_offset, this->node_offset, path);
     }
 
+    // For ordering the points in WFANode.
     bool operator<(const WFAPoint& another) const {
         return (this->score < another.score || (this->score == another.score && this->diagonal < another.diagonal));
     }
@@ -892,10 +893,11 @@ public:
 
     std::vector<WFANode> nodes;
 
-    // FIXME store sufficient information for tracing back the candidate alignment
-    // FIXME score, diagonal, MatchPos (which implies insertion length)
-    // Best alignment found so far.
-    int32_t candidate;
+    // Best alignment found so far. If we reached the destination in the graph,
+    // the score includes the possible insertion at the end but the point itself
+    // does not.
+    WFAPoint candidate_point;
+    uint32_t candidate_node;
 
     // Scores copied from the extender.
     int32_t mismatch, gap_open, gap_extend;
@@ -909,7 +911,7 @@ public:
     WFATree(const gbwtgraph::GBWTGraph& graph, const std::string& sequence, const gbwt::SearchState& root, int32_t mismatch, int32_t gap_open, int32_t gap_extend) :
         graph(graph), sequence(sequence),
         nodes(),
-        candidate(std::numeric_limits<int32_t>::max()),
+        candidate_point({ std::numeric_limits<int32_t>::max(), 0, 0, 0 }), candidate_node(0),
         mismatch(mismatch), gap_open(gap_open), gap_extend(gap_extend),
         diagonals({ { 0, 0 } }), max_diagonals(0, 0)
     {
@@ -974,9 +976,9 @@ public:
                         if (gap_length > 0) {
                             new_score += this->gap_open + gap_length * this->gap_extend;
                         }
-                        if (new_score < this->candidate) {
-                            // FIXME store the information needed for tracing back the alignment
-                            this->candidate = score;
+                        if (new_score < this->candidate_point.score) {
+                            this->candidate_point = { new_score, diagonal, subst.seq_offset, subst.node_offset };
+                            this->candidate_node = subst.node();
                         }
                     }
                     this->nodes[subst.node()].update(WFANode::MATCHES, score, diagonal, subst);
@@ -1007,9 +1009,9 @@ private:
                     if (gap_length > 0) {
                         score += this->gap_open + gap_length * this->gap_extend;
                     }
-                    if (new_score < this->candidate) {
-                        // FIXME store the information needed for tracing back the alignment
-                        this->candidate = new_score;
+                    if (new_score < this->candidate_point.score) {
+                        this->candidate_point = { new_score, diagonal, pos.seq_offset, pos.node_offset };
+                        this->candidate_node = pos.node();
                     }
                 }
                 this->nodes[pos.node()].update(WFANode::MATCHES, score, diagonal, pos);
@@ -1141,7 +1143,7 @@ void WFAExtender::connect(std::string sequence, pos_t from, pos_t to) const {
     // FIXME stop condition?
     while (true) {
         tree.extend(score, to);
-        if (tree.candidate <= score) {
+        if (tree.candidate_point.score <= score) {
             break;
         }
         score++; // FIXME skip impossible scores
