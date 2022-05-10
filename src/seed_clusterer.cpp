@@ -8,6 +8,9 @@ namespace vg {
     SnarlSeedClusterer::SnarlSeedClusterer( MinimumDistanceIndex& dist_index) :
                                             dist_index(dist_index){
     };
+    SnarlSeedClusterer::SnarlSeedClusterer( MinimumDistanceIndex* dist_index) :
+                                            dist_index(*dist_index){
+    };
 
     vector<SnarlSeedClusterer::Cluster> SnarlSeedClusterer::cluster_seeds (const vector<Seed>& seeds, int64_t read_distance_limit) const {
         //Wrapper for single ended

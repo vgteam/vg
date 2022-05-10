@@ -510,6 +510,109 @@ class MinimumDistanceIndex {
     friend class ChainIndex;
     friend class SnarlSeedClusterer;
 
+public:
+/******************* MIPayload redefinded ***********************/
+
+
+/**
+ * The encoding of distances for positions in top-level chains or top-level simple bubbles.
+ * Either stores (chain id, chain offset) for a position on a top-level chain, or
+ * (snarl rank, node length, start length, end length) for a position on a simple bubble
+ * We store this information in the minimizer index.
+ */
+/*
+Simple bubble:
+
+ 8 bit  |     1    |        24           |    10     |     10   |    10     |    1
+  ---   |  is rev  | snarl rank in chain | start len | end len  | node len  |  is_node
+
+Top level chain
+
+    31 bit   |    32    |     1
+component id |  offset  |  is_node
+is_node is true if it is a top-level chain node, false if it is a simple bubble
+*/
+
+struct MIPayload {
+    typedef std::uint64_t code_type; // We assume that this fits into gbwtgraph::payload_type.
+
+    constexpr static code_type NO_CODE = std::numeric_limits<code_type>::max();
+    constexpr static size_t NO_VALUE = std::numeric_limits<size_t>::max(); // From offset_in_root_chain().
+
+    constexpr static size_t NODE_LEN_OFFSET = 1;
+    constexpr static size_t END_LEN_OFFSET = 11;
+    constexpr static size_t START_LEN_OFFSET = 21;
+    constexpr static size_t RANK_OFFSET = 31;
+    constexpr static size_t REV_OFFSET = 55;
+
+
+    constexpr static size_t LENGTH_WIDTH = 10;
+    constexpr static size_t RANK_WIDTH = 24;
+    constexpr static code_type LENGTH_MASK = (static_cast<code_type>(1) << LENGTH_WIDTH) - 1;
+    constexpr static code_type RANK_MASK = (static_cast<code_type>(1) << RANK_WIDTH) - 1;
+
+
+
+    constexpr static size_t ID_OFFSET = 33;
+    constexpr static size_t ID_WIDTH = 31;
+    constexpr static size_t OFFSET_WIDTH = 32;
+    constexpr static code_type OFFSET_MASK = (static_cast<code_type>(1) << OFFSET_WIDTH) - 1;
+
+    static code_type encode(std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> chain_pos) {
+        bool is_top_level_node; size_t component; size_t offset; //Values for a top level chain
+        bool is_top_level_snarl; size_t snarl_rank; size_t node_length; size_t start_length; size_t end_length; bool is_rev;//values for a bubble
+        std::tie(is_top_level_node, component, offset, is_top_level_snarl, snarl_rank, start_length, end_length, node_length, is_rev) = chain_pos;
+
+        if (!is_top_level_node && ! is_top_level_snarl) {
+
+            return NO_CODE;
+
+        } else if (is_top_level_node) {
+            //Top level node in chain
+
+            if (component >= (static_cast<code_type>(1) << 31) - 1
+                || offset >= static_cast<size_t>(OFFSET_MASK) ) {
+                //If the values are too large to be stored
+                return NO_CODE;
+            }
+
+            return (component << ID_OFFSET) | (offset << 1) | static_cast<code_type>(true);
+
+        } else {
+            //Top level simple bubble
+
+            if (snarl_rank >= static_cast<size_t>(RANK_MASK)
+                || start_length >= static_cast<size_t>(LENGTH_MASK)
+                || end_length >=  static_cast<size_t>(LENGTH_MASK)
+                || node_length >= static_cast<size_t>(LENGTH_MASK) ){
+                //If the values are too large to be stored
+                return NO_CODE;
+            }
+
+            return (static_cast<code_type>(is_rev) << REV_OFFSET) | (snarl_rank << RANK_OFFSET) | (start_length << START_LEN_OFFSET) | (end_length << END_LEN_OFFSET) | (node_length << NODE_LEN_OFFSET) ;
+        }
+    }
+
+    static std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> decode(code_type code) {
+        if (code == NO_CODE) {
+            return std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(false, NO_VALUE, NO_VALUE, false, NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE, false);
+        } else if ((code & (static_cast<code_type>(1))) == (static_cast<code_type>(1))) {
+            //This is a top-level chain
+            return std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>
+                    (true, code >> ID_OFFSET, code >> 1 & OFFSET_MASK, false, NO_VALUE, NO_VALUE, NO_VALUE, NO_VALUE, false);
+        } else {
+            //This is a top-level bubble
+            return std::tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>
+                    (false, NO_VALUE, NO_VALUE, true,
+                      code >> RANK_OFFSET & RANK_MASK, 
+                      code >> START_LEN_OFFSET & LENGTH_MASK, 
+                      code >> END_LEN_OFFSET & LENGTH_MASK, 
+                      code >> NODE_LEN_OFFSET & LENGTH_MASK,
+                      code >> REV_OFFSET & static_cast<code_type>(1));
+        }
+    }
+};
+
 
 };
 

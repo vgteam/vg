@@ -9,6 +9,10 @@ NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex& distance
                                         distance_index(distance_index),
                                         graph(graph){
 };
+NewSnarlSeedClusterer::NewSnarlSeedClusterer( const SnarlDistanceIndex* distance_index, const HandleGraph* graph) :
+                                        distance_index(*distance_index),
+                                        graph(graph){
+};
 
 vector<NewSnarlSeedClusterer::Cluster> NewSnarlSeedClusterer::cluster_seeds (vector<Seed>& seeds, size_t read_distance_limit) const {
     //Wrapper for single ended
