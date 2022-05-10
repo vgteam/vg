@@ -243,9 +243,6 @@ public:
     int32_t mismatch;
     int32_t gap_open;
     int32_t gap_extend;
-
-private:
-    static bool no_pos(pos_t pos) { return (id(pos) == 0); }
 };
 
 //------------------------------------------------------------------------------

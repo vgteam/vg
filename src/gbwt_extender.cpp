@@ -902,6 +902,9 @@ public:
     // Scores copied from the extender.
     int32_t mismatch, gap_open, gap_extend;
 
+    // Stop if no alignment has been found with this score or less.
+    int32_t score_bound;
+
     // The closed range of diagonals reached with each score.
     std::vector<std::pair<int32_t, int32_t>> diagonals;
 
@@ -912,10 +915,17 @@ public:
         graph(graph), sequence(sequence),
         nodes(),
         candidate_point({ std::numeric_limits<int32_t>::max(), 0, 0, 0 }), candidate_node(0),
-        mismatch(mismatch), gap_open(gap_open), gap_extend(gap_extend),
+        mismatch(mismatch), gap_open(gap_open), gap_extend(gap_extend), score_bound(0),
         diagonals({ { 0, 0 } }), max_diagonals(0, 0)
     {
         this->nodes.emplace_back(root, 0);
+
+        // Determine a reasonable upper bound for the number of edits.
+        // FIXME Use an actual error model.
+        int32_t max_mismatches = 0.03 * sequence.length() + 1;
+        int32_t max_gaps = 0.05 * sequence.length() + 1;
+        int32_t max_gap_length = 0.1 * sequence.length() + 1;
+        this->score_bound = max_mismatches * this->mismatch + max_gaps * this->gap_open + max_gap_length * this->gap_extend;
     }
 
     uint32_t size() const { return this->nodes.size(); }
@@ -989,6 +999,7 @@ public:
     }
 
 private:
+    static bool no_pos(pos_t pos) { return (id(pos) == 0); }
 
     // wf_extend() on a specific diagonal for the set of (local) haplotypes corresponding to
     // the given list of leaves in the tree of GBWT search states.
@@ -1002,8 +1013,9 @@ private:
                 bool may_reach_to = this->nodes[pos.node()].same_node(to) & (pos.node_offset <= offset(to));
                 this->nodes[pos.node()].match_forward(this->sequence, this->graph, pos);
                 // We got a match that covers the end position but may extend past it.
+                // Alternatively there is no end position and we have aligned the entire sequence.
                 // This gives us a candidate where the rest of the sequence is an insertion.
-                if (may_reach_to && pos.node_offset > offset(to)) {
+                if ((may_reach_to && pos.node_offset > offset(to)) || (no_pos(to) && pos.seq_offset >= this->sequence.length())) {
                     uint32_t gap_length = (this->sequence.length() - pos.seq_offset) + (pos.node_offset - offset(to) - 1);
                     int32_t new_score = score;
                     if (gap_length > 0) {
@@ -1140,18 +1152,30 @@ void WFAExtender::connect(std::string sequence, pos_t from, pos_t to) const {
     WFATree tree(*(this->graph), sequence, root_state, this->mismatch, this->gap_open, this->gap_extend);
 
     int32_t score = 0;
-    // FIXME stop condition?
     while (true) {
         tree.extend(score, to);
         if (tree.candidate_point.score <= score) {
             break;
         }
         score++; // FIXME skip impossible scores
+        if (score > tree.score_bound) {
+            break;
+        }
         tree.next(score, to);
     }
 
     // FIXME Finally we have to backtrace the actual alignment.
-    // FIXME note that we may have edits in a node where we do not match anything
+    // take the candidate
+    // add insertion to the end if necessary
+    // while not at beginning
+    //     find all the points that were used for calculating the position at the start of the run of matches
+    //     predecessor is the one farthest on the diagonal
+    //     determine the length of the match and the edit preceding it
+    //     move to the predecessor
+
+    // FIXME special case: edits in a node that we do not use
+    // FIXME special case: no candidate (iterate over wavefronts and maximize score)
+    // FIXME special case: candidate score too high (has a long insertion at the end)
 }
 
 void WFAExtender::suffix(const std::string& sequence, pos_t from) const {
