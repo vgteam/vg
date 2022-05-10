@@ -385,8 +385,8 @@ cerr << "Add all seeds to nodes: " << endl;
                 //If there were cached minimizers, then node length and is_reversed are always set
                 //Node length and is_reversed are always set
                 if (node_length == MIPayload::NO_VALUE) {
-                       node_length = distance_index.minimum_length(node_net_handle);
-                       is_reversed_in_parent = distance_index.is_reversed_in_parent(parent);
+                   node_length = distance_index.minimum_length(node_net_handle);
+                   is_reversed_in_parent = distance_index.is_reversed_in_parent(parent);
                 }
 
                 //Make sure we have enough space to add the chain/snarl
@@ -2135,20 +2135,38 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
                                         make_pair(std::min(new_cluster.second.first, chain_cluster_distances.first), 
                                                   new_cluster.second.second)); 
                 to_remove.emplace_back(chain_cluster_read_num, chain_cluster_cluster_num);
+                if (tree_state.fragment_distance_limit != 0 && distance_between <= tree_state.fragment_distance_limit) {
+                    //If we can union the fragments, then union them and keep the cluster around, updating the right distance
+                    tree_state.fragment_union_find.union_groups(cluster_num + tree_state.seed_count_prefix_sum[read_num], 
+                                chain_cluster_cluster_num + tree_state.seed_count_prefix_sum[chain_cluster_read_num]);
+                    tree_state.all_seeds->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_right = 
+                            SnarlDistanceIndex::sum({chain_cluster_distances.second, 
+                                                     distance_from_last_child_to_current_end,
+                                                     distance_from_current_end_to_end_of_chain});
+                }
     
-            } else {
-                //If this chain cluster doesn't get combined, then we keep it in the chain clusters but update its right distances
+            } else if (tree_state.fragment_distance_limit != 0 && distance_between <= tree_state.fragment_distance_limit) {
+                //If we can union the fragments, then union them and keep the cluster around, updating the right distance
+                tree_state.fragment_union_find.union_groups(cluster_num + tree_state.seed_count_prefix_sum[read_num], 
+                            chain_cluster_cluster_num + tree_state.seed_count_prefix_sum[chain_cluster_read_num]);
                 tree_state.all_seeds->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_right = 
                         SnarlDistanceIndex::sum({chain_cluster_distances.second, 
                                                  distance_from_last_child_to_current_end,
                                                  distance_from_current_end_to_end_of_chain});
-            }
+            } else {
+                //If this chain cluster doesn't get combined, then it is too far away to combine with anything later in the chain, 
+                //so we remove it but remember to add it again if the left distance is small enough
                 
-            if (tree_state.fragment_distance_limit != 0 && distance_between <= tree_state.fragment_distance_limit) {
-                //If we can union the fragments
-                tree_state.fragment_union_find.union_groups(cluster_num + tree_state.seed_count_prefix_sum[read_num], 
-                            chain_cluster_cluster_num + tree_state.seed_count_prefix_sum[chain_cluster_read_num]);
+                if (chain_cluster_distances.first <=
+                        (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)) { 
+                    //If the current chain cluster can still be reached from the left
+                    tree_state.all_seeds->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_right = std::numeric_limits<size_t>::max();
+                    cluster_heads_to_add_again.emplace_back(make_pair(chain_cluster_read_num, chain_cluster_cluster_num),
+                                                            make_pair(chain_cluster_distances.first, std::numeric_limits<size_t>::max()));
+                }
+                to_remove.emplace_back(chain_cluster_read_num, chain_cluster_cluster_num);
             }
+              
         }
     
         //Remove all chain clusters that got combined with the current seed
