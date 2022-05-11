@@ -13,7 +13,8 @@ namespace unittest {
 /// We define a child class to expose all the protected stuff for testing
 class TestAligner : public AlignerClient {
 public:
-    using AlignerClient::AlignerClient;
+    TestAligner(double gc_content) : AlignerClient(gc_content) {}
+    TestAligner() : AlignerClient() {}
     using AlignerClient::set_alignment_scores;
     using AlignerClient::get_qual_adj_aligner;
     using AlignerClient::get_regular_aligner;

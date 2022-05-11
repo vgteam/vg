@@ -234,22 +234,10 @@ std::string insert_gbwt_path(MutablePathHandleGraph& graph, const gbwt::GBWT& gb
 /// NOTE: id is a gbwt path id, not a gbwt sequence id.
 Path extract_gbwt_path(const HandleGraph& graph, const gbwt::GBWT& gbwt_index, gbwt::size_type id);
 
-/// Get a string representation of a thread name stored in GBWT metadata.
-/// When short_name is true, return a short name made of just the sample and contig
+/// Get a short version of a string representation of a thread name stored in
+/// GBWT metadata, made of just the sample and contig.
 /// NOTE: id is a gbwt path id, not a gbwt sequence id.
-std::string thread_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id, bool short_name = false);
-
-/// Get a sample name of a thread stored in GBWT metadata.
-/// NOTE: id is a gbwt path id, not a gbwt sequence id.
-std::string thread_sample(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
-
-/// Get phase of a thread stored in GBWT metadata.
-/// NOTE: id is a gbwt path id, not a gbwt sequence id.
-int thread_phase(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
-
-/// Get count of a thread stored in GBWT metadata.
-/// NOTE: id is a gbwt path id, not a gbwt sequence id.
-gbwt::size_type thread_count(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
+std::string compose_short_path_name(const gbwt::GBWT& gbwt_index, gbwt::size_type id);
 
 //------------------------------------------------------------------------------
 

@@ -21,6 +21,7 @@
 #include "../algorithms/expand_context.hpp"
 #include "../algorithms/simplify_siblings.hpp"
 #include "../algorithms/normalize.hpp"
+#include "../algorithms/intersect_path_offsets.hpp"
 #include "random_graph.hpp"
 #include "randomness.hpp"
 #include "../vg.hpp"
@@ -4879,6 +4880,101 @@ TEST_CASE("normalize() works on a graph with a reversing self loop", "[algorithm
     // Make sure it can run without breaking this graph.
     algorithms::normalize(&graph, 10, false);
     REQUIRE(graph.is_valid(true, true, true, true));
+}
+
+TEST_CASE("intersect_path_offsets() works on large sets of path offsets") {
+    // Forge a few path handles
+    std::vector<path_handle_t> path_handles;
+    
+    {
+        char fake_path_handle[sizeof(path_handle_t)];
+        for (size_t i = 0; i < sizeof(path_handle_t); i++) {
+            fake_path_handle[i] = 0;
+        }
+        for (char i = 0; i < 2; i++) {
+            fake_path_handle[0] = i;
+            path_handles.push_back(*(path_handle_t*)fake_path_handle);
+        }
+    }
+    
+    
+    algorithms::path_offset_collection_t target;
+    algorithms::path_offset_collection_t query;
+    
+    SECTION("nothing does not intersect with nothing") {
+        target.clear();
+        query.clear();
+        REQUIRE(!algorithms::intersect_path_offsets(target, query, 100));
+    }
+    
+    SECTION("something does not intersect with nothing") {
+        target.clear();
+        query.clear();
+        query[path_handles[0]].emplace_back(100, false);
+        REQUIRE(!algorithms::intersect_path_offsets(target, query, 100));
+    }
+    
+    SECTION("nothing does not intersect with something") {
+        target.clear();
+        query.clear();
+        target[path_handles[0]].emplace_back(100, false);
+        REQUIRE(!algorithms::intersect_path_offsets(target, query, 100));
+    }
+    
+    SECTION("two things on the same path and orientation intersect if exactly close enough") {
+        target.clear();
+        query.clear();
+        target[path_handles[0]].emplace_back(100, false);
+        query[path_handles[0]].emplace_back(110, false);
+        REQUIRE(algorithms::intersect_path_offsets(target, query, 10));
+    }
+    
+    SECTION("two things on the same path and orientation do not intersect if 1 bp too far apart") {
+        target.clear();
+        query.clear();
+        target[path_handles[0]].emplace_back(100, false);
+        query[path_handles[0]].emplace_back(110, false);
+        REQUIRE(!algorithms::intersect_path_offsets(target, query, 9));
+    }
+    
+    SECTION("two things on the same path in different orientations intersect") {
+        target.clear();
+        query.clear();
+        target[path_handles[0]].emplace_back(100, false);
+        query[path_handles[0]].emplace_back(100, true);
+        REQUIRE(algorithms::intersect_path_offsets(target, query, 100));
+    }
+    
+    SECTION("two things on different paths do not intersect") {
+        target.clear();
+        query.clear();
+        target[path_handles[0]].emplace_back(100, false);
+        query[path_handles[1]].emplace_back(100, false);
+        REQUIRE(!algorithms::intersect_path_offsets(target, query, 100));
+    }
+    
+    SECTION("one thing can be intersected against a lot of things") {
+        target.clear();
+        query.clear();
+        for (size_t i = 0; i < 1000; i++) {
+            target[path_handles[0]].emplace_back(i * 1000, false);
+        }
+        query[path_handles[0]].emplace_back(990, false);
+        REQUIRE(algorithms::intersect_path_offsets(target, query, 100));
+    }
+    
+    SECTION("several things can be intersected against a lot of things") {
+        target.clear();
+        query.clear();
+        for (size_t i = 0; i < 1000; i++) {
+            target[path_handles[0]].emplace_back(i * 1000, false);
+        }
+        for (size_t i = 0; i < 10; i++) {
+            query[path_handles[0]].emplace_back(891 + i, false);
+        }
+        REQUIRE(algorithms::intersect_path_offsets(target, query, 100));
+    }
+    
 }
 
 }

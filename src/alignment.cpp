@@ -14,9 +14,11 @@ int hts_for_each(string& filename, function<void(Alignment&)> lambda, const Path
     bam_hdr_t *hdr = sam_hdr_read(in);
     map<string, string> rg_sample;
     parse_rg_sample_map(hdr->text, rg_sample);
+    map<int, path_handle_t> tid_path_handle;
+    parse_tid_path_handle_map(hdr, graph, tid_path_handle);
     bam1_t *b = bam_init1();
     while (sam_read1(in, hdr, b) >= 0) {
-        Alignment a = bam_to_alignment(b, rg_sample, hdr, graph);
+        Alignment a = bam_to_alignment(b, rg_sample, tid_path_handle, hdr, graph);
         lambda(a);
     }
     bam_destroy1(b);
@@ -38,6 +40,8 @@ int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda,
     bam_hdr_t *hdr = sam_hdr_read(in);
     map<string, string> rg_sample;
     parse_rg_sample_map(hdr->text, rg_sample);
+    map<int, path_handle_t> tid_path_handle;
+    parse_tid_path_handle_map(hdr, graph, tid_path_handle);
 
     int thread_count = get_thread_count();
     vector<bam1_t*> bs; bs.resize(thread_count);
@@ -62,7 +66,7 @@ int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda,
             }
             // Now we're outside the critical section so we can only rely on our own variables.
             if (got_read) {
-                Alignment a = bam_to_alignment(b, rg_sample, hdr, graph);
+                Alignment a = bam_to_alignment(b, rg_sample, tid_path_handle, hdr, graph);
                 lambda(a);
             }
         }
@@ -128,9 +132,10 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
     alignment.Clear();
     bool is_fasta = false;
     // handle name
+    string name;
     if (0!=gzgets(fp,buffer,len)) {
         buffer[strlen(buffer)-1] = '\0';
-        string name = buffer;
+        name = buffer;
         if (name[0] == '@') {
             is_fasta = false;
         } else if (name[0] == '>') {
@@ -147,13 +152,13 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
         buffer[strlen(buffer)-1] = '\0';
         alignment.set_sequence(buffer);
     } else {
-        cerr << "[vg::alignment.cpp] error: incomplete fastq record" << endl; exit(1);
+        cerr << "[vg::alignment.cpp] error: incomplete fastq/fasta record " << name << endl; exit(1);
     }
     // handle "+" sep
     if (!is_fasta) {
         if (0!=gzgets(fp,buffer,len)) {
         } else {
-            cerr << "[vg::alignment.cpp] error: incomplete fastq record" << endl; exit(1);
+            cerr << "[vg::alignment.cpp] error: incomplete fastq record " << name << endl; exit(1);
         }
         // handle quality
         if (0!=gzgets(fp,buffer,len)) {
@@ -162,7 +167,7 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
             //cerr << string_quality_short_to_char(quality) << endl;
             alignment.set_quality(quality);
         } else {
-            cerr << "[vg::alignment.cpp] error: incomplete fastq record" << endl; exit(1);
+            cerr << "[vg::alignment.cpp] error: fastq record missing base quality " << name << endl; exit(1);
         }
     }
 
@@ -376,6 +381,21 @@ void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample) {
             }
             // if it's the same sample name and RG combo, no worries
             rg_sample[rg_id] = name;
+        }
+    }
+}
+
+void parse_tid_path_handle_map(const bam_hdr_t* hts_header, const PathHandleGraph* graph, map<int, path_handle_t>& tid_path_handle) {
+    if (!graph) {
+        // No path handles to find!
+        return;
+    }
+    for (int i = 0; i < hts_header->n_targets; i++) {
+        // Pre-look-up all the paths mentioned in the header
+        string target_name(hts_header->target_name[i]);
+        if (graph->has_path(target_name)) {
+            // Store the handles for the paths we find, under their HTSlib target numbers.
+            tid_path_handle.emplace(i, graph->get_path_handle(target_name));
         }
     }
 }
@@ -880,7 +900,7 @@ int64_t cigar_mapping(const bam1_t *b, Mapping* mapping) {
     return ref_length;
 }
 
-void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, const PathPositionHandleGraph* graph, bool on_reverse_strand) {
+void mapping_against_path(Alignment& alignment, const bam1_t *b, const path_handle_t& path, const PathPositionHandleGraph* graph, bool on_reverse_strand) {
 
     if (b->core.pos == -1) return;
 
@@ -888,12 +908,12 @@ void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, cons
 
     int64_t length = cigar_mapping(b, &mapping);
 
-    Alignment aln = target_alignment(graph, chr, b->core.pos, b->core.pos + length, "", on_reverse_strand, mapping);
+    Alignment aln = target_alignment(graph, path, b->core.pos, b->core.pos + length, "", on_reverse_strand, mapping);
 
     *alignment.mutable_path() = aln.path();
 
     Position* refpos = alignment.add_refpos();
-    refpos->set_name(chr);
+    refpos->set_name(graph->get_path_name(path));
     refpos->set_offset(b->core.pos);
     refpos->set_is_reverse(on_reverse_strand);
 }
@@ -1076,7 +1096,10 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
     return flag;
 }
 
-Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, const bam_hdr_t *bh,
+Alignment bam_to_alignment(const bam1_t *b,
+                           const map<string, string>& rg_sample,
+                           const map<int, path_handle_t>& tid_path_handle,
+                           const bam_hdr_t *bh,
                            const PathPositionHandleGraph* graph) {
 
     Alignment alignment;
@@ -1097,11 +1120,14 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, cons
 
     // get the read group and sample name
     uint8_t *rgptr = bam_aux_get(b, "RG");
-    char* rg = (char*) (rgptr+1);
-    //if (!rg_sample
+    string read_group;
     string sname;
-    if (!rg_sample.empty()) {
-        sname = rg_sample[string(rg)];
+    if (rgptr && !rg_sample.empty()) {
+        read_group = string((char*) (rgptr+1));
+        auto found = rg_sample.find(read_group);
+        if (found != rg_sample.end()) {
+            sname = found->second; 
+        }
     }
 
     // Now name the read after the scaffold
@@ -1140,21 +1166,29 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, cons
     
     if (graph != nullptr && bh != nullptr) {
         alignment.set_mapping_quality(b->core.qual);
-        mapping_against_path(alignment, b, bh->target_name[b->core.tid], graph, b->core.flag & BAM_FREVERSE);
+        // Look for the path handle this is against.
+        auto found = tid_path_handle.find(b->core.tid);
+        if (found == tid_path_handle.end()) {
+            cerr << "[vg::alignment.cpp] error: alignment references path not present in graph: "
+                 << bh->target_name[b->core.tid] << endl;
+            exit(1);
+        }
+        mapping_against_path(alignment, b, found->second, graph, b->core.flag & BAM_FREVERSE);
     }
     
     // TODO: htslib doesn't wrap this flag for some reason.
     alignment.set_is_secondary(b->core.flag & BAM_FSECONDARY);
-    if (sname.size()) {
+    if (!sname.empty()) {
         alignment.set_sample_name(sname);
-        alignment.set_read_group(rg);
+        // We know the sample name came from a read group
+        alignment.set_read_group(read_group);
     }
 
     return alignment;
 }
 
-Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
-    return bam_to_alignment(b, rg_sample, nullptr, nullptr);
+Alignment bam_to_alignment(const bam1_t *b, const map<string, string>& rg_sample, const map<int, path_handle_t>& tid_path_handle) {
+    return bam_to_alignment(b, rg_sample, tid_path_handle, nullptr, nullptr);
 }
 
 int alignment_to_length(const Alignment& a) {
@@ -1846,7 +1880,7 @@ void parse_bed_regions(istream& bedstream,
         }
 
         // Make the Alignment
-        Alignment alignment = target_alignment(graph, seq, sbuf, ebuf, name, is_reverse);
+        Alignment alignment = target_alignment(graph, path_handle, sbuf, ebuf, name, is_reverse);
         alignment.set_score(score);
 
         out_alignments->push_back(alignment);
@@ -1923,7 +1957,7 @@ void parse_gff_regions(istream& gffstream,
                 // we go look for positions in it.
                 cerr << "warning: path \"" << seq << "\" not found in index, skipping" << endl;
             } else {
-                Alignment alignment = target_alignment(graph, seq, sbuf, ebuf, name, is_reverse);
+                Alignment alignment = target_alignment(graph, graph->get_path_handle(seq), sbuf, ebuf, name, is_reverse);
 
                 out_alignments->push_back(alignment);
             }
@@ -2016,43 +2050,44 @@ bool alignment_is_valid(Alignment& aln, const HandleGraph* hgraph) {
     return true;
 }
 
-Alignment target_alignment(const PathPositionHandleGraph* graph, const string& name, size_t pos1, size_t pos2,
+Alignment target_alignment(const PathPositionHandleGraph* graph, const path_handle_t& path, size_t pos1, size_t pos2,
                            const string& feature, bool is_reverse, Mapping& cigar_mapping) {
     Alignment aln;
     
-    path_handle_t path_handle = graph->get_path_handle(name);
-    
     if (pos2 < pos1) {
         // Looks like we want to span the origin of a circular path
-        if (!graph->get_is_circular(path_handle)) {
+        if (!graph->get_is_circular(path)) {
             // But the path isn't circular, which is a problem
             throw runtime_error("Cannot extract Alignment from " + to_string(pos1) +
-                                " to " + to_string(pos2) + " across the junction of non-circular path " + name);
+                                " to " + to_string(pos2) + " across the junction of non-circular path " +
+                                graph->get_path_name(path));
         }
         
         // How long is the path?
-        auto path_len = graph->get_path_length(path_handle);
+        auto path_len = graph->get_path_length(path);
         
         if (pos1 >= path_len) {
             // We want to start off the end of the path, which is no good.
             throw runtime_error("Cannot extract Alignment starting at " + to_string(pos1) +
-                                " which is past end " + to_string(path_len) + " of path " + name);
+                                " which is past end " + to_string(path_len) + " of path " +
+                                graph->get_path_name(path));
         }
         
         if (pos2 > path_len) {
             // We want to end off the end of the path, which is no good either.
             throw runtime_error("Cannot extract Alignment ending at " + to_string(pos2) +
-                                " which is past end " + to_string(path_len) + " of path " + name);
+                                " which is past end " + to_string(path_len) + " of path " +
+                                graph->get_path_name(path));
         }
         
         // Split the proivided Mapping of edits at the path end/start junction
         auto part_mappings = cut_mapping_offset(cigar_mapping, path_len - pos1);
         
         // We extract from pos1 to the end
-        Alignment aln1 = target_alignment(graph, name, pos1, path_len, feature, is_reverse, part_mappings.first);
+        Alignment aln1 = target_alignment(graph, path, pos1, path_len, feature, is_reverse, part_mappings.first);
         
         // And then from the start to pos2
-        Alignment aln2 = target_alignment(graph, name, 0, pos2, feature, is_reverse, part_mappings.second);
+        Alignment aln2 = target_alignment(graph, path, 0, pos2, feature, is_reverse, part_mappings.second);
         
         if (is_reverse) {
             // The alignments were flipped, so the second has to be first
@@ -2066,7 +2101,7 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const string& n
     // Otherwise, the base case is that we don't go over the circular path junction
     
     
-    step_handle_t step = graph->get_step_at_position(path_handle, pos1);
+    step_handle_t step = graph->get_step_at_position(path, pos1);
     size_t step_start = graph->get_position_of_step(step);
     handle_t handle = graph->get_handle_of_step(step);
     
@@ -2186,40 +2221,42 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const string& n
     return aln;
 }
 
-Alignment target_alignment(const PathPositionHandleGraph* graph, const string& name, size_t pos1, size_t pos2,
+Alignment target_alignment(const PathPositionHandleGraph* graph, const path_handle_t& path, size_t pos1, size_t pos2,
                            const string& feature, bool is_reverse) {
     Alignment aln;
-    
-    path_handle_t path_handle = graph->get_path_handle(name);
+
     
     if (pos2 < pos1) {
         // Looks like we want to span the origin of a circular path
-        if (!graph->get_is_circular(path_handle)) {
+        if (!graph->get_is_circular(path)) {
             // But the path isn't circular, which is a problem
             throw runtime_error("Cannot extract Alignment from " + to_string(pos1) +
-                                " to " + to_string(pos2) + " across the junction of non-circular path " + name);
+                                " to " + to_string(pos2) + " across the junction of non-circular path " +
+                                graph->get_path_name(path));
         }
         
         // How long is the path?
-        auto path_len = graph->get_path_length(path_handle);
+        auto path_len = graph->get_path_length(path);
         
         if (pos1 >= path_len) {
             // We want to start off the end of the path, which is no good.
             throw runtime_error("Cannot extract Alignment starting at " + to_string(pos1) +
-                                " which is past end " + to_string(path_len) + " of path " + name);
+                                " which is past end " + to_string(path_len) + " of path " +
+                                graph->get_path_name(path));
         }
         
         if (pos2 > path_len) {
             // We want to end off the end of the path, which is no good either.
             throw runtime_error("Cannot extract Alignment ending at " + to_string(pos2) +
-                                " which is past end " + to_string(path_len) + " of path " + name);
+                                " which is past end " + to_string(path_len) + " of path " +
+                                graph->get_path_name(path));
         }
         
         // We extract from pos1 to the end
-        Alignment aln1 = target_alignment(graph, name, pos1, path_len, feature, is_reverse);
+        Alignment aln1 = target_alignment(graph, path, pos1, path_len, feature, is_reverse);
         
         // And then from the start to pos2
-        Alignment aln2 = target_alignment(graph, name, 0, pos2, feature, is_reverse);
+        Alignment aln2 = target_alignment(graph, path, 0, pos2, feature, is_reverse);
         
         if (is_reverse) {
             // The alignments were flipped, so the second has to be first
@@ -2232,7 +2269,7 @@ Alignment target_alignment(const PathPositionHandleGraph* graph, const string& n
     
     // If we get here, we do the normal non-circular path case.
     
-    step_handle_t step = graph->get_step_at_position(path_handle, pos1);
+    step_handle_t step = graph->get_step_at_position(path, pos1);
     size_t step_start = graph->get_position_of_step(step);
     handle_t handle = graph->get_handle_of_step(step);
     

@@ -127,6 +127,7 @@ namespace vg {
         bool restrained_graph_extraction = false;
         size_t max_expected_dist_approx_error = 8;
         int32_t num_alt_alns = 4;
+        size_t max_dagify_duplications = 10;
         double mem_coverage_min_ratio = 0.5;
         double truncation_multiplicity_mq_limit = 7.0;
         double max_suboptimal_path_score_ratio = 2.0;
@@ -414,6 +415,15 @@ namespace vg {
         void agglomerate_alignment_pairs(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                          vector<double>& multiplicities) const;
+        
+        /// Before returning, remove alignments that are likely noise and add a placeholder
+        /// for an unmapped read if necessary
+        void purge_unmapped_alignments(vector<multipath_alignment_t>& multipath_alns_out);
+        
+        /// Before returning, remove alignments that are likely noise and add placeholders
+        /// for unmapped reads if necessary
+        void purge_unmapped_alignments(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out,
+                                       bool proper_paired);
         
         /// The internal agglomeration procedure
         void agglomerate(size_t idx, multipath_alignment_t& agglomerating, const multipath_alignment_t& multipath_aln,

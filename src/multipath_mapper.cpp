@@ -39,6 +39,7 @@
 #include "split_strand_graph.hpp"
 #include "dagified_graph.hpp"
 
+#include "algorithms/count_covered.hpp"
 #include "algorithms/extract_containing_graph.hpp"
 #include "algorithms/locally_expand_graph.hpp"
 #include "algorithms/jump_along_path.hpp"
@@ -155,19 +156,13 @@ namespace vg {
             agglomerate_alignments(multipath_alns_out, &multiplicities);
         }
         
-        if (likely_mismapping(multipath_alns_out.front())) {
-            // we can't distinguish this alignment from the longest MEM of a random sequence
-#ifdef debug_multipath_mapper
-            cerr << "mapping is not distinguishable from a random sequence, snapping MAPQ to 0" << endl;
-#endif
-            
-            multipath_alns_out.front().set_mapping_quality(0);
-        }
-        
         // if we computed extra alignments to get a mapping quality, remove them
         if (multipath_alns_out.size() > max_alt_mappings) {
             multipath_alns_out.resize(max_alt_mappings);
         }
+        
+        // mark unmapped reads and get rid of noise alignments
+        purge_unmapped_alignments(multipath_alns_out);
         
         for (size_t i = 1; i < multipath_alns_out.size(); ++i) {
             multipath_alns_out[i].set_annotation("secondary", true);
@@ -589,7 +584,9 @@ namespace vg {
             
             // are these reads unambiguously mapped and well-aligned?
             // TODO: i don't like having constants floating around in here
-            if (multipath_aln_1.mapping_quality() >= min(max_mapping_quality, 45)
+            if (num_connected_components(multipath_aln_1) == 1
+                && num_connected_components(multipath_aln_2) == 1
+                && multipath_aln_1.mapping_quality() >= min(max_mapping_quality, 45)
                 && multipath_aln_2.mapping_quality() >= min(max_mapping_quality, 45)
                 && optimal_alignment_score(multipath_aln_1) >= .8 * max_score_1
                 && optimal_alignment_score(multipath_aln_2) >= .8 * max_score_2) {
@@ -749,7 +746,7 @@ namespace vg {
 #ifdef debug_multipath_mapper_alignment
             cerr << "graph contains directed cycles, performing dagification" << endl;
 #endif
-            dagified = unique_ptr<DagifiedGraph>(new DagifiedGraph(&align_digraph, target_length));
+            dagified = unique_ptr<DagifiedGraph>(new DagifiedGraph(&align_digraph, target_length, max_dagify_duplications));
             align_dag = dagified.get();
         }
         
@@ -1002,6 +999,10 @@ namespace vg {
         bool reset_strip_bonuses = strip_bonuses;
         strip_bonuses = false;
         
+        // we want to avoid returning empty alignments that indicated unmapped reads
+        bool reset_suppress_mismapping_detection = suppress_mismapping_detection;
+        suppress_mismapping_detection = true;
+        
         // and we expect small MEMs, so don't filter them out
         int reset_min_mem_length = min_mem_length;
         size_t reset_min_clustering_mem_length = min_clustering_mem_length;
@@ -1084,6 +1085,7 @@ namespace vg {
         min_mem_length = reset_min_mem_length;
         max_alt_mappings = reset_max_alt_mappings;
         suppress_p_value_memoization = false;
+        suppress_mismapping_detection = reset_suppress_mismapping_detection;
     }
 
     void MultipathMapper::determine_distance_correlation() {
@@ -2151,6 +2153,9 @@ namespace vg {
             multipath_aln_pairs_out.resize(max_alt_mappings);
         }
         
+        // mark if any of the alignments are just noise
+        purge_unmapped_alignments(multipath_aln_pairs_out, proper_paired);
+        
         for (size_t i = 0; i < multipath_aln_pairs_out.size(); ++i) {
             multipath_aln_pairs_out[i].first.set_annotation("proper_pair", proper_paired);
             multipath_aln_pairs_out[i].second.set_annotation("proper_pair", proper_paired);
@@ -2608,19 +2613,19 @@ namespace vg {
                     
                 }
                 
-                if (distance_index && dist == numeric_limits<int64_t>::max()) {
-                    // FIXME: this will still sometimes produce finite distances for reads that
-                    // can't reach each other along a surjection path in cyclic graphs
-                    // FIXME: it can also find finite distances to different strands of a path,
-                    // but this might be okay sometimes?
-                    
-                    // they're probably still reachable if they got this far, get a worse estimate of the
-                    // distance from the distance index
-                    int64_t min_dist = distance_index->min_distance(pos_1, pos_2);
-                    if (min_dist >= 0) {
-                        dist = min_dist;
-                    }
-                }
+//                if (distance_index && dist == numeric_limits<int64_t>::max()) {
+//                    // FIXME: this will still sometimes produce finite distances for reads that
+//                    // can't reach each other along a surjection path in cyclic graphs
+//                    // FIXME: it can also find finite distances to different strands of a path,
+//                    // but this might be okay sometimes?
+//                    
+//                    // they're probably still reachable if they got this far, get a worse estimate of the
+//                    // distance from the distance index
+//                    int64_t min_dist = distance_index->min_distance(pos_1, pos_2);
+//                    if (min_dist >= 0) {
+//                        dist = min_dist;
+//                    }
+//                }
                 
                 if (dist != numeric_limits<int64_t>::max()) {
                     // not memoizing unreachable distances, since distance index should
@@ -4540,6 +4545,90 @@ namespace vg {
         }
     }
 
+    void MultipathMapper::purge_unmapped_alignments(vector<multipath_alignment_t>& multipath_alns_out) {
+        for (size_t i = 0; i < multipath_alns_out.size(); ++i) {
+            // TODO: could do this more efficiently by bisect search
+            if (likely_mismapping(multipath_alns_out[i])) {
+                // we can't distinguish this alignment from the longest MEM of a random sequence
+                // so we don't report this mapping
+                if (i == 0) {
+#ifdef debug_multipath_mapper
+                    cerr << "mapping is not distinguishable from a random sequence, reporting as unmapped" << endl;
+#endif
+                    // leave an unmapped placeholder
+                    multipath_alns_out.resize(1);
+                    clear_alignment(multipath_alns_out.front());
+                }
+                else {
+                    // truncate the output from this point on
+                    multipath_alns_out.resize(i);
+                }
+                break;
+            }
+        }
+    }
+
+    void MultipathMapper::purge_unmapped_alignments(vector<pair<multipath_alignment_t, multipath_alignment_t>>& multipath_aln_pairs_out, bool proper_paired) {
+        
+        // decide if the read is unmapped
+        if (proper_paired) {
+            for (size_t i = 0; i < multipath_aln_pairs_out.size(); ++i) {
+                // if they're part of a proper pair, we count even pretty bad alignments
+                // as mapped
+                if (likely_mismapping(multipath_aln_pairs_out[i].first) &&
+                    likely_mismapping(multipath_aln_pairs_out[i].second)) {
+                    // this pair is actually unmapped
+                    // TODO: maybe we should accept it though, in a large genome they are very
+                    // unlikely to be paired by chance...
+                    if (i == 0) {
+                        // the read is completely unmapped, get rid of multimappings
+                        multipath_aln_pairs_out.resize(1);
+                        clear_alignment(multipath_aln_pairs_out.front().first);
+                        clear_alignment(multipath_aln_pairs_out.front().second);
+                    }
+                    else {
+                        // truncate the list here
+                        multipath_aln_pairs_out.resize(i);
+                    }
+                    break;
+                }
+            }
+        }
+        else {
+            // we have to do some complicated logic to look for unmapped reads in both primary
+            // and secondary because of vg's silly interleaving logic...
+            
+            // find where unmapped reads begin in each list
+            size_t i, j;
+            for (i = 0; i < multipath_aln_pairs_out.size(); ++i) {
+                if (multipath_aln_pairs_out[i].first.subpath().empty()
+                    || likely_mismapping(multipath_aln_pairs_out[i].first)) {
+                    break;
+                }
+            }
+            for (j = 0; j < multipath_aln_pairs_out.size(); ++j) {
+                if (multipath_aln_pairs_out[j].second.subpath().empty()
+                    || likely_mismapping(multipath_aln_pairs_out[j].second)) {
+                    break;
+                }
+            }
+            
+            if (i != multipath_aln_pairs_out.size() || j != multipath_aln_pairs_out.size()) {
+                // we need to clear out unmapped reads in at least one of the read lists
+                
+                // truncate
+                multipath_aln_pairs_out.resize(max<size_t>(1, max(i, j)));
+                // add placeholders for unmapped reads if necessary
+                for (; i < multipath_aln_pairs_out.size(); ++i) {
+                    clear_alignment(multipath_aln_pairs_out[i].first);
+                }
+                for (; j < multipath_aln_pairs_out.size(); ++j) {
+                    clear_alignment(multipath_aln_pairs_out[j].second);
+                }
+            }
+        }
+    }
+
     void MultipathMapper::simplify_complicated_multipath_alignment(multipath_alignment_t& multipath_aln) const {
         
         if (multipath_aln.subpath_size() > prune_subpaths_multiplier * multipath_aln.sequence().size()) {
@@ -6009,7 +6098,7 @@ namespace vg {
 #endif
             
 #ifdef debug_multipath_mapper_alignment
-            cerr << "initial alignment graph:" << endl;
+            cerr << "initial alignment graph with " << graph->get_node_count() << " nodes and " << graph->get_edge_count() << ":" << endl;
             graph->for_each_handle([&](const handle_t& h) {
                 cerr << graph->get_id(h) << " " << graph->get_sequence(h) << endl;
                 graph->follow_edges(h, false, [&](const handle_t& n) {
@@ -6052,7 +6141,7 @@ namespace vg {
 #ifdef debug_multipath_mapper_alignment
                 cerr << "graph contains directed cycles, performing dagification" << endl;
 #endif
-                dagified = unique_ptr<DagifiedGraph>(new DagifiedGraph(align_digraph, target_length));
+                dagified = unique_ptr<DagifiedGraph>(new DagifiedGraph(align_digraph, target_length, max_dagify_duplications));
                 align_dag = dagified.get();
             }
             
@@ -6063,7 +6152,7 @@ namespace vg {
             };
             
 #ifdef debug_multipath_mapper_alignment
-            cerr << "final alignment graph:" << endl;
+            cerr << "final alignment graph of size " << align_dag->get_node_count() << " nodes and " << align_dag->get_edge_count() << ":" << endl;
             align_dag->for_each_handle([&](const handle_t& h) {
                 auto tr = translator(align_dag->get_id(h));
                 cerr << align_dag->get_id(h) << " (" << tr.first << (tr.second ? "-" : "+") << ") " << align_dag->get_sequence(h) << endl;
@@ -6282,22 +6371,7 @@ namespace vg {
         for (auto& mem_hit : mem_hits.first) {
             mem_read_segments.emplace_back(mem_hit.first->begin, mem_hit.first->end);
         }
-        std::sort(mem_read_segments.begin(), mem_read_segments.end());
-        auto curr_begin = mem_read_segments[0].first;
-        auto curr_end = mem_read_segments[0].second;
-        
-        int64_t total = 0;
-        for (size_t i = 1; i < mem_read_segments.size(); i++) {
-            if (mem_read_segments[i].first >= curr_end) {
-                total += (curr_end - curr_begin);
-                curr_begin = mem_read_segments[i].first;
-                curr_end = mem_read_segments[i].second;
-            }
-            else if (mem_read_segments[i].second > curr_end) {
-                curr_end = mem_read_segments[i].second;
-            }
-        }
-        get<2>(cluster_graph) = total + (curr_end - curr_begin);
+        get<2>(cluster_graph) = algorithms::count_covered(mem_read_segments);
         
         stable_sort(get<1>(cluster_graph).first.begin(), get<1>(cluster_graph).first.end(), length_first_cmp);
     }

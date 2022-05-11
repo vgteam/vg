@@ -23,17 +23,66 @@ using namespace std;
 /// orientations, into pos_ts. Remember that pos_t counts offset from the start
 /// of the reoriented node, while here we count offset from the beginning of the
 /// forward version of the path.
-pos_t position_at(PathPositionHandleGraph* xgidx, const string& path_name, const size_t& path_offset, bool is_reverse);
+pos_t position_at(PathPositionHandleGraph* graph_ptr, const string& path_name, const size_t& path_offset, bool is_reverse);
+
+/**
+ * Interface for shared functionality for things that sample reads.
+ */
+class AbstractReadSampler {
+public:
+    virtual ~AbstractReadSampler() = default;
+    
+    /// Make a new sampler using the given graph.
+    inline AbstractReadSampler(PathPositionHandleGraph& graph) :
+        graph(graph) {
+        // Graph must be vectorizable for our implementations to be able to
+        // sample positions.
+        if (!dynamic_cast<VectorizableHandleGraph*>(&graph)) {
+            throw std::logic_error("Graph is expected to be vectorizable!");
+        }
+    }
+    
+    // TODO: Add a real sampling interface when one can be factored out!
+    
+    ///////////
+    // Control fields
+    ///////////
+    
+    /// If true, annotate alignments with multiple positions along reference
+    /// paths. If false, annotate them with minimum visited positions along
+    /// reference paths.
+    bool multi_position_annotations = false;
+    
+    /// What limit should we use for retry loops before giving up or failing?
+    size_t max_tries = 100;
+    
+    /// Set to a filter function that returns true if a given path in the graph
+    /// is allowed to be used as an annotation path.
+    std::unique_ptr<std::function<bool(const path_handle_t&)>> annotation_path_filter; 
+    
+    // TODO: Move more common fields out here. Make Sampler store at least a
+    // default error rate, etc. for the common sampling interface.
+    
+protected:
+   
+    /// The graph being simulated against.
+    PathPositionHandleGraph& graph;
+   
+    /// Annotate the given alignment with the appropriate type of path
+    /// positions.
+    void annotate_with_path_positions(Alignment& aln);
+};
+ 
+
 
 /**
  * Generate Alignments (with or without mutations, and in pairs or alone) from
  * an PathPositionHandleGraph index.
  */
-class Sampler {
+class Sampler: public AbstractReadSampler {
 
 public:
 
-    PathPositionHandleGraph* xgidx;
     // We need this so we don't re-load the node for every character we visit in
     // it.
     LRUCache<id_t, Node> node_cache;
@@ -62,7 +111,7 @@ public:
             const vector<double>& source_path_ploidies = {},
             const vector<pair<string, double>>& transcript_expressions = {},
             const vector<tuple<string, string, size_t>>& haplotype_transcripts = {})
-        : xgidx(x),
+        : AbstractReadSampler(*x),
           node_cache(100),
           edge_cache(100),
           forward_only(forward_only),
@@ -70,8 +119,8 @@ public:
           nonce(0),
           source_paths(source_paths) {
         // sum seq lengths
-        xgidx->for_each_handle([&](const handle_t& handle) {
-            total_seq_length += xgidx->get_length(handle);
+        graph.for_each_handle([&](const handle_t& handle) {
+            total_seq_length += graph.get_length(handle);
         });
         if (!seed) {
             seed = time(NULL);
@@ -79,6 +128,10 @@ public:
         rng.seed(seed);
         set_source_paths(source_paths, source_path_ploidies, transcript_expressions, haplotype_transcripts);
     }
+    
+    // AbstractReadSampler interface
+    Alignment sample_read();
+    pair<Alignment, Alignment> sample_read_pair();
 
     /// Make a path sampling distribution based on relative lengths (weighted
     /// by ploidy) or on transcript expressions. (At most one of source_paths and
@@ -112,6 +165,7 @@ public:
                                      double fragment_std_dev,
                                      double base_error,
                                      double indel_error);
+                                     
     size_t node_length(id_t id);
     char pos_char(pos_t pos);
     map<pos_t, char> next_pos_chars(pos_t pos);
@@ -148,7 +202,7 @@ public:
  * Class that simulates reads with alignments to a graph that mimic the error
  * profile of NGS sequencing data.
  */
-class NGSSimulator {
+class NGSSimulator : public AbstractReadSampler {
 public:
     /// Initialize simulator. FASTQ file will be used to train an error distribution.
     /// Most reads in the FASTQ should be the same length. Polymorphism rates apply
@@ -288,9 +342,13 @@ private:
     
     /// Mask out bases with 'N's if the mask is true
     void apply_N_mask(string& sequence, const vector<bool>& n_mask);
+        
+    /// Walk backwards either along an alignment path or a source path, updates positions
+    bool walk_backwards(int64_t& offset, bool& is_reverse, pos_t& pos, int64_t distance,
+                        const string& source_path, const Path& path);
+    /// Walk backwards along the alignment path
+    bool walk_backwards_along_alignment(const Path& path, int64_t distance, pos_t& pos);
     
-    /// Returns the position a given distance from the end of the path, walking backwards
-    pos_t walk_backwards(const Path& path, int64_t distance);
     /// Add a deletion to the alignment
     void apply_deletion(Alignment& aln, const pos_t& pos);
     /// Add an insertion to the alignment
@@ -310,8 +368,6 @@ private:
     /// A distribution for the joint initial qualities of a read pair
     MarkovDistribution<pair<uint8_t, bool>, pair<pair<uint8_t, bool>, pair<uint8_t, bool>>> joint_initial_distr;
     
-    PathPositionHandleGraph& graph;
-    
     vector<mt19937_64> prngs;
     vg::discrete_distribution<> path_sampler;
     vector<vg::uniform_int_distribution<size_t>> start_pos_samplers;
@@ -329,6 +385,7 @@ private:
     size_t sample_counter = 0;
     uint64_t seed;
     
+    /// Should we try again for a read without Ns of we get Ns?
     const bool retry_on_Ns;
     const bool sample_unsheared_paths;
     

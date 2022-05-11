@@ -13,12 +13,14 @@ namespace algorithms {
 
 using namespace std;
 
-unordered_map<path_handle_t, vector<pair<size_t, bool>>> nearest_offsets_in_paths(const PathPositionHandleGraph* graph,
-                                                                                  const pos_t& pos,
-                                                                                  int64_t max_search) {
+path_offset_collection_t nearest_offsets_in_paths(const PathPositionHandleGraph* graph,
+                                                  const pos_t& pos,
+                                                  int64_t max_search,
+                                                  const std::function<bool(const path_handle_t&)>* path_filter) {
     
     // init the return value
-    unordered_map<path_handle_t, vector<pair<size_t, bool>>> return_val;
+    // This is a map from path handle, to vector of offset and orientation pairs
+    path_offset_collection_t return_val;
     
     // use greater so that we traverse in ascending order of distance
     structures::RankPairingHeap<pair<handle_t, bool>, int64_t, greater<int64_t>> queue;
@@ -49,6 +51,16 @@ unordered_map<path_handle_t, vector<pair<size_t, bool>>> nearest_offsets_in_path
 #ifdef debug
             cerr << "handle is on step at path offset " << graph->get_position_of_step(step) << endl;
 #endif
+
+            path_handle_t path_handle = graph->get_path_handle_of_step(step);
+
+            if (path_filter && !(*path_filter)(path_handle)) {
+                // We are to ignore this path
+#ifdef debug
+                cerr << "handle is on ignored path " << graph->get_name(path_handle) << endl;
+#endif
+                continue;
+            }
             
             // flip the handle back to the orientation it started in
             handle_t oriented = search_left ? graph->flip(here) : here;
@@ -69,8 +81,6 @@ unordered_map<path_handle_t, vector<pair<size_t, bool>>> nearest_offsets_in_path
 #ifdef debug
             cerr << "after adding search distance and node offset, " << path_offset << " on strand " << rev_on_path << endl;
 #endif
-            
-            path_handle_t path_handle = graph->get_path_handle_of_step(step);
             
             // handle possible under/overflow from the search distance
             path_offset = max<int64_t>(min<int64_t>(path_offset, graph->get_path_length(path_handle)), 0);
@@ -114,8 +124,8 @@ map<string, vector<pair<size_t, bool>>> offsets_in_paths(const PathPositionHandl
     return named_offsets;
 }
 
-unordered_map<path_handle_t, vector<pair<size_t, bool>>> simple_offsets_in_paths(const PathPositionHandleGraph* graph, pos_t pos) {
-    unordered_map<path_handle_t, vector<pair<size_t, bool>>> positions;
+path_offset_collection_t simple_offsets_in_paths(const PathPositionHandleGraph* graph, pos_t pos) {
+    path_offset_collection_t positions;
     handle_t handle = graph->get_handle(id(pos), is_rev(pos));
     size_t handle_length = graph->get_length(handle);
     for (const step_handle_t& step : graph->steps_of_handle(handle)) {

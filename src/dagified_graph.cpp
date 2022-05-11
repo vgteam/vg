@@ -11,7 +11,8 @@ namespace vg {
 
 using namespace std;
 
-    DagifiedGraph::DagifiedGraph(const HandleGraph* graph, size_t min_preserved_path_length) : graph(graph) {
+    DagifiedGraph::DagifiedGraph(const HandleGraph* graph, size_t min_preserved_path_length,
+                                 size_t max_num_duplications) : graph(graph) {
         
 #ifdef debug_dagify
         cerr << "constructing dagified graph" << endl;
@@ -146,7 +147,7 @@ using namespace std;
             
             // keep track of how many times we've implicitly copied
             uint64_t copy_num = 0;
-            for (; min_relaxed_dist < int64_t(min_preserved_path_length); copy_num++) {
+            for (; min_relaxed_dist < int64_t(min_preserved_path_length) && copy_num < max_num_duplications; copy_num++) {
                 
 #ifdef debug_dagify
                 cerr << "making " << copy_num << "-th copy of SCC with incoming min relaxed distance " << min_relaxed_dist << endl;

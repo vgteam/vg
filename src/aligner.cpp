@@ -363,7 +363,7 @@ double GSSWAligner::recover_log_base(const int8_t* score_matrix, double gc_conte
     
     // arbitrary starting point greater than zero
     double lambda = 1.0;
-    // search for a window containing lambda where total probability is 1
+    // exponential search for a window containing lambda where total probability is 1
     double partition = alignment_score_partition_function(lambda, score_matrix, nt_freqs);
     if (partition < 1.0) {
         lower_bound = lambda;
@@ -1352,7 +1352,7 @@ void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_
         // wrap the graph so that empty pinning points are handled correctly
         DozeuPinningOverlay overlay(&g, !pin_left);
         
-        if (overlay.get_node_count() == 0 && g.get_node_count() > 0) {
+        if (overlay.get_node_count() == 0 && g.get_node_count() != 0) {
             // the only nodes in the graph are empty nodes for pinning, which got masked.
             // we can still infer a pinned alignment based purely on the pinning point but
             // dozeu won't handle this correctly
@@ -2026,7 +2026,7 @@ void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bo
         
         // wrap the graph so that empty pinning points are handled correctly
         DozeuPinningOverlay overlay(&g, !pin_left);
-        if (overlay.get_node_count() == 0 && g.get_node_count() > 0) {
+        if (overlay.get_node_count() == 0 && g.get_node_count() != 0) {
             // the only nodes in the graph are empty nodes for pinning, which got masked.
             // we can still infer a pinned alignment based purely on the pinning point but
             // dozeu won't handle this correctly

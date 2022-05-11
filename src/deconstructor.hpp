@@ -35,12 +35,14 @@ public:
     Deconstructor();
     ~Deconstructor();
 
-    // deconstruct the entire graph to cout
+    // deconstruct the entire graph to cout.
+    // Not even a little bit thread safe.
     void deconstruct(vector<string> refpaths, const PathPositionHandleGraph* grpah, SnarlManager* snarl_manager,
                      bool path_restricted_traversals,
                      int ploidy,
                      bool include_nested,
                      int context_jaccard_window,
+                     bool untangle_traversals,
                      bool keep_conflicted,
                      bool strict_conflicts,
                      const unordered_map<string, pair<string, int>>* path_to_sample_phase = nullptr,
@@ -54,7 +56,10 @@ private:
     bool deconstruct_site(const Snarl* site) const;
 
     // convert traversals to strings.  returns mapping of traversal (offset in travs) to allele
-    vector<int> get_alleles(vcflib::Variant& v, const vector<SnarlTraversal>& travs, int ref_path_idx,
+    vector<int> get_alleles(vcflib::Variant& v,
+                            const pair<vector<SnarlTraversal>,
+                                       vector<pair<step_handle_t, step_handle_t>>>& path_travs,
+                            int ref_path_idx,
                             const vector<bool>& use_trav,
                             char prev_char, bool use_start) const;
     
@@ -81,6 +86,26 @@ private:
     // this will be much slower than doing the same using the PathPositionGraph interface as there's no
     // underlying index. 
     tuple<bool, handle_t, size_t> get_gbwt_path_position(const SnarlTraversal& trav, const gbwt::size_type& thread) const;
+
+    // gets a sorted node id context for a given path
+    vector<nid_t> get_context(
+        const pair<vector<SnarlTraversal>,
+                   vector<pair<step_handle_t, step_handle_t>>>& path_travs,
+        const int& trav_idx) const;
+
+    // the underlying context-getter
+    vector<nid_t> get_context(
+        step_handle_t start_step,
+        step_handle_t end_step) const;
+
+    // compares node contexts
+    double context_jaccard(const vector<nid_t>& target,
+                           const vector<nid_t>& query) const;
+
+    // specialization for enc_vectors
+    double context_jaccard(
+        const dac_vector<>& target,
+        const vector<nid_t>& query) const;
     
     // toggle between exhaustive and path restricted traversal finder
     bool path_restricted = false;
@@ -100,6 +125,8 @@ private:
     unique_ptr<TraversalFinder> trav_finder;
     // we can also use a gbwt for traversals
     unique_ptr<GBWTTraversalFinder> gbwt_trav_finder;
+    // When using the gbwt we need some precomputed information to ask about stored paths.
+    unordered_set<string> gbwt_reference_samples;
     // hacky path position index for alts in the gbwt
     // we map from gbwt path id -> { map of handle -> offset } for every handle in the path
     // because child snarls are done in series, we often hit the same non-ref path consecutively
@@ -131,6 +158,9 @@ private:
     // target window size for determining the correct reference position for allele traversals with path jaccard
     int path_jaccard_window = 10000;
 
+    // should we add positional untangling of traversals in the AP field
+    bool untangle_allele_traversals = false;
+
     // should we be strict about flagging and removing conflicted phases?
     bool strict_conflict_checking = false;
 
@@ -139,6 +169,22 @@ private:
 
     // should we keep conflicted genotypes or not
     bool keep_conflicted_genotypes = false;
+};
+
+// helpel for measuring set intersectiond and union size
+template <typename T>
+class count_back_inserter {
+    size_t &count;
+public:
+    typedef void value_type;
+    typedef void difference_type;
+    typedef void pointer;
+    typedef void reference;
+    typedef std::output_iterator_tag iterator_category;
+    count_back_inserter(size_t &count) : count(count) {};
+    void operator=(const T &){ ++count; }
+    count_back_inserter &operator *(){ return *this; }
+    count_back_inserter &operator++(){ return *this; }
 };
 
 }

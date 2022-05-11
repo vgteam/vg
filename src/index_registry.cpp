@@ -3359,7 +3359,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     ////////////////////////////////////
     
     // meta-recipe to make the new distance index
-    auto make_distance_new_index = [](const HandleGraph& graph,
+    auto make_new_distance_index = [](const HandleGraph& graph,
                                   const IndexingPlan* plan,
                                   const IndexGroup& constructing) {
         
@@ -3373,7 +3373,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         init_out(outfile, output_name);
         
         SnarlDistanceIndex distance_index;
-        IntegratedSnarlFinder snarl_findter(graph)
+        IntegratedSnarlFinder snarl_finder(graph);
         fill_in_distance_index(&distance_index, &graph, &snarl_finder);
         distance_index.serialize(output_name);
         
@@ -3382,7 +3382,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     };
     
     registry.register_recipe({"Giraffe New Distance Index"}, {"Giraffe GBZ"},
-                             [make_distance_index](const vector<const IndexFile*>& inputs,
+                             [make_new_distance_index](const vector<const IndexFile*>& inputs,
                                  const IndexingPlan* plan,
                                  AliasGraph& alias_graph,
                                  const IndexGroup& constructing) {
@@ -3689,7 +3689,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                     IndexingParameters::use_bounded_syncmers);
                 
         gbwtgraph::index_haplotypes(gbz->graph, minimizers, [&](const pos_t& pos) -> gbwtgraph::payload_type {
-            return MIPayload::encode(dist_index->get_minimizer_distances(pos));
+            return MinimumDistanceIndex::MIPayload::encode(dist_index->get_minimizer_distances(pos));
         });
         
         string output_name = plan->output_filepath(minimizer_output);

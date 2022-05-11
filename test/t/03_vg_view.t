@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 20
+plan tests 22
 
 is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg view -d - | wc -l) 505 "view produces the expected number of lines of dot output"
 is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg view -g - | wc -l) 503 "view produces the expected number of lines of GFA output"
@@ -61,5 +61,17 @@ is "$?" "1" "GFA import rejects a GFA file with an overlap that goes beyond its 
 is "$(cat errors.txt | wc -l)" "2" "GFA import produces a concise error message in that case"
 
 rm -f errors.txt
+
+vg paths -M -x test/graphs/rgfa_with_reference.rgfa > paths.truth.txt
+vg view test/graphs/rgfa_with_reference.rgfa | vg paths -M -x - > paths.test.txt
+cmp paths.test.txt paths.truth.txt
+is "${?}" "0" "vg view preserves path metadata of rGFA file"
+
+vg paths -M -x test/graphs/gfa_with_reference.gfa > paths.truth.txt
+vg view test/graphs/gfa_with_reference.gfa | vg paths -M -x - > paths.test.txt
+cmp paths.test.txt paths.truth.txt
+is "${?}" "0" "vg view preserves path metadata of GFA file"
+
+rm -f paths.truth.txt paths.test.txt
 
 

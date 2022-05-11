@@ -518,6 +518,12 @@ namespace vg {
             }
         }
     }
+
+    void clear_alignment(multipath_alignment_t& multipath_aln) {
+        multipath_aln.set_mapping_quality(0);
+        multipath_aln.clear_subpath();
+        multipath_aln.clear_start();
+    }
     
     /// We define this struct for holding the dynamic programming problem for a
     /// multipath alignment, which we use for finding the optimal alignment,
@@ -2498,11 +2504,11 @@ namespace vg {
             }
         }
     }
-    
-    vector<vector<int64_t>> connected_components(const multipath_alignment_t& multipath_aln) {
-        
-        int64_t comps = 0;
-        
+
+    void connected_comps_do(const multipath_alignment_t& multipath_aln,
+                            function<void(void)>& on_new_component,
+                            function<void(size_t)>& on_new_node) {
+                
         vector<vector<int64_t>> reverse_edge_lists(multipath_aln.subpath_size());
         
         for (int64_t i = 0; i < multipath_aln.subpath_size(); i++) {
@@ -2518,14 +2524,13 @@ namespace vg {
         
         vector<bool> collected(multipath_aln.subpath_size(), false);
         
-        vector<vector<int64_t>> components;
-        
         for (int64_t i = 0; i < multipath_aln.subpath_size(); i++) {
             if (collected[i]) {
                 continue;
             }
             
-            components.emplace_back();
+            // start traversing a new component
+            on_new_component();
             
             vector<int64_t> stack{i};
             collected[i] = true;
@@ -2533,7 +2538,8 @@ namespace vg {
                 int64_t at = stack.back();
                 stack.pop_back();
                 
-                components.back().push_back(at);
+                // traverse a new node in the component
+                on_new_node(at);
                 
                 const subpath_t& subpath = multipath_aln.subpath(at);
                 for (int64_t j = 0; j < subpath.next_size(); j++) {
@@ -2558,8 +2564,31 @@ namespace vg {
                 }
             }
         }
+    }
+
+    size_t num_connected_components(const multipath_alignment_t& multipath_aln) {
+        size_t num_comps = 0;
+        function<void(void)> on_new_component = [&](void) {
+            ++num_comps;
+        };
+        function<void(size_t)> on_new_node = [](size_t i) {
+            // nothing to do
+        };
+        connected_comps_do(multipath_aln, on_new_component, on_new_node);
+        return num_comps;
+    }
+    
+    vector<vector<int64_t>> connected_components(const multipath_alignment_t& multipath_aln) {
         
-        return std::move(components);
+        vector<vector<int64_t>> components;
+        function<void(void)> on_new_component = [&](void) {
+            components.emplace_back();
+        };
+        function<void(size_t)> on_new_node = [&](size_t i) {
+            components.back().push_back(i);
+        };
+        connected_comps_do(multipath_aln, on_new_component, on_new_node);
+        return components;
     }
     
     void extract_sub_multipath_alignment(const multipath_alignment_t& multipath_aln,
@@ -3384,7 +3413,6 @@ namespace vg {
                 
                 if (i == 0 && j == 0 && !rev) {
                     // base case if the position is given for the beginning of the surjected alignment
-                    // TODO: will this work if the position is between two nodes?
                     auto step = graph.get_step_at_position(path_handle, path_pos);
 #ifdef debug_cigar
                     cerr << "got step " << graph.get_id(graph.get_handle_of_step(step)) << " " << graph.get_is_reverse(graph.get_handle_of_step(step)) << " as path pos " << graph.get_position_of_step(step) << endl;
@@ -3432,7 +3460,7 @@ namespace vg {
                 }
                 
                 if (next_pos && next_pos->node_id() == pos.node_id() && next_pos->is_reverse() == pos.is_reverse()
-                    && next_pos->offset() == pos.offset() + from_length) {
+                    && next_pos->offset() == pos.offset() + from_length && !curr_runs.empty()) {
                     // we only care about transitions that are between nodes, this one is within a node
                     
 #ifdef debug_cigar
@@ -4004,7 +4032,7 @@ namespace vg {
         
         // do the paths represent valid alignments of the associated read string and graph path?
         
-        auto validate_mapping_edits = [&](const path_mapping_t& mapping, const string& subseq) {
+        auto validate_mapping_edits = [&](const path_mapping_t& mapping, const string& subseq, size_t s, size_t m) {
             handle_t handle = handle_graph.get_handle(mapping.position().node_id(), mapping.position().is_reverse());
             size_t node_idx = mapping.position().offset();
             size_t seq_idx = 0;
@@ -4014,7 +4042,7 @@ namespace vg {
                     for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
                         if (handle_graph.get_base(handle, node_idx) != subseq[seq_idx]) {
 #ifdef debug_verbose_validation
-                            cerr << "validation failure on match that does not match on node " << handle_graph.get_id(handle) << (handle_graph.get_is_reverse(handle) ? "-" : "+") << endl;
+                            cerr << "validation failure on match that does not match on node " << handle_graph.get_id(handle) << (handle_graph.get_is_reverse(handle) ? "-" : "+") << " on subpath " << s << ", mapping " << m << endl;
                             cerr << "node sequence: " << handle_graph.get_sequence(handle) << ", offset: " << node_idx << endl;
                             cerr << "read subsequence: " << subseq << ", offset: " << seq_idx << endl;
                             
@@ -4089,7 +4117,7 @@ namespace vg {
             size_t read_start = subpath_read_interval[i].first;
             for (size_t j = 0; j < path.mapping_size(); j++) {
                 size_t read_mapping_len = mapping_to_length(path.mapping(j));
-                if (!validate_mapping_edits(path.mapping(j), multipath_aln.sequence().substr(read_start, read_mapping_len))) {
+                if (!validate_mapping_edits(path.mapping(j), multipath_aln.sequence().substr(read_start, read_mapping_len), i, j)) {
                     return false;
                 }
                 read_start += read_mapping_len;

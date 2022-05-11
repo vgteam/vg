@@ -45,7 +45,7 @@ struct GBWTConfig {
     size_t build_jobs = default_build_jobs();
 
     // GFA parsing.
-    gbwtgraph::GFAParsingParameters gfa_parameters;
+    gbwtgraph::GFAParsingParameters gfa_parameters = get_best_gbwtgraph_gfa_parsing_parameters();
 
     // Parallel merging.
     gbwt::MergeParameters merge_parameters;
@@ -57,6 +57,7 @@ struct GBWTConfig {
     bool show_progress = false;
     bool count_threads = false;
     bool metadata = false, contigs = false, haplotypes = false, samples = false, list_names = false, thread_names = false;
+    bool include_named_paths = false;
     size_t num_paths = default_num_paths(), context_length = default_context_length();
     bool num_paths_set = false;
     size_t search_threads = omp_get_max_threads();
@@ -259,13 +260,12 @@ void help_gbwt(char** argv) {
     std::cerr << "        --exclude-sample X  do not index the sample with name X (faster than -R; may repeat)" << std::endl;
     std::cerr << "    -G, --gfa-input         index the walks or paths in the GFA file (one input arg)" << std::endl;
     std::cerr << "        --max-node N        chop long segments into nodes of at most N bp (default " << gbwtgraph::MAX_NODE_LENGTH << ", use 0 to disable)" << std::endl;
-    std::cerr << "        --path-regex X      parse metadata from path names using regex X (default " << gbwtgraph::GFAParsingParameters::DEFAULT_REGEX << ")" << std::endl;
-    std::cerr << "        --path-fields X     map regex submatches to these fields (default " << gbwtgraph::GFAParsingParameters::DEFAULT_FIELDS << ")" << std::endl;
+    std::cerr << "        --path-regex X      parse metadata as haplotypes from path names using regex X instead of vg-parser-compatible rules" << std::endl;
+    std::cerr << "        --path-fields X     parse metadata as haplotypes, mapping regex submatches to these fields instead of using vg-parser-compatible rules" << std::endl;
     std::cerr << "        --translation FILE  write the segment to node translation table to FILE" << std::endl;
     std::cerr << "    -Z, --gbz-input         extract GBWT and GBWTGraph from GBZ input (one input arg)" << std::endl;
     std::cerr << "        --translation FILE  write the segment to node translation table to FILE" << std::endl;
     std::cerr << "    -E, --index-paths       index the embedded non-alt paths in the graph (requires -x, no input args)" << std::endl;
-    std::cerr << "        --paths-as-samples  each path becomes a sample instead of a contig in the metadata" << std::endl;
     std::cerr << "    -A, --alignment-input   index the alignments in the GAF files specified in input args (requires -x)" << std::endl;
     std::cerr << "        --gam-format        the input files are in GAM format instead of GAF format" << std::endl;
     std::cerr << std::endl;
@@ -288,6 +288,7 @@ void help_gbwt(char** argv) {
     std::cerr << "    -P, --path-cover        build a greedy path cover (no input GBWTs)" << std::endl;
     std::cerr << "    -n, --num-paths N       find N paths per component (default " << GBWTConfig::default_num_paths_local() << " for -l, " << GBWTConfig::default_num_paths() << " otherwise)" << std::endl;
     std::cerr << "    -k, --context-length N  use N-node contexts (default " << GBWTConfig::default_context_length() << ")" << std::endl;
+    std::cerr << "        --pass-paths        include named graph paths in local haplotype or greedy path cover GBWT" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 5: GBWTGraph construction (requires an input graph and one input GBWT):" << std::endl;
     std::cerr << "    -g, --graph-name FILE   build GBWTGraph and store it in FILE" << std::endl;
@@ -370,13 +371,13 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     constexpr int OPT_PATH_REGEX = 1115;
     constexpr int OPT_PATH_FIELDS = 1116;
     constexpr int OPT_TRANSLATION = 1117;
-    constexpr int OPT_PATHS_AS_SAMPLES = 1118;
-    constexpr int OPT_GAM_FORMAT = 1119;
+    constexpr int OPT_GAM_FORMAT = 1118;
     constexpr int OPT_CHUNK_SIZE = 1200;
     constexpr int OPT_POS_BUFFER = 1201;
     constexpr int OPT_THREAD_BUFFER = 1202;
     constexpr int OPT_MERGE_BUFFERS = 1203;
     constexpr int OPT_MERGE_JOBS = 1204;
+    constexpr int OPT_PASS_PATHS = 1400;
     constexpr int OPT_GBZ_FORMAT = 1500;
 
     static struct option long_options[] =
@@ -423,7 +424,6 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
 
         // Input GBWT construction: paths
         { "index-paths", no_argument, 0, 'E' },
-        { "paths-as-samples", no_argument, 0, OPT_PATHS_AS_SAMPLES },
 
         // Input GBWT construction: GAF/GAM
         { "alignment-input", no_argument, 0, 'A' },
@@ -448,6 +448,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         { "path-cover", no_argument, 0, 'P' },
         { "num-paths", required_argument, 0, 'n' },
         { "context-length", required_argument, 0, 'k' },
+        { "pass-paths", no_argument, 0, OPT_PASS_PATHS },
 
         // GBWTGraph
         { "graph-name", required_argument, 0, 'g' },
@@ -606,10 +607,24 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             config.gfa_parameters.max_node_length = parse<size_t>(optarg);
             break;
         case OPT_PATH_REGEX:
-            config.gfa_parameters.path_name_regex = optarg;
+            if (config.gfa_parameters.path_name_formats.size() != 1) {
+                // We need to override the existing rules we set up when we set
+                // up the config, and make sure we have a place for the other
+                // option.
+                config.gfa_parameters.path_name_formats.clear();
+                config.gfa_parameters.path_name_formats.emplace_back("", "", PathSense::HAPLOTYPE);
+            }
+            config.gfa_parameters.path_name_formats.back().regex = optarg;
             break;
         case OPT_PATH_FIELDS:
-            config.gfa_parameters.path_name_fields = optarg;
+            if (config.gfa_parameters.path_name_formats.size() != 1) {
+                // We need to override the existing rules we set up when we set
+                // up the config, and make sure we have a place for the other
+                // option.
+                config.gfa_parameters.path_name_formats.clear();
+                config.gfa_parameters.path_name_formats.emplace_back("", "", PathSense::HAPLOTYPE);
+            }
+            config.gfa_parameters.path_name_formats.back().fields = optarg;
             break;
         case OPT_TRANSLATION:
             config.segment_translation = optarg;
@@ -627,9 +642,6 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             no_multiple_input_types(config);
             config.build = GBWTConfig::build_paths;
             config.produces_one_gbwt = true;
-            break;
-        case OPT_PATHS_AS_SAMPLES:
-            config.haplotype_indexer.paths_as_samples = true;
             break;
 
         // Input GBWT construction: GAF/GAM
@@ -699,6 +711,9 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             break;
         case 'k':
             config.context_length = parse<size_t>(optarg);
+            break;
+        case OPT_PASS_PATHS:
+            config.include_named_paths = true;
             break;
 
         // GBWTGraph
@@ -777,7 +792,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     config.gfa_parameters.parallel_jobs = config.build_jobs;
     config.gfa_parameters.batch_size = config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION;
     config.gfa_parameters.sample_interval = config.haplotype_indexer.id_interval;
-
+    
     return config;
 }
 
@@ -913,6 +928,53 @@ void validate_gbwt_config(GBWTConfig& config) {
     if (config.thread_mode) {
         if (!one_input_gbwt) {
             std::cerr << "error: [vg gbwt] thread operations require one input GBWT" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+    }
+    
+    for (auto& format : config.gfa_parameters.path_name_formats) {
+        // Check the path name format. We don't check the regex syntax here,
+        // but we can make sure that we're asking for things consistent with
+        // the path sense so that we can make a GBWTGraph out of them later.
+        // TODO: Do we still need to let people make GBWTs that can't make a GBWTGraph?
+        if (format.regex.empty()) {
+            std::cerr << "error: [vg gbwt] path name format regex is missing" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        switch(format.sense) {
+        case PathSense::GENERIC:
+            if (format.fields.find("C") == std::string::npos && format.fields.find("c") == std::string::npos) {
+                std::cerr << "error: [vg gbwt] path name fields do not set required contig for regex "
+                    << format.regex << " and fields " << format.fields << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            if (format.fields.find("S") != std::string::npos || format.fields.find("s") != std::string::npos) {
+                std::cerr << "error: [vg gbwt] path name fields set unusable sample for regex "
+                    << format.regex << " and fields " << format.fields << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            if (format.fields.find("H") != std::string::npos || format.fields.find("h") != std::string::npos) {
+                std::cerr << "error: [vg gbwt] path name fields set unusable haplotype number for regex "
+                    << format.regex << " and fields " << format.fields << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            break;
+        case PathSense::HAPLOTYPE:
+            if (format.fields.find("S") == std::string::npos && format.fields.find("s") == std::string::npos) {
+                std::cerr << "error: [vg gbwt] path name fields do not set required sample for regex "
+                    << format.regex << " and fields " << format.fields << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            // Fall-through because haplotypes also need contigs.
+        case PathSense::REFERENCE: 
+            if (format.fields.find("C") == std::string::npos && format.fields.find("c") == std::string::npos) {
+                std::cerr << "error: [vg gbwt] path name fields do not set required contig for regex "
+                    << format.regex << " and fields " << format.fields << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            break;
+        default:
+            std::cerr << "error: [vg gbwt] path sense is unimplemented: " << (int)format.sense << std::endl;
             std::exit(EXIT_FAILURE);
         }
     }
@@ -1272,26 +1334,54 @@ void step_4_path_cover(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& con
     if (config.show_progress) {
         std::cerr << "Finding a " << config.num_paths << "-path cover with context length " << config.context_length << std::endl;
     }
-
+    
     graphs.get_graph(config);
+    
+    // We need to drop paths that are alt allele paths and not pass them
+    // through from a graph that has them to the synthesized GBWT.
+    std::function<bool(const path_handle_t&)> path_filter = [&graphs](const path_handle_t& path) {
+        return !Paths::is_alt(graphs.path_graph->get_path_name(path));
+    };
+    
     if (config.path_cover == GBWTConfig::path_cover_greedy) {
         if (config.show_progress) {
             std::cerr << "Algorithm: greedy" << std::endl;
         }
-        gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*(graphs.path_graph), config.num_paths, config.context_length, config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION, config.haplotype_indexer.id_interval, config.show_progress);
+        gbwt::GBWT cover = gbwtgraph::path_cover_gbwt(*(graphs.path_graph),
+                                                      config.num_paths,
+                                                      config.context_length,
+                                                      config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION,
+                                                      config.haplotype_indexer.id_interval,
+                                                      config.include_named_paths,
+                                                      &path_filter,
+                                                      config.show_progress);
         gbwts.use(cover);
     } else if (config.path_cover == GBWTConfig::path_cover_augment) {
         if (config.show_progress) {
             std::cerr << "Algorithm: augment" << std::endl;
         }
         gbwts.use_dynamic();
-        gbwtgraph::augment_gbwt(*(graphs.path_graph), gbwts.dynamic, config.num_paths, config.context_length, config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION, config.haplotype_indexer.id_interval, config.show_progress);
+        gbwtgraph::augment_gbwt(*(graphs.path_graph),
+                                gbwts.dynamic,
+                                config.num_paths,
+                                config.context_length,
+                                config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION,
+                                config.haplotype_indexer.id_interval,
+                                config.show_progress);
     } else {
         if (config.show_progress) {
             std::cerr << "Algorithm: local haplotypes" << std::endl;
         }
         gbwts.use_compressed();
-        gbwt::GBWT cover = gbwtgraph::local_haplotypes(*(graphs.path_graph), gbwts.compressed, config.num_paths, config.context_length, config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION, config.haplotype_indexer.id_interval, config.show_progress);
+        gbwt::GBWT cover = gbwtgraph::local_haplotypes(*(graphs.path_graph),
+                                                       gbwts.compressed,
+                                                       config.num_paths,
+                                                       config.context_length,
+                                                       config.haplotype_indexer.gbwt_buffer_size * gbwt::MILLION,
+                                                       config.haplotype_indexer.id_interval,
+                                                       config.include_named_paths,
+                                                       &path_filter,
+                                                       config.show_progress);
         gbwts.use(cover);
     }
     gbwts.unbacked(); // We modified the GBWT.
@@ -1398,8 +1488,11 @@ void step_7_metadata(GBWTHandler& gbwts, GBWTConfig& config) {
 
     if (config.thread_names) {
         if (gbwts.compressed.metadata.hasPathNames()) {
+            // Precompute some metadata
+            auto gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(gbwts.compressed);
             for (size_t i = 0; i < gbwts.compressed.metadata.paths(); i++) {
-                std::cout << thread_name(gbwts.compressed, i) << std::endl;
+                PathSense sense = gbwtgraph::get_path_sense(gbwts.compressed, i, gbwt_reference_samples);
+                std::cout << gbwtgraph::compose_path_name(gbwts.compressed, i, sense) << std::endl;
             }
         } else {
             std::cerr << "error: [vg gbwt] the metadata does not contain thread names" << std::endl;
