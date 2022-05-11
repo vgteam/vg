@@ -435,7 +435,8 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("Giraffe Snarls", "snarls"); // snarls that may reflect the GFA->GBZ node IDs
     registry.register_index("Spliced Snarls", "spliced.snarls");
     
-    registry.register_index("Giraffe Distance Index", "dist"); // distances that may reflect the GFA->GBZ node IDs
+    registry.register_index("Giraffe Distance Index", "dist");
+    registry.register_index("Giraffe New Distance Index", "dist.new"); // distances that may reflect the GFA->GBZ node IDs
     registry.register_index("Spliced Distance Index", "spliced.dist");
     
     registry.register_index("GBWTGraph", "gg");

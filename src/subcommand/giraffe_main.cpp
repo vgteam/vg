@@ -655,7 +655,11 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Couldn't open distance index file " << optarg << endl;
                     exit(1); 
                 }
-                registry.provide("Giraffe Distance Index", optarg);
+                if (MinimumDistanceIndex::validate_index(optarg)) {
+                    registry.provide("Giraffe Distance Index", optarg);
+                } else {
+                    registry.provide("Giraffe New Distance Index", optarg);
+                }
                 break;
 
             case 'p':
@@ -1065,6 +1069,7 @@ int main_giraffe(int argc, char** argv) {
         {"XG", {"xg"}},
         {"Giraffe GBWT", {"gbwt"}},
         {"GBWTGraph", {"gg"}},
+        {"Giraffe New Distance Index", {"dist.new"}},
         {"Giraffe Distance Index", {"dist"}},
         {"Minimizers", {"min"}}
     };
@@ -1129,9 +1134,10 @@ int main_giraffe(int argc, char** argv) {
     // Grab the distance index
     MinimumDistanceIndex old_distance_index;
     SnarlDistanceIndex distance_index;
-    if (registry.available("Giraffe Distance Index")) {
-        distance_index.deserialize(registry.require("Giraffe Distance Index").at(0));
+    if (registry.available("Giraffe New Distance Index")) {
+        distance_index.deserialize(registry.require("Giraffe New Distance Index").at(0));
     } else {
+        vg::io::VPKG::load_one<MinimumDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
     }
     
     // If we are tracking correctness, we will fill this in with a graph for
