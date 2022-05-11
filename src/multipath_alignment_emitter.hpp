@@ -90,7 +90,7 @@ private:
                                int64_t tlen_limit, bam_hdr_t* header, vector<bam1_t*>& dest) const;
     
     /// transfer the allelic mapq annotation to a BAM record
-    void add_allelic_mapq(const multipath_alignment_t& mp_aln, bam1_t* bam) const;
+    void add_mapq_annotations(const multipath_alignment_t& mp_aln, bam1_t* bam) const;
     
     const PathPositionHandleGraph* graph;
     

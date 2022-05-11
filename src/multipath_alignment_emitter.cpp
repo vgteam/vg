@@ -349,7 +349,7 @@ void MultipathAlignmentEmitter::convert_to_hts_unpaired(const string& name, cons
     Alignment shim;
     create_alignment_shim(name, mp_aln, shim);
     auto bam = alignment_to_bam(header, shim, ref_name, ref_pos, ref_rev, cigar);
-    add_allelic_mapq(mp_aln, bam);
+    add_mapq_annotations(mp_aln, bam);
     dest.push_back(bam);
 }
 
@@ -390,19 +390,25 @@ void MultipathAlignmentEmitter::convert_to_hts_paired(const string& name_1, cons
         }
     }
     
-    add_allelic_mapq(mp_aln_1, bam_1);
-    add_allelic_mapq(mp_aln_2, bam_2);
+    add_mapq_annotations(mp_aln_1, bam_1);
+    add_mapq_annotations(mp_aln_2, bam_2);
     
     dest.push_back(bam_1);
     dest.push_back(bam_2);
 }
 
-void MultipathAlignmentEmitter::add_allelic_mapq(const multipath_alignment_t& mp_aln, bam1_t* bam) const {
+void MultipathAlignmentEmitter::add_mapq_annotations(const multipath_alignment_t& mp_aln, bam1_t* bam) const {
     if (mp_aln.has_annotation("allelic_mapq")) {
         auto anno = mp_aln.get_annotation("allelic_mapq");
         assert(anno.first == multipath_alignment_t::Double);
         int64_t allelic_mapq = *((double*) anno.second);
         bam_aux_update_int(bam, "AQ", allelic_mapq);
+    }
+    if (mp_aln.has_annotation("group_mapq")) {
+        auto anno = mp_aln.get_annotation("group_mapq");
+        assert(anno.first == multipath_alignment_t::Double);
+        int64_t group_mapq = *((double*) anno.second);
+        bam_aux_update_int(bam, "GM", group_mapq);
     }
 }
 
