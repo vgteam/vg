@@ -213,7 +213,13 @@ public:
  * A class that supports haplotype-consistent seed extension using GBWTGraph using the
  * WFA algorithm. The algorithm either tries to connect two seeds or extends a seed to
  * the start/end of the read.
+ *
  * WFAExtender also needs an Aligner object for scoring the extension candidates.
+ * While VG wants to maximize a four-parameter alignment score, WFA minimizes a
+ * three-parameter score. We use the conversion between the parameters from:
+ *
+ *   Eizenga, Paten: Improving the time and space complexity of the WFA algorithm
+ *   and generalizing its scoring. bioRxiv, 2022.
  */
 class WFAExtender {
 public:
@@ -238,11 +244,7 @@ public:
 
     const gbwtgraph::GBWTGraph* graph;
     ReadMasker                  mask;
-
-    // WFA scoring parameters derived from the aligner object.
-    int32_t mismatch;
-    int32_t gap_open;
-    int32_t gap_extend;
+    const Aligner*              aligner;
 };
 
 //------------------------------------------------------------------------------

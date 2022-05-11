@@ -734,8 +734,7 @@ struct state_hash {
 //------------------------------------------------------------------------------
 
 WFAExtender::WFAExtender() :
-    graph(nullptr), mask("ACGT"),
-    mismatch(1), gap_open(1), gap_extend(1)
+    graph(nullptr), mask("ACGT"), aligner(nullptr)
 {
 }
 
@@ -744,10 +743,7 @@ WFAExtender::WFAExtender() :
 //   Improving the time and space complexity of the WFA algorithm and generalizing its scoring.
 //   bioRxiv, 2022.
 WFAExtender::WFAExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner) :
-    graph(&graph), mask("ACGT"),
-    mismatch(2 * (aligner.match + aligner.mismatch)),
-    gap_open(2 * aligner.gap_open),
-    gap_extend(2 * aligner.gap_extension + aligner.match)
+    graph(&graph), mask("ACGT"), aligner(&aligner)
 {
 }
 
@@ -785,9 +781,15 @@ struct WFAPoint {
     uint32_t seq_offset;
     uint32_t node_offset;
 
-    constexpr static std::pair<uint32_t, uint32_t> NO_OFFSET {
-        std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()
-    };
+    // Returns the offset in the target sequence.
+    int32_t target_offset() const {
+        return static_cast<int32_t>(this->seq_offset) - this->diagonal;
+    }
+
+    // Returns the four-parameter alignment score.
+    int32_t alignment_score(const Aligner& aligner) const {
+        return (static_cast<int32_t>(aligner.match) * (static_cast<int32_t>(this->seq_offset) + this->target_offset()) - this->score) / 2;
+    }
 
     // Converts the point to an alignment position with the given path.
     MatchPos pos(const std::stack<uint32_t>& path) const {
@@ -899,7 +901,7 @@ public:
     WFAPoint candidate_point;
     uint32_t candidate_node;
 
-    // Scores copied from the extender.
+    // WFA score (penalty) parameters derived from the actual scoring parameters.
     int32_t mismatch, gap_open, gap_extend;
 
     // Stop if no alignment has been found with this score or less.
@@ -911,11 +913,14 @@ public:
     // The overall closed range of diagonals reached.
     std::pair<int32_t, int32_t> max_diagonals;
 
-    WFATree(const gbwtgraph::GBWTGraph& graph, const std::string& sequence, const gbwt::SearchState& root, int32_t mismatch, int32_t gap_open, int32_t gap_extend) :
+    WFATree(const gbwtgraph::GBWTGraph& graph, const std::string& sequence, const gbwt::SearchState& root, const Aligner& aligner) :
         graph(graph), sequence(sequence),
         nodes(),
         candidate_point({ std::numeric_limits<int32_t>::max(), 0, 0, 0 }), candidate_node(0),
-        mismatch(mismatch), gap_open(gap_open), gap_extend(gap_extend), score_bound(0),
+        mismatch(2 * (aligner.match + aligner.mismatch)),
+        gap_open(2 * aligner.gap_open),
+        gap_extend(2 * aligner.gap_extension + aligner.match),
+        score_bound(0),
         diagonals({ { 0, 0 } }), max_diagonals(0, 0)
     {
         this->nodes.emplace_back(root, 0);
@@ -1032,7 +1037,10 @@ private:
                 }
                 if (pos.at_last_node()) {
                     if (this->propagate(pos, score, diagonal, WFANode::MATCHES)) {
-                        this->extend_over(score, diagonal, to, this->nodes[leaf].children);
+                        // Copy the children because the reference could be invalidated if we expand
+                        // the children of another node.
+                        std::vector<uint32_t> new_leaves = this->nodes[leaf].children;
+                        this->extend_over(score, diagonal, to, new_leaves);
                     }
                     break;
                 }
@@ -1140,7 +1148,7 @@ private:
 //------------------------------------------------------------------------------
 
 void WFAExtender::connect(std::string sequence, pos_t from, pos_t to) const {
-    if (this->graph == nullptr || sequence.empty()) {
+    if (this->graph == nullptr || this->aligner == nullptr || sequence.empty()) {
         return;
     }
     gbwt::SearchState root_state = this->graph->get_state(this->graph->get_handle(id(from), is_rev(from)));
@@ -1149,7 +1157,7 @@ void WFAExtender::connect(std::string sequence, pos_t from, pos_t to) const {
     }
     this->mask(sequence);
 
-    WFATree tree(*(this->graph), sequence, root_state, this->mismatch, this->gap_open, this->gap_extend);
+    WFATree tree(*(this->graph), sequence, root_state, *(this->aligner));
 
     int32_t score = 0;
     while (true) {
@@ -1164,18 +1172,35 @@ void WFAExtender::connect(std::string sequence, pos_t from, pos_t to) const {
         tree.next(score, to);
     }
 
+    // If we do not have a full-length alignment within the score bound,
+    // find the best partial alignment.
+    bool full_length = true;
+    if (tree.candidate_point.score > tree.score_bound) {
+        tree.candidate_point = { 0, 0, 0, 0};
+        tree.candidate_node = 0;
+        int32_t best_score = 0;
+        for (uint32_t node = 0; node < tree.size(); node++) {
+            for (const WFAPoint& point : tree.nodes[node].wavefronts[WFANode::MATCHES]) {
+                int32_t alignment_score = point.alignment_score(*(this->aligner));
+                if (alignment_score > best_score) {
+                    tree.candidate_point = point;
+                    tree.candidate_node = node;
+                    best_score = alignment_score;
+                }
+            }
+        }
+        full_length = false;
+    }
+
     // FIXME Finally we have to backtrace the actual alignment.
     // take the candidate
-    // add insertion to the end if necessary
+    // add insertion to the end if full_length and sequence offset is too low
     // while not at beginning
     //     find all the points that were used for calculating the position at the start of the run of matches
     //     predecessor is the one farthest on the diagonal
     //     determine the length of the match and the edit preceding it
     //     move to the predecessor
-
-    // FIXME special case: edits in a node that we do not use
-    // FIXME special case: no candidate (iterate over wavefronts and maximize score)
-    // FIXME special case: candidate score too high (has a long insertion at the end)
+    // do do not use a node if we do not align to any bases in it
 }
 
 void WFAExtender::suffix(const std::string& sequence, pos_t from) const {
