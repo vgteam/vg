@@ -505,6 +505,8 @@ int main_giraffe(int argc, char** argv) {
         { MinimizerMapper::rescue_gssw, "gssw" },
         { MinimizerMapper::rescue_haplotypes, "haplotypes" }
     };
+    //TODO: Right now there can be two versions of the distance index. This ensures that the correct minimizer type gets built
+    bool use_new_distance_index = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -657,8 +659,10 @@ int main_giraffe(int argc, char** argv) {
                 }
                 if (MinimumDistanceIndex::validate_index(optarg)) {
                     registry.provide("Giraffe Distance Index", optarg);
+                    use_new_distance_index = false;
                 } else {
                     registry.provide("Giraffe New Distance Index", optarg);
+                    use_new_distance_index = true;
                 }
                 break;
 
@@ -1071,6 +1075,7 @@ int main_giraffe(int argc, char** argv) {
         {"GBWTGraph", {"gg"}},
         {"Giraffe New Distance Index", {"dist.new"}},
         {"Giraffe Distance Index", {"dist"}},
+        {"New Minimizers", {"min.new"}},
         {"Minimizers", {"min"}}
     };
     for (auto& completed : registry.completed_indexes()) {
@@ -1126,7 +1131,12 @@ int main_giraffe(int argc, char** argv) {
 #endif
     
     // Grab the minimizer index
-    auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Minimizers").at(0));
+    std::unique_ptr<gbwtgraph::MinimizerIndex<gbwtgraph::Key64>, std::default_delete<gbwtgraph::MinimizerIndex<gbwtgraph::Key64> > > minimizer_index;
+    if (use_new_distance_index) {
+        minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("New Minimizers").at(0));
+    } else {
+        minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Minimizers").at(0));
+    }
 
     // Grab the GBZ
     auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0));
@@ -1134,9 +1144,11 @@ int main_giraffe(int argc, char** argv) {
     // Grab the distance index
     MinimumDistanceIndex old_distance_index;
     SnarlDistanceIndex distance_index;
-    if (registry.available("Giraffe New Distance Index")) {
+    if (use_new_distance_index) {
+        assert(registry.available("Giraffe New Distance Index")); 
         distance_index.deserialize(registry.require("Giraffe New Distance Index").at(0));
     } else {
+        assert(registry.available("Giraffe Distance Index")); 
         vg::io::VPKG::load_one<MinimumDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
     }
     
