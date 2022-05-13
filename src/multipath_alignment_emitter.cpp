@@ -374,20 +374,20 @@ void MultipathAlignmentEmitter::convert_to_hts_paired(const string& name_1, cons
     auto bam_2 = alignment_to_bam(header, shim_2, ref_name_2, ref_pos_2, ref_rev_2, cigar_2,
                                   ref_name_1, ref_pos_1, ref_rev_1, tlens.second, tlen_limit);
     
-    if (mp_aln_1.has_annotation("proper_pair")) {
-        // we've annotated proper pairing, let this override the tlen limit
-        auto anno = mp_aln_1.get_annotation("proper_pair");
-        assert(anno.first == multipath_alignment_t::Bool);
-        bool proper_pair = *((bool*) anno.second);
-        // we assume proper pairing applies to both reads
-        if (proper_pair) {
-            bam_1->core.flag |= BAM_FPROPER_PAIR;
-            bam_2->core.flag |= BAM_FPROPER_PAIR;
-        }
-        else {
-            bam_1->core.flag &= ~BAM_FPROPER_PAIR;
-            bam_2->core.flag &= ~BAM_FPROPER_PAIR;
-        }
+    
+    // set mate unmapped flags
+    // FIXME: the BAM conversion code looks like it doesn't do this correctly...
+    if (bam_1->core.flag & BAM_FUNMAP) {
+        bam_2->core.flag |= BAM_FMUNMAP;
+    }
+    else {
+        bam_2->core.flag &= ~BAM_FMUNMAP;
+    }
+    if (bam_2->core.flag & BAM_FUNMAP) {
+        bam_1->core.flag |= BAM_FMUNMAP;
+    }
+    else {
+        bam_1->core.flag &= ~BAM_FMUNMAP;
     }
     
     add_annotations(mp_aln_1, bam_1);
@@ -416,6 +416,19 @@ void MultipathAlignmentEmitter::add_annotations(const multipath_alignment_t& mp_
         bool secondary = *((bool*) anno.second);
         if (secondary) {
             bam->core.flag |= BAM_FSECONDARY;
+        }
+    }
+    if (mp_aln.has_annotation("proper_pair")) {
+        // we've annotated proper pairing, let this override the tlen limit
+        auto anno = mp_aln.get_annotation("proper_pair");
+        assert(anno.first == multipath_alignment_t::Bool);
+        bool proper_pair = *((bool*) anno.second);
+        // we assume proper pairing applies to both reads
+        if (proper_pair) {
+            bam->core.flag |= BAM_FPROPER_PAIR;
+        }
+        else {
+            bam->core.flag &= ~BAM_FPROPER_PAIR;
         }
     }
 }
