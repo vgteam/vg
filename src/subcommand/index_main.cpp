@@ -195,7 +195,7 @@ int main_index(int argc, char** argv) {
 
             //Snarl distance index
             {"snarl-name", required_argument, 0, 's'},
-            {"new-distance-index", required_argument, 0, OPT_NEW_DISTANCE_INDEX},
+            {"new-distance-index", no_argument, 0, OPT_NEW_DISTANCE_INDEX},
             {"snarl-limit", required_argument, 0, OPT_DISTANCE_SNARL_LIMIT},
             {"dist-name", required_argument, 0, 'j'},
             {"max-dist", required_argument, 0, 'w'},

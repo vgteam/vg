@@ -506,7 +506,6 @@ int main_giraffe(int argc, char** argv) {
         { MinimizerMapper::rescue_haplotypes, "haplotypes" }
     };
     //TODO: Right now there can be two versions of the distance index. This ensures that the correct minimizer type gets built
-    bool use_new_distance_index = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -657,13 +656,7 @@ int main_giraffe(int argc, char** argv) {
                     cerr << "error:[vg giraffe] Couldn't open distance index file " << optarg << endl;
                     exit(1); 
                 }
-                if (MinimumDistanceIndex::validate_index(optarg)) {
-                    registry.provide("Giraffe Distance Index", optarg);
-                    use_new_distance_index = false;
-                } else {
-                    registry.provide("Giraffe New Distance Index", optarg);
-                    use_new_distance_index = true;
-                }
+                registry.provide("Giraffe Distance Index", optarg);
                 break;
 
             case 'p':
@@ -1131,12 +1124,7 @@ int main_giraffe(int argc, char** argv) {
 #endif
     
     // Grab the minimizer index
-    std::unique_ptr<gbwtgraph::MinimizerIndex<gbwtgraph::Key64>, std::default_delete<gbwtgraph::MinimizerIndex<gbwtgraph::Key64> > > minimizer_index;
-    if (use_new_distance_index) {
-        minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("New Minimizers").at(0));
-    } else {
-        minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Minimizers").at(0));
-    }
+    auto minimizer_index = vg::io::VPKG::load_one<gbwtgraph::DefaultMinimizerIndex>(registry.require("Minimizers").at(0));
 
     // Grab the GBZ
     auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0));
@@ -1144,12 +1132,11 @@ int main_giraffe(int argc, char** argv) {
     // Grab the distance index
     MinimumDistanceIndex old_distance_index;
     SnarlDistanceIndex distance_index;
-    if (use_new_distance_index) {
-        assert(registry.available("Giraffe New Distance Index")); 
-        distance_index.deserialize(registry.require("Giraffe New Distance Index").at(0));
-    } else {
-        assert(registry.available("Giraffe Distance Index")); 
+    string distance_index_file_name = registry.require("Giraffe Distance Index").at(0);
+    if (MinimumDistanceIndex::validate_index(distance_index_file_name)) {
         vg::io::VPKG::load_one<MinimumDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
+    } else {
+        distance_index.deserialize(distance_index_file_name);
     }
     
     // If we are tracking correctness, we will fill this in with a graph for
