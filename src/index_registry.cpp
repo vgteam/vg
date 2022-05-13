@@ -3645,7 +3645,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             auto dist_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(infile_dist);
             old_distance_index = *dist_index.get();
         } else {
-            new_distance_index.deserialize(infile_dist);
+            new_distance_index.deserialize(dist_filename);
             use_new_distance_index = true;
         }
         gbwtgraph::DefaultMinimizerIndex minimizers(IndexingParameters::minimizer_k,
