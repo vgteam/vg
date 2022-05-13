@@ -1021,13 +1021,14 @@ private:
                 // Alternatively there is no end position and we have aligned the entire sequence.
                 // This gives us a candidate where the rest of the sequence is an insertion.
                 if ((may_reach_to && pos.node_offset > offset(to)) || (no_pos(to) && pos.seq_offset >= this->sequence.length())) {
-                    uint32_t gap_length = (this->sequence.length() - pos.seq_offset) + (pos.node_offset - offset(to) - 1);
+                    uint32_t overshoot = (no_pos(to) ? 0 : pos.node_offset - offset(to) - 1);
+                    uint32_t gap_length = (this->sequence.length() - pos.seq_offset) + overshoot;
                     int32_t new_score = score;
                     if (gap_length > 0) {
-                        score += this->gap_open + gap_length * this->gap_extend;
+                        new_score += this->gap_open + gap_length * this->gap_extend;
                     }
                     if (new_score < this->candidate_point.score) {
-                        this->candidate_point = { new_score, diagonal, pos.seq_offset, pos.node_offset };
+                        this->candidate_point = { new_score, diagonal, pos.seq_offset - overshoot, static_cast<uint32_t>(offset(to) + 1) };
                         this->candidate_node = pos.node();
                     }
                 }

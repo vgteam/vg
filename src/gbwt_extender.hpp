@@ -209,6 +209,31 @@ public:
 
 //------------------------------------------------------------------------------
 
+// FIXME document
+struct WFAAlignment {
+    enum Edit { match, mismatch, insertion, deletion };
+
+    // Sequence of oriented nodes.
+    std::vector<handle_t> path;
+
+    // Sequence of edit operations and their lengths.
+    std::vector<std::pair<Edit, uint32_t>> edits;
+
+    // Offset in the initial node.
+    uint32_t node_offset;
+
+    // Offset in the sequence.
+    uint32_t seq_offset;
+
+    // Length of the alignment in the sequence.
+    uint32_t length;
+
+    // Alignment score.
+    int32_t score;
+};
+
+//------------------------------------------------------------------------------
+
 /**
  * A class that supports haplotype-consistent seed extension using GBWTGraph using the
  * WFA algorithm. The algorithm either tries to connect two seeds or extends a seed to
@@ -220,6 +245,8 @@ public:
  *
  *   Eizenga, Paten: Improving the time and space complexity of the WFA algorithm
  *   and generalizing its scoring. bioRxiv, 2022.
+ *
+ * Note: Most internal arithmetic operations use 32-bit integers.
  */
 class WFAExtender {
 public:
