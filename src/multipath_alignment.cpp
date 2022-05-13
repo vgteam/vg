@@ -2278,6 +2278,7 @@ namespace vg {
         from.for_each_annotation([&](const string& anno_name, multipath_alignment_t::anno_type_t type, const void* value) {
             switch (type) {
                 case multipath_alignment_t::Null:
+                    to.set_annotation(anno_name);
                     break;
                 case multipath_alignment_t::Double:
                     to.set_annotation(anno_name, *((const double*) value));
@@ -4364,6 +4365,39 @@ namespace vg {
                 to_return += to_string(multipath_aln.start(i));
             }
             to_return += "]";
+        }
+        int anno_num = 0;
+        multipath_aln.for_each_annotation([&](const string& name,
+                                              multipath_alignment_t::anno_type_t type,
+                                              const void* annotation) {
+            if (anno_num == 0) {
+                to_return += ", annotations: {";
+            }
+            else {
+                to_return += ", ";
+            }
+            switch (type) {
+                case multipath_alignment_t::Null:
+                    to_return += name;
+                    break;
+                case multipath_alignment_t::Double:
+                    to_return += name + ": \"" + to_string(*((const double*) annotation)) + "\"";
+                    break;
+                case multipath_alignment_t::Bool:
+                    to_return += name + ": " + (*((const bool*) annotation) ? "true" : "false");
+                    break;
+                case multipath_alignment_t::String:
+                    to_return += name + ": " + *((const string*) annotation);
+                    break;
+                default:
+                    cerr << "error: unrecognized annotation type" << endl;
+                    exit(1);
+                    break;
+            }
+            ++anno_num;
+        });
+        if (anno_num != 0) {
+            to_return += "}";
         }
         to_return += "}";
         return to_return;
