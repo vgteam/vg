@@ -1066,9 +1066,7 @@ int main_giraffe(int argc, char** argv) {
         {"XG", {"xg"}},
         {"Giraffe GBWT", {"gbwt"}},
         {"GBWTGraph", {"gg"}},
-        {"Giraffe New Distance Index", {"dist.new"}},
         {"Giraffe Distance Index", {"dist"}},
-        {"New Minimizers", {"min.new"}},
         {"Minimizers", {"min"}}
     };
     for (auto& completed : registry.completed_indexes()) {
