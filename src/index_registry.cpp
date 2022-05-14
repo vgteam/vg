@@ -3681,6 +3681,7 @@ vector<IndexName> VGIndexes::get_default_mpmap_indexes() {
 
 vector<IndexName> VGIndexes::get_default_giraffe_indexes() {
     vector<IndexName> indexes{
+        "XG",
         "Giraffe GBZ",
         "Giraffe Distance Index",
         "Minimizers"
