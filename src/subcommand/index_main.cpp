@@ -381,13 +381,13 @@ int main_index(int argc, char** argv) {
             dist_name = optarg;
             break;
         case OPT_DISTANCE_SNARL_LIMIT:
-            snarl_name = parse<int>(optarg);
+            snarl_limit = parse<int>(optarg);
             break;
         case OPT_NEW_DISTANCE_INDEX:
             build_new_distance_index = true;
             break;
         case 's':
-            snarl_limit = parse<int>(optarg);
+            snarl_name = parse<int>(optarg);
             break;
         case 'w':
             build_dist = true;
