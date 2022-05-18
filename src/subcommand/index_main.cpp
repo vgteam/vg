@@ -387,7 +387,7 @@ int main_index(int argc, char** argv) {
             build_new_distance_index = true;
             break;
         case 's':
-            snarl_name = parse<int>(optarg);
+            snarl_name = optarg;
             break;
         case 'w':
             build_dist = true;
