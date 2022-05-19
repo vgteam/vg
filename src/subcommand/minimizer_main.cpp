@@ -35,6 +35,7 @@
 #include "../utility.hpp"
 #include "../handle.hpp"
 #include "../snarl_distance_index.hpp"
+#include "../min_distance.hpp"
 
 #include <gbwtgraph/index.h>
 
@@ -240,11 +241,30 @@ int main_minimizer(int argc, char** argv) {
 
     // Distance index.
     SnarlDistanceIndex distance_index;
+    std::unique_ptr<MinimumDistanceIndex> old_distance_index;
+    bool use_new_distance_index = true;
     if (!distance_name.empty()) {
-        if (progress) {
-            std::cerr << "Loading MinimumDistanceIndex from " << distance_name << std::endl;
+        ifstream instream (distance_name);
+        try {
+            //old distance index
+            use_new_distance_index = false;
+            if (progress) {
+                std::cerr << "Loading MinimumDistanceIndex from " << distance_name << std::endl;
+            }
+
+            old_distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
+
+        } catch (const char* message) {
+            try {
+                // new distance index
+                if (progress) {
+                    std::cerr << "Loading SnarlDistanceIndex from " << distance_name << std::endl;
+                }
+                distance_index.deserialize(distance_name);
+            } catch (const char* message1) {
+                throw std::runtime_error(message1);
+            }
         }
-        distance_index.deserialize(distance_name);
     }
 
     // Build the index.
@@ -262,9 +282,15 @@ int main_minimizer(int argc, char** argv) {
             return MIPayload::NO_CODE;
         });
     } else {
-        gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::payload_type {
-            return MIPayload::encode(get_minimizer_distances(distance_index,pos));
-        });
+        if (use_new_distance_index) {
+            gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::payload_type {
+                return MIPayload::encode(get_minimizer_distances(distance_index,pos));
+            });
+        } else {
+            gbwtgraph::index_haplotypes(gbz->graph, *index, [&](const pos_t& pos) -> gbwtgraph::payload_type {
+                return MinimumDistanceIndex::MIPayload::encode(old_distance_index->get_minimizer_distances(pos));
+            });
+        }
     }
 
     // Index statistics.

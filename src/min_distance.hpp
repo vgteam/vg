@@ -44,9 +44,6 @@ class MinimumDistanceIndex {
     void serialize(ostream& out) const;
 
     //Load serialized object from in. Does not rely on the internal graph or 
-    //Return true if the istream is pointing to a valid distance index
-    static bool validate_index(const string& file_name);
-
     //snarl manager pointers.
     void load(istream& in);
     

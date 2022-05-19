@@ -3639,14 +3639,17 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         ifstream infile_dist;
         init_in(infile_dist, dist_filename);
         SnarlDistanceIndex new_distance_index;
-        MinimumDistanceIndex old_distance_index;
+        std::unique_ptr<MinimumDistanceIndex> old_distance_index;
         bool use_new_distance_index = false;
-        if (MinimumDistanceIndex::validate_index(dist_filename)) {
-            auto dist_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(infile_dist);
-            old_distance_index = *dist_index.get();
-        } else {
-            new_distance_index.deserialize(dist_filename);
-            use_new_distance_index = true;
+        try {
+            old_distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(infile_dist);
+        } catch (const char* message) {
+            try{
+                new_distance_index.deserialize(dist_filename);
+                use_new_distance_index = true;
+            } catch (const char* message1) {
+                throw std::runtime_error(message1);
+            }
         }
         gbwtgraph::DefaultMinimizerIndex minimizers(IndexingParameters::minimizer_k,
                                                     IndexingParameters::use_bounded_syncmers ?
@@ -3658,7 +3661,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
             if (use_new_distance_index) {
                 return MIPayload::encode(get_minimizer_distances(new_distance_index, pos));
             } else {
-                return MinimumDistanceIndex::MIPayload::encode(old_distance_index.get_minimizer_distances(pos));
+                return MinimumDistanceIndex::MIPayload::encode(old_distance_index->get_minimizer_distances(pos));
             }
         });
         
