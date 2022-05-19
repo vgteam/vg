@@ -1128,14 +1128,16 @@ int main_giraffe(int argc, char** argv) {
     auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0));
 
     // Grab the distance index
-    std::unique_ptr<MinimumDistanceIndex> old_distance_index;
+    std::unique_ptr<MinimumDistanceIndex> old_distance_index = nullptr;
     SnarlDistanceIndex distance_index;
+    SnarlDistanceIndex* distance_index_ptr = nullptr;
     string distance_index_file_name = registry.require("Giraffe Distance Index").at(0);
     try {
         old_distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
     } catch (const char* message) {
         try {
             distance_index.deserialize(distance_index_file_name);
+            distance_index_ptr = &distance_index;
         } catch (const char* message1) {
             throw std::runtime_error(message1);
         }
@@ -1166,7 +1168,7 @@ int main_giraffe(int argc, char** argv) {
     if (show_progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, &(*old_distance_index), &distance_index, path_position_graph);
+    MinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, &(*old_distance_index), distance_index_ptr, path_position_graph);
     if (forced_mean && forced_stdev) {
         minimizer_mapper.force_fragment_length_distr(fragment_mean, fragment_stdev);
     }
