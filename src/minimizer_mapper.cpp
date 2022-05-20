@@ -2874,6 +2874,11 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         }
     }
 
+    // bit vector length of read to check for overlaps
+    size_t num_unique_min = 0;
+    size_t read_len = aln.sequence().size();
+    std::vector<bool> read_bit_vector (read_len, false);
+
     // Select the minimizers we use for seeds.
     size_t rejected_count = 0;
     std::vector<Seed> seeds;
@@ -2903,6 +2908,16 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
         // of the selected minimizers is not high enough.
         const Minimizer& minimizer = minimizers[i];
 
+        // minimizer information
+        size_t min_start_index = minimizer.forward_offset();
+        size_t min_len = minimizer.length;
+        bool overlapping = false;
+        if (this->exclude_overlapping_min) {
+          if (read_bit_vector[min_start_index] == true || read_bit_vector[min_start_index + min_len] == true) {
+            overlapping = true;
+          }
+        }
+
         if (minimizer.hits == 0) {
             // A minimizer with no hits can't go on.
             took_last = false;
@@ -2910,10 +2925,22 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
             if (this->track_provenance) {
                 funnel.fail("any-hits", i);
             }
-        } else if (minimizer.hits <= this->hit_cap ||
-            (run_hits <= this->hard_hit_cap && selected_score + minimizer.score <= target_score) ||
-            (took_last && i > start)) {
-            
+        } else if (  // passes reads
+              ((minimizer.hits <= this->hit_cap) ||
+              (run_hits <= this->hard_hit_cap && selected_score + minimizer.score <= target_score) ||
+              (took_last && i > start)) &&
+              (num_unique_min < this->max_unique_min) &&
+              (overlapping == false)
+            ) {
+
+            // set minimizer overlap as a reads
+            num_unique_min += 1;    // tracking number of minimizers selected
+            if (this->exclude_overlapping_min) {
+              for (size_t i = min_start_index; i < min_start_index + min_len; i++) {
+                read_bit_vector[i] = true;
+              }
+            }
+
             // We should keep this minimizer instance because it is
             // sufficiently rare, or we want it to make target_score, or it is
             // the same sequence as the previous minimizer which we also took.
