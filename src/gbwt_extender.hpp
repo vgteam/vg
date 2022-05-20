@@ -221,16 +221,18 @@ struct WFAAlignment {
     std::vector<std::pair<Edit, uint32_t>> edits;
 
     // Offset in the initial node.
-    uint32_t node_offset;
+    uint32_t node_offset = 0;
 
     // Offset in the sequence.
-    uint32_t seq_offset;
+    uint32_t seq_offset = 0;
 
     // Length of the alignment in the sequence.
-    uint32_t length;
+    uint32_t length = 0;
 
     // Alignment score.
-    int32_t score;
+    int32_t score = 0;
+
+    bool empty() const { return (this->length == 0); }
 
     // Transforms the alignment to the other strand.
     void flip(const gbwtgraph::GBWTGraph& graph, const std::string& sequence);

@@ -734,8 +734,9 @@ struct state_hash {
 //------------------------------------------------------------------------------
 
 void WFAAlignment::flip(const gbwtgraph::GBWTGraph& graph, const std::string& sequence) {
-    std::reverse(this->path.begin(), this->path.end());
-    std::reverse(this->edits.begin(), this->edits.end());
+    if (this->empty()) {
+        return;
+    }
 
     this->seq_offset = sequence.length() - this->seq_offset - this->length;
 
@@ -751,6 +752,13 @@ void WFAAlignment::flip(const gbwtgraph::GBWTGraph& graph, const std::string& se
         new_offset -= graph.get_length(this->path[i]);
     }
     this->node_offset = graph.get_length(this->path.back()) - new_offset;
+
+    std::reverse(this->path.begin(), this->path.end());
+    for (size_t i = 0; i < this->path.size(); i++) {
+        this->path[i] = graph.flip(this->path[i]);
+    }
+
+    std::reverse(this->edits.begin(), this->edits.end());
 }
 
 //------------------------------------------------------------------------------
@@ -959,6 +967,11 @@ public:
     static bool is_root(uint32_t node) { return (node == 0); }
     uint32_t parent(uint32_t node) const { return this->nodes[node].parent; }
 
+    // Assumes length > 0.
+    int32_t gap_penalty(uint32_t length) const {
+        return this->gap_open + static_cast<int32_t>(length) * this->gap_extend;
+    }
+
     // wf_extend() in the paper.
     // If we reach the end of a node, we continue to the start of the next node even
     // if we do not use any characters in it.
@@ -1011,7 +1024,7 @@ public:
                         uint32_t gap_length = this->sequence.length() - subst.seq_offset;
                         int32_t new_score = score;
                         if (gap_length > 0) {
-                            new_score += this->gap_open + gap_length * this->gap_extend;
+                            new_score += this->gap_penalty(gap_length);
                         }
                         if (new_score < this->candidate_point.score) {
                             this->candidate_point = { new_score, diagonal, subst.seq_offset, subst.node_offset };
@@ -1047,7 +1060,7 @@ private:
                     uint32_t gap_length = (this->sequence.length() - pos.seq_offset) + overshoot;
                     int32_t new_score = score;
                     if (gap_length > 0) {
-                        new_score += this->gap_open + gap_length * this->gap_extend;
+                        new_score += this->gap_penalty(gap_length);
                     }
                     if (new_score < this->candidate_point.score) {
                         this->candidate_point = { new_score, diagonal, pos.seq_offset - overshoot, static_cast<uint32_t>(offset(to) + 1) };
@@ -1215,16 +1228,42 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
         full_length = false;
     }
 
-    WFAAlignment result;
-    // FIXME Finally we have to backtrace the actual alignment.
-    // take the candidate
-    // add insertion to the end if full_length and sequence offset is too low
-    // while not at beginning
-    //     find all the points that were used for calculating the position at the start of the run of matches
-    //     predecessor is the one farthest on the diagonal
-    //     determine the length of the match and the edit preceding it
-    //     move to the predecessor
-    // do do not use a node if we do not align to any bases in it
+    // Start building an alignment.
+    WFAAlignment result { {}, {}, offset(from), 0, tree.candidate_point.seq_offset, tree.candidate_point.alignment_score(*(this->aligner)) };
+    if (tree.candidate_point.seq_offset == 0) {
+        return result;
+    }
+
+    // Store the path.
+    uint32_t node = tree.candidate_node;
+    while (true) {
+        result.path.push_back(gbwtgraph::GBWTGraph::node_to_handle(tree.nodes[node].state.node));
+        if (tree.is_root(node)) {
+            break;
+        }
+        node = tree.parent(node);
+    }
+    std::reverse(result.path.begin(), result.path.end());
+
+    // We have a full-length alignment within the score bound with an implicit insertion at the end.
+    WFAPoint point = tree.candidate_point;
+    node = tree.candidate_node;
+    if (full_length && tree.candidate_point.seq_offset < sequence.length()) {
+        uint32_t final_insertion = sequence.length() - tree.candidate_point.seq_offset;
+        result.edits.push_back(std::pair<WFAAlignment::Edit, uint32_t>(WFAAlignment::insertion, final_insertion));
+        point.score -= tree.gap_penalty(final_insertion);
+    }
+
+    // Backtrace the edits.
+    while (point.seq_offset > 0 || point.diagonal != 0) {
+        // FIXME
+        // find all the points that were used for calculating the position at the start of the run of matches
+        // predecessor is the one farthest on the diagonal
+        // determine the length of the match and the edit preceding it
+        // move to the predecessor
+    }
+
+    // FIXME do not use the final node if we do not align to any bases in it
 
     return result;
 }
