@@ -245,7 +245,7 @@ int main_minimizer(int argc, char** argv) {
     bool use_new_distance_index = true;
     if (!distance_name.empty()) {
         ifstream instream (distance_name);
-        try {
+        if (vg::io::MessageIterator::sniff_tag(instream) == "distance index version 2.2") {
             //old distance index
             use_new_distance_index = false;
             if (progress) {
@@ -254,16 +254,12 @@ int main_minimizer(int argc, char** argv) {
 
             old_distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
 
-        } catch (const char* message) {
-            try {
-                // new distance index
-                if (progress) {
-                    std::cerr << "Loading SnarlDistanceIndex from " << distance_name << std::endl;
-                }
-                distance_index.deserialize(distance_name);
-            } catch (const char* message1) {
-                throw std::runtime_error(message1);
+        } else {
+            // new distance index
+            if (progress) {
+                std::cerr << "Loading SnarlDistanceIndex from " << distance_name << std::endl;
             }
+            distance_index.deserialize(distance_name);
         }
     }
 
