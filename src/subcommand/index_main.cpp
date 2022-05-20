@@ -387,7 +387,7 @@ int main_index(int argc, char** argv) {
             build_new_distance_index = true;
             break;
         case 's':
-            snarl_name = parse<int>(optarg);
+            snarl_name = optarg;
             break;
         case 'w':
             build_dist = true;
@@ -765,6 +765,7 @@ int main_index(int argc, char** argv) {
             }
         } else {
             //BUild the old version of the distance index
+            cerr << "Build old distance index" << endl;
             if (snarl_name.empty()) {
                 cerr << "error: [vg index] Distance index requires a snarl file" << endl;
                 exit(1);
@@ -783,7 +784,9 @@ int main_index(int argc, char** argv) {
                 auto xg = vg::io::VPKG::load_one<xg::XG>(xg_name);
 
                 // Create the MinimumDistanceIndex
+                cerr << "Using xg" << endl;
                 MinimumDistanceIndex distance_index(xg.get(), snarl_manager);
+                cerr << "save it" << endl;
                 vg::io::VPKG::save(distance_index, dist_name);
             } else {
                 // May be GBZ or a HandleGraph.

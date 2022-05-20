@@ -266,40 +266,6 @@ MinimumDistanceIndex::MinimumDistanceIndex (istream& in) : MinimumDistanceIndex(
     load(in);
 }
 
-bool MinimumDistanceIndex::validate_index(const string& file_name) {
-    ifstream in(file_name);
-
-    //TODO: This is supposed to be a member of the class but I'm putting it here because it won't compile
-    string file_header = "distance index version 2.2";
-    if (!in) {
-        return false;
-        //throw runtime_error("Empty distance index file");
-    } else {
-        //Check that the header is correct
-        size_t char_index = 0;
-        //TODO: We're only checking up to the last two so if the header changes this needs to change too
-        while (in.peek() != EOF && char_index < file_header.size()-2) {
-            if ( (char) in.get() != file_header[char_index]) {
-                return false;
-                //throw runtime_error ("Distance index file is outdated");
-            }
-            char_index ++;
-        }
-        if (in.peek() == '.') {
-            if ((char) in.get() != '.' || (char)in.get() != '2') {
-                return false;
-                //throw runtime_error ("Distance index file is outdated");
-            }
-        }
-        char_index+=2;
-        if (char_index < file_header.size()) {
-            return false;
-            //throw runtime_error ("Distance index file is outdated");
-        }
-    }
-    return true;
-}
-
   
 void MinimumDistanceIndex::load(istream& in){
     //Load serialized index from an istream
@@ -313,13 +279,15 @@ void MinimumDistanceIndex::load(istream& in){
         size_t char_index = 0;
         //TODO: We're only checking up to the last two so if the header changes this needs to change too
         while (in.peek() != EOF && char_index < file_header.size()-2) {
-            if ( (char) in.get() != file_header[char_index]) {
+            char next = (char) in.get();
+            if ( next != file_header[char_index]) {
                 throw runtime_error ("Distance index file is outdated");
             }
             char_index ++;
         }
         if (in.peek() == '.') {
-            if ((char) in.get() != '.' || (char)in.get() != '2') {
+            char next = (char) in.get();
+            if (next != '.' || (char)in.get() != '2') {
                 throw runtime_error ("Distance index file is outdated");
             }
             include_component = true;
