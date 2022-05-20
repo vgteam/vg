@@ -2875,7 +2875,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
     }
 
     // bit vector length of read to check for overlaps
-    size_t num_unique_min = 0;
+    size_t num_minimizers = 0;
     size_t read_len = aln.sequence().size();
     std::vector<bool> read_bit_vector (read_len, false);
 
@@ -2929,12 +2929,12 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
               ((minimizer.hits <= this->hit_cap) ||
               (run_hits <= this->hard_hit_cap && selected_score + minimizer.score <= target_score) ||
               (took_last && i > start)) &&
-              (num_unique_min < this->max_unique_min) &&
+              (num_minimizers < this->max_unique_min) &&
               (overlapping == false)
             ) {
 
             // set minimizer overlap as a reads
-            num_unique_min += 1;    // tracking number of minimizers selected
+            num_minimizers += 1;    // tracking number of minimizers selected
             if (this->exclude_overlapping_min) {
               for (size_t i = min_start_index; i < min_start_index + min_len; i++) {
                 read_bit_vector[i] = true;
