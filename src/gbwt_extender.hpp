@@ -216,7 +216,8 @@ struct WFAAlignment {
     // Sequence of oriented nodes.
     std::vector<handle_t> path;
 
-    // Sequence of edit operations and their lengths.
+    // Sequence of edit operations and their lengths. Note that an edit may cover
+    // multiple nodes.
     std::vector<std::pair<Edit, uint32_t>> edits;
 
     // Offset in the initial node.
@@ -230,6 +231,9 @@ struct WFAAlignment {
 
     // Alignment score.
     int32_t score;
+
+    // Transforms the alignment to the other strand.
+    void flip(const gbwtgraph::GBWTGraph& graph, const std::string& sequence);
 };
 
 //------------------------------------------------------------------------------
@@ -257,17 +261,14 @@ public:
     WFAExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner);
 
     // FIXME document. Note that the alignment should include both from and to
-    // FIXME return value
     // FIXME special case: cannot reach the destination, must extend from both seeds
-    void connect(std::string sequence, pos_t from, pos_t to) const;
+    WFAAlignment connect(std::string sequence, pos_t from, pos_t to) const;
 
     // FIXME document
-    // FIXME return value
-    void suffix(const std::string& sequence, pos_t from) const;
+    WFAAlignment suffix(const std::string& sequence, pos_t from) const;
 
     // FIXME document
-    // FIXME return value
-    void prefix(const std::string& sequence, pos_t to) const;
+    WFAAlignment prefix(const std::string& sequence, pos_t to) const;
 
     const gbwtgraph::GBWTGraph* graph;
     ReadMasker                  mask;

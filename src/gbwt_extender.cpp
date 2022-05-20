@@ -733,6 +733,28 @@ struct state_hash {
 
 //------------------------------------------------------------------------------
 
+void WFAAlignment::flip(const gbwtgraph::GBWTGraph& graph, const std::string& sequence) {
+    std::reverse(this->path.begin(), this->path.end());
+    std::reverse(this->edits.begin(), this->edits.end());
+
+    this->seq_offset = sequence.length() - this->seq_offset - this->length;
+
+    // Find the node offset after the alignment and convert it to the starting offset
+    // of the reverse alignment.
+    uint32_t new_offset = this->node_offset;
+    for (auto edit : this->edits) {
+        if (edit.first != WFAAlignment::insertion) {
+            new_offset += edit.second;
+        }
+    }
+    for (size_t i = 0; i + 1 < this->path.size(); i++) {
+        new_offset -= graph.get_length(this->path[i]);
+    }
+    this->node_offset = graph.get_length(this->path.back()) - new_offset;
+}
+
+//------------------------------------------------------------------------------
+
 WFAExtender::WFAExtender() :
     graph(nullptr), mask("ACGT"), aligner(nullptr)
 {
@@ -1148,7 +1170,7 @@ private:
 
 //------------------------------------------------------------------------------
 
-void WFAExtender::connect(std::string sequence, pos_t from, pos_t to) const {
+WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) const {
     if (this->graph == nullptr || this->aligner == nullptr || sequence.empty()) {
         return;
     }
@@ -1193,6 +1215,7 @@ void WFAExtender::connect(std::string sequence, pos_t from, pos_t to) const {
         full_length = false;
     }
 
+    WFAAlignment result;
     // FIXME Finally we have to backtrace the actual alignment.
     // take the candidate
     // add insertion to the end if full_length and sequence offset is too low
@@ -1202,22 +1225,25 @@ void WFAExtender::connect(std::string sequence, pos_t from, pos_t to) const {
     //     determine the length of the match and the edit preceding it
     //     move to the predecessor
     // do do not use a node if we do not align to any bases in it
+
+    return result;
 }
 
-void WFAExtender::suffix(const std::string& sequence, pos_t from) const {
-    this->connect(sequence, from, pos_t(0, false, 0));
+WFAAlignment WFAExtender::suffix(const std::string& sequence, pos_t from) const {
+    return this->connect(sequence, from, pos_t(0, false, 0));
 }
 
-void WFAExtender::prefix(const std::string& sequence, pos_t to) const {
+WFAAlignment WFAExtender::prefix(const std::string& sequence, pos_t to) const {
     if (this->graph == nullptr) {
         return;
     }
 
     // Flip the position, extend forward, and reverse the return value.
     to = reverse_base_pos(to, this->graph->get_length(this->graph->get_handle(id(to), is_rev(to))));
-    this->connect(reverse_complement(sequence), to, pos_t(0, false, 0));
+    WFAAlignment result = this->connect(reverse_complement(sequence), to, pos_t(0, false, 0));
+    result.flip(*(this->graph), sequence);
 
-    // FIXME reverse the return value
+    return result;
 }
 
 //------------------------------------------------------------------------------
