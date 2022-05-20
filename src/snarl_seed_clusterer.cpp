@@ -280,6 +280,10 @@ cerr << "Add all seeds to nodes: " << endl;
 #endif
 
 
+    //Remember the handle associated with each connected component (get_handle_from_connected_component)
+    hash_map<size_t, net_handle_t> connected_component_to_handle;
+    connected_component_to_handle.reserve(distance_index.connected_component_count());
+
     // Assign each seed to a node.
 
     //All nodes we've already created node_clusters for
@@ -309,9 +313,15 @@ cerr << "Add all seeds to nodes: " << endl;
 
             
             net_handle_t node_net_handle = distance_index.get_node_net_handle(id) ; 
-            net_handle_t parent = std::get<1>(seed.minimizer_cache) == MIPayload::NO_VALUE 
-                                      ? distance_index.get_parent(node_net_handle)
-                                      : distance_index.get_handle_from_connected_component(std::get<1>(seed.minimizer_cache));
+            net_handle_t parent;
+            if ( std::get<1>(seed.minimizer_cache) == MIPayload::NO_VALUE) { 
+                parent = distance_index.get_parent(node_net_handle);
+            } else if (connected_component_to_handle.count(std::get<1>(seed.minimizer_cache)) != 0) {
+                parent = connected_component_to_handle.at(std::get<1>(seed.minimizer_cache));
+            } else {
+                parent = distance_index.get_handle_from_connected_component(std::get<1>(seed.minimizer_cache));
+                connected_component_to_handle[std::get<1>(seed.minimizer_cache)] = parent;
+            }
             seed.node_handle = node_net_handle;
             bool is_trivial_chain = distance_index.get_record_offset(node_net_handle) ==
                                     distance_index.get_record_offset(parent);
