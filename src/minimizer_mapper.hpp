@@ -94,8 +94,8 @@ public:
     /// of total score
     double minimizer_score_fraction = 0.9;
 
-    /// Take at maximum number of unique non-overlapping minimizers
-    size_t max_unique_min = 1000;
+    /// Maximum number of distinct minimizers to take
+    size_t max_unique_min = 500;
 
     ///Accept at least this many clusters
     size_t min_extensions = 2;

@@ -350,7 +350,7 @@ void help_giraffe(char** argv) {
     << "  -s, --cluster-score INT       only extend clusters if they are within INT of the best score [50]" << endl
     << "  -S, --pad-cluster-score INT   also extend clusters within INT of above threshold to get a second-best cluster [0]" << endl
     << "  -u, --cluster-coverage FLOAT  only extend clusters if they are within FLOAT of the best read coverage [0.3]" << endl
-    << "  -U, --max-min INT             use at maximum INT unique non-overlapping minimizers [1000]" << endl
+    << "  -U, --max-min INT             use at most INT minimizers [500]" << endl
     << "  -v, --extension-score INT     only align extensions if their score is within INT of the best score [1]" << endl
     << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [20]" << endl
     << "  -O, --no-dp                   disable all gapped alignment" << endl
@@ -389,7 +389,7 @@ int main_giraffe(int argc, char** argv) {
     #define OPT_REF_PATHS 1010
     #define OPT_SHOW_WORK 1011
     #define OPT_NAMED_COORDINATES 1012
-    #define OPT_SHOW_EXCLUDE_OVERLAPPING_MIN 1013
+    #define OPT_EXCLUDE_OVERLAPPING_MIN 1013
     
 
     // initialize parameters with their default options
@@ -549,7 +549,7 @@ int main_giraffe(int argc, char** argv) {
             {"pad-cluster-score", required_argument, 0, 'S'},
             {"cluster-coverage", required_argument, 0, 'u'},
             {"max-min", required_argument, 0, 'U'},
-            {"exclude-overlapping-min", no_argument, 0, OPT_SHOW_EXCLUDE_OVERLAPPING_MIN},
+            {"exclude-overlapping-min", no_argument, 0, OPT_EXCLUDE_OVERLAPPING_MIN},
             {"extension-score", required_argument, 0, 'v'},
             {"extension-set", required_argument, 0, 'w'},
             {"score-fraction", required_argument, 0, 'F'},
@@ -928,7 +928,7 @@ int main_giraffe(int argc, char** argv) {
                 }
                 break;
 
-            case OPT_SHOW_EXCLUDE_OVERLAPPING_MIN:
+            case OPT_EXCLUDE_OVERLAPPING_MIN:
                 exclude_overlapping_min = true;
                 break;
 
