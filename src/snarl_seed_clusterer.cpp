@@ -2105,8 +2105,8 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
                 SnarlDistanceIndex::sum({current_child_seed.distance_right, distance_from_current_end_to_end_of_chain})); 
     
     
-        //Cluster heads to add because they could combine with the fragment cluster but not the read cluster
-        vector<pair<size_t, size_t>> to_add;
+        //Cluster heads to remove because they got combined with the current seed
+        vector<pair<size_t, size_t>> to_remove;
         //And the new cluster containing the current seed, and possibly anything that gets combined with it
         pair<pair<size_t, size_t>, pair<size_t, size_t>> new_cluster (make_pair(read_num, cluster_num), new_distances);
     
@@ -2154,6 +2154,7 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
                 new_cluster = make_pair(make_pair(read_num, new_cluster_num),
                                         make_pair(std::min(new_cluster.second.first, chain_cluster_distances.first), 
                                                   new_cluster.second.second)); 
+                to_remove.emplace_back(chain_cluster_read_num, chain_cluster_cluster_num);
 
                 //Try to union the fragment
                 if (tree_state.fragment_distance_limit != 0 && distance_between <= tree_state.fragment_distance_limit) {
@@ -2169,23 +2170,26 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
                         SnarlDistanceIndex::sum({chain_cluster_distances.second, 
                                                  distance_from_last_child_to_current_end,
                                                  distance_from_current_end_to_end_of_chain});
-                to_add.emplace_back(chain_cluster_read_num, chain_cluster_cluster_num);
-            } else if (chain_cluster_distances.first <=
-                        (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)
-                    && !skip_distances_to_ends) { 
+            } else {
                 //If this chain cluster doesn't get combined, then it is too far away to combine with anything later in the chain, 
                 //so we remove it but remember to add it again if the left distance is small enough
-                tree_state.all_seeds->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_right = std::numeric_limits<size_t>::max();
-                cluster_heads_to_add_again.emplace_back(make_pair(chain_cluster_read_num, chain_cluster_cluster_num),
-                                                        make_pair(chain_cluster_distances.first, std::numeric_limits<size_t>::max()));
+                
+                if (chain_cluster_distances.first <=
+                        (tree_state.fragment_distance_limit == 0 ? tree_state.read_distance_limit : tree_state.fragment_distance_limit)
+                    && !skip_distances_to_ends) { 
+                    //If the current chain cluster can still be reached from the left
+                    tree_state.all_seeds->at(chain_cluster_read_num)->at(chain_cluster_cluster_num).distance_right = std::numeric_limits<size_t>::max();
+                    cluster_heads_to_add_again.emplace_back(make_pair(chain_cluster_read_num, chain_cluster_cluster_num),
+                                                            make_pair(chain_cluster_distances.first, std::numeric_limits<size_t>::max()));
+                }
+                to_remove.emplace_back(chain_cluster_read_num, chain_cluster_cluster_num);
             }
               
         }
     
         //Remove all chain clusters that got combined with the current seed
-        chain_clusters.read_cluster_heads.clear();
-        for (pair<size_t, size_t>& cluster_head : to_add) {
-            chain_clusters.read_cluster_heads.emplace(cluster_head);
+        for (pair<size_t, size_t>& cluster_head : to_remove) {
+            chain_clusters.read_cluster_heads.erase(cluster_head);
         }
     
         //Add the cluster of the current seed which may or may not have been combined
