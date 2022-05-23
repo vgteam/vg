@@ -153,6 +153,9 @@ Public Attributes</h2></td></tr>
 <tr class="separator:aaf577b72776f431ec4dc5faac505322e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5696bfb7029ca88ec04d0f849365b34f"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a5696bfb7029ca88ec04d0f849365b34f">minimizer_score_fraction</a> = 0.9</td></tr>
 <tr class="separator:a5696bfb7029ca88ec04d0f849365b34f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8862622f6f711cc6a797b26990c9f195"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a8862622f6f711cc6a797b26990c9f195">max_unique_min</a> = 500</td></tr>
+<tr class="memdesc:a8862622f6f711cc6a797b26990c9f195"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maximum number of distinct minimizers to take.  <a href="classvg_1_1MinimizerMapper.html#a8862622f6f711cc6a797b26990c9f195">More...</a><br /></td></tr>
+<tr class="separator:a8862622f6f711cc6a797b26990c9f195"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a03f18247f88d4817feef2d25a46fd5ca"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a03f18247f88d4817feef2d25a46fd5ca">min_extensions</a> = 2</td></tr>
 <tr class="memdesc:a03f18247f88d4817feef2d25a46fd5ca"><td class="mdescLeft">&#160;</td><td class="mdescRight">Accept at least this many clusters.  <a href="classvg_1_1MinimizerMapper.html#a03f18247f88d4817feef2d25a46fd5ca">More...</a><br /></td></tr>
 <tr class="separator:a03f18247f88d4817feef2d25a46fd5ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -192,6 +195,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a089bb5c8a56a7614a2f494690f3b5acd"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a089bb5c8a56a7614a2f494690f3b5acd">show_work</a> = false</td></tr>
 <tr class="memdesc:a089bb5c8a56a7614a2f494690f3b5acd"><td class="mdescLeft">&#160;</td><td class="mdescRight">If set, log what the mapper is thinking in its mapping of each read.  <a href="classvg_1_1MinimizerMapper.html#a089bb5c8a56a7614a2f494690f3b5acd">More...</a><br /></td></tr>
 <tr class="separator:a089bb5c8a56a7614a2f494690f3b5acd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aca75c152e0c37e2ed5592400d3eb5fa7"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aca75c152e0c37e2ed5592400d3eb5fa7">exclude_overlapping_min</a> = false</td></tr>
+<tr class="memdesc:aca75c152e0c37e2ed5592400d3eb5fa7"><td class="mdescLeft">&#160;</td><td class="mdescRight">If set, exclude overlapping minimizers.  <a href="classvg_1_1MinimizerMapper.html#aca75c152e0c37e2ed5592400d3eb5fa7">More...</a><br /></td></tr>
+<tr class="separator:aca75c152e0c37e2ed5592400d3eb5fa7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a94bd867270265d26c4f2abfbd730f316"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a94bd867270265d26c4f2abfbd730f316">paired_distance_stdevs</a> = 2.0</td></tr>
 <tr class="separator:a94bd867270265d26c4f2abfbd730f316"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a923b2f2f9aa86e445add3be0d1c4abae"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a923b2f2f9aa86e445add3be0d1c4abae">paired_rescue_score_limit</a> = 0.9</td></tr>
@@ -2743,6 +2749,22 @@ template&lt;typename Item , typename Score &gt; </div>
 
 </div>
 </div>
+<a id="aca75c152e0c37e2ed5592400d3eb5fa7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aca75c152e0c37e2ed5592400d3eb5fa7">&#9670;&nbsp;</a></span>exclude_overlapping_min</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MinimizerMapper::exclude_overlapping_min = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>If set, exclude overlapping minimizers. </p>
+
+</div>
+</div>
 <a id="a7384299b6fd570ee8454c6f74c7a6583"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a7384299b6fd570ee8454c6f74c7a6583">&#9670;&nbsp;</a></span>extender</h2>
 
@@ -2980,6 +3002,22 @@ template&lt;typename Item , typename Score &gt; </div>
 </div><div class="memdoc">
 
 <p>For paired end mapping, how many times should we attempt rescue (per read)? </p>
+
+</div>
+</div>
+<a id="a8862622f6f711cc6a797b26990c9f195"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8862622f6f711cc6a797b26990c9f195">&#9670;&nbsp;</a></span>max_unique_min</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MinimizerMapper::max_unique_min = 500</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Maximum number of distinct minimizers to take. </p>
 
 </div>
 </div>
