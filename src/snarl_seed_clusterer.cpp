@@ -688,7 +688,6 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
         if (distance_index.is_snarl(std::get<1>(parent_to_child_tuple))) {
             only_seeds = false;
         }
-        bool is_top_level_chain = (depth == 0) && !(distance_index.is_root_snarl(distance_index.get_parent(chain_handle)));
 
 
 
@@ -700,14 +699,18 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
 #endif
 
 
+            net_handle_t parent = distance_index.get_parent(chain_handle);
+            bool is_root = distance_index.is_root(parent);
+            bool is_root_snarl = is_root ? distance_index.is_root_snarl(parent) : false;
+            bool is_top_level_chain = (depth == 0) && !is_root_snarl;
+
             // Compute the clusters for the chain (the previous chain)
             cluster_one_chain(tree_state, chain_index, current_chain_children, only_seeds, is_top_level_chain);
 
             //Add the chain to its parent
-            net_handle_t parent = distance_index.get_parent(chain_handle);
-            if (distance_index.is_root(parent)) {
+            if (is_root) {
                 //If the parent is the root, remember the index of this chain in all_node_clusters
-                if(distance_index.is_root_snarl(parent)) {
+                if (is_root_snarl) {
                     //If the parent is a root snarl, then remember it to cluster in the root
                     size_t parent_index;
                     if (tree_state.net_handle_to_index.count(parent) == 0) {
