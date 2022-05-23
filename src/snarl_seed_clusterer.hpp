@@ -386,7 +386,7 @@ class NewSnarlSeedClusterer {
         //void cluster_snarl_level(TreeState& tree_state) const;
 
         //Cluster all the chains at the current level
-        void cluster_chain_level(TreeState& tree_state) const;
+        void cluster_chain_level(TreeState& tree_state, size_t depth) const;
 
         //Cluster the seeds on the specified node
         void cluster_one_node(TreeState& tree_state, NodeClusters& node_clusters) const; 
@@ -400,7 +400,7 @@ class NewSnarlSeedClusterer {
         //If the depth is 0, also incorporate the top-level seeds from tree_state.top_level_seed_clusters
         //Chain children are tuples<net_handle, (child index, inf) or (seed read num, seed index)>
         //If the children of the chain are only seeds on nodes, then cluster as if it is a node
-        void cluster_one_chain(TreeState& tree_state, size_t chain_clusters_index, vector<tuple<net_handle_t, size_t, size_t>>& children_in_chain, bool only_seeds) const;
+        void cluster_one_chain(TreeState& tree_state, size_t chain_clusters_index, vector<tuple<net_handle_t, size_t, size_t>>& children_in_chain, bool only_seeds, bool is_top_level_chain) const;
 
         //Helper function for adding the next seed to the chain clusters
         void add_seed_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
@@ -408,7 +408,8 @@ class NewSnarlSeedClusterer {
                                         size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, 
                                         vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>& cluster_heads_to_add_again,
                                         bool& found_first_node, vector<bool>& found_first_node_by_read,
-                                        tuple<net_handle_t, size_t, size_t>& current_child_indices, bool is_first_child, bool is_last_child) const;
+                                        tuple<net_handle_t, size_t, size_t>& current_child_indices, bool is_first_child, bool is_last_child,
+                                        bool skip_distances_to_ends) const;
 
         //Helper function for adding the next snarl to the chain clusters
         void add_snarl_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
@@ -416,7 +417,8 @@ class NewSnarlSeedClusterer {
                                         size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, 
                                         vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>& cluster_heads_to_add_again,
                                         bool& found_first_node, vector<bool>& found_first_node_by_read,
-                                        tuple<net_handle_t, size_t, size_t>& current_child_indices, bool is_first_child, bool is_last_child) const;
+                                        tuple<net_handle_t, size_t, size_t>& current_child_indices, bool is_first_child, bool is_last_child, 
+                                        bool skip_distances_to_ends) const;
 
         //Cluster in the root 
         void cluster_root(TreeState& tree_state) const;
@@ -430,7 +432,7 @@ class NewSnarlSeedClusterer {
         //left offset is the distance from the left side of the structure
         template <typename SeedIndex>
         void cluster_seeds_on_linear_structure(TreeState& tree_state, NodeClusters& node_clusters, vector<SeedIndex>& seed_indices, 
-                size_t structure_length, std::function<std::tuple<size_t, size_t, size_t>(const SeedIndex&)>& get_offset_from_seed_index) const;
+                size_t structure_length, std::function<std::tuple<size_t, size_t, size_t>(const SeedIndex&)>& get_offset_from_seed_index, bool skip_distances_to_ends) const;
 
         //Compare two children of the parent and combine their clusters, to create clusters in the parent
         //This assumes that the first node hasn't been seen before but the second one has, so all of the
