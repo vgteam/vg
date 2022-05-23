@@ -324,6 +324,9 @@ protected:
     /**
      * Score the set of extensions for each cluster using score_extension_group().
      * Return the scores in the same order as the extensions.
+     *
+     * This version allows the collections of extensions to be scored to come
+     * with annotating read numbers, which are ignored.
      */
     std::vector<int> score_extensions(const std::vector<std::pair<std::vector<GaplessExtension>, size_t>>& extensions, const Alignment& aln, Funnel& funnel) const;
 
@@ -515,6 +518,25 @@ protected:
      */
     static int score_extension_group(const Alignment& aln, const vector<GaplessExtension>& extended_seeds,
         int gap_open_penalty, int gap_extend_penalty);
+        
+    /**
+     * Chain up the given group of gapless extensions. Fills in a DP table for
+     * how we can move between gapless extensions, assuming we never take any
+     * that overlap, or skip any that are reachable both in the graph and in
+     * the read. Determines the best score that can be obtained by chaining
+     * extensions together, using the given gap open and gap extend penalties
+     * to charge for the longer of read or graph gaps between gapless
+     * extensions.
+     *
+     * Input gapless extensions must be sorted by start position in the read.
+     *
+     * Returns the score and the list of indexes of gapless extensions visited
+     * to achieve that score.
+     */
+    static pair<int, vector<size_t>> chain_extension_group(const Alignment& aln,
+                                                           const vector<GaplessExtension>& extended_seeds,
+                                                           int gap_open_penalty,
+                                                           int gap_extend_penalty);
     
     /**
      * Operating on the given input alignment, align the tails dangling off the
