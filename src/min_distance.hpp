@@ -6,6 +6,7 @@
 
 #include "snarls.hpp"
 #include "hash_map.hpp"
+#include "snarl_distance_index.hpp"
 
 #include "bdsg/hash_graph.hpp"
 
@@ -509,8 +510,9 @@ class MinimumDistanceIndex {
     friend class ChainIndex;
     friend class SnarlSeedClusterer;
 
+public:
+/******************* MIPayload redefinded ***********************/
 
-};
 
 /**
  * The encoding of distances for positions in top-level chains or top-level simple bubbles.
@@ -519,17 +521,15 @@ class MinimumDistanceIndex {
  * We store this information in the minimizer index.
  */
 /*
-Simple bubble: 
-    
+Simple bubble:
+
  8 bit  |     1    |        24           |    10     |     10   |    10     |    1
   ---   |  is rev  | snarl rank in chain | start len | end len  | node len  |  is_node
-   
-Top level chain 
-     
+
+Top level chain
+
     31 bit   |    32    |     1
 component id |  offset  |  is_node
-
-
 is_node is true if it is a top-level chain node, false if it is a simple bubble
 */
 
@@ -545,14 +545,14 @@ struct MIPayload {
     constexpr static size_t RANK_OFFSET = 31;
     constexpr static size_t REV_OFFSET = 55;
 
-    
+
     constexpr static size_t LENGTH_WIDTH = 10;
     constexpr static size_t RANK_WIDTH = 24;
     constexpr static code_type LENGTH_MASK = (static_cast<code_type>(1) << LENGTH_WIDTH) - 1;
     constexpr static code_type RANK_MASK = (static_cast<code_type>(1) << RANK_WIDTH) - 1;
-    
 
-    
+
+
     constexpr static size_t ID_OFFSET = 33;
     constexpr static size_t ID_WIDTH = 31;
     constexpr static size_t OFFSET_WIDTH = 32;
@@ -570,7 +570,7 @@ struct MIPayload {
         } else if (is_top_level_node) {
             //Top level node in chain
 
-            if (component >= (static_cast<code_type>(1) << 31) - 1 
+            if (component >= (static_cast<code_type>(1) << 31) - 1
                 || offset >= static_cast<size_t>(OFFSET_MASK) ) {
                 //If the values are too large to be stored
                 return NO_CODE;
@@ -611,6 +611,9 @@ struct MIPayload {
                       code >> REV_OFFSET & static_cast<code_type>(1));
         }
     }
+};
+
+
 };
 
 }

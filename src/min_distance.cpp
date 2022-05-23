@@ -269,7 +269,8 @@ MinimumDistanceIndex::MinimumDistanceIndex (istream& in) : MinimumDistanceIndex(
   
 void MinimumDistanceIndex::load(istream& in){
     //Load serialized index from an istream
-    
+
+ 
     //Check the file's header to make sure it's the correct version
     if (!in) {
         throw runtime_error("Could not load distance index");
@@ -278,13 +279,15 @@ void MinimumDistanceIndex::load(istream& in){
         size_t char_index = 0;
         //TODO: We're only checking up to the last two so if the header changes this needs to change too
         while (in.peek() != EOF && char_index < file_header.size()-2) {
-            if ( (char) in.get() != file_header[char_index]) {
+            char next = (char) in.get();
+            if ( next != file_header[char_index]) {
                 throw runtime_error ("Distance index file is outdated");
             }
             char_index ++;
         }
         if (in.peek() == '.') {
-            if ((char) in.get() != '.' || (char)in.get() != '2') {
+            char next = (char) in.get();
+            if (next != '.' || (char)in.get() != '2') {
                 throw runtime_error ("Distance index file is outdated");
             }
             include_component = true;
@@ -2785,7 +2788,5 @@ size_t MinimumDistanceIndex::get_connected_component(id_t node_id) {
 
 constexpr MIPayload::code_type MIPayload::NO_CODE;
 constexpr size_t MIPayload::NO_VALUE;
-constexpr size_t MIPayload::ID_OFFSET;
-constexpr MIPayload::code_type MIPayload::OFFSET_MASK;
 
 }

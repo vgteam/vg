@@ -467,7 +467,7 @@ int main_msga(int argc, char** argv) {
                 cerr << "[vg msga] Warning: sequence " << name << " is seen multiple times in input, ignoring all but the first instance" << endl;
                 continue;
             }
-            strings[name] = nonATGCNtoN(ref.getSequence(name));
+            strings[name] = vg::nonATGCNtoN(ref.getSequence(name));
             names_in_order.push_back(name);
             seen_seq_names.insert(name);
         }
@@ -495,7 +495,7 @@ int main_msga(int argc, char** argv) {
             ss << s << ++nonce;
             name = sha1head(ss.str(), 8);
         }
-        strings[name] = nonATGCNtoN(s);
+        strings[name] = vg::nonATGCNtoN(s);
         names_in_order.push_back(name);
     }
 
@@ -617,7 +617,7 @@ int main_msga(int argc, char** argv) {
             graph->paths.for_each_name([&](const string& name) {
                     VG path_graph = *graph;
                     if (edge_max){
-                        algorithms::prune_complex_with_head_tail(path_graph, idx_kmer_size, edge_max);
+                        vg::algorithms::prune_complex_with_head_tail(path_graph, idx_kmer_size, edge_max);
                     }
                     path_graph.keep_path(name);
                     size_t limit = ~(size_t)0;
@@ -639,9 +639,9 @@ int main_msga(int argc, char** argv) {
         } else if (edge_max) {
             VG gcsa_graph = *graph; // copy the graph
             // remove complex components
-            algorithms::prune_complex_with_head_tail(gcsa_graph, idx_kmer_size, edge_max);
+            vg::algorithms::prune_complex_with_head_tail(gcsa_graph, idx_kmer_size, edge_max);
             if (subgraph_prune){
-                algorithms::prune_short_subgraphs(gcsa_graph, subgraph_prune);
+                vg::algorithms::prune_short_subgraphs(gcsa_graph, subgraph_prune);
             }
             // then index
             build_gcsa_lcp(gcsa_graph, gcsaidx, lcpidx, idx_kmer_size, doubling_steps);
@@ -722,7 +722,7 @@ int main_msga(int argc, char** argv) {
             Alignment aln = mapper->align(seq, 0, 0, 0, band_width, band_overlap, xdrop_alignment);
             aln.set_name(name);
             if (aln.path().mapping_size()) {
-                auto aln_seq = algorithms::path_string(*graph, aln.path());
+                auto aln_seq = vg::algorithms::path_string(*graph, aln.path());
                 if (aln_seq != seq) {
                     cerr << "[vg msga] alignment corrupted, failed to obtain correct banded alignment (alignment seq != input seq)" << endl;
                     cerr << "expected " << seq << endl;
@@ -759,7 +759,7 @@ int main_msga(int argc, char** argv) {
             graph->edit(paths, nullptr, true);
             //if (!graph->is_valid()) cerr << "invalid after edit" << endl;
             //graph->serialize_to_file(name + "-immed-post-edit.vg");
-            if (normalize) algorithms::normalize(graph, 10, debug);
+            if (normalize) vg::algorithms::normalize(graph, 10, debug);
             handlealgs::chop(*graph, node_max);
             //if (!graph->is_valid()) cerr << "invalid after dice" << endl;
             //graph->serialize_to_file(name + "-post-dice.vg");
@@ -788,7 +788,7 @@ int main_msga(int argc, char** argv) {
 
             // verfy validity of path
             bool is_valid = graph->is_valid();
-            auto path_seq = algorithms::path_string(*graph, graph->paths.path(name));
+            auto path_seq = vg::algorithms::path_string(*graph, graph->paths.path(name));
             incomplete = !(path_seq == seq) || !is_valid;
             if (incomplete) {
                 cerr << "[vg msga] failed to include alignment, retrying " << endl
@@ -846,7 +846,7 @@ int main_msga(int argc, char** argv) {
             // only try if graph was made entirely of msga'd sequences.
             graph->remove_non_path();
         }
-        algorithms::normalize(graph);
+        vg::algorithms::normalize(graph);
         handlealgs::chop(*graph, node_max);
         graph->sort();
         graph->compact_ids();
@@ -860,7 +860,7 @@ int main_msga(int argc, char** argv) {
     for (auto& sp : strings) {
         auto& name = sp.first;
         auto& seq = sp.second;
-        if (seq != algorithms::path_string(*graph, graph->paths.path(name))) {
+        if (seq != vg::algorithms::path_string(*graph, graph->paths.path(name))) {
             /*
                cerr << "failed inclusion" << endl
                << "expected " << graph->path_string(graph->paths.path(name)) << endl

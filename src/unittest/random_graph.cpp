@@ -6,7 +6,6 @@
 
 #include "randomness.hpp"
 
-
 namespace vg {
 namespace unittest {
 
@@ -22,17 +21,17 @@ void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
 void random_graph(vector<int64_t> seq_sizes, int64_t variant_len, int64_t total_variant_count,
                   MutablePathMutableHandleGraph* graph) {           
 #ifdef debug
-    cerr << "Make random graph of " << seq_size << " bp with " << variant_count << " ~" << variant_len << "-bp large variants" << endl;
+    cerr << "Make random graphs with " << total_variant_count << " ~" << variant_len << "-bp large variants" << endl;
 #endif
 
     //How many variants for each component?
-    size_t total_sequence_length = 0;
+    int64_t total_sequence_length = 0;
     for (int64_t len : seq_sizes) {
         total_sequence_length += len;
     }
     vector<int64_t> variant_counts;
     for (int64_t len : seq_sizes) {
-        variant_counts.emplace_back(round((len / total_sequence_length) * total_variant_count));
+        variant_counts.emplace_back(round((len* total_variant_count) / total_sequence_length) );
     }
 
     for (size_t i = 0 ; i < seq_sizes.size() ; i++) {

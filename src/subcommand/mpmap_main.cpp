@@ -1543,7 +1543,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     // Count our threads
-    int thread_count = get_thread_count();
+    int thread_count = vg::get_thread_count();
     
     // a convenience function to preface a stderr log with an indicator of the command
     // and the time elapse
@@ -1692,7 +1692,7 @@ int main_mpmap(int argc, char** argv) {
     if (do_spliced_alignment) {
         // TODO: could let IO continue while doing this, but it risks increasing peak memory for some graphs...
         log_progress("Identifying reference paths");
-        vector<unordered_set<path_handle_t>> component_path_sets = algorithms::component_paths_parallel(*path_position_handle_graph);
+        vector<unordered_set<path_handle_t>> component_path_sets = vg::algorithms::component_paths_parallel(*path_position_handle_graph);
         for (const auto& path_set : component_path_sets) {
             // remove dependency on system hash ordering
             vector<path_handle_t> ordered_path_set(path_set.begin(), path_set.end());

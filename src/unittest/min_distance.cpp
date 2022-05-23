@@ -1298,9 +1298,9 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
 
                 pos_t pos1 = make_pos_t(nodeID1, uniform_int_distribution<int>(0,1)(generator) == 0, offset1 );
                 pos_t pos2 = make_pos_t(nodeID2, uniform_int_distribution<int>(0,1)(generator) == 0, offset2 );
-                auto chain_info = di.get_minimizer_distances(pos1);
-                auto encoded_chain_info = MIPayload::decode(MIPayload::encode(di.get_minimizer_distances(pos1)));
-                assert (chain_info == encoded_chain_info);
+                //auto chain_info = di.get_minimizer_distances(pos1);
+                //auto encoded_chain_info = MIPayload::decode(MIPayload::encode(di.get_minimizer_distances(pos1)));
+                //assert (chain_info == encoded_chain_info);
 
                 const Snarl* pos1_snarl = snarl_manager.into_which_snarl(nodeID1, false);
 

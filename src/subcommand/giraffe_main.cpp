@@ -17,7 +17,7 @@
 
 #include "subcommand.hpp"
 
-#include "../seed_clusterer.hpp"
+#include "../snarl_seed_clusterer.hpp"
 #include "../mapper.hpp"
 #include "../annotation.hpp"
 #include <vg/io/vpkg.hpp>
@@ -512,6 +512,7 @@ int main_giraffe(int argc, char** argv) {
         { MinimizerMapper::rescue_gssw, "gssw" },
         { MinimizerMapper::rescue_haplotypes, "haplotypes" }
     };
+    //TODO: Right now there can be two versions of the distance index. This ensures that the correct minimizer type gets built
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1152,7 +1153,17 @@ int main_giraffe(int argc, char** argv) {
     auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(registry.require("Giraffe GBZ").at(0));
 
     // Grab the distance index
-    auto distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
+    std::unique_ptr<MinimumDistanceIndex> old_distance_index = nullptr;
+    SnarlDistanceIndex distance_index;
+    SnarlDistanceIndex* distance_index_ptr = nullptr;
+    string distance_index_file_name = registry.require("Giraffe Distance Index").at(0);
+    ifstream infile_dist (distance_index_file_name);
+    if (vg::io::MessageIterator::sniff_tag(infile_dist) == "distance index version 2.2") {
+        old_distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
+    } else {
+        distance_index.deserialize(distance_index_file_name);
+        distance_index_ptr = &distance_index;
+    }
     
     // If we are tracking correctness, we will fill this in with a graph for
     // getting offsets along ref paths.
@@ -1179,7 +1190,7 @@ int main_giraffe(int argc, char** argv) {
     if (show_progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, *distance_index, path_position_graph);
+    MinimizerMapper minimizer_mapper(gbz->graph, *minimizer_index, &(*old_distance_index), distance_index_ptr, path_position_graph);
     if (forced_mean && forced_stdev) {
         minimizer_mapper.force_fragment_length_distr(fragment_mean, fragment_stdev);
     }

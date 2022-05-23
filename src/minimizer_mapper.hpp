@@ -9,10 +9,9 @@
 #include "algorithms/nearest_offsets_in_paths.hpp"
 #include "aligner.hpp"
 #include "vg/io/alignment_emitter.hpp"
+#include "snarl_seed_clusterer.hpp"
 #include "gapless_extender.hpp"
 #include "mapper.hpp"
-#include "min_distance.hpp"
-#include "seed_clusterer.hpp"
 #include "snarls.hpp"
 #include "tree_subgraph.hpp"
 #include "funnel.hpp"
@@ -34,10 +33,12 @@ public:
      * Construct a new MinimizerMapper using the given indexes. The PathPositionhandleGraph can be nullptr,
      * as we only use it for correctness tracking.
      */
+     //TODO: This can be given an old and/old new distance index. At least one is needed, new one will be used if both are given. The minimizer cache must match the distance index or it will just crash
 
     MinimizerMapper(const gbwtgraph::GBWTGraph& graph,
          const gbwtgraph::DefaultMinimizerIndex& minimizer_index,
-         MinimumDistanceIndex& distance_index, const PathPositionHandleGraph* path_graph = nullptr);
+         MinimumDistanceIndex* old_distance_index, SnarlDistanceIndex* distance_index,
+         const PathPositionHandleGraph* path_graph = nullptr);
 
     /**
      * Map the given read, and send output to the given AlignmentEmitter. May be run from any thread.
@@ -259,15 +260,17 @@ protected:
     double distance_to_annotation(int64_t distance) const;
     
     /// The information we store for each seed.
-    typedef SnarlSeedClusterer::Seed Seed;
+    typedef SnarlSeedClusterer::Seed OldSeed;
+    typedef NewSnarlSeedClusterer::Seed Seed;
 
     /// The information we store for each cluster.
-    typedef SnarlSeedClusterer::Cluster Cluster;
+    typedef NewSnarlSeedClusterer::Cluster Cluster;
 
     // These are our indexes
     const PathPositionHandleGraph* path_graph; // Can be nullptr; only needed for correctness tracking.
     const gbwtgraph::DefaultMinimizerIndex& minimizer_index;
-    MinimumDistanceIndex& distance_index;
+    SnarlDistanceIndex* distance_index;
+    MinimumDistanceIndex* old_distance_index;
     /// This is our primary graph.
     const gbwtgraph::GBWTGraph& gbwt_graph;
     
@@ -275,7 +278,9 @@ protected:
     GaplessExtender extender;
     
     /// We have a clusterer
-    SnarlSeedClusterer clusterer;
+    SnarlSeedClusterer old_clusterer;
+    NewSnarlSeedClusterer clusterer;
+
     
     /// We have a distribution for read fragment lengths that takes care of
     /// knowing when we've observed enough good ones to learn a good
@@ -298,6 +303,8 @@ protected:
      * Find seeds for all minimizers passing the filters.
      */
     std::vector<Seed> find_seeds(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
+    //The same thing but with the old distance index
+    std::vector<OldSeed> find_seeds_old(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const;
 
     /**
      * Determine cluster score, read coverage, and a vector of flags for the
@@ -306,6 +313,7 @@ protected:
      * of the read covered by seeds in the cluster.
      */
     void score_cluster(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const;
+    void score_cluster_old(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<OldSeed>& seeds, size_t seq_length, Funnel& funnel) const;
 
     /**
      * Score the set of extensions for each cluster using score_extension_group().
