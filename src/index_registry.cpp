@@ -3641,15 +3641,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         SnarlDistanceIndex new_distance_index;
         std::unique_ptr<MinimumDistanceIndex> old_distance_index;
         bool use_new_distance_index = false;
-        try {
+        if (vg::io::MessageIterator::sniff_tag(infile_dist) == "distance index version 2.2") {
             old_distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(infile_dist);
-        } catch (const char* message) {
-            try{
-                new_distance_index.deserialize(dist_filename);
-                use_new_distance_index = true;
-            } catch (const char* message1) {
-                throw std::runtime_error(message1);
-            }
+        } else {
+            new_distance_index.deserialize(dist_filename);
+            use_new_distance_index = true;
         }
         gbwtgraph::DefaultMinimizerIndex minimizers(IndexingParameters::minimizer_k,
                                                     IndexingParameters::use_bounded_syncmers ?

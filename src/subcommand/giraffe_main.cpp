@@ -1132,15 +1132,12 @@ int main_giraffe(int argc, char** argv) {
     SnarlDistanceIndex distance_index;
     SnarlDistanceIndex* distance_index_ptr = nullptr;
     string distance_index_file_name = registry.require("Giraffe Distance Index").at(0);
-    try {
+    ifstream infile_dist (distance_index_file_name);
+    if (vg::io::MessageIterator::sniff_tag(infile_dist) == "distance index version 2.2") {
         old_distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
-    } catch (const char* message) {
-        try {
-            distance_index.deserialize(distance_index_file_name);
-            distance_index_ptr = &distance_index;
-        } catch (const char* message1) {
-            throw std::runtime_error(message1);
-        }
+    } else {
+        distance_index.deserialize(distance_index_file_name);
+        distance_index_ptr = &distance_index;
     }
     
     // If we are tracking correctness, we will fill this in with a graph for
