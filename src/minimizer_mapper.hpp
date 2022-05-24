@@ -515,7 +515,7 @@ protected:
      * Overlaps are charged only gap open/extend penalties; multiple matches to
      * the same read base are scored as matches.
      *
-     * Enforces that overlaps cannot result in containment.
+     * Overlaps may result in one gapless extension containing another.
      *
      * Input extended seeds must be sorted by start position.
      *
@@ -525,18 +525,20 @@ protected:
         int gap_open_penalty, int gap_extend_penalty);
         
     /**
-     * Chain up the given group of gapless extensions. Fills in a DP table for
-     * how we can move between gapless extensions, assuming we never take any
-     * that overlap, or skip any that are reachable both in the graph and in
-     * the read. Determines the best score that can be obtained by chaining
-     * extensions together, using the given gap open and gap extend penalties
-     * to charge for the longer of read or graph gaps between gapless
-     * extensions.
+     * Chain up the given group of gapless extensions. Determines the best
+     * score and traceback that can be obtained by chaining extensions
+     * together, using the given gap open and gap extend penalties to charge
+     * for either overlaps or gaps in coverage of the read.
+     *
+     * Overlaps are charged only gap open/extend penalties; multiple matches to
+     * the same read base are scored as matches.
+     *
+     * Overlaps may result in one gapless extension containing another.
      *
      * Input gapless extensions must be sorted by start position in the read.
      *
      * Returns the score and the list of indexes of gapless extensions visited
-     * to achieve that score.
+     * to achieve that score, in order.
      *
      * TODO: Right now this does not do any graph reachability or distance
      * queries and only thinks about gaps in the read.

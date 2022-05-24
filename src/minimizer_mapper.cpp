@@ -3637,6 +3637,9 @@ int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<Ga
                 
                 // Stick it in the overlap heap
                 overlap_heap.emplace(encoded_overlap_score, extended_seeds[unentered].read_interval.second);
+#ifdef debug_chaining
+                cerr << "Overlap encoded as " << encoded_overlap_score << " available until " << extended_seeds[unentered].read_interval.second << endl;
+#endif
                 
                 // Add it to the end finding heap
                 end_heap.emplace(extended_seeds[unentered].read_interval.second, unentered);
@@ -3684,7 +3687,10 @@ static const size_t& source(const score_table_t& item) {
 }
 /// Print operator
 static ostream& operator<<(ostream& out, const score_table_t& value) {
-    return (out << score(value) << " from " << source(value));
+    if (source(value) == NOWHERE) {
+        return out << score(value) << " from nowhere";
+    }
+    return out << score(value) << " from " << source(value);
 }
 /// Max in a score from a DP table. If it wins, record provenance.
 static void max_in(score_table_t& dest, const vector<score_table_t>& options, size_t option_number) {
@@ -3694,6 +3700,12 @@ static void max_in(score_table_t& dest, const vector<score_table_t>& options, si
         score(dest) = score(option);
         source(dest) = option_number;
     }
+}
+/// Get a score from a table and record provenance in it.
+static score_table_t score_from(const vector<score_table_t>& options, size_t option_number) {
+    score_table_t got = options[option_number];
+    source(got) = option_number;
+    return got;
 }
 /// Add (or remove) points along a route to somewhere. Return a modified copy.
 static score_table_t add_points(const score_table_t& item, int adjustment) {
@@ -3748,6 +3760,22 @@ pair<int, vector<size_t>> MinimizerMapper::chain_extension_group(const Alignment
         
         // And we're after the best score overall that we can reach when an extension ends
         score_table_t best_past_ending_score_ever = UNSET;
+        
+        // Overlaps are more complicated.
+        // We need a heap of all the extensions for which we have seen the
+        // start and that we can thus overlap.
+        // We filter things at the top of the heap if their past-end positions
+        // have occurred.
+        // So we store pairs of score we get backtracking to the current
+        // position, and past-end position for the thing we are backtracking
+        // from.
+        // We can just use the standard max-heap comparator.
+        priority_queue<pair<score_table_t, size_t>> overlap_heap;
+        
+        // We encode the score relative to a counter that we increase by the
+        // gap extend every base we go through, so we don't need to update and
+        // re-sort the heap.
+        int overlap_score_offset = 0;
         
         while(next_unswept <= aln.sequence().size()) {
             // We are processed through the position before next_unswept.
@@ -3804,6 +3832,28 @@ pair<int, vector<size_t>> MinimizerMapper::chain_extension_group(const Alignment
                 break;
             }
             
+            // Update the overlap score offset by removing some gap extends from it.
+            overlap_score_offset += sweep_distance * gap_extend_penalty;
+            
+            // The best way to backtrack to here is whatever is on top of the heap, if anything, that doesn't past-end here.
+            score_table_t best_overlap_score = UNSET;
+            while (!overlap_heap.empty()) {
+                // While there is stuff on the heap
+                if (overlap_heap.top().second <= sweep_line) {
+                    // We are already past this thing, so drop it
+                    overlap_heap.pop();
+                } else {
+                    // This is at the top of the heap and we aren't past it
+                    // Decode and use its score offset if we only backtrack to here.
+                    best_overlap_score = add_points(overlap_heap.top().first, overlap_score_offset);
+                    // Stop looking in the heap
+                    break;
+                }
+            }
+#ifdef debug_chaining
+            cerr << "Best score of overlapping back to here: " << best_overlap_score << endl;
+#endif
+            
             // The best way to end 1 before here in a gap is either:
             
             if (best_gap_score != UNSET) {
@@ -3822,9 +3872,30 @@ pair<int, vector<size_t>> MinimizerMapper::chain_extension_group(const Alignment
                 // For each thing that starts here
                 
                 // Compute its chain score
-                best_chain_score[unentered] = add_points(std::max(best_gap_score, best_past_ending_score_here), extended_seeds[unentered].score);
+                best_chain_score[unentered] = add_points(
+                    std::max(best_overlap_score,
+                             std::max(best_gap_score,
+                                      best_past_ending_score_here)),
+                    extended_seeds[unentered].score);
 #ifdef debug_chaining
                 cerr << "Best score of chain ending in extension " << unentered << ": " << best_chain_score[unentered] << endl;
+#endif
+                
+                // Compute its backtrack-to-here score and add it to the backtracking heap
+                // We want how far we would have had to have backtracked to be
+                // able to preceed the base we are at now, where this thing
+                // starts. That's a gap open for the last base, and then an
+                // extend for each base before it.
+                size_t extension_length = extended_seeds[unentered].read_interval.second - extended_seeds[unentered].read_interval.first - 1;
+                score_table_t raw_overlap_score = add_points(
+                    score_from(best_chain_score, unentered),
+                    -gap_open_penalty - gap_extend_penalty * extension_length);
+                score_table_t encoded_overlap_score = add_points(raw_overlap_score, -overlap_score_offset);
+                
+                // Stick it in the overlap heap
+                overlap_heap.emplace(encoded_overlap_score, extended_seeds[unentered].read_interval.second);
+#ifdef debug_chaining
+                cerr << "Overlap encoded as " << encoded_overlap_score << " available until " << extended_seeds[unentered].read_interval.second << endl;
 #endif
                 
                 // Add it to the end finding heap
@@ -3846,9 +3917,22 @@ pair<int, vector<size_t>> MinimizerMapper::chain_extension_group(const Alignment
         // Now we need to trace back.
         vector<size_t> traceback;
         size_t here = source(best_past_ending_score_ever);
+#ifdef debug_chaining
+        cerr << "Chain ends at #" << here << " at " << extended_seeds[here].read_interval.first << "-" << extended_seeds[here].read_interval.second << " with score " << best_past_ending_score_ever << endl;
+#endif
         while(here != NOWHERE) {
             traceback.push_back(here);
+#ifdef debug_chaining
+            cerr << "Which gets score " << best_chain_score[here] << endl;
+#endif
             here = source(best_chain_score[here]);
+#ifdef debug_chaining
+            if (here != NOWHERE) {
+                cerr << "And comes after #" << here << " at " << extended_seeds[here].read_interval.first << "-" << extended_seeds[here].read_interval.second << endl;
+            } else {
+                cerr << "And is first" << endl;
+            }
+#endif
         }
         // Flip it around front-ways
         std::reverse(traceback.begin(), traceback.end());
