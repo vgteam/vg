@@ -383,7 +383,8 @@ cerr << "Add all seeds to nodes: " << endl;
                 }
                 seed.distance_left = is_reversed_in_parent != is_rev(pos) ? node_length- get_offset(pos) : get_offset(pos) + 1;
                 seed.distance_right = is_reversed_in_parent != is_rev(pos) ? get_offset(pos) + 1 : node_length- get_offset(pos);
-                chain_to_children_by_level[depth].add_child(parent_index, node_net_handle, read_num, i, seed.distance_left);
+                chain_to_children_by_level[depth].add_child(parent_index, node_net_handle, read_num, i, 
+                              std::get<3>(seed.minimizer_cache), SnarlDistanceIndex::sum({prefix_sum, seed.distance_left}));
 
 
             } else {
@@ -505,7 +506,9 @@ cerr << "Add all seeds to nodes: " << endl;
                                 }
                                 //In "if we haven't seen the greatgrandparent chain before, add the parent
                                 //snarl to it the grandparent chain
-                                chain_to_children_by_level[depth-1].add_child(greatgrandparent_index, grandparent_snarl, grandparent_index, std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
+                                chain_to_children_by_level[depth-1].add_child(greatgrandparent_index, grandparent_snarl, 
+                                        grandparent_index, std::numeric_limits<size_t>::max(), 
+                                        start_component, prefix_sum);
                             } else {
                                 grandparent_index = tree_state.net_handle_to_index[grandparent_snarl];
                             }
@@ -663,7 +666,7 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
 
     //Go through chain_to_children, which is a vector of chain, child pairs. Start by sorting by parent chain
     tree_state.chain_to_children->sort(distance_index);
-    vector<tuple<size_t, net_handle_t, size_t, size_t, size_t>>& chain_to_children = tree_state.chain_to_children->parent_to_children;
+    vector<tuple<size_t, net_handle_t, size_t, size_t, size_t, size_t>>& chain_to_children = tree_state.chain_to_children->parent_to_children;
 
     if (chain_to_children.empty()) {
         return;
@@ -677,7 +680,7 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
 
     for (size_t chain_child_i = 0 ; chain_child_i < chain_to_children.size() ; chain_child_i++) {
 
-        const std::tuple<size_t, net_handle_t, size_t, size_t, size_t>& parent_to_child_tuple = chain_to_children.at(chain_child_i);
+        const std::tuple<size_t, net_handle_t, size_t, size_t, size_t, size_t>& parent_to_child_tuple = chain_to_children.at(chain_child_i);
 
         //Add the current chain
         size_t chain_index = std::get<0>(parent_to_child_tuple);
@@ -754,8 +757,20 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
                     } else {
                         grandparent_index = tree_state.net_handle_to_index[grandparent_chain];
                     }
+                    auto& snarl_clusters = tree_state.all_node_clusters[parent_index];
+                    if (!snarl_clusters.set_chain_components) {
+                        snarl_clusters.set_chain_components = true;
+                        snarl_clusters.chain_component_start = distance_index.get_chain_component(snarl_clusters.start_in);
+                        snarl_clusters.chain_component_end = distance_index.get_chain_component(snarl_clusters.end_in);
+                    } 
+                    if (snarl_clusters.prefix_sum_value == std::numeric_limits<size_t>::max()) {
+                        snarl_clusters.prefix_sum_value = SnarlDistanceIndex::sum({
+                                distance_index.get_prefix_sum_value(snarl_clusters.start_in),
+                                distance_index.minimum_length(snarl_clusters.start_in)});
+                    }
                     tree_state.parent_chain_to_children->add_child(grandparent_index, parent, 
-                            parent_index, std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max());
+                            parent_index, std::numeric_limits<size_t>::max(), snarl_clusters.chain_component_start,
+                            snarl_clusters.prefix_sum_value);
                 }
             }
             current_chain_children.clear();
