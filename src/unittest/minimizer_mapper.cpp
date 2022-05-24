@@ -146,8 +146,8 @@ TEST_CASE("MinimizerMapper::score_extension_group scores a backtrack correctly w
     }
     auto to_score = fake_extensions(plan);
     auto aln = fake_alignment(to_score);
-    // We should get a 1-base extension, a 30-base extension, a backtrack of 4, and a 45-base extension
-    REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == (1 + 30 + 45 - 6 - 3));
+    // We should get a 1-base extension, a 30-base extension, a backtrack of 3, and a 45-base extension
+    REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == (1 + 30 + 45 - 6 - 2));
 }
 
 TEST_CASE("MinimizerMapper::score_extension_group scores a backtrack correctly when even more overlapping extensions exist", "[giraffe][mapping][score_extension_group]") {
@@ -160,8 +160,8 @@ TEST_CASE("MinimizerMapper::score_extension_group scores a backtrack correctly w
     }
     auto to_score = fake_extensions(plan);
     auto aln = fake_alignment(to_score);
-    // We should get a 1-base extension, a 30-base extension, a backtrack of 4, and a 45-base extension
-    REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == (1 + 30 + 45 - 6 - 3));
+    // We should get a 1-base extension, a 30-base extension, a backtrack of 3, and a 45-base extension
+    REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == (1 + 30 + 45 - 6 - 2));
 }
 
 
@@ -271,9 +271,9 @@ TEST_CASE("MinimizerMapper::chain_extension_group chains a backtrack correctly w
     }
     auto to_score = fake_extensions(plan);
     auto aln = fake_alignment(to_score);
-    // We should get a 1-base extension, a 30-base extension, a backtrack of 4, and a 45-base extension
+    // We should get a 1-base extension, a 30-base extension, a backtrack of 3, and a 45-base extension
     auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1);
-    REQUIRE(result.first == (1 + 30 + 45 - 6 - 3));
+    REQUIRE(result.first == (1 + 30 + 45 - 6 - 2));
     REQUIRE(to_score.at(result.second.at(0)).read_interval.first == 0);
     REQUIRE(to_score.at(result.second.at(1)).read_interval.first == 1);
     REQUIRE(to_score.at(result.second.at(2)).read_interval.first == 28);
@@ -289,9 +289,9 @@ TEST_CASE("MinimizerMapper::chain_extension_group chains a backtrack correctly w
     }
     auto to_score = fake_extensions(plan);
     auto aln = fake_alignment(to_score);
-    // We should get a 1-base extension, a 30-base extension, a backtrack of 4, and a 45-base extension
+    // We should get a 1-base extension, a 30-base extension, a backtrack of 3, and a 45-base extension
     auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1);
-    REQUIRE(result.first == (1 + 30 + 45 - 6 - 3));
+    REQUIRE(result.first == (1 + 30 + 45 - 6 - 2));
     REQUIRE(to_score.at(result.second.at(0)).read_interval.first == 0);
     REQUIRE(to_score.at(result.second.at(1)).read_interval.first == 1);
     REQUIRE(to_score.at(result.second.at(2)).read_interval.first == 28);

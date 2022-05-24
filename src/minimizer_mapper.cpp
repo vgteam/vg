@@ -3463,7 +3463,7 @@ void MinimizerMapper::score_cluster_old(Cluster& cluster, size_t i, const std::v
 
 //-----------------------------------------------------------------------------
 
-#define debug_chaining
+//#define debug_chaining
 
 int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<GaplessExtension>& extended_seeds,
     int gap_open_penalty, int gap_extend_penalty) {
@@ -3622,7 +3622,6 @@ int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<Ga
                 // Compute its chain score
                 best_chain_score[unentered] = std::max(best_overlap_score,
                     std::max(best_gap_score, best_past_ending_score_here)) + extended_seeds[unentered].score;
-                    
 #ifdef debug_chaining
                 cerr << "Best score of chain ending in extension " << unentered << ": " << best_chain_score[unentered] << endl;
 #endif
@@ -3683,6 +3682,10 @@ static size_t& source(score_table_t& item) {
 static const size_t& source(const score_table_t& item) {
     return item.second;
 }
+/// Print operator
+static ostream& operator<<(ostream& out, const score_table_t& value) {
+    return (out << score(value) << " from " << source(value));
+}
 /// Max in a score from a DP table. If it wins, record provenance.
 static void max_in(score_table_t& dest, const vector<score_table_t>& options, size_t option_number) {
     auto& option = options[option_number];
@@ -3691,7 +3694,8 @@ static void max_in(score_table_t& dest, const vector<score_table_t>& options, si
         score(dest) = score(option);
         source(dest) = option_number;
     }
-};/// Add (or remove) points along a route to somewhere. Return a modified copy.
+}
+/// Add (or remove) points along a route to somewhere. Return a modified copy.
 static score_table_t add_points(const score_table_t& item, int adjustment) {
     return {score(item) + adjustment, source(item)};
 }
@@ -3702,6 +3706,10 @@ pair<int, vector<size_t>> MinimizerMapper::chain_extension_group(const Alignment
                                                                  int gap_extend_penalty) {
     
     // TODO: Still needs graph reachability/distance measurements
+    
+#ifdef debug_chaining
+    cerr << "Chaining extension group of " << extended_seeds.size() << " extensions" << endl;
+#endif
     
     if (extended_seeds.empty()) {
         // TODO: We should never see an empty group of extensions
@@ -3762,6 +3770,9 @@ pair<int, vector<size_t>> MinimizerMapper::chain_extension_group(const Alignment
             sweep_line = min(min(next_seed_end, next_seed_start), (int64_t) aln.sequence().size());
             
             // So now we're only interested in things that happen at sweep_line.
+#ifdef debug_chaining
+            cerr << "Sweep to " << sweep_line << endl;
+#endif
             
             // Compute the distance from the previous sweep line position
             // Make sure to account for next_unswept's semantics as the next unswept base.
@@ -3780,6 +3791,9 @@ pair<int, vector<size_t>> MinimizerMapper::chain_extension_group(const Alignment
                 // Remove it from the end-tracking heap
                 end_heap.pop();
             }
+#ifdef debug_chaining
+            cerr << "Best score of an extension past-ending here: " << best_past_ending_score_here << endl;
+#endif
             
 
             // Pick between that and the best score overall
@@ -3800,12 +3814,18 @@ pair<int, vector<size_t>> MinimizerMapper::chain_extension_group(const Alignment
             // Best way to end 1 before here with an actual extension, plus the gap open part of the gap open penalty.
             // (Will never be taken over an actual adjacency)
             best_gap_score = std::max(UNSET, std::max(best_gap_score, add_points(best_past_ending_score_here, -(gap_open_penalty - gap_extend_penalty))));
+#ifdef debug_chaining
+            cerr << "Best score here but in a gap: " << best_gap_score << endl;
+#endif
             
             while (unentered < extended_seeds.size() && extended_seeds[unentered].read_interval.first == sweep_line) {
                 // For each thing that starts here
                 
                 // Compute its chain score
                 best_chain_score[unentered] = add_points(std::max(best_gap_score, best_past_ending_score_here), extended_seeds[unentered].score);
+#ifdef debug_chaining
+                cerr << "Best score of chain ending in extension " << unentered << ": " << best_chain_score[unentered] << endl;
+#endif
                 
                 // Add it to the end finding heap
                 end_heap.emplace(extended_seeds[unentered].read_interval.second, unentered);
@@ -3833,6 +3853,9 @@ pair<int, vector<size_t>> MinimizerMapper::chain_extension_group(const Alignment
         // Flip it around front-ways
         std::reverse(traceback.begin(), traceback.end());
         
+#ifdef debug_chaining
+        cerr << "Best score of chain overall: " << best_past_ending_score_ever << endl;
+#endif
         
         return std::make_pair(score(best_past_ending_score_ever), traceback);
     }
