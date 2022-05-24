@@ -3463,9 +3463,15 @@ void MinimizerMapper::score_cluster_old(Cluster& cluster, size_t i, const std::v
 
 //-----------------------------------------------------------------------------
 
+#define debug_chaining
+
 int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<GaplessExtension>& extended_seeds,
     int gap_open_penalty, int gap_extend_penalty) {
-        
+
+#ifdef debug_chaining
+    cerr << "Scoring extension group of " << extended_seeds.size() << " extensions" << endl;
+#endif
+
     if (extended_seeds.empty()) {
         // TODO: We should never see an empty group of extensions
         return 0;
@@ -3541,6 +3547,9 @@ int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<Ga
             sweep_line = min(min(next_seed_end, next_seed_start), (int64_t) aln.sequence().size());
             
             // So now we're only interested in things that happen at sweep_line.
+#ifdef debug_chaining
+            cerr << "Sweep to " << sweep_line << endl;
+#endif
             
             // Compute the distance from the previous sweep line position
             // Make sure to account for next_unswept's semantics as the next unswept base.
@@ -3559,7 +3568,9 @@ int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<Ga
                 // Remove it from the end-tracking heap
                 end_heap.pop();
             }
-            
+#ifdef debug_chaining
+            cerr << "Best score of an extension past-ending here: " << best_past_ending_score_here << endl;
+#endif
 
             // Mix that into the best score overall
             best_past_ending_score_ever = std::max(best_past_ending_score_ever, best_past_ending_score_here);
@@ -3587,6 +3598,9 @@ int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<Ga
                     break;
                 }
             }
+#ifdef debug_chaining
+            cerr << "Best score of overlapping back to here: " << best_overlap_score << endl;
+#endif
             
             // The best way to end 1 before here in a gap is either:
             
@@ -3598,6 +3612,9 @@ int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<Ga
             // Best way to end 1 before here with an actual extension, plus the gap open part of the gap open penalty.
             // (Will never be taken over an actual adjacency)
             best_gap_score = std::max(0, std::max(best_gap_score, best_past_ending_score_here - (gap_open_penalty - gap_extend_penalty)));
+#ifdef debug_chaining
+            cerr << "Best score here but in a gap: " << best_gap_score << endl;
+#endif
             
             while (unentered < extended_seeds.size() && extended_seeds[unentered].read_interval.first == sweep_line) {
                 // For each thing that starts here
@@ -3605,16 +3622,22 @@ int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<Ga
                 // Compute its chain score
                 best_chain_score[unentered] = std::max(best_overlap_score,
                     std::max(best_gap_score, best_past_ending_score_here)) + extended_seeds[unentered].score;
+                    
+#ifdef debug_chaining
+                cerr << "Best score of chain ending in extension " << unentered << ": " << best_chain_score[unentered] << endl;
+#endif
                 
                 // Compute its backtrack-to-here score and add it to the backtracking heap
                 // We want how far we would have had to have backtracked to be
                 // able to preceed the base we are at now, where this thing
-                // starts.
+                // starts. That's a gap extension of all the bases in the
+                // thing, and also a gap open, for a total gap size of one more
+                // than the length of the thing.
                 size_t extension_length = extended_seeds[unentered].read_interval.second - extended_seeds[unentered].read_interval.first;
                 int raw_overlap_score = best_chain_score[unentered] - gap_open_penalty - gap_extend_penalty * extension_length;
                 int encoded_overlap_score = raw_overlap_score - overlap_score_offset;
                 
-                // Stick it in the heap
+                // Stick it in the overlap heap
                 overlap_heap.emplace(encoded_overlap_score, extended_seeds[unentered].read_interval.second);
                 
                 // Add it to the end finding heap
@@ -3629,6 +3652,9 @@ int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<Ga
             next_unswept = sweep_line + 1;
         }
         
+#ifdef debug_chaining
+        cerr << "Best score of chain overall: " << best_past_ending_score_ever << endl;
+#endif
 
         // When we get here, we've seen the end of every extension and so we
         // have the best score at the end of any of them.

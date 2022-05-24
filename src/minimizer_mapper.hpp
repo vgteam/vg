@@ -512,9 +512,14 @@ protected:
      * gap open and gap extend penalties to charge for either overlaps or gaps
      * in coverage of the read.
      *
+     * Overlaps are charged only gap open/extend penalties; multiple matches to
+     * the same read base are scored as matches.
+     *
      * Enforces that overlaps cannot result in containment.
      *
      * Input extended seeds must be sorted by start position.
+     *
+     * TODO: Stop passing the alignment?
      */
     static int score_extension_group(const Alignment& aln, const vector<GaplessExtension>& extended_seeds,
         int gap_open_penalty, int gap_extend_penalty);
@@ -532,6 +537,11 @@ protected:
      *
      * Returns the score and the list of indexes of gapless extensions visited
      * to achieve that score.
+     *
+     * TODO: Right now this does not do any graph reachability or distance
+     * queries and only thinks about gaps in the read.
+     *
+     * TODO: Stop passing the alignment?
      */
     static pair<int, vector<size_t>> chain_extension_group(const Alignment& aln,
                                                            const vector<GaplessExtension>& extended_seeds,

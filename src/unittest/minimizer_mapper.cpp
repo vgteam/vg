@@ -25,143 +25,276 @@ public:
         : MinimizerMapper(gbwt_graph, minimizer_index, nullptr, distance_index, handle_graph){};
     using MinimizerMapper::MinimizerMapper;
     using MinimizerMapper::score_extension_group;
+    using MinimizerMapper::chain_extension_group;
     using MinimizerMapper::Minimizer;
     using MinimizerMapper::fragment_length_distr;
 };
 
-TEST_CASE("MinimizerMapper::score_extension_group works", "[giraffe][mapping]") {
-
-    // Define an Alignment to score extensions against.
+/// Generate an Alignment that all the given extensions could be against the sequence of
+static Alignment fake_alignment(const vector<GaplessExtension>& extensions) {
+    
+    // Work out how many bases we need
+    size_t max_length = 0;
+    for (auto& extension : extensions) {
+        max_length = std::max(max_length, extension.read_interval.second);
+    }
+    // Generate them
+    stringstream s;
+    for (size_t i = 0; i < max_length; i++) {
+        s << "A";
+    }
+    
+    // Wrap in an Alignment
     Alignment aln;
-    aln.set_sequence("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-    
-    // Define a bunch of fake GaplessExtensions to chain up and score
+    aln.set_sequence(s.str());
+    return aln;
+}
+
+/// Turn inline test data of start and end positions and scores into GaplessExtensions
+static vector<GaplessExtension> fake_extensions(const vector<tuple<size_t, size_t, int>>& test_data) {
     vector<GaplessExtension> to_score;
-    
-    SECTION("Score of no gapless extensions is 0") {
-        REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 0);
+    for (auto& item : test_data) {
+        to_score.emplace_back();
+        to_score.back().read_interval = std::make_pair(get<0>(item), get<1>(item));
+        to_score.back().score = get<2>(item);
     }
     
-    SECTION("One-base extensions work") {
+    // Sort by read interval as is required
+    std::sort(to_score.begin(), to_score.end(), [](const GaplessExtension& a, const GaplessExtension& b) {
+        return (a.read_interval.first < b.read_interval.first) ||
+            (a.read_interval.first == b.read_interval.first && a.read_interval.second < b.read_interval.second);
+    });
     
-        to_score.emplace_back();
-        to_score.back().read_interval.first = 1;
-        to_score.back().read_interval.second = 2;
-        to_score.back().score = 1;
-        
-        SECTION("Score of a 1-base gapless extension is 1") {
-            REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 1);
-        }
-        
-        to_score.emplace_back();
-        to_score.back().read_interval.first = 2;
-        to_score.back().read_interval.second = 3;
-        to_score.back().score = 1;
-        
-        SECTION("Score of two adjacent 1-base gapless extensions is 2") {
-            REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 2);
-        }
-        
+    return to_score;
+}
+
+TEST_CASE("MinimizerMapper::score_extension_group scores no gapless extensions as 0", "[giraffe][mapping][score_extension_group]") {
+    auto to_score = fake_extensions({});
+    auto aln = fake_alignment(to_score);
+    REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 0);
+}
+
+TEST_CASE("MinimizerMapper::score_extension_group scores a 1-base gapless extension as 1", "[giraffe][mapping][score_extension_group]") {
+    auto to_score = fake_extensions({{1, 2, 1}});
+    auto aln = fake_alignment(to_score);
+    REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 1);
+}
+
+TEST_CASE("MinimizerMapper::score_extension_group scores two adjacent 1-base gapless extensions as 2", "[giraffe][mapping][score_extension_group]") {
+    auto to_score = fake_extensions({{1, 2, 1},
+                                     {2, 3, 1}});
+    auto aln = fake_alignment(to_score);
+    REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 2);
+}
+
+TEST_CASE("MinimizerMapper::score_extension_group scores one 9-base extension as 9", "[giraffe][mapping][score_extension_group]") {
+    auto to_score = fake_extensions({{1, 10, 9}});
+    auto aln = fake_alignment(to_score);
+    REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 9);
+}
+
+TEST_CASE("MinimizerMapper::score_extension_group scores two abutting 9-base extensions correctly", "[giraffe][mapping][score_extension_group]") {
+    auto to_score = fake_extensions({{1, 10, 9},
+                                     {10, 19, 9}});
+    auto aln = fake_alignment(to_score);
+    REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == (9 + 9));
+}
+
+TEST_CASE("MinimizerMapper::score_extension_group scores two 9-base extensions separated by a 1-base gap correctly", "[giraffe][mapping][score_extension_group]") {
+    auto to_score = fake_extensions({{1, 10, 9},
+                                     {11, 20, 9}});
+    auto aln = fake_alignment(to_score);
+    REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == (9 + 9 - 6));
+}
+
+TEST_CASE("MinimizerMapper::score_extension_group scores two 9-base extensions separated by a 2-base gap correctly", "[giraffe][mapping][score_extension_group]") {
+    auto to_score = fake_extensions({{1, 10, 9},
+                                     {12, 21, 9}});
+    auto aln = fake_alignment(to_score);
+    REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == (9 + 9 - 6 - 1));
+}
+
+TEST_CASE("MinimizerMapper::score_extension_group scores two 9-base extensions with a 1-base overlap correctly", "[giraffe][mapping][score_extension_group]") {
+    auto to_score = fake_extensions({{1, 10, 9},
+                                     {9, 18, 9}});
+    auto aln = fake_alignment(to_score);
+    REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == (9 + 9 - 6));
+}
+
+TEST_CASE("MinimizerMapper::score_extension_group scores two 9-base extensions with a 2-base overlap correctly", "[giraffe][mapping][score_extension_group]") {
+    auto to_score = fake_extensions({{1, 10, 9},
+                                     {8, 17, 9}});
+    auto aln = fake_alignment(to_score);
+    REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == (9 + 9 - 6 - 1));
+}
+
+TEST_CASE("MinimizerMapper::score_extension_group scores correctly when other overlapping extensions exist", "[giraffe][mapping][score_extension_group]") {
+    vector<tuple<size_t, size_t, int>> plan{{0, 1, 1}};
+    for (size_t i = 0; i < 35; i++) {
+        plan.emplace_back(i + 1, i + 1 + 30, 30);
     }
-    
-    SECTION("Longer extensions work") {
-    
-        to_score.emplace_back();
-        to_score.back().read_interval.first = 1;
-        to_score.back().read_interval.second = 10;
-        to_score.back().score = 9;
-        
-        SECTION("Score of one 9-base extension is 9") {
-            REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 9);
-        }
-        
-        to_score.emplace_back();
-        to_score.back().read_interval.first = 10;
-        to_score.back().read_interval.second = 19;
-        to_score.back().score = 9;
-        
-        SECTION("Score of two 9-base extensions abutting is 18") {
-            REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 18);
-        }
-        
-        to_score.back().read_interval.first++;
-        to_score.back().read_interval.second++;
-        
-        SECTION("Score of two 9-base extensions separated by a 1-base gap is 12") {
-            REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 12);
-        }
-        
-        to_score.back().read_interval.first++;
-        to_score.back().read_interval.second++;
-        
-        SECTION("Score of two 9-base extensions separated by a 2-base gap is 11") {
-            REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 11);
-        }
-        
-        to_score.back().read_interval.first -= 3;
-        to_score.back().read_interval.second -= 3;
-        
-        SECTION("Score of two 9-base extensions with a 1-base ovealap is 12") {
-            REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 11);
-        }
+    auto to_score = fake_extensions(plan);
+    auto aln = fake_alignment(to_score);
+    // We should get a 1-base extension and two 30-base extensions
+    REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == (1 + 30 + 30));
+}
+
+TEST_CASE("MinimizerMapper::score_extension_group scores a backtrack correctly when other overlapping extensions exist", "[giraffe][mapping][score_extension_group]") {
+    vector<tuple<size_t, size_t, int>> plan{{0, 1, 1}, {28, 28 + 45, 45}};
+    for (size_t i = 0; i < 35; i++) {
+        plan.emplace_back(i + 1, i + 1 + 30, 30);
     }
-    
-    SECTION("Many possibly overlapping extensions work") {
-    
-        to_score.emplace_back();
-        to_score.back().read_interval.first = 0;
-        to_score.back().read_interval.second = 1;
-        to_score.back().score = 1;
-    
-        for (size_t i = 0; i < 35; i++) {
-        
-            to_score.emplace_back();
-            to_score.back().read_interval.first = i + 1;
-            to_score.back().read_interval.second = i + 1 + 30;
-            to_score.back().score = 30;
-        
-        }
-    
-        
-        
-        SECTION("Score of one 1-base extensions and 2 30-base extensions is 61") {
-            REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 61);
-        }
-        
-        to_score.emplace_back();
-        to_score.back().read_interval.first = 28;
-        to_score.back().read_interval.second = 28 + 45;
-        to_score.back().score = 45;
-        
-        // Sort by read interval as is required
-        std::sort(to_score.begin(), to_score.end(), [](const GaplessExtension& a, const GaplessExtension& b) {
-            return (a.read_interval.first < b.read_interval.first) ||
-                (a.read_interval.first == b.read_interval.first && a.read_interval.second < b.read_interval.second);
-        });
-        
-        SECTION("Score of one 1-base extension, a 30-base extension, a backtrack of 4, and a 45-base extension is correct") {
-            REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == (31 + 45 - 6 - 3));
-        }
-        
-        
-        for (size_t i = 3; i < 29; i++) {
-             to_score.emplace_back();
-            to_score.back().read_interval.first = i;
-            to_score.back().read_interval.second = i + 15;
-            to_score.back().score = 15;
-        }
-        
-        // Sort by read interval as is required
-        std::sort(to_score.begin(), to_score.end(), [](const GaplessExtension& a, const GaplessExtension& b) {
-            return (a.read_interval.first < b.read_interval.first) ||
-                (a.read_interval.first == b.read_interval.first && a.read_interval.second < b.read_interval.second);
-        });
-        
-        SECTION("Score of one 1-base extension, a 30-base extension, a backtrack of 4, and a 45-base extension is not distracted") {
-            REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == (31 + 45 - 6 - 3));
-        }
-    
+    auto to_score = fake_extensions(plan);
+    auto aln = fake_alignment(to_score);
+    // We should get a 1-base extension, a 30-base extension, a backtrack of 4, and a 45-base extension
+    REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == (1 + 30 + 45 - 6 - 3));
+}
+
+TEST_CASE("MinimizerMapper::score_extension_group scores a backtrack correctly when even more overlapping extensions exist", "[giraffe][mapping][score_extension_group]") {
+    vector<tuple<size_t, size_t, int>> plan{{0, 1, 1}, {28, 28 + 45, 45}};
+    for (size_t i = 0; i < 35; i++) {
+        plan.emplace_back(i + 1, i + 1 + 30, 30);
     }
+    for (size_t i = 3; i < 29; i++) {
+        plan.emplace_back(i, i + 15, 15);
+    }
+    auto to_score = fake_extensions(plan);
+    auto aln = fake_alignment(to_score);
+    // We should get a 1-base extension, a 30-base extension, a backtrack of 4, and a 45-base extension
+    REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == (1 + 30 + 45 - 6 - 3));
+}
+
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains no gapless extensions as 0", "[giraffe][mapping][chain_extension_group]") {
+    auto to_score = fake_extensions({});
+    auto aln = fake_alignment(to_score);
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1);
+    REQUIRE(result.first == 0);
+    REQUIRE(result.second.size() == 0);
+}
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains a 1-base gapless extension as 1", "[giraffe][mapping][chain_extension_group]") {
+    auto to_score = fake_extensions({{1, 2, 1}});
+    auto aln = fake_alignment(to_score);
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1);
+    REQUIRE(result.first == 1);
+    REQUIRE(result.second.at(0) == 0);
+}
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains two adjacent 1-base gapless extensions as 2", "[giraffe][mapping][chain_extension_group]") {
+    auto to_score = fake_extensions({{1, 2, 1},
+                                     {2, 3, 1}});
+    auto aln = fake_alignment(to_score);
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1);
+    REQUIRE(result.first == 2);
+    REQUIRE(result.second.at(0) == 0);
+    REQUIRE(result.second.at(1) == 1);
+}
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains one 9-base extension as 9", "[giraffe][mapping][chain_extension_group]") {
+    auto to_score = fake_extensions({{1, 10, 9}});
+    auto aln = fake_alignment(to_score);
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1);
+    REQUIRE(result.first == 9);
+    REQUIRE(result.second.at(0) == 0);
+}
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains two abutting 9-base extensions correctly", "[giraffe][mapping][chain_extension_group]") {
+    auto to_score = fake_extensions({{1, 10, 9},
+                                     {10, 19, 9}});
+    auto aln = fake_alignment(to_score);
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1);
+    REQUIRE(result.first == (9 + 9));
+    REQUIRE(result.second.at(0) == 0);
+    REQUIRE(result.second.at(1) == 1);
+}
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains two 9-base extensions separated by a 1-base gap correctly", "[giraffe][mapping][chain_extension_group]") {
+    auto to_score = fake_extensions({{1, 10, 9},
+                                     {11, 20, 9}});
+    auto aln = fake_alignment(to_score);
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1);
+    REQUIRE(result.first == (9 + 9 - 6));
+    REQUIRE(result.second.at(0) == 0);
+    REQUIRE(result.second.at(1) == 1);
+}
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains two 9-base extensions separated by a 2-base gap correctly", "[giraffe][mapping][chain_extension_group]") {
+    auto to_score = fake_extensions({{1, 10, 9},
+                                     {12, 21, 9}});
+    auto aln = fake_alignment(to_score);
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1);
+    REQUIRE(result.first == (9 + 9 - 6 - 1));
+    REQUIRE(result.second.at(0) == 0);
+    REQUIRE(result.second.at(1) == 1);
+}
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains two 9-base extensions with a 1-base overlap correctly", "[giraffe][mapping][chain_extension_group]") {
+    auto to_score = fake_extensions({{1, 10, 9},
+                                     {9, 18, 9}});
+    auto aln = fake_alignment(to_score);
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1);
+    REQUIRE(result.first == (9 + 9 - 6));
+    REQUIRE(result.second.at(0) == 0);
+    REQUIRE(result.second.at(1) == 1);
+}
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains two 9-base extensions with a 2-base overlap correctly", "[giraffe][mapping][chain_extension_group]") {
+    auto to_score = fake_extensions({{1, 10, 9},
+                                     {8, 17, 9}});
+    auto aln = fake_alignment(to_score);
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1);
+    REQUIRE(result.first == (9 + 9 - 6 - 1));
+    REQUIRE(result.second.at(0) == 0);
+    REQUIRE(result.second.at(1) == 1);
+}
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains correctly when other overlapping extensions exist", "[giraffe][mapping][chain_extension_group]") {
+    vector<tuple<size_t, size_t, int>> plan{{0, 1, 1}};
+    for (size_t i = 0; i < 35; i++) {
+        plan.emplace_back(i + 1, i + 1 + 30, 30);
+    }
+    auto to_score = fake_extensions(plan);
+    auto aln = fake_alignment(to_score);
+    // We should get a 1-base extension and two 30-base extensions
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1);
+    REQUIRE(result.first == (1 + 30 + 30));
+    REQUIRE(to_score.at(result.second.at(0)).read_interval.first == 0);
+    REQUIRE(to_score.at(result.second.at(1)).read_interval.first == 1);
+    REQUIRE(to_score.at(result.second.at(2)).read_interval.first == 31);
+}
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains a backtrack correctly when other overlapping extensions exist", "[giraffe][mapping][chain_extension_group]") {
+    vector<tuple<size_t, size_t, int>> plan{{0, 1, 1}, {28, 28 + 45, 45}};
+    for (size_t i = 0; i < 35; i++) {
+        plan.emplace_back(i + 1, i + 1 + 30, 30);
+    }
+    auto to_score = fake_extensions(plan);
+    auto aln = fake_alignment(to_score);
+    // We should get a 1-base extension, a 30-base extension, a backtrack of 4, and a 45-base extension
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1);
+    REQUIRE(result.first == (1 + 30 + 45 - 6 - 3));
+    REQUIRE(to_score.at(result.second.at(0)).read_interval.first == 0);
+    REQUIRE(to_score.at(result.second.at(1)).read_interval.first == 1);
+    REQUIRE(to_score.at(result.second.at(2)).read_interval.first == 28);
+}
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains a backtrack correctly when even more overlapping extensions exist", "[giraffe][mapping][chain_extension_group]") {
+    vector<tuple<size_t, size_t, int>> plan{{0, 1, 1}, {28, 28 + 45, 45}};
+    for (size_t i = 0; i < 35; i++) {
+        plan.emplace_back(i + 1, i + 1 + 30, 30);
+    }
+    for (size_t i = 3; i < 29; i++) {
+        plan.emplace_back(i, i + 15, 15);
+    }
+    auto to_score = fake_extensions(plan);
+    auto aln = fake_alignment(to_score);
+    // We should get a 1-base extension, a 30-base extension, a backtrack of 4, and a 45-base extension
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1);
+    REQUIRE(result.first == (1 + 30 + 45 - 6 - 3));
+    REQUIRE(to_score.at(result.second.at(0)).read_interval.first == 0);
+    REQUIRE(to_score.at(result.second.at(1)).read_interval.first == 1);
+    REQUIRE(to_score.at(result.second.at(2)).read_interval.first == 28);
 }
 
 TEST_CASE("Fragment length distribution gets reasonable value", "[giraffe][mapping]") {
