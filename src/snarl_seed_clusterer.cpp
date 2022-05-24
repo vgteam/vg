@@ -681,7 +681,6 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
 
         //Add the current chain
         size_t chain_index = std::get<0>(parent_to_child_tuple);
-        net_handle_t chain_handle = tree_state.all_node_clusters[chain_index].containing_net_handle;
         current_chain_children.emplace_back(std::get<1>(parent_to_child_tuple),
                                             std::get<2>(parent_to_child_tuple),
                                             std::get<3>(parent_to_child_tuple));
@@ -694,6 +693,7 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
         if (chain_child_i == chain_to_children.size() -1 || std::get<0>(chain_to_children[chain_child_i+1]) != chain_index) {
             //If this is the last child of the current chain, then cluster it
 
+            net_handle_t chain_handle = tree_state.all_node_clusters[chain_index].containing_net_handle;
 #ifdef DEBUG_CLUSTER
             cerr << "Cluster one chain " <<  distance_index.net_handle_as_string(chain_handle) << endl;
 #endif
