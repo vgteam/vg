@@ -3630,10 +3630,9 @@ int MinimizerMapper::score_extension_group(const Alignment& aln, const vector<Ga
                 // Compute its backtrack-to-here score and add it to the backtracking heap
                 // We want how far we would have had to have backtracked to be
                 // able to preceed the base we are at now, where this thing
-                // starts. That's a gap extension of all the bases in the
-                // thing, and also a gap open, for a total gap size of one more
-                // than the length of the thing.
-                size_t extension_length = extended_seeds[unentered].read_interval.second - extended_seeds[unentered].read_interval.first;
+                // starts. That's a gap open for the last base, and then an
+                // extend for each base before it.
+                size_t extension_length = extended_seeds[unentered].read_interval.second - extended_seeds[unentered].read_interval.first - 1;
                 int raw_overlap_score = best_chain_score[unentered] - gap_open_penalty - gap_extend_penalty * extension_length;
                 int encoded_overlap_score = raw_overlap_score - overlap_score_offset;
                 
