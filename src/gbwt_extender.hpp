@@ -209,41 +209,61 @@ public:
 
 //------------------------------------------------------------------------------
 
-// FIXME document
+/**
+ * An alignment found by WFAAligner, consisting of a sequence of nodes, a sequence
+ * of edits, and a starting offset in the initial node. The alignment score is
+ * computed using the match / mismatch / gap open / gap extend parameters in the
+ * Aligner object given to the WFAAligner. Full-length bonuses are not used.
+ *
+ * Note: The aligner merges consecutive edit operations of the same type. Hence an
+ * edit may span multiple nodes.
+ */
 struct WFAAlignment {
     enum Edit { match, mismatch, insertion, deletion };
 
-    // Sequence of oriented nodes.
+    /// Sequence of oriented nodes.
     std::vector<handle_t> path;
 
-    // Sequence of edit operations and their lengths. Note that an edit may cover
-    // multiple nodes.
+    /// Sequence of edit operations and their lengths.
     std::vector<std::pair<Edit, uint32_t>> edits;
 
-    // Offset in the initial node.
+    /// Starting offset in the initial node.
     uint32_t node_offset = 0;
 
-    // Offset in the sequence.
+    /// Starting offset in the sequence.
     uint32_t seq_offset = 0;
 
-    // Length of the alignment in the sequence.
+    /// Length of the alignment in the sequence.
     uint32_t length = 0;
 
-    // Alignment score.
+    /// Alignment score.
     int32_t score = 0;
 
+    /// Returns true if the alignment is empty.
     bool empty() const { return (this->length == 0); }
 
-    // Transforms the alignment to the other strand.
+    /// Computes the node offset after the alignment in the final node.
+    uint32_t final_offset(const gbwtgraph::GBWTGraph& graph) const;
+
+    /// Transforms the alignment to the other strand.
     void flip(const gbwtgraph::GBWTGraph& graph, const std::string& sequence);
+
+    /// Appends an edit operation, merging it with the latest edit if possible.
+    /// Ignores empty edits.
+    void append(Edit edit, uint32_t length);
 };
 
 //------------------------------------------------------------------------------
 
 /**
- * A class that supports haplotype-consistent seed extension using GBWTGraph using the
- * WFA algorithm. The algorithm either tries to connect two seeds or extends a seed to
- * the start/end of the read.
+ * A class that supports haplotype-consistent seed extension in a GBWTGraph using the
+ * WFA algorithm:
+ *
+ *   Marco-Sola, Moure, Moreto, Espinosa: Fast gap-affine pairwise alignment using the
+ *   wavefront algorithm. Bioinformatics, 2021.
+ *
+ * The algorithm either tries to connect two seeds or extends a seed to the start/end
+ * of the read.
  *
  * WFAExtender also needs an Aligner object for scoring the extension candidates.
  * While VG wants to maximize a four-parameter alignment score, WFA minimizes a

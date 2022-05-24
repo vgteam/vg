@@ -733,32 +733,44 @@ struct state_hash {
 
 //------------------------------------------------------------------------------
 
+uint32_t WFAAlignment::final_offset(const gbwtgraph::GBWTGraph& graph) const {
+    uint32_t final_offset = this->node_offset;
+    for (auto edit : this->edits) {
+        if (edit.first != WFAAlignment::insertion) {
+            final_offset += edit.second;
+        }
+    }
+    for (size_t i = 0; i + 1 < this->path.size(); i++) {
+        final_offset -= graph.get_length(this->path[i]);
+    }
+    return final_offset;
+}
+
 void WFAAlignment::flip(const gbwtgraph::GBWTGraph& graph, const std::string& sequence) {
     if (this->empty()) {
         return;
     }
 
     this->seq_offset = sequence.length() - this->seq_offset - this->length;
+    this->node_offset = graph.get_length(this->path.back()) - this->final_offset(graph);
 
-    // Find the node offset after the alignment and convert it to the starting offset
-    // of the reverse alignment.
-    uint32_t new_offset = this->node_offset;
-    for (auto edit : this->edits) {
-        if (edit.first != WFAAlignment::insertion) {
-            new_offset += edit.second;
-        }
-    }
-    for (size_t i = 0; i + 1 < this->path.size(); i++) {
-        new_offset -= graph.get_length(this->path[i]);
-    }
-    this->node_offset = graph.get_length(this->path.back()) - new_offset;
-
+    // Reverse the path and the edits.
     std::reverse(this->path.begin(), this->path.end());
     for (size_t i = 0; i < this->path.size(); i++) {
         this->path[i] = graph.flip(this->path[i]);
     }
-
     std::reverse(this->edits.begin(), this->edits.end());
+}
+
+void WFAAlignment::append(Edit edit, uint32_t length) {
+    if (length == 0) {
+        return;
+    }
+    if (this->edits.empty() || this->edits.back().first != edit) {
+        this->edits.push_back(std::make_pair(edit, length));
+    } else {
+        this->edits.back().second += length;
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -768,10 +780,6 @@ WFAExtender::WFAExtender() :
 {
 }
 
-// Scoring parameters are from:
-//   Eizenga, Paten:
-//   Improving the time and space complexity of the WFA algorithm and generalizing its scoring.
-//   bioRxiv, 2022.
 WFAExtender::WFAExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner) :
     graph(&graph), mask("ACGT"), aligner(&aligner)
 {
@@ -795,6 +803,18 @@ struct MatchPos {
     bool at_last_node() const { return (this->path.size() == 1); }
     uint32_t node() const { return this->path.top(); }
     void pop() { this->path.pop(); }
+
+    // Positions are ordered by sequence offsets. Empty positions are smaller than
+    // non-empty ones.
+    bool operator<(const MatchPos& another) {
+        if (this->empty()) {
+            return true;
+        }
+        if (another.empty()) {
+            return false;
+        }
+        return (this->seq_offset < another.seq_offset);
+    }
 
     // Returns the non-empty position further on the diagonal (on the sequence).
     static const MatchPos& max(const MatchPos& a, const MatchPos& b) {
@@ -991,17 +1011,13 @@ public:
             std::vector<uint32_t> leaves = this->get_leaves();
             // Note that we may do the same update from multiple leaves.
             for (uint32_t leaf : leaves) {
-                MatchPos ins_open = this->find_pos(WFANode::MATCHES, leaf, score - this->gap_open - this->gap_extend, diagonal - 1, true, false);
-                MatchPos ins_extend = this->find_pos(WFANode::INSERTIONS, leaf, score - this->gap_extend, diagonal - 1, true, false);
-                MatchPos ins = MatchPos::max(ins_open, ins_extend);
+                MatchPos ins = this->ins_predecessor(leaf, score, diagonal).first;
                 if (!ins.empty()) {
                     ins.seq_offset++;
                     this->nodes[ins.node()].update(WFANode::INSERTIONS, score, diagonal, ins);
                 }
 
-                MatchPos del_open = this->find_pos(WFANode::MATCHES, leaf, score - this->gap_open - this->gap_extend, diagonal + 1, false, true);
-                MatchPos del_extend = this->find_pos(WFANode::DELETIONS, leaf, score - this->gap_extend, diagonal + 1, false, true);
-                MatchPos del = MatchPos::max(del_open, del_extend);
+                MatchPos del = this->del_predecessor(leaf, score, diagonal).first;
                 if (!del.empty()) {
                     del.node_offset++;
                     this->nodes[del.node()].update(WFANode::DELETIONS, score, diagonal, del);
@@ -1035,6 +1051,53 @@ public:
                     this->propagate(subst, score, diagonal, WFANode::MATCHES);
                 }
             }
+        }
+    }
+
+    // Returns the predecessor position for the furthest reaching insertion for
+    // (score, diagonal) at the specified node or its ancestors, or an empty position
+    // if it does not exist. Also returns the type of the predecessor.
+    std::pair<MatchPos, WFAAlignment::Edit> ins_predecessor(uint32_t node, int32_t score, int32_t diagonal) const {
+        MatchPos open = this->find_pos(WFANode::MATCHES, node, score - this->gap_open - this->gap_extend, diagonal - 1, true, false);
+        MatchPos extend = this->find_pos(WFANode::INSERTIONS, node, score - this->gap_extend, diagonal - 1, true, false);
+        return (open < extend ? std::make_pair(extend, WFAAlignment::insertion) : std::make_pair(open, WFAAlignment::match));
+    }
+
+    // Returns the predecessor position for the furthest reaching deletion for
+    // (score, diagonal) at the specified node or its ancestors, or an empty position
+    // if it does not exist. Also returns the type of the predecessor.
+    std::pair<MatchPos, WFAAlignment::Edit> del_predecessor(uint32_t node, int32_t score, int32_t diagonal) const {
+        MatchPos open = this->find_pos(WFANode::MATCHES, node, score - this->gap_open - this->gap_extend, diagonal + 1, false, true);
+        MatchPos extend = this->find_pos(WFANode::DELETIONS, node, score - this->gap_extend, diagonal + 1, false, true);
+        return (open < extend ? std::make_pair(extend, WFAAlignment::deletion) : std::make_pair(open, WFAAlignment::match));
+    }
+
+    // Returns the predecessor position for the furthest reaching run of matches
+    // for (score, diagonal) at the specified node or its ancestors, or an empty
+    // position if it does not exist. Also returns the type of the predecessor.
+    std::pair<MatchPos, WFAAlignment::Edit> match_predecessor(uint32_t node, int32_t score, int32_t diagonal) const {
+        MatchPos ins = this->find_pos(WFANode::INSERTIONS, node, score, diagonal, false, false);
+        MatchPos del = this->find_pos(WFANode::DELETIONS, node, score, diagonal, false, false);
+        MatchPos subst = this->find_pos(WFANode::MATCHES, node, score - this->mismatch, diagonal, false, false);
+        if (!subst.empty()) {
+            subst.seq_offset++;
+            subst.node_offset++;
+        }
+
+        if (ins < del) {
+            return (del < subst ? std::make_pair(subst, WFAAlignment::mismatch) : std::make_pair(del, WFAAlignment::deletion));
+        } else {
+            return (ins < subst ? std::make_pair(subst, WFAAlignment::mismatch) : std::make_pair(ins, WFAAlignment::insertion));
+        }
+    }
+
+    // Updates the node and an offset in it to the predecessor offset.
+    void predecessor_offset(uint32_t& node, uint32_t& offset) const {
+        if (offset > 0) {
+            offset--;
+        } else {
+            node = this->parent(node);
+            offset = this->nodes[node].length(this->graph) - 1;
         }
     }
 
@@ -1185,11 +1248,11 @@ private:
 
 WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) const {
     if (this->graph == nullptr || this->aligner == nullptr || sequence.empty()) {
-        return;
+        return WFAAlignment();
     }
     gbwt::SearchState root_state = this->graph->get_state(this->graph->get_handle(id(from), is_rev(from)));
     if (root_state.empty()) {
-        return;
+        return WFAAlignment();
     }
     this->mask(sequence);
 
@@ -1229,7 +1292,7 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
     }
 
     // Start building an alignment.
-    WFAAlignment result { {}, {}, offset(from), 0, tree.candidate_point.seq_offset, tree.candidate_point.alignment_score(*(this->aligner)) };
+    WFAAlignment result { {}, {}, static_cast<uint32_t>(offset(from)), 0, tree.candidate_point.seq_offset, tree.candidate_point.alignment_score(*(this->aligner)) };
     if (tree.candidate_point.seq_offset == 0) {
         return result;
     }
@@ -1250,20 +1313,65 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
     node = tree.candidate_node;
     if (full_length && tree.candidate_point.seq_offset < sequence.length()) {
         uint32_t final_insertion = sequence.length() - tree.candidate_point.seq_offset;
-        result.edits.push_back(std::pair<WFAAlignment::Edit, uint32_t>(WFAAlignment::insertion, final_insertion));
+        result.append(WFAAlignment::insertion, final_insertion);
         point.score -= tree.gap_penalty(final_insertion);
     }
 
     // Backtrace the edits.
+    WFAAlignment::Edit edit = WFAAlignment::match;
     while (point.seq_offset > 0 || point.diagonal != 0) {
-        // FIXME
-        // find all the points that were used for calculating the position at the start of the run of matches
-        // predecessor is the one farthest on the diagonal
-        // determine the length of the match and the edit preceding it
-        // move to the predecessor
+        std::pair<MatchPos, WFAAlignment::Edit> predecessor;
+        switch (edit)
+        {
+        case WFAAlignment::match:
+            predecessor = tree.match_predecessor(node, point.score, point.diagonal);
+            result.append(WFAAlignment::match, point.seq_offset - predecessor.first.seq_offset);
+            point.seq_offset = predecessor.first.seq_offset;
+            point.node_offset = predecessor.first.node_offset;
+            node = predecessor.first.node();
+            edit = predecessor.second;
+            break;
+        case WFAAlignment::mismatch:
+            result.append(WFAAlignment::mismatch, 1);
+            point.seq_offset--;
+            tree.predecessor_offset(node, point.node_offset);
+            point.score -= tree.mismatch;
+            edit = WFAAlignment::match;
+            break;
+        case WFAAlignment::insertion:
+            predecessor = tree.ins_predecessor(node, point.score, point.diagonal);
+            result.append(WFAAlignment::insertion, 1);
+            point.seq_offset--;
+            if (predecessor.second == WFAAlignment::insertion) {
+                point.score -= tree.gap_extend;
+            } else {
+                point.score -= tree.gap_open + tree.gap_extend;
+            }
+            point.diagonal--;
+            edit = predecessor.second;
+            break;
+        case WFAAlignment::deletion:
+            predecessor = tree.del_predecessor(node, point.score, point.diagonal);
+            result.append(WFAAlignment::deletion, 1);
+            tree.predecessor_offset(node, point.node_offset);
+            if (predecessor.second == WFAAlignment::deletion) {
+                point.score -= tree.gap_extend;
+            } else {
+                point.score -= tree.gap_open + tree.gap_extend;
+            }
+            point.diagonal++;
+            edit = predecessor.second;
+            break;
+        }
     }
+    std::reverse(result.edits.begin(), result.edits.end());
 
-    // FIXME do not use the final node if we do not align to any bases in it
+    // Due to the way we expand the tree of GBWT search states and store wavefront
+    // information in the leaves, we sometimes do not use any bases in the final node.
+    // Deal with this now to avoid dealing with it later.
+    if (result.final_offset(*(this->graph)) == 0) {
+        result.path.pop_back();
+    }
 
     return result;
 }
@@ -1274,7 +1382,7 @@ WFAAlignment WFAExtender::suffix(const std::string& sequence, pos_t from) const 
 
 WFAAlignment WFAExtender::prefix(const std::string& sequence, pos_t to) const {
     if (this->graph == nullptr) {
-        return;
+        return WFAAlignment();
     }
 
     // Flip the position, extend forward, and reverse the return value.
