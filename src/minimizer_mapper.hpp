@@ -505,7 +505,31 @@ protected:
         const string& sequence, const string& quality_bytes,
         const vector<size_t>::iterator& disrupt_begin, const vector<size_t>::iterator& disrupt_end,
         size_t index);
-    
+        
+        
+    /// Return the amount by which the end of the left gapless extension is
+    /// past the position before the start of the right gapless extension.
+    /// Returns 0 if they do not actually overlap.
+    ///
+    /// Doesn't actually match the whole graph paths against each other; if
+    /// there's a handle where the left one ends and then the right one starts,
+    /// there's no overlap.
+    ///
+    /// Can return a number larger than the length of one extension if it is
+    /// contained in the other.
+    static size_t get_graph_overlap(const GaplessExtension& left,
+                                    const GaplessExtension& right,
+                                    const HandleGraph* graph);
+
+    /// Get the minimum graph distance between the end of the left gapless
+    /// extension and the position before the start of the right gapless
+    /// extension. Returns std::numeric_limits<size_t>::max() if there is no
+    /// route to take.
+    static size_t get_graph_distance(const GaplessExtension& left,
+                                     const GaplessExtension& right,
+                                     const SnarlDistanceIndex* distance_index,
+                                     const HandleGraph* graph);
+
     /**
      * Score the given group of gapless extensions. Determines the best score
      * that can be obtained by chaining extensions together, using the given
@@ -537,6 +561,10 @@ protected:
      *
      * Input gapless extensions must be sorted by start position in the read.
      *
+     * Optionally takes a distance index and a graph, and uses distances in the
+     * graph alogn with distances in the read to score transitions between
+     * gapless extensions.
+     *
      * Returns the score and the list of indexes of gapless extensions visited
      * to achieve that score, in order.
      *
@@ -548,7 +576,9 @@ protected:
     static pair<int, vector<size_t>> chain_extension_group(const Alignment& aln,
                                                            const vector<GaplessExtension>& extended_seeds,
                                                            int gap_open_penalty,
-                                                           int gap_extend_penalty);
+                                                           int gap_extend_penalty,
+                                                           const SnarlDistanceIndex* distance_index = nullptr,
+                                                           const HandleGraph* graph = nullptr);
     
     /**
      * Operating on the given input alignment, align the tails dangling off the

@@ -3712,12 +3712,133 @@ static score_table_t add_points(const score_table_t& item, int adjustment) {
     return {score(item) + adjustment, source(item)};
 }
 
+size_t MinimizerMapper::get_graph_overlap(const GaplessExtension& left,
+                                          const GaplessExtension& right,
+                                          const HandleGraph* graph) {
+                                          
+    
+    // We can't just use GaplessExtension::overlap() because we need to worry
+    // about containment, or the left thing actually starting after the right
+    // thing.
+    
+    // We also don't really care if they take different overall paths in the graph. We find overlap if a start node is shared.
+    
+    // This is the handle the right extension starts on
+    handle_t right_starts_on = right.path.front();
+    
+    // Scan back along the left path until we find the handle the right path starts on 
+    auto last_right_start_in_left = left.path.rbegin();
+    while (last_right_start_in_left != left.path.rend() && *last_right_start_in_left != right_starts_on) {
+        last_right_start_in_left++;
+    }
+    
+    if (last_right_start_in_left != left.path.rend()) {
+        // The right extension starts at some handle where the left extension also is.
+        
+        // Work out how many bases of the left extension are before that handle.
+        // We start with all the bases on the path.
+        size_t left_bases_before_shared_handle = 0;
+        auto it = last_right_start_in_left;
+        ++it;
+        if (it != left.path.rend()) {
+            // There are some left bases before the shared handle.
+            while (it != left.path.rend()) {
+                left_bases_before_shared_handle += graph->get_length(*it);
+                ++it;
+            }
+            // Since we have some bases, we back out the offset.
+            left_bases_before_shared_handle -= left.offset;
+            
+            // Work out how many bases of the left extension are on or after that handle
+            size_t left_bases_remaining = left.length() - left_bases_before_shared_handle;
+            
+            // Work out how many bases into the handle the right extension starts
+            size_t right_offset = right.offset;
+            
+            // Compute how many bases of the left extension the right extension
+            // starts at or before and return that.
+            if (left_bases_remaining <= right_offset) {
+                // They don't actually overlap
+                return 0;
+            } else {
+                // They overlap by however many bases the left extension goes into
+                // this handle past where the right extension starts.
+                return left_bases_remaining - right_offset;
+            }
+                
+        } else {
+            // The left extension actually starts on the shared handle where the right extension also starts. It might be completely before or completely after the right one actually.
+            size_t left_past_end = left.offset + left.length();
+            if (left_past_end <= right.offset) {
+                // Actually there's no overlap, left will end before right starts.
+                return 0;
+            } else {
+                // There's some overlap
+                return left_past_end - right.offset;
+            }
+        }
+    } else {
+        // The handle the right extension starts on doesn't actually exist in the left path.
+        // So the right extension either doesn't actually overlap, or else contains the left one.
+        // Or else the right extension starts somewhere else and reads into the left extension's path.
+        
+        // This is the handle the left extension starts on
+        handle_t left_starts_on = left.path.front();
+        
+        // So, find the earliest place the left extension's path could start in the right one
+        auto first_left_start_in_right = right.path.begin();
+        // And how many bases come before it along the left extension
+        size_t right_bases_before_shared_handle = 0;
+        while (first_left_start_in_right != right.path.end() && *first_left_start_in_right != left_starts_on) {
+            right_bases_before_shared_handle += graph->get_length(*first_left_start_in_right);
+            first_left_start_in_right++;
+        }
+        // Since we know the right path's start handle does not appear on the
+        // left path, we know we went through at least one handle and we can
+        // safely back out the offset.
+        right_bases_before_shared_handle -= right.offset;
+        
+        if (first_left_start_in_right != right.path.end()) {
+            // The left path actually does have its starting handle somewhere in the right path.
+            
+            // We know how many right path bases are before that handle.
+            // Then we add to that overlap the distance along the handle to the
+            // start of the left extension, and also the length of the left
+            // extension.
+            return right_bases_before_shared_handle + left.offset + left.length();
+        } else {
+            // Neither path has the start handle of the other.
+            // We could maybe come up with some notion of overlap between points along the paths, but we can't do it for the extensions as a whole.
+            // TODO: is this going to make the overall algorithm work well when these e.g. start/end on SNP nodes?
+            return 0;
+        }
+    }
+    
+}
+
+size_t MinimizerMapper::get_graph_distance(const GaplessExtension& left,
+                                           const GaplessExtension& right,
+                                           const SnarlDistanceIndex* distance_index,
+                                           const HandleGraph* graph) {
+    // Find where the left extension past-ends
+    Position left_past_end = left.tail_position(*graph);
+    // Find where the right one starts
+    Position right_start = right.starting_position(*graph);
+    // Get the oriented minimum distance from the index
+    size_t distance = distance_index->minimum_distance(
+        left_past_end.node_id(), left_past_end.is_reverse(), left_past_end.offset(),
+        right_start.node_id(), right_start.is_reverse(), right_start.offset(),
+        false, graph);
+    // And return it
+    return distance;
+}
+
 pair<int, vector<size_t>> MinimizerMapper::chain_extension_group(const Alignment& aln,
                                                                  const vector<GaplessExtension>& extended_seeds,
                                                                  int gap_open_penalty,
-                                                                 int gap_extend_penalty) {
-    
-    // TODO: Still needs graph reachability/distance measurements
+                                                                 int gap_extend_penalty,
+                                                                 const SnarlDistanceIndex* distance_index,
+                                                                 const HandleGraph* graph) {
     
 #ifdef debug_chaining
     cerr << "Chaining extension group of " << extended_seeds.size() << " extensions" << endl;
@@ -3871,11 +3992,128 @@ pair<int, vector<size_t>> MinimizerMapper::chain_extension_group(const Alignment
             while (unentered < extended_seeds.size() && extended_seeds[unentered].read_interval.first == sweep_line) {
                 // For each thing that starts here
                 
-                // Compute its chain score
+                // We want to compute how much we should charge to come from
+                // each place we could come from, and then come from the best
+                // one.
+                score_table_t overlap_option = best_overlap_score;
+                score_table_t gap_option = best_gap_score;
+                score_table_t here_option = best_past_ending_score_here;
+                
+                if (distance_index && graph) {
+                    // We have a distance index, so we might charge different
+                    // amounts for different transitions depending on the graph
+                    // distance between the extensions.
+                    
+                    // So we adjust the options we have bgased on where we are
+                    // coming from and where we are going to.
+                    
+                    // We could take:
+                    // An overlap from source(overlap_option):
+                    if (source(overlap_option) != NOWHERE) {
+                        // See whether and how much they overlap in the graph
+                        size_t graph_overlap = get_graph_overlap(extended_seeds[source(overlap_option)], extended_seeds[unentered], graph);
+                        // And also get the overlap in the read.
+                        size_t read_overlap = extended_seeds[source(overlap_option)].read_interval.second - extended_seeds[unentered].read_interval.first;
+                        if (graph_overlap > read_overlap) {
+                            // They overlap in the graph more than they do in the read.
+                            // We don't want to charge for the overlap in the read, we just want to charge for the additional overlap in the graph.
+                            // We have (read overlap - 1) extend penalties, and we want (graph overlap - read overlap - 1) of them.
+                            // (graph overlap - read overlap - 1) - (read overlap - 1) = graph overlap - 2 * read overlap
+                            // Which is how many penalties to charge
+                            overlap_option = add_points(overlap_option, -gap_extend_penalty * graph_overlap + gap_extend_penalty * 2 * read_overlap);
+                            // TODO: We need to not double-count the matches right?
+                            // When we go to synthesize an actual alignment we can cut out the double-matched area and match it only one place.
+                        } else if (graph_overlap == read_overlap) {
+                            // They overlap in the graph exactly as much as they do in the read.
+                            // Back out the whole read gap
+                            overlap_option = add_points(overlap_option, gap_open_penalty + gap_extend_penalty * (read_overlap - 1));
+                            // TODO: We need to not double-count the matches right?
+                        } else if (graph_overlap > 0) {
+                            // They overlap in the graph but less than they do in the read.
+                            // Back out some of the read gap
+                            overlap_option = add_points(overlap_option, gap_extend_penalty * (read_overlap - graph_overlap));
+                        } else {
+                            // They don't overlap in the graph at all; they might abut or be separated or be unreachable.
+                            
+                            // Compute the graph distance if they don't overlap in the graph
+                            size_t graph_distance = get_graph_distance(extended_seeds[source(overlap_option)],
+                                                                       extended_seeds[unentered],
+                                                                       distance_index,
+                                                                       graph);
+                            
+                            if (graph_distance == numeric_limits<size_t>::max()) {
+                                // We can't actually get between the relevant graph areas to do the overlap.
+                                // TODO: check if we can get between the points on either side of the overlapped area instead?
+                                // Right now just say we can't make this connection.
+                                overlap_option = UNSET;
+                            } else {
+                                // We need to charge for this extra graph distance being deleted, in addition to what we charge for the existing overlap gap.
+                                overlap_option = add_points(overlap_option, -gap_extend_penalty * graph_distance);
+                            }
+                        }
+                    }
+                    
+                    // A gap in the read from source(gap_option):
+                    if (source(gap_option) != NOWHERE) {
+                        // Compute the graph distance
+                        size_t graph_distance = get_graph_distance(extended_seeds[source(gap_option)],
+                                                                   extended_seeds[unentered],
+                                                                   distance_index,
+                                                                   graph);
+                        if (graph_distance == numeric_limits<size_t>::max()) {
+                            // This is actually unreachable in the graph.
+                            // So say we can't actually do this.
+                            gap_option = UNSET;
+                        } else {
+                            // Compare to the read distance
+                            size_t read_distance = extended_seeds[unentered].read_interval.first - extended_seeds[source(gap_option)].read_interval.second;
+                            if (graph_distance == read_distance) {
+                                // This is actually even length.
+                                // Charge nothing for the gap by backing out the penalty.
+                            } else if (graph_distance > read_distance) {
+                                // Graph distance is longer.
+                                // We have (read distance - 1) extend penalties, and we want (graph distance - read distance - 1) of them.
+                                // (graph distance - read distance - 1) - (read distance - 1) = graph distance - 2 * read distance
+                                // Which is how many penalties to charge
+                                gap_option = add_points(gap_option, -gap_extend_penalty * graph_distance + gap_extend_penalty * 2 * read_distance);
+                            } else {
+                                // Read distance is longer.
+                                // Back out extend penalties from the part of
+                                // the gap that the graph also has, leaving
+                                // only the remaining surplus read gap.
+                                gap_option = add_points(gap_option, gap_extend_penalty * graph_distance);
+                            }
+                        }
+                    }
+                    
+                    // An adjacency in the read from source(here_option):
+                    if (source(here_option) != NOWHERE) {
+                        // Compute the graph distance
+                        size_t graph_distance = get_graph_distance(extended_seeds[source(here_option)],
+                                                                   extended_seeds[unentered],
+                                                                   distance_index,
+                                                                   graph);
+                        if (graph_distance == numeric_limits<size_t>::max()) {
+                            // This is actually unreachable in the graph.
+                            // So say we can't actually do this.
+                            here_option = UNSET;
+                        } else if (graph_distance > 0) { 
+                            // There's a gap in the graph but not in the read.
+                            // Charge for the gap
+                            here_option = add_points(here_option, -gap_open_penalty - gap_extend_penalty * (graph_distance - 1));
+                        } else {
+                            // These abut in the read and the graph, so do nothing
+                        }
+                    }
+                    
+                }
+                
+                // Compute its chain score, allowing us to just start here also.
                 best_chain_score[unentered] = add_points(
-                    std::max(best_overlap_score,
-                             std::max(best_gap_score,
-                                      best_past_ending_score_here)),
+                    std::max(std::max(UNSET,
+                                      overlap_option),
+                             std::max(gap_option,
+                                      here_option)),
                     extended_seeds[unentered].score);
 #ifdef debug_chaining
                 cerr << "Best score of chain ending in extension " << unentered << ": " << best_chain_score[unentered] << endl;
