@@ -157,10 +157,10 @@ int main_gampcompare(int argc, char** argv) {
     }
     
     // A buffer we use for the TSV output
-    vector<vector<tuple<int64_t, bool, int64_t, string>>> buffers(get_thread_count());
+    vector<vector<tuple<int64_t, bool, int64_t, int64_t, string>>> buffers(get_thread_count());
     
     // We have an output function to dump all the reads in the text buffer in TSV
-    auto flush_buffer = [&](vector<tuple<int64_t, bool, int64_t, string>>& buffer) {
+    auto flush_buffer = [&](vector<tuple<int64_t, bool, int64_t, int64_t, string>>& buffer) {
         // We print exactly one header line.
         static bool header_printed = false;
         // Output TSV to standard out in the format plot-qq.R needs.
@@ -172,7 +172,7 @@ int main_gampcompare(int argc, char** argv) {
             else {
                 cout << "correct";
             }
-            cout << "\tmapped\tmq\taligner\tread" << endl;
+            cout << "\tmapped\tmq\tgroupmq\taligner\tread" << endl;
             header_printed = true;
         }
         for (auto& result : buffer) {
@@ -183,7 +183,7 @@ int main_gampcompare(int argc, char** argv) {
             else {
                 cout << (get<0>(result) <= range);
             }
-            cout << '\t' << get<1>(result) << '\t' << get<2>(result) << '\t' << aligner_name << '\t' << get<3>(result) << endl;
+            cout << '\t' << get<1>(result) << '\t' << get<2>(result) << '\t' << get<3>(result) << '\t' << aligner_name << '\t' << get<4>(result) << endl;
         }
         buffer.clear();
     };
@@ -230,9 +230,15 @@ int main_gampcompare(int argc, char** argv) {
             correct_counts[omp_get_thread_num()]++;
         }
         
+        // group mapq defaults to regular mapq
+        int64_t group_mapq = proto_mp_aln.mapping_quality();
+        if (has_annotation(proto_mp_aln, "group_mapq")) {
+            group_mapq = get_annotation<double>(proto_mp_aln, "group_mapq");
+        }
+        
         // put the result on the IO buffer
         auto& buffer = buffers[omp_get_thread_num()];
-        buffer.emplace_back(abs_dist, proto_mp_aln.subpath_size() > 0, proto_mp_aln.mapping_quality(), move(*proto_mp_aln.mutable_name()));
+        buffer.emplace_back(abs_dist, proto_mp_aln.subpath_size() > 0, proto_mp_aln.mapping_quality(), group_mapq, move(*proto_mp_aln.mutable_name()));
         if (buffer.size() > buffer_size) {
 #pragma omp critical
             flush_buffer(buffer);
