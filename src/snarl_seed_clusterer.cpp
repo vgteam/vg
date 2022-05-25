@@ -2902,7 +2902,6 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
             tuple<size_t, size_t, size_t> seed_index = get_offset_from_seed_index(seed_index_template);
             size_t read_num = std::get<0>(seed_index);
             size_t seed_i = std::get<1>(seed_index);
-            pos_t seed = tree_state.all_seeds->at(read_num)->at(seed_i).pos;
 
             //And the distances for this seed
             size_t dist_left = std::get<2>(seed_index);
