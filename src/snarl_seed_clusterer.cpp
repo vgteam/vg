@@ -1968,7 +1968,7 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
             distance_from_last_child_to_current_child = 0; 
         } else if ( last_chain_component_end == std::get<3>(current_child_seed.minimizer_cache)) {
             //If this child is in the same component as the last one
-            if (last_length == std::numeric_limits<size_t>::max() && last_chain_component_end ) {
+            if (last_length == std::numeric_limits<size_t>::max()) {
                 //If the last length is infinite, then is must be a snarl that is not start-end reachable, so the distance
                 //from the last child is the same as the distance from the start of the chain (the start of this compnent)
                 distance_from_last_child_to_current_child = std::get<2>(current_child_seed.minimizer_cache);//prefix sum value
