@@ -7,6 +7,7 @@
 #include <vg/vg.pb.h>
 #include "../minimizer_mapper.hpp"
 #include "../build_index.hpp"
+#include "../integrated_snarl_finder.hpp"
 #include "xg.hpp"
 #include "vg.hpp"
 #include "catch.hpp"
@@ -68,8 +69,28 @@ static vector<GaplessExtension> fake_extensions(const vector<tuple<size_t, size_
     return to_score;
 }
 
+/// Turn inline test data of start and end positions in read, path and start offset in graph, and score into GaplessExtensions
+static vector<GaplessExtension> fake_extensions(const vector<tuple<size_t, size_t, vector<handle_t>, size_t, int>>& test_data) {
+    vector<GaplessExtension> to_score;
+    for (auto& item : test_data) {
+        to_score.emplace_back();
+        to_score.back().read_interval = std::make_pair(get<0>(item), get<1>(item));
+        to_score.back().path = get<2>(item);
+        to_score.back().offset = get<3>(item);
+        to_score.back().score = get<4>(item);
+    }
+    
+    // Sort by read interval as is required
+    std::sort(to_score.begin(), to_score.end(), [](const GaplessExtension& a, const GaplessExtension& b) {
+        return (a.read_interval.first < b.read_interval.first) ||
+            (a.read_interval.first == b.read_interval.first && a.read_interval.second < b.read_interval.second);
+    });
+    
+    return to_score;
+}
+
 TEST_CASE("MinimizerMapper::score_extension_group scores no gapless extensions as 0", "[giraffe][mapping][score_extension_group]") {
-    auto to_score = fake_extensions({});
+    vector<GaplessExtension> to_score;
     auto aln = fake_alignment(to_score);
     REQUIRE(TestMinimizerMapper::score_extension_group(aln, to_score, 6, 1) == 0);
 }
@@ -166,7 +187,7 @@ TEST_CASE("MinimizerMapper::score_extension_group scores a backtrack correctly w
 
 
 TEST_CASE("MinimizerMapper::chain_extension_group chains no gapless extensions as 0", "[giraffe][mapping][chain_extension_group]") {
-    auto to_score = fake_extensions({});
+    vector<GaplessExtension> to_score;
     auto aln = fake_alignment(to_score);
     auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1);
     REQUIRE(result.first == 0);
@@ -311,6 +332,234 @@ TEST_CASE("MinimizerMapper::chain_extension_group chains a backtrack correctly w
         REQUIRE(to_score.at(result.second.at(2)).read_interval.first == 13);
         REQUIRE(to_score.at(result.second.at(3)).read_interval.first == 28);
     }
+}
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains two extensions abutting in read and graph correctly", "[giraffe][mapping][chain_extension_group]") {
+    // Set up graph fixture
+    HashGraph graph;
+    handle_t h1 = graph.create_handle("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    // Set up extensions and alignment
+    auto to_score = fake_extensions({{1, 10, {h1}, 1, 9},
+                                     {10, 19, {h1}, 10, 9}});
+    auto aln = fake_alignment(to_score);
+    
+    // Actually run the chaining and test
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1, &distance_index, &graph);
+    REQUIRE(result.first == (9 + 9));
+    REQUIRE(result.second.at(0) == 0);
+    REQUIRE(result.second.at(1) == 1);
+}
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains two extensions abutting in read with a gap in graph correctly", "[giraffe][mapping][chain_extension_group]") {
+    // Set up graph fixture
+    HashGraph graph;
+    handle_t h1 = graph.create_handle("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    // Set up extensions and alignment
+    auto to_score = fake_extensions({{1, 10, {h1}, 1, 9},
+                                     {10, 19, {h1}, 11, 9}});
+    auto aln = fake_alignment(to_score);
+    
+    // Actually run the chaining and test
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1, &distance_index, &graph);
+    REQUIRE(result.first == (9 + 9 - 6));
+    REQUIRE(result.second.at(0) == 0);
+    REQUIRE(result.second.at(1) == 1);
+}
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains two extensions abutting in graph with a gap in read correctly", "[giraffe][mapping][chain_extension_group]") {
+    // Set up graph fixture
+    HashGraph graph;
+    handle_t h1 = graph.create_handle("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    // Set up extensions and alignment
+    auto to_score = fake_extensions({{1, 10, {h1}, 1, 9},
+                                     {11, 20, {h1}, 10, 9}});
+    auto aln = fake_alignment(to_score);
+    
+    // Actually run the chaining and test
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1, &distance_index, &graph);
+    REQUIRE(result.first == (9 + 9 - 6));
+    REQUIRE(result.second.at(0) == 0);
+    REQUIRE(result.second.at(1) == 1);
+}
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains two extensions that abut over multiple nodes correctly", "[giraffe][mapping][chain_extension_group]") {
+    // Set up graph fixture
+    HashGraph graph;
+    handle_t h1 = graph.create_handle("AAAA");
+    handle_t h2 = graph.create_handle("AAAA");
+    handle_t h3 = graph.create_handle("AAAA");
+    handle_t h4 = graph.create_handle("AAAA");
+    handle_t h5 = graph.create_handle("AAAA");
+    graph.create_edge(h1, h2);
+    graph.create_edge(h2, h3);
+    graph.create_edge(h3, h4);
+    graph.create_edge(h4, h5);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    // AAAA|AAAA|AAAA|AAAA|AAAA
+    //  *** **** **
+    //             ** **** ***
+    
+    // Set up extensions and alignment
+    auto to_score = fake_extensions({{1, 10, {h1, h2, h3}, 1, 9},
+                                     {10, 19, {h3, h4, h5}, 2, 9}});
+    auto aln = fake_alignment(to_score);
+    
+    // Actually run the chaining and test
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1, &distance_index, &graph);
+    REQUIRE(result.first == (9 + 9));
+    REQUIRE(result.second.at(0) == 0);
+    REQUIRE(result.second.at(1) == 1);
+}
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains two extensions that abut in graph with a gap in read over multiple nodes correctly", "[giraffe][mapping][chain_extension_group]") {
+    // Set up graph fixture
+    HashGraph graph;
+    handle_t h1 = graph.create_handle("AAAA");
+    handle_t h2 = graph.create_handle("AAAA");
+    handle_t h3 = graph.create_handle("AAAA");
+    handle_t h4 = graph.create_handle("AAAA");
+    handle_t h5 = graph.create_handle("AAAA");
+    graph.create_edge(h1, h2);
+    graph.create_edge(h2, h3);
+    graph.create_edge(h3, h4);
+    graph.create_edge(h4, h5);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    // AAAA|AAAA|AAAA|AAAA|AAAA
+    //  *** **** **
+    //             ** **** ***
+    
+    // Set up extensions and alignment
+    auto to_score = fake_extensions({{1, 10, {h1, h2, h3}, 1, 9},
+                                     {11, 20, {h3, h4, h5}, 2, 9}});
+    auto aln = fake_alignment(to_score);
+    
+    // Actually run the chaining and test
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1, &distance_index, &graph);
+    REQUIRE(result.first == (9 + 9 - 6));
+    REQUIRE(result.second.at(0) == 0);
+    REQUIRE(result.second.at(1) == 1);
+}
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains two extensions that abut in read with a gap in graph over multiple nodes correctly", "[giraffe][mapping][chain_extension_group]") {
+    // Set up graph fixture
+    HashGraph graph;
+    handle_t h1 = graph.create_handle("AAAA");
+    handle_t h2 = graph.create_handle("AAAA");
+    handle_t h3 = graph.create_handle("AAAA");
+    handle_t h4 = graph.create_handle("AAAA");
+    handle_t h5 = graph.create_handle("AAAA");
+    graph.create_edge(h1, h2);
+    graph.create_edge(h2, h3);
+    graph.create_edge(h3, h4);
+    graph.create_edge(h4, h5);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    // AAAA|AAAA|AAAA|AAAA|AAAA
+    //  *** **** **
+    //              * **** ****
+    
+    // Set up extensions and alignment
+    auto to_score = fake_extensions({{1, 10, {h1, h2, h3}, 1, 9},
+                                     {10, 19, {h3, h4, h5}, 3, 9}});
+    auto aln = fake_alignment(to_score);
+    
+    // Actually run the chaining and test
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1, &distance_index, &graph);
+    REQUIRE(result.first == (9 + 9 - 6));
+    REQUIRE(result.second.at(0) == 0);
+    REQUIRE(result.second.at(1) == 1);
+}
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains two extensions that have gaps of different sizes in graph and read over multiple nodes correctly", "[giraffe][mapping][chain_extension_group]") {
+    // Set up graph fixture
+    HashGraph graph;
+    handle_t h1 = graph.create_handle("AAAA");
+    handle_t h2 = graph.create_handle("AAAA");
+    handle_t h3 = graph.create_handle("AAAA");
+    handle_t h4 = graph.create_handle("AAAA");
+    handle_t h5 = graph.create_handle("AAAA");
+    graph.create_edge(h1, h2);
+    graph.create_edge(h2, h3);
+    graph.create_edge(h3, h4);
+    graph.create_edge(h4, h5);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    // AAAA|AAAA|AAAA|AAAA|AAAA
+    //  *** **** **
+    //              * **** ****
+    
+    // Set up extensions and alignment
+    auto to_score = fake_extensions({{1, 10, {h1, h2, h3}, 1, 9},
+                                     {12, 21, {h3, h4, h5}, 3, 9}});
+    auto aln = fake_alignment(to_score);
+    
+    // Actually run the chaining and test
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1, &distance_index, &graph);
+    // Gap in grapoh is 1 and gap in read is 2 so we pay 1 gap open
+    REQUIRE(result.first == (9 + 9 - 6));
+    REQUIRE(result.second.at(0) == 0);
+    REQUIRE(result.second.at(1) == 1);
+}
+
+TEST_CASE("MinimizerMapper::chain_extension_group chains two extensions that overlap the same amount in graph and read over multiple nodes correctly", "[giraffe][mapping][chain_extension_group]") {
+    // Set up graph fixture
+    HashGraph graph;
+    handle_t h1 = graph.create_handle("AAAA");
+    handle_t h2 = graph.create_handle("AAAA");
+    handle_t h3 = graph.create_handle("AAAA");
+    handle_t h4 = graph.create_handle("AAAA");
+    handle_t h5 = graph.create_handle("AAAA");
+    graph.create_edge(h1, h2);
+    graph.create_edge(h2, h3);
+    graph.create_edge(h3, h4);
+    graph.create_edge(h4, h5);
+    
+    IntegratedSnarlFinder snarl_finder(graph);
+    SnarlDistanceIndex distance_index;
+    fill_in_distance_index(&distance_index, &graph, &snarl_finder);
+    
+    // AAAA|AAAA|AAAA|AAAA|AAAA
+    //  *** **** **
+    //         * **** ****
+    
+    // Set up extensions and alignment
+    auto to_score = fake_extensions({{1, 10, {h1, h2, h3}, 1, 9},
+                                     {7, 16, {h2, h3, h4}, 3, 9}});
+    auto aln = fake_alignment(to_score);
+    
+    // Actually run the chaining and test
+    auto result = TestMinimizerMapper::chain_extension_group(aln, to_score, 6, 1, &distance_index, &graph);
+    // We shouldn't charge for a gap at all here.
+    // TODO: we probably want to back out the shared matches though??? But what if some are mismatches???
+    REQUIRE(result.first == (9 + 9));
+    REQUIRE(result.second.at(0) == 0);
+    REQUIRE(result.second.at(1) == 1);
 }
 
 TEST_CASE("Fragment length distribution gets reasonable value", "[giraffe][mapping]") {
