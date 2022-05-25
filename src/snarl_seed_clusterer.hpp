@@ -406,26 +406,26 @@ class NewSnarlSeedClusterer {
         //Cluster the seeds in a chain given by chain_index_i, an index into
         //distance_index.chain_indexes
         //If the depth is 0, also incorporate the top-level seeds from tree_state.top_level_seed_clusters
-        //Chain children are tuples<net_handle, (child index, inf) or (seed read num, seed index)>
+        //Chain children are tuples<net_handle, (child index, inf) or (seed read num, seed index), chain component, prefix sum>
         //If the children of the chain are only seeds on nodes, then cluster as if it is a node
-        void cluster_one_chain(TreeState& tree_state, size_t chain_clusters_index, vector<tuple<net_handle_t, size_t, size_t>>& children_in_chain, bool only_seeds, bool is_top_level_chain) const;
+        void cluster_one_chain(TreeState& tree_state, size_t chain_clusters_index, vector<tuple<net_handle_t, size_t, size_t, size_t, size_t>>& children_in_chain, bool only_seeds, bool is_top_level_chain) const;
 
         //Helper function for adding the next seed to the chain clusters
         void add_seed_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
-                                        std::tuple<net_handle_t, size_t, size_t>& last_child, net_handle_t& last_child_handle, 
+                                        std::tuple<net_handle_t, size_t, size_t, size_t, size_t>& last_child, net_handle_t& last_child_handle, 
                                         size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, 
                                         vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>& cluster_heads_to_add_again,
                                         bool& found_first_node, vector<bool>& found_first_node_by_read,
-                                        tuple<net_handle_t, size_t, size_t>& current_child_indices, bool is_first_child, bool is_last_child,
+                                        tuple<net_handle_t, size_t, size_t, size_t, size_t>& current_child_indices, bool is_first_child, bool is_last_child,
                                         bool skip_distances_to_ends) const;
 
         //Helper function for adding the next snarl to the chain clusters
         void add_snarl_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
-                                        std::tuple<net_handle_t, size_t, size_t>& last_child, net_handle_t& last_child_handle, 
+                                        std::tuple<net_handle_t, size_t, size_t, size_t, size_t>& last_child, net_handle_t& last_child_handle, 
                                         size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, 
                                         vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>& cluster_heads_to_add_again,
                                         bool& found_first_node, vector<bool>& found_first_node_by_read,
-                                        tuple<net_handle_t, size_t, size_t>& current_child_indices, bool is_first_child, bool is_last_child, 
+                                        tuple<net_handle_t, size_t, size_t, size_t, size_t>& current_child_indices, bool is_first_child, bool is_last_child, 
                                         bool skip_distances_to_ends) const;
 
         //Cluster in the root 
