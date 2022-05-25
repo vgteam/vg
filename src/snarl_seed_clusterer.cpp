@@ -1966,15 +1966,6 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
         //If this isn't the first child we're looking at
         if (last_child_handle == child_handle) {
             distance_from_last_child_to_current_child = 0; 
-        } else if (chain_clusters.is_looping_chain ) {
-            distance_from_last_child_to_current_child = 
-                distance_index.distance_in_parent(chain_handle, 
-                    (distance_index.is_reversed_in_parent(last_child_handle) 
-                            ? distance_index.flip(last_child_handle) 
-                            : last_child_handle),
-                    (distance_index.is_reversed_in_parent(child_handle) 
-                            ? child_handle 
-                            : distance_index.flip(child_handle)));
         } else if ( last_chain_component_end == std::get<3>(current_child_seed.minimizer_cache)) {
             //If this child is in the same component as the last one
             if (last_length == std::numeric_limits<size_t>::max() && last_chain_component_end ) {
@@ -2427,16 +2418,7 @@ void NewSnarlSeedClusterer::add_snarl_to_chain_clusters(TreeState& tree_state, N
     size_t distance_from_last_child_to_current_child = std::numeric_limits<size_t>::max();
     if (!is_first_child) {
         //If this isn't the first child we're looking at
-        if (last_child_handle == child_handle) {
-            distance_from_last_child_to_current_child = 0; 
-        } else if (chain_clusters.is_looping_chain ) {
-            distance_from_last_child_to_current_child = 
-                distance_index.distance_in_parent(chain_handle, 
-                    (distance_index.is_reversed_in_parent(last_child_handle) 
-                            ? distance_index.flip(last_child_handle) 
-                            : last_child_handle),
-                     distance_index.flip(child_handle));
-        } else if ( last_chain_component_end == child_clusters.chain_component_start) {
+        if ( last_chain_component_end == child_clusters.chain_component_start) {
             //If this child is in the same component as the last one
             if (last_length == std::numeric_limits<size_t>::max() && last_chain_component_end ) {
                 //If the last length is infinite, then is must be a snarl that is not start-end reachable, so the distance
