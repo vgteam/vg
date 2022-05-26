@@ -843,5 +843,124 @@ TEST_CASE("Non-ACGT characters do not match", "[gapless_extender]") {
 
 //------------------------------------------------------------------------------
 
+namespace {
+
+gbwt::GBWT wfa_linear_gbwt() {
+    std::vector<gbwt::vector_type> paths;
+    paths.push_back(gbwt::vector_type());
+    paths.back().push_back(gbwt::Node::encode(1, false));
+    paths.back().push_back(gbwt::Node::encode(2, false));
+    paths.back().push_back(gbwt::Node::encode(3, false));
+    paths.back().push_back(gbwt::Node::encode(4, false));
+    return get_gbwt(paths);
+}
+
+gbwtgraph::GBWTGraph wfa_linear_graph(const gbwt::GBWT& index) {
+    gbwtgraph::SequenceSource source;
+    source.add_node(1, "CGC");
+    source.add_node(2, "GATTACA");
+    source.add_node(3, "GATTA");
+    source.add_node(4, "TAT");
+    return gbwtgraph::GBWTGraph(index, source);
+}
+
+void check_alignment(const WFAAlignment& alignment, const std::string& sequence, const gbwtgraph::GBWTGraph& graph, const Aligner& aligner, const pos_t* from, const pos_t* to) {
+
+    // Correct length.
+    REQUIRE(alignment.seq_offset + alignment.length == sequence.length());
+    if (alignment.empty()) {
+        return;
+    }
+
+    // Total length of edits in the sequence.
+    uint32_t edit_total = 0;
+    for (auto edit : alignment.edits) {
+        edit_total += edit.second;
+    }
+    REQUIRE(edit_total == alignment.length);
+
+    // Check that the path is valid.
+    for (size_t i = 0; i < alignment.path.size(); i++) {
+        REQUIRE(graph.has_node(graph.get_id(alignment.path[i])));
+        if (i > 0) {
+            REQUIRE(graph.has_edge(alignment.path[i - 1], alignment.path[i]));
+        }
+    }
+
+    // Check that the alignment is between the right positions, if provided, and the start/end nodes are used in the alignment.
+    pos_t start_pos(graph.get_id(alignment.path.front()), graph.get_is_reverse(alignment.path.front()), alignment.node_offset);
+    REQUIRE(offset(start_pos) < graph.get_length(alignment.path.front()));
+    if (from != nullptr) {
+        REQUIRE(start_pos == *from);
+    }
+    uint32_t final_offset = alignment.final_offset(graph);
+    REQUIRE(final_offset > 0);
+    pos_t end_pos(graph.get_id(alignment.path.back()), graph.get_is_reverse(alignment.path.back()), final_offset - 1);
+    if (to != nullptr) {
+        REQUIRE(end_pos == *to);
+    }
+
+    // Compute the score using the parameters from the aligner.
+    int32_t expected_score = 0;
+    for (auto edit : alignment.edits) {
+        switch (edit.first)
+        {
+        case WFAAlignment::match:
+            expected_score += int32_t(edit.second) * aligner.match;
+            break;
+        case WFAAlignment::mismatch:
+            expected_score -= int32_t(edit.second) * aligner.mismatch;
+            break;
+        case WFAAlignment::insertion: // Fall through.
+        case WFAAlignment::deletion:
+            // FIXME n or n-1 gap_extends?
+            expected_score -= aligner.gap_open + int32_t(edit.second) * aligner.gap_extension;
+            break;
+        }
+    }
+    REQUIRE(alignment.score == expected_score);
+
+    // Check the alignment itself.
+    size_t seq_offset = alignment.seq_offset;
+    size_t node_offset = alignment.node_offset;
+    size_t path_offset = 0;
+    for (auto edit : alignment.edits) {
+        if (edit.first == WFAAlignment::insertion) {
+            seq_offset += edit.second;
+            continue;
+        }
+        size_t edit_end = node_offset + edit.second;
+        while (edit_end > node_offset) {
+            REQUIRE(path_offset < alignment.path.size());
+            std::string node_sequence = graph.get_sequence(alignment.path[path_offset]);
+            size_t len = std::min(edit_end, node_sequence.length()) - node_offset;
+            if (edit.first == WFAAlignment::match) {
+                REQUIRE(sequence.substr(seq_offset, len) == node_sequence.substr(node_offset, len));
+                seq_offset += len;
+            } else if (edit.first == WFAAlignment::mismatch) {
+                for (size_t i = 0; i < len; i++) {
+                    REQUIRE(sequence[seq_offset + i] != node_sequence[node_offset + i]);
+                }
+                seq_offset += len;
+            }
+            node_offset += len;
+            if (node_offset >= node_sequence.length()) {
+                node_offset = 0;
+                edit_end -= node_sequence.length();
+                path_offset++;
+            }
+        }
+    }
+    REQUIRE(path_offset == alignment.path.size() - 1 || (path_offset == alignment.path.size() && node_offset == 0));
+}
+
+} // anonymous namespace
+
+//------------------------------------------------------------------------------
+
+
+
+//------------------------------------------------------------------------------
+
 }
 }
