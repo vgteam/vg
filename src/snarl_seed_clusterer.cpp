@@ -282,6 +282,8 @@ cerr << "Add all seeds to nodes: " << endl;
 
     //Remember the handle associated with each connected component (get_handle_from_connected_component)
     hash_map<size_t, net_handle_t> connected_component_to_handle;
+    //Remember the handle associated with each node id
+    hash_map<id_t, net_handle_t> node_id_to_handle;
     connected_component_to_handle.reserve(distance_index.connected_component_count());
 
     // Assign each seed to a node.
@@ -312,7 +314,13 @@ cerr << "Add all seeds to nodes: " << endl;
             //If the parent is a proper chain, then add the seed directly to the parent chain
 
             
-            net_handle_t node_net_handle = distance_index.get_node_net_handle(id) ; 
+            net_handle_t node_net_handle;
+            if (node_id_to_handle.count(id) == 0) {
+                node_net_handle = distance_index.get_node_net_handle(id) ; 
+                node_id_to_handle[id] = node_net_handle;
+            } else {
+                node_net_handle = node_id_to_handle[id];
+            }
             net_handle_t parent;
             if ( std::get<1>(seed.minimizer_cache) == MIPayload::NO_VALUE) { 
                 parent = distance_index.get_parent(node_net_handle);
@@ -2457,6 +2465,7 @@ void NewSnarlSeedClusterer::add_snarl_to_chain_clusters(TreeState& tree_state, N
             distance_from_current_end_to_end_of_chain = 0;
         }
     } else if (chain_clusters.is_looping_chain) {
+        //TODO: I think I should be able to do this without the distance index
         //If it's a looping chain then use the distance index
         distance_from_current_end_to_end_of_chain = distance_index.distance_in_parent(chain_handle, chain_clusters.end_in, 
                  child_handle);
