@@ -280,11 +280,12 @@ cerr << "Add all seeds to nodes: " << endl;
 #endif
 
 
-    //Remember the handle associated with each connected component (get_handle_from_connected_component)
-    hash_map<size_t, net_handle_t> connected_component_to_handle;
-    //Remember the handle associated with each node id
+    //Remember the handle associated with each node i
     hash_map<id_t, net_handle_t> node_id_to_handle;
-    connected_component_to_handle.reserve(distance_index.connected_component_count());
+    node_id_to_handle.reserve(tree_state.seed_count_prefix_sum.back());
+    //Remember the parent of each handle we find
+    hash_map<net_handle_t, net_handle_t> handle_to_parent;
+    handle_to_parent.reserve(tree_state.seed_count_prefix_sum.back());
 
     // Assign each seed to a node.
 
@@ -322,13 +323,17 @@ cerr << "Add all seeds to nodes: " << endl;
                 node_net_handle = node_id_to_handle[id];
             }
             net_handle_t parent;
-            if ( std::get<1>(seed.minimizer_cache) == MIPayload::NO_VALUE) { 
+            if (handle_to_parent.count(node_net_handle) != 0) {
+                //If we've found the parent of this node before
+                parent = handle_to_parent[node_net_handle];
+            } else if ( std::get<1>(seed.minimizer_cache) == MIPayload::NO_VALUE) { 
+                //If we haven't cached the parent in the minimizers, use get_parent and remember it
                 parent = distance_index.get_parent(node_net_handle);
-            } else if (connected_component_to_handle.count(std::get<1>(seed.minimizer_cache)) != 0) {
-                parent = connected_component_to_handle.at(std::get<1>(seed.minimizer_cache));
+                handle_to_parent[node_net_handle] = parent;
             } else {
+                //If we have cached the parent, use the connected component and remember it
                 parent = distance_index.get_handle_from_connected_component(std::get<1>(seed.minimizer_cache));
-                connected_component_to_handle[std::get<1>(seed.minimizer_cache)] = parent;
+                handle_to_parent[node_net_handle] = parent;
             }
             seed.node_handle = node_net_handle;
             bool is_trivial_chain = distance_index.get_record_offset(node_net_handle) ==
@@ -421,7 +426,14 @@ cerr << "Add all seeds to nodes: " << endl;
 
 
                     //And now add the node to its parent, creating a NodeClusters for the parent if necessary
-                    if (distance_index.is_root(parent) || distance_index.is_root(distance_index.get_parent(parent))) {
+                    net_handle_t grandparent;
+                    if (handle_to_parent.count(parent) == 0) {
+                        grandparent = distance_index.get_parent(parent);
+                        handle_to_parent[parent] = grandparent;
+                    } else {
+                        grandparent = handle_to_parent[parent];
+                    }
+                    if (distance_index.is_root(parent) || distance_index.is_root(grandparent)) {
 #ifdef DEBUG_CLUSTER
                         cerr << "\t child of the root" << endl; 
 #endif
@@ -460,12 +472,24 @@ cerr << "Add all seeds to nodes: " << endl;
                                                      tree_state.seed_count_prefix_sum.back(),
                                                      false, id, node_length, std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max())); 
                                                 
-                            net_handle_t grandparent_snarl = distance_index.get_parent(parent);
+                            net_handle_t grandparent_snarl;
+                            if (handle_to_parent.count(parent) == 0) {
+                                grandparent_snarl = distance_index.get_parent(parent);
+                                handle_to_parent[parent] = grandparent_snarl;
+                            } else {
+                                grandparent_snarl = handle_to_parent[parent];
+                            }
                             to_cluster.emplace_back(child_index, grandparent_snarl);
                             size_t grandparent_index;
                             if (tree_state.net_handle_to_index.count(grandparent_snarl) == 0) {
                                 //If we haven't seen the grandparent snarl before, add it
-                                net_handle_t greatgrandparent_chain = distance_index.get_parent(grandparent_snarl);
+                                net_handle_t greatgrandparent_chain;
+                                if (handle_to_parent.count(grandparent_snarl) == 0) {
+                                    greatgrandparent_chain = distance_index.get_parent(grandparent_snarl);
+                                    handle_to_parent[grandparent_snarl] = greatgrandparent_chain;
+                                } else {
+                                    greatgrandparent_chain = handle_to_parent[grandparent_snarl];
+                                }
 
                                 grandparent_index = tree_state.all_node_clusters.size();
                                 tree_state.net_handle_to_index[grandparent_snarl] = grandparent_index;
@@ -554,10 +578,17 @@ cerr << "Add all seeds to nodes: " << endl;
         net_handle_t parent = cluster_index_parent.second;
 
         cluster_one_node(tree_state, node_clusters);
-        if (!distance_index.is_root(parent) && distance_index.is_root(distance_index.get_parent(parent))) {
+        net_handle_t grandparent;
+        if (handle_to_parent.count(parent) == 0) {
+            grandparent = distance_index.get_parent(parent);
+            handle_to_parent[parent] = grandparent;
+        } else {
+            grandparent = handle_to_parent[parent];
+        }
+        if (!distance_index.is_root(parent) && distance_index.is_root(grandparent)) {
             //If the node is a trivial chain that is the child of the root, then use the 
             node_clusters.containing_net_handle = parent;
-            parent = distance_index.get_parent(parent);
+            parent = grandparent;
         }
         if (distance_index.is_root(parent)) {
             //If the node is a child of the root
