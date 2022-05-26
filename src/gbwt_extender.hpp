@@ -280,16 +280,37 @@ public:
     WFAExtender();
 
     /// Create a WFAExtender using the given GBWTGraph and Aligner objects.
+    /// TODO: Provide an error model for specifying bounds for acceptable
+    /// alignment scores.
     WFAExtender(const gbwtgraph::GBWTGraph& graph, const Aligner& aligner);
 
-    // FIXME document. Note that the alignment should include both from and to
-    // FIXME special case: cannot reach the destination, must extend from both seeds
+    /**
+     * Align the sequence to a haplotype between the two graph positions.
+     * The positions are assumed to match the first and the last characters.
+     *
+     * The sequence that will be aligned is passed by value. All non-ACGT
+     * characters are masked with character X, which should not match any
+     * character in the graph.
+     *
+     * Returns an empty alignment if there is no alignment with an acceptable
+     * score.
+     */
     WFAAlignment connect(std::string sequence, pos_t from, pos_t to) const;
 
-    // FIXME document
+    /**
+     * A special case of connect() for aligning the sequence to a haplotype
+     * starting at the given position. If there is no alignment for the
+     * entire sequence with an acceptable score, returns the highest-scoring
+     * partial alignment.
+     */
     WFAAlignment suffix(const std::string& sequence, pos_t from) const;
 
-    // FIXME document
+    /**
+     * A special case of connect() for aligning the sequence to a haplotype
+     * ending at the given position. If there is no alignment for the entire
+     * sequence with an acceptable score, returns the highest-scoring partial
+     * alignment.
+     */
     WFAAlignment prefix(const std::string& sequence, pos_t to) const;
 
     const gbwtgraph::GBWTGraph* graph;

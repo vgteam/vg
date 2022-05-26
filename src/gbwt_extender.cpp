@@ -1101,8 +1101,28 @@ public:
         }
     }
 
-private:
+    // Returns true if the position is empty.
     static bool no_pos(pos_t pos) { return (id(pos) == 0); }
+
+    // Replaces the candidate with the partial alignment with the highest alignment
+    // score according to the aligner.
+    void trim(const Aligner& aligner) {
+        this->candidate_point = { 0, 0, 0, 0};
+        this->candidate_node = 0;
+        int32_t best_score = 0;
+        for (uint32_t node = 0; node < this->size(); node++) {
+            for (const WFAPoint& point : this->nodes[node].wavefronts[WFANode::MATCHES]) {
+                int32_t alignment_score = point.alignment_score(aligner);
+                if (alignment_score > best_score) {
+                    this->candidate_point = point;
+                    this->candidate_node = node;
+                    best_score = alignment_score;
+                }
+            }
+        }
+    }
+
+private:
 
     // wf_extend() on a specific diagonal for the set of (local) haplotypes corresponding to
     // the given list of leaves in the tree of GBWT search states.
@@ -1272,32 +1292,23 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
     }
 
     // If we do not have a full-length alignment within the score bound,
-    // find the best partial alignment.
+    // we find the best partial alignment if there was no destination or
+    // return an empty alignment otherwise.
     bool full_length = true;
     if (tree.candidate_point.score > tree.score_bound) {
-        tree.candidate_point = { 0, 0, 0, 0};
-        tree.candidate_node = 0;
-        int32_t best_score = 0;
-        for (uint32_t node = 0; node < tree.size(); node++) {
-            for (const WFAPoint& point : tree.nodes[node].wavefronts[WFANode::MATCHES]) {
-                int32_t alignment_score = point.alignment_score(*(this->aligner));
-                if (alignment_score > best_score) {
-                    tree.candidate_point = point;
-                    tree.candidate_node = node;
-                    best_score = alignment_score;
-                }
-            }
+        if (WFATree::no_pos(to)) {
+            tree.trim(*(this->aligner));
+            full_length = false;
+        } else {
+            return WFAAlignment();
         }
-        full_length = false;
     }
-
-    // Start building an alignment.
-    WFAAlignment result { {}, {}, static_cast<uint32_t>(offset(from)), 0, tree.candidate_point.seq_offset, tree.candidate_point.alignment_score(*(this->aligner)) };
     if (tree.candidate_point.seq_offset == 0) {
-        return result;
+        return WFAAlignment();
     }
 
-    // Store the path.
+    // Start building an alignment. Store the path first.
+    WFAAlignment result { {}, {}, static_cast<uint32_t>(offset(from)), 0, tree.candidate_point.seq_offset, tree.candidate_point.alignment_score(*(this->aligner)) };
     uint32_t node = tree.candidate_node;
     while (true) {
         result.path.push_back(gbwtgraph::GBWTGraph::node_to_handle(tree.nodes[node].state.node));
@@ -1368,7 +1379,7 @@ WFAAlignment WFAExtender::connect(std::string sequence, pos_t from, pos_t to) co
 
     // Due to the way we expand the tree of GBWT search states and store wavefront
     // information in the leaves, we sometimes do not use any bases in the final node.
-    // Deal with this now to avoid dealing with it later.
+    // We deal with this now to avoid facing the issue later.
     if (result.final_offset(*(this->graph)) == 0) {
         result.path.pop_back();
     }
