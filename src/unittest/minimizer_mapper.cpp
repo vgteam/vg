@@ -25,6 +25,8 @@ public:
         PathPositionHandleGraph* handle_graph) 
         : MinimizerMapper(gbwt_graph, minimizer_index, nullptr, distance_index, handle_graph){};
     using MinimizerMapper::MinimizerMapper;
+    using MinimizerMapper::get_graph_overlap;
+    using MinimizerMapper::get_graph_distance;
     using MinimizerMapper::score_extension_group;
     using MinimizerMapper::chain_extension_group;
     using MinimizerMapper::Minimizer;
@@ -87,6 +89,33 @@ static vector<GaplessExtension> fake_extensions(const vector<tuple<size_t, size_
     });
     
     return to_score;
+}
+
+TEST_CASE("MinimizerMapper::get_graph_overlap works when extensions intersect but don't overlap for chaining purposes", "[giraffe][mapping][get_graph_overlap]") {
+    // Set up graph fixture
+    HashGraph graph;
+    handle_t h1 = graph.create_handle("AAAA");
+    handle_t h2 = graph.create_handle("AAAA");
+    handle_t h3 = graph.create_handle("AAAA");
+    handle_t h4 = graph.create_handle("AAAA");
+    handle_t h5 = graph.create_handle("AAAA");
+    
+    graph.create_edge(h1, h2);
+    
+    graph.create_edge(h5, h2);
+    
+    graph.create_edge(h2, h3);
+    graph.create_edge(h3, h4);
+    
+    
+    
+    // Set up extensions
+    auto extensions = fake_extensions({{1, 10, {h1, h2, h3}, 1, 9},
+                                       {1, 10, {h5, h2, h3}, 1, 9}});
+    
+    // Check overlap
+    REQUIRE(TestMinimizerMapper::get_graph_overlap(extensions[0], extensions[1], &graph) == 0);
+    REQUIRE(TestMinimizerMapper::get_graph_overlap(extensions[1], extensions[0], &graph) == 0);
 }
 
 TEST_CASE("MinimizerMapper::score_extension_group scores no gapless extensions as 0", "[giraffe][mapping][score_extension_group]") {
