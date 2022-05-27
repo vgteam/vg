@@ -2711,36 +2711,6 @@ void MinimizerMapper::attempt_rescue(const Alignment& aligned_read, Alignment& r
         return;
     }
 
-    // The haplotype-based algorithm is a special case.
-    if (this->rescue_algorithm == rescue_haplotypes) {
-        // Find and unfold the local haplotypes in the subgraph.
-        std::vector<std::vector<handle_t>> haplotype_paths;
-        bdsg::HashGraph align_graph;
-        this->extender.unfold_haplotypes(rescue_nodes, haplotype_paths, align_graph);
-        
-        size_t rescue_subgraph_bases = align_graph.get_total_length();
-        if (rescue_subgraph_bases * rescued_alignment.sequence().size() > max_dozeu_cells) {
-            if (!warned_about_rescue_size.test_and_set()) {
-                cerr << "warning[vg::giraffe]: Refusing to perform too-large rescue alignment of "
-                    << rescued_alignment.sequence().size() << " bp against "
-                    << rescue_subgraph_bases << " bp haplotype subgraph for read " << rescued_alignment.name()
-                    << " which would use more than " << max_dozeu_cells
-                    << " cells and might exhaust Dozeu's allocator; suppressing further warnings." << endl;
-            }
-            return; 
-        }
-
-        // Align to the subgraph.
-        size_t gap_limit = this->get_regular_aligner()->longest_detectable_gap(rescued_alignment);
-        this->get_regular_aligner()->align_xdrop(rescued_alignment, align_graph,
-                                                 std::vector<MaximalExactMatch>(), false, gap_limit);
-        this->fix_dozeu_score(rescued_alignment, align_graph, std::vector<handle_t>());
-
-        // Get the corresponding alignment to the original graph.
-        this->extender.transform_alignment(rescued_alignment, haplotype_paths);
-        return;
-    }
-
     // Determine the best extension.
     size_t best = extensions.size();
     for (size_t i = 0; i < extensions.size(); i++) {

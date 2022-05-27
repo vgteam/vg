@@ -23,7 +23,6 @@
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
 #include "../hts_alignment_emitter.hpp"
-#include "../gapless_extender.hpp"
 #include "../minimizer_mapper.hpp"
 #include "../index_registry.hpp"
 #include <bdsg/overlays/overlay_helper.hpp>
@@ -355,7 +354,7 @@ void help_giraffe(char** argv) {
     << "  -w, --extension-set INT       only align extension sets if their score is within INT of the best score [20]" << endl
     << "  -O, --no-dp                   disable all gapped alignment" << endl
     << "  -r, --rescue-attempts         attempt up to INT rescues per read in a pair [15]" << endl
-    << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw / haplotypes) [dozeu]" << endl
+    << "  -A, --rescue-algorithm NAME   use algorithm NAME for rescue (none / dozeu / gssw) [dozeu]" << endl
     << "  -L, --max-fragment-length INT assume that fragment lengths should be smaller than INT when estimating the fragment length distribution" << endl
     << "  --exclude-overlapping-min     exclude overlapping minimizers" << endl
     << "  --fragment-mean FLOAT         force the fragment length distribution to have this mean (requires --fragment-stdev)" << endl
@@ -504,13 +503,11 @@ int main_giraffe(int argc, char** argv) {
         { "none", MinimizerMapper::rescue_none },
         { "dozeu", MinimizerMapper::rescue_dozeu },
         { "gssw", MinimizerMapper::rescue_gssw },
-        { "haplotypes", MinimizerMapper::rescue_haplotypes }
     };
     std::map<MinimizerMapper::RescueAlgorithm, std::string> algorithm_names =  {
         { MinimizerMapper::rescue_none, "none" },
         { MinimizerMapper::rescue_dozeu, "dozeu" },
         { MinimizerMapper::rescue_gssw, "gssw" },
-        { MinimizerMapper::rescue_haplotypes, "haplotypes" }
     };
     //TODO: Right now there can be two versions of the distance index. This ensures that the correct minimizer type gets built
 
