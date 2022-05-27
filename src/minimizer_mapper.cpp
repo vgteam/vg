@@ -411,8 +411,20 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
             }
         });
         
-    std::vector<int> cluster_extension_scores = this->score_extensions(cluster_extensions, aln, funnel);
-
+    // We now estimate the best possible alignment score for each cluster.
+    std::vector<int> cluster_extension_scores;
+    // We optionally also get tracebacks for aligining each cluster into a base-level alignment
+    std::vector<std::vector<size_t>> cluster_extension_tracebacks;
+    if (chain_extensions) {
+        // Chain all the extension groups and get scores and chains
+        auto result = this->chain_extensions(cluster_extensions, aln, funnel);
+        cluster_extension_scores = std::move(result.first);
+        cluster_extension_tracebacks = std::move(result.second);
+    } else {
+        // Just score the extension groups, with a slithgly simpler algorithm; don't chain them
+        cluster_extension_scores = this->score_extensions(cluster_extensions, aln, funnel);
+    }
+    
     if (track_provenance) {
         funnel.stage("align");
     }
@@ -513,15 +525,24 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     funnel.substage_stop();
                 }
             } else if (do_dp) {
-                // We need to do chaining.
+                // We need to do base-level alignment.
                 
                 if (track_provenance) {
-                    funnel.substage("chain");
+                    funnel.substage("align");
                 }
                 
-                // Do the DP and compute up to 2 alignments
-                best_alignments.emplace_back(aln);
-                find_optimal_tail_alignments(aln, extensions, rng, best_alignments[0], best_alignments[1]);
+                if (chain_extensions) {
+                    // Do the DP between the extensions in the cluster as specified by the chain we got for it.
+                    auto& chain_order = cluster_extension_tracebacks[extension_num];
+                    
+                    // TODO: implement!
+                    throw std::runtime_error("Not implemented!");
+                    
+                } else {
+                    // Do the DP and compute up to 2 alignments from the individual gapless extensions
+                    best_alignments.emplace_back(aln);
+                    find_optimal_tail_alignments(aln, extensions, rng, best_alignments[0], best_alignments[1]);
+                }
 
                 if (show_work) {
                     #pragma omp critical (cerr)
@@ -531,11 +552,11 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                 }
                 
                 if (track_provenance) {
-                    // We're done chaining. Next alignment may not go through this substage.
+                    // We're done base-level alignment. Next alignment may not go through this substage.
                     funnel.substage_stop();
                 }
             } else {
-                // We would do chaining but it is disabled.
+                // We would do base-level alignment but it is disabled.
                 // Leave best_alignment unaligned
             }
            
@@ -1466,10 +1487,10 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
                         funnels[read_num].substage_stop();
                     }
                 } else if (do_dp) {
-                    // We need to do chaining.
+                    // We need to do base-level alignment.
                     
                     if (track_provenance) {
-                        funnels[read_num].substage("chain");
+                        funnels[read_num].substage("align");
                     }
                     
                     // Do the DP and compute up to 2 alignments
@@ -1478,11 +1499,11 @@ pair<vector<Alignment>, vector<Alignment>> MinimizerMapper::map_paired(Alignment
 
                     
                     if (track_provenance) {
-                        // We're done chaining. Next alignment may not go through this substage.
+                        // We're done base-level alignment. Next alignment may not go through this substage.
                         funnels[read_num].substage_stop();
                     }
                 } else {
-                    // We would do chaining but it is disabled.
+                    // We would do base-level alignment but it is disabled.
                     // Leave best_alignments unaligned
                 }
                 
@@ -4112,6 +4133,41 @@ pair<int, vector<size_t>> MinimizerMapper::chain_extension_group(const Alignment
 #endif
         return std::make_pair(score_traits<traced_score_t>::score(best_past_ending_score_ever), traceback);
     }
+}
+
+std::pair<std::vector<int>, std::vector<size_t>> MinimizerMapper::chain_extensions(
+    const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const {
+
+    std::pair<std::vector<int>, std::vector<size_t>> result;
+    result.first.reserve(extensions.size());
+    result.second.reserve(extensions.size());
+
+    // Extension chaining substage.
+    if (this->track_provenance) {
+        funnel.substage("chain");
+    }
+
+    // We now estimate the best possible alignment score for each cluster.
+    std::vector<std::pair<int, std::vector<size_t>>> result(extensions.size(), 0);
+    for (size_t i = 0; i < extensions.size(); i++) {
+        
+        if (this->track_provenance) {
+            funnel.producing_output(i);
+        }
+        
+        // Do the chaining and move the answers
+        auto chained = chain_extension_group(aln, extensions[i], get_regular_aligner()->gap_open, get_regular_aligner()->gap_extension, distance_index, gbwt_graph);
+        result.first[i] = std::move(chained.first);
+        result.second[i] = std::move(chained.second);
+        
+        // Record the score with the funnel.
+        if (this->track_provenance) {
+            funnel.score(i, result.first[i]);
+            funnel.produced_output();
+        }
+    }
+
+    return result;
 }
 
 // TODO: Combine the two score_extensions overloads into one template when we get constexpr if.

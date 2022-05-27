@@ -97,6 +97,9 @@ public:
 
     /// Maximum number of distinct minimizers to take
     size_t max_unique_min = 500;
+    
+    /// If set, exclude overlapping minimizers
+    bool exclude_overlapping_min = false;
 
     ///Accept at least this many clusters
     size_t min_extensions = 2;
@@ -123,7 +126,7 @@ public:
     //If the read coverage of a cluster is less than the best coverage of any cluster
     //by more than this much, don't extend it
     double cluster_coverage_threshold = 0.3;
-
+    
     //If an extension set's score is smaller than the best 
     //extension's score by more than this much, don't align it
     double extension_set_score_threshold = 20;
@@ -131,10 +134,19 @@ public:
     //If an extension's score is smaller than the best extension's score by
     //more than this much, don't align it
     int extension_score_threshold = 1;
+    
+    /// If true, produce alignments from extension sets by chaining gapless
+    /// extensions up and aligning the sequences between them. If false,
+    /// produce alignments by aligning the tails off of individual gapless
+    /// extensions.
+    bool chain_extensions = false;
 
     size_t max_multimaps = 1;
     size_t distance_limit = 200;
+    
+    /// If false, skip computing base-level alignments.
     bool do_dp = true;
+    
     string sample_name;
     string read_group;
     
@@ -149,9 +161,6 @@ public:
     
     /// If set, log what the mapper is thinking in its mapping of each read.
     bool show_work = false;
-
-    /// If set, exclude overlapping minimizers
-    bool exclude_overlapping_min = false;
 
     ////How many stdevs from fragment length distr mean do we cluster together?
     double paired_distance_stdevs = 2.0; 
@@ -314,10 +323,17 @@ protected:
      */
     void score_cluster(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<Seed>& seeds, size_t seq_length, Funnel& funnel) const;
     void score_cluster_old(Cluster& cluster, size_t i, const std::vector<Minimizer>& minimizers, const std::vector<OldSeed>& seeds, size_t seq_length, Funnel& funnel) const;
-
+    
+    /**
+     * Chain the set of extensions for each cluster using chain_extension_group().
+     * Return the scores and tracebacks in the same order as the extension groups.
+     * Returns scores and tracebacks separately for better compatibility with score_extensions()
+     */
+    std::pair<std::vector<int>, std::vector<size_t>> chain_extensions(const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const;
+    
     /**
      * Score the set of extensions for each cluster using score_extension_group().
-     * Return the scores in the same order as the extensions.
+     * Return the scores in the same order as the extension groups.
      */
     std::vector<int> score_extensions(const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const;
 
