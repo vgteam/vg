@@ -507,28 +507,47 @@ protected:
         size_t index);
         
         
-    /// Return the amount by which the end of the left gapless extension is
-    /// past the position before the start of the right gapless extension.
-    /// Returns 0 if they do not actually overlap.
-    ///
-    /// Doesn't actually match the whole graph paths against each other; if
-    /// there's a handle where the left one ends and then the right one starts,
-    /// there's no overlap.
-    ///
-    /// Can return a number larger than the length of one extension if it is
-    /// contained in the other.
+    /**
+     * Return the amount by which the end of the left gapless extension is
+     *  past the position before the start of the right gapless extension.
+     *  Returns 0 if they do not actually overlap.
+     * 
+     *  Doesn't actually match the whole graph paths against each other; if
+     *  there's a handle where the left one ends and then the right one starts,
+     *  there's no overlap.
+     * 
+     *  Can return a number larger than the length of one extension if it is
+     *  contained in the other.
+     */
     static size_t get_graph_overlap(const GaplessExtension& left,
                                     const GaplessExtension& right,
                                     const HandleGraph* graph);
 
-    /// Get the minimum graph distance between the end of the left gapless
-    /// extension and the position before the start of the right gapless
-    /// extension. Returns std::numeric_limits<size_t>::max() if there is no
-    /// route to take.
+    /**
+     *  Get the minimum graph distance between the end of the left gapless
+     *  extension and the position before the start of the right gapless
+     *  extension. Returns std::numeric_limits<size_t>::max() if there is no
+     *  route to take.
+     */
     static size_t get_graph_distance(const GaplessExtension& left,
                                      const GaplessExtension& right,
                                      const SnarlDistanceIndex* distance_index,
                                      const HandleGraph* graph);
+
+    /**
+     *  Fill in the given DP table for the best chain score ending with each
+     *  gapless extension. Returns the best observed score overall from that table,
+     *  with provenance to its location in the table, if tracked in the type.
+     *  Assumes some gapless extensions exist.
+     */
+    template<typename S>
+    static S chain_extension_group_dp(vector<S>& best_chain_score,
+                                      const Alignment& aln,
+                                      const vector<GaplessExtension>& extended_seeds,
+                                      int gap_open_penalty,
+                                      int gap_extend_penalty,
+                                      const SnarlDistanceIndex* distance_index = nullptr,
+                                      const HandleGraph* graph = nullptr);
 
     /**
      * Score the given group of gapless extensions. Determines the best score

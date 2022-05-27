@@ -118,6 +118,30 @@ TEST_CASE("MinimizerMapper::get_graph_overlap works when extensions intersect bu
     REQUIRE(TestMinimizerMapper::get_graph_overlap(extensions[1], extensions[0], &graph) == 0);
 }
 
+TEST_CASE("MinimizerMapper::get_graph_overlap works when everything is on one giant handle", "[giraffe][mapping][get_graph_overlap]") {
+    // Set up graph fixture
+    HashGraph graph;
+    handle_t h1 = graph.create_handle("AAAAAAAAAAAAAAAAAA");
+    
+    
+    
+    // Set up extensions
+    auto extensions = fake_extensions({{0, 5, {h1}, 0, 5},
+                                       {2, 7, {h1}, 2, 5},
+                                       {4, 9, {h1}, 4, 5},
+                                       {6, 11, {h1}, 6, 5}});
+    
+    // Check overlap
+    REQUIRE(TestMinimizerMapper::get_graph_overlap(extensions[0], extensions[1], &graph) == 3);
+    REQUIRE(TestMinimizerMapper::get_graph_overlap(extensions[1], extensions[0], &graph) == 7);
+    
+    REQUIRE(TestMinimizerMapper::get_graph_overlap(extensions[0], extensions[2], &graph) == 1);
+    REQUIRE(TestMinimizerMapper::get_graph_overlap(extensions[2], extensions[0], &graph) == 9);
+    
+    REQUIRE(TestMinimizerMapper::get_graph_overlap(extensions[0], extensions[3], &graph) == 0);
+    REQUIRE(TestMinimizerMapper::get_graph_overlap(extensions[3], extensions[0], &graph) == 11);
+}
+
 TEST_CASE("MinimizerMapper::score_extension_group scores no gapless extensions as 0", "[giraffe][mapping][score_extension_group]") {
     vector<GaplessExtension> to_score;
     auto aln = fake_alignment(to_score);
