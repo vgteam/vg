@@ -139,7 +139,7 @@ public:
     /// extensions up and aligning the sequences between them. If false,
     /// produce alignments by aligning the tails off of individual gapless
     /// extensions.
-    bool chain_extensions = false;
+    bool align_from_chains = false;
 
     size_t max_multimaps = 1;
     size_t distance_limit = 200;
@@ -329,7 +329,7 @@ protected:
      * Return the scores and tracebacks in the same order as the extension groups.
      * Returns scores and tracebacks separately for better compatibility with score_extensions()
      */
-    std::pair<std::vector<int>, std::vector<size_t>> chain_extensions(const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const;
+    std::pair<std::vector<int>, std::vector<std::vector<size_t>>> chain_extensions(const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const;
     
     /**
      * Score the set of extensions for each cluster using score_extension_group().

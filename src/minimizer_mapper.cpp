@@ -415,7 +415,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
     std::vector<int> cluster_extension_scores;
     // We optionally also get tracebacks for aligining each cluster into a base-level alignment
     std::vector<std::vector<size_t>> cluster_extension_tracebacks;
-    if (chain_extensions) {
+    if (align_from_chains) {
         // Chain all the extension groups and get scores and chains
         auto result = this->chain_extensions(cluster_extensions, aln, funnel);
         cluster_extension_scores = std::move(result.first);
@@ -531,7 +531,7 @@ vector<Alignment> MinimizerMapper::map(Alignment& aln) {
                     funnel.substage("align");
                 }
                 
-                if (chain_extensions) {
+                if (align_from_chains) {
                     // Do the DP between the extensions in the cluster as specified by the chain we got for it.
                     auto& chain_order = cluster_extension_tracebacks[extension_num];
                     
@@ -4135,10 +4135,10 @@ pair<int, vector<size_t>> MinimizerMapper::chain_extension_group(const Alignment
     }
 }
 
-std::pair<std::vector<int>, std::vector<size_t>> MinimizerMapper::chain_extensions(
+std::pair<std::vector<int>, std::vector<std::vector<size_t>>> MinimizerMapper::chain_extensions(
     const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const {
 
-    std::pair<std::vector<int>, std::vector<size_t>> result;
+    std::pair<std::vector<int>, std::vector<std::vector<size_t>>> result;
     result.first.reserve(extensions.size());
     result.second.reserve(extensions.size());
 
@@ -4148,7 +4148,6 @@ std::pair<std::vector<int>, std::vector<size_t>> MinimizerMapper::chain_extensio
     }
 
     // We now estimate the best possible alignment score for each cluster.
-    std::vector<std::pair<int, std::vector<size_t>>> result(extensions.size(), 0);
     for (size_t i = 0; i < extensions.size(); i++) {
         
         if (this->track_provenance) {
@@ -4156,13 +4155,13 @@ std::pair<std::vector<int>, std::vector<size_t>> MinimizerMapper::chain_extensio
         }
         
         // Do the chaining and move the answers
-        auto chained = chain_extension_group(aln, extensions[i], get_regular_aligner()->gap_open, get_regular_aligner()->gap_extension, distance_index, gbwt_graph);
-        result.first[i] = std::move(chained.first);
-        result.second[i] = std::move(chained.second);
+        auto chained = chain_extension_group(aln, extensions[i], get_regular_aligner()->gap_open, get_regular_aligner()->gap_extension, distance_index, &gbwt_graph);
+        result.first.emplace_back(std::move(chained.first));
+        result.second.emplace_back(std::move(chained.second));
         
         // Record the score with the funnel.
         if (this->track_provenance) {
-            funnel.score(i, result.first[i]);
+            funnel.score(i, result.first.back());
             funnel.produced_output();
         }
     }
