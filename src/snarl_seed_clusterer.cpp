@@ -2993,7 +2993,7 @@ void NewSnarlSeedClusterer::cluster_seeds_on_linear_structure(TreeState& tree_st
             }
         } else {
             //This becomes a new read cluster
-            if (read_last_cluster[read_num] != std::numeric_limits<size_t>::max()) {
+            if (!skip_distances_to_ends && read_last_cluster[read_num] != std::numeric_limits<size_t>::max()) {
                 //Record the previous cluster
                 node_clusters.read_cluster_heads.emplace(read_num, read_last_cluster[read_num]);
                 tree_state.all_seeds->at(read_num)->at(read_last_cluster[read_num]).distance_left = read_first_offset[read_num];
