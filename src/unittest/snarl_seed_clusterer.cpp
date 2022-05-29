@@ -2898,50 +2898,50 @@ namespace unittest {
     //    REQUIRE(clusters.size() == 1);
     //}//end test case
 
-    TEST_CASE("Failed graph", "[failed_cluster]"){
+    //TEST_CASE("Failed graph", "[failed_cluster]"){
 
-        HashGraph graph;
-        graph.deserialize("testGraph.hg");
-        IntegratedSnarlFinder snarl_finder(graph);
-        SnarlDistanceIndex dist_index;
-        fill_in_distance_index(&dist_index, &graph, &snarl_finder);
-
-
-        dist_index.print_self();
-
-        NewSnarlSeedClusterer clusterer(dist_index, &graph);
+    //    HashGraph graph;
+    //    graph.deserialize("testGraph.hg");
+    //    IntegratedSnarlFinder snarl_finder(graph);
+    //    SnarlDistanceIndex dist_index;
+    //    fill_in_distance_index(&dist_index, &graph, &snarl_finder);
 
 
+    //    dist_index.print_self();
 
-        vector<vector<pos_t>> pos_ts(2);
-        pos_ts[0].emplace_back(40, true, 0);
-        pos_ts[0].emplace_back(42, false, 0);
-        pos_ts[0].emplace_back(42, false, 0);
-        pos_ts[0].emplace_back(43, false, 0);
-        pos_ts[0].emplace_back(46, false, 0);
-        
+    //    NewSnarlSeedClusterer clusterer(dist_index, &graph);
 
-        for (bool use_minimizers : {true, false}) {
 
-            vector<vector<NewSnarlSeedClusterer::Seed>> seeds(2);
-            for (size_t read_num = 0 ; read_num < pos_ts.size() ; read_num++) {
-                    for (pos_t pos : pos_ts[read_num]) {
 
-                        if (use_minimizers) {
-                            auto chain_info = get_minimizer_distances(dist_index, pos);
-                            seeds[read_num].push_back({ pos, 0, chain_info});
-                        } else {
-                            seeds[read_num].push_back({ pos, 0});
-                        }
-                    }
-            }
+    //    vector<vector<pos_t>> pos_ts(2);
+    //    pos_ts[0].emplace_back(40, true, 0);
+    //    pos_ts[0].emplace_back(42, false, 0);
+    //    pos_ts[0].emplace_back(42, false, 0);
+    //    pos_ts[0].emplace_back(43, false, 0);
+    //    pos_ts[0].emplace_back(46, false, 0);
+    //    
 
-            vector<vector<NewSnarlSeedClusterer::Cluster>> clusters =  clusterer.cluster_seeds(seeds, 15, 35); 
+    //    for (bool use_minimizers : {true, false}) {
 
-            REQUIRE(clusters.size() == 1);
-        }
-        REQUIRE(false);
-    }
+    //        vector<vector<NewSnarlSeedClusterer::Seed>> seeds(2);
+    //        for (size_t read_num = 0 ; read_num < pos_ts.size() ; read_num++) {
+    //                for (pos_t pos : pos_ts[read_num]) {
+
+    //                    if (use_minimizers) {
+    //                        auto chain_info = get_minimizer_distances(dist_index, pos);
+    //                        seeds[read_num].push_back({ pos, 0, chain_info});
+    //                    } else {
+    //                        seeds[read_num].push_back({ pos, 0});
+    //                    }
+    //                }
+    //        }
+
+    //        vector<vector<NewSnarlSeedClusterer::Cluster>> clusters =  clusterer.cluster_seeds(seeds, 15, 35); 
+
+    //        REQUIRE(clusters.size() == 1);
+    //    }
+    //    REQUIRE(false);
+    //}
     TEST_CASE("Random graphs", "[cluster_random]"){
 
 
