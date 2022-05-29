@@ -6232,7 +6232,7 @@ namespace vg {
             
             default_random_engine generator(test_seed_source());
             
-            for (size_t repeat = 0; repeat < 100; repeat++) {
+            for (size_t repeat = 0; repeat < 0; repeat++) {
             
                 uniform_int_distribution<size_t> bases_dist(100, 2000);
                 size_t bases = bases_dist(generator);
