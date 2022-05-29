@@ -245,7 +245,7 @@ int main_minimizer(int argc, char** argv) {
     bool use_new_distance_index = true;
     if (!distance_name.empty()) {
         ifstream instream (distance_name);
-        if (vg::io::MessageIterator::sniff_tag(instream) == "distance index version 2.2") {
+        if (vg::io::MessageIterator::sniff_tag(instream) == "DistanceIndex") {
             //old distance index
             use_new_distance_index = false;
             if (progress) {
