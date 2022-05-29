@@ -1133,7 +1133,7 @@ int main_giraffe(int argc, char** argv) {
     SnarlDistanceIndex* distance_index_ptr = nullptr;
     string distance_index_file_name = registry.require("Giraffe Distance Index").at(0);
     ifstream infile_dist (distance_index_file_name);
-    if (vg::io::MessageIterator::sniff_tag(infile_dist) == "DistanceIndex") {
+    if (vg::io::MessageIterator::sniff_tag(infile_dist) == "Distance") {
         old_distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(registry.require("Giraffe Distance Index").at(0));
     } else {
         distance_index.deserialize(distance_index_file_name);

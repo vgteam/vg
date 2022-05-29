@@ -3641,7 +3641,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         SnarlDistanceIndex new_distance_index;
         std::unique_ptr<MinimumDistanceIndex> old_distance_index;
         bool use_new_distance_index = false;
-        if (vg::io::MessageIterator::sniff_tag(infile_dist) == "DistanceIndex") {
+        if (vg::io::MessageIterator::sniff_tag(infile_dist) == "Distance") {
             old_distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(infile_dist);
         } else {
             new_distance_index.deserialize(dist_filename);
