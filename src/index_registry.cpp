@@ -49,6 +49,7 @@
 #include "transcriptome.hpp"
 #include "integrated_snarl_finder.hpp"
 #include "min_distance.hpp"
+#include "snarl_distance_index.hpp"
 #include "gfa.hpp"
 #include "job_schedule.hpp"
 #include "path.hpp"

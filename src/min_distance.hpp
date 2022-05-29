@@ -6,7 +6,6 @@
 
 #include "snarls.hpp"
 #include "hash_map.hpp"
-#include "snarl_distance_index.hpp"
 
 #include "bdsg/hash_graph.hpp"
 

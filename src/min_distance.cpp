@@ -2751,7 +2751,7 @@ tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> MinimumD
         size_t offset = chain_rank == 0 ? 0 : chain_indexes[component_to_chain_index[component-1]].prefix_sum[chain_rank] - 1;
 
         return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(true, component, offset + node_offset,
-            false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
+            false, MinimumDistanceIndex::MIPayload::NO_VALUE, MinimumDistanceIndex::MIPayload::NO_VALUE, MinimumDistanceIndex::MIPayload::NO_VALUE, MinimumDistanceIndex::MIPayload::NO_VALUE, false);
 
     } else if (component != 0 && snarl_index.depth == 0 && snarl_index.in_chain && snarl_index.is_simple_snarl && !chain_indexes[get_chain_assignment(snarl_index.id_in_parent)].is_looping_chain ) {
         //This node is on a top-level simple snarl
@@ -2762,13 +2762,13 @@ tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool> MinimumD
         size_t node_len = snarl_index.node_length(snarl_rank);
         bool rev_in_snarl = snarl_index.snarl_distance(0, snarl_rank) == -1;
         bool is_rev = rev_in_snarl ? !snarl_index.rev_in_parent : snarl_index.rev_in_parent;
-        return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(false, MIPayload::NO_VALUE, MIPayload::NO_VALUE,
+        return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(false, MinimumDistanceIndex::MIPayload::NO_VALUE, MinimumDistanceIndex::MIPayload::NO_VALUE,
                 true, chain_rank, start_len, end_len, node_len, is_rev);
 
     } else {
         //If this is a nested position
-        return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(false, MIPayload::NO_VALUE, MIPayload::NO_VALUE,
-                false, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, MIPayload::NO_VALUE, false);
+        return tuple<bool, size_t, size_t, bool, size_t, size_t, size_t, size_t, bool>(false, MinimumDistanceIndex::MIPayload::NO_VALUE, MinimumDistanceIndex::MIPayload::NO_VALUE,
+                false, MinimumDistanceIndex::MIPayload::NO_VALUE, MinimumDistanceIndex::MIPayload::NO_VALUE, MinimumDistanceIndex::MIPayload::NO_VALUE, MinimumDistanceIndex::MIPayload::NO_VALUE, false);
     }
 }
 
@@ -2786,7 +2786,7 @@ size_t MinimumDistanceIndex::get_connected_component(id_t node_id) {
     return node_to_component[node_id-min_node_id];
 }
 
-constexpr MIPayload::code_type MIPayload::NO_CODE;
-constexpr size_t MIPayload::NO_VALUE;
+constexpr MinimumDistanceIndex::MIPayload::code_type MinimumDistanceIndex::MIPayload::NO_CODE;
+constexpr size_t MinimumDistanceIndex::MIPayload::NO_VALUE;
 
 }
