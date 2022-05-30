@@ -968,7 +968,7 @@ public:
         nodes(),
         candidate_point({ std::numeric_limits<int32_t>::max(), 0, 0, 0 }), candidate_node(0),
         mismatch(2 * (aligner.match + aligner.mismatch)),
-        gap_open(2 * aligner.gap_open),
+        gap_open(2 * (aligner.gap_open - aligner.gap_extension)),
         gap_extend(2 * aligner.gap_extension + aligner.match),
         score_bound(0),
         diagonals({ { 0, 0 } }), max_diagonals(0, 0)

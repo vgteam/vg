@@ -913,8 +913,8 @@ void check_alignment(const WFAAlignment& alignment, const std::string& sequence,
             break;
         case WFAAlignment::insertion: // Fall through.
         case WFAAlignment::deletion:
-            // FIXME n or n-1 gap_extends?
-            expected_score -= aligner.gap_open + int32_t(edit.second) * aligner.gap_extension;
+            // Note that a gap of length n has n - 1 extensions according to VG.
+            expected_score -= aligner.gap_open + (int32_t(edit.second) - 1) * aligner.gap_extension;
             break;
         }
     }
@@ -951,7 +951,7 @@ void check_alignment(const WFAAlignment& alignment, const std::string& sequence,
             }
         }
     }
-    REQUIRE(path_offset == alignment.path.size() - 1 || (path_offset == alignment.path.size() && node_offset == 0));
+    REQUIRE((path_offset == alignment.path.size() - 1) | (path_offset == alignment.path.size() && node_offset == 0));
 }
 
 } // anonymous namespace

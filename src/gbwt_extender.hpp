@@ -272,6 +272,10 @@ struct WFAAlignment {
  *   Eizenga, Paten: Improving the time and space complexity of the WFA algorithm
  *   and generalizing its scoring. bioRxiv, 2022.
  *
+ * VG scores a gap of length `n` as `gap_open + (n - 1) * gap_extend`, while WFA
+ * papers use `gap_open + n * gap_extend`. Hence we use `gap_open - gap_extend` as
+ * the effective four-parameter gap open score inside this aligner.
+ *
  * Note: Most internal arithmetic operations use 32-bit integers.
  */
 class WFAExtender {
