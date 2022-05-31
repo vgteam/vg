@@ -289,6 +289,9 @@ using namespace std;
             path_pos_out = -1;
             if (source_mp_aln) {
                 *mp_aln_out = make_null_mp_alignment(source_mp_aln->sequence(), source_mp_aln->quality());
+                // copy over annotations
+                // TODO: also redundantly copies over sequence and quality
+                transfer_read_metadata(*source_mp_aln, *mp_aln_out);
             }
             else {
                 *aln_out = make_null_alignment(*source_aln);

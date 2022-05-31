@@ -95,6 +95,9 @@ public:
     /// of total score
     double minimizer_score_fraction = 0.9;
 
+    /// Maximum number of distinct minimizers to take
+    size_t max_unique_min = 500;
+
     ///Accept at least this many clusters
     size_t min_extensions = 2;
 
@@ -146,6 +149,9 @@ public:
     
     /// If set, log what the mapper is thinking in its mapping of each read.
     bool show_work = false;
+
+    /// If set, exclude overlapping minimizers
+    bool exclude_overlapping_min = false;
 
     ////How many stdevs from fragment length distr mean do we cluster together?
     double paired_distance_stdevs = 2.0; 

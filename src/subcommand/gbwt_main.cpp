@@ -56,7 +56,7 @@ struct GBWTConfig {
     // Other parameters and flags.
     bool show_progress = false;
     bool count_threads = false;
-    bool metadata = false, contigs = false, haplotypes = false, samples = false, list_names = false, thread_names = false;
+    bool metadata = false, contigs = false, haplotypes = false, samples = false, list_names = false, thread_names = false, tags = false;
     bool include_named_paths = false;
     size_t num_paths = default_num_paths(), context_length = default_context_length();
     bool num_paths_set = false;
@@ -67,13 +67,16 @@ struct GBWTConfig {
     std::string gbwt_name; // There is a single input GBWT to load.
     std::string graph_name;
 
-    // File/sample names.
+    // File names.
     std::string gbwt_output; // Output GBWT.
     std::string thread_output; // Threads in SDSL format.
     std::string graph_output; // Output GBWTGraph.
     std::string segment_translation; // Segment to node translation output.
     std::string r_index_name; // Output r-index.
+    
+    // Sample names and metadata
     std::set<std::string> to_remove; // Sample names to remove.
+    std::map<std::string, std::string> tags_to_set; // Tag changes to apply to the GBWT
 
     GBWTConfig() {
         this->merge_parameters.setMergeJobs(default_merge_jobs());
@@ -134,7 +137,7 @@ void validate_gbwt_config(GBWTConfig& config);
 
 void step_1_build_gbwts(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config);
 void step_2_merge_gbwts(GBWTHandler& gbwts, GBWTConfig& config);
-void step_3_remove_samples(GBWTHandler& gbwts, GBWTConfig& config);
+void step_3_alter_gbwt(GBWTHandler& gbwts, GBWTConfig& config);
 void step_4_path_cover(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config);
 void step_5_gbwtgraph(GBWTHandler& gbwts, GraphHandler& graphs, GBWTConfig& config);
 void step_6_r_index(GBWTHandler& gbwts, GBWTConfig& config);
@@ -169,9 +172,9 @@ int main_gbwt(int argc, char** argv) {
         step_2_merge_gbwts(gbwts, config);
     }
 
-    // Remove samples from the GBWT.
-    if (!config.to_remove.empty()) {
-        step_3_remove_samples(gbwts, config);
+    // Edit the GBWT (remove samples, apply tags).
+    if (!config.to_remove.empty() || !config.tags_to_set.empty()) {
+        step_3_alter_gbwt(gbwts, config);
     }
 
     // Path cover construction.
@@ -279,8 +282,9 @@ void help_gbwt(char** argv) {
     std::cerr << "        --merge-buffers N   merge 2^N thread buffers into one file per merge job (default " << gbwt::MergeParameters::MERGE_BUFFERS << ")" << std::endl;
     std::cerr << "        --merge-jobs N      run N parallel merge jobs (default " << GBWTConfig::default_merge_jobs() << ")" << std::endl;
     std::cerr << std::endl;
-    std::cerr << "Step 3: Remove samples (requires -o and one input GBWT):" << std::endl;
+    std::cerr << "Step 3: Alter GBWT (requires -o and one input GBWT):" << std::endl;
     std::cerr << "    -R, --remove-sample X   remove the sample with name X from the index (may repeat)" << std::endl;
+    std::cerr << "        --set-tag K=V       set a GBWT tag (may repeat)" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 4: Path cover GBWT construction (requires -o, -x, and one of { -a, -l, -P }):" << std::endl;
     std::cerr << "    -a, --augment-gbwt      add a path cover of missing components (one input GBWT)" << std::endl;
@@ -304,6 +308,7 @@ void help_gbwt(char** argv) {
     std::cerr << "    -S, --samples           print the number of samples" << std::endl;
     std::cerr << "    -L, --list-names        list contig/sample names (use with -C or -S)" << std::endl;
     std::cerr << "    -T, --thread-names      list thread names" << std::endl;
+    std::cerr << "        --tags              list GBWT tags" << std::endl;
     std::cerr << std::endl;
     std::cerr << "Step 8: Threads (one input GBWT):" << std::endl;
     std::cerr << "    -c, --count-threads     print the number of threads" << std::endl;
@@ -377,8 +382,10 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
     constexpr int OPT_THREAD_BUFFER = 1202;
     constexpr int OPT_MERGE_BUFFERS = 1203;
     constexpr int OPT_MERGE_JOBS = 1204;
+    constexpr int OPT_SET_TAG = 1300;
     constexpr int OPT_PASS_PATHS = 1400;
     constexpr int OPT_GBZ_FORMAT = 1500;
+    constexpr int OPT_TAGS = 1700;
 
     static struct option long_options[] =
     {
@@ -439,8 +446,9 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         { "merge-buffers", required_argument, 0, OPT_MERGE_BUFFERS },
         { "merge-jobs", required_argument, 0, OPT_MERGE_JOBS },
 
-        // Remove sample
+        // Alter GBWT
         { "remove-sample", required_argument, 0, 'R' },
+        { "set-tag", required_argument, 0, OPT_SET_TAG },
 
         // Path cover
         { "augment-gbwt", no_argument, 0, 'a' },
@@ -464,6 +472,7 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
         { "samples", no_argument, 0, 'S' },
         { "list-names", no_argument, 0, 'L' },
         { "thread-names", no_argument, 0, 'T' },
+        { "tags", no_argument, 0, OPT_TAGS },
 
         // Threads
         { "count-threads", no_argument, 0, 'c' },
@@ -683,9 +692,21 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             config.merge_parameters.setMergeJobs(parse<size_t>(optarg));
             break;
 
-        // Remove sample
+        // Alter GBWT
         case 'R':
             config.to_remove.insert(optarg);
+            break;
+        case OPT_SET_TAG:
+            {
+                std::string argument(optarg);
+                size_t separator = argument.find('=');
+                if (separator == std::string::npos) {
+                    // We can't parse this as key = value.
+                    std::cerr << "Error: expected '=' in " << argument << std::endl;
+                    std::exit(EXIT_FAILURE);
+                }
+                config.tags_to_set.emplace(argument.substr(0, separator), argument.substr(separator + 1));
+            }
             break;
 
         // Path cover
@@ -754,6 +775,10 @@ GBWTConfig parse_gbwt_config(int argc, char** argv) {
             config.thread_names = true;
             config.metadata_mode = true;
             break;
+        case OPT_TAGS:
+            config.tags = true;
+            config.metadata_mode = true;
+            break;
 
         // Threads
         case 'c':
@@ -809,8 +834,21 @@ void validate_gbwt_config(GBWTConfig& config) {
     // We can load a PathHandleGraph from a file, get a SequenceSource from parsing GFA, or get a GBWTGraph from GBZ.
     bool has_graph_input = !config.graph_name.empty() || config.build == GBWTConfig::build_gfa || config.build == GBWTConfig::build_gbz;
 
-    if (config.build != GBWTConfig::build_none) {
+    if (config.build == GBWTConfig::build_gbz) {
+        // If we "build" a GBWT by loading it from a GBZ, we just need to make
+        // sure that we know enough to actually load it.  
+        if (!config.graph_name.empty()) {
+            std::cerr << "error: [vg gbwt] GBZ input does not use -x" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        if (config.input_filenames.size() != 1) {
+            std::cerr << "error: [vg gbwt] GBZ input requires one input arg" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+    } else if (config.build != GBWTConfig::build_none) {
         if (!has_gbwt_output) {
+            // If we build our GBWT by doing anything other than loading it
+            // from a GBZ, we need to have somewhere to put it.
             std::cerr << "error: [vg gbwt] GBWT construction requires output GBWT" << std::endl;
             std::exit(EXIT_FAILURE);
         }
@@ -829,15 +867,6 @@ void validate_gbwt_config(GBWTConfig& config) {
             }
             if (config.input_filenames.size() != 1) {
                 std::cerr << "error: [vg gbwt] GBWT construction from GFA requires one input arg" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-        } else if (config.build == GBWTConfig::build_gbz) {
-            if (!config.graph_name.empty()) {
-                std::cerr << "error: [vg gbwt] GBZ input does not use -x" << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            if (config.input_filenames.size() != 1) {
-                std::cerr << "error: [vg gbwt] GBZ input requires one input arg" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
         } else if (config.build == GBWTConfig::build_alignments) {
@@ -866,10 +895,17 @@ void validate_gbwt_config(GBWTConfig& config) {
 
     if (!config.to_remove.empty()) {
         if (config.build == GBWTConfig::build_gbz) {
-            std::cerr << "error: [vg gbwt] the GBWT extracted from GBZ cannot be modified" << std::endl;
+            std::cerr << "error: [vg gbwt] the GBWT extracted from GBZ cannot have paths modified" << std::endl;
         }
         if (!(config.input_filenames.size() == 1 || config.merge != GBWTConfig::merge_none) || !has_gbwt_output) {
             std::cerr << "error: [vg gbwt] removing a sample requires one input GBWT and output GBWT" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+    }
+    
+    if (!config.tags_to_set.empty()) {
+        if (!(config.input_filenames.size() == 1 || config.merge != GBWTConfig::merge_none) || !has_gbwt_output) {
+            std::cerr << "error: [vg gbwt] setting tags requires one input GBWT and output GBWT" << std::endl;
             std::exit(EXIT_FAILURE);
         }
     }
@@ -1293,7 +1329,7 @@ void step_2_merge_gbwts(GBWTHandler& gbwts, GBWTConfig& config) {
 
 //----------------------------------------------------------------------------
 
-void step_3_remove_samples(GBWTHandler& gbwts, GBWTConfig& config) {
+void remove_samples(GBWTHandler& gbwts, GBWTConfig& config) {
     double start = gbwt::readTimer();
     if (config.show_progress) {
         std::cerr << "Removing " << config.to_remove.size() << " sample(s) from the index" << std::endl;
@@ -1325,6 +1361,31 @@ void step_3_remove_samples(GBWTHandler& gbwts, GBWTConfig& config) {
     gbwts.unbacked(); // We modified the GBWT.
 
     report_time_memory("Samples removed", start, config);
+}
+
+void set_tags(GBWTHandler& gbwts, GBWTConfig& config) {
+    double start = gbwt::readTimer();
+    if (config.show_progress) {
+        std::cerr << "Setting " << config.tags_to_set.size() << " tags on the GBWT" << std::endl;
+    }
+
+    gbwts.use_compressed();
+    for (auto& kv : config.tags_to_set) {
+        gbwts.compressed.tags.set(kv.first, kv.second); 
+    }
+    // We modified the GBWT (we assume some tags got set)
+    gbwts.unbacked();
+    
+    report_time_memory("Tags set", start, config);
+}
+
+void step_3_alter_gbwt(GBWTHandler& gbwts, GBWTConfig& config) {
+    if (!config.to_remove.empty()) {
+        remove_samples(gbwts, config);
+    }
+    if (!config.tags_to_set.empty()) {
+        set_tags(gbwts, config);
+    }
 }
 
 //----------------------------------------------------------------------------
@@ -1443,59 +1504,79 @@ void step_6_r_index(GBWTHandler& gbwts, GBWTConfig& config) {
 
 void step_7_metadata(GBWTHandler& gbwts, GBWTConfig& config) {
     gbwts.use_compressed();
-    if (!gbwts.compressed.hasMetadata()) {
-        std::cerr << "error: [vg gbwt] the GBWT does not contain metadata" << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-
+    
+    // Use this to get the metadata object for the operations that need it, or
+    // fail if it's not there.
+    auto get_metadata = [&gbwts]() -> const gbwt::Metadata& {
+        if (!gbwts.compressed.hasMetadata()) {
+            std::cerr << "error: [vg gbwt] the GBWT does not contain metadata" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        return gbwts.compressed.metadata;
+    };
+    
     if (config.metadata) {
+        // Make sure the metadata exists.
+        get_metadata();
         print_metadata(std::cout, gbwts);
     }
 
     if (config.contigs) {
+        auto& metadata = get_metadata();
         if (config.list_names) {
             if (gbwts.compressed.metadata.hasContigNames()) {
-                for (size_t i = 0; i < gbwts.compressed.metadata.contigs(); i++) {
-                    std::cout << gbwts.compressed.metadata.contig(i) << std::endl;
+                for (size_t i = 0; i < metadata.contigs(); i++) {
+                    std::cout << metadata.contig(i) << std::endl;
                 }
             } else {
                 std::cerr << "error: [vg gbwt] the metadata does not contain contig names" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
         } else {
-            std::cout << gbwts.compressed.metadata.contigs() << std::endl;
+            std::cout << metadata.contigs() << std::endl;
         }
     }
 
     if (config.haplotypes) {
-        std::cout << gbwts.compressed.metadata.haplotypes() << std::endl;
+        std::cout << get_metadata().haplotypes() << std::endl;
     }
 
     if (config.samples) {
+        auto& metadata = get_metadata();
         if (config.list_names) {
-            if (gbwts.compressed.metadata.hasSampleNames()) {
-                for (size_t i = 0; i < gbwts.compressed.metadata.samples(); i++) {
-                    std::cout << gbwts.compressed.metadata.sample(i) << std::endl;
+            if (metadata.hasSampleNames()) {
+                for (size_t i = 0; i < metadata.samples(); i++) {
+                    std::cout << metadata.sample(i) << std::endl;
                 }
             } else {
                 std::cerr << "error: [vg gbwt] the metadata does not contain sample names" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
         } else {
-            std::cout << gbwts.compressed.metadata.samples() << std::endl;
+            std::cout << metadata.samples() << std::endl;
         }
     }
 
     if (config.thread_names) {
-        if (gbwts.compressed.metadata.hasPathNames()) {
+        auto& metadata = get_metadata();
+        if (metadata.hasPathNames()) {
             // Precompute some metadata
             auto gbwt_reference_samples = gbwtgraph::parse_reference_samples_tag(gbwts.compressed);
-            for (size_t i = 0; i < gbwts.compressed.metadata.paths(); i++) {
+            for (size_t i = 0; i < metadata.paths(); i++) {
                 PathSense sense = gbwtgraph::get_path_sense(gbwts.compressed, i, gbwt_reference_samples);
                 std::cout << gbwtgraph::compose_path_name(gbwts.compressed, i, sense) << std::endl;
             }
         } else {
             std::cerr << "error: [vg gbwt] the metadata does not contain thread names" << std::endl;
+        }
+    }
+    
+    if (config.tags) {
+        // This only needs GBWT tag metadata.
+        // TODO: the gbwt::Tags object doesn't have its own enumeration API.
+        // Just reach in and grab them.
+        for (auto& kv : gbwts.compressed.tags.tags) {
+            std::cout << kv.first << "\t" << kv.second << std::endl;
         }
     }
 }
