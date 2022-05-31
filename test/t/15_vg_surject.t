@@ -130,9 +130,9 @@ is $(vg map -b minigiab/NA12878.chr22.tiny.bam -x m.xg -g m.gcsa | vg surject -p
 is $(vg map -f minigiab/NA12878.chr22.tiny.fq.gz -x m.xg -g m.gcsa | vg surject -p q -x m.xg -s - | grep chr22.bin8.cram:166:6027 | grep BBBBBFBFI | wc -l) 1 "mapping reproduces qualities from fastq input"
 is $(vg map -f minigiab/NA12878.chr22.tiny.fq.gz -x m.xg -g m.gcsa --gaf | vg surject -p q -x m.xg -s - -G | grep chr22.bin8.cram:166:6027 | grep BBBBBFBFI | wc -l) 1 "mapping reproduces qualities from GAF input"
 
-is "$(zcat < minigiab/NA12878.chr22.tiny.fq.gz | head -n 4000 | vg mpmap -B -p -x m.xg -g m.gcsa -f - | vg surject -m -x m.xg -p q -s - | samtools view | wc -l)" 1000 "surject works on GAMP input"
+is "$(zcat < minigiab/NA12878.chr22.tiny.fq.gz | head -n 4000 | vg mpmap -B -p -x m.xg -g m.gcsa -M 1 -f - | vg surject -m -x m.xg -p q -s - | samtools view | wc -l)" 1000 "surject works on GAMP input"
 
-is "$(vg sim -x m.xg -n 500 -l 150 -a -s 768594 -i 0.01 -e 0.01 -p 250 -v 50 | vg view -aX - | vg mpmap -B -p -b 200 -x m.xg -g m.gcsa -i -f - | vg surject -m -x m.xg -i -p q -s - | samtools view | wc -l)" 1000 "surject works on paired GAMP input"
+is "$(vg sim -x m.xg -n 500 -l 150 -a -s 768594 -i 0.01 -e 0.01 -p 250 -v 50 | vg view -aX - | vg mpmap -B -p -b 200 -x m.xg -g m.gcsa -i -M 1 -f - | vg surject -m -x m.xg -i -p q -s - | samtools view | wc -l)" 1000 "surject works on paired GAMP input"
 
 rm -rf minigiab.vg* m.xg m.gcsa
 
