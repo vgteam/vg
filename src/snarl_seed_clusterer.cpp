@@ -606,7 +606,8 @@ void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t de
                                             std::get<3>(parent_to_child_tuple),
                                             std::get<4>(parent_to_child_tuple),
                                             std::get<5>(parent_to_child_tuple));
-        if (distance_index.is_snarl(std::get<1>(parent_to_child_tuple))) {
+        if (std::get<3>(parent_to_child_tuple) == std::numeric_limits<size_t>::max()) {
+            //If this is a snarl
             only_seeds = false;
         }
 
@@ -1628,9 +1629,9 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
     //And values we need to save from the last child
     //If the last child is a snarl, get it from the NodeClusters otherwise from the seed's cache
     size_t last_prefix_sum = std::get<4>(last_child);
-    size_t last_length = distance_index.is_snarl(last_child_handle) ? tree_state.all_node_clusters[std::get<1>(last_child)].node_length
+    size_t last_length = std::get<2>(last_child) == std::numeric_limits<size_t>::max() ? tree_state.all_node_clusters[std::get<1>(last_child)].node_length
                                           : std::get<0>(tree_state.all_seeds->at(std::get<1>(last_child))->at(std::get<2>(last_child)).minimizer_cache);
-    size_t last_chain_component_end = distance_index.is_snarl(last_child_handle) ? tree_state.all_node_clusters[std::get<1>(last_child)].chain_component_end
+    size_t last_chain_component_end = std::get<2>(last_child) == std::numeric_limits<size_t>::max() ? tree_state.all_node_clusters[std::get<1>(last_child)].chain_component_end
                                           : std::get<3>(last_child);
 
     //These are clusters that we don't want to consider as we walk through the chain but that 
@@ -1650,11 +1651,10 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
          * The clusters of the chain have right distances up to the end of the last child seen
          */
 
-        //The child as a tuple of <is_snarl, (index in all_node_clusters, inf) or (seed read num, seed index)
         tuple<net_handle_t, size_t, size_t, size_t, size_t>& child_clusters_i = children_in_chain[i];
         net_handle_t child_handle = std::get<0>(child_clusters_i);
 
-        if (distance_index.is_snarl(child_handle)){
+        if (std::get<2>(child_clusters_i) == std::numeric_limits<size_t>::max()){
 
             //If this is a snarl, then cluster the children here
             add_snarl_to_chain_clusters(tree_state, chain_clusters, last_child, last_child_handle, last_prefix_sum, last_length,
