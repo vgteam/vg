@@ -581,7 +581,7 @@ void NewSnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state) const {
 void NewSnarlSeedClusterer::cluster_chain_level(TreeState& tree_state, size_t depth) const {
 
     //Go through chain_to_children, which is a vector of chain, child pairs. Start by sorting by parent chain
-    tree_state.chain_to_children->sort(distance_index);
+    tree_state.chain_to_children->sort();
     vector<tuple<size_t, net_handle_t, size_t, size_t, size_t, size_t>>& chain_to_children = tree_state.chain_to_children->parent_to_children;
 
     if (chain_to_children.empty()) {

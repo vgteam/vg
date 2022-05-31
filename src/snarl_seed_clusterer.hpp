@@ -228,7 +228,7 @@ class NewSnarlSeedClusterer {
 
             //Sort the parent_to_children vector first by parent, and second by the order
             //of the children determined by comparator
-            void sort(const SnarlDistanceIndex& distance_index) {
+            void sort() {
                 if (!is_sorted) {
                     std::sort(parent_to_children.begin(), parent_to_children.end(),
                     [&] (const tuple<size_t, net_handle_t, size_t, size_t, size_t, size_t>& a,
@@ -241,7 +241,12 @@ class NewSnarlSeedClusterer {
 
                                 if (std::get<5>(a) == std::get<5>(b)) {
                                     //If they have the same prefix sum value, order using the distance index
-                                    return distance_index.is_ordered_in_chain(std::get<1>(a), std::get<1>(b));
+                                    if (std::get<3>(a) ==std::numeric_limits<size_t>::max()) {
+                                        //If 1 is a snarl, then it will go after b
+                                        return false;
+                                    } else {
+                                        return true;
+                                    }
                                 } else {
                                     //IF they have different prefix sum values, sort by prefix sum
                                     return std::get<5>(a) < std::get<5>(b);
@@ -269,7 +274,7 @@ class NewSnarlSeedClusterer {
             vector<tuple<net_handle_t, size_t, size_t>> get_children(const size_t& parent, const SnarlDistanceIndex& distance_index) {
                 //We need to sort the vector first to find everything with the right parent
                 if (!is_sorted) {
-                    sort(distance_index);
+                    sort();
                 }
                 vector<tuple<net_handle_t, size_t, size_t>> children;
                 auto iter_start = std::lower_bound(parent_to_children.begin(), parent_to_children.end(),
