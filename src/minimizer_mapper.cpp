@@ -3153,6 +3153,7 @@ std::vector<MinimizerMapper::Seed> MinimizerMapper::find_seeds(const std::vector
 
     return seeds;
 }
+
 std::vector<MinimizerMapper::OldSeed> MinimizerMapper::find_seeds_old(const std::vector<Minimizer>& minimizers, const Alignment& aln, Funnel& funnel) const {
 
     if (this->track_provenance) {
@@ -3185,9 +3186,14 @@ std::vector<MinimizerMapper::OldSeed> MinimizerMapper::find_seeds_old(const std:
         }
     }
 
+    // bit vector length of read to check for overlaps
+    size_t num_minimizers = 0;
+    size_t read_len = aln.sequence().size();
+    std::vector<bool> read_bit_vector (read_len, false);
+
     // Select the minimizers we use for seeds.
     size_t rejected_count = 0;
-    std::vector<OldSeed> seeds;
+    std::vector<MinimizerMapper::OldSeed> seeds;
     // Flag whether each minimizer in the read was located or not, for MAPQ capping.
     // We ignore minimizers with no hits (count them as not located), because
     // they would have to be created in the read no matter where we say it came
@@ -3214,6 +3220,16 @@ std::vector<MinimizerMapper::OldSeed> MinimizerMapper::find_seeds_old(const std:
         // of the selected minimizers is not high enough.
         const Minimizer& minimizer = minimizers[i];
 
+        // minimizer information
+        size_t min_start_index = minimizer.forward_offset();
+        size_t min_len = minimizer.length;
+        bool overlapping = false;
+        if (this->exclude_overlapping_min) {
+          if (read_bit_vector[min_start_index] == true || read_bit_vector[min_start_index + min_len] == true) {
+            overlapping = true;
+          }
+        }
+
         if (minimizer.hits == 0) {
             // A minimizer with no hits can't go on.
             took_last = false;
@@ -3221,10 +3237,22 @@ std::vector<MinimizerMapper::OldSeed> MinimizerMapper::find_seeds_old(const std:
             if (this->track_provenance) {
                 funnel.fail("any-hits", i);
             }
-        } else if (minimizer.hits <= this->hit_cap ||
-            (run_hits <= this->hard_hit_cap && selected_score + minimizer.score <= target_score) ||
-            (took_last && i > start)) {
-            
+        } else if (  // passes reads
+              ((minimizer.hits <= this->hit_cap) ||
+              (run_hits <= this->hard_hit_cap && selected_score + minimizer.score <= target_score) ||
+              (took_last && i > start)) &&
+              (num_minimizers < this->max_unique_min) &&
+              (overlapping == false)
+            ) {
+
+            // set minimizer overlap as a reads
+            num_minimizers += 1;    // tracking number of minimizers selected
+            if (this->exclude_overlapping_min) {
+              for (size_t i = min_start_index; i < min_start_index + min_len; i++) {
+                read_bit_vector[i] = true;
+              }
+            }
+
             // We should keep this minimizer instance because it is
             // sufficiently rare, or we want it to make target_score, or it is
             // the same sequence as the previous minimizer which we also took.
@@ -3247,7 +3275,6 @@ std::vector<MinimizerMapper::OldSeed> MinimizerMapper::find_seeds_old(const std:
                 }
                 seeds.push_back({ hit, i, std::get<0>(chain_info), std::get<1>(chain_info), std::get<2>(chain_info), 
                     std::get<3>(chain_info), std::get<4>(chain_info), std::get<5>(chain_info), std::get<6>(chain_info), std::get<7>(chain_info), std::get<8>(chain_info) });
-
             }
 
             // Remember that we took this minimizer
@@ -3292,32 +3319,24 @@ std::vector<MinimizerMapper::OldSeed> MinimizerMapper::find_seeds_old(const std:
         funnel.substage("correct");
 
         if (this->path_graph == nullptr) {
-            cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no graph with paths" << endl;
+            cerr << "error[vg::MinimizerMapper] Cannot use track_correctness with no XG index" << endl;
             exit(1);
         }
 
         if (aln.refpos_size() != 0) {
-            // Compose path handle to position and strand data structure for the annotated reference positions
-            algorithms::path_offset_collection_t ref_positions;
-            for (auto& true_pos : aln.refpos()) {
-               ref_positions[this->path_graph->get_path_handle(true_pos.name())].emplace_back(true_pos.offset(), true_pos.is_reverse());
-            }
-            // Make sure it is sorted
-            algorithms::sort_path_offsets(ref_positions);
-            
-            // We need to know whether each seed is correct or not, and the
-            // seeds probably have about one position each. So we look up the
-            // seeds' positions in the sorted ref positions, and take: 
-            // O(#seed positions * log(#ref positions)) 
-            
             for (size_t i = 0; i < seeds.size(); i++) {
                 // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
-                algorithms::path_offset_collection_t seed_positions = algorithms::nearest_offsets_in_paths(this->path_graph, seeds[i].pos, 100);
-                // Check against the annotated truth position set
-                if (algorithms::intersect_path_offsets(ref_positions, seed_positions, 200)) {
-                    // It's within range of a truth position.
-                    // Call this seed hit close enough to be correct.
-                    funnel.tag_correct(i);
+                auto offsets = algorithms::nearest_offsets_in_paths(this->path_graph, seeds[i].pos, 100);
+                
+                for (auto& true_pos : aln.refpos()) {
+                    // For every annotated true position
+                    for (auto& hit_pos : offsets[this->path_graph->get_path_handle(true_pos.name())]) {
+                        // Look at all the hit positions on the path the read's true position is on.
+                        if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
+                            // Call this seed hit close enough to be correct
+                            funnel.tag_correct(i);
+                        }
+                    }
                 }
             }
         }
@@ -3334,6 +3353,7 @@ std::vector<MinimizerMapper::OldSeed> MinimizerMapper::find_seeds_old(const std:
 
     return seeds;
 }
+
 
 void MinimizerMapper::old_annotate_with_minimizer_statistics(Alignment& target, const std::vector<Minimizer>& minimizers, const std::vector<OldSeed>& seeds, const Funnel& funnel) const {
     // Annotate with fraction covered by correct (and necessarily located) seed hits.
