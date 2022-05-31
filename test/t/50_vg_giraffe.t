@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 41
+plan tests 43
 
 vg construct -a -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg
@@ -180,4 +180,12 @@ cat mapped.gaf | cut -f6 | tr '><' '\n\n' | grep "." | sort | uniq > gaf_names.t
 is "$(md5sum gaf_names.txt | cut -f1 -d' ')" "$(md5sum gam_names.txt | cut -f1 -d' ')" "Mapping reads as named GAF uses the same names as named GAM"
 
 rm -f reads.gam mapped.gam mapped.gaf brca.* gam_names.txt gaf_names.txt
+
+vg autoindex -p 1mb1kgp -w giraffe -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz 2>/dev/null
+vg giraffe -Z 1mb1kgp.giraffe.gbz -f reads/1mb1kgp_longread.fq >longread.gam -U 300 --track-provenance
+# This is an 8001 bp read with 1 insert and 1 substitution
+is "$(vg view -aj longread.gam | jq -r '.score')" "7989" "A long read can be correctly aligned"
+is "$(vg view -aj longread.gam | jq -c '. | select(.annotation["filter_3_cluster-coverage_cluster_passed_size_total"] <= 300)' | wc -l)" "1" "Long read minimizer set is correctly restricted"
+
+rm -f longread.gam 1mb1kgp.dist 1mb1kgp.giraffe.gbz 1mb1kgp.min log.txt
 

@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 29
+plan tests 30
 
 is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
 
@@ -23,6 +23,10 @@ is $nodes 84559 "the 1mb graph has the expected number of nodes"
 
 edges=$(vg stats -z z.vg | tail -1 | cut -f 2)
 is $edges 115375 "the 1mb graph has the expected number of edges"
+
+# Our 1000 Genomes subset file has changed variant start positions but not stored end positions.
+vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz -S >/dev/null
+is "${?}" "0" "vg construct can skip self-inconsistent structural variants"
 
 rm -f z.vg
 
@@ -92,7 +96,7 @@ max_node_size=$(vg construct -r small/x.fa -v small/x.vcf.gz -m 12 | vg view -g 
 is $max_node_size 12 "nodes are correctly capped in size"
 
 ## Check the length of the longest node
-is $(vg construct -m 1000 -R z:10000-20000 -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz | vg view - | grep "^S" | awk '{ print length($3); }' | sort -n | tail -1) 241 "-R --region flag is respected" 
+is $(vg construct -m 1000 -R z:10000-20000 -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz | vg view - | grep "^S" | awk '{ print length($3); }' | sort -n | tail -1) 241 "-R --region flag is respected"
 
 vg construct -r small/x.fa >/dev/null
 is $? 0 "vg construct does not require a vcf"
