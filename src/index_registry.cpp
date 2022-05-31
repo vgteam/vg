@@ -49,6 +49,7 @@
 #include "transcriptome.hpp"
 #include "integrated_snarl_finder.hpp"
 #include "min_distance.hpp"
+#include "snarl_distance_index.hpp"
 #include "gfa.hpp"
 #include "job_schedule.hpp"
 #include "path.hpp"
@@ -3641,7 +3642,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         SnarlDistanceIndex new_distance_index;
         std::unique_ptr<MinimumDistanceIndex> old_distance_index;
         bool use_new_distance_index = false;
-        if (vg::io::MessageIterator::sniff_tag(infile_dist) == "distance index version 2.2") {
+        if (vg::io::MessageIterator::sniff_tag(infile_dist) == "DISTANCE") {
             old_distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(infile_dist);
         } else {
             new_distance_index.deserialize(dist_filename);

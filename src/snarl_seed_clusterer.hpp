@@ -201,10 +201,11 @@ class NewSnarlSeedClusterer {
             //The net_handle_t is the containing net handle
             //The second/third size_t is for the child; If it is a snarl, then an index into all_seeds
             // if it is a seed, then the two indies into all_seeds
-            //The fourth size_t is the left offset of the seed or inf if it is a snarl 
-            //(this is used for sorting children, which doesn't matter for a snarl)
+            //The fourth size_t is the chain component of the child
+            //The fifth size_t is the left offset of the seed or start node of the snarl snarl 
+            //(this is used for sorting children)
             //This stores every child as a separate pair
-            vector<tuple<size_t, net_handle_t, size_t, size_t, size_t>> parent_to_children;
+            vector<tuple<size_t, net_handle_t, size_t, size_t, size_t, size_t>> parent_to_children;
 
             //is parent_to_children sorted?
             //Each time we look up the children of a parent, sort and look it up
@@ -212,8 +213,9 @@ class NewSnarlSeedClusterer {
             //Also set this to false any time something gets added
             bool is_sorted = false;
 
-            void add_child(size_t parent_index, net_handle_t handle, size_t child_index, size_t child_index2, size_t offset) {
-                parent_to_children.emplace_back(parent_index, handle, child_index, child_index2, offset);
+            void add_child(size_t parent_index, net_handle_t handle, size_t child_index, size_t child_index2, 
+                           size_t component, size_t offset) {
+                parent_to_children.emplace_back(parent_index, handle, child_index, child_index2, component, offset);
                 is_sorted=false;
             }
             void reserve(size_t size) {
@@ -225,22 +227,28 @@ class NewSnarlSeedClusterer {
             void sort(const SnarlDistanceIndex& distance_index) {
                 if (!is_sorted) {
                     std::sort(parent_to_children.begin(), parent_to_children.end(),
-                    [&] (const tuple<size_t, net_handle_t, size_t, size_t, size_t>& a,
-                         const tuple<size_t, net_handle_t, size_t, size_t, size_t>& b)->bool {
+                    [&] (const tuple<size_t, net_handle_t, size_t, size_t, size_t, size_t>& a,
+                         const tuple<size_t, net_handle_t, size_t, size_t, size_t, size_t>& b)->bool {
                         if (std::get<0>(a) == std::get<0>(b)) {
-                            //If they are children of the same parent
-                            if (std::get<1>(a) == std::get<1>(b)) {
-                                //If the children are both on the same net handle, then they must be seeds on a node
-                                //Sort by the left offset
-                                return std::get<4>(a) < std::get<4>(b);
-                            } else if (!distance_index.is_chain(std::get<1>(a)) && !distance_index.is_chain(std::get<1>(b))) {
-                                //If the parent is a chain (if the children aren't chains)
-                                return distance_index.is_ordered_in_chain(std::get<1>(a), std::get<1>(b)); 
+                            //If they are on the same parent chain
+
+                            if (std::get<4>(a) == std::get<4>(b)) {
+                                //If they are on the same component of the chain
+
+                                if (std::get<5>(a) == std::get<5>(b)) {
+                                    //If they have the same prefix sum value, order using the distance index
+                                    return distance_index.is_ordered_in_chain(std::get<1>(a), std::get<1>(b));
+                                } else {
+                                    //IF they have different prefix sum values, sort by prefix sum
+                                    return std::get<5>(a) < std::get<5>(b);
+                                }
+
                             } else {
-                                //Otherwise, the parent is a snarl and the order doesn't matter
-                                return true;
+                                //If they are on different components, sort by component
+                                return std::get<4>(a) < std::get<4>(b);
                             }
                         } else {
+                            //If they are on different parent chains, sort by parent
                             return std::get<0>(a) < std::get<0>(b);
                         }
                     });
@@ -261,7 +269,7 @@ class NewSnarlSeedClusterer {
                 }
                 vector<tuple<net_handle_t, size_t, size_t>> children;
                 auto iter_start = std::lower_bound(parent_to_children.begin(), parent_to_children.end(),
-                        std::tuple<size_t, net_handle_t, size_t, size_t, size_t>(parent, as_net_handle(0), (size_t)0, (size_t)0, (size_t)0));
+                        std::tuple<size_t, net_handle_t, size_t, size_t, size_t, size_t>(parent, as_net_handle(0), (size_t)0, (size_t)0, (size_t)0, (size_t)0));
                 for (auto iter = iter_start ; iter != parent_to_children.end() && std::get<0>(*iter) == parent ; ++iter) {
                     children.emplace_back(std::get<1>(*iter), std::get<2>(*iter), std::get<3>(*iter));
                 }
@@ -386,7 +394,7 @@ class NewSnarlSeedClusterer {
         //void cluster_snarl_level(TreeState& tree_state) const;
 
         //Cluster all the chains at the current level
-        void cluster_chain_level(TreeState& tree_state) const;
+        void cluster_chain_level(TreeState& tree_state, size_t depth) const;
 
         //Cluster the seeds on the specified node
         void cluster_one_node(TreeState& tree_state, NodeClusters& node_clusters) const; 
@@ -398,25 +406,27 @@ class NewSnarlSeedClusterer {
         //Cluster the seeds in a chain given by chain_index_i, an index into
         //distance_index.chain_indexes
         //If the depth is 0, also incorporate the top-level seeds from tree_state.top_level_seed_clusters
-        //Chain children are tuples<net_handle, (child index, inf) or (seed read num, seed index)>
+        //Chain children are tuples<net_handle, (child index, inf) or (seed read num, seed index), chain component, prefix sum>
         //If the children of the chain are only seeds on nodes, then cluster as if it is a node
-        void cluster_one_chain(TreeState& tree_state, size_t chain_clusters_index, vector<tuple<net_handle_t, size_t, size_t>>& children_in_chain, bool only_seeds) const;
+        void cluster_one_chain(TreeState& tree_state, size_t chain_clusters_index, vector<tuple<net_handle_t, size_t, size_t, size_t, size_t>>& children_in_chain, bool only_seeds, bool is_top_level_chain) const;
 
         //Helper function for adding the next seed to the chain clusters
         void add_seed_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
-                                        std::tuple<net_handle_t, size_t, size_t>& last_child, net_handle_t& last_child_handle, 
+                                        std::tuple<net_handle_t, size_t, size_t, size_t, size_t>& last_child, net_handle_t& last_child_handle, 
                                         size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, 
                                         vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>& cluster_heads_to_add_again,
                                         bool& found_first_node, vector<bool>& found_first_node_by_read,
-                                        tuple<net_handle_t, size_t, size_t>& current_child_indices, bool is_first_child, bool is_last_child) const;
+                                        tuple<net_handle_t, size_t, size_t, size_t, size_t>& current_child_indices, bool is_first_child, bool is_last_child,
+                                        bool skip_distances_to_ends) const;
 
         //Helper function for adding the next snarl to the chain clusters
         void add_snarl_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
-                                        std::tuple<net_handle_t, size_t, size_t>& last_child, net_handle_t& last_child_handle, 
+                                        std::tuple<net_handle_t, size_t, size_t, size_t, size_t>& last_child, net_handle_t& last_child_handle, 
                                         size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, 
                                         vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>& cluster_heads_to_add_again,
                                         bool& found_first_node, vector<bool>& found_first_node_by_read,
-                                        tuple<net_handle_t, size_t, size_t>& current_child_indices, bool is_first_child, bool is_last_child) const;
+                                        tuple<net_handle_t, size_t, size_t, size_t, size_t>& current_child_indices, bool is_first_child, bool is_last_child, 
+                                        bool skip_distances_to_ends) const;
 
         //Cluster in the root 
         void cluster_root(TreeState& tree_state) const;
@@ -430,7 +440,7 @@ class NewSnarlSeedClusterer {
         //left offset is the distance from the left side of the structure
         template <typename SeedIndex>
         void cluster_seeds_on_linear_structure(TreeState& tree_state, NodeClusters& node_clusters, vector<SeedIndex>& seed_indices, 
-                size_t structure_length, std::function<std::tuple<size_t, size_t, size_t>(const SeedIndex&)>& get_offset_from_seed_index) const;
+                size_t structure_length, std::function<std::tuple<size_t, size_t, size_t>(const SeedIndex&)>& get_offset_from_seed_index, bool skip_distances_to_ends) const;
 
         //Compare two children of the parent and combine their clusters, to create clusters in the parent
         //This assumes that the first node hasn't been seen before but the second one has, so all of the

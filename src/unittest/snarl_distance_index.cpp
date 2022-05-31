@@ -6065,7 +6065,7 @@ namespace vg {
 //
 //            REQUIRE(sub_graph.count(27));
 
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 0; i++) {
                 //1000 different graphs
                 VG graph;
                 random_graph(1000, 10, 16, &graph);
@@ -6232,7 +6232,7 @@ namespace vg {
             
             default_random_engine generator(test_seed_source());
             
-            for (size_t repeat = 0; repeat < 100; repeat++) {
+            for (size_t repeat = 0; repeat < 0; repeat++) {
             
                 uniform_int_distribution<size_t> bases_dist(100, 2000);
                 size_t bases = bases_dist(generator);

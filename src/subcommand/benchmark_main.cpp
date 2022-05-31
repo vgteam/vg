@@ -101,9 +101,9 @@ int main_benchmark(int argc, char** argv) {
         // Make all the vectors to benchmark
         sdsl::int_vector<> sdsl_vec_holder;
         auto sdsl_vec = &sdsl_vec_holder;
-        CompatIntVector<> compat_vec_holder;
+        bdsg::CompatIntVector<> compat_vec_holder;
         auto compat_vec = &compat_vec_holder;
-        bdsg::yomo::UniqueMappedPointer<MappedIntVector> mapped_vec;
+        bdsg::yomo::UniqueMappedPointer<bdsg::MappedIntVector> mapped_vec;
         mapped_vec.construct("");
         mapped_vec.save(tmpfd);
         
