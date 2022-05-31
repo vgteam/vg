@@ -213,6 +213,10 @@ class NewSnarlSeedClusterer {
             //Also set this to false any time something gets added
             bool is_sorted = false;
 
+            //Add a child (the handle, child_index) to its parent (parent_index)
+            //Component is the component of the node or start component of the snarl
+            //Offset is the prefix sum value of the seed, or the prefix sum of the start node of the snarl + 
+            // node length of the start node
             void add_child(size_t parent_index, net_handle_t handle, size_t child_index, size_t child_index2, 
                            size_t component, size_t offset) {
                 parent_to_children.emplace_back(parent_index, handle, child_index, child_index2, component, offset);
@@ -322,10 +326,6 @@ class NewSnarlSeedClusterer {
             //Map each net_handle to its index in all_node_clusters
             hash_map<net_handle_t, size_t> net_handle_to_index;
 
-            //Map from each snarl's net_handle_t to it's child net_handle_ts 
-            //clusters at the node
-            //size_t is the index into all_node_clusters
-            std::unordered_multimap<size_t, size_t> snarl_to_children;
             
             //Map each chain to the snarls (only ones that contain seeds) that
             //comprise it. 
@@ -343,6 +343,10 @@ class NewSnarlSeedClusterer {
             //This gets updated as the current level is processed
             //size_t is the index into all_node_clusters
             ParentToChildMap* parent_chain_to_children;
+
+            //Map each snarl (as an index into all_node_clusters) to its children (also as an index into all_node_clusters)
+            //for the current level of the snarl tree (inside the current chain) and its parent (parent of the current chain)
+            std::multimap<size_t, size_t> snarl_to_children;
 
             //This holds all the child clusters of the root
             //each size_t is the index into all_node_clusters
@@ -391,7 +395,7 @@ class NewSnarlSeedClusterer {
 
         //Cluster all the snarls at the current level and update the tree_state
         //to add each of the snarls to the parent level
-        //void cluster_snarl_level(TreeState& tree_state) const;
+        void cluster_snarl_level(TreeState& tree_state) const;
 
         //Cluster all the chains at the current level
         void cluster_chain_level(TreeState& tree_state, size_t depth) const;
@@ -401,7 +405,8 @@ class NewSnarlSeedClusterer {
 
         //Cluster the seeds in a snarl given by its net handle
         //Snarl_cluster_index is the index into tree_state.all_node_clusters
-        void cluster_one_snarl(TreeState& tree_state, size_t snarl_clusters_index, size_t parent_clusters_index) const;
+        void cluster_one_snarl(TreeState& tree_state, size_t snarl_clusters_index, 
+                 std::multimap<size_t, size_t>::iterator child_range_start, std::multimap<size_t, size_t>::iterator child_range_end) const;
 
         //Cluster the seeds in a chain given by chain_index_i, an index into
         //distance_index.chain_indexes
