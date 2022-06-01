@@ -220,6 +220,11 @@ public:
  */
 struct WFAAlignment {
     enum Edit { match, mismatch, insertion, deletion };
+    
+    using WFAAlignment() = default;
+    
+    /// Generate a WFAAlignment from a GaplessExtension
+    WFAAlignment(const GaplessExtension& extension);
 
     /// Sequence of oriented nodes.
     std::vector<handle_t> path;
@@ -251,6 +256,13 @@ struct WFAAlignment {
     /// Appends an edit operation, merging it with the latest edit if possible.
     /// Ignores empty edits.
     void append(Edit edit, uint32_t length);
+    
+    /// Concatenate another WFAAlignment onto this one, assuming a single
+    /// shared match base. Neither may be empty.
+    void join_on_shared_match(const WFAAlignment& second, int match_score);
+    
+    /// Convert the WFAAlignment into a Path.
+    Path to_path(const HandleGraph& graph, const std::string& sequence) const;
 };
 
 //------------------------------------------------------------------------------

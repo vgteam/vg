@@ -733,6 +733,40 @@ struct state_hash {
 
 //------------------------------------------------------------------------------
 
+WFAAlignment::WFAAlignment(const GaplessExtension& extension) :
+    path(extension.path),
+    edits(),
+    node_offset(extension.offset),
+    seq_offset(extension.read_interval.first),
+    length(extension.length()),
+    score(extension.score) {
+    
+    // We need to make edits for all the mismatches.
+    // This tracks the base after the last edit in edits, in the sequence space.
+    size_t edits_made_up_to = seq_offset;
+    for (auto& mismatch_at : extension.mismatch_positions) {
+        // For each mismatch position
+        if (!edits.empty() && edits_made_up_to == mismatch_at && edits.back().first == mismatch) {
+            // If we can glom it onto an existing mismatch, do that.
+            ++edits.back().second;
+        } else {
+            // Otherwise, we need some new edits
+            if (edits_made_up_to < mismatch_at) {
+                // Add a match for the intervening non-mismatch sequence
+                edits.emplace_back(match, mismatch_at - edits_made_up_to);
+            }
+            // Add a new 1 base mismatch
+            edits.emplace_back(mismatch, 1);
+        }
+        // Advance the cursor to through this mismatch
+        edits_made_up_to = mismatch_at;
+    }
+    if (edits_made_up_to < seq_offset + length) {
+        // Add any trailing match
+        edits.emplace_back(match, (seq_offset + length) - edits_made_up_to);
+    }
+}
+
 uint32_t WFAAlignment::final_offset(const gbwtgraph::GBWTGraph& graph) const {
     uint32_t final_offset = this->node_offset;
     for (auto edit : this->edits) {
@@ -771,6 +805,48 @@ void WFAAlignment::append(Edit edit, uint32_t length) {
     } else {
         this->edits.back().second += length;
     }
+}
+
+void WFAAlignment::join_on_shared_match(const WFAAlignment& second, int match_score) {
+    assert(seq_offset + length == second.seq_offset + 1);
+    assert(!path.empty() && !second.path.empty() && path.back() == second.path.front());
+    assert(!edits.empty() && edits.back().first == match);
+    assert(!second.edits.empty() && second.edits.front().first == match);
+    
+    // We know the first handle is shared and doesn't need to be copied. Copy all the others.
+    std::copy(second.path.begin() + 1, second.path.end(), std::back_inserter(path));
+    
+    // Add all the match bases from the leading match on the second alignment, except the shared one.
+    edits.back().second += second.edits.front().second - 1;
+    // Copy over all the other subsequent edits
+    std::copy(second.edits.begin() + 1, second.edits.end(), std::back_inserter(edits));
+    
+    // Offsets don't need to change.
+    
+    // Add the length except for the shared match
+    length += second.length - 1;
+    
+    // Add the score except for the shared match.
+    score += second.score - match_score;
+    
+    // And that's all the fields we have!
+}
+
+Path WFAAlignment::to_path(const HandleGraph& graph, const std::string& sequence) const {
+
+    Path result;
+    
+    // Walk through the read
+    size_t read_cursor = this->seq_offset;
+    size_t read_end = this->seq_offset + this->length;
+    // And each node
+    auto path_cursor = this->path.begin();
+    auto path_end = this->path.end();
+    size_t node_cursor = this->node_offset;
+    size_t node_end = this->seq_offset + this->length
+    
+    throw std::runtime_error("Not implemented!");
+    return result;
 }
 
 //------------------------------------------------------------------------------

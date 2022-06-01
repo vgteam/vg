@@ -4270,9 +4270,12 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
         throw std::logic_error("Cannot find an alignment for an empty chain!");
     }
     
+    // We need an Aligner for scoring
+    const Aligner& aligner = *this->get_regular_aligner();
+    
     // We need a WFAExtender to do this.
     // Note that the extender expects anchoring matches!!!
-    WFAExtender extender(gbwt_graph, *this->get_regular_aligner()); 
+    WFAExtender extender(gbwt_graph, aligner); 
     
     // Keep a couple cursors in the chain: extension before and after the linking up we need to do.
     auto here = chain.begin();
@@ -4282,7 +4285,7 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
     // Do the left tail, if any.
     // Leave room for the anchoring match.
     string left_tail = aln.sequence().substr(0, here->read_interval.first + 1);
-    WFAAlignment left_alignment = extender.prefix(left_tail, make_pos_t(here->starting_position(gbwt_graph));
+    WFAAlignment aligned = extender.prefix(left_tail, make_pos_t(here->starting_position(gbwt_graph));
     
     while(next != chain.end()) {
         // Do each region between successive gapless extensions
@@ -4297,25 +4300,36 @@ Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vect
             break;
         }
         
+        // Make an alignment for the bases used in this GaplessExtension, and
+        // concatenate it in on the shared match.
+        aligned.join_on_shared_match(WFAAlignment(*here), aligner.match); 
+        
         // Pull out the intervening string. Leave room for the anchoring matches.
         string linking_bases = aln.sequence().substr(here->read_interval.second - 1, next->read_interval.first - here->read_interval.second + 2);
         // And align it
         WFAAlignment link_alignment = extender.connect(linking_bases, make_pos_t(here->tail_position(gbwt_graph)), make_pos_t(next->starting_position(gbwt_graph));
+        
+        // And concatenate it in
+        aligned.join_on_shared_match(link_alignment, aligner.match);
         
         // Advance to the next link
         here = next;
         ++next;
     }
     
+    // Do the final GaplessExtension itself
+    aligned.join_on_shared_match(WFAAlignment(*here), aligner.match);
+    
     
     // Do the right tail, if any. Leave room for the anchoring match.
     string right_tail = aln.sequence().substr(here->read_interval.second - 1);
     WFAAlignment right_alignment = extender.suffix(right_tail, make_pos_t(here->tail_position(gbwt_graph));
-    
-    // String them all together, making sure to account for the anchoring matches and the alignments of the seeds themselves.
+    aligned.join_on_shared_match(right_alignment, aligner.match);
     
     // Convert to a vg Alignment.
-    
+    Alignment result(aln);
+    *result.mutable_path() = aligned.to_path(gbwt_graph, aln.sequence());
+    return result;
 }
 
 // (value, cost)
