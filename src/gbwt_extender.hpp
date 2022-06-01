@@ -290,7 +290,6 @@ public:
 
     /**
      * Align the sequence to a haplotype between the two graph positions.
-     * The positions are assumed to match the first and the last characters.
      *
      * The sequence that will be aligned is passed by value. All non-ACGT
      * characters are masked with character X, which should not match any
