@@ -4264,10 +4264,64 @@ std::vector<int> MinimizerMapper::score_extensions(const std::vector<std::pair<s
 
 //-----------------------------------------------------------------------------
 
+Alignment MinimizerMapper::find_chain_alignment(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, const std::vector<size_t>& chain) const {
+    
+    if (chain.empty()) {
+        throw std::logic_error("Cannot find an alignment for an empty chain!");
+    }
+    
+    // We need a WFAExtender to do this.
+    // Note that the extender expects anchoring matches!!!
+    WFAExtender extender(gbwt_graph, *this->get_regular_aligner()); 
+    
+    // Keep a couple cursors in the chain: extension before and after the linking up we need to do.
+    auto here = chain.begin();
+    auto next = here;
+    ++here;
+    
+    // Do the left tail, if any.
+    // Leave room for the anchoring match.
+    string left_tail = aln.sequence().substr(0, here->read_interval.first + 1);
+    WFAAlignment left_alignment = extender.prefix(left_tail, make_pos_t(here->starting_position(gbwt_graph));
+    
+    while(next != chain.end()) {
+        // Do each region between successive gapless extensions
+        
+        // Get the read string between them
+        while (next != chain.end() && here->read_interval.second >= next->read_interval.first) {
+            // Actually there's an overlap; just skip the overlapping extension.
+            // TODO: Actually jump back and take the extension, like we scored when chaining?
+            ++next;
+        }
+        if (next == chain.end()) {
+            break;
+        }
+        
+        // Pull out the intervening string. Leave room for the anchoring matches.
+        string linking_bases = aln.sequence().substr(here->read_interval.second - 1, next->read_interval.first - here->read_interval.second + 2);
+        // And align it
+        WFAAlignment link_alignment = extender.connect(linking_bases, make_pos_t(here->tail_position(gbwt_graph)), make_pos_t(next->starting_position(gbwt_graph));
+        
+        // Advance to the next link
+        here = next;
+        ++next;
+    }
+    
+    
+    // Do the right tail, if any. Leave room for the anchoring match.
+    string right_tail = aln.sequence().substr(here->read_interval.second - 1);
+    WFAAlignment right_alignment = extender.suffix(right_tail, make_pos_t(here->tail_position(gbwt_graph));
+    
+    // String them all together, making sure to account for the anchoring matches and the alignments of the seeds themselves.
+    
+    // Convert to a vg Alignment.
+    
+}
+
 // (value, cost)
 typedef std::pair<uint32_t, int32_t> pareto_point;
 
-void find_pareto_frontier(std::vector<pareto_point>& v) {
+static void find_pareto_frontier(std::vector<pareto_point>& v) {
     if(v.empty()) {
         return;
     }
@@ -4287,22 +4341,22 @@ void find_pareto_frontier(std::vector<pareto_point>& v) {
 }
 
 // Positive gap penalty if there is a gap.
-int32_t gap_penalty(size_t length, const Aligner* aligner) {
+static int32_t gap_penalty(size_t length, const Aligner* aligner) {
     return (length == 0 ? 0 : aligner->gap_open + (length - 1) * aligner->gap_extension);
 }
 
 // Positive penalty for a number of mismatches.
-int32_t mismatch_penalty(size_t n, const Aligner* aligner) {
+static int32_t mismatch_penalty(size_t n, const Aligner* aligner) {
     return n * (aligner->match + aligner->mismatch);
 }
 
 // Positive gap penalty, assuming that there is always a gap.
-int32_t gap_penalty(size_t start, size_t limit, const Aligner* aligner) {
+static int32_t gap_penalty(size_t start, size_t limit, const Aligner* aligner) {
     return (start >= limit ? aligner->gap_open : aligner->gap_open + (limit - start - 1) * aligner->gap_extension);
 }
 
 // Positive flank penalty based on taking a gap to the end or to the Pareto frontier.
-int32_t flank_penalty(size_t length, const std::vector<pareto_point>& frontier, const Aligner* aligner) {
+static int32_t flank_penalty(size_t length, const std::vector<pareto_point>& frontier, const Aligner* aligner) {
     int32_t result = gap_penalty(length, aligner);
     for (size_t i = 0; i < frontier.size(); i++) {
         int32_t candidate = frontier[i].second + gap_penalty(frontier[i].first, length, aligner);

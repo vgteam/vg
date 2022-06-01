@@ -181,8 +181,11 @@ is "$(md5sum gaf_names.txt | cut -f1 -d' ')" "$(md5sum gam_names.txt | cut -f1 -
 
 rm -f reads.gam mapped.gam mapped.gaf brca.* gam_names.txt gaf_names.txt
 
-vg autoindex -p 1mb1kgp -w giraffe -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz 2>/dev/null
-vg giraffe -Z 1mb1kgp.giraffe.gbz -f reads/1mb1kgp_longread.fq >longread.gam -U 300 --track-provenance
+# Try long read alignment with Distance Index 2
+vg construct -S -a -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >1mb1kgp.vg 2>/dev/null
+vg index -j 1mb1kgp.dist --new-distance-index 1mb1kgp.vg
+vg autoindex -p 1mb1kgp -w giraffe -P "VG w/ Variant Paths:1mb1kgp.vg" -P "Giraffe Distance Index:1mb1kgp.dist" -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz
+vg giraffe -Z 1mb1kgp.giraffe.gbz -f reads/1mb1kgp_longread.fq >longread.gam -U 300 --progress --track-provenance --align-from-chains
 # This is an 8001 bp read with 1 insert and 1 substitution
 is "$(vg view -aj longread.gam | jq -r '.score')" "7989" "A long read can be correctly aligned"
 is "$(vg view -aj longread.gam | jq -c '. | select(.annotation["filter_3_cluster-coverage_cluster_passed_size_total"] <= 300)' | wc -l)" "1" "Long read minimizer set is correctly restricted"

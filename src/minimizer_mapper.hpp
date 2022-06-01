@@ -330,13 +330,11 @@ protected:
      * Returns scores and tracebacks separately for better compatibility with score_extensions()
      */
     std::pair<std::vector<int>, std::vector<std::vector<size_t>>> chain_extensions(const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const;
-    
     /**
      * Score the set of extensions for each cluster using score_extension_group().
      * Return the scores in the same order as the extension groups.
      */
     std::vector<int> score_extensions(const std::vector<std::vector<GaplessExtension>>& extensions, const Alignment& aln, Funnel& funnel) const;
-
     /**
      * Score the set of extensions for each cluster using score_extension_group().
      * Return the scores in the same order as the extensions.
@@ -345,6 +343,25 @@ protected:
      * with annotating read numbers, which are ignored.
      */
     std::vector<int> score_extensions(const std::vector<std::pair<std::vector<GaplessExtension>, size_t>>& extensions, const Alignment& aln, Funnel& funnel) const;
+    
+    /**
+     * Turn a chain into an Alignment.
+     *
+     * Operating on the given input alignment, align the tails and intervening
+     * sequences along the given chain of perfect-match seeds, and return an
+     * optimal Alignment.
+     */
+    Alignment find_chain_alignment(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, const std::vector<size_t>& chain) const;
+     
+     /**
+     * Operating on the given input alignment, align the tails dangling off the
+     * given extended perfect-match seeds and produce an optimal alignment into
+     * the given output Alignment object, best, and the second best alignment
+     * into second_best.
+     *
+     * Uses the given RNG to break ties.
+     */
+    void find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, LazyRNG& rng, Alignment& best, Alignment& second_best) const; 
 
 //-----------------------------------------------------------------------------
 
@@ -616,38 +633,6 @@ protected:
                                                            const SnarlDistanceIndex* distance_index = nullptr,
                                                            const HandleGraph* graph = nullptr);
     
-    /**
-     * Operating on the given input alignment, align the tails dangling off the
-     * given extended perfect-match seeds and produce an optimal alignment into
-     * the given output Alignment object, best, and the second best alignment
-     * into second_best.
-     *
-     * Uses the given RNG to break ties.
-     */
-    void find_optimal_tail_alignments(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, LazyRNG& rng, Alignment& best, Alignment& second_best) const; 
-    
-    /**
-     * Find for each pair of extended seeds all the haplotype-consistent graph
-     * paths against which the intervening read sequence needs to be aligned.
-     *
-     * Limits walks from each extended seed end to the longest detectable gap
-     * plus the remaining to-be-alinged sequence, both computed using the read
-     * length.
-     *
-     * extended_seeds must be sorted by read start position. Any extended seeds
-     * that overlap in the read will be precluded from connecting.
-     *
-     * numeric_limits<size_t>::max() is used to store sufficiently long Paths
-     * ending before sources (which cannot be reached from other extended
-     * seeds) and starting after sinks (which cannot reach any other extended
-     * seeds). Only sources and sinks have these "tail" paths.
-     *
-     * Tail paths are only calculated if the MinimizerMapper has linear_tails
-     * set to true.
-     */
-    unordered_map<size_t, unordered_map<size_t, vector<Path>>> find_connecting_paths(const vector<GaplessExtension>& extended_seeds,
-        size_t read_length) const;
-        
     /**
      * Get all the trees defining tails off the specified side of the specified
      * gapless extension. Should only be called if a tail on that side exists,
