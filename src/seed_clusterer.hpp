@@ -43,6 +43,7 @@ class SnarlSeedClusterer {
         };
 
         SnarlSeedClusterer(MinimumDistanceIndex& dist_index);
+        SnarlSeedClusterer(MinimumDistanceIndex* dist_index);
 
         //TODO: I don't want to be too tied to the minimizer_mapper implementation with seed structs
 

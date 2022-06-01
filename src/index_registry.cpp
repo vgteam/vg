@@ -49,6 +49,7 @@
 #include "transcriptome.hpp"
 #include "integrated_snarl_finder.hpp"
 #include "min_distance.hpp"
+#include "snarl_distance_index.hpp"
 #include "gfa.hpp"
 #include "job_schedule.hpp"
 #include "path.hpp"
@@ -435,7 +436,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     registry.register_index("Giraffe Snarls", "snarls"); // snarls that may reflect the GFA->GBZ node IDs
     registry.register_index("Spliced Snarls", "spliced.snarls");
     
-    registry.register_index("Giraffe Distance Index", "dist"); // distances that may reflect the GFA->GBZ node IDs
+    registry.register_index("Giraffe Distance Index", "dist");
     registry.register_index("Spliced Distance Index", "spliced.dist");
     
     registry.register_index("GBWTGraph", "gg");
@@ -3358,6 +3359,7 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
     // Distance Index Recipes
     ////////////////////////////////////
     
+    
     // meta-recipe to make distance index
     auto make_distance_index = [](const HandleGraph& graph,
                                   const IndexFile* snarl_input,
@@ -3630,14 +3632,22 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
         auto minimizer_output = *constructing.begin();
         auto& output_names = all_outputs[0];
         
-        ifstream infile_dist;
-        init_in(infile_dist, dist_filename);
-        auto dist_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(infile_dist);
 
         ifstream infile_gbz;
         init_in(infile_gbz, gbz_filename);
         auto gbz = vg::io::VPKG::load_one<gbwtgraph::GBZ>(infile_gbz);
-                
+        
+        ifstream infile_dist;
+        init_in(infile_dist, dist_filename);
+        SnarlDistanceIndex new_distance_index;
+        std::unique_ptr<MinimumDistanceIndex> old_distance_index;
+        bool use_new_distance_index = false;
+        if (vg::io::MessageIterator::sniff_tag(infile_dist) == "DISTANCE") {
+            old_distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(infile_dist);
+        } else {
+            new_distance_index.deserialize(dist_filename);
+            use_new_distance_index = true;
+        }
         gbwtgraph::DefaultMinimizerIndex minimizers(IndexingParameters::minimizer_k,
                                                     IndexingParameters::use_bounded_syncmers ?
                                                         IndexingParameters::minimizer_s :
@@ -3645,7 +3655,11 @@ IndexRegistry VGIndexes::get_vg_index_registry() {
                                                     IndexingParameters::use_bounded_syncmers);
                 
         gbwtgraph::index_haplotypes(gbz->graph, minimizers, [&](const pos_t& pos) -> gbwtgraph::payload_type {
-            return MIPayload::encode(dist_index->get_minimizer_distances(pos));
+            if (use_new_distance_index) {
+                return MIPayload::encode(get_minimizer_distances(new_distance_index, pos));
+            } else {
+                return MinimumDistanceIndex::MIPayload::encode(old_distance_index->get_minimizer_distances(pos));
+            }
         });
         
         string output_name = plan->output_filepath(minimizer_output);
@@ -3681,8 +3695,8 @@ vector<IndexName> VGIndexes::get_default_mpmap_indexes() {
 
 vector<IndexName> VGIndexes::get_default_giraffe_indexes() {
     vector<IndexName> indexes{
-        "Giraffe GBZ",
         "Giraffe Distance Index",
+        "Giraffe GBZ",
         "Minimizers"
     };
     return indexes;
