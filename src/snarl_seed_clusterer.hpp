@@ -120,9 +120,7 @@ class NewSnarlSeedClusterer {
             //last component for a multicomponent chain 
             size_t node_length = std::numeric_limits<size_t>::max();             
             size_t prefix_sum_value = std::numeric_limits<size_t>::max(); //of node or first node in snarl
-            bool set_chain_components = false; //Did we set the start and end chain components
-            size_t chain_component_start = 0; //of node or start of snarl
-            size_t chain_component_end = 0; //of node or end of snarl
+
 
             //Only set this one for a chain
             bool is_looping_chain = false;
@@ -165,7 +163,6 @@ class NewSnarlSeedClusterer {
                     node_length = distance_index.chain_minimum_length(containing_net_handle);
                     start_in = distance_index.get_bound(containing_net_handle, false, true);
                     end_in = distance_index.get_bound(containing_net_handle, true, true);
-                    chain_component_end = distance_index.get_chain_component(end_in, true);
                 } else if (distance_index.is_snarl(containing_net_handle)) {
                     node_length = distance_index.minimum_length(containing_net_handle);
                     start_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, false, true));
@@ -178,9 +175,6 @@ class NewSnarlSeedClusterer {
                 is_reversed_in_parent(is_reversed_in_parent),
                 node_length(node_length),
                 prefix_sum_value(prefix_sum),
-                set_chain_components(true),
-                chain_component_start(component),
-                chain_component_end(component),
                 node_id(node_id),
                 fragment_best_left(std::numeric_limits<size_t>::max()), fragment_best_right(std::numeric_limits<size_t>::max()),
                 read_best_left(read_count, std::numeric_limits<size_t>::max()), 
@@ -416,7 +410,7 @@ class NewSnarlSeedClusterer {
         //Helper function for adding the next seed to the chain clusters
         void add_seed_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
                                         std::tuple<net_handle_t, size_t, size_t, size_t, size_t>& last_child, net_handle_t& last_child_handle, 
-                                        size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, 
+                                        size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, size_t& chain_component_end, 
                                         vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>& cluster_heads_to_add_again,
                                         bool& found_first_node, vector<bool>& found_first_node_by_read,
                                         tuple<net_handle_t, size_t, size_t, size_t, size_t>& current_child_indices, bool is_first_child, bool is_last_child,
@@ -425,7 +419,7 @@ class NewSnarlSeedClusterer {
         //Helper function for adding the next snarl to the chain clusters
         void add_snarl_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
                                         std::tuple<net_handle_t, size_t, size_t, size_t, size_t>& last_child, net_handle_t& last_child_handle, 
-                                        size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, 
+                                        size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, size_t& chain_component_end, 
                                         vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>& cluster_heads_to_add_again,
                                         bool& found_first_node, vector<bool>& found_first_node_by_read,
                                         tuple<net_handle_t, size_t, size_t, size_t, size_t>& current_child_indices, bool is_first_child, bool is_last_child, 
