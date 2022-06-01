@@ -466,8 +466,9 @@ cerr << "Add all seeds to nodes: " << endl;
                                 } else {
                                     greatgrandparent_index = tree_state.net_handle_to_index[greatgrandparent_chain];
                                 }
-                                size_t start_component = distance_index.get_chain_component(
-                                            distance_index.get_node_from_sentinel(distance_index.get_bound(grandparent_snarl, false, true)));
+                                size_t start_component = std::get<3>(seed.minimizer_cache) == std::numeric_limits<size_t>::max() 
+                                                       ? distance_index.get_chain_component(snarl_start)
+                                                       : std::get<3>(seed.minimizer_cache);
                                 //In "if we haven't seen the greatgrandparent chain before, add the parent
                                 //snarl to it the grandparent chain
                                 if (depth > chain_to_children_by_level.size()) {
@@ -2334,8 +2335,10 @@ void NewSnarlSeedClusterer::add_snarl_to_chain_clusters(TreeState& tree_state, N
     Get a bunch of distances from the current child that will be used to calculate distance
     from the last child
     */
-    size_t snarl_chain_component_start = distance_index.get_chain_component(snarl_start);
-    size_t snarl_chain_component_end = distance_index.get_chain_component(snarl_end, true);
+    size_t snarl_chain_component_start = std::get<3>(current_child_indices);
+    size_t snarl_chain_component_end = child_clusters.node_length == std::numeric_limits<size_t>::max() 
+                                     ? snarl_chain_component_start + 1
+                                     : snarl_chain_component_start;//distance_index.get_chain_component(snarl_end, true);
 
     size_t prefix_sum_value = std::get<4>(current_child_indices);
     
