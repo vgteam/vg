@@ -126,8 +126,6 @@ class NewSnarlSeedClusterer {
 
             //Only set this one for a chain
             bool is_looping_chain = false;
-            size_t chain_last_component = std::numeric_limits<size_t>::max();
-            size_t chain_last_child_offset = std::numeric_limits<size_t>::max();
 
             //This one gets set for a (nontrivial) chain or snarl
             net_handle_t start_in;
@@ -167,7 +165,7 @@ class NewSnarlSeedClusterer {
                     node_length = distance_index.chain_minimum_length(containing_net_handle);
                     start_in = distance_index.get_bound(containing_net_handle, false, true);
                     end_in = distance_index.get_bound(containing_net_handle, true, true);
-                    chain_last_component = distance_index.get_chain_component(end_in, true);
+                    chain_component_end = distance_index.get_chain_component(end_in, true);
                 } else if (distance_index.is_snarl(containing_net_handle)) {
                     node_length = distance_index.minimum_length(containing_net_handle);
                     start_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, false, true));

@@ -556,7 +556,7 @@ void NewSnarlSeedClusterer::cluster_snarl_level(TreeState& tree_state) const {
                 //Add the snarl to its parent chain
                 //Remember the chain component of the start and end nodes of the snarl
                 NodeClusters& parent_clusters = tree_state.all_node_clusters[parent_index];
-                if (parent_clusters.chain_last_component != 0 && parent_clusters.chain_last_component != std::numeric_limits<size_t>::max()
+                if (parent_clusters.chain_component_end != 0 && parent_clusters.chain_component_end != std::numeric_limits<size_t>::max()
                         && !snarl_clusters.set_chain_components) {
                     snarl_clusters.set_chain_components = true;
                     snarl_clusters.chain_component_start = distance_index.get_chain_component(snarl_clusters.start_in);
@@ -1524,8 +1524,8 @@ void NewSnarlSeedClusterer::cluster_one_chain(TreeState& tree_state, size_t chai
     /**Now actually start the work of clustering **/
 
     if (only_seeds && !chain_clusters.is_looping_chain && 
-        (chain_clusters.chain_last_component == 0 
-           || chain_clusters.chain_last_component == std::numeric_limits<size_t>::max())) {
+        (chain_clusters.chain_component_end == 0 
+           || chain_clusters.chain_component_end == std::numeric_limits<size_t>::max())) {
         //If there are only seeds in the chain (and the chain doesn't loop and isn't a multicomponent chain), 
         //then cluster by walking through the seeds
         //This also does the work of clustering a trivial chain (which is just a node), which should be the same amount of work as using cluster_one_node
@@ -1924,13 +1924,13 @@ void NewSnarlSeedClusterer::add_seed_to_chain_clusters(TreeState& tree_state, No
         distance_from_current_end_to_end_of_chain = 0;
     } else if (SnarlDistanceIndex::get_record_offset(child_handle) == SnarlDistanceIndex::get_record_offset(chain_clusters.end_in)) {
         //If this is the last node in the chain
-        if (chain_clusters.chain_last_component != std::get<3>(current_child_seed.minimizer_cache)) { 
+        if (chain_clusters.chain_component_end != std::get<3>(current_child_seed.minimizer_cache)) { 
             //If they aren't in the same component
             distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
         } else {
             distance_from_current_end_to_end_of_chain = 0;
         }
-    } else if (chain_clusters.chain_last_component != std::get<3>(current_child_seed.minimizer_cache)) { 
+    } else if (chain_clusters.chain_component_end != std::get<3>(current_child_seed.minimizer_cache)) { 
         //If they aren't in the same component
         distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
     } else {
@@ -2369,7 +2369,7 @@ void NewSnarlSeedClusterer::add_snarl_to_chain_clusters(TreeState& tree_state, N
         distance_from_current_end_to_end_of_chain = 0;
     } else if (SnarlDistanceIndex::get_record_offset(child_handle) == SnarlDistanceIndex::get_record_offset(chain_clusters.end_in)) {
         //If this is the last node in the chain
-        if (chain_clusters.chain_last_component != child_clusters.chain_component_end) { 
+        if (chain_clusters.chain_component_end != child_clusters.chain_component_end) { 
             //If they aren't in the same component
             distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
         } else {
@@ -2380,7 +2380,7 @@ void NewSnarlSeedClusterer::add_snarl_to_chain_clusters(TreeState& tree_state, N
         //If it's a looping chain then use the distance index
         distance_from_current_end_to_end_of_chain = distance_index.distance_in_parent(chain_handle, chain_clusters.end_in, 
                  child_handle);
-    } else if (chain_clusters.chain_last_component != child_clusters.chain_component_end) { 
+    } else if (chain_clusters.chain_component_end != child_clusters.chain_component_end) { 
         //If they aren't in the same component
         distance_from_current_end_to_end_of_chain = std::numeric_limits<size_t>::max();
     } else {
