@@ -125,11 +125,6 @@ class NewSnarlSeedClusterer {
             //Only set this one for a chain
             bool is_looping_chain = false;
 
-            //This one gets set for a (nontrivial) chain or snarl
-            net_handle_t start_in;
-            net_handle_t end_in;
-            
-
             //set of the indices of heads of clusters (group ids in the 
             //union find)
             //TODO: Add cluster distances here
@@ -161,12 +156,8 @@ class NewSnarlSeedClusterer {
                 if (distance_index.is_chain(containing_net_handle) && !distance_index.is_trivial_chain(containing_net_handle)) {
                     is_looping_chain = distance_index.is_looping_chain(containing_net_handle);
                     node_length = distance_index.chain_minimum_length(containing_net_handle);
-                    start_in = distance_index.get_bound(containing_net_handle, false, true);
-                    end_in = distance_index.get_bound(containing_net_handle, true, true);
                 } else if (distance_index.is_snarl(containing_net_handle)) {
                     node_length = distance_index.minimum_length(containing_net_handle);
-                    start_in = distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, false, true));
-                    end_in =   distance_index.get_node_from_sentinel(distance_index.get_bound(containing_net_handle, true, true));
                 }
             }
             //Constructor for a node or trivial chain
@@ -408,7 +399,7 @@ class NewSnarlSeedClusterer {
         void cluster_one_chain(TreeState& tree_state, size_t chain_clusters_index, vector<tuple<net_handle_t, size_t, size_t, size_t, size_t>>& children_in_chain, bool only_seeds, bool is_top_level_chain) const;
 
         //Helper function for adding the next seed to the chain clusters
-        void add_seed_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
+        void add_seed_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters, net_handle_t& chain_end_in,
                                         std::tuple<net_handle_t, size_t, size_t, size_t, size_t>& last_child, net_handle_t& last_child_handle, 
                                         size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, size_t& chain_component_end, 
                                         vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>& cluster_heads_to_add_again,
@@ -417,7 +408,7 @@ class NewSnarlSeedClusterer {
                                         bool skip_distances_to_ends) const;
 
         //Helper function for adding the next snarl to the chain clusters
-        void add_snarl_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters,
+        void add_snarl_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters, net_handle_t& chain_end_in,
                                         std::tuple<net_handle_t, size_t, size_t, size_t, size_t>& last_child, net_handle_t& last_child_handle, 
                                         size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, size_t& chain_component_end, 
                                         vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>& cluster_heads_to_add_again,
