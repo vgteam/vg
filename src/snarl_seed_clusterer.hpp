@@ -384,7 +384,7 @@ class NewSnarlSeedClusterer {
 
         //Cluster the seeds in a snarl given by its net handle
         //Snarl_cluster_index is the index into tree_state.all_node_clusters
-        void cluster_one_snarl(TreeState& tree_state, size_t snarl_clusters_index) const;
+        void cluster_one_snarl(TreeState& tree_state, size_t snarl_clusters_index, const net_handle_t& snarl_start, const net_handle_t& snarl_end) const;
 
         //Cluster the seeds in a chain given by chain_index_i, an index into
         //distance_index.chain_indexes
@@ -404,6 +404,7 @@ class NewSnarlSeedClusterer {
 
         //Helper function for adding the next snarl to the chain clusters
         void add_snarl_to_chain_clusters(TreeState& tree_state, NodeClusters& chain_clusters, net_handle_t& chain_end_in,
+                                        net_handle_t& snarl_start, net_handle_t& snarl_end,
                                         std::tuple<net_handle_t, size_t, size_t, size_t, size_t>& last_child, net_handle_t& last_child_handle, 
                                         size_t& last_prefix_sum, size_t& last_length, size_t& last_chain_component_end, size_t& chain_component_end, 
                                         vector<pair<pair<size_t, size_t>, pair<size_t, size_t>>>& cluster_heads_to_add_again,
@@ -435,6 +436,7 @@ class NewSnarlSeedClusterer {
         //a snarl, then we need to update the snarl's distances to its parents
         void compare_and_combine_cluster_on_child_structures(TreeState& tree_state, NodeClusters& child_clusters1,
                 NodeClusters& child_clusters2, NodeClusters& parent_clusters, 
+                const net_handle_t& parent_start_in, const net_handle_t& parent_end_in,
                 const vector<pair<size_t, size_t>>& child_distances, bool is_root, bool first_child) const;
 
         //The same as above, but compare clusters on a single child
